@@ -50,8 +50,7 @@ extern const int rect_colors[COL_NUM];
 extern "C" {
 #endif
 
-unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
-                unsigned int height, double bpp);
+unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int height);
 char *toI420(const char *in, unsigned int width, unsigned int height);
 void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 char * toRGB(unsigned char *in, unsigned int width, unsigned int height);

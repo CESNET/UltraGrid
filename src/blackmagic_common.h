@@ -98,5 +98,7 @@ bool decklink_set_duplex(IDeckLink *decklink, uint32_t profileID);
 std::string bmd_get_device_name(IDeckLink *decklink);
 uint32_t bmd_read_fourcc(const char *);
 
+std::ostream &operator<<(std::ostream &output, REFIID iid);
+
 #endif // defined BLACKMAGIC_COMMON_H
 

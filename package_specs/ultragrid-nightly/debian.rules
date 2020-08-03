@@ -10,10 +10,13 @@ CARDCONF_DVS=--disable-dvs
 CARDCONF_DECKLINK=--disable-decklink
 CARDCONF_DELTACAST=--disable-deltacast
 CARDCONF_AJA=--disable-aja
+CARDCONF_XIMEA=
 CUDA=--disable-cuda
 VAAPI=--disable-lavc-hw-accel-vaapi
 VDPAU=--disable-lavc-hw-accel-vdpau
 CINEFORM=--disable-cineform
+NDI=--disable-ndi
+XIMEA=--disable-ximea
 
 #####################################################
 # > bluefish
@@ -25,7 +28,7 @@ CARDCONF_BLUEFISH=--enable-bluefish444 --enable-blue-audio --with-bluefish444=/u
 #####################################################
 # > dvs
 #####################################################
-CARDCONF_DVS=--enable-dvs --with-dvs=/usr/src/ultragrid-externals/dvs_sdk
+#CARDCONF_DVS=--enable-dvs --with-dvs=/usr/src/ultragrid-externals/dvs_sdk4
 #####################################################
 # < dvs
 #####################################################
@@ -78,8 +81,23 @@ CINEFORM=--enable-cineform
 #####################################################
 # < cineform
 #####################################################
+#####################################################
+# > ximea
+#####################################################
+XIMEA=--enable-ximea
+CARDCONF_XIMEA='GENICAM_GENTL64_PATH=/usr/src/ultragrid-externals/ximea_sdk/lib'
+#####################################################
+# < ximea
+#####################################################
+#####################################################
+# > ndi
+#####################################################
+#NDI=--enable-ndi
+#####################################################
+# < ndi
+#####################################################
 
-CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DELTACAST) $(CARDCONF_AJA)
+CARDCONF=$(CARDCONF_BLUEFISH) $(CARDCONF_DVS) $(CARDCONF_DECKLINK) $(CARDCONF_DELTACAST) $(CARDCONF_AJA) $(CARDCONF_XIMEA)
 LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
 UGLIBDIR=$(LIBDIR)/ultragrid
 
@@ -90,7 +108,7 @@ override_dh_auto_configure:
 	./autogen.sh || true
 	echo "$(CINEFORM)"  ; test "$(CINEFORM)" = "--enable-cineform" && pushd cineform-sdk && cmake -DCMAKE_INSTALL_PREFIX=/usr . && make && popd
 	dh_auto_configure -- --disable-profile --libdir=$(LIBDIR) --disable-debug --enable-ipv6 --enable-plugins \
-		--enable-sdl2 --enable-gl --enable-rtdxt \
+		--enable-sdl2 --enable-gl --enable-gl-display --enable-rtdxt \
 		--enable-portaudio --disable-jack-transport --enable-jack \
 		--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 		--disable-coreaudio --disable-sage --enable-screen\
@@ -98,13 +116,15 @@ override_dh_auto_configure:
 		--disable-rtsp \
 		--enable-video-mixer --enable-swmix --enable-ihdtv \
 		$(CINEFORM) \
+		$(NDI) \
+		$(XIMEA) \
 		$(VDPAU) \
 		$(VAAPI) \
 		$(CUDA) \
 		$(CARDCONF)
 
-#override_dh_auto_build:
-#	dh_auto_build -- LDFLAGS="$$LDFLAGS -Wl,-rpath=$(UGLIBDIR)"
+override_dh_auto_build:
+	dh_auto_build
 
 override_dh_auto_install:
 	mkdir -p debian/$(PACKAGE)/usr/share/doc/ultragrid
@@ -122,10 +142,11 @@ override_dh_auto_install:
 override_dh_shlibdeps:
 	env LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:$$((find /usr/local -maxdepth 1 -type d -iname "*cuda*" ; echo /usr) | sort -r -n)/lib64:$$((find /usr/local -maxdepth 1 -type d -iname "*cuda*" ; echo /usr) | sort -r -n)/lib dh_shlibdeps -- --ignore-missing-info
 	for file in $$(grep ultragrid-proprietary-drivers debian -Hri | cut -d: -f1 | sort | uniq) ; do \
-		sed --in-place 's#, ultragrid-proprietary-drivers##g' $$file ; \
-		sed --in-place 's#ultragrid-proprietary-drivers, ##g' $$file ; \
-		sed --in-place 's#ultragrid-proprietary-drivers##g' $$file ; \
+		sed --in-place -r 's#, ultragrid-proprietary-drivers[^ ,]*##g' $$file ; \
+		sed --in-place -r 's#ultragrid-proprietary-drivers[^ ,]*, ##g' $$file ; \
+		sed --in-place -r 's#ultragrid-proprietary-drivers[^ ,]*##g' $$file ; \
 	done
 
-#override_dh_strip:
-#	echo "nothing to do here"
+override_dh_auto_test:
+	env UG_SKIP_NET_TESTS=1 dh_auto_test
+

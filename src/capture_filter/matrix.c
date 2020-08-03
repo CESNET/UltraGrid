@@ -52,6 +52,7 @@
 
 struct state_capture_filter_matrix {
         double transform_matrix[9];
+        bool check_bounds;
 };
 
 static int init(struct module *parent, const char *cfg, void **state)
@@ -61,19 +62,30 @@ static int init(struct module *parent, const char *cfg, void **state)
         if (!cfg || strcmp(cfg, "help") == 0) {
                 printf("Performs matrix transformation on input pixels.\n\n"
                        "usage:\n");
-                color_out(COLOR_OUT_BOLD, "\t--capture-filter matrix:a:b:c:d:e:f:g:h:i\n");
+                color_out(COLOR_OUT_BOLD, "\t--capture-filter matrix:a:b:c:d:e:f:g:h:i[:no-bounds-check]\n");
                 printf("where numbers a-i are members of 3x3 transformation matrix [a b c; d e f; g h i], decimals.\n"
                        "Coefficients are applied at unpacked pixels (eg. on Y Cb and Cr channels of UYVY). Result is marked as RGB.\n"
                        "Currently only RGB and UYVY is supported on input. No additional color transformation is performed.\n");
+                printf("\nOptional \"no-bounds-check\" options disables check for overflows/underflows which improves performance\n"
+                                "but may give incorrect results if operation oveflows or underflows.\n");
                 return 1;
         }
         struct state_capture_filter_matrix *s = calloc(1, sizeof(struct state_capture_filter_matrix));
+        s->check_bounds = true;
         char *cfg_c = strdup(cfg);
         char *item = NULL;
         char *save_ptr = NULL;
         char *tmp = cfg_c;
         int i = 0;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                if (i == 9) {
+                        if (strcmp(item, "no-bound-check") == 0) {
+                                s->check_bounds = false;
+                        } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Excess initializer given: %s\n", item);
+                        }
+                        break;
+                }
                 char *endptr = NULL;
                 errno = 0;
                 s->transform_matrix[i++] = strtod(item, &endptr);
@@ -109,79 +121,156 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         struct video_frame *out = vf_alloc_desc_data(desc);
         out->callbacks.dispose = vf_free;
 
-        if (in->color_spec == UYVY) {
-                unsigned char *in_data = (unsigned char *) in->tiles[0].data;
-                unsigned char *out_data = (unsigned char *) out->tiles[0].data;
+        if (s->check_bounds) {
+                if (in->color_spec == UYVY) {
+                        unsigned char *in_data = (unsigned char *) in->tiles[0].data;
+                        unsigned char *out_data = (unsigned char *) out->tiles[0].data;
 
-                for (unsigned int i = 0; i < in->tiles[0].data_len; i += 4) {
-                        double a[3];
-                        double b[3];
-                        a[1] = b[1] = *in_data++;
-                        a[0] = *in_data++;
-                        a[2] = b[2] = *in_data++;
-                        b[0] = *in_data++;
-                        *out_data++ = s->transform_matrix[0] * (a[0] - 16) +
-                                s->transform_matrix[1] * (a[1] - 128) +
-                                s->transform_matrix[2] * (a[2] - 128);
-                        *out_data++ = s->transform_matrix[3] * (a[0] - 16) +
-                                s->transform_matrix[4] * (a[1] - 128) +
-                                s->transform_matrix[5] * (a[2] - 128);
-                        *out_data++ = s->transform_matrix[6] * (a[0] - 16) +
-                                s->transform_matrix[7] * (a[1] - 128) +
-                                s->transform_matrix[8] * (a[2] - 128);
-                        *out_data++ = s->transform_matrix[0] * (b[0] - 16) +
-                                s->transform_matrix[1] * (b[1] - 128) +
-                                s->transform_matrix[2] * (b[2] - 128);
-                        *out_data++ = s->transform_matrix[3] * (b[0] - 16) +
-                                s->transform_matrix[4] * (b[1] - 128) +
-                                s->transform_matrix[5] * (b[2] - 128);
-                        *out_data++ = s->transform_matrix[6] * (b[0] - 16) +
-                                s->transform_matrix[7] * (b[1] - 128) +
-                                s->transform_matrix[8] * (b[2] - 128);
-                }
-        } else if (in->color_spec == RGB) {
-                unsigned char *in_data = (unsigned char *) in->tiles[0].data;
-                unsigned char *out_data = (unsigned char *) out->tiles[0].data;
+                        for (unsigned int i = 0; i < in->tiles[0].data_len; i += 4) {
+                                double a[3];
+                                double b[3];
+                                a[1] = b[1] = *in_data++;
+                                a[0] = *in_data++;
+                                a[2] = b[2] = *in_data++;
+                                b[0] = *in_data++;
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[0] * (a[0] - 16) +
+                                                        s->transform_matrix[1] * (a[1] - 128) +
+                                                        s->transform_matrix[2] * (a[2] - 128)));
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[3] * (a[0] - 16) +
+                                                        s->transform_matrix[4] * (a[1] - 128) +
+                                                        s->transform_matrix[5] * (a[2] - 128)));
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[6] * (a[0] - 16) +
+                                                        s->transform_matrix[7] * (a[1] - 128) +
+                                                        s->transform_matrix[8] * (a[2] - 128)));
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[0] * (b[0] - 16) +
+                                                        s->transform_matrix[1] * (b[1] - 128) +
+                                                        s->transform_matrix[2] * (b[2] - 128)));
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[3] * (b[0] - 16) +
+                                                        s->transform_matrix[4] * (b[1] - 128) +
+                                                        s->transform_matrix[5] * (b[2] - 128)));
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[6] * (b[0] - 16) +
+                                                        s->transform_matrix[7] * (b[1] - 128) +
+                                                        s->transform_matrix[8] * (b[2] - 128)));
+                        }
+                } else if (in->color_spec == RGB) {
+                        unsigned char *in_data = (unsigned char *) in->tiles[0].data;
+                        unsigned char *out_data = (unsigned char *) out->tiles[0].data;
 
-                for (unsigned int i = 0; i < in->tiles[0].data_len; i += 3) {
-                        double a[3];
-                        a[0] = *in_data++;
-                        a[1] = *in_data++;
-                        a[2] = *in_data++;
-                        *out_data++ = s->transform_matrix[0] * a[0] +
-                                s->transform_matrix[1] * a[1] +
-                                s->transform_matrix[2] * a[2];
-                        *out_data++ = s->transform_matrix[3] * a[0] +
-                                s->transform_matrix[4] * a[1] +
-                                s->transform_matrix[5] * a[2];
-                        *out_data++ = s->transform_matrix[6] * a[0] +
-                                s->transform_matrix[7] * a[1] +
-                                s->transform_matrix[8] * a[2];
-                }
-        } else if (in->color_spec == RG48) {
-                uint16_t *in_data = (uint16_t *) in->tiles[0].data;
-                uint16_t *out_data = (uint16_t *) out->tiles[0].data;
+                        for (unsigned int i = 0; i < in->tiles[0].data_len; i += 3) {
+                                double a[3];
+                                a[0] = *in_data++;
+                                a[1] = *in_data++;
+                                a[2] = *in_data++;
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[0] * a[0] +
+                                                        s->transform_matrix[1] * a[1] +
+                                                        s->transform_matrix[2] * a[2]));
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[3] * a[0] +
+                                                        s->transform_matrix[4] * a[1] +
+                                                        s->transform_matrix[5] * a[2]));
+                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[6] * a[0] +
+                                                        s->transform_matrix[7] * a[1] +
+                                                        s->transform_matrix[8] * a[2]));
+                        }
+                } else if (in->color_spec == RG48) {
+                        uint16_t *in_data = (uint16_t *) in->tiles[0].data;
+                        uint16_t *out_data = (uint16_t *) out->tiles[0].data;
 
-                for (unsigned int i = 0; i < in->tiles[0].data_len; i += 6) {
-                        double a[3];
-                        a[0] = *in_data++;
-                        a[1] = *in_data++;
-                        a[2] = *in_data++;
-                        *out_data++ = s->transform_matrix[0] * a[0] +
-                                s->transform_matrix[1] * a[1] +
-                                s->transform_matrix[2] * a[2];
-                        *out_data++ = s->transform_matrix[3] * a[0] +
-                                s->transform_matrix[4] * a[1] +
-                                s->transform_matrix[5] * a[2];
-                        *out_data++ = s->transform_matrix[6] * a[0] +
-                                s->transform_matrix[7] * a[1] +
-                                s->transform_matrix[8] * a[2];
+                        for (unsigned int i = 0; i < in->tiles[0].data_len; i += 6) {
+                                double a[3];
+                                a[0] = *in_data++;
+                                a[1] = *in_data++;
+                                a[2] = *in_data++;
+                                *out_data++ = MIN(65535, MAX(0, s->transform_matrix[0] * a[0] +
+                                                        s->transform_matrix[1] * a[1] +
+                                                        s->transform_matrix[2] * a[2]));
+                                *out_data++ = MIN(65535, MAX(0, s->transform_matrix[3] * a[0] +
+                                                        s->transform_matrix[4] * a[1] +
+                                                        s->transform_matrix[5] * a[2]));
+                                *out_data++ = MIN(65535, MAX(0, s->transform_matrix[6] * a[0] +
+                                                        s->transform_matrix[7] * a[1] +
+                                                        s->transform_matrix[8] * a[2]));
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only UYVY, RGB or RG48 is currently supported!\n");
+                        VIDEO_FRAME_DISPOSE(in);
+                        vf_free(out);
+                        return NULL;
                 }
         } else {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only UYVY, RGB or RG48 is currently supported!\n");
-                VIDEO_FRAME_DISPOSE(in);
-                vf_free(out);
-                return NULL;
+                if (in->color_spec == UYVY) {
+                        unsigned char *in_data = (unsigned char *) in->tiles[0].data;
+                        unsigned char *out_data = (unsigned char *) out->tiles[0].data;
+
+                        for (unsigned int i = 0; i < in->tiles[0].data_len; i += 4) {
+                                double a[3];
+                                double b[3];
+                                a[1] = b[1] = *in_data++;
+                                a[0] = *in_data++;
+                                a[2] = b[2] = *in_data++;
+                                b[0] = *in_data++;
+                                *out_data++ = s->transform_matrix[0] * (a[0] - 16) +
+                                                        s->transform_matrix[1] * (a[1] - 128) +
+                                                        s->transform_matrix[2] * (a[2] - 128);
+                                *out_data++ = s->transform_matrix[3] * (a[0] - 16) +
+                                                        s->transform_matrix[4] * (a[1] - 128) +
+                                                        s->transform_matrix[5] * (a[2] - 128);
+                                *out_data++ = s->transform_matrix[6] * (a[0] - 16) +
+                                                        s->transform_matrix[7] * (a[1] - 128) +
+                                                        s->transform_matrix[8] * (a[2] - 128);
+                                *out_data++ = s->transform_matrix[0] * (b[0] - 16) +
+                                                        s->transform_matrix[1] * (b[1] - 128) +
+                                                        s->transform_matrix[2] * (b[2] - 128);
+                                *out_data++ = s->transform_matrix[3] * (b[0] - 16) +
+                                                        s->transform_matrix[4] * (b[1] - 128) +
+                                                        s->transform_matrix[5] * (b[2] - 128);
+                                *out_data++ = s->transform_matrix[6] * (b[0] - 16) +
+                                                        s->transform_matrix[7] * (b[1] - 128) +
+                                                        s->transform_matrix[8] * (b[2] - 128);
+                        }
+                } else if (in->color_spec == RGB) {
+                        unsigned char *in_data = (unsigned char *) in->tiles[0].data;
+                        unsigned char *out_data = (unsigned char *) out->tiles[0].data;
+
+                        for (unsigned int i = 0; i < in->tiles[0].data_len; i += 3) {
+                                double a[3];
+                                a[0] = *in_data++;
+                                a[1] = *in_data++;
+                                a[2] = *in_data++;
+                                *out_data++ = s->transform_matrix[0] * a[0] +
+                                                        s->transform_matrix[1] * a[1] +
+                                                        s->transform_matrix[2] * a[2];
+                                *out_data++ = s->transform_matrix[3] * a[0] +
+                                                        s->transform_matrix[4] * a[1] +
+                                                        s->transform_matrix[5] * a[2];
+                                *out_data++ = s->transform_matrix[6] * a[0] +
+                                                        s->transform_matrix[7] * a[1] +
+                                                        s->transform_matrix[8] * a[2];
+                        }
+                } else if (in->color_spec == RG48) {
+                        uint16_t *in_data = (uint16_t *) in->tiles[0].data;
+                        uint16_t *out_data = (uint16_t *) out->tiles[0].data;
+
+                        for (unsigned int i = 0; i < in->tiles[0].data_len; i += 6) {
+                                double a[3];
+                                a[0] = *in_data++;
+                                a[1] = *in_data++;
+                                a[2] = *in_data++;
+                                *out_data++ = s->transform_matrix[0] * a[0] +
+                                                        s->transform_matrix[1] * a[1] +
+                                                        s->transform_matrix[2] * a[2];
+                                *out_data++ = s->transform_matrix[3] * a[0] +
+                                                        s->transform_matrix[4] * a[1] +
+                                                        s->transform_matrix[5] * a[2];
+                                *out_data++ = s->transform_matrix[6] * a[0] +
+                                                        s->transform_matrix[7] * a[1] +
+                                                        s->transform_matrix[8] * a[2];
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only UYVY, RGB or RG48 is currently supported!\n");
+                        VIDEO_FRAME_DISPOSE(in);
+                        vf_free(out);
+                        return NULL;
+                }
         }
 
         VIDEO_FRAME_DISPOSE(in);

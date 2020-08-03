@@ -1,0 +1,22 @@
+diff -rupN a/ntv2sdklinux_14.2.0.6/ajaapps/crossplatform/demoapps/ntv2qtmultiinput/Makefile b/ntv2sdklinux_14.2.0.6/ajaapps/crossplatform/demoapps/ntv2qtmultiinput/Makefile
+--- a/ntv2sdklinux_14.2.0.6/ajaapps/crossplatform/demoapps/ntv2qtmultiinput/Makefile
++++ b/ntv2sdklinux_14.2.0.6/ajaapps/crossplatform/demoapps/ntv2qtmultiinput/Makefile
+@@ -12,6 +12,7 @@ include $(DIR)/../../../../build/qt.mk
+ APP_FULL_PATH=$(A_UBER_BIN)/ntv2qtmultiinput
+ QT_PRO_FILE = $(A_BUILD_PATH)/ntv2demos/qtmultiinput/qtmultiinput.pro
+ QMAKE_FILE = qMakefile
++QMAKE ?= qmake-qt4
+ PLUGIN_IMPORT_CPP=$(shell basename $(APP_FULL_PATH))_plugin_import.cpp
+ 
+ .PHONY: clean
+diff -rupN a/ntv2sdklinux_14.2.0.6/ajaapps/crossplatform/demoapps/ntv2qtpreview/Makefile b/ntv2sdklinux_14.2.0.6/ajaapps/crossplatform/demoapps/ntv2qtpreview/Makefile
+--- a/ntv2sdklinux_14.2.0.6/ajaapps/crossplatform/demoapps/ntv2qtpreview/Makefile
++++ b/ntv2sdklinux_14.2.0.6/ajaapps/crossplatform/demoapps/ntv2qtpreview/Makefile
+@@ -12,6 +12,7 @@ include $(DIR)/../../../../build/qt.mk
+ APP_FULL_PATH=$(A_UBER_BIN)/ntv2qtpreview
+ QT_PRO_FILE = $(A_BUILD_PATH)/ntv2demos/qtpreview/qtpreview.pro
+ QMAKE_FILE = qMakefile
++QMAKE ?= qmake-qt4
+ PLUGIN_IMPORT_CPP=$(shell basename $(APP_FULL_PATH))_plugin_import.cpp
+ 
+ .PHONY: clean

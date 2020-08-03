@@ -1,5 +1,5 @@
 Name:		ultragrid-proprietary-drivers
-Version:	20180803
+Version:	20200109
 Release:	1%{?dist}
 Summary:	Ultragrid drivers pseudometapackage
 Group:		Applications/Multimedia
@@ -9,7 +9,6 @@ URL:		http://ultragrid.cz
 
 # replace this line with generated conflicts
 Provides:	ultragrid-proprietary-drivers-nightly
-Provides:	ultragrid-proprietary-drivers-release-1.5
 Provides:	ultragrid-proprietary-drivers-release-1.6
 
 BuildRequires:	gcc-c++, make, automake, autoconf, coreutils
@@ -50,10 +49,10 @@ Provides:	libFlxComm64.so()(64bit)
 # > bluefish (EpochLinuxDriver)
 #####################################################
 Patch10:	bluefish-uname.patch
-Patch11:	bluefish-g++.patch
+#Patch11:	bluefish-g++.patch
 Patch12:	bluefish-destdir.patch
-Patch13:	bluefish-linux4.6-get-user-pages.patch
-Patch19:	bluefish-kernel-backports-opensuse-423.patch
+#Patch13:	bluefish-linux4.6-get-user-pages.patch
+#Patch19:	bluefish-kernel-backports-opensuse-423.patch
 #####################################################
 # < bluefish (EpochLinuxDriver)
 #####################################################
@@ -62,30 +61,22 @@ Patch19:	bluefish-kernel-backports-opensuse-423.patch
 #####################################################
 Patch20:	AJA-linuxdriver-uname.patch
 Patch21:	AJA-nodemo.patch
-Patch22:	AJA-qmake.patch
-Patch23:	AJA-qt5.patch
-Patch24:	AJA-gcc-explicit-constructors.patch
-Patch25:	AJA-linux4.16-flush-write-buffers.patch
-Patch29:	AJA-kernel-backports-opensuse-423.patch
+#Patch22:	AJA-qmake.patch
+#Patch23:	AJA-qt5.patch
+#Patch24:	AJA-gcc-explicit-constructors.patch
+#Patch25:	AJA-linux4.16-flush-write-buffers.patch
+Patch26:	AJA-clang-cxx14.patch
+#Patch29:	AJA-kernel-backports-opensuse-423.patch
 #####################################################
 # < aja (ntv2sdklinux)
-#####################################################
-#####################################################
-# > dvs (sdk)
-#####################################################
-Patch30:	dvs-linux4.6-get-user-pages.patch
-#Patch39:	dvs-kernel-backports-opensuse-423.patch
-#####################################################
-# < dvs (sdk)
 #####################################################
 
 %description
 Proprietary ultragrid drivers that are 3th party.
 Drivers currently managed by this specfile:
-EpochLinuxDriver_V5     --bluefish
-ntv2sdklinux_12.4.2.1	--aja
-sdk4.3.5.21 		--dvs
-VideoMasterHD		--deltacast
+Bluefish_linux_driver_6_0_1_21          --bluefish
+ntv2sdklinux_15.5.1.1                   --aja
+VideoMasterHD_SDK_Linux_v6.13.0.1       --deltacast
 
 # hack over the way fedora ignores dependences in /usr/lib/dir/*.so
 %define _use_internal_dependency_generator 0
@@ -109,12 +100,12 @@ VideoMasterHD		--deltacast
 # > bluefish
 #####################################################
 %patch10 -p1
-%patch11 -p1
+#%patch11 -p1
 %patch12 -p1
-%patch13 -p1
-%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
-%patch19 -p1
-%endif
+#%patch13 -p1
+#%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+#%patch19 -p1
+#%endif
 #####################################################
 # < bluefish
 #####################################################
@@ -123,26 +114,17 @@ VideoMasterHD		--deltacast
 #####################################################
 %patch20 -p1
 %patch21 -p1
-%patch22 -p1
-%patch23 -p1
-%patch24 -p1
-%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
-%patch29 -p1
-%endif
+#%patch22 -p1
+#%patch23 -p1
+#%patch24 -p1
+%patch26 -p1
+#%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} == 120300
+#%patch29 -p1
+#%endif
 #on intention
-%patch25 -p1
+#%patch25 -p1
 #####################################################
 # < aja
-#####################################################
-#####################################################
-# > dvs (sdk)
-#####################################################
-%patch30 -p1
-#%if 0%{?is_opensuse} >= 1 && 0%{?sle_version} >= 120200
-#%patch39 -p1
-#%endif
-#####################################################
-# < dvs (sdk)
 #####################################################
 
 %build
@@ -164,14 +146,11 @@ popd
 #####################################################
 # > bluefish
 #####################################################
-pushd EpochLinuxDriver_V5*/drivers/orac
-env libdir=%{_libdir} make
-popd
-pushd EpochLinuxDriver_V5*/apis/BlueVelvet
+pushd Bluefish_linux_driver_6*/apis/BlueVelvetC/lin
 env libdir=%{_libdir} make
 popd
 
-rm -rf EpochLinuxDriver_V5*/firmware/x86
+rm -rf Bluefish_linux_driver_6*/firmware/x86
 #####################################################
 # < bluefish
 #####################################################
@@ -185,27 +164,17 @@ mkdir -p $RPM_BUILD_ROOT/usr/src/ultragrid-externals/
 #####################################################
 # > bluefish
 #####################################################
-ln -s EpochLinuxDriver_V5* bluefish_sdk
-tar -c bluefish_sdk EpochLinuxDriver_V5* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
 
-pushd EpochLinuxDriver_V5*/drivers/orac
+# classical make install must be done first
+pushd Bluefish_linux_driver_6*/apis/BlueVelvetC/lin
 env libdir=%{_libdir} make install DESTDIR=$RPM_BUILD_ROOT
 popd
-pushd EpochLinuxDriver_V5*/apis/BlueVelvet
-env libdir=%{_libdir} make install DESTDIR=$RPM_BUILD_ROOT
-popd
+
+ln -s Bluefish_linux_driver_6* bluefish_sdk
+tar -c bluefish_sdk Bluefish_linux_driver_6* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
+
 #####################################################
 # < bluefish
-#####################################################
-#####################################################
-# > dvs
-#####################################################
-ln -s sdk4.3* dvs_sdk
-tar -c dvs_sdk sdk4.3.* -f - | tar -C $RPM_BUILD_ROOT/usr/src/ultragrid-externals/ -xf -
-
-rm -r $RPM_BUILD_ROOT/usr/src/ultragrid-externals/dvs_sdk/linux-x86
-#####################################################
-# < dvs
 #####################################################
 #####################################################
 # > aja
@@ -240,7 +209,7 @@ find ${RPM_BUILD_ROOT}/ -iregex '.*\.so\(\.[0-9]+\)*$' -type f -exec file {} \; 
 #####################################################
 
 for pattern in "*.so" "*.so.*" "*.sh" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod +x {} \; ; done
-for pattern in "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod -x {} \; ; done
+for pattern in "*.c" "*.cu" "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find ${RPM_BUILD_ROOT}/ -name "$pattern" -exec chmod -x {} \; ; done
 # new AJA installs broken symlinks
 #rm -rf ${RPM_BUILD_ROOT}/usr/src/ultragrid-externals/ntv*/bin/qtlibs
 # remove messed diffs if patches otherwise patched successfuly
@@ -270,6 +239,10 @@ export NO_BRP_CHECK_RPATH=true
 %{_prefix}/src/ultragrid-externals
 
 %changelog
+* Thu Jan 16 2020 Lukas Rucka <ultragrid-dev@cesnet.cz>
+- 20200109
+- Upgrade all drivers, except dvs, which is dropped
+
 * Fri Aug 3 2018 Lukas Rucka <ultragrid-dev@cesnet.cz>
 - 20180803
 - Upgrade Aja drivers to compensate for kernel api changes

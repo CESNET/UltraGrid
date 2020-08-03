@@ -1,0 +1,20 @@
+--- a/ntv2sdklinux_15.5.1.1/build/common.mk	2019-12-11 02:22:34.000000000 +0100
++++ b/ntv2sdklinux_15.5.1.1/build/common.mk	2020-01-20 12:10:32.808119532 +0100
+@@ -4,7 +4,7 @@
+ # All righs reserved
+ #
+ 
+-CXX ?= g++
++CXX ?= clang++
+ CPP := $(CXX)
+ 
+ ifeq ($(AJA_USE_CCACHE),1)
+@@ -14,7 +14,7 @@ ifeq ($(AJA_USE_CCACHE),1)
+ endif
+ 
+ CPPFLAGS += -DAJALinux -DAJA_LINUX -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 \
+-			-pedantic -Wall -Wno-long-long -Wwrite-strings -c -pipe -fPIC $(DBG)
++			-pedantic -Wall -Wno-long-long -Wwrite-strings -c -pipe -fPIC -std=c++14 $(DBG)
+ 
+ LD = $(CXX)
+ LDFLAGS = 

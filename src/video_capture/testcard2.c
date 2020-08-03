@@ -71,8 +71,6 @@
 
 void * vidcap_testcard2_thread(void *args);
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
-unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
-                      unsigned int height, double bpp);
 void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 
 struct testcard_state2 {
@@ -434,8 +432,7 @@ void * vidcap_testcard2_thread(void *arg)
 
                 if (s->frame->color_spec == v210) {
                         surf->pixels =
-                            (char *)tov210((unsigned char *) surf->pixels, s->aligned_x,
-                                           s->aligned_x, s->tile->height, get_bpp(s->frame->color_spec));
+                            (char *)tov210((unsigned char *) surf->pixels, s->tile->width);
                 }
 
                 if (s->frame->color_spec == R10k) {

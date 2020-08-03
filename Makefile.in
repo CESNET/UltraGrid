@@ -13,7 +13,7 @@ CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = mkdir -p
 CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@
 LDFLAGS      =  @LDFLAGS@
-LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
+LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ -lm -pthread
 INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
                 @JACK_TRANS_INC@ @SPEEX_INC@ \
 		@CUDA_INC@ @INC@
@@ -158,7 +158,6 @@ COMMON_OBJS     = \
 		src/video_capture.o \
 		src/video_capture_params.o \
 		src/video_capture/aggregate.o \
-		src/video_capture/banner.o \
 		src/video_capture/import.o \
 		src/video_capture/null.o \
 		src/video_capture/switcher.o \
@@ -213,10 +212,6 @@ src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
 	touch $@
 
-bin/screen-capture-recorder-x64.dll:
-	$(MKDIR_P) $(dir $@)
-	install $(srcdir)/data/screen-capture-recorder-x64.dll bin
-
 Frameworks/Syphon.framework:
 	$(MKDIR_P) Frameworks
 	cp -R $(srcdir)/data/redists/Syphon.framework Frameworks
@@ -237,7 +232,7 @@ $(TARGET): src/dir-stamp $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DE
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 ifeq ($(SYSTEM),Windows)
-	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
 
 $(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
@@ -499,7 +494,7 @@ $(TEST_TARGET): $(TEST_OBJS) @TEST_OBJS@
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ @CPPUNIT_LIBS@ -o $@
 ifeq ($(SYSTEM),Windows)
-	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
+	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif
 
 suggest-tests:
@@ -651,7 +646,7 @@ gui-bundle: $(GUI_BUNDLE)/Contents/libs
 ## uv-qt rebuild which breaks fixed links by macdeployqt)
 osx-gui-dmg:
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
-	hdiutil create -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
+	hdiutil create -fs HFS+ -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
 
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
@@ -681,7 +676,7 @@ install: all
 	$(CP) $(srcdir)/speex-1.2rc1/COPYING $(DESTDIR)$(docdir)/COPYING.speex
 	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
 	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(srcdir)/data/hd-rum-transcode.1 $(DESTDIR)$(man1dir)
-	if [ -n "@DLL_LIBS@" ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
+	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
 
 uninstall:
 	$(RM) $(DESTDIR)$(bindir)/uv

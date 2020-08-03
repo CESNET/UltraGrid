@@ -121,7 +121,7 @@ static void cineform_compress_done(struct module *mod){
 
 static void usage() {
         printf("Cineform encoder usage:\n");
-        printf("\t-c cineform[:quality=<quality>][:threads=<num_threads>][:pool_size=<pool_size>]*\n");
+        printf("\t-c cineform[:quality=<quality>][:threads=<num_threads>][:pool_size=<pool_size>]\n");
         printf("\t\t<quality> specifies encode quality, range 1-6 (default: 4)\n");
         printf("\t\t<num_threads> specifies number of threads for encoding \n");
         printf("\t\t<pool_size> specifies the size of encoding pool \n");
@@ -268,19 +268,6 @@ static void RGBAtoBGRA(video_frame *dst, video_frame *src){
         }
 }
 
-static void R10k_shift(video_frame *dst, video_frame *src){
-        int pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
-
-        unsigned char *s = (unsigned char *) src->tiles[0].data;
-        unsigned char *d = (unsigned char *) dst->tiles[0].data;
-
-        for(unsigned i = 0; i < src->tiles[0].height; i++){
-                vc_copyliner10k(d, s, pitch, 2, 12, 22);
-                s += pitch;
-                d += pitch;
-        }
-}
-
 static void R12L_to_RG48(video_frame *dst, video_frame *src){
         int src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
         int dst_pitch = vc_get_linesize(dst->tiles[0].width, dst->color_spec);
@@ -307,7 +294,7 @@ static struct {
         {RGB, CFHD_PIXEL_FORMAT_RG24, CFHD_ENCODED_FORMAT_RGB_444, VIDEO_CODEC_NONE, RGBtoBGR_invert},
         {RGBA, CFHD_PIXEL_FORMAT_BGRa, CFHD_ENCODED_FORMAT_RGBA_4444, VIDEO_CODEC_NONE, RGBAtoBGRA},
         {v210, CFHD_PIXEL_FORMAT_V210, CFHD_ENCODED_FORMAT_YUV_422, VIDEO_CODEC_NONE, nullptr},
-        {R10k, CFHD_PIXEL_FORMAT_RG30, CFHD_ENCODED_FORMAT_RGB_444, VIDEO_CODEC_NONE, R10k_shift},
+        {R10k, CFHD_PIXEL_FORMAT_DPX0, CFHD_ENCODED_FORMAT_RGB_444, VIDEO_CODEC_NONE, nullptr},
         {R12L, CFHD_PIXEL_FORMAT_RG48, CFHD_ENCODED_FORMAT_RGB_444, RG48, R12L_to_RG48},
 };
 

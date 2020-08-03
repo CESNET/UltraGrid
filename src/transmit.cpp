@@ -445,6 +445,33 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
         tmp |= fi << 13;
         return htonl(tmp);
 }
+
+static auto gcd(int a, int b)
+{
+        // Everything divides 0
+        if (a == 0) {
+                return b;
+        }
+        if (b == 0) {
+                return a;
+        }
+
+        // base case
+        if (a == b) {
+                return a;
+        }
+
+        // a is greater
+        if (a > b) {
+                return gcd(a-b, b);
+        }
+        return gcd(a, b-a);
+}
+
+static auto lcm(int a, int b) {
+        return a * b / gcd(a, b);
+}
+
 static inline int get_data_len(bool with_fec, int mtu, int hdrs_len,
                 int fec_symbol_size, int *fec_symbol_offset, int pf_block_size)
 {
@@ -462,7 +489,13 @@ static inline int get_data_len(bool with_fec, int mtu, int hdrs_len,
                         }
                 }
         } else {
-                pf_block_size = MAX(pf_block_size, 1); // compressed formats have usually 0
+                if (pf_block_size == 0) {
+                        pf_block_size = 1; // compressed formats have usually 0
+                } else {
+                        pf_block_size = lcm(pf_block_size, 48); // 6/8 -> RGB/A convertible to UYVY (multiple of 2 pixs)
+                                                                // 48 -> RG48 to R12L
+                                                                // @todo figure out better solution
+                }
                 data_len = (data_len / pf_block_size) * pf_block_size;
         }
         return data_len;

@@ -1,0 +1,6 @@
+videoMasterHD-destdir.patch
+bluefish-uname.patch
+bluefish-g++.patch
+bluefish-destdir.patch
+AJA-linuxdriver-uname.patch
+AJA-nodemo.patch

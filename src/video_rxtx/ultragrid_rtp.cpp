@@ -72,6 +72,7 @@
 #include "video_display.h"
 #include "video_rxtx.h"
 #include "video_rxtx/ultragrid_rtp.h"
+#include "ug_runtime_error.hpp"
 #include "utils/worker.h"
 
 #include <chrono>
@@ -92,6 +93,11 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &p
         }
         m_requested_encryption = (const char *) params.at("encryption").ptr;
         m_async_sending = false;
+
+        if (get_commandline_param("decoder-use-codec") != nullptr && "help"s == get_commandline_param("decoder-use-codec")) {
+                destroy_video_decoder(new_video_decoder(m_display_device));
+                throw ug_no_error();
+        }
 
         m_control = (struct control_state *) get_module(get_root_module(static_cast<struct module *>(params.at("parent").ptr)), "control");
 }
@@ -342,8 +348,9 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
+
 #ifdef SHARED_DECODER
-        struct vcodec_state *shared_decoder = new_decoder(uv);
+        struct vcodec_state *shared_decoder = new_video_decoder(m_display_device);
         if(shared_decoder == NULL) {
                 fprintf(stderr, "Unable to create decoder!\n");
                 exit_uv(1);
@@ -500,7 +507,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         }
 
 #ifdef SHARED_DECODER
-        destroy_decoder(shared_decoder);
+        destroy_video_decoder(shared_decoder);
 #else
         /* Because decoders work asynchronously we need to make sure
          * that display won't be called */

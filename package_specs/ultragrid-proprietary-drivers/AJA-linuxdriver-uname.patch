@@ -1,18 +1,30 @@
-diff -rupN a/ntv2sdklinux_14.2.0.6/ajadriver/linux/Makefile b/ntv2sdklinux_14.2.0.6/ajadriver/linux/Makefile
---- a/ntv2sdklinux_14.2.0.6/ajadriver/linux/Makefile
-+++ b/ntv2sdklinux_14.2.0.6/ajadriver/linux/Makefile
+diff -rupN a/ntv2sdklinux_15.5.1.1/ajadriver/linux/Makefile b/ntv2sdklinux_15.5.1.1/ajadriver/linux/Makefile
+--- a/ntv2sdklinux_15.5.1.1/ajadriver/linux/Makefile	2020-01-16 11:33:28.222883169 +0100
++++ b/ntv2sdklinux_15.5.1.1/ajadriver/linux/Makefile	2020-01-16 12:53:13.464530300 +0100
 @@ -7,7 +7,7 @@
  DIR := $(strip $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST)))))
  
  #DRIVERDIR	?= $(DIR)
--KDIR		?= /lib/modules/$(shell uname -r)/build
-+KDIR		?= /lib/modules/$(shell ls -1 /lib/modules | sort | head -n 1)/build
+-KVERSION	?= $(shell uname -r)
++KVERSION	?= $(shell ls -1 /lib/modules | sort | head -n 1)
+ KDIR		?= /lib/modules/$(KVERSION)/build
  
  # EXTRA_DEPS = -DNTV2_DEPRECATE_14_0 -DNTV2_DEPRECATE_14_1 
+diff -rupN a/ntv2sdklinux_15.5.1.1/ajalibraries/ajantv2/build/Makefile b/ntv2sdklinux_15.5.1.1/ajalibraries/ajantv2/build/Makefile
+--- a/ntv2sdklinux_15.5.1.1/ajalibraries/ajantv2/build/Makefile	2020-01-16 11:33:28.154882038 +0100
++++ b/ntv2sdklinux_15.5.1.1/ajalibraries/ajantv2/build/Makefile	2020-01-16 12:55:28.798982536 +0100
+@@ -17,7 +17,7 @@ else
+ endif
+ AJA_LIB_PATH = $(A_UBER_LIB)/lib$(AJA_LIB).a
  
-diff -rupN a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure b/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure
---- a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure
-+++ b/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure
+-KERNEL_INCLUDES	:= /lib/modules/$(shell uname -r)/build
++KERNEL_INCLUDES	:= /lib/modules/$(shell ls -1 /lib/modules | sort | head -n 1)/build
+ 
+ VPATH := $(A_LIB_NTV2_SRC):$(A_LIB_NTV2_SRC_LINUX):$(A_LIB_NTV2_M31_PATH):$(A_LIB_NTV2_INC):$(A_LIB_ANC_PATH)/src:$(A_LIB_BASE_PATH):$(A_LIB_BASE_PATH)/common:$(A_LIB_BASE_PATH)/system:$(A_LIB_BASE_PATH)/system/linux:$(A_LIB_BASE_PATH)/pnp:$(A_LIB_BASE_PATH)/pnp/linux:$(A_LIB_BASE_PATH)/persistence:$(A_LIB_BASE_PATH)/network:$(KERNEL_INCLUDES):$(SRCDIR)
+ 
+diff -rupN a/ntv2sdklinux_15.5.1.1/non-aja/fltk1.3/configure b/ntv2sdklinux_15.5.1.1/non-aja/fltk1.3/configure
+--- a/ntv2sdklinux_15.5.1.1/non-aja/fltk1.3/configure	2019-12-11 02:22:35.000000000 +0100
++++ b/ntv2sdklinux_15.5.1.1/non-aja/fltk1.3/configure	2020-01-16 12:52:37.087869001 +0100
 @@ -1461,7 +1461,7 @@ cat <<_ASUNAME
  
  hostname = `(hostname || uname -n) 2>/dev/null | sed 1q`
@@ -31,9 +43,9 @@ diff -rupN a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure b/ntv2sdklinux_14.2
  if test "x$uname" = xIRIX64; then
      uname="IRIX"
  fi
-diff -rupN a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure.in b/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure.in
---- a/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure.in
-+++ b/ntv2sdklinux_14.2.0.6/non-aja/fltk1.3/configure.in
+diff -rupN a/ntv2sdklinux_15.5.1.1/non-aja/fltk1.3/configure.in b/ntv2sdklinux_15.5.1.1/non-aja/fltk1.3/configure.in
+--- a/ntv2sdklinux_15.5.1.1/non-aja/fltk1.3/configure.in	2019-12-11 02:22:35.000000000 +0100
++++ b/ntv2sdklinux_15.5.1.1/non-aja/fltk1.3/configure.in	2020-01-16 12:52:37.087869001 +0100
 @@ -57,7 +57,7 @@ AC_SUBST(FL_API_VERSION)
  
  dnl Get the operating system and version number...

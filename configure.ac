@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([UltraGrid], [1.5], [ultragrid-dev@cesnet.cz])
+AC_INIT([UltraGrid], [1.6], [ultragrid-dev@cesnet.cz])
 configure_flags="$*"
 AC_CANONICAL_SYSTEM
 AM_INIT_AUTOMAKE([1.10])
@@ -53,7 +53,7 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 POST_COMPILE_MSG=""
 CFLAGS="$CFLAGS -I$srcdir"
 CPPFLAGS="$CPPFLAGS -I$srcdir"
-CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++14"
+CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++17"
 LIB_MODULES=
 AC_SUBST(INC)
 AC_SUBST(LIBS)
@@ -502,7 +502,7 @@ AC_ARG_ENABLE(debug,
 	then
 		AC_DEFINE([DEBUG], [1], [We build with debug messages])
                 debug_output=yes
-                DEBUG_FLAGS="-Werror -Wno-error=cast-qual -Wno-error=cast-align -Wno-error=strict-aliasing"
+                DEBUG_FLAGS="-Werror -Wno-error=cast-qual -Wno-error=cast-align -Wno-error=strict-aliasing -g -O0"
                 CFLAGS="$CFLAGS $DEBUG_FLAGS"
                 CXXFLAGS="$CXXFLAGS $DEBUG_FLAGS"
 	fi])
@@ -1979,7 +1979,7 @@ then
                 SCREEN_CAP_OBJ="src/video_capture/screen_x11.o src/x11_common.o"
         else
                 SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
-                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }bin/screen-capture-recorder-x64.dll"
+                DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }data/screen-capture-recorder-x64.dll"
         fi
         ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
 else
@@ -2158,7 +2158,6 @@ AC_ARG_WITH(cuda-compiler,
 HOST_CC_REPORT=" ("
 case "$CUDA_COMPILER" in
 	*nvcc*)
-		CUDA_COMPUTE_ARGS="-gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35"
 		;;
 	*clang*)
 		CUDA_COMPUTE_ARGS="--cuda-gpu-arch=sm_30 --cuda-gpu-arch=sm_35"
@@ -2176,8 +2175,9 @@ AC_ARG_WITH(cuda-host-compiler,
 	AC_HELP_STRING([--with-cuda-host-compiler=BINARY], [specify compiler used for building cuda host code]))
 if test "x${with_cuda_host_compiler}" != "x" ; then
 	AC_CHECK_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[yes])
-	if test "x${cuda_host_cc}" = "xyes" ; then
-		CUDA_FLAGS+=" -ccbin ${with_cuda_host_compiler}"
+        # note AC_CHECK_PROG always fails on path with spaces in MSW
+        if test "x${cuda_host_cc}" = "xyes" -o $system = Windows; then
+                CUDA_FLAGS+=" -ccbin \"${with_cuda_host_compiler}\""
 	else
 		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
 	fi
@@ -2484,7 +2484,7 @@ jack_trans=no
 jack=no
 
 AC_ARG_ENABLE(jack-transport,
-[  --enable-jack-transport enable JACK transport (default is auto; disabled in modular build)]
+[  --enable-jack-transport[=force] enable JACK transport (default is auto; disabled in modular build, can be forced)]
 [                          Requires: jack],
 	[jack_trans_req=$enableval],
         [jack_trans_req=$build_default])
@@ -2503,7 +2503,7 @@ if test $FOUND_JACK_L = no; then
                                                  [JACK_LIB=-llibjack64], FOUND_JACK_L=no)
 fi
 
-if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes -a $build_libraries = no
+if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes -a \( $build_libraries = no -o $jack_trans_req = force \)
 then
     JACK_TRANS_OBJ="src/audio/jack.o"
     JACK_TRANS_LIB="$JACK_LIB"
@@ -3078,10 +3078,16 @@ fi
 AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
 AC_CHECK_LIB($NDI_LIB, NDIlib_initialize,  FOUND_NDI_L=yes, FOUND_NDI_L=no)
 
-if test $ndi_req != no -a "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L" = yes
+# if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
+if test $ndi_req != no -a \( \( "$FOUND_NDI_H" = yes -a "$FOUND_NDI_L" = yes \) -o \( -n "$NDI_SDK_DIR" -a $system = Windows \) \)
 then
-        ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "-l$NDI_LIB")
-        ADD_MODULE("display_ndi", "src/video_display/ndi.o", "-l$NDI_LIB")
+        if test -n "$NDI_SDK_DIR" -a $system = Windows; then
+                COMMON_FLAGS="$COMMON_FLAGS -I\"$NDI_SDK_DIR/Include\""
+                NDI_LIB_PATH="-L\"$NDI_SDK_DIR/Lib/x64\""
+                DLL_LIBS="$DLL_LIBS \"$NDI_SDK_DIR/Bin/x64/Processing.NDI.Lib.x64.dll\""
+        fi
+        ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "-l$NDI_LIB $NDI_LIB_PATH")
+        ADD_MODULE("display_ndi", "src/video_display/ndi.o", "-l$NDI_LIB $NDI_LIB_PATH")
         ndi=yes
 fi
 

@@ -2,8 +2,8 @@
 %undefine _missing_build_ids_terminate_build
 
 Name:		ultragrid-nightly
-Version:	1.5
-Release:	20181004.00
+Version:	1.6
+Release:	20200630.00
 Summary:	Software for real-time transmissions of high-definition video
 Group:		Applications/Multimedia
 
@@ -36,6 +36,7 @@ BuildRequires:	libjpeg62-devel, Mesa-libGL-devel
 BuildRequires:	libqt5-qtbase-devel
 %endif
 BuildRequires:	glib2-devel, libcurl-devel
+BuildRequires:  cppunit-devel
 
 #####################################################
 # > cuda
@@ -51,89 +52,20 @@ BuildRequires:	glib2-devel, libcurl-devel
 #####################################################
 # < cineform
 #####################################################
-
-
-%if 0%{?cuda} > 0
-	%if 0%{?fedora} > 1 && 0%{?fedora} < 21
-BuildRequires:	cuda-core-6-5,cuda-command-line-tools-6-5,cuda-cudart-dev-6-5
-		%define cudaconf --with-cuda=/usr/local/cuda-6.5
-	%endif
-	%if 0%{?fedora} >= 21 && 0%{?fedora} <= 25
-BuildRequires:	cuda-core-9-1,cuda-command-line-tools-9-1,cuda-cudart-dev-9-1,clang
-		%define cudaconf --with-cuda=/usr/local/cuda-9.1 --with-cuda-host-compiler=clang
-	%endif
-	%if 0%{?fedora} >= 26
-BuildRequires:	cuda-core-9-2,cuda-command-line-tools-9-2,cuda-cudart-dev-9-2,clang
-		%define cudaconf --with-cuda=/usr/local/cuda-9.2 --with-cuda-host-compiler=clang
-	%endif
-	%if 0%{?sle_version} >= 150000
-BuildRequires:	cuda-core-9-2,cuda-command-line-tools-9-2,cuda-cudart-dev-9-2
-		%define cudaconf --with-cuda=/usr/local/cuda-9.2
-	%endif
-	%if 0%{?leap_version} >= 420000 && 0%{?leap_version} < 430000
-BuildRequires:	cuda-core-9-2, cuda-command-line-tools-9-2, cuda-cudart-dev-9-2, clang
-		%define cudaconf --with-cuda=/usr/local/cuda-9.2 --with-cuda-host-compiler=clang
-	%endif
-BuildRequires:	libgpujpeg-devel
-%else
-	%define cudaconf --disable-cuda
-%endif
-%if 0%{?build_cineform} > 0
-BuildRequires:	libuuid-devel
-%endif
-
-%define build_conference 1
-%define build_gui 1
-
-%if 0%{build_gui} > 0
-	%if 0%{?leap_version} > 1
-BuildRequires:  update-desktop-files
-Requires(post): update-desktop-files
-Requires(postun): update-desktop-files
-	%else
-BuildRequires:	desktop-file-utils
-	%endif
-	
-%endif
-
-
-%define hwaccel 1
-
-%if 0%{?hwaccel} > 0
-#BuildRequires: libvdpau-devel, vaapi-intel-driver, libva-devel 
-BuildRequires: libva-devel, libvdpau-devel
-%if 0%{?fedora} >= 26
-%define vaapi 1
-%define vdpau 1
-%endif
-%if 0%{?leap_version} >= 420200 || 0%{?sle_version} >= 120200
-%define vaapi 1
-%define vdpau 1
-BuildRequires: libva-vdpau-driver, vaapi-intel-driver
-%endif
-%endif
-
-
-Conflicts:	ultragrid-core, ultragrid
-Provides:	ultragrid
-
-%description
-Ultragrid is a low-latency (As low as 83ms end-to-end)
-flexible RTP-based format for HD/2K/4K video transmission tool.
-It provides support for various video standards (PAL/NTSC, HD, 4K - both tiled and untiled),
-Scalable Adaptive Graphics Environment (SAGE) visualization clusters, several compression
-formats (DXT, JPEG, etc.) and many hardware providers.
-
-Our work is supported by CESNET research intent "Optical Network of National
-Research and Its New Applications" and partially also by Masaryk University
-research intent "Parallel and Distributed Systems". It is a fork of the original
-UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
-
-# hack over the way fedora ignores dependences in /usr/lib/dir/*.so
-%define _use_internal_dependency_generator 0
-%define __find_requires bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-requires | (grep -v -F -f install-provides || true) | (grep -v -f norequires || true)'
-%define __find_provides bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-provides | (grep -v -f noprovides || true)'
-
+#####################################################
+# > ximea
+#####################################################
+%define build_ximea 1
+#####################################################
+# < ximea
+#####################################################
+#####################################################
+# > ndi
+#####################################################
+#define build_ndi 1
+#####################################################
+# < ndi
+#####################################################
 #####################################################
 # > bluefish
 #####################################################
@@ -144,7 +76,7 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 #####################################################
 # > dvs
 #####################################################
-%define build_dvs 1
+%define build_dvs 0
 #####################################################
 # < dvs
 #####################################################
@@ -170,6 +102,96 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 # < aja
 #####################################################
 
+%if 0%{?cuda} > 0
+	%if 0%{?fedora} > 1 && 0%{?fedora} < 21
+BuildRequires:	cuda-core-6-5,cuda-command-line-tools-6-5,cuda-cudart-dev-6-5
+		%define cudaconf --with-cuda=/usr/local/cuda-6.5
+	%endif
+	%if 0%{?fedora} >= 21 && 0%{?fedora} <= 25
+BuildRequires:	cuda-core-9-1,cuda-command-line-tools-9-1,cuda-cudart-dev-9-1,clang
+		%define cudaconf --with-cuda=/usr/local/cuda-9.1 --with-cuda-host-compiler=clang
+	%endif
+	%if 0%{?fedora} >= 26
+BuildRequires:	cuda-core-9-2,cuda-command-line-tools-9-2,cuda-cudart-dev-9-2,clang
+		%define cudaconf --with-cuda=/usr/local/cuda-9.2 --with-cuda-host-compiler=clang
+	%endif
+	%if 0%{?sle_version} >= 150000
+BuildRequires:	cuda-core-10-2,cuda-command-line-tools-10-2,cuda-cudart-dev-10-2
+		%define cudaconf --with-cuda=/usr/local/cuda-10.2
+	%endif
+	%if 0%{?leap_version} >= 420000 && 0%{?leap_version} < 430000
+BuildRequires:	cuda-core-9-2, cuda-command-line-tools-9-2, cuda-cudart-dev-9-2, clang
+		%define cudaconf --with-cuda=/usr/local/cuda-9.2 --with-cuda-host-compiler=clang
+	%endif
+BuildRequires:	libgpujpeg-devel
+%else
+	%define cudaconf --disable-cuda
+%endif
+
+%if 0%{?build_cineform} > 0
+BuildRequires:	libuuid-devel
+%endif
+
+%if 0%{?build_ximea} > 0
+BuildRequires:	ultragrid-proprietary-drivers-ximea-nightly
+%endif
+
+%if 0%{?build_ndi} > 0
+BuildRequires:	ultragrid-proprietary-drivers-ndi-nightly
+%endif
+
+%define build_conference 1
+%define build_gui 1
+
+%if 0%{build_gui} > 0
+	%if 0%{?leap_version} > 1
+BuildRequires:  update-desktop-files
+Requires(post): update-desktop-files
+Requires(postun): update-desktop-files
+	%else
+BuildRequires:	desktop-file-utils
+	%endif
+%endif
+
+
+%define hwaccel 1
+
+%if 0%{?hwaccel} > 0
+#BuildRequires: libvdpau-devel, vaapi-intel-driver, libva-devel 
+BuildRequires: libva-devel, libvdpau-devel
+%if 0%{?fedora} >= 26
+%define vaapi 1
+%define vdpau 1
+%endif
+%if 0%{?leap_version} >= 420200 || 0%{?sle_version} >= 120200
+%define vaapi 1
+%define vdpau 1
+BuildRequires: libva-vdpau-driver, vaapi-intel-driver
+%endif
+%endif
+
+
+Conflicts:	ultragrid-core, ultragrid
+Provides:	ultragrid
+Requires:	jack-audio-connection-kit
+
+%description
+Ultragrid is a low-latency (As low as 83ms end-to-end)
+flexible RTP-based format for HD/2K/4K video transmission tool.
+It provides support for various video standards (PAL/NTSC, HD, 4K - both tiled and untiled),
+Scalable Adaptive Graphics Environment (SAGE) visualization clusters, several compression
+formats (DXT, JPEG, etc.) and many hardware providers.
+
+Our work is supported by CESNET research intent "Optical Network of National
+Research and Its New Applications" and partially also by Masaryk University
+research intent "Parallel and Distributed Systems". It is a fork of the original
+UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
+
+# hack over the way fedora ignores dependences in /usr/lib/dir/*.so
+%define _use_internal_dependency_generator 0
+%define __find_requires bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-requires | (grep -v -F -f install-provides || true) | (grep -v -f norequires || true)'
+%define __find_provides bash -c 'cd %{_builddir}/%{name}-%{version} ; /usr/lib/rpm/find-provides | (grep -v -f noprovides || true)'
+
 %define UGLIBDIR %{_libdir}/ultragrid
 
 %prep
@@ -187,7 +209,7 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 # jack-transport is broken since 1.2 release
 # rstp is broken with current live555
 %configure --docdir=%_docdir --disable-profile --disable-debug --enable-ipv6 --enable-plugins \
-	--enable-sdl2 --enable-gl --enable-rtdxt \
+	--enable-sdl2 --enable-gl --enable-gl-display --enable-rtdxt \
 	--enable-portaudio --disable-jack-transport --enable-jack \
 	--enable-alsa --enable-scale --enable-qt --disable-quicktime \
 	--disable-coreaudio --disable-sage --enable-screen\
@@ -200,15 +222,27 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 		--disable-video-mixer \
 	%endif
 	%{?cudaconf} \
+	%if 0%{?build_ndi} > 0
+		--enable-ndi \
+	%else
+		--disable-ndi \
+	%endif
+	%if 0%{?build_ximea} > 0
+		--enable-ximea \
+	%else
+		--disable-ximea \
+	%endif
 	%if 0%{?build_cineform} > 0
 		--enable-cineform \
 	%else
 		--disable-cineform \
 	%endif
 	%if 0%{?cuda} > 0
-		--enable-jpeg \
+		--enable-gpujpeg \
+		--enable-ldgm-gpu \
 	%else
-		--disable-jpeg \
+		--disable-gpujpeg \
+		--disable-ldgm-gpu \
 	%endif
 	%if 0%{?build_bluefish} > 0
 		--enable-bluefish444 --enable-blue-audio --with-bluefish444=/usr/src/ultragrid-externals/bluefish_sdk  \
@@ -245,15 +279,23 @@ UltraGrid developed by Colin Perkins, Ladan Gharai, et al..
 	%else
 		--disable-lavc-hw-accel-vaapi \
 	%endif
+	%if 0%{?build_ximea} > 0
+		GENICAM_GENTL64_PATH=/usr/src/ultragrid-externals/ximea_sdk/lib \
+	%endif
 	LDFLAGS="$LDFLAGS -Wl,-rpath=%{UGLIBDIR}" \
 # --enable-testcard-extras \
 
 make %{?_smp_mflags}
 
+%check
+env UG_SKIP_NET_TESTS=1 make check
+env UG_SKIP_NET_TESTS=1 make distcheck
+
 %install
 rm -rf ${RPM_BUILD_ROOT}
 make install DESTDIR=${RPM_BUILD_ROOT}
 mkdir -p ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid
+mkdir -p ${RPM_BUILD_ROOT}/%{_docdir}/ultragrid
 echo %{version}-%{release} > ${RPM_BUILD_ROOT}/%{_datadir}/ultragrid/ultragrid-nightly.version
 %if 0%{?cuda} > 0
 # copy the real cudart to our rpath
@@ -272,6 +314,7 @@ find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-provides > install-provides
 find ${RPM_BUILD_ROOT}/ -type f | /usr/lib/rpm/find-requires > install-requires
 
 echo '^libsail\.so.*$' >> norequires
+echo '^libxfixes3-ndi(\.so.*)?$' >> norequires
 echo '^libquanta\.so.*$' >> norequires
 echo '^libcudart\.so.*$' >> norequires
 echo '^libcudart\.so.*$' >> noprovides
@@ -299,6 +342,8 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %defattr(-,root,root,-)
 %dir %{_datadir}/ultragrid
 %{_datadir}/ultragrid/*
+%{_mandir}/man1/hd-rum-transcode.1.gz
+%{_mandir}/man1/uv.1.gz
 %if 0%{?build_gui} > 0
 %dir %{_datadir}/applications
 %{_datadir}/applications/uv-qt.desktop
@@ -335,9 +380,15 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %{_libdir}/ultragrid/ultragrid_display_deltacast.so
 %endif
 %if 0%{?build_cineform} > 0
-# cineformni
 %{_libdir}/ultragrid/ultragrid_vcompress_cineform.so
 %{_libdir}/ultragrid/ultragrid_vdecompress_cineform.so
+%endif
+%if 0%{?build_ximea} > 0
+%{_libdir}/ultragrid/ultragrid_vidcap_ximea.so
+%endif
+%if 0%{?build_ndi} > 0
+%{_libdir}/ultragrid/ultragrid_vidcap_ndi.so
+%{_libdir}/ultragrid/ultragrid_display_ndi.so
 %endif
 %{_libdir}/ultragrid/ultragrid_display_sdl*.so
 # rtsp is broken with current live555
@@ -372,10 +423,10 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %{_libdir}/ultragrid/ultragrid_acompress_libavcodec.so
 %{_libdir}/ultragrid/ultragrid_openssl.so
 %if 0%{?cuda} > 0
-%{_libdir}/ultragrid/ultragrid_vcompress_jpeg.so
-%{_libdir}/ultragrid/ultragrid_vdecompress_jpeg.so
+%{_libdir}/ultragrid/ultragrid_vcompress_gpujpeg.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_gpujpeg.so
 %{_libdir}/ultragrid/ultragrid_vcompress_cuda_dxt.so
-%{_libdir}/ultragrid/ultragrid_vdecompress_jpeg_to_dxt.so
+%{_libdir}/ultragrid/ultragrid_vdecompress_gpujpeg_to_dxt.so
 %{_libdir}/ultragrid/ultragrid_ldgm_gpu.so
 # cudart
 %{_libdir}/ultragrid/*cudart*
@@ -385,6 +436,9 @@ rpm -q --provides ultragrid-proprietary-drivers | sed -r -e 's#([()\][.])#\\\1#g
 %endif
 
 %changelog
+* Tue Jun 30 2020 Ultragrid Development Team <ultragrid-dev@cesnet.cz> 1.6-20200630
+- Switching to 1.6 release
+
 * Thu Oct 04 2018 Ultragrid Development Team <ultragrid-dev@cesnet.cz> 1.5-20181004
 - Switching to 1.5 release
 

@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+SHELL=/bin/bash
+DEB_BUILD_ROOT=$(shell realpath . )/debian/tmp
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	echo "no configure here"
+
+override_dh_auto_build:
+	echo "dummy build"
+
+override_dh_auto_install:
+	mkdir -p $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ndi_sdk_v4_placeholder
+	ln -s ndi_sdk_v4_placeholder $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ndi_sdk
+	touch $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ndi_sdk_v4_placeholder/.keep
+

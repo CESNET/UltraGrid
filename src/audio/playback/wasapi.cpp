@@ -46,7 +46,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "rang.hpp"
-#include "ug_runtime_error.h"
+#include "ug_runtime_error.hpp"
 #include "utils/hresult.h"
 
 #define DEFAULT_WASAPI_BUFLEN_MS 67
@@ -201,8 +201,6 @@ static void show_help() {
         CoUninitialize();
 }
 
-#undef THROW_IF_FAILED
-#define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { LOG(LOG_LEVEL_ERROR) << MOD_NAME << #cmd << ": " << hresult_to_str(hr) << "\n"; delete s; s = nullptr; break; } } while(0)
 static void * audio_play_wasapi_init(const char *cfg)
 {
         wchar_t deviceID[1024] = L"";

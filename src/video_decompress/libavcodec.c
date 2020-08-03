@@ -549,12 +549,9 @@ static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum A
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert.\n");
                 sws_freeContext(sws->ctx);
                 av_frame_free(&sws->frame);
-                sws->ctx = sws_getContext(width, height, sws_in_codec,
+                sws->ctx = getSwsContext(width, height, sws_in_codec,
                                 width, height, sws_out_codec,
-                                SWS_POINT,
-                                NULL,
-                                NULL,
-                                NULL);
+                                SWS_POINT);
                 if(!sws->ctx){
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to init sws context.\n");
                         return false;
@@ -862,6 +859,10 @@ static void libavcodec_decompress_done(void *state)
 
 static const codec_t supp_codecs[] = { H264, H265, JPEG, MJPG, J2K, J2KR, VP8, VP9,
         HFYU, FFV1, AV1 };
+/**
+ * @todo
+ * This should be automatically generated
+ */
 static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 80 }, // for probe
         { VIDEO_CODEC_NONE, RGB, RGB, 500 },
@@ -882,7 +883,15 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, v210, RGBA, 800 },
         { VIDEO_CODEC_NONE, v210, UYVY, 500 },
         { VIDEO_CODEC_NONE, v210, v210, 500 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, UYVY, 900 }, // provide also generic decoder
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, UYVY, 900 }, // provide also generic decoders
+#ifdef HAVE_SWSCALE
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RG48, 900 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGB, 900 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGBA, 900 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R10k, 900 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R12L, 900 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, v210, 900 },
+#endif
 };
 #define SUPP_CODECS_CNT (sizeof supp_codecs / sizeof supp_codecs[0])
 #define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])

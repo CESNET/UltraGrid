@@ -23,7 +23,7 @@
  * derived from the algorithms published in that specification.
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2019 CESNET z.s.p.o.
+ * Copyright (c) 2005-2020 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  * Copyright (c) 1998-2001 University College London
@@ -62,8 +62,12 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *
+ */
+/**
+ * @file
+ * @bug
+ * The struct rtp is inherently not thread safe in general, although it works
+ * most of the time (but see bug in check_database()).
  */
 
 #ifdef HAVE_CONFIG_H
@@ -542,7 +546,7 @@ static inline void check_database(struct rtp *session)
         /* This routine performs a sanity check on the database. */
         /* This should not call any of the other routines which  */
         /* manipulate the database, to avoid common failures.    */
-#ifdef DEBUG
+#if defined DEBUG && ! defined SUPPRESS_BUGS
         source *s;
         int source_count;
         int chain;
@@ -580,6 +584,7 @@ static inline void check_database(struct rtp *session)
                         }
                         /* Check that the SR is for this source... */
                         if (s->sr != NULL) {
+                                /// @bug Fails here presumably on race condition (when struct rtp used by 2 threads)
                                 assert(s->sr->ssrc == s->ssrc);
                         }
                 }

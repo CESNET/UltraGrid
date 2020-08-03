@@ -171,8 +171,9 @@ struct vidcap_decklink_state {
         struct timeval          t0;
 
         bool                    detect_format;
-        int                     requested_bit_depth; // 8, 10 or 12
+        unsigned int            requested_bit_depth; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
         bool                    p_not_i;
+        int                     use1080psf = BMD_OPT_KEEP; // capture PsF instead of progressive
 
         uint32_t                profile; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         uint32_t                link;
@@ -187,6 +188,9 @@ static void print_input_modes (IDeckLink* deckLink);
 class VideoDelegate : public IDeckLinkInputCallback {
 private:
 	int32_t                       mRefCount{};
+        static constexpr BMDDetectedVideoInputFormatFlags csMask{bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInputRGB444};
+        static constexpr BMDDetectedVideoInputFormatFlags bitDepthMask{bmdDetectedVideoInput8BitDepth | bmdDetectedVideoInput10BitDepth | bmdDetectedVideoInput12BitDepth};
+        BMDDetectedVideoInputFormatFlags configuredCsBitDepth{};
 
 public:
         int	                      newFrameReady{};
@@ -224,58 +228,70 @@ public:
 		}
         	return newRefValue;
 	}
+        static auto getNotificationEventsStr(BMDVideoInputFormatChangedEvents notificationEvents) noexcept {
+                string reason{};
+                map<BMDDetectedVideoInputFormatFlags, string> m{
+                        { bmdVideoInputDisplayModeChanged, "display mode"s },
+                        { bmdVideoInputFieldDominanceChanged, "field dominance"s },
+                        { bmdVideoInputColorspaceChanged, "color space"s },
+                };
+                for (auto &i : m) {
+                        if ((notificationEvents & i.first) != 0U) {
+                                if (!reason.empty()) {
+                                        reason += ", "s;
+                                }
+                                reason += i.second;
+                        }
+                }
+                return reason.empty() ? "unknown"s : reason;
+        }
+
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
                         BMDVideoInputFormatChangedEvents notificationEvents,
                         IDeckLinkDisplayMode* mode,
-                        BMDDetectedVideoInputFormatFlags flags) override {
-                BMDPixelFormat pf;
-                HRESULT result;
+                        BMDDetectedVideoInputFormatFlags flags) noexcept override {
+                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << getNotificationEventsStr(notificationEvents) << ").\n";
+                notificationEvents &= ~bmdVideoInputFieldDominanceChanged; // ignore field dominance change
+                if (notificationEvents == 0U) {
+                        return S_OK;
+                }
 
-                string reason{};
-                if ((notificationEvents & bmdVideoInputDisplayModeChanged) != 0u) {
-                        reason = "display mode";
-                }
-                if ((notificationEvents & bmdVideoInputFieldDominanceChanged) != 0u) {
-                        if (!reason.empty()) {
-                                reason += ", ";
-                        }
-                        reason += "field dominance";
-                }
-                if ((notificationEvents & bmdVideoInputColorspaceChanged) != 0u) {
-                        if (!reason.empty()) {
-                                reason += ", ";
-                        }
-                        reason += "color space";
-                }
-                if (reason.empty()) {
-                        reason = "unknown";
-                }
-                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << reason << ").\n";
-
-                unique_lock<mutex> lk(s->lock);
 		if ((flags & bmdDetectedVideoInputDualStream3D) != 0u && !s->stereo) {
 			LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Stereoscopic 3D detected but not enabled! Please supply a \"3D\" parameter.\n";
 			return E_FAIL;
 		}
-                if ((flags & bmdDetectedVideoInputYCbCr422) != 0u) {
-                        unordered_map<int, codec_t> m = {{8, UYVY}, {10, v210}, {12, v210}};
-                        if (s->requested_bit_depth == 12) {
-                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME "Using 10-bit YCbCr.\n";
-                        }
-                        s->codec = m.at(s->requested_bit_depth);
-                } else if ((flags & bmdDetectedVideoInputRGB444) != 0u) {
-                        unordered_map<int, codec_t> m = {{8, RGBA}, {10, R10k}, {12, R12L}};
-                        s->codec = m.at(s->requested_bit_depth);
-                } else {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Unhandled flag!\n";
-                        abort();
+                BMDDetectedVideoInputFormatFlags csBitDepth = flags & (csMask | bitDepthMask);
+                if ((csBitDepth & bitDepthMask) == 0U) { // if no bit depth, assume 8-bit
+                        csBitDepth |= bmdDetectedVideoInput8BitDepth;
                 }
+                if (s->requested_bit_depth != 0) {
+                        csBitDepth = (flags & csMask) | s->requested_bit_depth;
+                }
+                unordered_map<BMDDetectedVideoInputFormatFlags, codec_t> m = {
+                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput8BitDepth, UYVY},
+                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput10BitDepth, v210},
+                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput12BitDepth, v210}, // weird
+                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput8BitDepth, RGBA},
+                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput10BitDepth, R10k},
+                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput12BitDepth, R12L},
+                };
+                if (notificationEvents == bmdVideoInputColorspaceChanged && csBitDepth == configuredCsBitDepth) { // only CS change which was already performed
+                        return S_OK;
+                }
+                if (s->requested_bit_depth == 0 && (flags & bmdDetectedVideoInput8BitDepth) == 0) {
+                        const string & depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? "10"s : "12"s;
+                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Capturing detected " << depth << "-bit signal, use \":codec=UYVY\" to enforce 8-bit capture (old behavior).\n";
+                }
+
+                unique_lock<mutex> lk(s->lock);
+                s->codec = m.at(csBitDepth);
+                configuredCsBitDepth = csBitDepth;
+
                 LOG(LOG_LEVEL_INFO) << MODULE_NAME "Using codec: " << get_codec_name(s->codec) << "\n";
                 IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
-                deckLinkInput->DisableVideoInput();
-                deckLinkInput->StopStreams();
-                deckLinkInput->FlushStreams();
-                result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
+                deckLinkInput->PauseStreams();
+                BMDPixelFormat pf{};
+                HRESULT result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
                 if(result == S_OK) {
                         CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
                         if(s->grab_audio == FALSE ||
@@ -289,6 +305,7 @@ public:
                                         audio_capture_channels == 1 ? 2 : audio_capture_channels); // BMD isn't able to grab single channel
                         }
                         //deckLinkInput->SetCallback(s->state[i].delegate);
+                        deckLinkInput->FlushStreams();
                         deckLinkInput->StartStreams();
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "set_display_mode_properties: " << bmd_hresult_to_string(result) << "\n";\
@@ -451,11 +468,16 @@ decklink_help(bool full)
         cout << style::bold << "half-duplex\n" << style::reset;
         cout << "\tSet a profile that allows maximal number of simultaneous IOs.\n";
         cout << "\n";
-        cout << style::bold << "p_not_i\n" << style::reset;
-        printf("\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n");
-        printf("\n");
 
         if (full) {
+                cout << style::bold << "p_not_i\n" << style::reset;
+                cout << "\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
+                cout << "\n";
+
+                cout << style::bold << "Use1080PsF[=true|false]\n" << style::reset;
+                cout << "\tIncoming signal should be treated as PsF instead of progressive.\n";
+                cout << "\n";
+
                 cout << style::bold << "nosig-send\n" << style::reset;
                 cout << "\tSend video even if no signal was detected (useful when video interrupts\n"
                         "\tbut the video stream needs to be preserved, eg. to keep sync with audio).\n";
@@ -639,6 +661,11 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->detect_format = true;
         } else if (strcasecmp(opt, "p_not_i") == 0) {
                 s->p_not_i = true;
+        } else if (strstr(opt, "Use1080PsF") != nullptr) {
+                s->use1080psf = 1;
+                if (strcasecmp(opt + strlen("Use1080PsF"), "=false") == 0) {
+                        s->use1080psf = 0;
+                }
         } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
                 s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
                         : bmdDeckLinkCapturePassthroughModeCleanSwitch;
@@ -684,7 +711,7 @@ static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_p
 static int settings_init(struct vidcap_decklink_state *s, char *fmt)
 {
         // defaults
-        s->codec = UYVY;
+        s->codec = VIDEO_CODEC_NONE;
         s->devices_cnt = 1;
         s->state.resize(s->devices_cnt);
         s->state[0].device_id = "0";
@@ -807,7 +834,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
 
                                 snprintf(vt->cards[vt->card_count - 1].modes[i].id,
                                                 sizeof vt->cards[vt->card_count - 1].modes[i].id,
-                                                "{\"modeOpt\":\"connection=%s:mode=%s\"}",
+                                                R"({"modeOpt":"connection=%s:mode=%s:codec=UYVY"})",
                                                 c.c_str(), get<1>(m).c_str());
                                 snprintf(vt->cards[vt->card_count - 1].modes[i].name,
                                                 sizeof vt->cards[vt->card_count - 1].modes[i].name,
@@ -844,60 +871,58 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)
 {
         BMD_STR displayModeString = NULL;
-        char *displayModeCString;
         HRESULT result;
 
         result = displayMode->GetName(&displayModeString);
-        if (result == S_OK)
-        {
-                auto it = std::find_if(uv_to_bmd_codec_map.begin(),
-                                uv_to_bmd_codec_map.end(),
-                                [&s](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == s->codec; });
-                if (it == uv_to_bmd_codec_map.end()) {
-                        LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
-                        return E_FAIL;
-                }
-                *pf = it->second;
-
-                // get avarage time between frames
-                BMDTimeValue	frameRateDuration;
-                BMDTimeScale	frameRateScale;
-
-                tile->width = displayMode->GetWidth();
-                tile->height = displayMode->GetHeight();
-                s->frame->color_spec = s->codec;
-
-                displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                s->frame->fps = (double)frameRateScale / (double)frameRateDuration;
-                s->next_frame_time = (int) (1000000 / s->frame->fps); // in microseconds
-                switch(displayMode->GetFieldDominance()) {
-                        case bmdLowerFieldFirst:
-                        case bmdUpperFieldFirst:
-                                s->frame->interlacing = INTERLACED_MERGED;
-                                break;
-                        case bmdProgressiveFrame:
-                                s->frame->interlacing = PROGRESSIVE;
-                                break;
-                        case bmdProgressiveSegmentedFrame:
-                                s->frame->interlacing = SEGMENTED_FRAME;
-                                break;
-                        case bmdUnknownFieldDominance:
-				LOG(LOG_LEVEL_WARNING) << "[DeckLink cap.] Unknown field dominance!\n";
-                                s->frame->interlacing = PROGRESSIVE;
-                                break;
-                }
-
-                if (s->p_not_i) {
-                        s->frame->interlacing = PROGRESSIVE;
-                }
-
-                displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
-                debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeCString,
-                                tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */
-                printf("Enable video input: %s\n", displayModeCString);
-                release_bmd_api_str(displayModeString);
-                free(displayModeCString);
+        if (FAILED(result)) {
+                return result;
         }
+
+        auto it = std::find_if(uv_to_bmd_codec_map.begin(),
+                        uv_to_bmd_codec_map.end(),
+                        [&s](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == s->codec; });
+        if (it == uv_to_bmd_codec_map.end()) {
+                LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
+                return E_FAIL;
+        }
+        *pf = it->second;
+
+        // get avarage time between frames
+        BMDTimeValue	frameRateDuration = 0;
+        BMDTimeScale	frameRateScale = 0;
+
+        tile->width = displayMode->GetWidth();
+        tile->height = displayMode->GetHeight();
+        s->frame->color_spec = s->codec;
+
+        displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+        s->frame->fps = static_cast<double>(frameRateScale) / frameRateDuration;
+        s->next_frame_time = static_cast<int>(std::chrono::microseconds::period::den / s->frame->fps); // in microseconds
+        switch(displayMode->GetFieldDominance()) {
+                case bmdLowerFieldFirst:
+                case bmdUpperFieldFirst:
+                        s->frame->interlacing = INTERLACED_MERGED;
+                        break;
+                case bmdProgressiveFrame:
+                case bmdProgressiveSegmentedFrame:
+                        s->frame->interlacing = PROGRESSIVE;
+                        break;
+                case bmdUnknownFieldDominance:
+                        LOG(LOG_LEVEL_WARNING) << "[DeckLink cap.] Unknown field dominance!\n";
+                        s->frame->interlacing = PROGRESSIVE;
+                        break;
+        }
+
+        if (s->p_not_i) {
+                s->frame->interlacing = PROGRESSIVE;
+        }
+
+        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
+        LOG(LOG_LEVEL_DEBUG) << displayModeCString << " \t " << tile->width << " x " << tile->height << " \t " <<
+                s->frame->fps << " FPS \t " << s->next_frame_time << " AVAREGE TIME BETWEEN FRAMES\n";
+        cout << "Enable video input: " << displayModeCString << "\n";
+        release_bmd_api_str(displayModeString);
+        free(displayModeCString);
 
         tile->data_len =
                 vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
@@ -1001,7 +1026,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
         s->connection = bmdVideoConnectionUnspecified;
         s->enable_flags = 0;
         s->audio_consumer_levels = -1;
-        s->conversion_mode = (BMDVideoInputConversionMode) 0;
+        s->conversion_mode = bmdNoVideoInputConversion;
 
 	// SET UP device and mode
         char *tmp_fmt = strdup(fmt);
@@ -1021,9 +1046,16 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 		}
 	}
 
-        s->requested_bit_depth = get_bits_per_component(s->codec);
-        assert(s->requested_bit_depth == 8 || s->requested_bit_depth == 10
-                        || s->requested_bit_depth == 12);
+        switch (get_bits_per_component(s->codec)) {
+        case 0: s->requested_bit_depth = 0; break;
+        case 8: s->requested_bit_depth = bmdDetectedVideoInput8BitDepth; break;
+        case 10: s->requested_bit_depth = bmdDetectedVideoInput10BitDepth; break;
+        case 12: s->requested_bit_depth = bmdDetectedVideoInput12BitDepth; break;
+        default: abort();
+        }
+        if (s->codec == VIDEO_CODEC_NONE) {
+                s->codec = UYVY; // default one
+        }
 
         if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
@@ -1144,7 +1176,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 }
 
                 if (s->conversion_mode) {
-                        EXIT_IF_FAILED(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode), "Unable to set conversion mode");
+                        CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode), "Unable to set conversion mode");
                 }
 
                 if (s->passthrough) {
@@ -1156,6 +1188,9 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         s->link = bmdLinkConfigurationSingleLink;
                 }
                 CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
+                if (s->use1080psf != BMD_OPT_KEEP) {
+                        CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf != 0), "Unable to set output as PsF");
+                }
 
                 // set Callback which returns frames
                 s->state[i].delegate = new VideoDelegate(s, i);
@@ -1211,8 +1246,8 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                         goto error;
                                 }
                                 BMDPixelFormat pf = it->second;
-                                BMD_BOOL supported;
-                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->supported_flags, &supported), "DoesSupportVideoMode");
+                                BMD_BOOL supported = 0;
+                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
                                 if (supported) {
                                         break;
                                 }
@@ -1273,8 +1308,8 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         s->enable_flags |=  bmdVideoInputEnableFormatDetection;
                 }
 
-                BMD_BOOL supported;
-                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->supported_flags, &supported), "DoesSupportVideoMode");
+                BMD_BOOL supported = 0;
+                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
 
                 if (!supported) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";
@@ -1588,7 +1623,8 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         }
                         */
 
-                        return NULL;
+                        frame_ready = false;
+                        break;
                 }
 	}
 
@@ -1600,6 +1636,8 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                 s->state[i].delegate->newFrameReady = 0;
 	}
 
+        *audio = process_new_audio_packets(s); // return audio even if there is no video to avoid
+                                               //  hoarding and then dropping of audio packets
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
 	lk.unlock();
 
@@ -1641,10 +1679,6 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
         }
         if (count == s->devices_cnt) {
                 s->frames++;
-
-                lk.lock();
-                *audio = process_new_audio_packets(s);
-                lk.unlock();
 
                 struct timeval t;
                 gettimeofday(&t, NULL);

@@ -347,8 +347,7 @@ struct state_video_decoder
 
         struct display   *display = NULL; ///< assigned display device
         /// @{
-        codec_t           native_codecs[VIDEO_CODEC_COUNT] = {}; ///< list of native codecs, must be NULL-terminated
-        size_t            native_count = 0;  ///< count of @ref native_codecs
+        vector<codec_t>   native_codecs; ///< list of display native codecs
         enum interlacing_t *disp_supported_il = NULL; ///< display supported interlacing mode
         size_t            disp_supported_il_cnt = 0; ///< count of @ref disp_supported_il
         /// @}
@@ -569,17 +568,12 @@ static bool blacklist_current_out_codec(struct state_video_decoder *decoder){
         if(decoder->out_codec == VIDEO_CODEC_NONE)
                 return false;
 
-        for(size_t i = 0; i < decoder->native_count; i++){
-                if(decoder->native_codecs[i] == decoder->out_codec){
-                        log_msg(LOG_LEVEL_DEBUG, "Blacklisting codec %s\n", get_codec_name(decoder->out_codec));
-                        memmove(decoder->native_codecs + i, decoder->native_codecs + i + 1,
-                                        (decoder->native_count - i - 1) * sizeof(codec_t));
-                        decoder->native_count -= 1;
-                        decoder->native_codecs[decoder->native_count] = VIDEO_CODEC_NONE;
-                        decoder->out_codec = VIDEO_CODEC_NONE;
-                        break;
-                }
+        auto to_erase = find(decoder->native_codecs.begin(), decoder->native_codecs.end(), decoder->out_codec);
+        if (to_erase == decoder->native_codecs.end()) {
+                return true; // should it really return true?
         }
+        log_msg(LOG_LEVEL_DEBUG, "Blacklisting codec %s\n", get_codec_name(decoder->out_codec));
+        decoder->native_codecs.erase(to_erase);
 
         return true;
 }
@@ -824,14 +818,15 @@ static void video_decoder_stop_threads(struct state_video_decoder *decoder)
         decoder->decompress_thread_id.join();
 }
 
-static auto codec_list_to_str(const codec_t *codecs) {
-        if (codecs == nullptr || codecs[0] == VIDEO_CODEC_NONE) {
+static auto codec_list_to_str(vector<codec_t> const &codecs) {
+        if (codecs.empty()) {
                 return "(none)"s;
         }
         ostringstream oss;
-        oss << *codecs;
-        while (*++codecs != VIDEO_CODEC_NONE) {
-                oss << (codecs[1] == VIDEO_CODEC_NONE ? " and " : ", ") << get_codec_name(*codecs);
+        auto it = codecs.begin();
+        oss << *it++;
+        for ( ; it != codecs.end(); ++it) {
+                oss << (it + 1 == codecs.end() ? " and " : ", ") << get_codec_name(*it);
         }
         return oss.str();
 }
@@ -839,7 +834,8 @@ static auto codec_list_to_str(const codec_t *codecs) {
 ADD_TO_PARAM("decoder-use-codec",
                 "* decoder-use-codec=<codec>\n"
                 "  Use specified pixel format for decoding (eg. v210). This overrides automatic\n"
-                "  choice. The pixel format must be supported by the video display.\n");
+                "  choice. The pixel format must be supported by the video display. Use 'help' to see\n"
+                "  available options for a display (eg.: 'uv -d gl --param decoder-use-codec=help').\n");
 /**
  * @brief Registers video display to be used for displaying decoded video frames.
  *
@@ -860,32 +856,35 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 
         decoder->display = display;
 
-        size_t len = sizeof decoder->native_codecs;
-        ret = display_ctl_property(decoder->display, DISPLAY_PROPERTY_CODECS, decoder->native_codecs, &len);
-        decoder->native_count = len / sizeof(codec_t);
+        codec_t native_codecs[VIDEO_CODEC_COUNT];
+        size_t len = sizeof native_codecs;
+        ret = display_ctl_property(decoder->display, DISPLAY_PROPERTY_CODECS, native_codecs, &len);
+        decoder->native_codecs.clear();
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "Failed to query codecs from video display.\n");
-                decoder->native_count = 0;
+        } else {
+                for (size_t i = 0; i < len / sizeof(codec_t); ++i) {
+                        decoder->native_codecs.push_back(native_codecs[i]);
+                }
         }
         if (get_commandline_param("decoder-use-codec")) {
                 const char *codec_str = get_commandline_param("decoder-use-codec");
                 codec_t req_codec = get_codec_from_name(codec_str);
-                if (req_codec == VIDEO_CODEC_NONE) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong decoder codec spec: %s.\n", codec_str);
+                if ("help"s == codec_str) {
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(decoder->native_codecs) << "\n";
                         return false;
                 }
-                bool found = false;
-                for (size_t i = 0; i < decoder->native_count; ++i) {
-                        if (decoder->native_codecs[i] == req_codec) {
-                                decoder->native_codecs[0] = req_codec;
-                                decoder->native_count = 1;
-                                found = true;
-                                break;
-                        }
+                if (req_codec == VIDEO_CODEC_NONE) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong decoder codec spec: %s.\n", codec_str);
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(decoder->native_codecs) << "\n";
+                        return false;
                 }
-                if (!found) {
+                if (find(decoder->native_codecs.begin(), decoder->native_codecs.end(), req_codec) != end(decoder->native_codecs)) {
+                        decoder->native_codecs.clear();
+                        decoder->native_codecs.push_back(req_codec);
+                } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Display doesn't support requested codec: %s.\n", codec_str);
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs are: " << codec_list_to_str(decoder->native_codecs) << "\n";
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Supported codecs for current display are: " << codec_list_to_str(decoder->native_codecs) << "\n";
                         return false;
                 }
         }
@@ -1092,10 +1091,14 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                 }
         }
         /* otherwise if we have line decoder (incl. slow codecs) */
-        *decode_line = get_best_decoder_from(desc.color_spec, decoder->native_codecs, &out_codec, true);
-        if (*decode_line) {
-                decoder->decoder_type = LINE_DECODER;
-                goto after_linedecoder_lookup;
+        {
+                vector<codec_t> native_codecs_copy = decoder->native_codecs;
+                native_codecs_copy.push_back(VIDEO_CODEC_NONE); // this needs to be NULL-terminated
+                *decode_line = get_best_decoder_from(desc.color_spec, native_codecs_copy.data(), &out_codec, true);
+                if (*decode_line) {
+                        decoder->decoder_type = LINE_DECODER;
+                        goto after_linedecoder_lookup;
+                }
         }
 
 after_linedecoder_lookup:
@@ -1117,8 +1120,7 @@ after_linedecoder_lookup:
                 }
 
                 vector<pair<codec_t, codec_t>> formats_to_try; // (comp_int_fmt || VIDEO_CODEC_NONE), display_fmt
-                formats_to_try = video_decoder_order_output_codecs(comp_int_fmt, decoder->native_codecs,
-                                decoder->native_count);
+                formats_to_try = video_decoder_order_output_codecs(comp_int_fmt, decoder->native_codecs);
 
                 for (auto it = formats_to_try.begin(); it != formats_to_try.end(); ++it) {
                         out_codec = (*it).second;
@@ -1214,8 +1216,6 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 display_put_frame(decoder->display, decoder->frame, PUTF_DISCARD);
         decoder->frame = NULL;
         video_decoder_start_threads(decoder);
-
-        assert(decoder->native_codecs != NULL);
 
         cleanup(decoder);
 

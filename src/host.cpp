@@ -378,7 +378,7 @@ void print_version()
                 is_release = false;
         }
 #endif
-        cout << rang::fg::red << rang::style::bold << PACKAGE_STRING <<
+        cout << rang::fg::yellow << rang::style::bold << PACKAGE_STRING <<
                 (is_release ? "" : "+") <<
                 rang::fg::reset << rang::style::reset << " (" <<
 #ifdef GIT_BRANCH

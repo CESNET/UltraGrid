@@ -46,7 +46,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "rang.hpp"
-#include "ug_runtime_error.h"
+#include "ug_runtime_error.hpp"
 #include "utils/hresult.h"
 
 #define MOD_NAME "[WASAPI cap.] "
@@ -202,8 +202,6 @@ static void show_help() {
         CoUninitialize();
 }
 
-#undef THROW_IF_FAILED
-#define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { LOG(LOG_LEVEL_ERROR) << MOD_NAME << #cmd << ": " << hresult_to_str(hr) << "\n"; delete s; s = nullptr; break; } } while(0)
 static void * audio_cap_wasapi_init(const char *cfg)
 {
         wchar_t deviceID[1024] = L"";
@@ -329,6 +327,10 @@ static void * audio_cap_wasapi_init(const char *cfg)
 
         } catch (ug_runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
+                if (audio_capture_channels != DEFAULT_AUDIO_CAPTURE_CHANNELS) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Maybe wrong number of channels? Default: "
+                                << DEFAULT_AUDIO_CAPTURE_CHANNELS << ", requested: " << audio_capture_channels << "\n";
+                }
                 CoUninitialize();
                 delete s;
                 s = nullptr;

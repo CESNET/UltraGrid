@@ -1,17 +1,18 @@
+/**
+ * @file   video_capture/testcard.cpp
+ * @author Colin Perkins <csp@csperkins.org
+ * @author Alvaro Saurin <saurin@dcs.gla.ac.uk>
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ */
 /*
- * FILE:   video_capture/testcard.cpp
- * AUTHOR: Colin Perkins <csp@csperkins.org
- *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
- *         Martin Benes     <martinbenesh@gmail.com>
- *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *         Petr Holub       <hopet@ics.muni.cz>
- *         Milos Liska      <xliska@fi.muni.cz>
- *         Jiri Matela      <matela@ics.muni.cz>
- *         Dalibor Matura   <255899@mail.muni.cz>
- *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2018 CESNET z.s.p.o.
+ * Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -47,7 +48,11 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ */
+/**
+ * @file
+ * @todo
+ * Do the rendering in 16 bits
  */
 
 #include "config.h"
@@ -62,11 +67,14 @@
 #include "video_capture.h"
 #include "video_capture/testcard_common.h"
 #include "song1.h"
+#include "utils/color_out.h"
 #include "utils/vf_split.h"
 #include <algorithm>
 #include <stdio.h>
 #include <stdlib.h>
 #include <chrono>
+#include <memory>
+#include <random>
 #ifdef HAVE_LIBSDL_MIXER
 #include <SDL/SDL.h>
 #include <SDL/SDL_mixer.h>
@@ -78,9 +86,12 @@
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
-#define DEFAULT_FORMAT "1920:1080:50i:UYVY"
 #define MOD_NAME "[testcard] "
+constexpr video_desc default_format = { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 };
+constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
 
+using rang::fg;
+using rang::style;
 using namespace std;
 
 struct testcard_rect {
@@ -91,19 +102,161 @@ struct testcard_pixmap {
         void *data;
 };
 
-enum class image_pattern : int {
-        BARS = 0,
-        BLANK,
-        NOISE
+static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color);
+
+class image_pattern {
+public:
+        static unique_ptr<image_pattern> create(const char *pattern) noexcept;
+        auto init(int width, int height) {
+                auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
+                size_t data_len = width * height * 4 + headroom;
+                auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
+                fill(width, height, out.get());
+                return out;
+        }
+        virtual ~image_pattern() = default;
+        image_pattern() = default;
+        image_pattern(const image_pattern &) = delete;
+        image_pattern & operator=(const image_pattern &) = delete;
+        image_pattern(image_pattern &&) = delete;
+        image_pattern && operator=(image_pattern &&) = delete;
+private:
+        virtual void fill(int width, int height, unsigned char *data) = 0;
 };
 
-#define DEFAULT_BLANK_COLOR 0xff000000
+class image_pattern_bars : public image_pattern {
+        void fill(int width, int height, unsigned char *data) override {
+                int col_num = 0;
+                int rect_size = COL_NUM;
+                struct testcard_rect r{};
+                struct testcard_pixmap pixmap{};
+                pixmap.w = width;
+                pixmap.h = height;
+                pixmap.data = data;
+                rect_size = (width + rect_size - 1) / rect_size;
+                for (int j = 0; j < height; j += rect_size) {
+                        uint32_t grey = 0xFF010101U;
+                        if (j == rect_size * 2) {
+                                r.w = width;
+                                r.h = rect_size / 4;
+                                r.x = 0;
+                                r.y = j;
+                                testcard_fillRect(&pixmap, &r, 0xFFFFFFFFU);
+                                r.h = rect_size - (rect_size * 3 / 4);
+                                r.y = j + rect_size * 3 / 4;
+                                testcard_fillRect(&pixmap, &r, 0xFF000000U);
+                        }
+                        for (int i = 0; i < width; i += rect_size) {
+                                r.x = i;
+                                r.y = j;
+                                r.w = rect_size;
+                                r.h = min<int>(rect_size, height - r.y);
+                                printf("Fill rect at %d,%d\n", r.x, r.y);
+                                if (j != rect_size * 2) {
+                                        testcard_fillRect(&pixmap, &r,
+                                                        rect_colors[col_num]);
+                                        col_num = (col_num + 1) % COL_NUM;
+                                } else {
+                                        r.h = rect_size / 2;
+                                        r.y += rect_size / 4;
+                                        testcard_fillRect(&pixmap, &r, grey);
+                                        grey += 0x00010101U * (255 / COL_NUM);
+                                }
+                        }
+                }
+        }
+};
+
+class image_pattern_blank : public image_pattern {
+public:
+        explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
+
+private:
+        void fill(int width, int height, unsigned char *data) override {
+                for (int i = 0; i < width * height; ++i) {
+                        (reinterpret_cast<uint32_t *>(data))[i] = color;
+                }
+        }
+        uint32_t color;
+};
+
+class image_pattern_gradient : public image_pattern {
+public:
+        explicit image_pattern_gradient(uint32_t c) : color(c) {}
+        static constexpr uint32_t red = 0xFFU;
+private:
+        void fill(int width, int height, unsigned char *data) override {
+                auto *ptr = reinterpret_cast<uint32_t *>(data);
+                for (int j = 0; j < height; j += 1) {
+                        uint8_t r = sin(static_cast<double>(j) / height * M_PI) * (color & 0xFFU);
+                        uint8_t g = sin(static_cast<double>(j) / height * M_PI) * ((color >> 8) & 0xFFU);
+                        uint8_t b = sin(static_cast<double>(j) / height * M_PI) * ((color >> 16) & 0xFFU);
+                        uint32_t val = (0xFFU << 24U) | (b << 16) | (g << 8) | r;
+                        for (int i = 0; i < width; i += 1) {
+                                *ptr++ = val;
+                        }
+                }
+        }
+        uint32_t color;
+};
+
+class image_pattern_gradient2 : public image_pattern {
+private:
+        static constexpr unsigned int alpha{0xFFU};
+        static constexpr unsigned int black{0xFFU};
+        static constexpr unsigned int rshift{0U};
+        static constexpr unsigned int gshift{8U};
+        static constexpr unsigned int bshift{16U};
+        static constexpr unsigned int ashift{24U};
+        void fill(int width, int height, unsigned char *data) override {
+                auto *ptr = reinterpret_cast<unsigned int *>(data);
+                for (int j = 0; j < height; j += 1) {
+                        for (int i = 0; i < width; i += 1) {
+                                unsigned int gray = i * black / width;
+                                uint32_t val = (alpha << ashift) | (gray << bshift) | (gray << gshift) | (gray << rshift);
+                                *ptr++ = val;
+                        }
+                }
+        }
+};
+
+class image_pattern_noise : public image_pattern {
+        default_random_engine rand_gen;
+        void fill(int width, int height, unsigned char *data) override {
+                for_each(data, data + 4 * width * height, [&](unsigned char & c) { c = rand_gen() % 0xff; });
+        }
+};
+
+unique_ptr<image_pattern> image_pattern::create(const char *pattern) noexcept {
+        if (strcmp(pattern, "bars") == 0) {
+                return make_unique<image_pattern_bars>();
+        } else if (strcmp(pattern, "blank") == 0) {
+                return make_unique<image_pattern_blank>();
+        } else if (strcmp(pattern, "gradient2") == 0) {
+                return make_unique<image_pattern_gradient2>();
+        } else if (strstr(pattern, "gradient") != nullptr) {
+                uint32_t color = image_pattern_gradient::red;
+                if (strstr(pattern, "gradient=") != nullptr) {
+                        auto val = string(pattern).substr("gradient="s.length());
+                        color = stol(val, nullptr, 0);
+                }
+                return make_unique<image_pattern_gradient>(color);
+        } else if (strcmp(pattern, "noise") == 0) {
+                return make_unique<image_pattern_noise>();
+        } else if (strstr(pattern, "0x") == pattern) {
+                uint32_t blank_color = 0U;
+                if (sscanf(pattern + 2, "%x", &blank_color) == 1) {
+                        return make_unique<image_pattern_blank>(blank_color);
+                } else {
+                        LOG(LOG_LEVEL_ERROR) << "[testcard] Wrong color!\n";
+                }
+        }
+        return {};
+}
 
 struct testcard_state {
         std::chrono::steady_clock::time_point last_frame_time;
-        int size;
         int pan;
-        struct testcard_pixmap pixmap;
         char *data {nullptr};
         std::chrono::steady_clock::time_point t0;
         struct video_frame *frame;
@@ -120,17 +273,15 @@ struct testcard_state {
         unsigned int grab_audio:1;
 
         unsigned int still_image;
-        enum image_pattern pattern {image_pattern::BARS};
-        uint32_t blank_color = DEFAULT_BLANK_COLOR;
+        unique_ptr<image_pattern> pattern {new image_pattern_bars};
 };
 
-static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color)
+static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color)
 {
-        int cur_x, cur_y;
-        int *data = (int *) s->data;
+        auto *data = static_cast<uint32_t *>(s->data);
 
-        for (cur_x = r->x; cur_x < r->x + r->w; ++cur_x)
-                for(cur_y = r->y; cur_y < r->y + r->h; ++cur_y)
+        for (int cur_x = r->x; cur_x < r->x + r->w; ++cur_x)
+                for(int cur_y = r->y; cur_y < r->y + r->h; ++cur_y)
                         if(cur_x < s->w)
                                 *(data + s->w * cur_y + cur_x) = color;
 }
@@ -290,66 +441,36 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 
 static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
-static const codec_t codecs_12b[] = {R12L, VIDEO_CODEC_NONE};
+static const codec_t codecs_12b[] = {RG48, R12L, VIDEO_CODEC_NONE};
 
-static int vidcap_testcard_init(struct vidcap_params *params, void **state)
-{
-        struct testcard_state *s = nullptr;
-        char *filename;
-        const char *strip_fmt = NULL;
-        FILE *in = NULL;
-        unsigned int i, j;
-        unsigned int rect_size = COL_NUM;
-        codec_t codec = RGBA;
-        int aligned_x;
-        char *save_ptr = NULL;
+static auto parse_format(char **fmt, char **save_ptr) {
         struct video_desc desc{};
         desc.tile_count = 1;
         desc.interlacing = PROGRESSIVE;
-
-        if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                printf("testcard options:\n");
-                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=bars|blank|noise|0x<AABBGGRR>]\n");
-                printf("\t<filename> - use file named filename instead of default bars\n");
-                printf("\tp - pan with frame\n");
-                printf("\ts - split the frames into XxY separate tiles\n");
-                printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
-                printf("\tstill - send still image\n");
-                printf("\tpattern - pattern to use\n");
-                show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
-                return VIDCAP_INIT_NOERR;
-        }
-
-        s = new testcard_state();
-        if (!s)
-                return VIDCAP_INIT_FAIL;
-
-        char *fmt = strdup(vidcap_params_get_fmt(params));
         char *tmp;
-        int h_align = 0;
-        double bpp = 0;
 
-        if (strlen(fmt) == 0) {
-                free(fmt);
-                fmt = strdup(DEFAULT_FORMAT);
+        tmp = strtok_r(*fmt, ":", save_ptr);
+        *fmt = nullptr;
+        if (!tmp) {
+                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
+                return video_desc{};
+        }
+        desc.width = max<long long>(strtol(tmp, nullptr, 0), 0);
+        tmp = strtok_r(nullptr, ":", save_ptr);
+        if (!tmp) {
+                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
+                return video_desc{};
+        }
+        desc.height = max<long long>(strtol(tmp, nullptr, 0), 0);
+        tmp = strtok_r(nullptr, ":", save_ptr);
+        if (!tmp) {
+                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
+                return video_desc{};
         }
 
-        tmp = strtok_r(fmt, ":", &save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                goto error;
-        }
-        desc.width = atoi(tmp);
-        tmp = strtok_r(NULL, ":", &save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                goto error;
-        }
-        desc.height = atoi(tmp);
-        tmp = strtok_r(NULL, ":", &save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                goto error;
+        if (desc.width * desc.height == 0) {
+                fprintf(stderr, "Wrong dimensions for testcard.\n");
+                return video_desc{};
         }
 
         char *endptr;
@@ -360,23 +481,23 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                                 desc.interlacing != SEGMENTED_FRAME &&
                                 desc.interlacing != INTERLACED_MERGED) { // tff or bff
                         log_msg(LOG_LEVEL_ERROR, "Unsuppored interlacing format!\n");
-                        goto error;
+                        return video_desc{};
                 }
                 if (desc.interlacing == INTERLACED_MERGED) {
                         desc.fps /= 2;
                 }
         }
 
-        tmp = strtok_r(NULL, ":", &save_ptr);
+        tmp = strtok_r(nullptr, ":", save_ptr);
         if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                goto error;
+                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
+                return video_desc{};
         }
 
-        codec = get_codec_from_name(tmp);
-        if (codec == VIDEO_CODEC_NONE) {
+        desc.color_spec = get_codec_from_name(tmp);
+        if (desc.color_spec == VIDEO_CODEC_NONE) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
-                goto error;
+                return video_desc{};
         }
         {
                 const codec_t *sets[] = {codecs_8b, codecs_10b, codecs_12b};
@@ -384,42 +505,63 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 for (int i = 0; i < (int) (sizeof sets / sizeof sets[0]); ++i) {
                         const codec_t *it = sets[i];
                         while (*it != VIDEO_CODEC_NONE) {
-                                if (codec == *it++) {
+                                if (desc.color_spec == *it++) {
                                         supported = true;
                                 }
                         }
                 }
                 if (!supported) {
                         log_msg(LOG_LEVEL_ERROR, "Unsupported codec '%s'\n", tmp);
-                        goto error;
+                        return video_desc{};
                 }
         }
-        h_align = get_halign(codec);
-        bpp = get_bpp(codec);
 
-        desc.color_spec = codec;
-        s->still_image = FALSE;
+        return desc;
+}
 
-        if(bpp == 0) {
-                fprintf(stderr, "Unsupported codec '%s'\n", tmp);
+static int vidcap_testcard_init(struct vidcap_params *params, void **state)
+{
+        struct testcard_state *s = nullptr;
+        char *filename;
+        const char *strip_fmt = NULL;
+        FILE *in = NULL;
+        char *save_ptr = NULL;
+        char *tmp;
+
+        if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+                printf("testcard options:\n");
+                cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>]\n");
+                cout << "where\n";
+                cout << BOLD("\t<filename>") << " - use file named filename instead of default bars\n";
+                cout << BOLD("\tp") << " - pan with frame\n";
+                cout << BOLD("\ts") << " - split the frames into XxY separate tiles\n";
+                cout << BOLD("\ti|sf") << " - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
+                cout << BOLD("\tstill") << " - send still image\n";
+                cout << BOLD("\tpattern") << " - pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>\n");
+                show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
+                return VIDCAP_INIT_NOERR;
+        }
+
+        s = new testcard_state();
+        if (!s)
+                return VIDCAP_INIT_FAIL;
+
+        char *fmt = strdup(vidcap_params_get_fmt(params));
+        char *ptr = fmt;
+
+        struct video_desc desc = [&]{ return strlen(ptr) == 0 || !isdigit(ptr[0]) ? default_format : parse_format(&ptr, &save_ptr);}();
+        if (!desc) {
                 goto error;
         }
 
+        s->still_image = FALSE;
         s->frame = vf_alloc_desc(desc);
-
-        aligned_x = vf_get_tile(s->frame, 0)->width;
-        if (h_align) {
-                aligned_x = (aligned_x + h_align - 1) / h_align * h_align;
-        }
-
-        rect_size = (vf_get_tile(s->frame, 0)->width + rect_size - 1) / rect_size;
-
-        s->frame_linesize = aligned_x * bpp;
-        s->size = s->frame->tiles[0].data_len;
+        vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->frame->tiles[0].data_len * 2));
+        s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
 
         filename = NULL;
 
-        tmp = strtok_r(NULL, ":", &save_ptr);
+        tmp = strtok_r(ptr, ":", &save_ptr);
         while (tmp) {
                 if (strcmp(tmp, "p") == 0) {
                         s->pan = 48;
@@ -435,25 +577,20 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         assert(filesize >= 0);
                         fseek(in, 0L, SEEK_SET);
 
-                        s->data = (char *) malloc(s->size * bpp * 2);
-
-                        if (s->size != filesize) {
+                        if (s->frame->tiles[0].data_len != filesize) {
                                 fprintf(stderr, "Error wrong file size for selected "
                                                 "resolution and codec. File size %ld, "
-                                                "computed size %d\n", filesize, s->size);
+                                                "computed size %d\n", filesize, s->frame->tiles[0].data_len);
                                 goto error;
                         }
 
-                        if (!in || fread(s->data, filesize, 1, in) != 1) {
+                        if (in == nullptr || fread(vf_get_tile(s->frame, 0)->data, filesize, 1, in) != 1) {
                                 log_msg(LOG_LEVEL_ERROR, "Cannot read file %s\n", filename);
                                 goto error;
                         }
 
                         fclose(in);
                         in = NULL;
-
-                        memcpy(s->data + s->size, s->data, s->size);
-                        vf_get_tile(s->frame, 0)->data = s->data;
                 } else if (strncmp(tmp, "s=", 2) == 0) {
                         strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
@@ -466,19 +603,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         s->still_image = TRUE;
                 } else if (strncmp(tmp, "pattern=", strlen("pattern=")) == 0) {
                         const char *pattern = tmp + strlen("pattern=");
-                        if (strcmp(pattern, "bars") == 0) {
-                                s->pattern = image_pattern::BARS;
-                        } else if (strcmp(pattern, "blank") == 0) {
-                                s->pattern = image_pattern::BLANK;
-                        } else if (strcmp(pattern, "noise") == 0) {
-                                s->pattern = image_pattern::NOISE;
-                        } else if (strstr(pattern, "0x") == pattern) {
-                                s->pattern = image_pattern::BLANK;
-                                if (sscanf(pattern + 2, "%x", &s->blank_color) != 1) {
-                                        LOG(LOG_LEVEL_ERROR) << "[testcard] Wrong color!\n";
-                                        goto error;
-                                }
-                        } else {
+                        s->pattern = image_pattern::create(pattern);
+                        if (!s->pattern) {
                                 fprintf(stderr, "[testcard] Unknown pattern!\n");;
                                 goto error;
                         }
@@ -490,129 +616,80 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if (!filename) {
-                struct testcard_rect r;
-                int col_num = 0;
-                s->pixmap.w = aligned_x;
-                s->pixmap.h = vf_get_tile(s->frame, 0)->height * 2;
-                int pixmap_len = s->pixmap.w * s->pixmap.h * 4; // maximal size (RGBA/r10k - has 4 bpp)
-                s->pixmap.data = malloc(pixmap_len);
+                auto data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height);
+                auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
+                auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
 
-                if (s->pattern == image_pattern::BLANK) {
-                        for (int i = 0; i < pixmap_len / 4; ++i) {
-                                ((uint32_t *) s->pixmap.data)[i] = s->blank_color;
-
+                if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == UYVY || s->frame->color_spec == YUYV || s->frame->color_spec == RG48
+                                || s->frame->color_spec == RGB) {
+                        codec_t codec_to = s->frame->color_spec;
+                        if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == YUYV) {
+                                codec_to = UYVY;
                         }
-                } else if (s->pattern == image_pattern::NOISE) {
-                        uint8_t *sample = (uint8_t *) s->pixmap.data;
-                        for (int i = 0; i < pixmap_len; ++i) {
-                                *sample++ = rand() % 0xff;
-                        }
-                } else {
-                        assert (s->pattern == image_pattern::BARS);
-                        for (j = 0; j < vf_get_tile(s->frame, 0)->height; j += rect_size) {
-                                int grey = 0xff010101;
-                                if (j == rect_size * 2) {
-                                        r.w = vf_get_tile(s->frame, 0)->width;
-                                        r.h = rect_size / 4;
-                                        r.x = 0;
-                                        r.y = j;
-                                        testcard_fillRect(&s->pixmap, &r, 0xffffffff);
-                                        r.h = rect_size - (rect_size * 3 / 4);
-                                        r.y = j + rect_size * 3 / 4;
-                                        testcard_fillRect(&s->pixmap, &r, 0xff000000);
-                                }
-                                for (i = 0; i < vf_get_tile(s->frame, 0)->width; i += rect_size) {
-                                        r.x = i;
-                                        r.y = j;
-                                        r.w = rect_size;
-                                        r.h = min(rect_size, s->frame->tiles[0].height - r.y);
-                                        printf("Fill rect at %d,%d\n", r.x, r.y);
-                                        if (j != rect_size * 2) {
-                                                testcard_fillRect(&s->pixmap, &r,
-                                                                rect_colors[col_num]);
-                                                col_num = (col_num + 1) % COL_NUM;
-                                        } else {
-                                                r.h = rect_size / 2;
-                                                r.y += rect_size / 4;
-                                                testcard_fillRect(&s->pixmap, &r, grey);
-                                                grey += 0x00010101 * (255 / COL_NUM);
-                                        }
-                                }
+                        auto decoder = get_decoder_from_to(RGBA, codec_to, true);
+                        auto src = move(data);
+                        data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, codec_to) + headroom], delarr_deleter);
+                        size_t src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGBA);
+                        size_t dst_linesize = vc_get_linesize(s->frame->tiles[0].width, codec_to);
+                        auto *in = src.get();
+                        auto *out = data.get();
+                        for (unsigned int i = 0; i < s->frame->tiles[0].height; ++i) {
+                                decoder(out, in, dst_linesize, 0, 0, 0);
+                                in += src_linesize;
+                                out += dst_linesize;
                         }
                 }
-                s->data = (char *) s->pixmap.data;
-                if (codec == I420 || codec == v210 || codec == UYVY || codec == YUYV) {
-                        char *tmp = (char *) malloc(s->size * bpp * 2);
-                        vc_copylineRGBAtoUYVY((unsigned char *) tmp, (unsigned char *) s->data,
-                                        s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
-                        free (s->data);
-                        s->data = tmp;
-                }
 
-                if (codec == I420 || codec == v210) {
-                        char *tmp;
-                        if (codec == v210) {
-                                tmp = (char *)tov210((unsigned char *) s->data, aligned_x,
-                                                aligned_x, vf_get_tile(s->frame, 0)->height, bpp);
+                if (s->frame->color_spec == I420 || s->frame->color_spec == v210) {
+                        auto src = move(data);
+                        if (s->frame->color_spec == v210) {
+                                data = decltype(data)(tov210(src.get(), s->frame->tiles[0].width,
+                                                vf_get_tile(s->frame, 0)->height), free_deleter);
                         } else {
-                                tmp = toI420(s->data, s->frame->tiles[0].width, s->frame->tiles[0].height);
+                                data = decltype(data)(reinterpret_cast<unsigned char *>((toI420(reinterpret_cast<char *>(src.get()), s->frame->tiles[0].width, s->frame->tiles[0].height))), free_deleter);
                         }
-                        free(s->data); // free old data
-                        s->data = tmp;
                 }
 
-                if (codec == R12L) {
-                        s->data =
-                            (char *)toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
-                                           vf_get_tile(s->frame, 0)->height);
-                        free(s->pixmap.data);
-                        auto tmp = (unsigned char *) malloc(s->size);
+                if (s->frame->color_spec == R12L) {
+                        auto src = move(data);
+                        data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
+                                           vf_get_tile(s->frame, 0)->height)), free_deleter);
+                        src = move(data);
+                        data = decltype(data)(new unsigned char[s->frame->tiles[0].data_len], delarr_deleter);
                         int dst_linesize = vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
                         int src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGB);
                         for (int i = 0; i < (int) vf_get_tile(s->frame, 0)->height; ++i) {
-                                vc_copylineRGBtoR12L(tmp + i * dst_linesize,
-                                                (unsigned char *) s->data + i * src_linesize, dst_linesize, 0, 0, 0);
+                                vc_copylineRGBtoR12L(data.get() + i * dst_linesize,
+                                                src.get() + i * src_linesize, dst_linesize, 0, 0, 0);
                         }
-                        free(s->data);
-                        s->data = (char *) tmp;
                 }
 
-                if (codec == R10k) {
-                        toR10k((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
+                if (s->frame->color_spec == R10k) {
+                        toR10k(data.get(), vf_get_tile(s->frame, 0)->width,
                                         vf_get_tile(s->frame, 0)->height);
                 }
 
-                if(codec == RGB) {
-                        s->data =
-                            (char *)toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
-                                           vf_get_tile(s->frame, 0)->height);
-                        free(s->pixmap.data);
-                }
-
-                if(codec == YUYV) {
-                        for (int i = 0; i < s->size; i += 2) {
-                                swap(s->data[i], s->data[i + 1]);
+                if(s->frame->color_spec == YUYV) {
+                        for (unsigned int i = 0; i < s->frame->tiles[0].data_len; i += 2) {
+                                swap(data[i], data[i + 1]);
                         }
                 }
 
-                vf_get_tile(s->frame, 0)->data = (char *) malloc(2 * s->size);
-
-                memcpy(vf_get_tile(s->frame, 0)->data, s->data, s->size);
-                memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
-
-                free(s->data);
-                s->data = vf_get_tile(s->frame, 0)->data;
+                memcpy(vf_get_tile(s->frame, 0)->data, data.get(), s->frame->tiles[0].data_len);
         }
 
-        if (!s->still_image && codec_is_planar(codec)) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(codec));
+        // duplicate the image to allow scrolling
+        memcpy(vf_get_tile(s->frame, 0)->data + vf_get_tile(s->frame, 0)->data_len, vf_get_tile(s->frame, 0)->data, vf_get_tile(s->frame, 0)->data_len);
+
+        if (!s->still_image && codec_is_planar(s->frame->color_spec)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(s->frame->color_spec));
                 s->still_image = true;
         }
 
         s->last_frame_time = std::chrono::steady_clock::now();
 
         printf("Testcard capture set to %dx%d, bpp %f\n", vf_get_tile(s->frame, 0)->width,
-                        vf_get_tile(s->frame, 0)->height, bpp);
+                        vf_get_tile(s->frame, 0)->height, get_bpp(s->frame->color_spec));
 
         if(strip_fmt != NULL) {
                 if(configure_tiling(s, strip_fmt) != 0) {
@@ -632,6 +709,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         free(fmt);
+
+        s->data = s->frame->tiles[0].data;
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -702,36 +781,12 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         }
 
         if(!state->still_image) {
-                vf_get_tile(state->frame, 0)->data += state->frame_linesize;
+                vf_get_tile(state->frame, 0)->data += state->frame_linesize + state->pan;
         }
-        if(vf_get_tile(state->frame, 0)->data > state->data + state->size)
+        if (vf_get_tile(state->frame, 0)->data > state->data + state->frame->tiles[0].data_len) {
                 vf_get_tile(state->frame, 0)->data = state->data;
+        }
 
-        /*char line[state->frame.src_linesize * 2 + state->pan];
-          unsigned int i;
-          memcpy(line, state->frame.data,
-          state->frame.src_linesize * 2 + state->pan);
-          for (i = 0; i < state->frame.height - 3; i++) {
-          memcpy(state->frame.data + i * state->frame.src_linesize,
-          state->frame.data + (i + 2) * state->frame.src_linesize +
-          state->pan, state->frame.src_linesize);
-          }
-          memcpy(state->frame.data + i * state->frame.src_linesize,
-          state->frame.data + (i + 2) * state->frame.src_linesize +
-          state->pan, state->frame.src_linesize - state->pan);
-          memcpy(state->frame.data +
-          (state->frame.height - 2) * state->frame.src_linesize - state->pan,
-          line, state->frame.src_linesize * 2 + state->pan);
-#ifdef USE_EPILEPSY
-if(!(state->count % 2)) {
-unsigned int *p = state->frame.data;
-for(i=0; i < state->frame.src_linesize*state->frame.height/4; i++) {
-         *p = *p ^ 0x00ffffffL;
-         p++;
-         }
-         }
-#endif
-*/
         if (state->tiled) {
                 /* update tile data instead */
                 int i;

@@ -1,0 +1,93 @@
+#!/usr/bin/make -f
+
+SHELL=/bin/bash
+DEB_BUILD_ROOT=$(shell realpath . )/debian/tmp
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	echo "no configure here"
+
+
+override_dh_shlibdeps:
+	env LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:/usr/lib/x86_64-linux-gnu:/usr/lib dh_shlibdeps -Xusr/src/ultragrid-externals
+	# -- --ignore-missing-info
+
+override_dh_auto_build:
+	find . -type f -iname "*.pri" -exec chmod -x {} \;
+	find . -type f -iname "Makefile" -exec chmod -x {} \;
+	find . -type f -name "*~" -exec rm {} \;
+#####################################################
+# > aja
+#####################################################
+	cd ntv2sdk* ; make QTDIR=/usr/lib/qt5 AJA_NO_FLTK=1
+#####################################################
+# < aja
+#####################################################
+#####################################################
+# > bluefish
+#####################################################
+	cd EpochLinuxDriver_V5*/drivers/orac ; env libdir=/usr/lib make
+	cd EpochLinuxDriver_V5*/apis/BlueVelvet ; env libdir=/usr/lib make
+	rm -rf EpochLinuxDriver_V5*/firmware/x86
+#####################################################
+# < bluefish
+#####################################################
+	# relativize all symlinks (build phase), variant for old realpath (without --relative-to)
+	#find ./ -type l -print0 | xargs -0 -I '{}' sh -c 'mv "{}" "{}.pkgbkp" ; ln -s "$$(realpath "{}.pkgbkp" | sed -r -e "s#^$(shell realpath . )/##g" -e "s#(([^/]{2,})|([^./]))#..#g")/$$(realpath "$$(readlink "{}.pkgbkp")" | sed -r "s#^$(shell realpath . )/##g")" "{}" ; rm "{}.pkgbkp"'
+	find ./ -type l -print0 | xargs -0 -I '{}' bash -c 'mv "{}" "{}.pkgbkp" ; pushd "$$(dirname "{}")" > /dev/null ; realpath . | sed -r "s#^/##g" | tr / "\n" > "$(shell realpath .)/linkerdir" ;  realpath "$$(readlink "$$(basename "{}").pkgbkp")" | sed -r "s#^/##g" | tr / "\n" > "$(shell realpath .)/linkerfile" ; ln -s "$$((comm --nocheck-order -3 -2 "$(shell realpath .)/"{linkerdir,linkerfile} | sed -r -e "s#^.+\$$#..#g" ; comm --nocheck-order -3 -1 "$(shell realpath .)/"{linkerdir,linkerfile} ; echo .) | tr "\n" / | sed -r -e "s#/./\$#/#g" -e "s#/\$$##g")" "$$(basename "{}")" ; popd > /dev/null ; rm "{}.pkgbkp"'
+
+override_dh_auto_install:
+	# zbytek
+	mkdir -p $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/
+#####################################################
+# > bluefish
+#####################################################
+	ln -s EpochLinuxDriver_V5* bluefish_sdk
+	tar -c bluefish_sdk EpochLinuxDriver_V5* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
+
+	cd EpochLinuxDriver_V5*/drivers/orac ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
+	cd EpochLinuxDriver_V5*/apis/BlueVelvet ; env libdir=/usr/lib make install DESTDIR=$(DEB_BUILD_ROOT)
+#####################################################
+# < bluefish
+#####################################################
+#####################################################
+# > dvs
+#####################################################
+	ln -s sdk4.3* dvs_sdk
+	tar -c dvs_sdk sdk4.3* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
+
+	rm -r $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/dvs_sdk/linux-x86
+#####################################################
+# < dvs
+#####################################################
+#####################################################
+# > aja
+#####################################################
+	ln -s ntv2sdklinux* aja_sdk
+	tar -c aja_sdk ntv2sdklinux* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
+#####################################################
+# < aja
+#####################################################
+#####################################################
+# > deltacast
+#####################################################
+	ln -s VideoMasterHD_* deltacast_sdk
+	tar -c deltacast_sdk VideoMasterHD_* -f - | tar -C $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/ -xf -
+
+	#deltacast
+	mkdir -p $(DEB_BUILD_ROOT)/usr/lib
+	cd VideoMasterHD_*/Library/ ; for i in $$(ls -d */x64/); do pushd $$i ; echo $$i ; make install libdir=$(DEB_BUILD_ROOT)/usr/lib ; popd ; done
+
+	find $(DEB_BUILD_ROOT)/usr/src/ultragrid-externals/deltacast_sdk/Library/ -maxdepth 2 -name x86 -exec rm -r '{}' \;
+#####################################################
+# < deltacast
+#####################################################
+
+	for pattern in "*.so" "*.so.*" "*.sh" ; do find $(DEB_BUILD_ROOT)/ -name "$$pattern" -exec chmod +x "{}" \; ; done
+	for pattern in "*.cpp" "*.h" Makefile "*.bin" "*.pdf" ; do find $(DEB_BUILD_ROOT)/ -name "$$pattern" -exec chmod -x "{}" \; ; done
+	# remove all 32 bit binaries
+	find $(DEB_BUILD_ROOT)/ -executable -type f -exec file {} \; | grep -i 'elf 32' | cut -d':' -f1 | while read -r -d $$'\n' filename ; do rm "$$filename" ; done
+	find $(DEB_BUILD_ROOT)/ -iregex '.*\.so\(\.[0-9]+\)*$$' -type f -exec file {} \; | grep -i 'elf 32' | cut -d':' -f1 | while read -r -d $$'\n' filename ; do rm "$filename" ; done
+

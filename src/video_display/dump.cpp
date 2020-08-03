@@ -45,23 +45,24 @@
 #include "debug.h"
 #include "export.h"
 #include "lib_common.h"
+#include "rang.hpp"
 #include "video.h"
 #include "video_display.h"
 
 #include <chrono>
 
+using rang::fg;
+using rang::style;
 using namespace std;
 using namespace std::chrono;
 
 struct dump_display_state {
-        dump_display_state()
+        explicit dump_display_state(char const *cfg)
         {
-                string dirname;
-                time_t now = time(NULL);
-                dirname = "dump." + to_string(now);
-                if (platform_mkdir(dirname.c_str()) == -1) {
-                        perror("mkdir");
-                        throw string("Unable to create directory!");
+                string dirname = cfg;
+                if (dirname.empty()) {
+                        time_t now = time(nullptr);
+                        dirname = "dump." + to_string(now);
                 }
                 e = export_init(NULL, dirname.c_str(), true);
         }
@@ -76,9 +77,22 @@ struct dump_display_state {
         size_t max_tile_data_len = 0;
 };
 
-static void *display_dump_init(struct module *, const char *, unsigned int)
+static void usage()
 {
-        return new dump_display_state();
+        cout << "Usage:\n";
+        cout << style::bold << fg::red << "\t-d dump" << fg::reset << "[:<directory>] [--param decoder-use-codec=<c>]\n" << style::reset;
+        cout << "where\n";
+        cout << style::bold << "\t<directory>" << style::reset << " - directory to save the dumped stream\n";
+        cout << style::bold << "\t<c>" << style::reset << " - codec to use instead of the received (default), must be a way to convert\n";
+}
+
+static void *display_dump_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */)
+{
+        if ("help"s == cfg) {
+                usage();
+                return &display_init_noerr;
+        }
+        return new dump_display_state(cfg);
 }
 
 static void display_dump_run(void *)
@@ -96,7 +110,9 @@ static struct video_frame *display_dump_getf(void *state)
 {
         auto s = (dump_display_state *) state;
         for (unsigned int i = 0; i < s->f->tile_count; ++i) {
-                s->f->tiles[i].data_len = s->max_tile_data_len;
+                if (is_codec_opaque(s->f->color_spec)) {
+                        s->f->tiles[i].data_len = s->max_tile_data_len;
+                }
         }
         return s->f;
 }
@@ -154,10 +170,13 @@ static int display_dump_reconfigure(void *state, struct video_desc desc)
         dump_display_state *s = (dump_display_state *) state;
         vf_free(s->f);
         s->f = vf_alloc_desc(desc);
-        s->max_tile_data_len = 4 * desc.width * desc.height;
+        s->f->decoder_overrides_data_len = is_codec_opaque(desc.color_spec) != 0 ? TRUE : FALSE;
+        s->max_tile_data_len = MIN(8 * desc.width * desc.height, 1000000UL);
         for (unsigned int i = 0; i < s->f->tile_count; ++i) {
-                s->f->tiles[i].data_len = s->max_tile_data_len;
                 s->f->tiles[i].data = (char *) malloc(s->f->tiles[i].data_len);
+                if (is_codec_opaque(desc.color_spec)) {
+                        s->f->tiles[i].data_len = s->max_tile_data_len;
+                }
         }
         s->f->callbacks.data_deleter = vf_data_deleter;
 
@@ -188,7 +207,7 @@ static const struct video_display_info display_dump_info = {
         display_dump_get_property,
         display_dump_put_audio_frame,
         display_dump_reconfigure_audio,
-        false,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(dump, &display_dump_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

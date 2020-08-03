@@ -86,7 +86,7 @@
 #include "playback.h"
 #include "rtp/rtp.h"
 #include "rtsp/rtsp_utils.h"
-#include "ug_runtime_error.h"
+#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/net.h"
@@ -898,22 +898,30 @@ int main(int argc, char *argv[])
                         usage(uv_argv[0], false);
                         EXIT(0);
                 case 'P':
-                        if(strchr(optarg, ':')) {
-                                char *save_ptr = NULL;
-                                char *tok;
-                                video_rx_port = atoi(strtok_r(optarg, ":", &save_ptr));
-                                video_tx_port = atoi(strtok_r(NULL, ":", &save_ptr));
-                                if((tok = strtok_r(NULL, ":", &save_ptr))) {
-                                        audio_rx_port = atoi(tok);
-                                        if((tok = strtok_r(NULL, ":", &save_ptr))) {
-                                                audio_tx_port = atoi(tok);
-                                        } else {
-                                                usage(uv_argv[0]);
-                                                EXIT(EXIT_FAIL_USAGE);
+                        try {
+                                if (strchr(optarg, ':') != nullptr) {
+                                        char *save_ptr = nullptr;
+                                        video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
+                                        video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
+                                        if (char *tok = nullptr; (tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                                                audio_rx_port = stoi(tok, nullptr, 0);
+                                                if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                                                        audio_tx_port = stoi(tok, nullptr, 0);
+                                                } else {
+                                                        usage(uv_argv[0]);
+                                                        EXIT(EXIT_FAIL_USAGE);
+                                                }
                                         }
+                                } else {
+                                        port_base = stoi(optarg, nullptr, 0);
                                 }
-                        } else {
-                                port_base = atoi(optarg);
+                                if (audio_rx_port < -1 || audio_tx_port < -1 || video_rx_port < -1 || video_tx_port < -1 || port_base < -1 ||
+                                                audio_rx_port > UINT16_MAX || audio_tx_port > UINT16_MAX || video_rx_port > UINT16_MAX || video_tx_port > UINT16_MAX || port_base > UINT16_MAX) {
+                                        throw ug_runtime_error("Invalid port value, allowed range 1-65535", EXIT_FAIL_USAGE);
+                                }
+                        } catch (exception const &e) {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong port specification: " << e.what() << "\n";
+                                EXIT(EXIT_FAIL_USAGE);
                         }
                         break;
                 case 'l':
@@ -1440,6 +1448,8 @@ int main(int argc, char *argv[])
                         mainloop(mainloop_udata);
                 }
                 display_join(uv.display_device);
+        } catch (ug_no_error const &e) {
+                exit_uv(0);
         } catch (ug_runtime_error const &e) {
                 cerr << e.what() << endl;
                 exit_uv(e.get_code());

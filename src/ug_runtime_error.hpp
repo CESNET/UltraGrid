@@ -1,5 +1,5 @@
 /**
- * @file   ug_runtime_error.h
+ * @file   ug_runtime_error.hpp
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
@@ -36,7 +36,11 @@
  */
 
 #include <cstdlib>
+#include <exception>
 #include <stdexcept>
+
+class ug_no_error : public std::exception {
+};
 
 class ug_runtime_error : public std::runtime_error {
 public:

@@ -451,13 +451,11 @@ static int vidcap_dvs_init(struct vidcap_params *params, void **state)
         s->frame->fps = s->mode->fps;
         switch(s->mode->aux) {
                 case AUX_PROGRESSIVE:
+                case AUX_SF:
                         s->frame->interlacing = PROGRESSIVE;
                         break;
                 case AUX_INTERLACED:
                         s->frame->interlacing = INTERLACED_MERGED;
-                        break;
-                case AUX_SF:
-                        s->frame->interlacing = SEGMENTED_FRAME;
                         break;
         }
 

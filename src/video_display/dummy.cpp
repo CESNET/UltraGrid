@@ -88,6 +88,7 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                                 return nullptr;
                         }
                 } else if (strstr(item, "rgb_shift=") != nullptr) {
+                        item += strlen("rgb_shift=");
                         size_t len;
                         s->rgb_shift[0] = stoi(item, &len);
                         item += len + 1;
@@ -195,7 +196,7 @@ static const struct video_display_info display_dummy_info = {
         display_dummy_get_property,
         display_dummy_put_audio_frame,
         display_dummy_reconfigure_audio,
-        false,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(dummy, &display_dummy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

@@ -1,19 +1,19 @@
-diff -rupN a/ntv2sdklinux_14.2.0.6/Makefile b/ntv2sdklinux_14.2.0.6/Makefile
---- a/ntv2sdklinux_14.2.0.6/Makefile
-+++ b/ntv2sdklinux_14.2.0.6/Makefile
-@@ -26,7 +26,7 @@ ifndef AJA_NO_FLTK
- 	$(call make_if_dir_exists, "$(A_APPS_XPLAT_PATH)/watcher")
+--- a/ntv2sdklinux_15.5.1.1/Makefile	2020-01-16 13:47:04.724123479 +0100
++++ b/ntv2sdklinux_15.5.1.1/Makefile	2020-01-23 13:11:57.790164829 +0100
+@@ -31,7 +31,7 @@ ifndef AJA_NO_FLTK
  	$(call make_if_dir_exists, "$(A_APPS_XPLAT_PATH)/xenacablesfltk")
  endif
+ ifndef AJA_NO_DEMOS
 -	$(call make_if_dir_exists, $(A_DEMOAPPS_PATH))
 +	#$(call make_if_dir_exists, $(A_DEMOAPPS_PATH))
+ endif
  
  .PHONY:	clean
- 
-@@ -40,5 +40,5 @@ ifndef AJA_NO_FLTK
- 	$(call clean_if_dir_exists, "$(A_APPS_XPLAT_PATH)/watcher")
+@@ -45,6 +45,6 @@ ifndef AJA_NO_FLTK
  	$(call clean_if_dir_exists, "$(A_APPS_XPLAT_PATH)/xenacablesfltk")
  endif
+ ifndef AJA_NO_DEMOS
 -	$(call clean_if_dir_exists, $(A_DEMOAPPS_PATH))
 +	#$(call clean_if_dir_exists, $(A_DEMOAPPS_PATH))
+ endif
  

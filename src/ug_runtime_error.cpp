@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "ug_runtime_error.h"
+#include "ug_runtime_error.hpp"
 
 ug_runtime_error::ug_runtime_error(const std::string& what_arg, int code) : 
         std::runtime_error(what_arg), m_code(code)

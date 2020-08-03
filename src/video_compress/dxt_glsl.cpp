@@ -100,6 +100,11 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                 }
         }
 
+        if (get_bits_per_component(frame->color_spec) > 8) {
+                LOG(LOG_LEVEL_NOTICE) << "[RTDXT] Converting from " << get_bits_per_component(frame->color_spec) <<
+                        " to 8 bits. You may directly capture 8-bit signal to improve performance.\n";
+        }
+
         switch (frame->color_spec) {
                 case RGB:
                         s->decoder = vc_memcpy;

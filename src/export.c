@@ -205,7 +205,7 @@ static bool create_dir(struct exporter *s)
                                 return false;
                         }
                         if (dir_is_empty(s->dir)) {
-                                log_msg(LOG_LEVEL_NOTICE, "[Export] Warning: directory %s exists but is an emtpy directory - using for export.\n", s->dir);
+                                log_msg(LOG_LEVEL_NOTICE, "[Export] Warning: directory %s exists but is an empty directory - using for export.\n", s->dir);
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[Export] Warning: directory %s exists and is not an empty directory! Trying to create subdir.\n", s->dir);
                                 char *prefix = s->dir;

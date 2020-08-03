@@ -139,6 +139,11 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
 {
         cleanup(s);
 
+        if (get_bits_per_component(desc.color_spec) > 8) {
+                LOG(LOG_LEVEL_NOTICE) << "[CUDA DXT] Converting from " << get_bits_per_component(desc.color_spec) <<
+                        " to 8 bits. You may directly capture 8-bit signal to improve performance.\n";
+        }
+
         if (desc.color_spec == RGB || desc.color_spec == UYVY) {
                 s->in_codec = desc.color_spec;
         } else if ((s->decoder = get_decoder_from_to(desc.color_spec, RGB, false))) {

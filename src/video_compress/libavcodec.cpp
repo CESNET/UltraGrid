@@ -127,6 +127,7 @@ static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *pa
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
 static void show_encoder_help(string const &name);
+static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
 static void usage(void);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
@@ -434,6 +435,16 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 return 1;
         }
 
+        if (get_commandline_param("lavc-use-codec") != nullptr && "help"s == get_commandline_param("lavc-use-codec")) {
+                auto *codec = avcodec_find_encoder_by_name(s->backend.c_str());
+                if (codec != nullptr) {
+                        print_codec_supp_pix_fmts(codec->pix_fmts);
+                } else {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot open encoder: " << s->backend << "\n";
+                }
+                return 1;
+        }
+
         return 0;
 }
 
@@ -587,25 +598,26 @@ fail:
 }
 #endif
 
-static void print_codec_supp_pix_fmts(const list<enum AVPixelFormat>
-                &req_pix_fmts, const enum AVPixelFormat *first) {
-        char out[1024] = MOD_NAME "Codec supported pixel formats:";
+void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
+        string out = MOD_NAME "Codec supported pixel formats:";
         if (first == nullptr) {
-                strncat(out, " (none)", sizeof out - strlen(out) - 1);
+                out += " (none)";
         }
         const enum AVPixelFormat *it = first;
         while (it != nullptr && *it != AV_PIX_FMT_NONE) {
-                strncat(out, " ", sizeof out - strlen(out) - 1);
-                strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
+                out += " "s + av_get_pix_fmt_name(*it++);
         }
-        fprintf(stderr, "%s\n", out);
-        out[0] = '\0';
-        strncat(out, MOD_NAME "Usable pixel formats:", sizeof out - strlen(out) - 1);
+        cerr << out << "\n";
+}
+
+void print_pix_fmts(const list<enum AVPixelFormat>
+                &req_pix_fmts, const enum AVPixelFormat *first) {
+        print_codec_supp_pix_fmts(first);
+        string out = MOD_NAME "Usable pixel formats:";
         for (auto &c : req_pix_fmts) {
-                strncat(out, " ", sizeof out - strlen(out) - 1);
-                strncat(out, av_get_pix_fmt_name(c), sizeof out - strlen(out) - 1);
+                out += " "s + av_get_pix_fmt_name(c);
         }
-        fprintf(stderr, "%s\n", out);
+        cerr << out << "\n";
 }
 
 /**
@@ -859,19 +871,12 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                         return false;
                 }
                 if (deptha != depthb) {
-                        if (deptha == bits_per_comp) {
-                                return true;
+                        // either a or b is lower than bits_per_comp - sort higher bit depth first
+                        if (deptha < bits_per_comp || depthb < bits_per_comp) {
+                                return deptha > depthb;
                         }
-                        if (depthb == bits_per_comp) {
-                                return false;
-                        }
-                        if (deptha == 8) { // still default to 8-bit if not found exact bit depth
-                                return true;
-                        }
-                        if (depthb == 8) {
-                                return false;
-                        }
-                        return deptha > depthb;
+                        // both are equal or higher - sort lower bit depth first
+                        return deptha < depthb;
                 }
                 if (subsa != subsb) {
                         if (subsa == preferred_subsampling) {
@@ -1033,7 +1038,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         return false;
                 }
                 if (s->requested_codec_id != VIDEO_CODEC_NONE && s->requested_codec_id != get_av_to_ug_codec(codec->id)) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Codec and encoder don't match!\n");
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Encoder \"" << s->backend << "\" doesn't encode requested codec!\n";
                         return false;
 
                 }
@@ -1093,7 +1098,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 	}
 
         if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_DEBUG) {
-                print_codec_supp_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
+                print_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
         }
 
 #ifdef HAVE_SWSCALE
@@ -1102,8 +1107,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE; ++pix) {
                         const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
                         if (fmt_desc != nullptr && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
-                                if (try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
-                                        pix_fmt = *pix;
+                                AVPixelFormat curr_pix_fmt = *pix;
+                                if (try_open_codec(s, curr_pix_fmt, desc, ug_codec, codec)) {
+                                        pix_fmt = curr_pix_fmt;
                                         break;
                                 }
                         }
@@ -1142,16 +1148,13 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         return false;
                 }
 
-                s->sws_ctx = sws_getContext(desc.width,
+                s->sws_ctx = getSwsContext(desc.width,
                                             desc.height,
                                             s->selected_pixfmt,
                                             desc.width,
                                             desc.height,
                                             s->out_pixfmt,
-                                            SWS_POINT,
-                                            NULL,
-                                            NULL,
-                                            NULL);
+                                            SWS_POINT);
                 if(!s->sws_ctx){
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init sws context.\n");
                         return false;
