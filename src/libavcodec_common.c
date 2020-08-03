@@ -486,6 +486,44 @@ static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * 
         }
 }
 
+static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        for(int y = 0; y < height; y += 1) {
+                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0 = *src++;
+                        uint32_t w0_1 = *src++;
+                        uint32_t w0_2 = *src++;
+                        uint32_t w0_3 = *src++;
+
+                        *dst_y++ = ((w0_0 >> 10U) & 0x3FFU) << 6U;
+                        *dst_y++ = (w0_1 & 0x3FFU) << 6U;
+                        *dst_y++ = ((w0_1 >> 20U) & 0x3FFU) << 6U;
+                        *dst_y++ = ((w0_2 >> 10U) & 0x3FFU) << 6U;
+                        *dst_y++ = (w0_3 & 0x3FFU) << 6U;
+                        *dst_y++ = ((w0_3 >> 20U) & 0x3FFU) << 6U;
+
+                        *dst_cb++ = (w0_0 & 0x3FFU) << 6U;
+                        *dst_cb++ = (w0_0 & 0x3FFU) << 6U;
+                        *dst_cb++ = ((w0_1 >> 10U) & 0x3FFU) << 6U;
+                        *dst_cb++ = ((w0_1 >> 10U) & 0x3FFU) << 6U;
+                        *dst_cb++ = ((w0_2 >> 20U) & 0x3FFU) << 6U;
+                        *dst_cb++ = ((w0_2 >> 20U) & 0x3FFU) << 6U;
+
+                        *dst_cr++ = ((w0_0 >> 20U) & 0x3FFU) << 6U;
+                        *dst_cr++ = ((w0_0 >> 20U) & 0x3FFU) << 6U;
+                        *dst_cr++ = (w0_2 & 0x3FFU) << 6U;
+                        *dst_cr++ = (w0_2 & 0x3FFU) << 6U;
+                        *dst_cr++ = ((w0_3 >> 10U) & 0x3FFU) << 6U;
+                        *dst_cr++ = ((w0_3 >> 10U) & 0x3FFU) << 6U;
+                }
+        }
+}
+
 static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
@@ -1953,6 +1991,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
                 { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
                 { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
+                { v210, AV_PIX_FMT_YUV444P16LE, v210_to_yuv444p16le },
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
 #endif
