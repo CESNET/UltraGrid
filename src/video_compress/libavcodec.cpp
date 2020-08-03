@@ -871,19 +871,12 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                         return false;
                 }
                 if (deptha != depthb) {
-                        if (deptha == bits_per_comp) {
-                                return true;
+                        // either a or b is lower than bits_per_comp - sort higher bit depth first
+                        if (deptha < bits_per_comp || depthb < bits_per_comp) {
+                                return deptha > depthb;
                         }
-                        if (depthb == bits_per_comp) {
-                                return false;
-                        }
-                        if (deptha == 8) { // still default to 8-bit if not found exact bit depth
-                                return true;
-                        }
-                        if (depthb == 8) {
-                                return false;
-                        }
-                        return deptha > depthb;
+                        // both are equal or higher - sort lower bit depth first
+                        return deptha < depthb;
                 }
                 if (subsa != subsb) {
                         if (subsa == preferred_subsampling) {
