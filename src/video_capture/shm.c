@@ -67,6 +67,7 @@
 #undef RGBA
 
 #define BUFFERS 2
+#define DEFAULT_FPS 30.0
 #define MAX_BUF_LEN (7680 * 2160 * 3 / 2)
 #define KEY "UltraGrid-SHM"
 #define SHM_VERSION 8
@@ -125,11 +126,13 @@ static void vidcap_shm_cleanup(struct state_vidcap_shm *s);
 
 static void show_help() {
         printf("Usage:\n");
-        color_out(COLOR_OUT_BOLD, "\t-t cuda|shm[:force]\n");
+        color_out(COLOR_OUT_BOLD, "\t-t cuda|shm[:force][:fps=<fps>]\n");
         printf("\t\tCaptures the frame either to shared memory on GPU (CUDA buffer) or in RAM (shared memory)\n");
         printf("options:\n");
         color_out(COLOR_OUT_BOLD, "\tforce\n");
         printf("\t\tRemoves already existing IPC primitives (Linux) if already exist.\n");
+        color_out(COLOR_OUT_BOLD, "\tfps\n");
+        printf("\t\tOverrides default FPS specifier (%f) in metadata.\n", DEFAULT_FPS);
 }
 
 static void vidcap_shm_should_exit(void *arg) {
@@ -138,6 +141,31 @@ static void vidcap_shm_should_exit(void *arg) {
         s->should_exit = true;
 
         platform_ipc_sem_post(s->sem_id[FRAME_READY]);
+}
+
+static bool parse_fmt(struct state_vidcap_shm *s, const char *fmt_c, struct video_desc *desc) {
+        char *fmt = alloca(strlen(fmt_c) + 1);
+        strcpy(fmt, fmt_c);
+        char *save_ptr = NULL;
+        char *item = NULL;
+        while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
+                fmt = NULL;
+                if (strstr(item, "force") == item) {
+                        s->force = true;
+                } else if (strstr(item, "fps=") == item) {
+                        char *endptr = NULL;
+                        errno = 0;
+                        desc->fps = strtod(item + strlen("fps="), &endptr);
+                        if (errno != 0 || *endptr != '\0' || desc->fps <= 0.0) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Invalid FPS spec %s\n", item);
+                                return false;
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s\n", item);
+                        return false;
+                }
+        }
+        return true;
 }
 
 #define CUDA_CHECK(cmd) do { cudaError_t err = cmd; if (err != cudaSuccess) { log_msg(LOG_LEVEL_ERROR, "%s: %s\n", #cmd, cudaGetErrorString(err)); goto error; } } while(0)
@@ -166,18 +194,20 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         if (strcmp(vidcap_params_get_name(params), "cuda") == 0) {
                 s->use_gpu = true;
         }
-        if (strcmp(fmt, "force") == 0) {
-                s->force = true;
-        }
         s->parent = vidcap_params_get_parent(params);
 
         struct video_desc desc = { .width = 0,
                 .height = 0,
-                .fps = 30,
+                .fps = DEFAULT_FPS,
                 .tile_count = 1,
                 .color_spec = s->use_gpu ? CUDA_I420 : I420,
                 .interlacing = PROGRESSIVE,
         };
+
+        if (!parse_fmt(s, fmt, &desc)) {
+                free(s);
+                return VIDCAP_INIT_FAIL;
+        }
 
         size_t size = sizeof(struct shm);
         if ((s->shm_id = platform_ipc_shm_create(KEY, size)) == PLATFORM_IPC_ERR) {
