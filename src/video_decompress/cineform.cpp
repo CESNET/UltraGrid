@@ -54,7 +54,7 @@
 #include "CFHDTypes.h"
 #include "CFHDDecoder.h"
 
-#include <mutex>
+#include <array>
 #include <vector>
 
 struct state_cineform_decompress {
@@ -418,36 +418,24 @@ static int cineform_decompress_get_property(void *state, int property, void *val
 }
 
 static const struct decode_from_to *cineform_decompress_get_decoders() {
-        const struct decode_from_to dec_static[] = {
-                { CFHD, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
-                { CFHD, UYVY, UYVY, 500 },
-                { CFHD, RGBA, RGBA, 500 },
-                { CFHD, R10k, R10k, 500 },
-                { CFHD, R12L, R12L, 500 },
-                { CFHD, v210, v210, 500 },
-                { CFHD, R12L, R10k, 550 },
-                { CFHD, R10k, RGBA, 600 },
-                { CFHD, R12L, RGBA, 600 },
-                { CFHD, v210, UYVY, 600 },
-                { CFHD, VIDEO_CODEC_NONE, RGB, 700 },
-                { CFHD, VIDEO_CODEC_NONE, RGBA, 700 },
-                { CFHD, VIDEO_CODEC_NONE, UYVY, 700 },
-                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
+        static constexpr std::array decoders = {
+                decode_from_to{ CFHD, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
+                decode_from_to{ CFHD, UYVY, UYVY, 500 },
+                decode_from_to{ CFHD, RGBA, RGBA, 500 },
+                decode_from_to{ CFHD, R10k, R10k, 500 },
+                decode_from_to{ CFHD, R12L, R12L, 500 },
+                decode_from_to{ CFHD, v210, v210, 500 },
+                decode_from_to{ CFHD, R12L, R10k, 550 },
+                decode_from_to{ CFHD, R10k, RGBA, 600 },
+                decode_from_to{ CFHD, R12L, RGBA, 600 },
+                decode_from_to{ CFHD, v210, UYVY, 600 },
+                decode_from_to{ CFHD, VIDEO_CODEC_NONE, RGB, 700 },
+                decode_from_to{ CFHD, VIDEO_CODEC_NONE, RGBA, 700 },
+                decode_from_to{ CFHD, VIDEO_CODEC_NONE, UYVY, 700 },
+                decode_from_to{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
 
-        static struct decode_from_to ret[sizeof dec_static / sizeof dec_static[0]
-                + 1 /* terminating zero */
-                + 10 /* place for additional decoders, see below */];
-
-        static std::mutex mutex;
-
-        std::lock_guard<std::mutex> lock(mutex);
-
-        if (ret[0].from == VIDEO_CODEC_NONE) { // not yet initialized
-                memcpy(ret, dec_static, sizeof dec_static);
-        }
-
-        return ret;
+        return decoders.data();
 }
 
 static const struct video_decompress_info cineform_info = {
