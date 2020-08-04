@@ -1012,8 +1012,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
                         s->quad_square_division_split = strcasecmp(ptr, "quad-square") == 0;
-                } else if (strcasecmp(ptr, "hdr") == 0) {
-                        if (strcasecmp(ptr, "hdr=") == 0) {
+                } else if (strncasecmp(ptr, "hdr", strlen("hdr")) == 0) {
+                        if (strncasecmp(ptr, "hdr=", strlen("hdr=")) == 0) {
                                 string mode{ptr + strlen("hdr=")};
                                 std::for_each(std::begin(mode), std::end(mode), [](char& c) {
                                                 c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
