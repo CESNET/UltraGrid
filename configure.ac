@@ -161,7 +161,7 @@ if test $system = Linux; then
 fi
 
 if test $system = MacOSX; then
-        if test $os_version_major -lt 14; then
+        if test $os_version_major -lt 18; then # Darwin 18.0.0 is macOS 10.14
                 MIN_MACOS_VER=10.7
         else
                 MIN_MACOS_VER=10.14
