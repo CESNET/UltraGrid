@@ -82,7 +82,6 @@ int              get_bits_per_component(codec_t codec) ATTRIBUTE(const);
 /// @returns number of bytes per pixel
 double           get_bpp(codec_t codec) ATTRIBUTE(const);
 uint32_t         get_fourcc(codec_t codec) ATTRIBUTE(const);
-int              get_halign(codec_t codec) ATTRIBUTE(const);
 const char      *get_codec_name(codec_t codec) ATTRIBUTE(const);
 const char      *get_codec_name_long(codec_t codec) ATTRIBUTE(const);
 int              is_codec_opaque(codec_t codec) ATTRIBUTE(const);
@@ -93,7 +92,6 @@ const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(const);
 decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBUTE(const);
 decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow) ATTRIBUTE(const);
 
-int get_aligned_length(int width, codec_t codec) ATTRIBUTE(const);
 int get_pf_block_size(codec_t codec) ATTRIBUTE(const);
 int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(const);
 size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec) ATTRIBUTE(const);
