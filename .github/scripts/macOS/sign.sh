@@ -46,14 +46,14 @@ ZIP_FILE=uv-qt.zip
 UPLOAD_INFO_PLIST=/tmp/uplinfo.plist
 REQUEST_INFO_PLIST=/tmp/reqinfo.plist
 ditto -c -k --keepParent $APP $ZIP_FILE
-xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt --username $DEVELOPER_USERNAME --password "$altool_pass" --file $ZIP_FILE --output-format xml > $UPLOAD_INFO_PLIST
+xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt --username $DEVELOPER_USERNAME --password "$altool_pass" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
 
 # Wait for notarization status
 # Waiting inspired by https://nativeconnect.app/blog/mac-app-notarization-from-the-command-line/
 SLEPT=0
 TIMEOUT=7200
 while true; do
-        /usr/bin/xcrun altool --notarization-info `/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" $UPLOAD_INFO_PLIST` -u $DEVELOPER_USERNAME -p $altool_pass --output-format xml > $REQUEST_INFO_PLIST
+        /usr/bin/xcrun altool --notarization-info `/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" $UPLOAD_INFO_PLIST` -u $DEVELOPER_USERNAME -p $altool_pass --output-format xml | tee $REQUEST_INFO_PLIST
         STATUS=`/usr/libexec/PlistBuddy -c "Print :notarization-info:Status" $REQUEST_INFO_PLIST`
         if [ "$STATUS" != "in progress" -o $SLEPT -ge $TIMEOUT ]; then
                 break
