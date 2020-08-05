@@ -1738,6 +1738,11 @@ HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */
 // IDeckLinkVideoFrameMetadataExtensions interface
 HRESULT DeckLinkFrame::GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value)
 {
+        if (log_level >= LOG_LEVEL_DEBUG2) {
+                array<char, sizeof metadataID + 1> fourcc{};
+                copy(reinterpret_cast<char *>(&metadataID), reinterpret_cast<char *>(&metadataID) + sizeof metadataID, fourcc.data());
+                LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "DecklLinkFrame GetInt " << fourcc.data() << "\n";
+        }
         switch (metadataID)
         {
                 case bmdDeckLinkFrameMetadataHDRElectroOpticalTransferFunc:
