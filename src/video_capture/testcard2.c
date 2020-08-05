@@ -183,14 +183,12 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-        int h_align = 0;
         double bpp = 0;
 
         codec = get_codec_from_name(tmp);
         if (codec == VIDEO_CODEC_NONE) {
                 codec = UYVY;
         }
-        h_align = get_halign(codec);
         bpp = get_bpp(codec);
 
         s->frame->color_spec = codec;
@@ -200,10 +198,7 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-        s->aligned_x = s->tile->width;
-        if (h_align) {
-                s->aligned_x = (s->aligned_x + h_align - 1) / h_align * h_align;
-        }
+        s->aligned_x = vc_get_linesize(s->tile->width, codec) / bpp;
 
         rect_size = (s->tile->width + rect_size - 1) / rect_size;
 
