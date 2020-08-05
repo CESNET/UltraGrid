@@ -62,6 +62,7 @@
 #include "video_display.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <iomanip>
@@ -1741,14 +1742,19 @@ HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */
         return E_FAIL;
 }
 
+static inline void debug_print_metadata_id(const char *fn_name, BMDDeckLinkFrameMetadataID metadataID) {
+        if (log_level < LOG_LEVEL_DEBUG2) {
+                return;
+        }
+        array<char, sizeof metadataID + 1> fourcc{};
+        copy(reinterpret_cast<char *>(&metadataID), reinterpret_cast<char *>(&metadataID) + sizeof metadataID, fourcc.data());
+        LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "DecklLinkFrame " << fn_name << ": " << fourcc.data() << "\n";
+}
+
 // IDeckLinkVideoFrameMetadataExtensions interface
 HRESULT DeckLinkFrame::GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value)
 {
-        if (log_level >= LOG_LEVEL_DEBUG2) {
-                array<char, sizeof metadataID + 1> fourcc{};
-                copy(reinterpret_cast<char *>(&metadataID), reinterpret_cast<char *>(&metadataID) + sizeof metadataID, fourcc.data());
-                LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "DecklLinkFrame GetInt " << fourcc.data() << "\n";
-        }
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         switch (metadataID)
         {
                 case bmdDeckLinkFrameMetadataHDRElectroOpticalTransferFunc:
@@ -1766,6 +1772,7 @@ HRESULT DeckLinkFrame::GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* va
 
 HRESULT DeckLinkFrame::GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* value)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         switch (metadataID)
         {
                 case bmdDeckLinkFrameMetadataHDRDisplayPrimariesRedX:
@@ -1810,22 +1817,25 @@ HRESULT DeckLinkFrame::GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* v
         }
 }
 
-HRESULT DeckLinkFrame::GetFlag(BMDDeckLinkFrameMetadataID /* metadataID */, BMD_BOOL* value)
+HRESULT DeckLinkFrame::GetFlag(BMDDeckLinkFrameMetadataID metadataID, BMD_BOOL* value)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         // Not expecting GetFlag
         *value = BMD_TRUE;
         return E_INVALIDARG;
 }
 
-HRESULT DeckLinkFrame::GetString(BMDDeckLinkFrameMetadataID /* metadataID */, BMD_STR* value)
+HRESULT DeckLinkFrame::GetString(BMDDeckLinkFrameMetadataID metadataID, BMD_STR* value)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         // Not expecting GetString
         *value = nullptr;
         return E_INVALIDARG;
 }
 
-HRESULT DeckLinkFrame::GetBytes(BMDDeckLinkFrameMetadataID /* metadataID */, void* /* buffer */, uint32_t* bufferSize)
+HRESULT DeckLinkFrame::GetBytes(BMDDeckLinkFrameMetadataID metadataID, void* /* buffer */, uint32_t* bufferSize)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         *bufferSize = 0;
         return E_INVALIDARG;
 }
