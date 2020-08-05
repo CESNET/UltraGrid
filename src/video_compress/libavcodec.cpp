@@ -1097,7 +1097,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
 	}
 
-        if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_DEBUG) {
+        if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
                 print_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
         }
 
