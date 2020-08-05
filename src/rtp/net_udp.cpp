@@ -544,7 +544,7 @@ static char *udp_host_addr6(socket_udp * s)
 
         newsock = socket(AF_INET6, SOCK_DGRAM, 0);
         if (newsock == -1) {
-                perror("socket");
+                socket_error("socket");
                 free(hname);
                 return NULL;
         }
@@ -555,12 +555,12 @@ static char *udp_host_addr6(socket_udp * s)
 #endif
         result = bind(newsock, (struct sockaddr *)&addr6, len);
         if (result != 0) {
-                perror("Cannot bind");
+                socket_error("Cannot bind");
         }
         addr6.sin6_addr = ((struct sockaddr_in6 *)&s->sock)->sin6_addr;
 	len = sizeof bound;
 	if (getsockname(s->local->rx_fd, (struct sockaddr *)&bound, &len) == -1) {
-		perror("getsockname");
+		socket_error("getsockname");
 		addr6.sin6_port = 0;
 	} else {
 		addr6.sin6_port = bound.sin6_port;
@@ -569,7 +569,7 @@ static char *udp_host_addr6(socket_udp * s)
 	len = sizeof addr6;
         result = connect(newsock, (struct sockaddr *)&addr6, len);
         if (result != 0) {
-                perror("connect");
+                socket_error("connect");
         }
 
         memset((char *)&local, 0, len);
@@ -1052,7 +1052,7 @@ static void *udp_reader(void *arg)
 
                 int rc = select(nfds, &fds, NULL, NULL, NULL);
                 if (rc <= 0) {
-                        perror("select");
+                        socket_error("select");
                         continue;
                 }
                 if (FD_ISSET(s->local->should_exit_fd[0], &fds)) {
@@ -1356,14 +1356,14 @@ int udp_set_recv_buf(socket_udp *s, int size)
         socklen_t opt_size;
         if (SETSOCKOPT(s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t) &size,
                         sizeof(size)) != 0) {
-                perror("Unable to set socket buffer size");
+                socket_error("Unable to set socket buffer size");
                 return FALSE;
         }
 
         opt_size = sizeof(opt);
         if(GETSOCKOPT (s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
                         &opt_size) != 0) {
-                perror("Unable to get socket buffer size");
+                socket_error("Unable to get socket buffer size");
                 return FALSE;
         }
 
@@ -1382,14 +1382,14 @@ int udp_set_send_buf(socket_udp *s, int size)
         socklen_t opt_size;
         if (SETSOCKOPT(s->local->tx_fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t) &size,
                         sizeof(size)) != 0) {
-                perror("Unable to set socket buffer size");
+                socket_error("Unable to set socket buffer size");
                 return FALSE;
         }
 
         opt_size = sizeof(opt);
         if(GETSOCKOPT (s->local->tx_fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t)&opt,
                         &opt_size) != 0) {
-                perror("Unable to get socket buffer size");
+                socket_error("Unable to get socket buffer size");
                 return FALSE;
         }
 
