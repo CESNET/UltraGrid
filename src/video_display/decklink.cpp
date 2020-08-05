@@ -1265,6 +1265,12 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 #endif
                 }
 
+                if (BMD_BOOL hdr_supp = BMD_FALSE; s->requested_hdr_mode != static_cast<int64_t>(HDR_EOTF::NONE) && s->state[i].deckLinkAttributes != nullptr && s->state[i].deckLinkAttributes->GetFlag(BMDDeckLinkSupportsHDRMetadata, &hdr_supp) == S_OK) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "HDR requested, but card doesn't support that.\n";
+                        goto error;
+                }
+
+
                 if (s->play_audio && i == 0) {
                         /* Actually no action is required to set audio connection because Blackmagic card plays audio through all its outputs (AES/SDI/analog) ....
                          */
