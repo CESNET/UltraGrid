@@ -66,9 +66,6 @@ jobs:
     runs-on: ubuntu-16.04
     env:
       appimage_key: ${{ secrets.appimage_key }}
-      CC: clang-9
-      CXX: clang++-9
-      CPP: clang-cpp-9
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:

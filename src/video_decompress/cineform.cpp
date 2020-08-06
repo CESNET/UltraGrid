@@ -54,7 +54,6 @@
 #include "CFHDTypes.h"
 #include "CFHDDecoder.h"
 
-#include <array>
 #include <vector>
 
 struct state_cineform_decompress {
@@ -418,7 +417,7 @@ static int cineform_decompress_get_property(void *state, int property, void *val
 }
 
 static const struct decode_from_to *cineform_decompress_get_decoders() {
-        static constexpr std::array decoders = {
+        static constexpr decode_from_to decoders[] = {
                 decode_from_to{ CFHD, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
                 decode_from_to{ CFHD, UYVY, UYVY, 500 },
                 decode_from_to{ CFHD, RGBA, RGBA, 500 },
@@ -435,7 +434,7 @@ static const struct decode_from_to *cineform_decompress_get_decoders() {
                 decode_from_to{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
 
-        return decoders.data();
+        return decoders;
 }
 
 static const struct video_decompress_info cineform_info = {

@@ -903,7 +903,8 @@ int main(int argc, char *argv[])
                                         char *save_ptr = nullptr;
                                         video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
                                         video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
-                                        if (char *tok = nullptr; (tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                                        char *tok = nullptr;
+                                        if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
                                                 audio_rx_port = stoi(tok, nullptr, 0);
                                                 if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
                                                         audio_tx_port = stoi(tok, nullptr, 0);
