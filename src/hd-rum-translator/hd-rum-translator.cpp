@@ -79,6 +79,7 @@
 using namespace std;
 using s = rang::style;
 using fg = rang::fg;
+constexpr const char *MOD_NAME = "[hd-rum-trans] ";
 
 struct item;
 
@@ -570,6 +571,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         } else if(strcmp(argv[start_index], "--verbose") == 0) {
             parsed->verbose = true;
         } else {
+            LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Unknown global parameter: " << argv[start_index] << "\n\n";
             usage(argv[0]);
             return false;
         }
@@ -577,6 +579,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     }
 
     if (argc < start_index + 2) {
+        LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Missing mandatory parameters!\n\n";
         usage(argv[0]);
         return false;
     }
@@ -653,7 +656,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                     parsed->hosts[host_idx].force_ip_version = 6;
                     break;
                 default:
-                    fprintf(stderr, "Error: invalid option '%s'\n", argv[i]);
+                    LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Error: invalid host option " << argv[i] << "\n";
                     exit(EXIT_FAIL_USAGE);
             }
             i += 1;
