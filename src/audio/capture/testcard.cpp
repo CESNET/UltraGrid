@@ -56,8 +56,10 @@
 #include <string.h>
 
 #include <chrono>
+#include <string>
 
 using namespace std::chrono;
+using std::string;
 
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
 
@@ -161,7 +163,7 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
 static void * audio_cap_testcard_init(const char *cfg)
 {
         struct state_audio_capture_testcard *s;
-        char *wav_file = NULL;
+        string wav_file;
         char *item, *save_ptr;
 
         double volume = DEFAULT_VOLUME;
@@ -178,7 +180,7 @@ static void * audio_cap_testcard_init(const char *cfg)
                 audio_cap_testcard_help(NULL);
                 printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:silence|:ebu]\n");
                 printf("\t\t\t<vol> is a volume in dBFS (default %.2f dBFS)\n", DEFAULT_VOLUME);
-                printf("\t\t\t<wav> is a wav file to be played\n");
+                printf("\t\t\t<wav> is a wav file to be played (reads only first few seconds)\n");
                 printf("\t\t\t<nf> sets number of audio frames per packet\n");
                 return &audio_init_state_ok;
         }
@@ -262,7 +264,7 @@ static void * audio_cap_testcard_init(const char *cfg)
         }
         case WAV:
         {
-                FILE *wav = fopen(wav_file, "r");
+                FILE *wav = fopen(wav_file.c_str(), "r");
                 if(!wav) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open WAV file: " << wav_file << ".\n";
                         delete s;
