@@ -180,7 +180,7 @@ static void * audio_cap_testcard_init(const char *cfg)
                 audio_cap_testcard_help(NULL);
                 printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:silence|:ebu]\n");
                 printf("\t\t\t<vol> is a volume in dBFS (default %.2f dBFS)\n", DEFAULT_VOLUME);
-                printf("\t\t\t<wav> is a wav file to be played (reads only first few seconds)\n");
+                printf("\t\t\t<wav> is a wav file to be played\n");
                 printf("\t\t\t<nf> sets number of audio frames per packet\n");
                 return &audio_init_state_ok;
         }
@@ -284,8 +284,8 @@ static void * audio_cap_testcard_init(const char *cfg)
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
                 s->audio.max_size = metadata.data_size + (s->chunk_size - 1) * metadata.ch_count *
                         (metadata.bits_per_sample / 8);
-
-                s->total_samples = metadata.data_size /  metadata.ch_count / metadata.bits_per_sample / 8;
+                s->total_samples = metadata.data_size /  metadata.ch_count / metadata.bits_per_sample * 8;
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->total_samples << " samples read from file " << wav_file << "\n";
 
                 s->audio_samples = (char *) calloc(1, s->audio.max_size);
                 int bytes = fread(s->audio_samples, 1, s->audio.max_size, wav);
