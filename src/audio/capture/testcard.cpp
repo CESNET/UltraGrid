@@ -69,6 +69,7 @@ using namespace std::chrono;
 
 #define FREQUENCY 1000
 #define DEFAULT_VOLUME -18.0
+constexpr const char *MOD_NAME = "[Audio testc.] ";
 
 struct state_audio_capture_testcard {
         uint32_t magic;
@@ -197,6 +198,10 @@ static void * audio_cap_testcard_init(const char *cfg)
                                 pattern = EBU;
                         } else if(strcasecmp(item, "silence") == 0) {
                                 pattern = SILENCE;
+                        } else {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown option: " << item << "\n";
+                                free(tmp);
+                                return nullptr;
                         }
 
                         fmt = NULL;
@@ -259,7 +264,7 @@ static void * audio_cap_testcard_init(const char *cfg)
         {
                 FILE *wav = fopen(wav_file, "r");
                 if(!wav) {
-                        fprintf(stderr, "Unable to open WAV.\n");
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open WAV file: " << wav_file << ".\n";
                         delete s;
                         return NULL;
                 }
