@@ -48,6 +48,8 @@ void simple_linked_list_destroy(struct simple_linked_list *);
 void simple_linked_list_append(struct simple_linked_list *, void *data);
 void *simple_linked_list_pop(struct simple_linked_list *);
 int simple_linked_list_size(struct simple_linked_list *);
+void *simple_linked_list_first(struct simple_linked_list *); ///< returns first element of list, UB if empty
+void *simple_linked_list_last(struct simple_linked_list *); ///< returns last element of list, UB if empty
 
 /** iterator
  *
@@ -63,6 +65,8 @@ int simple_linked_list_size(struct simple_linked_list *);
  */
 void *simple_linked_list_it_init(struct simple_linked_list *);
 void *simple_linked_list_it_next(void **it);
+void *simple_linked_list_it_peek_next(const void *it); ///< return next item without actually incrementing iterator, UB if item is last (it == NULL)
+                                                       ///< @returns item
 void simple_linked_list_it_destroy(void *it); ///< Should be used when it != NULL, eg. when leaving the loop before the end
 
 /**
