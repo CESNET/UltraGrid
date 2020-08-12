@@ -54,6 +54,7 @@
 #include "utils/worker.h"
 #include "video.h"
 #include "video_codec.h"
+#include "vo_postprocess/capture_filter_wrapper.h"
 
 constexpr const char *MOD_NAME = "[gamma cap. f.] ";
 
@@ -67,6 +68,7 @@ using std::thread;
 struct state_capture_filter_gamma {
 public:
         int out_depth; ///< 0, 8 or 16 (0 menas keep)
+        void *vo_pp_out_buffer{}; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
 
         explicit state_capture_filter_gamma(double gamma, int out_depth) : out_depth(out_depth) {
                 for (int i = 0; i <= numeric_limits<uint8_t>::max(); ++i) { // 8->8
@@ -203,7 +205,13 @@ static auto filter(void *state, struct video_frame *in) -> video_frame *
         if (s->out_depth != 0) {
                 out_desc.color_spec = s->out_depth == 8 ? RGB : RG48;
         }
-        struct video_frame *out = vf_alloc_desc_data(out_desc);
+        struct video_frame *out = vf_alloc_desc(out_desc);
+        if (s->vo_pp_out_buffer != nullptr) {
+                out->tiles[0].data = (char *) s->vo_pp_out_buffer;
+        } else {
+                out->tiles[0].data = (char *) malloc(out->tiles[0].data_len);
+                out->callbacks.data_deleter = vf_data_deleter;
+        }
         out->callbacks.dispose = vf_free;
 
         try {
@@ -219,6 +227,12 @@ static auto filter(void *state, struct video_frame *in) -> video_frame *
         return out;
 }
 
+static void vo_pp_set_out_buffer(void *state, char *buffer)
+{
+        auto *s = (state_capture_filter_gamma *) state;
+        s->vo_pp_out_buffer = buffer;
+}
+
 static const struct capture_filter_info capture_filter_gamma = {
         .init = init,
         .done = done,
@@ -226,5 +240,6 @@ static const struct capture_filter_info capture_filter_gamma = {
 };
 
 REGISTER_MODULE(gamma, &capture_filter_gamma, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(gamma, init, filter, done, vo_pp_set_out_buffer)
 
 /* vim: set expandtab sw=8: */
