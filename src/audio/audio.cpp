@@ -717,7 +717,6 @@ static void *audio_receiver_thread(void *arg)
                 }else { /* NET_JACK */
 #ifdef HAVE_JACK_TRANS
                         decoded = jack_receive(s->jack_connection, &jack_pbuf);
-                        audio_playback_put_frame(s->audio_playback_device, &jack_pbuf.buffer);
 #endif
                 }
 
