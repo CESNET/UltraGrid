@@ -88,7 +88,7 @@ static struct video_frame *CF_WRAPPER_MERGE(vo_pp_getf_, name)(void *state) {\
 \
 static bool CF_WRAPPER_MERGE(vo_pp_postprocess_, name)(void *state, struct video_frame *in, struct video_frame *out, int req_out_pitch) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
-        assert(req_out_pitch == vc_get_linesize(in->tiles[0].width, out->color_spec));\
+        assert(req_out_pitch == vc_get_linesize(out->tiles[0].width, out->color_spec));\
         set_out_buf(s->state, out->tiles[0].data);\
         struct video_frame *dst = filter(s->state, in);\
         VIDEO_FRAME_DISPOSE(dst);\
