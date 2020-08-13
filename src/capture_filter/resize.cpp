@@ -61,6 +61,7 @@
 
 #include "video.h"
 #include "video_codec.h"
+#include "vo_postprocess/capture_filter_wrapper.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,6 +97,7 @@ struct state_resize {
     struct resize_param param;
     struct video_desc saved_desc;
     struct video_desc out_desc;
+    char *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
 };
 
 static void usage() {
@@ -217,7 +219,13 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         printf("[resize filter] resizing from %dx%d to %dx%d\n", s->saved_desc.width, s->saved_desc.height, s->out_desc.width, s->out_desc.height);
     }
 
-    struct video_frame *frame = vf_alloc_desc_data(s->out_desc);
+    struct video_frame *frame = vf_alloc_desc(s->out_desc);
+    if (s->vo_pp_out_buffer) {
+        frame->tiles[0].data = s->vo_pp_out_buffer;
+    } else {
+        frame->tiles[0].data = (char *) malloc(frame->tiles[0].data_len);
+        frame->callbacks.data_deleter = vf_data_deleter;
+    }
 
     for (unsigned int i = 0; i < frame->tile_count; i++) {
         int res;
@@ -241,6 +249,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
     return frame;
 }
 
+static void vo_pp_set_out_buffer(void *state, char *buffer)
+{
+        auto *s = (struct state_resize *) state;
+        s->vo_pp_out_buffer = buffer;
+}
+
 static struct capture_filter_info capture_filter_resize = {
     init,
     done,
@@ -252,5 +266,6 @@ static struct capture_filter_info capture_filter_resize = {
 #endif
 
 REGISTER_MODULE(resize, &capture_filter_resize, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(resize, init, filter, done, vo_pp_set_out_buffer)
 
 /* vim: set expandtab sw=4: */
