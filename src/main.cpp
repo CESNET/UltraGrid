@@ -105,6 +105,7 @@
 #include "video_compress.h"
 #include "export.h"
 #include "video_rxtx.h"
+#include "video_rxtx/srt.hpp" // SRT_LOOPBACK
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
@@ -1186,6 +1187,13 @@ static int adjust_params(struct ug_options *opt) {
                         opt->audio.codec_cfg = "OPUS:sample_rate=48000";
                 } else {
                         opt->audio.codec_cfg = DEFAULT_AUDIO_CODEC;
+                }
+        }
+
+        if (strcasecmp(opt->video_protocol, "srt") == 0) {
+                opt->video_rx_port = opt->video_tx_port = opt->port_base;
+                if (opt->requested_receiver == nullptr) {
+                        opt->requested_receiver = SRT_LOOPBACK;
                 }
         }
 

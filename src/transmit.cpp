@@ -395,6 +395,11 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
         tx->buffer++;
 }
 
+/**
+ * Formats video header
+ *
+ * @param[out] video_hdr output buffer, must be 24 B long
+ */
 void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx, uint32_t *video_hdr)
 {
         uint32_t tmp;

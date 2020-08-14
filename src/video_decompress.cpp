@@ -213,6 +213,7 @@ bool decompress_init_multi(codec_t in_codec, codec_t internal_codec, codec_t out
                         break;
                 }
         }
+        LOG(LOG_LEVEL_VERBOSE) << "Could not find or initialize any suitable decompressor!\n";
         return false;
 }
 
