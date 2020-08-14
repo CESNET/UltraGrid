@@ -1019,7 +1019,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                         s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::SDR);
                                 } else if (mode == "HDR"s) {
                                         s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HDR);
-                                } else if (mode == "PG"s) {
+                                } else if (mode == "PQ"s) {
                                         s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::PQ);
                                 } else if (mode == "HLG"s) {
                                         s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HLG);
