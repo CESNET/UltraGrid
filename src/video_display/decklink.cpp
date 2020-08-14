@@ -1271,6 +1271,15 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                                         goto error;
                                 }
                         }
+
+                        BMD_BOOL rec2020_supp = BMD_FALSE;
+                        if (s->state.at(i).deckLinkAttributes == nullptr || s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsColorspaceMetadata, &rec2020_supp) != S_OK) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Cannot check Rec. 2020 color space metadata support.\n";
+                        } else {
+                                if (rec2020_supp != BMD_TRUE) {
+                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Rec. 2020 color space metadata not supported.\n";
+                                }
+                        }
                 }
 
                 if (s->play_audio && i == 0) {
