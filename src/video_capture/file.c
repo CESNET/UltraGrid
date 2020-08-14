@@ -55,8 +55,10 @@
 
 #include <assert.h>
 #include <libavcodec/avcodec.h>
+#include <libavcodec/version.h>
 #include <libavutil/avutil.h>
 #include <libavformat/avformat.h>
+#include <libavformat/version.h>
 #include <libswscale/swscale.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -415,6 +417,13 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 vidcap_file_show_help();
                 return strlen(vidcap_params_get_fmt(params)) == 0 ? VIDCAP_INIT_FAIL : VIDCAP_INIT_NOERR;
         }
+
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 12, 100)
+        av_register_all();
+#endif
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
+        avcodec_register_all();
+#endif
 
         struct vidcap_state_lavf_decoder *s = calloc(1, sizeof (struct vidcap_state_lavf_decoder));
         s->audio_stream_idx = -1;
