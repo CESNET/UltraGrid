@@ -207,6 +207,7 @@ struct av_to_uv_conversion {
                      ///< not have codec for eg. 4:4:4 UYVY).
 };
 
+av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec);
 const struct av_to_uv_conversion *get_av_to_uv_conversions(void);
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec);

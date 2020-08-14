@@ -88,11 +88,15 @@ struct vidcap_state_lavf_decoder {
         char *src_filename;
         AVFormatContext *fmt_ctx;
         AVCodecContext *aud_ctx, *vid_ctx;
+
         struct SwsContext *sws_ctx;
+        av_to_uv_convert_p conv_uv;
+
         bool failed;
         bool loop;
         bool new_msg;
         bool no_decode;
+        codec_t convert_to;
         bool paused;
         bool use_audio;
 
@@ -118,12 +122,14 @@ struct vidcap_state_lavf_decoder {
 static void vidcap_file_show_help() {
         color_out(0, "Usage:\n");
         color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-t file:<name>");
-        color_out(COLOR_OUT_BOLD, "[:loop][:nodecode]\n");
+        color_out(COLOR_OUT_BOLD, "[:loop][:nodecode][:codec=<c>]\n");
         color_out(0, "\t\twhere\n");
         color_out(COLOR_OUT_BOLD, "\tloop\n");
         color_out(0, "\t\tloop the playback\n");
         color_out(COLOR_OUT_BOLD, "\tnodecode\n");
         color_out(0, "\t\tdon't decompress the video (may not work because required data for correct decompess are in container or UG doesn't recognize the codec)\n");
+        color_out(COLOR_OUT_BOLD, "\tcodec\n");
+        color_out(0, "\t\tcodec to decode to\n");
 }
 
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
@@ -318,8 +324,13 @@ static void *vidcap_file_worker(void *state) {
                                  * this is required since rawvideo expects non aligned data */
                                 int video_dst_linesize[4] = { vc_get_linesize(out->tiles[0].width, out->color_spec) };
                                 uint8_t *dst[4] = { (uint8_t *) out->tiles[0].data };
-                                sws_scale(s->sws_ctx, (const uint8_t * const *) frame->data, frame->linesize, 0,
-                                                frame->height, dst, video_dst_linesize);
+                                if (s->conv_uv) {
+                                        int rgb_shift[] = {0, 8, 16};
+                                        s->conv_uv(out->tiles[0].data, frame, out->tiles[0].width, out->tiles[0].height, video_dst_linesize[0], rgb_shift);
+                                } else {
+                                        sws_scale(s->sws_ctx, (const uint8_t * const *) frame->data, frame->linesize, 0,
+                                                        frame->height, dst, video_dst_linesize);
+                                }
                                 av_frame_free(&frame);
                                 out->callbacks.dispose = vf_free;
                         }
@@ -359,6 +370,12 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
                         s->no_decode = true;
                 } else if (strcmp(item, "opportunistic_audio") == 0) {
                         *opportunistic_audio = true;
+                } else if (strncmp(item, "codec=", strlen("codec=")) == 0) {
+                        char *codec_name = item + strlen("codec=");
+                        if ((s->convert_to = get_codec_from_name(codec_name)) == VIDEO_CODEC_NONE) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", codec_name);
+                                return false;
+                        }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", item);
                         return false;
@@ -428,6 +445,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         struct vidcap_state_lavf_decoder *s = calloc(1, sizeof (struct vidcap_state_lavf_decoder));
         s->audio_stream_idx = -1;
         s->video_stream_idx = -1;
+        s->convert_to = UYVY;
         CHECK(pthread_mutex_init(&s->audio_frame_lock, NULL));
         CHECK(pthread_mutex_init(&s->lock, NULL));
         CHECK(pthread_cond_init(&s->frame_consumed, NULL));
@@ -500,7 +518,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 s->video_desc.height = st->codecpar->height;
                 s->video_desc.fps = (double) st->r_frame_rate.num / st->r_frame_rate.den;
                 s->video_desc.tile_count = 1;
-fprintf(stderr, "%d %d\n", s->video_desc.width, s->video_desc.height);
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Video size: %dx%d\n", s->video_desc.width, s->video_desc.height);
                 if (s->no_decode) {
                         s->video_desc.color_spec =
                                 get_av_to_ug_codec(s->fmt_ctx->streams[s->video_stream_idx]->codecpar->codec_id);
@@ -511,16 +529,23 @@ fprintf(stderr, "%d %d\n", s->video_desc.width, s->video_desc.height);
                                 return VIDCAP_INIT_FAIL;
                         }
                 } else {
-                        s->video_desc.color_spec = UYVY;
+                        s->video_desc.color_spec = s->convert_to;
                         s->vid_ctx = vidcap_file_open_dec_ctx(dec, st);
                         if (!s->vid_ctx) {
                                 vidcap_file_common_cleanup(s);
                                 return VIDCAP_INIT_FAIL;
                         }
 
-                        s->sws_ctx = sws_getContext(s->video_desc.width, s->video_desc.height, s->vid_ctx->pix_fmt,
-                                        s->video_desc.width, s->video_desc.height, get_ug_to_av_pixfmt(s->video_desc.color_spec),
-                                        0, NULL, NULL, NULL);
+                        if ((s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt, s->video_desc.color_spec)) == NULL) {
+                                s->sws_ctx = sws_getContext(s->video_desc.width, s->video_desc.height, s->vid_ctx->pix_fmt,
+                                                s->video_desc.width, s->video_desc.height, get_ug_to_av_pixfmt(s->video_desc.color_spec),
+                                                0, NULL, NULL, NULL);
+                                if (s->sws_ctx == NULL) {
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find neither UltraGrid nor swscale conversion!\n");
+                                        vidcap_file_common_cleanup(s);
+                                        return VIDCAP_INIT_FAIL;
+                                }
+                        }
                 }
                 s->video_desc.interlacing = PROGRESSIVE; /// @todo other modes
         }
