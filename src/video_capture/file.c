@@ -408,6 +408,8 @@ static void vidcap_file_should_exit(void *state) {
 #define CHECK(call) { int ret = call; if (ret != 0) abort(); }
 static int vidcap_file_init(struct vidcap_params *params, void **state) {
         bool opportunistic_audio = false; // do not fail if audio requested but not found
+        int rc = 0;
+        char errbuf[1024] = "";
         if (strlen(vidcap_params_get_fmt(params)) == 0 ||
                         strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 vidcap_file_show_help();
@@ -435,15 +437,18 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         }
 
         /* open input file, and allocate format context */
-        if (avformat_open_input(&s->fmt_ctx, s->src_filename, NULL, NULL) < 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not open source file %s\n", s->src_filename);
-                vidcap_file_common_cleanup(s);
-                return VIDCAP_INIT_FAIL;
+        if ((rc = avformat_open_input(&s->fmt_ctx, s->src_filename, NULL, NULL)) < 0) {
+                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not open source file %s: ", s->src_filename);
         }
 
         /* retrieve stream information */
-        if (avformat_find_stream_info(s->fmt_ctx, NULL) < 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find stream information\n");
+        if (rc >= 0 && (rc = avformat_find_stream_info(s->fmt_ctx, NULL)) < 0) {
+                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not find stream information: \n");
+        }
+
+        if (rc < 0) {
+                av_strerror(rc, errbuf + strlen(errbuf), sizeof errbuf - strlen(errbuf));
+                log_msg(LOG_LEVEL_ERROR, "%s\n", errbuf);
                 vidcap_file_common_cleanup(s);
                 return VIDCAP_INIT_FAIL;
         }
