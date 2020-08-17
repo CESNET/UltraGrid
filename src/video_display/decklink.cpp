@@ -57,6 +57,7 @@
 #include "lib_common.h"
 #include "rang.hpp"
 #include "tv.h"
+#include "ug_runtime_error.hpp"
 #include "utils/misc.h"
 #include "video.h"
 #include "video_display.h"
@@ -221,6 +222,8 @@ struct HDRMetadata
         double                                  minDisplayMasteringLuminance{kDefaultMinDisplayMasteringLuminance};
         double                                  maxCLL{kDefaultMaxCLL};
         double                                  maxFALL{kDefaultMaxFALL};
+
+        void                                    Init(const string & fmt);
 };
 
 class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFrameMetadataExtensions
@@ -238,11 +241,11 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFr
                 buffer_pool_t &buffer_pool;
                 struct HDRMetadata m_metadata;
         protected:
-                DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, int64_t eotf);
+                DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, HDRMetadata const & hdr_metadata);
 
         public:
                 virtual ~DeckLinkFrame();
-                static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf);
+                static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata);
 
                 /* IUnknown */
                 HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override;
@@ -279,12 +282,12 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 {
         private:
                 using DeckLinkFrame::DeckLinkFrame;
-                DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, int64_t eotf);
+                DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata);
                 unique_ptr<DeckLinkFrame> rightEye; // rightEye ref count is always >= 1 therefore deleted by owner (this class)
 
         public:
                 ~DeckLink3DFrame();
-                static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf);
+                static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata);
                 
                 /* IUnknown */
                 HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override;
@@ -339,7 +342,7 @@ struct state_decklink {
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
         BMDVideoOutputConversionMode conversion_mode{bmdNoVideoOutputConversion};
-        int64_t             requested_hdr_mode{static_cast<int64_t>(HDR_EOTF::NONE)};
+        HDRMetadata         requested_hdr_mode;
 
         buffer_pool_t       buffer_pool;
 
@@ -392,7 +395,7 @@ static void show_help(bool full)
                         << style::bold << "2dhd" << style::reset << " or "
                         << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
                         << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
-                cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.3)\n";
+                cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>|help]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
         }
         cout << style::bold << "\thalf-duplex" << style::reset
                 << " - set a profile that allows maximal number of simultaneous IOs\n";
@@ -1010,32 +1013,16 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
                         s->quad_square_division_split = strcasecmp(ptr, "quad-square") == 0;
                 } else if (strncasecmp(ptr, "hdr", strlen("hdr")) == 0) {
+                        s->requested_hdr_mode.EOTF = static_cast<int64_t>(HDR_EOTF::HDR); // default
                         if (strncasecmp(ptr, "hdr=", strlen("hdr=")) == 0) {
-                                string mode{ptr + strlen("hdr=")};
-                                std::for_each(std::begin(mode), std::end(mode), [](char& c) {
-                                                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-                                                });
-                                if (mode == "SDR"s) {
-                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::SDR);
-                                } else if (mode == "HDR"s) {
-                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HDR);
-                                } else if (mode == "PQ"s) {
-                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::PQ);
-                                } else if (mode == "HLG"s) {
-                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HLG);
-                                } else {
-                                        try {
-                                                s->requested_hdr_mode = stoi(mode);
-                                                if (s->requested_hdr_mode < 0 || s->requested_hdr_mode > 7) {
-                                                        throw out_of_range("Value outside [0..7]");
-                                                }
-                                        } catch (exception const &e) {
-                                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong HDR mode \"" << mode << "\": " << e.what() << "\n";
-                                                return false;
-                                        }
+                                try {
+                                        s->requested_hdr_mode.Init(ptr + strlen("hdr="));
+                                } catch (ug_no_error const &e) {
+                                        return false;
+                                } catch (exception const &e) {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "HDR mode init: " << e.what() << "\n";
+                                        return false;
                                 }
-                        } else {
-                                s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HDR);
                         }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
@@ -1261,7 +1248,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 #endif
                 }
 
-                if (s->requested_hdr_mode != static_cast<int64_t>(HDR_EOTF::NONE)) {
+                if (s->requested_hdr_mode.EOTF != static_cast<int64_t>(HDR_EOTF::NONE)) {
                         BMD_BOOL hdr_supp = BMD_FALSE;
                         if (s->state.at(i).deckLinkAttributes == nullptr || s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsHDRMetadata, &hdr_supp) != S_OK) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "HDR requested, but unable to validate HDR support. Will try to pass it anyway which may result in blank image if not supported - remove the option if so.\n";
@@ -1661,18 +1648,18 @@ ULONG DeckLinkFrame::Release()
 	return ref;
 }
 
-DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, int64_t eotf)
+DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, HDRMetadata const & hdr_metadata)
 	: width(w), height(h), rawBytes(rb), pixelFormat(pf), data(new char[rb * h]), timecode(NULL), ref(1l),
         buffer_pool(bp)
 {
         clear_video_buffer(reinterpret_cast<unsigned char *>(data.get()), rawBytes, rawBytes, height,
                         pf == bmdFormat8BitYUV ? UYVY : (pf == bmdFormat10BitYUV ? v210 : RGBA));
-        m_metadata.EOTF = eotf;
+        m_metadata = hdr_metadata;
 }
 
-DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf)
+DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, const HDRMetadata & hdr_metadata)
 {
-        return new DeckLinkFrame(width, height, rawBytes, pixelFormat, buffer_pool, eotf);
+        return new DeckLinkFrame(width, height, rawBytes, pixelFormat, buffer_pool, hdr_metadata);
 }
 
 DeckLinkFrame::~DeckLinkFrame() 
@@ -1748,6 +1735,55 @@ HRESULT DeckLinkFrame::SetAncillaryData (/* in */ IDeckLinkVideoFrameAncillary *
 HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */ BMDTimecodeUserBits)
 {
         return E_FAIL;
+}
+
+void HDRMetadata::Init(const string &fmt) {
+        auto opts = unique_ptr<char []>(new char [fmt.size() + 1]);
+        strcpy(opts.get(), fmt.c_str());
+        char *save_ptr = nullptr;
+        string mode = strtok_r(opts.get(), ",", &save_ptr);
+        std::for_each(std::begin(mode), std::end(mode), [](char& c) {
+                        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                        });
+        if (mode == "SDR"s) {
+                EOTF = static_cast<int64_t>(HDR_EOTF::SDR);
+        } else if (mode == "HDR"s) {
+                EOTF = static_cast<int64_t>(HDR_EOTF::HDR);
+        } else if (mode == "PQ"s) {
+                EOTF = static_cast<int64_t>(HDR_EOTF::PQ);
+        } else if (mode == "HLG"s) {
+                EOTF = static_cast<int64_t>(HDR_EOTF::HLG);
+        } else if (mode == "HELP"s) {
+                cout << MOD_NAME << "HDR syntax:\n";
+                cout << "\tHDR[=<eotf>|int[,{<k>=<v>}*]\n";
+                cout << "\t\t<eotf> may be one of SDR, HDR, PQ, HLG or int 0-7\n";
+                cout << "\t\tFurther options may be specification of HDR values, accepted keys are (values are floats):\n";
+                cout << "\t\t\t- maxDisplayMasteringLuminance\n";
+                cout << "\t\t\t- minDisplayMasteringLuminance\n";
+                cout << "\t\t\t- maxCLL\n";
+                cout << "\t\t\t- maxFALL\n";
+                throw ug_no_error{};
+        } else {
+                EOTF = stoi(mode);
+                if (EOTF < 0 || EOTF > 7) {
+                        throw out_of_range("Value outside [0..7]");
+                }
+        }
+
+        char *other_opt = nullptr;
+        while ((other_opt = strtok_r(nullptr, ",", &save_ptr)) != nullptr) {
+                if (strstr(other_opt, "maxDisplayMasteringLuminance=") != nullptr) {
+                        maxDisplayMasteringLuminance = stod(other_opt + strlen("maxDisplayMasteringLuminance="));
+                } else if (strstr(other_opt, "minDisplayMasteringLuminance=") != nullptr) {
+                        minDisplayMasteringLuminance = stod(other_opt + strlen("minDisplayMasteringLuminance="));
+                } else if (strstr(other_opt, "maxCLL=") != nullptr) {
+                        maxCLL = stod(other_opt + strlen("maxCLL="));
+                } else if (strstr(other_opt, "maxFALL=") != nullptr) {
+                        maxFALL = stod(other_opt + strlen("maxFALL="));
+                } else {
+                        throw invalid_argument("Unrecognized HDR attribute "s + other_opt);
+                }
+        }
 }
 
 static inline void debug_print_metadata_id(const char *fn_name, BMDDeckLinkFrameMetadataID metadataID) {
@@ -1849,14 +1885,14 @@ HRESULT DeckLinkFrame::GetBytes(BMDDeckLinkFrameMetadataID metadataID, void* /* 
 }
 
 // 3D frame
-DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, int64_t eotf)
-        : DeckLinkFrame(w, h, rb, pf, buffer_pool, eotf), rightEye(DeckLinkFrame::Create(w, h, rb, pf, buffer_pool, eotf))
+DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata)
+        : DeckLinkFrame(w, h, rb, pf, buffer_pool, hdr_metadata), rightEye(DeckLinkFrame::Create(w, h, rb, pf, buffer_pool, hdr_metadata))
 {
 }
 
-DeckLink3DFrame *DeckLink3DFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf)
+DeckLink3DFrame *DeckLink3DFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata)
 {
-        DeckLink3DFrame *frame = new DeckLink3DFrame(width, height, rawBytes, pixelFormat, buffer_pool, eotf);
+        DeckLink3DFrame *frame = new DeckLink3DFrame(width, height, rawBytes, pixelFormat, buffer_pool, hdr_metadata);
         return frame;
 }
 
