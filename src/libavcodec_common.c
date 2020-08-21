@@ -2138,6 +2138,19 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
         return av_to_uv_conversions;
 }
 
+av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
+        for (const struct av_to_uv_conversion *conversions = get_av_to_uv_conversions();
+                        conversions->convert != 0; conversions++) {
+                if (conversions->av_codec == av_codec &&
+                                conversions->uv_codec == uv_codec) {
+                        return conversions->convert;
+                }
+        }
+
+        return NULL;
+}
+
+
 #ifdef HAVE_SWSCALE
 /**
 * Simplified version of this: https://cpp.hotexamples.com/examples/-/-/av_opt_set_int/cpp-av_opt_set_int-function-examples.html

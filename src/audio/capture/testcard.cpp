@@ -56,8 +56,10 @@
 #include <string.h>
 
 #include <chrono>
+#include <string>
 
 using namespace std::chrono;
+using std::string;
 
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
 
@@ -69,6 +71,7 @@ using namespace std::chrono;
 
 #define FREQUENCY 1000
 #define DEFAULT_VOLUME -18.0
+constexpr const char *MOD_NAME = "[Audio testc.] ";
 
 struct state_audio_capture_testcard {
         uint32_t magic;
@@ -160,7 +163,7 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
 static void * audio_cap_testcard_init(const char *cfg)
 {
         struct state_audio_capture_testcard *s;
-        char *wav_file = NULL;
+        string wav_file;
         char *item, *save_ptr;
 
         double volume = DEFAULT_VOLUME;
@@ -197,6 +200,10 @@ static void * audio_cap_testcard_init(const char *cfg)
                                 pattern = EBU;
                         } else if(strcasecmp(item, "silence") == 0) {
                                 pattern = SILENCE;
+                        } else {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown option: " << item << "\n";
+                                free(tmp);
+                                return nullptr;
                         }
 
                         fmt = NULL;
@@ -257,9 +264,9 @@ static void * audio_cap_testcard_init(const char *cfg)
         }
         case WAV:
         {
-                FILE *wav = fopen(wav_file, "r");
+                FILE *wav = fopen(wav_file.c_str(), "r");
                 if(!wav) {
-                        fprintf(stderr, "Unable to open WAV.\n");
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open WAV file: " << wav_file << ".\n";
                         delete s;
                         return NULL;
                 }
@@ -277,8 +284,8 @@ static void * audio_cap_testcard_init(const char *cfg)
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
                 s->audio.max_size = metadata.data_size + (s->chunk_size - 1) * metadata.ch_count *
                         (metadata.bits_per_sample / 8);
-
-                s->total_samples = metadata.data_size /  metadata.ch_count / metadata.bits_per_sample / 8;
+                s->total_samples = metadata.data_size /  metadata.ch_count / metadata.bits_per_sample * 8;
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->total_samples << " samples read from file " << wav_file << "\n";
 
                 s->audio_samples = (char *) calloc(1, s->audio.max_size);
                 int bytes = fread(s->audio_samples, 1, s->audio.max_size, wav);

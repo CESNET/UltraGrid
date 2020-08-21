@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,21 +47,25 @@
 
 #include "video.h"
 #include "video_codec.h"
+#include "vo_postprocess/capture_filter_wrapper.h"
 
 static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
-static int state_mirror;
+struct state_mirror {
+        char *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
+};
 
 static int init(struct module *, const char *, void **state)
 {
-        *state = &state_mirror;
+        *state = static_cast<state_mirror *>(calloc(1, sizeof(state_mirror)));
         return 0;
 }
 
-static void done(void *)
+static void done(void *state)
 {
+        free(state);
 }
 
 static void mirror_line_UYVY(unsigned char *dst, const unsigned char *src, int linesize)
@@ -83,14 +87,22 @@ static void mirror_line_UYVY(unsigned char *dst, const unsigned char *src, int l
         }
 }
 
-static struct video_frame *filter(void *, struct video_frame *in)
+static struct video_frame *filter(void *state, struct video_frame *in)
 {
+        auto *s = static_cast<state_mirror *>(state);
+
         if (in->color_spec != UYVY) {
                 log_msg(LOG_LEVEL_WARNING, "Only supported colorspace for mirror is currently UYVY!\n");
                 return in;
         }
 
-        struct video_frame *out = vf_alloc_desc_data(video_desc_from_frame(in));
+        struct video_frame *out = vf_alloc_desc(video_desc_from_frame(in));
+        if (s->vo_pp_out_buffer) {
+                out->tiles[0].data = s->vo_pp_out_buffer;
+        } else {
+                out->tiles[0].data = static_cast<char *>(malloc(out->tiles[0].data_len));
+                out->callbacks.data_deleter = vf_data_deleter;
+        }
         out->callbacks.dispose = vf_free;
 
         unsigned char *in_data = (unsigned char *) in->tiles[0].data;
@@ -106,6 +118,12 @@ static struct video_frame *filter(void *, struct video_frame *in)
         return out;
 }
 
+static void vo_pp_set_out_buffer(void *state, char *buffer)
+{
+        auto *s = static_cast<struct state_mirror *>(state);
+        s->vo_pp_out_buffer = buffer;
+}
+
 static const struct capture_filter_info capture_filter_mirror = {
         .init = init,
         .done = done,
@@ -113,4 +131,5 @@ static const struct capture_filter_info capture_filter_mirror = {
 };
 
 REGISTER_MODULE(mirror, &capture_filter_mirror, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(mirror, init, filter, done, vo_pp_set_out_buffer)
 

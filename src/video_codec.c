@@ -470,25 +470,6 @@ bool codec_is_hw_accelerated(codec_t codec) {
         return codec == HW_VDPAU;
 }
 
-int get_halign(codec_t codec)
-{
-        unsigned int i = (unsigned int) codec;
-
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].h_align;
-        } else {
-                return 0;
-        }
-}
-
-/** @brief Returns aligned linesize according to pixelformat specification (in pixels) */
-int get_aligned_length(int width_pixels, codec_t codec)
-{
-        int h_align = get_halign(codec);
-        assert(h_align > 0);
-        return ((width_pixels + h_align - 1) / h_align) * h_align;
-}
-
 /** @brief Returns aligned linesize according to pixelformat specification (in bytes) */
 int vc_get_linesize(unsigned int width, codec_t codec)
 {

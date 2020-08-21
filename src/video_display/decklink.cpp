@@ -57,11 +57,13 @@
 #include "lib_common.h"
 #include "rang.hpp"
 #include "tv.h"
+#include "ug_runtime_error.hpp"
 #include "utils/misc.h"
 #include "video.h"
 #include "video_display.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <iomanip>
@@ -79,8 +81,6 @@
 
 static void print_output_modes(IDeckLink *);
 static void display_decklink_done(void *state);
-
-#define MAX_DEVICES 4
 
 // performs command, if failed, displays error and jumps to error label
 #define EXIT_IF_FAILED(cmd, name) \
@@ -222,6 +222,8 @@ struct HDRMetadata
         double                                  minDisplayMasteringLuminance{kDefaultMinDisplayMasteringLuminance};
         double                                  maxCLL{kDefaultMaxCLL};
         double                                  maxFALL{kDefaultMaxFALL};
+
+        void                                    Init(const string & fmt);
 };
 
 class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFrameMetadataExtensions
@@ -239,11 +241,11 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFr
                 buffer_pool_t &buffer_pool;
                 struct HDRMetadata m_metadata;
         protected:
-                DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, int64_t eotf);
+                DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, HDRMetadata const & hdr_metadata);
 
         public:
                 virtual ~DeckLinkFrame();
-                static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf);
+                static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata);
 
                 /* IUnknown */
                 HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override;
@@ -280,12 +282,12 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 {
         private:
                 using DeckLinkFrame::DeckLinkFrame;
-                DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, int64_t eotf);
+                DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata);
                 unique_ptr<DeckLinkFrame> rightEye; // rightEye ref count is always >= 1 therefore deleted by owner (this class)
 
         public:
                 ~DeckLink3DFrame();
-                static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf);
+                static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata);
                 
                 /* IUnknown */
                 HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override;
@@ -313,7 +315,7 @@ struct state_decklink {
 
         struct timeval      tv;
 
-        struct device_state state[MAX_DEVICES];
+        vector<struct device_state> state;
 
         BMDTimeValue        frameRateDuration;
         BMDTimeScale        frameRateScale;
@@ -340,7 +342,7 @@ struct state_decklink {
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
         BMDVideoOutputConversionMode conversion_mode{bmdNoVideoOutputConversion};
-        int64_t             requested_hdr_mode{static_cast<int64_t>(HDR_EOTF::NONE)};
+        HDRMetadata         requested_hdr_mode;
 
         buffer_pool_t       buffer_pool;
 
@@ -393,7 +395,7 @@ static void show_help(bool full)
                         << style::bold << "2dhd" << style::reset << " or "
                         << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
                         << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
-                cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.3)\n";
+                cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>|help]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
         }
         cout << style::bold << "\thalf-duplex" << style::reset
                 << " - set a profile that allows maximal number of simultaneous IOs\n";
@@ -575,7 +577,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
 
         uint32_t i;
 
-        s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
+        s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i);
 
         auto t0 = chrono::high_resolution_clock::now();
 
@@ -715,7 +717,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
         if (s->initialized_video) {
                 for (int i = 0; i < s->devices_cnt; ++i) {
-                        CALL_AND_CHECK(s->state[i].deckLinkOutput->DisableVideoOutput(),
+                        CALL_AND_CHECK(s->state.at(i).deckLinkOutput->DisableVideoOutput(),
                                         "DisableVideoOutput");
                 }
                 s->initialized_video = false;
@@ -745,7 +747,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 BMDVideoOutputFlags outputFlags= bmdVideoOutputFlagDefault;
                 BMDSupportedVideoModeFlags supportedFlags = bmdSupportedVideoModeDefault;
 
-                displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
+                displayMode = get_mode(s->state.at(i).deckLinkOutput, desc, &s->frameRateDuration,
                                 &s->frameRateScale);
                 if (displayMode == bmdModeUnknown) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find suitable video mode.\n");
@@ -762,7 +764,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 }
 
                 BMD_BOOL subsampling_444 = codec_is_a_rgb(desc.color_spec); // we don't have pixfmt for 444 YCbCr
-                CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfig444SDIVideoOutput, subsampling_444),
+                CALL_AND_CHECK(s->state.at(i).deckLinkConfiguration->SetFlag(bmdDeckLinkConfig444SDIVideoOutput, subsampling_444),
                                 "SDI subsampling");
 
                 uint32_t link = s->link_req;
@@ -776,22 +778,22 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting quad-link for 8K by default.\n";
                         }
                 }
-                CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, link), "Unable set output SDI link mode");
+                CALL_AND_CHECK(s->state.at(i).deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, link), "Unable set output SDI link mode");
 
                 if (s->profile_req == BMD_OPT_DEFAULT && link == bmdLinkConfigurationQuadLink) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
-                        decklink_set_duplex(s->state[i].deckLink, bmdProfileOneSubDeviceHalfDuplex);
+                        decklink_set_duplex(s->state.at(i).deckLink, bmdProfileOneSubDeviceHalfDuplex);
                 } else if (link == bmdLinkConfigurationQuadLink && (s->profile_req != BMD_OPT_KEEP && s->profile_req == bmdProfileOneSubDeviceHalfDuplex)) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and an incompatible device profile may not be supported!\n";
                 }
 
                 BMD_BOOL quad_link_supp;
-                if (s->state[i].deckLinkAttributes && s->state[i].deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) == S_OK && quad_link_supp == BMD_TRUE) {
-                        CALL_AND_CHECK(s->state[i].deckLinkConfiguration->SetFlag(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, s->quad_square_division_split),
+                if (s->state.at(i).deckLinkAttributes != nullptr && s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) == S_OK && quad_link_supp == BMD_TRUE) {
+                        CALL_AND_CHECK(s->state.at(i).deckLinkConfiguration->SetFlag(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, s->quad_square_division_split),
                                         "Quad-link SDI Square Division Quad Split mode");
                 }
 
-                EXIT_IF_FAILED(s->state[i].deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, s->conversion_mode, supportedFlags, nullptr, &supported),
+                EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, s->conversion_mode, supportedFlags, nullptr, &supported),
                                 "DoesSupportVideoMode");
                 if (!supported) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
@@ -801,7 +803,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         goto error;
                 }
 
-                result = s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
+                result = s->state.at(i).deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
                 if (FAILED(result)) {
                         if (result == E_ACCESSDENIED) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to access the hardware or output "
@@ -828,7 +830,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
         if (!s->low_latency) {
                 for(int i = 0; i < s->devices_cnt; ++i) {
-                        EXIT_IF_FAILED(s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration), "StartScheduledPlayback (video)");
+                        EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration), "StartScheduledPlayback (video)");
                 }
         }
 
@@ -839,9 +841,9 @@ error:
         // in case we are partially initialized, deinitialize
         for (int i = 0; i < s->devices_cnt; ++i) {
                 if (!s->low_latency) {
-                        s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
+                        s->state.at(i).deckLinkOutput->StopScheduledPlayback (0, nullptr, 0);
                 }
-                s->state[i].deckLinkOutput->DisableVideoOutput();
+                s->state.at(i).deckLinkOutput->DisableVideoOutput();
         }
         s->initialized_video = false;
         return FALSE;
@@ -887,7 +889,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         decklink_uninitialize();
 }
 
-static bool parse_devices(const char *devices_str, string *cardId, int *devices_cnt) {
+static auto parse_devices(const char *devices_str, vector<string> *cardId) {
         if (strlen(devices_str) == 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Empty device string!\n");
                 return false;
@@ -895,11 +897,9 @@ static bool parse_devices(const char *devices_str, string *cardId, int *devices_
         char *save_ptr;
         char *tmp = strdup(devices_str);
         char *ptr = tmp;
-        *devices_cnt = 0;
         char *item;
         while ((item = strtok_r(ptr, ",", &save_ptr))) {
-                cardId[*devices_cnt] = item;
-                ++*devices_cnt;
+                cardId->push_back(item);
                 ptr = NULL;
         }
         free(tmp);
@@ -908,7 +908,7 @@ static bool parse_devices(const char *devices_str, string *cardId, int *devices_
 }
 
 static bool settings_init(struct state_decklink *s, const char *fmt,
-                string cardId[],
+                vector<string> *cardId,
                 BMDVideo3DPackingFormat *HDMI3DPacking,
                 int *audio_consumer_levels,
                 int *use1080psf) {
@@ -936,7 +936,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         if (first_option_is_device) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unnamed device index "
                                 "deprecated. Use \"device=%s\" instead.\n", ptr);
-                if (!parse_devices(ptr, cardId, &s->devices_cnt)) {
+                if (!parse_devices(ptr, cardId)) {
                         return false;
                 }
                 ptr = strtok_r(nullptr, ":", &save_ptr);
@@ -944,7 +944,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
 
         while (ptr != nullptr)  {
                 if (strncasecmp(ptr, "device=", strlen("device=")) == 0) {
-                        if (!parse_devices(ptr + strlen("device="), cardId, &s->devices_cnt)) {
+                        if (!parse_devices(ptr + strlen("device="), cardId)) {
                                 return false;
                         }
 
@@ -1012,33 +1012,17 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
                         s->quad_square_division_split = strcasecmp(ptr, "quad-square") == 0;
-                } else if (strcasecmp(ptr, "hdr") == 0) {
-                        if (strcasecmp(ptr, "hdr=") == 0) {
-                                string mode{ptr + strlen("hdr=")};
-                                std::for_each(std::begin(mode), std::end(mode), [](char& c) {
-                                                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-                                                });
-                                if (mode == "SDR"s) {
-                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::SDR);
-                                } else if (mode == "HDR"s) {
-                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HDR);
-                                } else if (mode == "PG"s) {
-                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::PQ);
-                                } else if (mode == "HLG"s) {
-                                        s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HLG);
-                                } else {
-                                        try {
-                                                s->requested_hdr_mode = stoi(mode);
-                                                if (s->requested_hdr_mode < 0 || s->requested_hdr_mode > 7) {
-                                                        throw out_of_range("Value outside [0..7]");
-                                                }
-                                        } catch (exception const &e) {
-                                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong HDR mode \"" << mode << "\": " << e.what() << "\n";
-                                                return false;
-                                        }
+                } else if (strncasecmp(ptr, "hdr", strlen("hdr")) == 0) {
+                        s->requested_hdr_mode.EOTF = static_cast<int64_t>(HDR_EOTF::HDR); // default
+                        if (strncasecmp(ptr, "hdr=", strlen("hdr=")) == 0) {
+                                try {
+                                        s->requested_hdr_mode.Init(ptr + strlen("hdr="));
+                                } catch (ug_no_error const &e) {
+                                        return false;
+                                } catch (exception const &e) {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "HDR mode init: " << e.what() << "\n";
+                                        return false;
                                 }
-                        } else {
-                                s->requested_hdr_mode = static_cast<int64_t>(HDR_EOTF::HDR);
                         }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
@@ -1066,7 +1050,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
-        string                                          cardId[MAX_DEVICES];
+        vector<string>                                  cardId;
         int                                             dnum = 0;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
@@ -1090,14 +1074,18 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->emit_timecode = false;
         s->profile_req = BMD_OPT_DEFAULT;
         s->link_req = 0;
-        cardId[0] = "0";
         s->devices_cnt = 1;
         s->low_latency = true;
 
-        if (!settings_init(s, fmt, cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
+        if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
                 return NULL;
         }
+
+        if (cardId.empty()) {
+                cardId.emplace_back("0");
+        }
+        s->devices_cnt = cardId.size();
 
 	if (s->stereo && s->devices_cnt > 1) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported configuration - in stereo "
@@ -1121,12 +1109,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return NULL;
         }
 
-        for(int i = 0; i < s->devices_cnt; ++i) {
-                s->state[i].delegate = NULL;
-                s->state[i].deckLink = NULL;
-                s->state[i].deckLinkOutput = NULL;
-                s->state[i].deckLinkConfiguration = NULL;
-        }
+        s->state.resize(s->devices_cnt);
 
         // Connect to the first DeckLink instance
         IDeckLink    *deckLink;
@@ -1145,7 +1128,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
 
                         if (found) {
-                                s->state[i].deckLink = deckLink;
+                                s->state.at(i).deckLink = deckLink;
                         }
                 }
                 if(!found && deckLink != NULL)
@@ -1154,12 +1137,12 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         deckLinkIterator->Release();
         for(int i = 0; i < s->devices_cnt; ++i) {
-                if(s->state[i].deckLink == NULL) {
+                if (s->state.at(i).deckLink == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << "No DeckLink PCI card " << cardId[i] <<" found\n";
                         goto error;
                 }
                 // Print the model name of the DeckLink card
-                string deviceName = bmd_get_device_name(s->state[i].deckLink);
+                string deviceName = bmd_get_device_name(s->state.at(i).deckLink);
                 if (!deviceName.empty()) {
                         LOG(LOG_LEVEL_INFO) << MOD_NAME "Using device " << deviceName << "\n";
                 }
@@ -1193,26 +1176,26 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         
         for(int i = 0; i < s->devices_cnt; ++i) {
                 if (s->profile_req != BMD_OPT_DEFAULT && s->profile_req != BMD_OPT_KEEP) {
-                        decklink_set_duplex(s->state[i].deckLink, s->profile_req);
+                        decklink_set_duplex(s->state.at(i).deckLink, s->profile_req);
                 }
 
 		// Get IDeckLinkAttributes object
 		IDeckLinkProfileAttributes *deckLinkAttributes = NULL;
-		result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes);
+		result = s->state.at(i).deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, reinterpret_cast<void**>(&deckLinkAttributes));
 		if (result != S_OK) {
 			log_msg(LOG_LEVEL_WARNING, "Could not query device attributes.\n");
 		}
-                s->state[i].deckLinkAttributes = deckLinkAttributes;
+                s->state.at(i).deckLinkAttributes = deckLinkAttributes;
 
                 // Obtain the audio/video output interface (IDeckLinkOutput)
-                if ((result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput)) != S_OK) {
+                if ((result = s->state.at(i).deckLink->QueryInterface(IID_IDeckLinkOutput, reinterpret_cast<void**>(&s->state.at(i).deckLinkOutput))) != S_OK) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not obtain the IDeckLinkOutput interface: %08x\n", (int) result);
                         goto error;
                 }
 
                 // Query the DeckLink for its configuration interface
-                result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
-                s->state[i].deckLinkConfiguration = deckLinkConfiguration;
+                result = s->state.at(i).deckLink->QueryInterface(IID_IDeckLinkConfiguration, reinterpret_cast<void**>(&deckLinkConfiguration));
+                s->state.at(i).deckLinkConfiguration = deckLinkConfiguration;
                 if (result != S_OK)
                 {
                         log_msg(LOG_LEVEL_ERROR, "Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
@@ -1265,6 +1248,27 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 #endif
                 }
 
+                if (s->requested_hdr_mode.EOTF != static_cast<int64_t>(HDR_EOTF::NONE)) {
+                        BMD_BOOL hdr_supp = BMD_FALSE;
+                        if (s->state.at(i).deckLinkAttributes == nullptr || s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsHDRMetadata, &hdr_supp) != S_OK) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "HDR requested, but unable to validate HDR support. Will try to pass it anyway which may result in blank image if not supported - remove the option if so.\n";
+                        } else {
+                                if (hdr_supp != BMD_TRUE) {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "HDR requested, but card doesn't support that.\n";
+                                        goto error;
+                                }
+                        }
+
+                        BMD_BOOL rec2020_supp = BMD_FALSE;
+                        if (s->state.at(i).deckLinkAttributes == nullptr || s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsColorspaceMetadata, &rec2020_supp) != S_OK) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Cannot check Rec. 2020 color space metadata support.\n";
+                        } else {
+                                if (rec2020_supp != BMD_TRUE) {
+                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Rec. 2020 color space metadata not supported.\n";
+                                }
+                        }
+                }
+
                 if (s->play_audio && i == 0) {
                         /* Actually no action is required to set audio connection because Blackmagic card plays audio through all its outputs (AES/SDI/analog) ....
                          */
@@ -1306,12 +1310,12 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                 }
 
-                s->state[i].delegate = new PlaybackDelegate();
+                s->state.at(i).delegate = new PlaybackDelegate();
                 // Provide this class as a delegate to the audio and video output interfaces
                 if (!s->low_latency) {
-                        s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
+                        s->state.at(i).deckLinkOutput->SetScheduledFrameCompletionCallback(s->state.at(i).delegate);
                 }
-                //s->state[i].deckLinkOutput->DisableAudioOutput();
+                //s->state.at(i).deckLinkOutput->DisableAudioOutput();
         }
 
         s->frames = 0;
@@ -1340,26 +1344,24 @@ static void display_decklink_done(void *state)
         {
                 if (s->initialized_video) {
                         if (!s->low_latency) {
-                                CALL_AND_CHECK(s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0), "StopScheduledPlayback");
+                                CALL_AND_CHECK(s->state.at(i).deckLinkOutput->StopScheduledPlayback (0, nullptr, 0), "StopScheduledPlayback");
                         }
 
-                        CALL_AND_CHECK(s->state[i].deckLinkOutput->DisableVideoOutput(), "DisableVideoOutput");
+                        CALL_AND_CHECK(s->state.at(i).deckLinkOutput->DisableVideoOutput(), "DisableVideoOutput");
                 }
 
                 if (s->initialized_audio) {
                         if (i == 0) {
-                                CALL_AND_CHECK(s->state[i].deckLinkOutput->DisableAudioOutput(), "DisableAudiioOutput");
+                                CALL_AND_CHECK(s->state.at(i).deckLinkOutput->DisableAudioOutput(), "DisableAudiioOutput");
                         }
                 }
 
-                RELEASE_IF_NOT_NULL(s->state[i].deckLinkAttributes);
-                RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
-                RELEASE_IF_NOT_NULL(s->state[i].deckLinkOutput);
-                RELEASE_IF_NOT_NULL(s->state[i].deckLink);
+                RELEASE_IF_NOT_NULL(s->state.at(i).deckLinkAttributes);
+                RELEASE_IF_NOT_NULL(s->state.at(i).deckLinkConfiguration);
+                RELEASE_IF_NOT_NULL(s->state.at(i).deckLinkOutput);
+                RELEASE_IF_NOT_NULL(s->state.at(i).deckLink);
 
-                if(s->state[i].delegate != NULL) {
-                        delete s->state[i].delegate;
-                }
+                delete s->state.at(i).delegate;
         }
 
         while (!s->buffer_pool.frame_queue.empty()) {
@@ -1646,18 +1648,18 @@ ULONG DeckLinkFrame::Release()
 	return ref;
 }
 
-DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, int64_t eotf)
+DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & bp, HDRMetadata const & hdr_metadata)
 	: width(w), height(h), rawBytes(rb), pixelFormat(pf), data(new char[rb * h]), timecode(NULL), ref(1l),
         buffer_pool(bp)
 {
         clear_video_buffer(reinterpret_cast<unsigned char *>(data.get()), rawBytes, rawBytes, height,
                         pf == bmdFormat8BitYUV ? UYVY : (pf == bmdFormat10BitYUV ? v210 : RGBA));
-        m_metadata.EOTF = eotf;
+        m_metadata = hdr_metadata;
 }
 
-DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf)
+DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, const HDRMetadata & hdr_metadata)
 {
-        return new DeckLinkFrame(width, height, rawBytes, pixelFormat, buffer_pool, eotf);
+        return new DeckLinkFrame(width, height, rawBytes, pixelFormat, buffer_pool, hdr_metadata);
 }
 
 DeckLinkFrame::~DeckLinkFrame() 
@@ -1735,9 +1737,68 @@ HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */
         return E_FAIL;
 }
 
+void HDRMetadata::Init(const string &fmt) {
+        auto opts = unique_ptr<char []>(new char [fmt.size() + 1]);
+        strcpy(opts.get(), fmt.c_str());
+        char *save_ptr = nullptr;
+        string mode = strtok_r(opts.get(), ",", &save_ptr);
+        std::for_each(std::begin(mode), std::end(mode), [](char& c) {
+                        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                        });
+        if (mode == "SDR"s) {
+                EOTF = static_cast<int64_t>(HDR_EOTF::SDR);
+        } else if (mode == "HDR"s) {
+                EOTF = static_cast<int64_t>(HDR_EOTF::HDR);
+        } else if (mode == "PQ"s) {
+                EOTF = static_cast<int64_t>(HDR_EOTF::PQ);
+        } else if (mode == "HLG"s) {
+                EOTF = static_cast<int64_t>(HDR_EOTF::HLG);
+        } else if (mode == "HELP"s) {
+                cout << MOD_NAME << "HDR syntax:\n";
+                cout << "\tHDR[=<eotf>|int[,{<k>=<v>}*]\n";
+                cout << "\t\t<eotf> may be one of SDR, HDR, PQ, HLG or int 0-7\n";
+                cout << "\t\tFurther options may be specification of HDR values, accepted keys are (values are floats):\n";
+                cout << "\t\t\t- maxDisplayMasteringLuminance\n";
+                cout << "\t\t\t- minDisplayMasteringLuminance\n";
+                cout << "\t\t\t- maxCLL\n";
+                cout << "\t\t\t- maxFALL\n";
+                throw ug_no_error{};
+        } else {
+                EOTF = stoi(mode);
+                if (EOTF < 0 || EOTF > 7) {
+                        throw out_of_range("Value outside [0..7]");
+                }
+        }
+
+        char *other_opt = nullptr;
+        while ((other_opt = strtok_r(nullptr, ",", &save_ptr)) != nullptr) {
+                if (strstr(other_opt, "maxDisplayMasteringLuminance=") != nullptr) {
+                        maxDisplayMasteringLuminance = stod(other_opt + strlen("maxDisplayMasteringLuminance="));
+                } else if (strstr(other_opt, "minDisplayMasteringLuminance=") != nullptr) {
+                        minDisplayMasteringLuminance = stod(other_opt + strlen("minDisplayMasteringLuminance="));
+                } else if (strstr(other_opt, "maxCLL=") != nullptr) {
+                        maxCLL = stod(other_opt + strlen("maxCLL="));
+                } else if (strstr(other_opt, "maxFALL=") != nullptr) {
+                        maxFALL = stod(other_opt + strlen("maxFALL="));
+                } else {
+                        throw invalid_argument("Unrecognized HDR attribute "s + other_opt);
+                }
+        }
+}
+
+static inline void debug_print_metadata_id(const char *fn_name, BMDDeckLinkFrameMetadataID metadataID) {
+        if (log_level < LOG_LEVEL_DEBUG2) {
+                return;
+        }
+        array<char, sizeof metadataID + 1> fourcc{};
+        copy(reinterpret_cast<char *>(&metadataID), reinterpret_cast<char *>(&metadataID) + sizeof metadataID, fourcc.data());
+        LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "DecklLinkFrame " << fn_name << ": " << fourcc.data() << "\n";
+}
+
 // IDeckLinkVideoFrameMetadataExtensions interface
 HRESULT DeckLinkFrame::GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         switch (metadataID)
         {
                 case bmdDeckLinkFrameMetadataHDRElectroOpticalTransferFunc:
@@ -1755,6 +1816,7 @@ HRESULT DeckLinkFrame::GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* va
 
 HRESULT DeckLinkFrame::GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* value)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         switch (metadataID)
         {
                 case bmdDeckLinkFrameMetadataHDRDisplayPrimariesRedX:
@@ -1799,35 +1861,38 @@ HRESULT DeckLinkFrame::GetFloat(BMDDeckLinkFrameMetadataID metadataID, double* v
         }
 }
 
-HRESULT DeckLinkFrame::GetFlag(BMDDeckLinkFrameMetadataID /* metadataID */, BMD_BOOL* value)
+HRESULT DeckLinkFrame::GetFlag(BMDDeckLinkFrameMetadataID metadataID, BMD_BOOL* value)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         // Not expecting GetFlag
         *value = BMD_TRUE;
         return E_INVALIDARG;
 }
 
-HRESULT DeckLinkFrame::GetString(BMDDeckLinkFrameMetadataID /* metadataID */, BMD_STR* value)
+HRESULT DeckLinkFrame::GetString(BMDDeckLinkFrameMetadataID metadataID, BMD_STR* value)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         // Not expecting GetString
         *value = nullptr;
         return E_INVALIDARG;
 }
 
-HRESULT DeckLinkFrame::GetBytes(BMDDeckLinkFrameMetadataID /* metadataID */, void* /* buffer */, uint32_t* bufferSize)
+HRESULT DeckLinkFrame::GetBytes(BMDDeckLinkFrameMetadataID metadataID, void* /* buffer */, uint32_t* bufferSize)
 {
+        debug_print_metadata_id(static_cast<const char *>(__func__), metadataID);
         *bufferSize = 0;
         return E_INVALIDARG;
 }
 
 // 3D frame
-DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, int64_t eotf)
-        : DeckLinkFrame(w, h, rb, pf, buffer_pool, eotf), rightEye(DeckLinkFrame::Create(w, h, rb, pf, buffer_pool, eotf))
+DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata)
+        : DeckLinkFrame(w, h, rb, pf, buffer_pool, hdr_metadata), rightEye(DeckLinkFrame::Create(w, h, rb, pf, buffer_pool, hdr_metadata))
 {
 }
 
-DeckLink3DFrame *DeckLink3DFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, int64_t eotf)
+DeckLink3DFrame *DeckLink3DFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat, buffer_pool_t & buffer_pool, HDRMetadata const & hdr_metadata)
 {
-        DeckLink3DFrame *frame = new DeckLink3DFrame(width, height, rawBytes, pixelFormat, buffer_pool, eotf);
+        DeckLink3DFrame *frame = new DeckLink3DFrame(width, height, rawBytes, pixelFormat, buffer_pool, hdr_metadata);
         return frame;
 }
 

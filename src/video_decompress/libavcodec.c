@@ -448,14 +448,14 @@ static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
 {
-        if (log_level >= LOG_LEVEL_DEBUG) {
+        if (log_level >= LOG_LEVEL_VERBOSE) {
                 char out[1024] = "[lavd] Available output pixel formats:";
                 const enum AVPixelFormat *it = fmt;
                 while (*it != AV_PIX_FMT_NONE) {
                         strncat(out, " ", sizeof out - strlen(out) - 1);
                         strncat(out, av_get_pix_fmt_name(*it++), sizeof out - strlen(out) - 1);
                 }
-                log_msg(LOG_LEVEL_DEBUG, "%s\n", out);
+                log_msg(LOG_LEVEL_VERBOSE, "%s\n", out);
         }
 
         struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;

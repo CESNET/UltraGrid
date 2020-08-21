@@ -87,6 +87,16 @@ int simple_linked_list_size(struct simple_linked_list *l)
         return l->l.size();
 }
 
+void *simple_linked_list_first(struct simple_linked_list *l)
+{
+        return l->l.front();
+}
+
+void *simple_linked_list_last(struct simple_linked_list *l)
+{
+        return l->l.back();
+}
+
 void *simple_linked_list_it_init(struct simple_linked_list *l)
 {
         if (l->l.size() == 0)
@@ -108,6 +118,13 @@ void *simple_linked_list_it_next(void **i)
                 *i = NULL;
         }
         return ret;
+}
+
+void *simple_linked_list_it_peek_next(const void *it)
+{
+        const auto *sit = static_cast<const sll_it *>(it);
+
+        return *sit->it;
 }
 
 void simple_linked_list_it_destroy(void *i)

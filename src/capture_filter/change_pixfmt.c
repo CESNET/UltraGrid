@@ -47,11 +47,13 @@
 #include "utils/color_out.h"
 #include "video.h"
 #include "video_codec.h"
+#include "vo_postprocess/capture_filter_wrapper.h"
 
 #define MOD_NAME "[change pixfmt cap. f.] "
 
 struct state_capture_filter_change_pixfmt {
         codec_t to_codec;
+        void *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
 };
 
 static int init(struct module *parent, const char *cfg, void **state)
@@ -93,7 +95,13 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find decoder!\n");
                 return NULL;
         }
-        struct video_frame *out = vf_alloc_desc_data(desc);
+        struct video_frame *out = vf_alloc_desc(desc);
+        if (s->vo_pp_out_buffer) {
+                out->tiles[0].data = s->vo_pp_out_buffer;
+        } else {
+                out->tiles[0].data = malloc(out->tiles[0].data_len);
+                out->callbacks.data_deleter = vf_data_deleter;
+        }
         out->callbacks.dispose = vf_free;
 
         unsigned char *in_data = (unsigned char *) in->tiles[0].data;
@@ -112,12 +120,22 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         return out;
 }
 
+
+static void vo_pp_set_out_buffer(void *state, char *buffer)
+{
+        struct state_capture_filter_change_pixfmt *s = state;
+        s->vo_pp_out_buffer = buffer;
+}
+
 static const struct capture_filter_info capture_filter_change_pixfmt = {
         .init = init,
         .done = done,
         .filter = filter,
 };
 
+ADD_VO_PP_CAPTURE_FILTER_WRAPPER(change_pixfmt, init, filter, done, vo_pp_set_out_buffer)
+
 REGISTER_MODULE(change_pixfmt, &capture_filter_change_pixfmt, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+
 
 /* vim: set expandtab sw=8: */

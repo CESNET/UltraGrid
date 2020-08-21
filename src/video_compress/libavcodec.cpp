@@ -432,16 +432,20 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else {
                         show_encoder_help(s->backend);
                 }
-                return 1;
         }
 
-        if (get_commandline_param("lavc-use-codec") != nullptr && "help"s == get_commandline_param("lavc-use-codec")) {
+        if ((get_commandline_param("lavc-use-codec") != nullptr && "help"s == get_commandline_param("lavc-use-codec")) ||
+                        (show_help && !s->backend.empty())) {
                 auto *codec = avcodec_find_encoder_by_name(s->backend.c_str());
                 if (codec != nullptr) {
+                        cout << "\n";
                         print_codec_supp_pix_fmts(codec->pix_fmts);
                 } else {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot open encoder: " << s->backend << "\n";
                 }
+        }
+
+        if (show_help || (get_commandline_param("lavc-use-codec") != nullptr && "help"s == get_commandline_param("lavc-use-codec"))) {
                 return 1;
         }
 
@@ -599,7 +603,7 @@ fail:
 #endif
 
 void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
-        string out = MOD_NAME "Codec supported pixel formats:";
+        string out;
         if (first == nullptr) {
                 out += " (none)";
         }
@@ -607,17 +611,17 @@ void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
         while (it != nullptr && *it != AV_PIX_FMT_NONE) {
                 out += " "s + av_get_pix_fmt_name(*it++);
         }
-        cerr << out << "\n";
+        cerr << style::bold << MOD_NAME "Codec supported pixel formats:" << style::reset << out << "\n";
 }
 
 void print_pix_fmts(const list<enum AVPixelFormat>
                 &req_pix_fmts, const enum AVPixelFormat *first) {
         print_codec_supp_pix_fmts(first);
-        string out = MOD_NAME "Usable pixel formats:";
+        string out;
         for (auto &c : req_pix_fmts) {
                 out += " "s + av_get_pix_fmt_name(c);
         }
-        cerr << out << "\n";
+        cerr << style::bold << MOD_NAME "Usable pixel formats:" << style::reset << out << "\n";
 }
 
 /**
@@ -1097,7 +1101,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
 	}
 
-        if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_DEBUG) {
+        if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
                 print_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
         }
 

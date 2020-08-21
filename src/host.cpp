@@ -374,7 +374,8 @@ void print_version()
 {
         bool is_release = true;
 #ifdef GIT_BRANCH
-        if (strncmp(GIT_BRANCH, "release", strlen("release")) != 0) {
+        if (strstr(GIT_BRANCH, "release") == nullptr &&
+                        strstr(GIT_BRANCH, "tags/v") == nullptr) {
                 is_release = false;
         }
 #endif

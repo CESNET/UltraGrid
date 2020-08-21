@@ -309,10 +309,6 @@ src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.m $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
 
-src/video_display/quicktime.o: src/video_display/quicktime.c $(ALL_INCLUDES)
-	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) -Wno-error=deprecated-declarations $(INC) -c $< -o $@
-
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp

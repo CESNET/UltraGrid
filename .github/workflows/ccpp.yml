@@ -66,9 +66,6 @@ jobs:
     runs-on: ubuntu-16.04
     env:
       appimage_key: ${{ secrets.appimage_key }}
-      CC: clang-9
-      CXX: clang++-9
-      CPP: clang-cpp-9
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
@@ -84,7 +81,7 @@ jobs:
       uses: actions/cache@v1
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-6
+        key: cache-ffmpeg-8
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
@@ -98,6 +95,8 @@ jobs:
       run: make check
     - name: make distcheck
       run: make distcheck
+    - name: check libstdc++ ABI
+      run: .github/scripts/Linux/check_cxx_abi.sh 3.4.21 1.3.9 bin/* lib/ultragrid/*
     - name: Create AppImage
       run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload NDI Build

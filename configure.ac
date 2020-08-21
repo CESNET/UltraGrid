@@ -53,7 +53,7 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 POST_COMPILE_MSG=""
 CFLAGS="$CFLAGS -I$srcdir"
 CPPFLAGS="$CPPFLAGS -I$srcdir"
-CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++17"
+CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++14"
 LIB_MODULES=
 AC_SUBST(INC)
 AC_SUBST(LIBS)
@@ -161,7 +161,7 @@ if test $system = Linux; then
 fi
 
 if test $system = MacOSX; then
-        if test $os_version_major -lt 14; then
+        if test $os_version_major -lt 18; then # Darwin 18.0.0 is macOS 10.14
                 MIN_MACOS_VER=10.7
         else
                 MIN_MACOS_VER=10.14
@@ -1177,46 +1177,6 @@ fi
 
 if test $ximea_req = yes -a $ximea = no; then
         AC_MSG_ERROR([XIMEA SDK not found]);
-fi
-
-# -------------------------------------------------------------------------------------------------
-# QuickTime Stuff
-# -------------------------------------------------------------------------------------------------
-QUICKTIME_INC=
-QUICKTIME_LIB=
-QUICKTIME_OBJ=
-quicktime=no
-
-AC_ARG_ENABLE(quicktime,
-      AS_HELP_STRING([--disable-quicktime], [enable QuickTime support(default is disable)]),
-    [quicktime_req=$enableval],
-    [quicktime_req=no]
-    )
-
-if test $WORD_LEN = 64 -a $quicktime_req = yes; then
-        AC_MSG_ERROR([QuickTime not supported in 64-bit builds, please build 32-bit UltraGrid (CFLAGS/CXXFLAGS/LDFLAGS/CUDA_FLAGS=-m32)]);
-fi
-
-case $host_os in
-	*darwin*)
-		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [FOUND_QUICKTIME_H=no])
-		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [FOUND_CARBON_H=no])
-
-		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_CARBON_H = yes -a $WORD_LEN = 32
-		then
-                        AC_DEFINE([HAVE_QUICKTIME], [1],  [Build with QuickTime support])
-			QUICKTIME_INC=
-			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
-			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
-                        ADD_MODULE("", "$QUICKTIME_OBJ", "$QUICKTIME_LIB")
-			INC="$INC $QUICKTIME_INC"
-                        quicktime=yes
-		fi
-    ;;
-esac
-
-if test $quicktime_req = yes -a $quicktime = no; then
-        AC_MSG_ERROR([QuickTime not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -3305,7 +3265,6 @@ RESULT=`add_column "$RESULT" "DVS" $dvs $?`
 RESULT=`add_column "$RESULT" "File input" $file $?`
 RESULT=`add_column "$RESULT" "NDI" $ndi $?`
 RESULT=`add_column "$RESULT" "OpenGL" $gl_display $?`
-RESULT=`add_column "$RESULT" "QuickTime" $quicktime $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`

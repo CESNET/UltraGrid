@@ -449,13 +449,17 @@ int display_ctl_property(struct display *d, int property, void *val, size_t *len
                         return TRUE;
 		case DISPLAY_PROPERTY_CODECS:
 			{
-                                codec_t display_codecs[20], pp_codecs[20];
+                                codec_t display_codecs[VIDEO_CODEC_COUNT];
+                                codec_t pp_codecs[VIDEO_CODEC_COUNT];
                                 size_t display_codecs_count, pp_codecs_count;
                                 size_t nlen;
                                 bool ret;
                                 nlen = sizeof display_codecs;
                                 ret = d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_CODECS, display_codecs, &nlen);
-                                if (!ret) return FALSE;
+                                if (!ret) {
+                                        log_msg(LOG_LEVEL_ERROR, "[Display] Unable to get display supported codecs.\n");
+                                        return FALSE;
+                                }
                                 display_codecs_count = nlen / sizeof(codec_t);
                                 nlen = sizeof pp_codecs;
                                 ret = vo_postprocess_get_property(d->postprocess, VO_PP_PROPERTY_CODECS, pp_codecs, &nlen);
