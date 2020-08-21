@@ -744,7 +744,7 @@ static void decoder_set_video_mode(struct state_video_decoder *decoder, enum vid
  * @brief Initializes video decompress state.
  * @param video_mode  video_mode expected to be received from network
  * @param display     Video display that is supposed to be controlled from decoder.
- *                    display_get_frame(), display_put_frame(), display_get_propert()
+ *                    display_get_frame(), display_put_frame(), display_ctl_propert()
  *                    and display_reconfigure() functions may be used. If set to NULL,
  *                    no decoding will take place.
  * @param encryption  Encryption config string. Currently, this is a passphrase to be
@@ -985,40 +985,40 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
  * comp_int_fmt, generic should be catch-all allowing decompression of
  * arbitrary compressed stream of received codec).
  */
-static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t comp_int_fmt, codec_t *display_codecs, int display_codecs_count)
+static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t comp_int_fmt, vector<codec_t> const &display_codecs)
 {
         vector<pair<codec_t, codec_t>> ret;
         set<codec_t> used;
         // first add hw-accelerated codecs
-        for (int i = 0; i < display_codecs_count; ++i) {
-                if (codec_is_hw_accelerated(display_codecs[i])) {
-                        ret.push_back({comp_int_fmt, display_codecs[i]});
+        for (auto codec : display_codecs) {
+                if (codec_is_hw_accelerated(codec)) {
+                        ret.push_back({comp_int_fmt, codec});
                         if (comp_int_fmt != VIDEO_CODEC_NONE) {
-                                ret.push_back({VIDEO_CODEC_NONE, display_codecs[i]});
+                                ret.push_back({VIDEO_CODEC_NONE, codec});
                         }
-                        used.insert(display_codecs[i]);
+                        used.insert(codec);
                 }
         }
         // then codecs matching exactly internal codec
-        for (int i = 0; i < display_codecs_count; ++i) {
-                if (used.find(display_codecs[i]) != used.end()) {
+        for (auto codec : display_codecs) {
+                if (used.find(codec) != used.end()) {
                         continue;
                 };
-                if (display_codecs[i] == comp_int_fmt) {
-                        ret.push_back({comp_int_fmt, display_codecs[i]});
+                if (codec == comp_int_fmt) {
+                        ret.push_back({comp_int_fmt, codec});
                         if (comp_int_fmt != VIDEO_CODEC_NONE) {
-                                ret.push_back({VIDEO_CODEC_NONE, display_codecs[i]});
+                                ret.push_back({VIDEO_CODEC_NONE, codec});
                         }
-                        used.insert(display_codecs[i]);
+                        used.insert(codec);
                 }
         }
         // then add also all other codecs
         vector<codec_t> remaining;
-        for (int i = 0; i < display_codecs_count; ++i) {
-                if (used.find(display_codecs[i]) != used.end()) {
+        for (auto codec : display_codecs) {
+                if (used.find(codec) != used.end()) {
                         continue;
                 };
-                remaining.push_back(display_codecs[i]);
+                remaining.push_back(codec);
         }
         if (comp_int_fmt != VIDEO_CODEC_NONE) {
                 // sort - first codec of the same color space as internal (YUV
@@ -1070,11 +1070,10 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
         codec_t out_codec = VIDEO_CODEC_NONE;
 
         /* first check if the codec is natively supported */
-        for (size_t native = 0u; native < decoder->native_count; ++native) {
-                out_codec = decoder->native_codecs[native];
-                if(desc.color_spec == out_codec) {
-                        if((out_codec == DXT1 || out_codec == DXT1_YUV ||
-                                        out_codec == DXT5)
+        for (auto &codec : decoder->native_codecs) {
+                if (desc.color_spec == codec) {
+                        if ((desc.color_spec == DXT1 || desc.color_spec == DXT1_YUV ||
+                                        desc.color_spec == DXT5)
                                         && decoder->video_mode != VIDEO_NORMAL)
                                 continue; /// DXT1 it is a exception, see @ref vdec_note1
 
@@ -1082,11 +1081,12 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                         decoder->decoder_type = LINE_DECODER;
 
                         if(desc.color_spec == RGBA || /* another exception - we may change shifts */
-                                        desc.color_spec == RGB) {
+                                        desc.color_spec == RGB) { // should RGB be also handled
                                 *decode_line = desc.color_spec == RGBA ?
                                         vc_copylineRGBA : vc_copylineRGB;
                         }
 
+                        out_codec = codec;
                         goto after_linedecoder_lookup;
                 }
         }
