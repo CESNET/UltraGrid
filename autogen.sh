@@ -23,7 +23,7 @@ is_win() {
         fi
         echo no
 }
-if [ $(is_win) = "yes" -a "$(cuda_host_compiler_arg_present $@)" = no ]; then
+if [ "$(is_win)" = "yes" -a "$(cuda_host_compiler_arg_present $@)" = no ]; then
         CUDA_PRESENT=$(command -v nvcc >/dev/null && echo yes || echo no)
         CL_PRESENT=$(command -v cl >/dev/null && echo yes || echo no)
         if [ $CUDA_PRESENT = yes -a $CL_PRESENT = no ]; then
