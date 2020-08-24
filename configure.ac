@@ -1763,7 +1763,7 @@ then
 
         COMMON_FLAGS="$COMMON_FLAGS $LIBAVFORMAT_CFLAGS"
         file=yes
-        ADD_MODULE("vidcap_file", "src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
+        ADD_MODULE("vidcap_file", "src/libavcodec_common.o src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
 fi
 
 if test $file_req = yes -a $file = no; then
