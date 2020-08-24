@@ -91,6 +91,7 @@
 #include "crypto/md5.h"
 #include "ntp.h"
 #include "rtp.h"
+#include "utils/net.h"
 
 #undef max
 #undef min
@@ -1107,7 +1108,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->opt = (options *) malloc(sizeof(options));
         session->userdata = userdata;
         session->mt_recv = multithreaded;
-        session->send_rtcp_to_origin = tx_port == 0;
+        session->send_rtcp_to_origin = tx_port == 0 && is_host_loopback(addr);
 
         if (rx_port == 0) {
                 for (int i = 1<<15; i < 1<<16; i += 2) {
