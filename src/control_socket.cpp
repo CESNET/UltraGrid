@@ -184,7 +184,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
                         s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
                 }
                 if (s->socket_fd == INVALID_SOCKET) {
-                        perror("Control socket - socket");
+                        socket_error("Control socket - socket");
                         goto error;
                 }
                 int val = 1;
@@ -192,13 +192,13 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 rc = setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
                                 (sso_val_type) &val, sizeof(val));
                 if (rc != 0) {
-                        perror("Control socket - setsockopt");
+                        socket_error("Control socket - setsockopt");
                 }
 
                 int ipv6only = 0;
                 if (ip_version == 6 && setsockopt(s->socket_fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
                                         sizeof(ipv6only)) != 0) {
-                        perror("setsockopt IPV6_V6ONLY");
+                        socket_error("setsockopt IPV6_V6ONLY");
                 }
 
                 /* setting address to in6addr_any allows connections to be established
@@ -223,13 +223,13 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
                 rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, s_len);
                 if (rc != 0) {
-                        perror("Control socket - bind");
+                        socket_error("Control socket - bind");
                         CLOSESOCKET(s->socket_fd);
                         s->socket_fd = INVALID_SOCKET;
                 } else {
                         rc = listen(s->socket_fd, MAX_CLIENTS);
                         if (rc != 0) {
-                                perror("Control socket - listen");
+                                socket_error("Control socket - listen");
                                 CLOSESOCKET(s->socket_fd);
                                 s->socket_fd = INVALID_SOCKET;
                         }
@@ -624,7 +624,7 @@ static void send_response(fd_t fd, struct response *resp)
 
         ssize_t ret = write_all(fd, buffer, strlen(buffer));
         if (ret < 0) {
-                perror("Unable to write response");
+                socket_error("Unable to write response");
         }
 
         free_response(resp);
