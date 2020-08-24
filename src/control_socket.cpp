@@ -178,8 +178,11 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 int ip_version = 6;
                 if (force_ip_version != 4) {
                         s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
+                        if (s->socket_fd == INVALID_SOCKET) {
+                                socket_error("Control socket - IPv6 not available");
+                        }
                 }
-                if (force_ip_version == 4 || (s->socket_fd == INVALID_SOCKET && errno == EAFNOSUPPORT)) { // try IPv4
+                if (force_ip_version == 4 || (force_ip_version == 0 && s->socket_fd == INVALID_SOCKET && errno == EAFNOSUPPORT)) { // try IPv4
                         ip_version = 4;
                         s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
                 }
@@ -204,34 +207,31 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 /* setting address to in6addr_any allows connections to be established
                  * from both IPv4 and IPv6 hosts. This behavior can be modified
                  * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
-                struct sockaddr_storage s_in;
-                socklen_t s_len;
-                memset(&s_in, 0, sizeof(s_in));
+                struct sockaddr_storage ss{};
+                socklen_t s_len = 0;
                 if (ip_version == 4) {
-                        struct sockaddr_in *s_in = (struct sockaddr_in *) &s_in;
+                        auto *s_in = reinterpret_cast<struct sockaddr_in *>(&ss);
                         s_in->sin_family = AF_INET;
                         s_in->sin_addr.s_addr = htonl(INADDR_ANY);
                         s_in->sin_port = htons(s->network_port);
-                        s_len = sizeof(*s_in);
+                        s_len = sizeof *s_in;
                 } else {
-                        struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) &s_in;
+                        auto *s_in6 = reinterpret_cast<struct sockaddr_in6 *>(&ss);
                         s_in6->sin6_family = AF_INET6;
                         s_in6->sin6_addr = in6addr_any;
                         s_in6->sin6_port = htons(s->network_port);
-                        s_len = sizeof(*s_in6);
+                        s_len = sizeof *s_in6;
                 }
 
-                rc = ::bind(s->socket_fd, (const struct sockaddr *) &s_in, s_len);
+                rc = ::bind(s->socket_fd, reinterpret_cast<const struct sockaddr *>(&ss), s_len);
                 if (rc != 0) {
                         socket_error("Control socket - bind");
-                        CLOSESOCKET(s->socket_fd);
-                        s->socket_fd = INVALID_SOCKET;
+                        goto error;
                 } else {
                         rc = listen(s->socket_fd, MAX_CLIENTS);
                         if (rc != 0) {
                                 socket_error("Control socket - listen");
-                                CLOSESOCKET(s->socket_fd);
-                                s->socket_fd = INVALID_SOCKET;
+                                goto error;
                         }
                 }
         } else {
