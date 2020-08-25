@@ -3,7 +3,7 @@
 APPDIR=UltraGrid.AppDir
 ARCH=`uname -m`
 DATE=`date +%Y%m%d`
-GLIBC_VERSION=`ldd --version | head -n 1 | sed 's/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/'`
+GLIBC_VERSION=`ldd --version | sed -n '1s/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/p'`
 APPNAME=UltraGrid-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
 
 # redirect the whole output to stderr, output of this script is a created AppName only
