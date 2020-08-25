@@ -187,8 +187,8 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 return NULL;
         } else {
                 if (!silent) {
-                        log_msg(LOG_LEVEL_NOTICE, "[lavc] Using audio %scoder: %s\n", s->codec->name,
-                                        direction == AUDIO_CODER ? "en" : "de");
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using audio " <<
+                                (direction == AUDIO_CODER ? "en"s : "de"s) << "coder: " << s->codec->name << "\n";
                 }
         }
 
