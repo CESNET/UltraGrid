@@ -56,8 +56,10 @@ extern "C" {
 #include <libavutil/mem.h>
 }
 
+#include <array>
 #include <vector>
 #include <unordered_map>
+
 #include "audio/audio.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
@@ -77,6 +79,8 @@ extern "C" {
 #define AV_CODEC_ID_MP3 CODEC_ID_MP3
 #endif
 
+const constexpr int TMP_DATA_LEN = 1024 * 1024;
+const constexpr int ERR_MSG_BUF_LEN = 1024;
 #define MOD_NAME "[lavd] "
 
 using namespace std;
@@ -209,9 +213,9 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 
         memset(&s->tmp, 0, sizeof(audio_channel));
         memset(&s->output_channel, 0, sizeof(audio_channel));
-        s->tmp_data = (char *) malloc(1024*1024);
+        s->tmp_data = static_cast<char *>(malloc(TMP_DATA_LEN));
         s->tmp.data = s->tmp_data;
-        s->output_channel_data = (char *) malloc(1024*1024);
+        s->output_channel_data = static_cast<char *>(malloc(TMP_DATA_LEN));
         s->output_channel.data = s->output_channel_data;
 
         if(direction == AUDIO_CODER) {
@@ -399,12 +403,20 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 if (s->output_channel.bps != channel->bps || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
                         if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT || s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
                                 if (s->output_channel.bps == channel->bps) {
+                                        if (s->tmp.data_len + channel->data_len > TMP_DATA_LEN) {
+                                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Auxiliary buffer overflow!\n";
+                                                return {};
+                                        }
                                         int2float(s->tmp_data + s->tmp.data_len, channel->data, channel->data_len);
                                         s->tmp.data_len += channel->data_len;
                                 } else {
                                         size_t data_len = channel->data_len / channel->bps * 4;
                                         unique_ptr<char []> tmp(new char[data_len]);
                                         change_bps((char *) tmp.get(), 4, channel->data, channel->bps, channel->data_len);
+                                        if (s->tmp.data_len + data_len > TMP_DATA_LEN) {
+                                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Auxiliary buffer overflow!\n";
+                                                return {};
+                                        }
                                         int2float(s->tmp_data + s->tmp.data_len, tmp.get(), data_len);
                                         s->tmp.data_len += data_len;
                                 }
@@ -435,6 +447,10 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 			ret = avcodec_receive_packet(s->codec_ctx, &pkt);
 			while (ret == 0) {
 				//assert(pkt.size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
+                                if (s->output_channel.data_len + pkt.size > TMP_DATA_LEN) {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Output buffer overflow!\n";
+                                        return {};
+                                }
 				memcpy(s->output_channel_data + s->output_channel.data_len,
 						pkt.data, pkt.size);
 				s->output_channel.data_len += pkt.size;
@@ -449,7 +465,9 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 				log_msg(LOG_LEVEL_WARNING, "Receive packet error: %s %d\n", errbuf, ret);
 			}
 		} else {
-			log_msg(LOG_LEVEL_WARNING, "Error encoding frame. Error = %d\n", ret);
+                        array<char, ERR_MSG_BUF_LEN> errbuf{};
+                        av_strerror(ret, errbuf.data(), errbuf.size());
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Error encoding frame: " << errbuf.data() << " (" << ret << ")\n";
 			return {};
 		}
 #else
