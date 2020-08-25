@@ -548,11 +548,18 @@ static char *udp_host_addr6(socket_udp * s)
                 free(hname);
                 return NULL;
         }
+        int ipv6only = 0;
+        if (SETSOCKOPT(newsock, IPPROTO_IPV6, IPV6_V6ONLY,
+                                reinterpret_cast<char *>(&ipv6only),
+                                sizeof(ipv6only)) != 0) {
+                socket_error("newsock setsockopt IPV6_V6ONLY");
+        }
         memset((char *)&addr6, 0, len);
         addr6.sin6_family = AF_INET6;
 #ifdef HAVE_SIN6_LEN
         addr6.sin6_len = len;
 #endif
+        addr6.sin6_addr = in6addr_any;
         result = bind(newsock, (struct sockaddr *)&addr6, len);
         if (result != 0) {
                 perror("Cannot bind");
