@@ -655,9 +655,9 @@ install: all
 	if [ -f "$(GUI_TARGET)" ]; then \
 		$(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)$(bindir);\
 		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/applications;\
-		$(INSTALL) -m 644 data/uv-qt.desktop $(DESTDIR)$(datadir)/applications;\
+		$(INSTALL) -m 644 $(srcdir)/data/uv-qt.desktop $(DESTDIR)$(datadir)/applications;\
 		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/pixmaps;\
-		$(INSTALL) -m 644 data/ultragrid.png $(DESTDIR)$(datadir)/pixmaps;\
+		$(INSTALL) -m 644 $(srcdir)/data/ultragrid.png $(DESTDIR)$(datadir)/pixmaps;\
 	fi
 	if [ -n "@MODULES@" ]; then\
 		$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)/ultragrid;\
