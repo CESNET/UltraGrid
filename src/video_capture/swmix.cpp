@@ -199,8 +199,8 @@ static void show_help()
         printf("\tor\n");
         printf("\t-t swmix:file -t <dev1_config> -t <dev2_config> ...\n");
         printf("\t\twhere <devn_config> is a configuration string of device as usual -\n"
-                        "\t\t\tdevice config string or alias from UG config file");
-        printf("\t\t<width> widht of resulting video\n");
+                        "\t\t\tdevice config string or alias from UG config file.\n");
+        printf("\t\t<width> width of resulting video\n");
         printf("\t\t<height> height of resulting video\n");
         printf("\t\t<fps> FPS of resulting video, may be eg. 25 or 50i\n");
         printf("\t\t<codec> codec of resulting video, may be one of RGBA, "
