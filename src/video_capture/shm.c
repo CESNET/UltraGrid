@@ -67,7 +67,7 @@
 #undef RGBA
 
 #define BUFFERS 2
-#define DEFAULT_FPS 30.0
+#define DEFAULT_FPS 120.0
 #define MAX_BUF_LEN (7680 * 2160 * 3 / 2)
 #define KEY "UltraGrid-SHM"
 #define SHM_VERSION 8
@@ -198,7 +198,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
 
         struct video_desc desc = { .width = 0,
                 .height = 0,
-                .fps = DEFAULT_FPS,
+                .fps = -1,
                 .tile_count = 1,
                 .color_spec = s->use_gpu ? CUDA_I420 : I420,
                 .interlacing = PROGRESSIVE,
@@ -207,6 +207,11 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         if (!parse_fmt(s, fmt, &desc)) {
                 free(s);
                 return VIDCAP_INIT_FAIL;
+        }
+
+        if (desc.fps == -1) {
+                desc.fps = DEFAULT_FPS;
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using %f FPS, use ':fps=<fps>' to override\n", desc.fps);
         }
 
         size_t size = sizeof(struct shm);
