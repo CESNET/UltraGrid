@@ -191,7 +191,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         for (int i = 0; i < 3; ++i) {
                 s->sem_id[i] = PLATFORM_IPC_ERR;
         }
-        if (strcmp(vidcap_params_get_name(params), "cuda") == 0) {
+        if (strcmp(vidcap_params_get_driver(params), "cuda") == 0) {
                 s->use_gpu = true;
         }
         s->parent = vidcap_params_get_parent(params);
