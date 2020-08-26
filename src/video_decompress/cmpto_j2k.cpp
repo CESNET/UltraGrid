@@ -203,7 +203,7 @@ ADD_TO_PARAM("j2k-dec-tile-limit", "* j2k-dec-tile-limit=<limit>\n"
 ADD_TO_PARAM("j2k-dec-queue-len", "* j2k-queue-len=<len>\n"
                                 "  max queue len\n");
 ADD_TO_PARAM("j2k-dec-encoder-queue", "* j2k-encoder-queue=<len>\n"
-                                "  max number of frames hold by encoder\n");
+                                "  max number of frames held by encoder\n");
 static void * j2k_decompress_init(void)
 {
         struct state_decompress_j2k *s = NULL;
