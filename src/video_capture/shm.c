@@ -68,9 +68,10 @@
 
 #define BUFFERS 2
 #define DEFAULT_FPS 120.0
+#define FOOTER to_fourcc('F', 'O', 'O', 'T')
 #define MAX_BUF_LEN (7680 * 2160 * 3 / 2)
 #define KEY "UltraGrid-SHM"
-#define SHM_VERSION 8
+#define SHM_VERSION 9
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
 #define UG_CUDA_IPC_HANDLE_SIZE 64 // originally definde by CUDA
@@ -84,8 +85,10 @@ static void shm_dispose_frame(struct video_frame *f);
 struct shm_frame {
         atomic_bool buffer_free;
         int width, height;
+        bool stereo; ///< in data there are actually stored sequentially 2 buffers
         char cuda_ipc_mem_handle[UG_CUDA_IPC_HANDLE_SIZE];
         char data[MAX_BUF_LEN];
+        uint32_t footer; // always 'FOOT' - overflow detection
 
         // follow auxilliary data used by UltraGrid for dispose
         int frame_idx; ///< index inside shm::frames
@@ -199,7 +202,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
         struct video_desc desc = { .width = 0,
                 .height = 0,
                 .fps = -1,
-                .tile_count = 1,
+                .tile_count = 2,
                 .color_spec = s->use_gpu ? CUDA_I420 : I420,
                 .interlacing = PROGRESSIVE,
         };
@@ -257,6 +260,7 @@ static int vidcap_shm_init(struct vidcap_params *params, void **state)
                 s->shm->frames[i].buffer_free = true;
                 s->shm->frames[i].parent = s;
                 s->shm->frames[i].frame_idx = i;
+                s->shm->frames[i].footer = FOOTER;
                 if (s->use_gpu) {
 #ifdef HAVE_CUDA
                         CUDA_CHECK(cudaMalloc((void **) &s->f[i]->tiles[0].data, MAX_BUF_LEN));
@@ -359,9 +363,20 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
                 return NULL;
         }
 
+        assert(s->shm->frames[s->shm->read_head].footer == FOOTER);
+
         s->f[s->shm->read_head]->tiles[0].width = s->shm->frames[s->shm->read_head].width;
         s->f[s->shm->read_head]->tiles[0].height = s->shm->frames[s->shm->read_head].height;
         s->f[s->shm->read_head]->tiles[0].data_len = vc_get_datalen(s->f[s->shm->read_head]->tiles[0].width, s->f[s->shm->read_head]->tiles[0].height, s->f[s->shm->read_head]->color_spec);
+        if (s->shm->frames[s->shm->read_head].stereo) {
+                s->f[s->shm->read_head]->tiles[1].width = s->shm->frames[s->shm->read_head].width;
+                s->f[s->shm->read_head]->tiles[1].height = s->shm->frames[s->shm->read_head].height;
+                s->f[s->shm->read_head]->tiles[1].data_len = vc_get_datalen(s->f[s->shm->read_head]->tiles[1].width, s->f[s->shm->read_head]->tiles[1].height, s->f[s->shm->read_head]->color_spec);
+                s->f[s->shm->read_head]->tiles[1].data = s->f[s->shm->read_head]->tiles[0].data + s->f[s->shm->read_head]->tiles[0].data_len;
+                s->f[s->shm->read_head]->tile_count = 2;
+        } else {
+                s->f[s->shm->read_head]->tile_count = 1;
+        }
         assert(!s->shm->frames[s->shm->read_head].buffer_free);
 
         pthread_mutex_lock(&s->render_pkt_lock);
