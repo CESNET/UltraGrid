@@ -160,10 +160,11 @@ static bool try_initialize_decompress(const video_decompress_info *vdi,
                 decompress_state[i] = decompress_init(vdi);
 
                 if (!decompress_state[i]) {
-                        for(int j = 0; j < substreams; ++j) {
-                                if (decompress_state[i] != NULL)
-                                        decompress_done(decompress_state[i]);
-                                decompress_state[i] = NULL;
+                        for(int j = 0; j < i; ++j) {
+                                if (decompress_state[j] != nullptr) {
+                                        decompress_done(decompress_state[j]);
+                                }
+                                decompress_state[j] = nullptr;
                         }
                         return false;
                 }
