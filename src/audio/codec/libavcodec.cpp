@@ -125,8 +125,6 @@ struct libavcodec_codec_state {
         audio_channel       output_channel;
         char               *output_channel_data; ///< output_channel.data, but non-const qualified
 
-        void               *samples;
-
         int                 bitrate;
 
         bool                context_initialized;
@@ -207,8 +205,6 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 
         s->bitrate = bitrate;
 
-        s->samples = NULL;
-
         s->av_frame = av_frame_alloc();
 
         memset(&s->tmp, 0, sizeof(audio_channel));
@@ -244,7 +240,6 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 {
         cleanup_common(s);
 
-        av_freep(&s->samples);
         pthread_mutex_lock(s->libav_global_lock);
         avcodec_close(s->codec_ctx);
         pthread_mutex_unlock(s->libav_global_lock);
@@ -326,23 +321,12 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         s->av_frame->sample_rate    = s->codec_ctx->sample_rate;
 #endif
 
-        int channels = 1;
-        /* the codec gives us the frame size, in samples,
-         * we calculate the size of the samples buffer in bytes */
-        int buffer_size = av_samples_get_buffer_size(NULL, channels, s->codec_ctx->frame_size,
-                        s->codec_ctx->sample_fmt, 1);
-
-        s->samples = av_malloc(buffer_size);
-        if (!s->samples) {
-                fprintf(stderr, "could not allocate %d bytes for samples buffer\n",
-                                buffer_size);
-                return false;
-        }
-        /* setup the data pointers in the AVFrame */
-        int ret = avcodec_fill_audio_frame(s->av_frame, channels, s->codec_ctx->sample_fmt,
-                        (const uint8_t*)s->samples, buffer_size, 1);
-        if (ret < 0) {
-                fprintf(stderr, "could not setup audio frame\n");
+        int ret = av_frame_get_buffer(s->av_frame, 0);
+        if (ret != 0) {
+                array<char, ERR_MSG_BUF_LEN> errbuf{};
+                av_strerror(ret, errbuf.data(), errbuf.size());
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Could not allocate audio data buffers: "
+                        << errbuf.data() << " (" << ret << ")\n";
                 return false;
         }
 
@@ -438,7 +422,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         int chunk_size = s->codec_ctx->frame_size * bps;
         //while(offset + chunk_size <= s->tmp.data_len) {
         while(offset + chunk_size <= s->tmp.data_len) {
-		memcpy(s->samples, s->tmp.data + offset, chunk_size);
+		memcpy(s->av_frame->data[0], s->tmp.data + offset, chunk_size);
                 AVPacket pkt;
                 av_init_packet(&pkt);
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
@@ -673,7 +657,6 @@ static void libavcodec_done(void *state)
         rm_release_shared_lock(LAVCD_LOCK_NAME);
         free(s->output_channel_data);
         free(s->tmp_data);
-        av_freep(&s->samples);
         av_frame_free(&s->av_frame);
 
         free(s);
