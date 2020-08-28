@@ -348,7 +348,7 @@ int display_put_frame(struct display *d, struct video_frame *frame, int flags)
  *
  * video_desc::color_spec, video_desc::interlacing
  * and video_desc::tile_count are set according
- * to properties obtained from display_get_property().
+ * to properties obtained from display_ctl_property().
  *
  * @param d    display to be reconfigured
  * @param desc new video description to be reconfigured to

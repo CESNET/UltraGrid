@@ -53,7 +53,7 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 POST_COMPILE_MSG=""
 CFLAGS="$CFLAGS -I$srcdir"
 CPPFLAGS="$CPPFLAGS -I$srcdir"
-CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++14"
+CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++17"
 LIB_MODULES=
 AC_SUBST(INC)
 AC_SUBST(LIBS)

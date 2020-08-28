@@ -666,7 +666,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         avg_bpp = s->requested_bpp > 0.0 ? s->requested_bpp :
                 codec_params[ug_codec].avg_bpp;
 
-        int bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
+        int_fast64_t bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
                 desc.width * desc.height * avg_bpp * desc.fps;
 
         bool have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
@@ -678,7 +678,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                         || !is_x264_x265) {
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
-                log_msg(LOG_LEVEL_INFO, "[lavc] Setting bitrate to %d bps.\n", bitrate);
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << bitrate << " bps.\n";
         }
 
         if (is_x264_x265) {

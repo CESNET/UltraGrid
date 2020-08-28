@@ -3,7 +3,7 @@
 APPDIR=UltraGrid.AppDir
 ARCH=`uname -m`
 DATE=`date +%Y%m%d`
-GLIBC_VERSION=`ldd --version | head -n 1 | sed 's/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/'`
+GLIBC_VERSION=`ldd --version | sed -n '1s/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/p'`
 APPNAME=UltraGrid-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
 
 # redirect the whole output to stderr, output of this script is a created AppName only
@@ -36,17 +36,25 @@ done
 mkdir $APPDIR/lib/fonts
 cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPDIR/lib/fonts
 
-# glibc libraries should not be bundled
-# Taken from https://gitlab.com/probono/platformissues
-# libnsl.so.1 is not removed - is not in Fedora 28 by default
-for n in ld-linux.so.2 ld-linux-x86-64.so.2 libanl.so.1 libBrokenLocale.so.1 libcidn.so.1 lib crypt.so.1 libc.so.6 libdl.so.2 libm.so.6 libmvec.so.1 libnss_compat.so.2 libnss_db.so.2 libnss_dns.so.2 libnss_files.so.2 libnss_hesiod.so.2 libnss_nisplus.so.2 libnss_nis.so.2 libpthread.so.0 libresolv.so.2 librt.so.1 libthread_db.so.1 libutil.so.1; do
+# Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
+wget https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+EXCLUDE_LIST=
+while read -r x; do
+        if [ "$x" = "" -o $(expr "x$x" : x\#) -eq 2 ]; then
+                continue
+        fi
+        NAME=$(echo "$x" | awk '{ print $1 }')
+        if [ "$NAME" = libjack.so.0 ]; then # JACK is currently handled in AppRun
+                continue
+        fi
+        EXCLUDE_LIST="$EXCLUDE_LIST $NAME"
+done < excludelist
+for n in $EXCLUDE_LIST; do
         if [ -f $APPDIR/lib/$n ]; then
                 rm $APPDIR/lib/$n
         fi
 done
 
-# consult https://github.com/probonopd/linuxdeployqt/blob/master/tools/linuxdeployqt/excludelist.h
-( cd $APPDIR/lib; rm -f libasound.so.2 libdrm.so.2 libEGL.so.1 libGL.so.1 libGLdispatch.so.0 libstdc++.so.6  libX11-xcb.so.1 libX11.so.6 libXau.so.6 libXcursor.so.1 libXdmcp.so.6 libXext.so.6 li bXfixes.so.3 libXi.so.6 libXinerama.so.1 libXrandr.so.2 libXrender.so.1 libXtst.so.6 libXxf86vm.so.1 libxcb* libxshm* )
 ( cd $APPDIR/lib; rm -f libcmpto* ) # remove non-free components
 
 cp data/scripts/Linux-AppImage/AppRun data/scripts/Linux-AppImage/uv-wrapper.sh data/ultragrid.png $APPDIR

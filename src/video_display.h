@@ -62,7 +62,7 @@
  * display_done(d);
  *
  * Thread #2
- * display_get_property(d, codecs);
+ * display_ctl_property(d, codecs);
  * while(!done) {
  *     // wait for video
  *     // pick one codec that is supported by display
