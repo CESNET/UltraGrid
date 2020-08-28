@@ -83,7 +83,7 @@ extern "C" {
 
 const constexpr int TMP_DATA_LEN = 1024 * 1024;
 const constexpr int ERR_MSG_BUF_LEN = 1024;
-#define MOD_NAME "[lavd] "
+#define MOD_NAME "[lavcd aud.] "
 
 using namespace std;
 
