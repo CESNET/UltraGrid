@@ -541,8 +541,9 @@ ADD_TO_PARAM("audio-cap-frames", "* audio-cap-frames=<f>\n"
                 "  Sets number of audio frames captured at once (CoreAudio)\n");
 ADD_TO_PARAM("audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n"
                 "  Disables audio adaptive playback buffer (CoreAudio/JACK)\n");
-ADD_TO_PARAM("low-latency-audio", "* low-latency-audio\n"
-                "  Try to reduce audio latency at the expense of worse reliability\n");
+ADD_TO_PARAM("low-latency-audio", "* low-latency-audio[=ultra]\n"
+                "  Try to reduce audio latency at the expense of worse reliability\n"
+                "  Add ultra for even more aggressive setting.\n");
 ADD_TO_PARAM("window-title", "* window-title=<title>\n"
                 "  Use alternative window title (SDL/GL only)\n");
 
