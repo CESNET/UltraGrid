@@ -70,7 +70,7 @@ extern "C" {
 #include "utils/resource_manager.h"
 
 #define MAGIC 0xb135ca11
-#define DEFAULT_OPUS_FRAME_DURATION 2.5
+#define LOW_LATENCY_AUDIOENC_FRAME_DURATION 2.5
 
 #if LIBAVCODEC_VERSION_MAJOR < 54
 #define AV_CODEC_ID_AAC CODEC_ID_AAC
@@ -138,8 +138,8 @@ static_assert(is_aggregate_v<libavcodec_codec_state>, "ensure aggregate to allow
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
-ADD_TO_PARAM("opus-frame-duration", "* opus-frame-duration=<ms>\n"
-                "  Sets OPUS frame duration, default is " STR(DEFAULT_OPUS_FRAME_DURATION) " ms\n");
+ADD_TO_PARAM("audioenc-frame-duration", "* audioenc-frame-duration=<ms>\n"
+                "  Sets audio encoder frame duration (in ms), default is " STR(LOW_LATENCY_OPUS_FRAME_DURATION) " ms for low-latency-audio\n");
 /**
  * Initializates selected audio codec
  * @param audio_codec requested audio codec
@@ -152,6 +152,10 @@ ADD_TO_PARAM("opus-frame-duration", "* opus-frame-duration=<ms>\n"
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool silent,
                 int bitrate)
 {
+        if (log_level >= LOG_LEVEL_VERBOSE) {
+                av_log_set_level(AV_LOG_VERBOSE);
+        }
+
         enum AVCodecID codec_id = AV_CODEC_ID_NONE;
 
         auto it = mapping.find(audio_codec);
@@ -209,19 +213,6 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         }
 
         s->codec_ctx->strict_std_compliance = -2;
-
-        if (direction == AUDIO_CODER && s->codec->id == AV_CODEC_ID_OPUS) {
-                double frame_duration = commandline_params.find("opus-frame-duration"s) == commandline_params.end() ?
-                        DEFAULT_OPUS_FRAME_DURATION : stof(commandline_params.at("opus-frame-duration"s), nullptr);
-                string frame_duration_str{to_string(frame_duration)};
-                int ret = av_opt_set(s->codec_ctx->priv_data, "frame_duration", frame_duration_str.c_str(), 0);
-                if (ret != 0) {
-                        array<char, ERR_MSG_BUF_LEN> errbuf{};
-                        av_strerror(ret, errbuf.data(), errbuf.size());
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Could set OPUS frame duration: "
-                                << errbuf.data() << " (" << ret << ")\n";
-                }
-        }
 
         s->bitrate = bitrate;
 
@@ -317,6 +308,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         s->codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
 
+
         pthread_mutex_lock(s->libav_global_lock);
         /* open it */
         if (avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
@@ -325,6 +317,25 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
                 return false;
         }
         pthread_mutex_unlock(s->libav_global_lock);
+
+        if (s->direction == AUDIO_CODER && (commandline_params.find("low-latency-audio"s) != commandline_params.end()
+                                || commandline_params.find("audioenc-frame-duration"s) != commandline_params.end())) {
+                double frame_duration = commandline_params.find("audioenc-frame-duration"s) == commandline_params.end() ?
+                        LOW_LATENCY_AUDIOENC_FRAME_DURATION : stof(commandline_params.at("audioenc-frame-duration"s), nullptr);
+                if (s->codec->id == AV_CODEC_ID_OPUS) {
+                        string frame_duration_str{to_string(frame_duration)};
+                        int ret = av_opt_set(s->codec_ctx->priv_data, "frame_duration", frame_duration_str.c_str(), 0);
+                        if (ret != 0) {
+                                array<char, ERR_MSG_BUF_LEN> errbuf{};
+                                av_strerror(ret, errbuf.data(), errbuf.size());
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Could set OPUS frame duration: "
+                                        << errbuf.data() << " (" << ret << ")\n";
+                        }
+                }
+                if (s->codec->id == AV_CODEC_ID_FLAC) {
+                        s->codec_ctx->frame_size = desc.sample_rate * frame_duration / std::chrono::milliseconds::period::den;
+                }
+        }
 
         if(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) {
                 s->codec_ctx->frame_size = 1;
