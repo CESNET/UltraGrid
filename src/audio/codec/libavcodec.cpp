@@ -58,6 +58,7 @@ extern "C" {
 
 #include <array>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
@@ -69,6 +70,7 @@ extern "C" {
 #include "utils/resource_manager.h"
 
 #define MAGIC 0xb135ca11
+#define DEFAULT_OPUS_FRAME_DURATION 2.5
 
 #if LIBAVCODEC_VERSION_MAJOR < 54
 #define AV_CODEC_ID_AAC CODEC_ID_AAC
@@ -134,6 +136,10 @@ struct libavcodec_codec_state {
 };
 static_assert(is_aggregate_v<libavcodec_codec_state>, "ensure aggregate to allow aggregate initialization");
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+ADD_TO_PARAM("opus-frame-duration", "* opus-frame-duration=<ms>\n"
+                "  Sets OPUS frame duration, default is " STR(DEFAULT_OPUS_FRAME_DURATION) " ms\n");
 /**
  * Initializates selected audio codec
  * @param audio_codec requested audio codec
@@ -185,11 +191,11 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 }
                 delete s;
                 return NULL;
-        } else {
-                if (!silent) {
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using audio " <<
-                                (direction == AUDIO_CODER ? "en"s : "de"s) << "coder: " << s->codec->name << "\n";
-                }
+        }
+
+        if (!silent) {
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using audio " <<
+                        (direction == AUDIO_CODER ? "en"s : "de"s) << "coder: " << s->codec->name << "\n";
         }
 
         s->libav_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
@@ -203,6 +209,19 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         }
 
         s->codec_ctx->strict_std_compliance = -2;
+
+        if (direction == AUDIO_CODER && s->codec->id == AV_CODEC_ID_OPUS) {
+                double frame_duration = commandline_params.find("opus-frame-duration"s) == commandline_params.end() ?
+                        DEFAULT_OPUS_FRAME_DURATION : stof(commandline_params.at("opus-frame-duration"s), nullptr);
+                string frame_duration_str{to_string(frame_duration)};
+                int ret = av_opt_set(s->codec_ctx->priv_data, "frame_duration", frame_duration_str.c_str(), 0);
+                if (ret != 0) {
+                        array<char, ERR_MSG_BUF_LEN> errbuf{};
+                        av_strerror(ret, errbuf.data(), errbuf.size());
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Could set OPUS frame duration: "
+                                << errbuf.data() << " (" << ret << ")\n";
+                }
+        }
 
         s->bitrate = bitrate;
 
