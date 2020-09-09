@@ -308,16 +308,6 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         s->codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
 
-
-        pthread_mutex_lock(s->libav_global_lock);
-        /* open it */
-        if (avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
-                fprintf(stderr, "Could not open codec\n");
-                pthread_mutex_unlock(s->libav_global_lock);
-                return false;
-        }
-        pthread_mutex_unlock(s->libav_global_lock);
-
         if (s->direction == AUDIO_CODER && (commandline_params.find("low-latency-audio"s) != commandline_params.end()
                                 || commandline_params.find("audioenc-frame-duration"s) != commandline_params.end())) {
                 double frame_duration = commandline_params.find("audioenc-frame-duration"s) == commandline_params.end() ?
@@ -336,6 +326,15 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
                         s->codec_ctx->frame_size = desc.sample_rate * frame_duration / std::chrono::milliseconds::period::den;
                 }
         }
+
+        pthread_mutex_lock(s->libav_global_lock);
+        /* open it */
+        if (avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
+                fprintf(stderr, "Could not open codec\n");
+                pthread_mutex_unlock(s->libav_global_lock);
+                return false;
+        }
+        pthread_mutex_unlock(s->libav_global_lock);
 
         if(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) {
                 s->codec_ctx->frame_size = 1;
