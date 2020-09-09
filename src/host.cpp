@@ -84,7 +84,7 @@
 using rang::style;
 using namespace std;
 
-unsigned int audio_capture_channels = DEFAULT_AUDIO_CAPTURE_CHANNELS;
+unsigned int audio_capture_channels = 0;
 unsigned int audio_capture_bps = 0;
 unsigned int audio_capture_sample_rate = 0;
 

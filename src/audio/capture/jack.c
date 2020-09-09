@@ -206,14 +206,14 @@ static void * audio_cap_jack_init(const char *cfg)
         i = 0;
         while(ports[i]) i++;
 
-        if(i < (int) audio_capture_channels) {
+        s->frame.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        if (i < s->frame.ch_count) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested channel count %d not found (matching pattern %s).\n",
-                                audio_capture_channels, cfg);
+                                s->frame.ch_count, cfg);
                 goto release_client;
 
         }
 
-        s->frame.ch_count = audio_capture_channels;
         s->frame.bps = 4;
         if (audio_capture_sample_rate) {
                 log_msg(LOG_LEVEL_WARNING, "[JACK capture] Ignoring user specified sample rate!\n");

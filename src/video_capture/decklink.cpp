@@ -9,7 +9,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2019 CESNET z.s.p.o.
+ * Copyright (c) 2005-2020 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -52,6 +52,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <algorithm>
 #include <cassert>
 #include <condition_variable>
 #include <chrono>
@@ -63,7 +64,6 @@
 #include <set>
 #include <string>
 #include <vector>
-#include <algorithm>
 
 #include "blackmagic_common.h"
 #include "audio/audio.h"
@@ -302,7 +302,7 @@ public:
                                         bmdAudioSampleRate48kHz,
                                         s->audio.bps == 2 ? bmdAudioSampleType16bitInteger :
                                                 bmdAudioSampleType32bitInteger,
-                                        audio_capture_channels == 1 ? 2 : audio_capture_channels); // BMD isn't able to grab single channel
+                                        max(s->audio.ch_count, 2)); // BMD isn't able to grab single channel
                         }
                         //deckLinkInput->SetCallback(s->state[i].delegate);
                         deckLinkInput->FlushStreams();
@@ -1085,7 +1085,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                 log_msg(LOG_LEVEL_WARNING, "[Decklink] Ignoring unsupported sample rate!\n");
                 }
                 s->audio.sample_rate = 48000;
-                s->audio.ch_count = audio_capture_channels;
+                s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
                 s->audio.max_size = (s->audio.sample_rate / 10) * s->audio.ch_count * s->audio.bps;
                 s->audio.data = (char *) malloc(s->audio.max_size);
         } else {
@@ -1354,12 +1354,12 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                 fprintf(stderr, "[Decklink capture] Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
 
                         }
-                        if (audio_capture_channels != 1 &&
-                                        audio_capture_channels != 2 &&
-                                        audio_capture_channels != 8 &&
-                                        audio_capture_channels != 16) {
+                        if (s->audio.ch_count != 1 &&
+                                        s->audio.ch_count != 2 &&
+                                        s->audio.ch_count != 8 &&
+                                        s->audio.ch_count != 16) {
                                 fprintf(stderr, "[DeckLink] Decklink cannot grab %d audio channels. "
-                                                "Only 1, 2, 8 or 16 are possible.", audio_capture_channels);
+                                                "Only 1, 2, 8 or 16 are possible.", s->audio.ch_count);
                                 goto error;
                         }
                         if (s->audio_consumer_levels != -1) {
@@ -1372,7 +1372,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         CALL_AND_CHECK(deckLinkInput->EnableAudioInput(
                                                 bmdAudioSampleRate48kHz,
                                                 s->audio.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
-                                                audio_capture_channels == 1 ? 2 : audio_capture_channels),
+                                                max(s->audio.ch_count, 2)), // capture at least 2
                                         "EnableAudioInput",
                                         "Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio));
                 }
@@ -1541,7 +1541,7 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
                 void *audioFrame = nullptr;
                 audioPacket->GetBytes(&audioFrame);
 
-                if(audio_capture_channels == 1) { // there are actually 2 channels grabbed
+                if (s->audio.ch_count == 1) { // there are actually 2 channels grabbed
                         if (s->audio.data_len + audioPacket->GetSampleFrameCount() * 1U * s->audio.bps <= static_cast<unsigned>(s->audio.max_size)) {
                                 demux_channel(s->audio.data + s->audio.data_len, static_cast<char *>(audioFrame), s->audio.bps, min<int64_t>(audioPacket->GetSampleFrameCount() * 2 /* channels */ * s->audio.bps, INT_MAX), 2 /* channels (originally) */, 0 /* we want first channel */);
                                 s->audio.data_len = min<int64_t>(s->audio.data_len + audioPacket->GetSampleFrameCount() * 1 * s->audio.bps, INT_MAX);
@@ -1549,9 +1549,9 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
                                 LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
                         }
                 } else {
-                        if (s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps <= static_cast<unsigned>(s->audio.max_size)) {
-                                memcpy(s->audio.data + s->audio.data_len, audioFrame, audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps);
-                                s->audio.data_len = min<int64_t>(s->audio.data_len + audioPacket->GetSampleFrameCount() * audio_capture_channels * s->audio.bps, INT_MAX);
+                        if (s->audio.data_len + audioPacket->GetSampleFrameCount() * s->audio.ch_count * s->audio.bps <= static_cast<unsigned>(s->audio.max_size)) {
+                                memcpy(s->audio.data + s->audio.data_len, audioFrame, audioPacket->GetSampleFrameCount() * s->audio.ch_count * s->audio.bps);
+                                s->audio.data_len = min<int64_t>(s->audio.data_len + audioPacket->GetSampleFrameCount() * s->audio.ch_count * s->audio.bps, INT_MAX);
                         } else {
                                 LOG(LOG_LEVEL_WARNING) << "[DeckLink] Audio frame too small!\n";
                         }

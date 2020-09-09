@@ -219,11 +219,10 @@ static void * audio_cap_portaudio_init(const char *cfg)
                 return NULL;
         }
 
-        if((int) audio_capture_channels <= device_info->maxInputChannels) {
-                inputParameters.channelCount = audio_capture_channels;
-        } else {
+        inputParameters.channelCount = s->frame.ch_count = audio_capture_channels > 0 ? audio_capture_channels : MAX(device_info->maxInputChannels, DEFAULT_AUDIO_CAPTURE_CHANNELS);
+        if (s->frame.ch_count > device_info->maxInputChannels) {
                 fprintf(stderr, MODULE_NAME "Requested %d input channels, device offers only %d.\n",
-                                audio_capture_channels,
+                                s->frame.ch_count,
                                 device_info->maxInputChannels);
                 free(s);
 		return NULL;
@@ -258,7 +257,6 @@ static void * audio_cap_portaudio_init(const char *cfg)
 		return NULL;
 	}
 
-        s->frame.ch_count = inputParameters.channelCount;
         s->frame.max_size = (s->frame.bps * s->frame.ch_count) * s->frame.sample_rate / 1000 * BUF_MS;
         
         s->frame.data = (char*)malloc(s->frame.max_size);

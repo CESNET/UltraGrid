@@ -85,7 +85,7 @@
 #define AUDIO_BPS 2
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
-                audio_capture_channels * BUFFER_SEC)
+                s->audio.ch_count * BUFFER_SEC)
 #define MOD_NAME "[testcard] "
 constexpr video_desc default_format = { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 };
 constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
@@ -316,10 +316,17 @@ static int configure_audio(struct testcard_state *s)
         Mix_Music *music;
         ssize_t bytes_written = 0l;
 
+        s->audio_data = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
+        s->audio_start = 0;
+        s->audio_end = 0;
+        s->audio.bps = AUDIO_BPS;
+        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        s->audio.sample_rate = AUDIO_SAMPLE_RATE;
+
         SDL_Init(SDL_INIT_AUDIO);
 
         if( Mix_OpenAudio( AUDIO_SAMPLE_RATE, AUDIO_S16LSB,
-                        audio_capture_channels, 4096 ) == -1 ) {
+                        s->audio.ch_count, 4096 ) == -1 ) {
                 fprintf(stderr,"[testcard] error initalizing sound\n");
                 return -1;
         }
@@ -339,13 +346,6 @@ static int configure_audio(struct testcard_state *s)
         } while (bytes_written < (ssize_t) sizeof(song1));
         close(fd);
         music = Mix_LoadMUS(filename);
-
-        s->audio_data = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
-        s->audio_start = 0;
-        s->audio_end = 0;
-        s->audio.bps = AUDIO_BPS;
-        s->audio.ch_count = audio_capture_channels;
-        s->audio.sample_rate = AUDIO_SAMPLE_RATE;
 
         // register grab as a postmix processor
         if(!Mix_RegisterEffect(MIX_CHANNEL_POST, grab_audio, NULL, s)) {

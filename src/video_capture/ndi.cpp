@@ -49,6 +49,7 @@
 #endif
 
 #include <Processing.NDI.Lib.h>
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <iostream>
@@ -70,8 +71,11 @@
 #include "video.h"
 #include "video_capture.h"
 
+static constexpr const char *MOD_NAME = "[NDI] ";
+
 using std::array;
 using std::cout;
+using std::max;
 using std::string;
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;
@@ -199,22 +203,27 @@ static void vidcap_ndi_done(void *state)
 
 static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *frame)
 {
-        struct audio_desc d{4, frame->sample_rate, static_cast<int>(audio_capture_channels), AC_PCM};
+        struct audio_desc d{4, frame->sample_rate, static_cast<int>(audio_capture_channels > 0 ? audio_capture_channels : frame->no_channels), AC_PCM};
         if (!audio_desc_eq(d, audio_desc_from_audio_frame(&s->audio[s->audio_buf_idx]))) {
                 free(s->audio[s->audio_buf_idx].data);
                 s->audio[s->audio_buf_idx].bps = 4;
                 s->audio[s->audio_buf_idx].sample_rate = frame->sample_rate;
-                s->audio[s->audio_buf_idx].ch_count = audio_capture_channels;
+                s->audio[s->audio_buf_idx].ch_count = d.ch_count;
                 s->audio[s->audio_buf_idx].data_len = 0;
                 s->audio[s->audio_buf_idx].max_size =
-                        4 * audio_capture_channels * frame->sample_rate / 5; // 200 ms
+                        4 * d.ch_count * frame->sample_rate / 5; // 200 ms
                 s->audio[s->audio_buf_idx].data = static_cast<char *>(malloc(s->audio[s->audio_buf_idx].max_size));
+        }
+
+        if (frame->no_channels > s->audio[s->audio_buf_idx].ch_count) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Requested " << s->audio[s->audio_buf_idx].ch_count << " channels, stream has only "
+                        << frame->no_channels << "!\n";
         }
 
         for (int i = 0; i < frame->no_samples; ++i) {
                 float *in = frame->p_data + i;
-                int32_t *out = (int32_t *) s->audio[s->audio_buf_idx].data + i * audio_capture_channels;
-                for (int j = 0; j < static_cast<int>(audio_capture_channels); ++j) {
+                int32_t *out = (int32_t *) s->audio[s->audio_buf_idx].data + i * d.ch_count;
+                for (int j = 0; j < max(d.ch_count, frame->no_channels); ++j) {
                         if (s->audio[s->audio_buf_idx].data_len >= s->audio[s->audio_buf_idx].max_size) {
                                 LOG(LOG_LEVEL_WARNING) << "[NDI] Audio frame too small!\n";
                                 return;

@@ -713,9 +713,10 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
 #endif
 
         mMaxAudioChannels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
-        if (mMaxAudioChannels < (int) *aja_audio_capture_channels) {
+        mAudio.ch_count = *aja_audio_capture_channels > 0 ? *aja_audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        if (mMaxAudioChannels < mAudio.ch_count) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Invalid number of capture channels requested. Requested " <<
-                        *aja_audio_capture_channels << ", maximum " << mMaxAudioChannels << endl;
+                        mAudio.ch_count << ", maximum " << mMaxAudioChannels << endl;
                 return AJA_STATUS_FAIL;
         }
         if (!mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource))) {
@@ -747,7 +748,6 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         mAudio.bps = 4;
         mAudio.sample_rate = 48000;
         mAudio.data = (char *) malloc(NTV2_AUDIOSIZE_MAX);
-        mAudio.ch_count = *aja_audio_capture_channels;
         mAudio.max_size = NTV2_AUDIOSIZE_MAX;
 
 #ifndef _MSC_VER

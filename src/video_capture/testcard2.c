@@ -67,7 +67,7 @@
 #define AUDIO_BPS 2
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
-                audio_capture_channels * BUFFER_SEC)
+                s->audio.ch_count * BUFFER_SEC)
 
 void * vidcap_testcard2_thread(void *args);
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
@@ -100,22 +100,19 @@ struct testcard_state2 {
 
 static int configure_audio(struct testcard_state2 *s)
 {
-        int i;
+        s->audio.bps = AUDIO_BPS;
+        s->audio.ch_count = audio_capture_channels > 0 > audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        s->audio.sample_rate = AUDIO_SAMPLE_RATE;
         
         s->audio_silence = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
         
         s->audio_tone = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
         short int * data = (short int *) s->audio_tone;
-        for( i=0; i < (int) AUDIO_BUFFER_SIZE/2; i+=2 )
+        for(int i=0; i < (int) AUDIO_BUFFER_SIZE/2; i+=2 )
         {
                 data[i] = data[i+1] = (float) sin( ((double)i/(double)200) * M_PI * 2. ) * SHRT_MAX;
         }
 
-        
-        s->audio.bps = AUDIO_BPS;
-        s->audio.ch_count = audio_capture_channels;
-        s->audio.sample_rate = AUDIO_SAMPLE_RATE;
-        
         printf("[testcard2] playing audio\n");
         
         return 0;
@@ -499,7 +496,7 @@ static void grab_audio(struct testcard_state2 *s)
         
         s->audio_remained = (seconds + s->audio_remained) * AUDIO_SAMPLE_RATE - s->audio.data_len;
         s->audio_remained /= AUDIO_SAMPLE_RATE;
-        s->audio.data_len *= audio_capture_channels * AUDIO_BPS;
+        s->audio.data_len *= s->audio.ch_count * AUDIO_BPS;
         
         s->last_audio_time = curr_time;
 }

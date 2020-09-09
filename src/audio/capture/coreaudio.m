@@ -276,7 +276,7 @@ static void * audio_cap_ca_init(const char *cfg)
         s->boss_waiting = FALSE;
         s->data_ready = FALSE;
         s->frame.bps = audio_capture_bps ? audio_capture_bps : 2;
-        s->frame.ch_count = audio_capture_channels;
+        s->frame.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
 
         double rate;
         size = sizeof(double);
