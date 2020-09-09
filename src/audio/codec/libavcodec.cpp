@@ -211,7 +211,6 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 delete s;
                 return NULL;
         }
-
         s->codec_ctx->strict_std_compliance = -2;
 
         s->bitrate = bitrate;
@@ -247,9 +246,12 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 {
         cleanup_common(s);
 
-        pthread_mutex_lock(s->libav_global_lock);
-        avcodec_close(s->codec_ctx);
-        pthread_mutex_unlock(s->libav_global_lock);
+        s->codec_ctx = avcodec_alloc_context3(s->codec);
+        if (s->codec_ctx == nullptr) { // not likely :)
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Could not allocate audio codec context\n";
+                return false;
+        }
+        s->codec_ctx->strict_std_compliance = -2;
 
         /*  put sample parameters */
         if (s->bitrate > 0) {
@@ -371,9 +373,12 @@ static bool reinitialize_decoder(struct libavcodec_codec_state *s, struct audio_
 {
         cleanup_common(s);
 
-        pthread_mutex_lock(s->libav_global_lock);
-        avcodec_close(s->codec_ctx);
-        pthread_mutex_unlock(s->libav_global_lock);
+        s->codec_ctx = avcodec_alloc_context3(s->codec);
+        if (s->codec_ctx == nullptr) { // not likely :)
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Could not allocate audio codec context\n";
+                return false;
+        }
+        s->codec_ctx->strict_std_compliance = -2;
 
         s->codec_ctx->channels = 1;
 
@@ -667,6 +672,11 @@ static void cleanup_common(struct libavcodec_codec_state *s)
 #endif
         }
 
+        pthread_mutex_lock(s->libav_global_lock);
+        avcodec_close(s->codec_ctx);
+        avcodec_free_context(&s->codec_ctx);
+        pthread_mutex_unlock(s->libav_global_lock);
+
         s->context_initialized = false;
 }
 
@@ -676,11 +686,6 @@ static void libavcodec_done(void *state)
         assert(s->magic == MAGIC);
 
         cleanup_common(s);
-
-        pthread_mutex_lock(s->libav_global_lock);
-        avcodec_close(s->codec_ctx);
-        avcodec_free_context(&s->codec_ctx);
-        pthread_mutex_unlock(s->libav_global_lock);
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);
         av_frame_free(&s->av_frame);
