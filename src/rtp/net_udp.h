@@ -97,7 +97,7 @@ int         udp_fd_isset_r(socket_udp *s, struct udp_fd_r *);
 
 int         udp_recv_data(socket_udp * s, char **buffer);
 bool        udp_not_empty(socket_udp *s, struct timeval *timeout);
-int         udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port);
+int         udp_port_pair_is_free(int force_ip_version, int even_port);
 bool        udp_is_ipv6(socket_udp *s);
 
 void        socket_error(const char *msg, ...);
