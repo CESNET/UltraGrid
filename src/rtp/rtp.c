@@ -1113,7 +1113,6 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                                 break;
                         }
                         if (ret == -2) {
-                                log_msg(LOG_LEVEL_ERROR, "Name or service is not known!\n");
                                 free(session);
                                 return NULL;
                         }

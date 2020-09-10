@@ -88,6 +88,8 @@ static void *udp_reader(void *arg);
 #define IPv4	4
 #define IPv6	6
 
+const constexpr char *MOD_NAME = "[RTP UDP] ";
+
 #ifdef WIN2K_IPV6
 const struct in6_addr in6addr_any = { IN6ADDR_ANY_INIT };
 #endif
@@ -1520,12 +1522,11 @@ bool udp_is_ipv6(socket_udp *s)
 
 /**
  * @retval  0 success
- * @retval -1 failed
- * @retval -2 incorrect service or hostname (not a port number)
+ * @retval -1 port pair is not free
+ * @retval -2 another error
  */
 int udp_port_pair_is_free(int force_ip_version, int even_port)
 {
-        struct sockaddr *sin;
         struct addrinfo hints{};
         struct addrinfo *res0 = nullptr;
         hints.ai_family = force_ip_version == 4 ? AF_INET : AF_INET6;
@@ -1535,13 +1536,12 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
         if (int err = 0; (err = getaddrinfo(nullptr, tx_port_str.c_str(), &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                log_msg(LOG_LEVEL_VERBOSE, "getaddrinfo: %s\n", gai_strerror(err));
-                return err == EAI_NONAME ? -2 : -1;
-        } else {
-                sin = res0->ai_addr;
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " getaddrinfo: " <<  gai_strerror(err) << "\n";
+                return -2;
         }
 
         for (int i = 0; i < 2; ++i) {
+                struct sockaddr *sin = res0->ai_addr;
                 fd_t fd;
 
                 if (sin->sa_family == AF_INET6) {
@@ -1553,10 +1553,10 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                                 if (SETSOCKOPT
                                                 (fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
                                                  sizeof(ipv6only)) != 0) {
-                                        socket_error("setsockopt IPV6_V6ONLY");
+                                        socket_error("%s - setsockopt IPV6_V6ONLY", static_cast<const char *>(__func__));
                                         CLOSESOCKET(fd);
                                         freeaddrinfo(res0);
-                                        return -1;
+                                        return -2;
                                 }
                         }
                 } else {
@@ -1566,15 +1566,19 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                 }
 
                 if (fd == INVALID_SOCKET) {
-                        socket_error("Unable to initialize socket");
+                        socket_error("%s - unable to initialize socket", static_cast<const char *>(__func__));
                         freeaddrinfo(res0);
-                        return -1;
+                        return -2;
                 }
 
                 if (bind(fd, (struct sockaddr *) sin, res0->ai_addrlen) != 0) {
                         freeaddrinfo(res0);
                         CLOSESOCKET(fd);
-                        return -1;
+                        if (errno == EADDRINUSE) {
+                                return -1;
+                        }
+                        socket_error("%s - cannot bind", static_cast<const char *>(__func__));
+                        return -2;
                 }
 
                 CLOSESOCKET(fd);
