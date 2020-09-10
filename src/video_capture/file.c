@@ -266,10 +266,20 @@ static void *vidcap_file_worker(void *state) {
                 }
                 CHECK_FF(ret, FAIL_WORKER); // check the retval of av_read_frame for error other than EOF
 
-                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %" PRId64 ", size %d\n",
+                AVRational tb = s->fmt_ctx->streams[pkt.stream_index]->time_base;
+
+                char pts_val[128] = "NO VALUE";
+                if (pkt.pts != AV_NOPTS_VALUE) {
+                        snprintf(pts_val, sizeof pts_val, "%" PRId64, pkt.pts);
+                }
+                char dts_val[128] = "NO VALUE";
+                if (pkt.dts != AV_NOPTS_VALUE) {
+                        snprintf(dts_val, sizeof dts_val, "%" PRId64, pkt.dts);
+                }
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %f (pts %s, dts %s), size %d\n",
                                 av_get_media_type_string(
                                         s->fmt_ctx->streams[pkt.stream_index]->codecpar->codec_type),
-                                pkt.stream_index, pkt.pos, pkt.size);
+                                pkt.stream_index, (double) pkt.pts * tb.num / tb.den, pts_val, dts_val, pkt.size);
 
                 if (pkt.stream_index == s->audio_stream_idx) {
                         ret = avcodec_send_packet(s->aud_ctx, &pkt);
@@ -553,6 +563,8 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 }
                 s->video_desc.interlacing = PROGRESSIVE; /// @todo other modes
         }
+
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Capturing audio idx %d, video idx %d\n", s->audio_stream_idx, s->video_stream_idx);
 
         s->last_vid_pts = s->fmt_ctx->streams[s->video_stream_idx]->start_time;
 
