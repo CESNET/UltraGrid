@@ -185,10 +185,14 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
                 s->audio_frame.data_len += plane_count * bps * s->aud_ctx->frame_size;
         } else {
                 int data_size = av_samples_get_buffer_size(NULL, s->audio_frame.ch_count,
-                                s->aud_ctx->frame_size,
+                                frame->nb_samples,
                                 s->aud_ctx->sample_fmt, 1);
-                append_audio_frame(&s->audio_frame, (char *) frame->data[0],
-                                data_size);
+                if (data_size < 0) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME " av_samples_get_buffer_size", data_size);
+                } else {
+                        append_audio_frame(&s->audio_frame, (char *) frame->data[0],
+                                        data_size);
+                }
         }
         pthread_mutex_unlock(&s->audio_frame_lock);
 }
