@@ -68,13 +68,16 @@
 #include <chrono>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <utility> // std::swap
 
 using std::condition_variable;
 using std::max;
 using std::mutex;
 using std::queue;
+using std::string;
 using std::swap;
+using std::to_string;
 using std::unique_lock;
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
@@ -1520,17 +1523,16 @@ bool udp_is_ipv6(socket_udp *s)
  * @retval -1 failed
  * @retval -2 incorrect service or hostname (not a port number)
  */
-int udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port)
+int udp_port_pair_is_free(int force_ip_version, int even_port)
 {
         struct sockaddr *sin;
-        struct addrinfo hints, *res0;
-        int err;
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = force_ip_version ? (force_ip_version == 6 ? AF_INET6 : AF_INET) : AF_UNSPEC;
+        struct addrinfo hints{};
+        struct addrinfo *res0 = nullptr;
+        hints.ai_family = force_ip_version == 4 ? AF_INET : AF_INET6;
+        hints.ai_flags = AI_NUMERICSERV | AI_PASSIVE;
         hints.ai_socktype = SOCK_DGRAM;
-        char tx_port_str[7];
-        sprintf(tx_port_str, "%u", 5004);
-        if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
+        string tx_port_str = to_string(5004);
+        if (int err = 0; (err = getaddrinfo(nullptr, tx_port_str.c_str(), &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
                 log_msg(LOG_LEVEL_VERBOSE, "getaddrinfo: %s\n", gai_strerror(err));
@@ -1546,7 +1548,6 @@ int udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port)
                         struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) sin;
                         int ipv6only = 0;
                         s_in6->sin6_port = htons(even_port + i);
-                        s_in6->sin6_addr = in6addr_any;
                         fd = socket(AF_INET6, SOCK_DGRAM, 0);
                         if (fd != INVALID_SOCKET) {
                                 if (SETSOCKOPT
@@ -1560,7 +1561,6 @@ int udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port)
                         }
                 } else {
                         struct sockaddr_in *s_in = (struct sockaddr_in *) sin;
-                        s_in->sin_addr.s_addr = INADDR_ANY;
                         s_in->sin_port = htons(even_port + i);
                         fd = socket(AF_INET, SOCK_DGRAM, 0);
                 }
