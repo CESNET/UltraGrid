@@ -134,7 +134,9 @@ struct libavcodec_codec_state {
         bool                context_initialized;
         audio_codec_direction_t direction;
 };
+#ifdef __cpp_lib_is_aggregate
 static_assert(is_aggregate_v<libavcodec_codec_state>, "ensure aggregate to allow aggregate initialization");
+#endif
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
