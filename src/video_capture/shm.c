@@ -412,6 +412,8 @@ void vidcap_shm_set_view(void *state, struct RenderPacket *pkt) {
         struct state_vidcap_shm *s = state;
         assert(s->magic == MAGIC);
 
+        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Received RenderPacket for frame %d.\n", pkt->frame);
+
         pthread_mutex_lock(&s->render_pkt_lock);
         memcpy(&s->render_pkt, pkt, sizeof *pkt);
         pthread_mutex_unlock(&s->render_pkt_lock);
