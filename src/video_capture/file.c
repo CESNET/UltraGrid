@@ -80,6 +80,7 @@
 #include "video.h"
 #include "video_capture.h"
 
+static const double AUDIO_RATIO = 1.05; ///< at this ratio the audio frame can be longer than the video frame
 #define MAGIC to_fourcc('u', 'g', 'l', 'f')
 #define MOD_NAME "[File cap.] "
 
@@ -593,6 +594,28 @@ static void vidcap_file_dispose_audio(struct audio_frame *f) {
         free(f);
 }
 
+static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s, double video_fps) {
+        pthread_mutex_lock(&s->audio_frame_lock);
+
+        struct audio_frame *ret = (struct audio_frame *) malloc(sizeof(struct audio_frame));
+        memcpy(ret, &s->audio_frame, sizeof *ret);
+
+        // capture more data to ensure the buffer won't grow - it is capped with actually read
+        // data, still. Moreover there number of audio samples per video frame period may not
+        // be integer. It shouldn't be much, however, not to confuse adaptible audio buffer.
+        ret->max_size =
+                ret->data_len = MIN((int) (AUDIO_RATIO * ret->sample_rate / video_fps) * ret->bps * ret->ch_count , s->audio_frame.data_len);
+        ret->data = (char *) malloc(ret->max_size);
+        memcpy(ret->data, s->audio_frame.data, ret->data_len);
+
+        s->audio_frame.data_len -= ret->data_len;
+        memmove(s->audio_frame.data, s->audio_frame.data + ret->data_len, s->audio_frame.data_len);
+
+        ret->dispose = vidcap_file_dispose_audio;
+
+        pthread_mutex_unlock(&s->audio_frame_lock);
+        return ret;
+}
 
 static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **audio) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
@@ -613,11 +636,7 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_consumed);
 
-        pthread_mutex_lock(&s->audio_frame_lock);
-        *audio = audio_frame_copy(&s->audio_frame, false);
-        (*audio)->dispose = vidcap_file_dispose_audio;
-        s->audio_frame.data_len = 0;
-        pthread_mutex_unlock(&s->audio_frame_lock);
+        *audio = get_audio(s, out->fps);
 
         struct timeval t;
         do {
