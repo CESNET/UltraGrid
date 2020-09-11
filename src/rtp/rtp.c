@@ -4128,7 +4128,7 @@ void rtp_send_rtcp_app(struct rtp *session, const char *name, int length, char *
         uint8_t tmp[RTP_MAX_PACKET_LEN + MAX_ENCRYPTION_PAD];    /* The +8 is to allow for padding when encrypting */
         rtcp_app *app = (rtcp_app *) tmp;
         app->subtype = 0;
-        app->length = (length + 3) / 4;
+        app->length = 2 + (length + 3) / 4;
         memset(app->name, '\0', 4);
         strncpy(app->name, name, 4);
         app->p = 0;

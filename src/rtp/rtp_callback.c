@@ -281,7 +281,7 @@ void rtp_vr_recv_callback(struct rtp *session, rtp_event * e)
         }
 #ifdef HAVE_SHM
         struct state_vidcap_shm *shm = (struct state_vidcap_shm *) ((void **) rtp_get_userdata(session))[1];
-        assert(pckt_app->length == (sizeof(struct RenderPacket) + 3) / 4); // expected len of the APP data is the size
+        assert(pckt_app->length - 2 == (sizeof(struct RenderPacket) + 3) / 4); // expected len of the APP data is the size
                                                                            // of struct RenderPacket / 4
         if (shm != NULL) {
                 struct RenderPacket pkt;
