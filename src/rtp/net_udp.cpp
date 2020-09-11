@@ -1533,7 +1533,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
         hints.ai_flags = AI_NUMERICSERV | AI_PASSIVE;
         hints.ai_socktype = SOCK_DGRAM;
         string tx_port_str = to_string(5004);
-        if (int err = 0; (err = getaddrinfo(nullptr, tx_port_str.c_str(), &hints, &res0)) != 0) {
+        if (int err = getaddrinfo(nullptr, tx_port_str.c_str(), &hints, &res0)) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " getaddrinfo: " <<  gai_strerror(err) << "\n";

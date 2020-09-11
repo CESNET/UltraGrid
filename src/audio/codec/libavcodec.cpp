@@ -333,7 +333,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 
         pthread_mutex_lock(s->libav_global_lock);
         /* open it */
-        if (int ret = 0; (ret = avcodec_open2(s->codec_ctx, s->codec, nullptr)) < 0) {
+        if (int ret = avcodec_open2(s->codec_ctx, s->codec, nullptr)) {
                 array<char, ERR_MSG_BUF_LEN> errbuf{};
                 av_strerror(ret, errbuf.data(), errbuf.size());
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Could not open codec: " << errbuf.data() << "(" << ret << ")\n";
