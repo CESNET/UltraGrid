@@ -132,7 +132,9 @@ struct libavcodec_codec_state {
         bool                context_initialized;
         audio_codec_direction_t direction;
 };
+#if defined __GNUC__ && ! defined __clang__ && defined _GLIBCXX_HAVE_BUILTIN_IS_AGGREGATE
 static_assert(is_aggregate_v<libavcodec_codec_state>, "ensure aggregate to allow aggregate initialization");
+#endif
 
 /**
  * Initializates selected audio codec
