@@ -226,7 +226,7 @@ void socket_error(const char *msg, ...)
                 WSERR(WSAENOTCONN), WSERR(WSAENOTSOCK), WSERR(WSAEOPNOTSUPP),
                 WSERR(WSAESHUTDOWN), WSERR(WSAEWOULDBLOCK), WSERR(WSAEMSGSIZE),
                 WSERR(WSAEHOSTUNREACH), WSERR(WSAECONNABORTED),
-                    WSERR(WSAECONNRESET),
+                WSERR(WSAECONNRESET), WSERR(WSAEADDRINUSE),
                 WSERR(WSAEADDRNOTAVAIL), WSERR(WSAEAFNOSUPPORT),
                     WSERR(WSAEDESTADDRREQ),
                 WSERR(WSAENETUNREACH), WSERR(WSAETIMEDOUT), WSERR(WSAENOPROTOOPT),
@@ -242,7 +242,7 @@ void socket_error(const char *msg, ...)
         _vsnprintf(buffer, blen, msg, ap);
         va_end(ap);
         if (e != WSAECONNRESET)
-                log_msg(LOG_LEVEL_ERROR, "ERROR: %s, (%d - %s)\n", msg, e, ws_errs[i].errname);
+                log_msg(LOG_LEVEL_ERROR, "ERROR: %s, (%d - %s)\n", buffer, e, ws_errs[i].errname);
 #else
         va_start(ap, msg);
         vsnprintf(buffer, blen, msg, ap);
