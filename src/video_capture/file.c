@@ -480,17 +480,16 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 
         /* open input file, and allocate format context */
         if ((rc = avformat_open_input(&s->fmt_ctx, s->src_filename, NULL, NULL)) < 0) {
-                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not open source file %s: ", s->src_filename);
+                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not open source file %s", s->src_filename);
         }
 
         /* retrieve stream information */
         if (rc >= 0 && (rc = avformat_find_stream_info(s->fmt_ctx, NULL)) < 0) {
-                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not find stream information: \n");
+                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not find stream information");
         }
 
         if (rc < 0) {
-                av_strerror(rc, errbuf + strlen(errbuf), sizeof errbuf - strlen(errbuf));
-                log_msg(LOG_LEVEL_ERROR, "%s\n", errbuf);
+                print_libav_error(LOG_LEVEL_ERROR, errbuf, rc);
                 vidcap_file_common_cleanup(s);
                 return VIDCAP_INIT_FAIL;
         }

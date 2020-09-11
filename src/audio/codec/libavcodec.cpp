@@ -56,7 +56,6 @@ extern "C" {
 #include <libavutil/mem.h>
 }
 
-#include <array>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -138,10 +137,21 @@ struct libavcodec_codec_state {
 static_assert(is_aggregate_v<libavcodec_codec_state>, "ensure aggregate to allow aggregate initialization");
 #endif
 
+/**
+ * @todo
+ * Remove and use the global print_libav_error. Dependencies need to be resolved first.
+ */
+static void print_libav_audio_error(int verbosity, const char *msg, int rc) {
+        char errbuf[1024];
+        av_strerror(rc, errbuf, sizeof(errbuf));
+
+        log_msg(verbosity, "%s: %s\n", msg, errbuf);
+}
+
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 ADD_TO_PARAM("audioenc-frame-duration", "* audioenc-frame-duration=<ms>\n"
-                "  Sets audio encoder frame duration (in ms), default is " STR(LOW_LATENCY_OPUS_FRAME_DURATION) " ms for low-latency-audio\n");
+                "  Sets audio encoder frame duration (in ms), default is " STR(LOW_LATENCY_AUDIOENC_FRAME_DURATION) " ms for low-latency-audio\n");
 /**
  * Initializates selected audio codec
  * @param audio_codec requested audio codec
@@ -320,10 +330,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
                         string frame_duration_str{to_string(frame_duration)};
                         int ret = av_opt_set(s->codec_ctx->priv_data, "frame_duration", frame_duration_str.c_str(), 0);
                         if (ret != 0) {
-                                array<char, ERR_MSG_BUF_LEN> errbuf{};
-                                av_strerror(ret, errbuf.data(), errbuf.size());
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Could set OPUS frame duration: "
-                                        << errbuf.data() << " (" << ret << ")\n";
+                                print_libav_audio_error(LOG_LEVEL_ERROR, "Could not set OPUS frame duration", ret);
                         }
                 }
                 if (s->codec->id == AV_CODEC_ID_FLAC) {
@@ -334,9 +341,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         pthread_mutex_lock(s->libav_global_lock);
         /* open it */
         if (int ret = avcodec_open2(s->codec_ctx, s->codec, nullptr)) {
-                array<char, ERR_MSG_BUF_LEN> errbuf{};
-                av_strerror(ret, errbuf.data(), errbuf.size());
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Could not open codec: " << errbuf.data() << "(" << ret << ")\n";
+                print_libav_audio_error(LOG_LEVEL_ERROR, "Could not open codec", ret);
                 pthread_mutex_unlock(s->libav_global_lock);
                 return false;
         }
@@ -355,10 +360,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 
         int ret = av_frame_get_buffer(s->av_frame, 0);
         if (ret != 0) {
-                array<char, ERR_MSG_BUF_LEN> errbuf{};
-                av_strerror(ret, errbuf.data(), errbuf.size());
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Could not allocate audio data buffers: "
-                        << errbuf.data() << " (" << ret << ")\n";
+                print_libav_audio_error(LOG_LEVEL_ERROR, "Could not allocate audio data buffers", ret);
                 return false;
         }
 
@@ -478,15 +480,10 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                                 s->output_channel.duration += s->codec_ctx->frame_size / (double) s->output_channel.sample_rate;
 			}
 			if (ret != AVERROR(EAGAIN) && ret != 0) {
-				char errbuf[1024];
-				av_strerror(ret, errbuf, sizeof(errbuf));
-
-				log_msg(LOG_LEVEL_WARNING, "Receive packet error: %s %d\n", errbuf, ret);
+				print_libav_audio_error(LOG_LEVEL_WARNING, "Receive packet error", ret);
 			}
 		} else {
-                        array<char, ERR_MSG_BUF_LEN> errbuf{};
-                        av_strerror(ret, errbuf.data(), errbuf.size());
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Error encoding frame: " << errbuf.data() << " (" << ret << ")\n";
+                        print_libav_audio_error(LOG_LEVEL_ERROR, "Error encoding frame", ret);
 			return {};
 		}
 #else
@@ -496,10 +493,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                 int ret = avcodec_encode_audio2(s->codec_ctx, &pkt, s->av_frame,
                                 &got_packet);
                 if(ret) {
-                        char errbuf[1024];
-                        av_strerror(ret, errbuf, sizeof(errbuf));
-                        fprintf(stderr, "Warning: unable to compress audio: %s\n",
-                                        errbuf);
+                        print_libav_audio_error(LOG_MSG_WARNING, MOD_NAME "Warning: unable to compress audio", ret);
                 }
                 if(got_packet) {
                         s->output_channel.data_len += pkt.size;
