@@ -1572,13 +1572,20 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                 }
 
                 if (bind(fd, (struct sockaddr *) sin, res0->ai_addrlen) != 0) {
+                        int ret = 0;
+#ifdef _WIN32
+                        if (WSAGetLastError() == WSAEADDRINUSE) {
+#else
+                        if (errno == EADDRINUSE) {
+#endif
+                                ret = -1;
+                        } else {
+                                ret = -2;
+                                socket_error("%s - cannot bind", static_cast<const char *>(__func__));
+                        }
                         freeaddrinfo(res0);
                         CLOSESOCKET(fd);
-                        if (errno == EADDRINUSE) {
-                                return -1;
-                        }
-                        socket_error("%s - cannot bind", static_cast<const char *>(__func__));
-                        return -2;
+                        return ret;
                 }
 
                 CLOSESOCKET(fd);
