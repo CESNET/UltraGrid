@@ -322,6 +322,12 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         s->codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
 
+        if (s->codec->id == AV_CODEC_ID_OPUS) {
+                if (int ret = av_opt_set(s->codec_ctx->priv_data, "application", "lowdelay", 0)) {
+                        print_libav_audio_error(LOG_LEVEL_WARNING, "Could not set OPUS low delay app type", ret);
+                }
+        }
+
         if (s->direction == AUDIO_CODER && (commandline_params.find("low-latency-audio"s) != commandline_params.end()
                                 || commandline_params.find("audioenc-frame-duration"s) != commandline_params.end())) {
                 double frame_duration = commandline_params.find("audioenc-frame-duration"s) == commandline_params.end() ?
