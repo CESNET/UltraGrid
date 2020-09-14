@@ -64,6 +64,7 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
@@ -71,6 +72,7 @@
 #include <string>
 #include <utility> // std::swap
 
+using std::array;
 using std::condition_variable;
 using std::max;
 using std::mutex;
@@ -88,6 +90,7 @@ static void *udp_reader(void *arg);
 #define IPv4	4
 #define IPv6	6
 
+constexpr int ERRBUF_SIZE = 255;
 const constexpr char *MOD_NAME = "[RTP UDP] ";
 
 #ifdef WIN2K_IPV6
@@ -209,9 +212,9 @@ static void udp_clean_async_state(socket_udp *s);
 
 void socket_error(const char *msg, ...)
 {
-        char buffer[255];
-        uint32_t blen = sizeof(buffer) / sizeof(buffer[0]);
         va_list ap;
+        array<char, ERRBUF_SIZE> buffer{};
+        array<char, ERRBUF_SIZE> strerror_buf{"unknown"};
 
 #ifdef WIN32
 #define WSERR(x) {#x,x}
@@ -233,26 +236,38 @@ void socket_error(const char *msg, ...)
                 WSERR(0)
         };
 
-        int i, e = WSAGetLastError();
-        i = 0;
+        int i = 0;
+        int e = WSAGetLastError();
+        if (e == WSAECONNRESET) {
+                return;
+        }
         while (ws_errs[i].errno_code && ws_errs[i].errno_code != e) {
                 i++;
         }
         va_start(ap, msg);
-        _vsnprintf(buffer, blen, msg, ap);
+        _vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
         va_end(ap);
-        if (e != WSAECONNRESET)
-                log_msg(LOG_LEVEL_ERROR, "ERROR: %s, (%d - %s)\n", buffer, e, ws_errs[i].errname);
+
+        if (i == 0) { // let system format the error message
+                FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
+                                NULL,                // lpsource
+                                e,                   // message id
+                                MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
+                                strerror_buf.data(), // output buffer
+                                strerror_buf.size(), // size of msgbuf, bytes
+                                NULL);               // va_list of arguments
+        }
+        const char *errname = i == 0 ? strerror_buf.data() : ws_errs[i].errname;
+        LOG(LOG_LEVEL_ERROR) << "ERROR: " << buffer.data() << ", (" << e << " - " << errname << ")\n";
 #else
         va_start(ap, msg);
-        vsnprintf(buffer, blen, msg, ap);
+        vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
         va_end(ap);
-        char strerror_buf[255] = "";
 #if ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
-        strerror_r(errno, strerror_buf, sizeof strerror_buf); // XSI version
-        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_buf);
+        strerror_r(errno, strerror_buf.data(), strerror_buf.size()); // XSI version
+        LOG(LOG_LEVEL_ERROR) << buffer.data() << ": " << strerror_buf.data() << "\n";
 #else // GNU strerror_r version
-        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_r(errno, strerror_buf, sizeof strerror_buf));
+        LOG(LOG_LEVEL_ERROR) << buffer.data() << ": " << strerror_r(errno, strerror_buf.data(), strerror_buf.size()) << "\n";
 #endif
 #endif
 }
