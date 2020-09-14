@@ -96,7 +96,7 @@ jobs:
     - name: make distcheck
       run: make distcheck
     - name: Create AppImage
-      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh` && mv $APPIMAGE UltraGrid-$VERSION-x86_64.AppImage
+      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/UltraGrid-$VERSION-x86_64.AppImage.zsync` && mv $APPIMAGE UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload NDI Build
       id: upload-ndi
       if: github.ref == 'refs/heads/ndi-build'
