@@ -149,6 +149,7 @@ static void display_vrg_run(void *state)
                 if (ret != Ok) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Render Frame failed: " << ret << "\n";
                 } else {
+                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Received RenderPacket for frame " << render_packet.frame << ".\n";
                         rtp_send_rtcp_app(s->rtp, "VIEW", sizeof render_packet, (char *) &render_packet);
                 }
 
