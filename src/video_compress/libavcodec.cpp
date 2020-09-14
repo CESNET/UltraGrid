@@ -262,14 +262,14 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
         if (strlen(enc) || strlen(dec)) {
                 strncat(buf, " (", buflen - strlen(buf) - 1);
                 if (strlen(enc)) {
-                        strncat(buf, "enc:", buflen - strlen(buf) - 1);
+                        strncat(buf, "encoders:", buflen - strlen(buf) - 1);
                         strncat(buf, enc, buflen - strlen(buf) - 1);
                 }
                 if (strlen(dec)) {
                         if (strlen(enc)) {
                                 strncat(buf, ", ", buflen - strlen(buf) - 1);
                         }
-                        strncat(buf, "dec:", buflen - strlen(buf) - 1);
+                        strncat(buf, "decoders:", buflen - strlen(buf) - 1);
                         strncat(buf, dec, buflen - strlen(buf) - 1);
                 }
                 strncat(buf, ")", buflen - strlen(buf) - 1);
@@ -277,7 +277,7 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 #elif LIBAVCODEC_VERSION_MAJOR >= 54
         const AVCodec *codec;
         if ((codec = avcodec_find_encoder(id))) {
-                strncpy(buf, " (enc:", buflen - 1);
+                strncpy(buf, " (encoders:", buflen - 1);
                 buf[buflen - 1] = '\0';
                 do {
                         if (av_codec_is_encoder(codec) && codec->id == id) {
@@ -293,7 +293,7 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
                 } else {
                         strncat(buf, " (", buflen - strlen(buf) - 1);
                 }
-                strncat(buf, "dec:", buflen - strlen(buf) - 1);
+                strncat(buf, "decoders:", buflen - strlen(buf) - 1);
                 do {
                         if (av_codec_is_decoder(codec) && codec->id == id) {
                                 strncat(buf, " ", buflen - strlen(buf) - 1);
