@@ -135,7 +135,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
         for(char *token = strtok_r(fmt_copy, "#", &saveptr); token; token = strtok_r(NULL, "#", &saveptr)){
                 requested_display = token;
                 printf("%s\n", token);
-                cfg = NULL;
+                cfg = "";
                 char *delim = strchr(token, ':');
                 if (delim) {
                         *delim = '\0';

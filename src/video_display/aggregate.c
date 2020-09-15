@@ -139,7 +139,7 @@ static void *display_aggregate_init(struct module *parent, const char *fmt, unsi
         while((item = strtok_r(tmp, "#", &save_ptr))) {
                 char *device;
                 char *config = strdup(item);
-                char *device_cfg = NULL;
+                const char *device_cfg = "";
                 unsigned int dev_flags = 0u;
                 device = config;
 		if(strchr(config, ':')) {
