@@ -19,13 +19,13 @@ while test $# -gt 0; do
                 shift
                 continue
         fi
-        GLIBCXX_CUR=$(nm $1 | sed -n 's/.*GLIBCXX_\([0-9.]*\).*/\1/p' | sort -n | tail -n 1)
-        CXX_CUR=$(nm $1 | sed -n 's/.*CXXABI_\([0-9.]*\).*/\1/p' | sort -n | tail -n 1)
+        GLIBCXX_CUR=$(nm $1 | sed -n 's/.*GLIBCXX_\([0-9.]*\).*/\1/p' | sort -V | tail -n 1)
+        CXX_CUR=$(nm $1 | sed -n 's/.*CXXABI_\([0-9.]*\).*/\1/p' | sort -V | tail -n 1)
         if [ -n "$GLIBCXX_CUR" -a "$($SEMVER_CMP $GLIBCXX_CUR $GLIBCXX_MAX)" -gt 0 ]; then
                 echo "$1: GLIBCXX $GLIBCXX_CUR ($GLIBCXX_MAX required)" 1>&2
                 exit 1
         fi
-        if [ -n "$CXX_CUR" "$($SEMVER_CMP $CXX_CUR $CXX_MAX)" -gt 0 ]; then
+        if [ -n "$CXX_CUR" -a "$($SEMVER_CMP $CXX_CUR $CXX_MAX)" -gt 0 ]; then
                 echo "$1: CXX $CXX_CUR ($CXX_MAX required)" 1>&2
                 exit 1
         fi
