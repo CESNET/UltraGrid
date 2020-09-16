@@ -316,6 +316,9 @@ static void *vidcap_file_worker(void *state) {
                         } else {
                                 AVFrame * frame = av_frame_alloc();
                                 int got_frame = 0;
+
+                                struct timeval t0;
+                                gettimeofday(&t0, NULL);
                                 ret = avcodec_send_packet(s->vid_ctx, &pkt);
                                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
                                         ret = avcodec_receive_frame(s->vid_ctx, frame);
@@ -323,9 +326,12 @@ static void *vidcap_file_worker(void *state) {
                                                 got_frame = 1;
                                         }
                                 }
+                                struct timeval t1;
+                                gettimeofday(&t1, NULL);
                                 if (ret != 0) {
                                         print_decoder_error(MOD_NAME, ret);
                                 }
+                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Video decompress duration: %f\n", tv_diff(t1, t0));
 
                                 if (ret < 0 || !got_frame) {
                                         if (ret < 0) {
@@ -405,6 +411,9 @@ static AVCodecContext *vidcap_file_open_dec_ctx(AVCodec *dec, AVStream *st) {
         if (!dec_ctx) {
                 return NULL;
         }
+        dec_ctx->thread_count = 0; // means auto for most codecs
+        dec_ctx->thread_type = FF_THREAD_SLICE;
+
         /* Copy codec parameters from input stream to output codec context */
         if (avcodec_parameters_to_context(dec_ctx, st->codecpar) < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to copy parameters\n");
