@@ -127,7 +127,7 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
         struct state_proxy *s;
         char *fmt_copy = NULL;
         const char *requested_display = "gl";
-        const char *cfg = NULL;
+        const char *cfg = "";
         int ret;
 
         s = new state_proxy();
