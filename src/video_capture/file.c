@@ -102,7 +102,7 @@ struct vidcap_state_lavf_decoder {
         bool use_audio;
 
         int video_stream_idx, audio_stream_idx;
-        int64_t last_vid_pts;
+        int64_t last_vid_pts; ///< last played PTS, if PTS == PTS_NO_VALUE, DTS is stored instead
 
         struct video_desc video_desc;
 
@@ -280,7 +280,8 @@ static void *vidcap_file_worker(void *state) {
                 log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %f (pts %s, dts %s), size %d\n",
                                 av_get_media_type_string(
                                         s->fmt_ctx->streams[pkt.stream_index]->codecpar->codec_type),
-                                pkt.stream_index, (double) pkt.pts * tb.num / tb.den, pts_val, dts_val, pkt.size);
+                                pkt.stream_index, (double) (pkt.pts == AV_NOPTS_VALUE ? pkt.dts : pkt.pts)
+                                * tb.num / tb.den, pts_val, dts_val, pkt.size);
 
                 if (pkt.stream_index == s->audio_stream_idx) {
                         ret = avcodec_send_packet(s->aud_ctx, &pkt);
@@ -303,7 +304,7 @@ static void *vidcap_file_worker(void *state) {
                         }
                         av_frame_free(&frame);
                 } else if (pkt.stream_index == s->video_stream_idx) {
-                        s->last_vid_pts = pkt.pts;
+                        s->last_vid_pts = pkt.pts == AV_NOPTS_VALUE ? pkt.dts : pkt.pts;
                         struct video_frame *out;
                         if (s->no_decode) {
                                 out = vf_alloc_desc(s->video_desc);
