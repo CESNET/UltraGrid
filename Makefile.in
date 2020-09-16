@@ -508,6 +508,7 @@ check: tests
 distcheck:
 	$(TARGET)
 	$(TARGET) --capabilities
+	$(TARGET) --list-modules
 	[ -z "$(GUI_EXE)" ] || $(GUI_EXE) -h
 
 # -------------------------------------------------------------------------------------------------

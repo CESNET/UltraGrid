@@ -619,7 +619,7 @@ static bool parse_params(char *optarg)
         return true;
 }
 
-#define EXIT(retval) { common_cleanup(init); return retval; }
+#define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 
 int main(int argc, char *argv[])
 {
@@ -1068,8 +1068,7 @@ int main(int argc, char *argv[])
                         video_offset = atoi(optarg) < 0 ? abs(atoi(optarg)) : 0;
                         break;
                 case OPT_LIST_MODULES:
-                        list_all_modules();
-                        EXIT(EXIT_SUCCESS);
+                        EXIT(list_all_modules() ? EXIT_SUCCESS : EXIT_FAILURE);
                 case OPT_START_PAUSED:
                         start_paused = true;
                         break;
