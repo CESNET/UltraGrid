@@ -71,6 +71,7 @@ using rang::fg;
 using rang::style;
 using std::cout;
 
+constexpr int DEFAULT_BUFLEN_MS = 50;
 #define NO_DATA_STOP_SEC 2
 #define MOD_NAME "[CoreAudio play.] "
 
@@ -189,7 +190,7 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         }
 
         {
-                int buf_len_ms = 200; // 200 ms by default
+                int buf_len_ms = DEFAULT_BUFLEN_MS;
                 if (get_commandline_param("audio-buffer-len")) {
                         buf_len_ms = atoi(get_commandline_param("audio-buffer-len"));
                         assert(buf_len_ms > 0 && buf_len_ms < 10000);
