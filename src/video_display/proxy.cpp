@@ -51,6 +51,7 @@
 #include <cinttypes>
 #include <condition_variable>
 #include <chrono>
+#include <iostream>
 #include <list>
 #include <map>
 #include <memory>
@@ -124,29 +125,31 @@ static void *display_run_worker(void *arg) {
 
 static void *display_proxy_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        struct state_proxy *s;
         char *fmt_copy = NULL;
-        const char *requested_display = "gl";
+        const char *requested_display = "";
         const char *cfg = "";
         int ret;
 
-        s = new state_proxy();
+        if (fmt == nullptr || strlen(fmt) == 0 || "help"s == fmt) {
+                cout << "Proxy is an helper display to combine (blend) multiple incoming streams.\n"
+                                "Please do not use, intended for internal purposes!\n";
+                return nullptr;
+        }
 
-        if (fmt && strlen(fmt) > 0) {
-                if (isdigit(fmt[0])) { // fork
-                        struct state_proxy *orig;
-                        sscanf(fmt, "%p", &orig);
-                        s->common = orig->common;
-                        return s;
-                } else {
-                        fmt_copy = strdup(fmt);
-                        requested_display = fmt_copy;
-                        char *delim = strchr(fmt_copy, ':');
-                        if (delim) {
-                                *delim = '\0';
-                                cfg = delim + 1;
-                        }
-                }
+        auto *s = new state_proxy();
+
+        if (isdigit(fmt[0]) != 0) { // fork
+                struct state_proxy *orig = nullptr;
+                sscanf(fmt, "%p", &orig);
+                s->common = orig->common;
+                return s;
+        }
+        fmt_copy = strdup(fmt);
+        requested_display = fmt_copy;
+        char *delim = strchr(fmt_copy, ':');
+        if (delim != nullptr) {
+                *delim = '\0';
+                cfg = delim + 1;
         }
         s->common = shared_ptr<state_proxy_common>(new state_proxy_common());
         ret = initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display);
