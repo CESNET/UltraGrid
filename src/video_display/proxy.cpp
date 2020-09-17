@@ -429,5 +429,5 @@ static const struct video_display_info display_proxy_info = {
         DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
-REGISTER_MODULE(proxy, &display_proxy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(proxy, &display_proxy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

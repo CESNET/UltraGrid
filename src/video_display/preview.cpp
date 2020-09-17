@@ -292,5 +292,5 @@ static const struct video_display_info display_preview_info = {
         DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
-REGISTER_MODULE(preview, &display_preview_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(preview, &display_preview_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
