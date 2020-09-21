@@ -288,7 +288,7 @@ std::string Settings::getLaunchParams() const{
 std::string Settings::getPreviewParams() const{
 	std::string out;
 
-	out += " --capture-filter preview";
+	out += " --capture-filter preview,every:0";
 	out += getOption("video.source").getLaunchOption();
 	out += " -d preview";
 	out += getOption("audio.source").getLaunchOption();
