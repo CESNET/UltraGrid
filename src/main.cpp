@@ -197,14 +197,18 @@ static void crash_signal_handler(int sig)
                 *ptr++ = message1[i];
         }
 #ifndef WIN32
-        *ptr++ = ' '; *ptr++ = '(';
-        for (size_t i = 0; i < sizeof sys_siglist[sig] - 1; ++i) {
-                if (sys_siglist[sig][i] == '\0') {
-                        break;
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
+        const char *sigabbrev = sigabbrev_np(sig);
+#else
+        const char *sigabbrev = sys_siglist[sig];
+#endif
+        if (sigabbrev != NULL) {
+                *ptr++ = ' '; *ptr++ = '(';
+                for (size_t i = 0; sigabbrev[i] != '\0'; ++i) {
+                        *ptr++ = sigabbrev[i];
                 }
-                *ptr++ = sys_siglist[sig][i];
+                *ptr++ = ')';
         }
-        *ptr++ = ')';
 #endif
         const char message2[] = ".\n\nPlease send a bug report to address ";
         for (size_t i = 0; i < sizeof message2 - 1; ++i) {
