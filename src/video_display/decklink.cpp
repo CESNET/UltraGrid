@@ -1741,7 +1741,9 @@ void HDRMetadata::Init(const string &fmt) {
         auto opts = unique_ptr<char []>(new char [fmt.size() + 1]);
         strcpy(opts.get(), fmt.c_str());
         char *save_ptr = nullptr;
-        string mode = strtok_r(opts.get(), ",", &save_ptr);
+        char *mode_c = strtok_r(opts.get(), ",", &save_ptr);
+        assert(mode_c != nullptr);
+        string mode = mode_c;
         std::for_each(std::begin(mode), std::end(mode), [](char& c) {
                         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
                         });
