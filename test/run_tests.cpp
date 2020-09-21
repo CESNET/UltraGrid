@@ -47,6 +47,7 @@
 #include <cppunit/extensions/TestFactoryRegistry.h>
 #include <cppunit/ui/text/TestRunner.h>
 #endif
+#include <iostream>
 
 #include "debug.h"
 #include "host.h"
@@ -64,6 +65,8 @@ extern "C" {
 #include "test_video_capture.h"
 #include "test_video_display.h"
 }
+
+using std::clog;
 
 #define TEST_AV_HW 1
 
@@ -84,13 +87,9 @@ void exit_uv(int status)
         exit(status);
 }
 
-int main(int argc, char **argv)
+static bool run_standard_tests()
 {
         bool success = true;
-        struct init_data *init;
-        if ((init = common_preinit(argc, argv)) == NULL) {
-                return 2;
-        }
 
         if (test_bitstream() != 0)
                 success = false;
@@ -118,8 +117,13 @@ int main(int argc, char **argv)
                 success = false;
 #endif
 
+        return success;
+}
+
+static bool run_unit_tests()
+{
 #ifdef HAVE_CPPUNIT
-        printf("Running CppUnit tests:\n");
+        std::clog << "Running CppUnit tests:\n";
         // Get the top level suite from the registry
         CPPUNIT_NS::Test *suite = CPPUNIT_NS::TestFactoryRegistry::getRegistry().makeTest();
 
@@ -131,10 +135,36 @@ int main(int argc, char **argv)
         runner.setOutputter( new CPPUNIT_NS::CompilerOutputter( &runner.result(),
                                 CPPUNIT_NS::stdCOut() ) );
         // Run the test.
-        success = runner.run() && success;
-#else
-        printf("CppUnit was not found, skipping CppUnit tests!\n");
+        return runner.run();
 #endif
+        std::clog << "CppUnit was not found, skipping CppUnit tests!\n";
+        return true;
+}
+
+int main(int argc, char **argv)
+{
+        struct init_data *init = nullptr;
+        if ((init = common_preinit(argc, argv)) == nullptr) {
+                return 2;
+        }
+
+        bool run_standard = true;
+        bool run_unit = true;
+        if (argc == 2) {
+                run_standard = run_unit = false;
+                if (strcmp("unit", argv[1]) == 0) {
+                        run_unit = true;
+                }
+                if (strcmp("standard", argv[1]) == 0) {
+                        run_standard = true;
+                }
+                if (strcmp("all", argv[1]) == 0) {
+                        run_standard = run_unit = true;
+                }
+        }
+
+        bool success = (run_standard ? run_standard_tests() : true);
+        success = (run_unit ? run_unit_tests() : true) && success;
 
         common_cleanup(init);
 
