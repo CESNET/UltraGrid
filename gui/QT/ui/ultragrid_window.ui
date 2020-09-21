@@ -417,6 +417,9 @@
              <property name="text">
               <string extracomment="Target IP or host"/>
              </property>
+             <property name="placeholderText">
+              <string>localhost</string>
+             </property>
             </widget>
            </item>
            <item row="1" column="0">
