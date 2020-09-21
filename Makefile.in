@@ -471,6 +471,7 @@ gui/QT/uv-qt$(APPEXT): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp)
 TEST_OBJS = $(COMMON_OBJS) \
 	    @TEST_OBJS@ \
 	    test/codec_conversions_test.o \
+	    test/ff_codec_conversions_test.o \
 	    test/get_framerate_test.o \
 	    test/video_desc_test.o \
 	    test/test_bitstream.o \
