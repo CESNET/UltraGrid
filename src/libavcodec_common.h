@@ -192,6 +192,7 @@ struct uv_to_av_conversion {
         pixfmt_callback_t func;
 };
 const struct uv_to_av_conversion *get_uv_to_av_conversions(void);
+pixfmt_callback_t get_uv_to_av_conversion(codec_t uv_codec, int av_codec);
 
 typedef void av_to_uv_convert(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, int * __restrict rgb_shift);
 typedef av_to_uv_convert *av_to_uv_convert_p;

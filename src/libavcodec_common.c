@@ -2059,6 +2059,18 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
         return uv_to_av_conversions;
 }
 
+pixfmt_callback_t get_uv_to_av_conversion(codec_t uv_codec, int av_codec) {
+        for (const struct uv_to_av_conversion *conversions = get_uv_to_av_conversions();
+                        conversions->func != 0; conversions++) {
+                if (conversions->dst == av_codec &&
+                                conversions->src == uv_codec) {
+                        return conversions->func;
+                }
+        }
+
+        return NULL;
+}
+
 /**
  * @brief returns list of available conversion. Terminated by uv_to_av_conversion::uv_codec == VIDEO_CODEC_NONE
  */
