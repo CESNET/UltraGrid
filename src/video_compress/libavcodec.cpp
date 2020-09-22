@@ -841,10 +841,10 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         bool is_rgb = codec_is_a_rgb(in_desc.color_spec);
         int preferred_subsampling = requested_subsampling;
         if (requested_subsampling == 0) {
-                if (in_desc.interlacing == INTERLACED_MERGED) {
-                        preferred_subsampling = 422;
-                } else {
+                if (codec_is_420(in_desc.color_spec)) { /// @todo perhaps better would be take the subs. directly
                         preferred_subsampling = 420;
+                } else {
+                        preferred_subsampling = 422;
                 }
         }
         // sort
