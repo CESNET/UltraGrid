@@ -272,14 +272,14 @@ static void crash_signal_handler(int sig)
         }
 #ifndef WIN32
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
-        const char *sigabbrev = sigabbrev_np(sig);
+        const char *sig_desc = sigdescr_np(sig);
 #else
-        const char *sigabbrev = sys_siglist[sig];
+        const char *sig_desc = sys_siglist[sig];
 #endif
-        if (sigabbrev != NULL) {
+        if (sig_desc != NULL) {
                 *ptr++ = ' '; *ptr++ = '(';
-                for (size_t i = 0; sigabbrev[i] != '\0'; ++i) {
-                        *ptr++ = sigabbrev[i];
+                for (size_t i = 0; sig_desc[i] != '\0'; ++i) {
+                        *ptr++ = sig_desc[i];
                 }
                 *ptr++ = ')';
         }
