@@ -51,6 +51,7 @@
 #include "tv.h"
 
 #include "audio/audio.h"
+#include "audio/audio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,7 +61,9 @@
 
 #include <Carbon/Carbon.h>
 
+#define MAX_DISPLAY_COUNT 10
 #define MOD_NAME "[screen cap mac] "
+
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
@@ -70,9 +73,24 @@ static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t screen[:fps=<fps>][:codec=<c>]\n");
+        printf("\t-t screen[:fps=<fps>][:codec=<c>][:display=<d>]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
         printf("\t\t <c>  - requested codec to capture (RGB /default/ or RGBA)\n");
+        printf("\t\t <d>  - display ID or \"primary\" or \"secondary\"\n");
+        printf("\n\nAvailable displays:\n");
+
+        CGDirectDisplayID screens[MAX_DISPLAY_COUNT];
+        uint32_t count = 0;
+        CGGetOnlineDisplayList(sizeof screens / sizeof screens[0], screens, &count);
+
+        for (unsigned int i = 0; i < count; ++i) {
+                char flags[128];
+                strcpy(flags, CGDisplayIsMain(screens[i]) ? "primary" : "secondary");
+                if (CGDisplayIsBuiltin(screens[i])) {
+                        strncat(flags, ", builtin", sizeof flags - strlen(flags) - 1);
+                }
+                printf("\tID %u) %s\n", screens[i], flags);
+        }
 }
 
 struct vidcap_screen_osx_state {
@@ -88,14 +106,19 @@ struct vidcap_screen_osx_state {
         bool initialized;
 };
 
-static void initialize(struct vidcap_screen_osx_state *s) {
-        s->display = CGMainDisplayID();
+static bool initialize(struct vidcap_screen_osx_state *s) {
         CGImageRef image = CGDisplayCreateImage(s->display);
+        if (image == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable create image (wrong display ID?)\n");
+                return false;
+        }
 
         s->desc.width = CGImageGetWidth(image);
         s->desc.height = CGImageGetHeight(image);
         CFRelease(image);
         s->video_frame_pool = video_frame_pool_init(s->desc, 2);
+
+        return true;
 }
 
 static struct vidcap_type * vidcap_screen_osx_probe(bool verbose, void (**deleter)(void *))
@@ -161,14 +184,50 @@ static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)
         s->desc.fps = 30;
         s->desc.interlacing = PROGRESSIVE;
 
-        if(vidcap_params_get_fmt(params)) {
+        s->display = CGMainDisplayID();
+
+        if (vidcap_params_get_fmt(params) && strlen(vidcap_params_get_fmt(params)) > 0) {
                 if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                         show_help();
                         return VIDCAP_INIT_NOERR;
-                } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
-                        s->desc.fps = atof(vidcap_params_get_fmt(params) + strlen("fps="));
-                } else if (strncasecmp(vidcap_params_get_fmt(params), "codec=", strlen("codec=")) == 0) {
-                        s->desc.color_spec = get_codec_from_name(vidcap_params_get_fmt(params) + strlen("codec="));
+                }
+                char *fmt = alloca(strlen(vidcap_params_get_fmt(params) + 1));
+                strcpy(fmt, vidcap_params_get_fmt(params));
+                char *save_ptr = NULL;
+                char *item = NULL;
+                while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
+                        if (strncasecmp(item, "fps=", strlen("fps=")) == 0) {
+                                s->desc.fps = atof(item + strlen("fps="));
+                        } else if (strncasecmp(item, "codec=", strlen("codec=")) == 0) {
+                                s->desc.color_spec = get_codec_from_name(item + strlen("codec="));
+                        } else if (strncasecmp(item, "display=", strlen("display=")) == 0) {
+                                char *display = item + strlen("display=");
+
+                                if (strcasecmp(display, "secondary") == 0) {
+                                        CGDirectDisplayID screens[MAX_DISPLAY_COUNT];
+                                        uint32_t count = 0;
+                                        CGGetOnlineDisplayList(sizeof screens / sizeof screens[0], screens, &count);
+                                        uint32_t i = 0;
+                                        for (; i < count; ++i) {
+                                                if (!CGDisplayIsMain(screens[i])) {
+                                                        s->display = screens[i];
+                                                        break;
+                                                }
+                                        }
+                                        if (i == count) {
+                                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "No secondary scren found!\n");
+                                                vidcap_screen_osx_done(s);
+                                                return VIDCAP_INIT_FAIL;
+                                        }
+                                } if (strcasecmp(display, "primary") != 0) { // primary was already set
+                                        s->display = atol(display);
+                                }
+                        } else {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option \"%s\"\n", item);
+                                vidcap_screen_osx_done(s);
+                                return VIDCAP_INIT_FAIL;
+                        }
+                        fmt = NULL;
                 }
         }
 
@@ -205,8 +264,10 @@ static struct video_frame * vidcap_screen_osx_grab(void *state, struct audio_fra
         struct vidcap_screen_osx_state *s = (struct vidcap_screen_osx_state *) state;
 
         if (!s->initialized) {
-                initialize(s);
-                s->initialized = true;
+                s->initialized = initialize(s);
+                if (!s->initialized) {
+                        return NULL;
+                }
         }
 
         struct video_frame *frame = video_frame_pool_get_disposable_frame(s->video_frame_pool);
