@@ -607,6 +607,7 @@ static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum A
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec_t out_codec, int width, int height,
                 int pitch, int rgb_shift[static restrict 3], struct state_libavcodec_decompress_sws *sws) {
         av_to_uv_convert_p convert = NULL;
+
         for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
                 if (c->av_codec == av_codec && c->uv_codec == out_codec) {
                         convert = c->convert;
@@ -724,7 +725,8 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
 
                 if(got_frame) {
-                        log_msg(LOG_LEVEL_DEBUG, "[lavd] Decompressing %c frame took %f sec.\n", av_get_picture_type_char(s->frame->pict_type), tv_diff(t1, t0));
+                        struct timeval t3;
+                        gettimeofday(&t3, NULL);
 
                         s->frame->opaque = callbacks;
                         /* Skip the frame if this is not an I-frame
@@ -758,6 +760,9 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                         res = DECODER_GOT_FRAME;
                                 }
                         }
+                        struct timeval t4;
+                        gettimeofday(&t4, NULL);
+                        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f sec, pixfmt change %f s.\n", av_get_picture_type_char(s->frame->pict_type), tv_diff(t1, t0), tv_diff(t4, t3));
                 }
 
                 if (len <= 0) {
