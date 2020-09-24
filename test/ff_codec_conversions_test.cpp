@@ -9,17 +9,20 @@
 #include <algorithm>
 #include <array>
 #include <cppunit/config/SourcePrefix.h>
+#include <iostream>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "ff_codec_conversions_test.h"
 #include "libavcodec_common.h"
+#include "tv.h"
 #include "video_capture/testcard_common.h"
 #include "video_codec.h"
 
 using std::array;
 using std::copy;
+using std::cout;
 using std::default_random_engine;
 using std::max;
 using std::to_string;
@@ -46,6 +49,7 @@ ff_codec_conversions_test::tearDown()
 {
 }
 
+#define TIMER(t) struct timeval t{}; gettimeofday(&(t), nullptr)
 void
 ff_codec_conversions_test::test_yuv444p16le_from_to_r10k()
 {
@@ -75,8 +79,15 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_r10k()
                 auto to_conv = get_av_to_uv_conversion(frame.format, R10k);
                 assert(to_conv != nullptr && from_conv != nullptr);
 
+                TIMER(t0);
                 from_conv(&frame, r10k_buf.data(), width, height);
+                TIMER(t1);
                 to_conv(reinterpret_cast<char*>(r10k_buf.data()), &frame, width, height, vc_get_linesize(width, R10k), nullptr);
+                TIMER(t2);
+
+                if (getenv("PERF") != nullptr) {
+                        cout << "test_yuv444p16le_from_to_r10k: duration - enc " << tv_diff(t1, t0) << ", dec " <<tv_diff(t2, t1) << "\n";
+                }
 
                 av_freep(frame.data);
 
@@ -143,8 +154,15 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_r12l()
                 auto to_conv = get_av_to_uv_conversion(frame.format, R12L);
                 assert(to_conv != nullptr && from_conv != nullptr);
 
+                TIMER(t0);
                 from_conv(&frame, r12l_buf.data(), width, height);
+                TIMER(t1);
                 to_conv(reinterpret_cast<char*>(r12l_buf.data()), &frame, width, height, vc_get_linesize(width, R12L), nullptr);
+                TIMER(t2);
+
+                if (getenv("PERF") != nullptr) {
+                        cout << "test_yuv444p16le_from_to_r12l: duration - enc " << tv_diff(t1, t0) << ", dec " <<tv_diff(t2, t1) << "\n";
+                }
 
                 av_freep(frame.data);
 
