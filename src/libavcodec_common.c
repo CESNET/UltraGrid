@@ -1711,105 +1711,67 @@ static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_
 }
 
 /**
- * Changes pixel format from planar YUV 422 to packed RGB/A.
+ * Changes pixel format from planar 8-bit YUV to packed RGB/A.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-static inline void yuv422p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         UNUSED(rgb_shift);
-        for(int y = 0; y < height; ++y) {
-                unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
-                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
-
-                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        int cb = *src_cb++ - 128;
-                        int cr = *src_cr++ - 128;
-                        int y = *src_y++ << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst++ = 255;
-                        }
-                        y = *src_y++ << 16;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst++ = 255;
-                        }
-                }
-        }
-}
-
-static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuv422p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
-}
-
-static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuv422p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
-}
-
-/**
- * Changes pixel format from planar YUV 420 to packed RGB/A.
- * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
- */
-static inline void yuv420p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
-{
-        UNUSED(rgb_shift);
+        UNUSED(subsampling);
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
                 unsigned char *src_y2 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);
-                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
-                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
                 unsigned char *dst1 = (unsigned char *) dst_buffer + pitch * (y * 2);
                 unsigned char *dst2 = (unsigned char *) dst_buffer + pitch * (y * 2 + 1);
 
+                unsigned char *src_cb1;
+                unsigned char *src_cr1;
+                unsigned char *src_cb2;
+                unsigned char *src_cr2;
+                if (subsampling == 420) {
+                        src_cb1 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
+                        src_cr1 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
+                } else {
+                        src_cb1 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y * 2);
+                        src_cr1 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * (y * 2);
+                        src_cb2 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y * 2 + 1);
+                        src_cr2 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * (y * 2 + 1);
+                }
+
+#define WRITE_RES_YUV8P_TO_RGB(DST) if (rgba) {\
+                                *((uint32_t *) DST) = (MIN(MAX((r + y) >> COMP_BASE, 1), 254) << rgb_shift[R] | MIN(MAX((g + y) >> COMP_BASE, 1), 254) << rgb_shift[G] | MIN(MAX((b + y) >> COMP_BASE, 1), 254) << rgb_shift[B]);\
+                                DST += 4;\
+                        } else {\
+                                *DST++ = MIN(MAX((r + y) >> COMP_BASE, 1), 254);\
+                                *DST++ = MIN(MAX((g + y) >> COMP_BASE, 1), 254);\
+                                *DST++ = MIN(MAX((b + y) >> COMP_BASE, 1), 254);\
+                        }\
+
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        int cb = *src_cb++ - 128;
-                        int cr = *src_cr++ - 128;
-                        int y = *src_y1++ << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst1++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst1++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst1++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst1++ = 255;
+                        comp_type_t cb = *src_cb1++ - 128;
+                        comp_type_t cr = *src_cr1++ - 128;
+                        comp_type_t y = *src_y1++ * y_scale;
+                        comp_type_t r = r_cr * cr;
+                        comp_type_t g = g_cb * cb + g_cr * cr;
+                        comp_type_t b = b_cb * cb;
+                        WRITE_RES_YUV8P_TO_RGB(dst1)
+
+                        y = *src_y1++ * y_scale;
+                        WRITE_RES_YUV8P_TO_RGB(dst1)
+
+                        if (subsampling == 422) {
+                                cb = *src_cb2++ - 128;
+                                cr = *src_cr2++ - 128;
+                                r = r_cr * cr;
+                                g = g_cb * cb + g_cr * cr;
+                                b = b_cb * cb;
                         }
-                        y = *src_y1++ << 16;
-                        *dst1++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst1++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst1++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst1++ = 255;
-                        }
-                        y = *src_y2++ << 16;
-                        *dst2++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst2++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst2++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst2++ = 255;
-                        }
-                        y = *src_y2++ << 16;
-                        *dst2++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst2++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst2++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst2++ = 255;
-                        }
+                        y = *src_y2++ * y_scale;
+                        WRITE_RES_YUV8P_TO_RGB(dst2)
+
+                        y = *src_y2++ * y_scale;
+                        WRITE_RES_YUV8P_TO_RGB(dst2)
                 }
         }
 }
@@ -1817,14 +1779,27 @@ static inline void yuv420p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
 static void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        yuv420p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+        yuv8p_to_rgb(420, dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
 static void yuv420p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        yuv420p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+        yuv8p_to_rgb(420, dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
+
+static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv8p_to_rgb(422, dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv8p_to_rgb(422, dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+}
+
 
 /**
  * Changes pixel format from planar YUV 444 to packed RGB/A.
@@ -1843,15 +1818,17 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         int cb = *src_cb++ - 128;
                         int cr = *src_cr++ - 128;
-                        int y = *src_y++ << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        int y = *src_y++ << COMP_BASE;
+                        int r = r_cr * cr;
+                        int g = g_cb * cb + g_cr * cr;
+                        int b = b_cb * cb;
                         if (rgba) {
-                                *dst++ = 255;
+                                *((uint32_t *) dst) = (MIN(MAX((r + y) >> COMP_BASE, 1), 254) << rgb_shift[R] | MIN(MAX((g + y) >> COMP_BASE, 1), 254) << rgb_shift[G] | MIN(MAX((b + y) >> COMP_BASE, 1), 254) << rgb_shift[B]);
+                                dst += 4;
+                        } else {
+                                *dst++ = MIN(MAX((r + y) >> COMP_BASE, 1), 254);
+                                *dst++ = MIN(MAX((g + y) >> COMP_BASE, 1), 254);
+                                *dst++ = MIN(MAX((b + y) >> COMP_BASE, 1), 254);
                         }
                 }
         }
@@ -2441,6 +2418,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
                 {AV_PIX_FMT_YUV444P, RGBA, yuv444p_to_rgb32, false},
                 // 8-bit YUV (JPEG color range)
+                /// @todo really convert to Rec 601 full range
                 {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
                 {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
                 {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
