@@ -2369,36 +2369,36 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
          * conversions below the others.
          */
         static const struct uv_to_av_conversion uv_to_av_conversions[] = {
-                { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
-                { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
-                { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
-                { v210, AV_PIX_FMT_YUV444P16LE, v210_to_yuv444p16le },
-                { R10k, AV_PIX_FMT_YUV444P10LE, r10k_to_yuv444p10le },
-                { R10k, AV_PIX_FMT_YUV444P12LE, r10k_to_yuv444p12le },
-                { R10k, AV_PIX_FMT_YUV444P16LE, r10k_to_yuv444p16le },
-                { R12L, AV_PIX_FMT_YUV444P16LE, r12l_to_yuv444p10le },
-                { R12L, AV_PIX_FMT_YUV444P16LE, r12l_to_yuv444p12le },
-                { R12L, AV_PIX_FMT_YUV444P16LE, r12l_to_yuv444p16le },
+                { v210, AV_PIX_FMT_YUV420P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv420p10le },
+                { v210, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv422p10le },
+                { v210, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p10le },
+                { v210, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p16le },
+                { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },
+                { R10k, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p12le },
+                { R10k, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p16le },
+                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p10le },
+                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p12le },
+                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p16le },
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
-                { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
+                { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
 #endif
-                { UYVY, AV_PIX_FMT_YUV422P, uyvy_to_yuv422p },
-                { UYVY, AV_PIX_FMT_YUVJ422P, uyvy_to_yuv422p },
-                { UYVY, AV_PIX_FMT_YUV420P, uyvy_to_yuv420p },
-                { UYVY, AV_PIX_FMT_YUVJ420P, uyvy_to_yuv420p },
-                { UYVY, AV_PIX_FMT_NV12, uyvy_to_nv12 },
-                { UYVY, AV_PIX_FMT_YUV444P, uyvy_to_yuv444p },
-                { UYVY, AV_PIX_FMT_YUVJ444P, uyvy_to_yuv444p },
-                { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
-                { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
-                { RGBA, AV_PIX_FMT_GBRP, rgba_to_gbrp },
-                { R10k, AV_PIX_FMT_BGR0, r10k_to_bgr0 },
-                { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
-                { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
+                { UYVY, AV_PIX_FMT_YUV422P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
+                { UYVY, AV_PIX_FMT_YUVJ422P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
+                { UYVY, AV_PIX_FMT_YUV420P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
+                { UYVY, AV_PIX_FMT_YUVJ420P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
+                { UYVY, AV_PIX_FMT_NV12,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_nv12 },
+                { UYVY, AV_PIX_FMT_YUV444P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv444p },
+                { UYVY, AV_PIX_FMT_YUVJ444P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv444p },
+                { RGB, AV_PIX_FMT_BGR0,         AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgb_to_bgr0 },
+                { RGB, AV_PIX_FMT_GBRP,         AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgb_to_gbrp },
+                { RGBA, AV_PIX_FMT_GBRP,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgba_to_gbrp },
+                { R10k, AV_PIX_FMT_BGR0,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_bgr0 },
+                { R10k, AV_PIX_FMT_GBRP10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp10le },
+                { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
-                { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
+                { R12L, AV_PIX_FMT_GBRP12LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r12l_to_gbrp12le },
 #endif
-                { 0, 0, 0 }
+                { 0, 0, 0, 0, 0 }
         };
         return uv_to_av_conversions;
 }
@@ -2413,6 +2413,19 @@ pixfmt_callback_t get_uv_to_av_conversion(codec_t uv_codec, int av_codec) {
         }
 
         return NULL;
+}
+
+void get_av_pixfmt_details(codec_t uv_codec, int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range)
+{
+        for (const struct uv_to_av_conversion *conversions = get_uv_to_av_conversions();
+                        conversions->func != 0; conversions++) {
+                if (conversions->dst == av_codec &&
+                                conversions->src == uv_codec) {
+                        *colorspace = conversions->colorspace;
+                        *color_range = conversions->color_range;
+                        return;
+                }
+        }
 }
 
 /**
