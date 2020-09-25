@@ -1682,24 +1682,29 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                 unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        int cb = *src_cbcr++ - 128;
-                        int cr = *src_cbcr++ - 128;
-                        int y = *src_y++ << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        comp_type_t cb = *src_cbcr++ - 128;
+                        comp_type_t cr = *src_cbcr++ - 128;
+                        comp_type_t y = *src_y++ * y_scale;
+                        comp_type_t r = r_cr * cr;
+                        comp_type_t g = g_cb * cb + g_cr * cr;
+                        comp_type_t b = b_cb * cb;
                         if (rgba) {
-                                *dst++ = 255;
+                                *((uint32_t *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                dst += 4;
+                        } else {
+                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
                         }
-                        y = *src_y++ << 16;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+
+                        y = *src_y++ * y_scale;
                         if (rgba) {
-                                *dst++ = 255;
+                                *((uint32_t *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                dst += 4;
+                        } else {
+                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
                         }
                 }
         }
