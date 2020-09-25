@@ -196,14 +196,19 @@ bool libav_codec_has_extradata(codec_t codec) {
 //
 /* @brief Color space coedfficients - RGB full range to YCbCr bt. 709 limited range
  *
+ * RGB should use SDI full range [1<<(depth-8)..255<<(depth-8)-1], see [limits]
+ *
  * Scaled by 1<<COMP_BASE, footroom 16/255, headroom 235/255 (luma), 240/255 (chroma); limits [2^(depth-8)..255*2^(depth-8)-1]
  * matrix Y = [ 0.182586, 0.614231, 0.062007; -0.100643, -0.338572, 0.4392157; 0.4392157, -0.398942, -0.040274 ]
- * * [coefficients](https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a)
- * * [SDI limits](https://tech.ebu.ch/docs/r/r103.pdf)
+ * * [coefficients]: https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a "Rec. 709 coefficients"
+ * * [limits]:       https://tech.ebu.ch/docs/r/r103.pdf                             "SDI limits"
  * @todo
  * Use this transformations in all conversions.
  * @{
  */
+#define FULL_FOOT(depth) (1<<((depth)-8))
+#define FULL_HEAD(depth) ((255<<((depth)-8))-1)
+#define CLAMP_FULL(val, depth) MIN(FULL_HEAD(depth), MAX((val), FULL_FOOT(depth)))
 typedef int32_t comp_type_t; // int32_t provides much better performance than int_fast32_t
 #define COMP_BASE (sizeof(comp_type_t) == 4 ? 15 : 18) // computation will be less precise when comp_type_t is 32 bit
 static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 17, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
@@ -235,6 +240,8 @@ static const comp_type_t b_cb = 2.112402 * (1<<COMP_BASE);
 #define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * g_cb    + (cr) * g_cr)
 #define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * b_cb /* + (cr) * b_cr */)
 /// @}
+
+#define FORMAT_RGBA(r, g, b, depth) (CLAMP_FULL((r), (depth)) << rgb_shift[R] | CLAMP_FULL((g), (depth)) << rgb_shift[G] | CLAMP_FULL((b), (depth)) << rgb_shift[B])
 
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
@@ -1120,9 +1127,9 @@ static void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> (COMP_BASE-10+depth);
                         // r g b is now on 10 bit scale
 
-                        r = MIN((255<<2) - 1, MAX(1<<2, r));
-                        g = MIN((255<<2) - 1, MAX(1<<2, g));
-                        b = MIN((255<<2) - 1, MAX(1<<2, b));
+                        r = CLAMP_FULL(r, 10);
+                        g = CLAMP_FULL(g, 10);
+                        b = CLAMP_FULL(b, 10);
 
 			*dst++ = r >> 2;
 			*dst++ = (r & 0x3) << 6 | g >> 4;
@@ -1171,9 +1178,9 @@ static void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame
                                 comp_type_t rr = YCBCR_TO_R_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
                                 comp_type_t gg = YCBCR_TO_G_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
                                 comp_type_t bb = YCBCR_TO_B_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
-                                r[j] = MIN((255<<4) - 1, MAX(1<<4, rr));
-                                g[j] = MIN((255<<4) - 1, MAX(1<<4, gg));
-                                b[j] = MIN((255<<4) - 1, MAX(1<<4, bb));
+                                r[j] = CLAMP_FULL(rr, 12);
+                                g[j] = CLAMP_FULL(gg, 12);
+                                b[j] = CLAMP_FULL(bb, 12);
                         }
 
                         dst[BYTE_SWAP(0)] = r[0] & 0xff;
@@ -1740,12 +1747,12 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                 }
 
 #define WRITE_RES_YUV8P_TO_RGB(DST) if (rgba) {\
-                                *((uint32_t *) DST) = (MIN(MAX((r + y) >> COMP_BASE, 1), 254) << rgb_shift[R] | MIN(MAX((g + y) >> COMP_BASE, 1), 254) << rgb_shift[G] | MIN(MAX((b + y) >> COMP_BASE, 1), 254) << rgb_shift[B]);\
+                                *((uint32_t *) DST) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);\
                                 DST += 4;\
                         } else {\
-                                *DST++ = MIN(MAX((r + y) >> COMP_BASE, 1), 254);\
-                                *DST++ = MIN(MAX((g + y) >> COMP_BASE, 1), 254);\
-                                *DST++ = MIN(MAX((b + y) >> COMP_BASE, 1), 254);\
+                                *DST++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);\
+                                *DST++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);\
+                                *DST++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);\
                         }\
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
@@ -2138,9 +2145,9 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                                 comp_type_t r = Y + rr;\
                                 comp_type_t g = Y + gg;\
                                 comp_type_t b = Y + bb;\
-                                r = MIN((255<<0) - 1, MAX(1<<0, r));\
-                                g = MIN((255<<0) - 1, MAX(1<<0, g));\
-                                b = MIN((255<<0) - 1, MAX(1<<0, b));\
+                                r = CLAMP_FULL(r, 8);\
+                                g = CLAMP_FULL(g, 8);\
+                                b = CLAMP_FULL(b, 8);\
                                 if (out_bit_depth == 32) {\
                                         *((uint32_t *) DST) = (r << rgb_shift[R] | g << rgb_shift[G] | b << rgb_shift[B]);\
                                         DST += 4;\
@@ -2203,12 +2210,12 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
                         comp_type_t g = g_cb * cb + g_cr * cr;
                         comp_type_t b = b_cb * cb;
                         if (rgba) {
-                                *(uint32_t *)(void *) dst = (MIN(MAX(r + y, 0), (1<<24) - 1) >> COMP_BASE) << rgb_shift[0] | (MIN(MAX(g + y, 0), (1<<24) - 1) >> COMP_BASE) << rgb_shift[1] |
-                                        (MIN(MAX(b + y, 0), (1<<24) - 1) >> COMP_BASE) << rgb_shift[2];
+                                *(uint32_t *)(void *) dst = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                dst += 4;
                         } else {
-                                *dst++ = MIN(MAX((r + y) >> (COMP_BASE), 0), (1<<8) - 1);
-                                *dst++ = MIN(MAX((g + y) >> (COMP_BASE), 0), (1<<8) - 1);
-                                *dst++ = MIN(MAX((b + y) >> (COMP_BASE), 0), (1<<8) - 1);
+                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
                         }
                 }
         }
