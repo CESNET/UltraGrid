@@ -131,8 +131,8 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
         int ret;
 
         if (fmt == nullptr || strlen(fmt) == 0 || "help"s == fmt) {
-                cout << "Proxy is an helper display to combine (blend) multiple incoming streams.\n"
-                                "Please do not use, intended for internal purposes!\n";
+                cout << "Proxy is a helper display to combine (blend) multiple incoming streams.\n"
+                                "Please do not use directly, intended for internal purposes!\n";
                 return nullptr;
         }
 
