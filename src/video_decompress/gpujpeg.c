@@ -94,6 +94,14 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         if(!s->decoder) {
                 return FALSE;
         }
+
+        struct gpujpeg_parameters param;
+        gpujpeg_set_default_parameters(&param);
+        param.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
+        struct gpujpeg_image_parameters param_image;
+        gpujpeg_image_set_default_parameters(&param_image);
+        gpujpeg_decoder_init(s->decoder, &param, &param_image);
+
         switch (s->out_codec) {
         case I420:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_JPEG,
@@ -180,7 +188,9 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
 static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
         *internal_codec = VIDEO_CODEC_NONE;
 	struct gpujpeg_image_parameters params = { 0 };
-#if LIBGPUJPEG_API_VERSION >= 6
+#if LIBGPUJPEG_API_VERSION >= 11
+	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL, MAX(0, log_level - LOG_LEVEL_INFO)) != 0) {
+#elif LIBGPUJPEG_API_VERSION >= 6
 	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL) != 0) {
 #elif LIBGPUJPEG_API_VERSION >= 5
 	if (gpujpeg_reader_get_image_info(buffer, len, &params, NULL) != 0) {

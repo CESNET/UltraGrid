@@ -52,6 +52,7 @@
 #include "utils/video_frame_pool.h"
 #include "video.h"
 
+#include <algorithm>
 #include <initializer_list>
 #include <libgpujpeg/gpujpeg_encoder.h>
 #include <libgpujpeg/gpujpeg_version.h>
@@ -295,7 +296,7 @@ bool encoder_state::configure_with(struct video_desc desc)
                 m_encoder_param.restart_interval = codec_is_a_rgb(m_enc_input_codec) ? 8 : 4;
         }
 
-	m_encoder_param.verbose = 0;
+	m_encoder_param.verbose = max<int>(0, log_level - LOG_LEVEL_INFO);
 	m_encoder_param.segment_info = 1;
 
         /* LUMA */
