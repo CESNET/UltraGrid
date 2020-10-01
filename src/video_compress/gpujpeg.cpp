@@ -314,10 +314,8 @@ bool encoder_state::configure_with(struct video_desc desc)
 
         m_encoder_param.interleaved = (codec_is_a_rgb(m_enc_input_codec) && !m_parent_state->m_force_interleaved) ? 0 : 1;
 
-        if (m_parent_state->m_use_internal_codec == RGB ||
-                        (codec_is_a_rgb(m_enc_input_codec) && !m_parent_state->m_use_internal_codec)) {
-                m_encoder_param.color_space_internal = GPUJPEG_RGB;
-        }
+        m_encoder_param.color_space_internal = m_parent_state->m_use_internal_codec == RGB || codec_is_a_rgb(m_enc_input_codec)
+                ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
 
         gpujpeg_image_set_default_parameters(&m_param_image);
 
