@@ -1484,89 +1484,6 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
         }
 }
 
-/// converts YUV full range to limited range
-static inline void yuvj42Xp_to_uyvy(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        UNUSED(rgb_shift);
-        for(int y = 0; y < (height + 1) / 2; ++y) {
-                int scnd_row = y * 2 + 1;
-                if (scnd_row == height) {
-                        scnd_row = height - 1;
-                }
-                unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
-                unsigned char *src_y2 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * scnd_row;
-                unsigned char *dst1 = (unsigned char *) dst_buffer + (y * 2) * pitch;
-                unsigned char *dst2 = (unsigned char *) dst_buffer + scnd_row * pitch;
-                unsigned char *src_cb1;
-                unsigned char *src_cr1;
-                unsigned char *src_cb2;
-                unsigned char *src_cr2;
-                if (subsampling == 420) {
-                        src_cb1 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
-                        src_cr1 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                } else {
-                        src_cb1 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y * 2);
-                        src_cr1 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * (y * 2);
-                        src_cb2 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y * 2 + 1);
-                        src_cr2 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * (y * 2 + 1);
-                }
-
-                OPTIMIZED_FOR (int x = 0; x < width - 1; x += 2) {
-                        int cb = ((*src_cb1++ - 128) * 224 / 255) + 128;
-                        int cr = ((*src_cr1++ - 128) * 224 / 255) + 128;
-                        *dst1++ = cb;
-                        *dst1++ = 16 + (*src_y1++ * 219 / 255);
-                        *dst1++ = cr;
-                        *dst1++ = 16 + (*src_y1++ * 219 / 255);
-
-                        if (subsampling == 422) {
-                                cb = ((*src_cb2++ - 128) * 224 / 255) + 128;
-                                cr = ((*src_cr2++ - 128) * 224 / 255) + 128;
-                        }
-
-                        *dst2++ = cb;
-                        *dst2++ = 16 + (*src_y2++ * 219 / 255);
-                        *dst2++ = cr;
-                        *dst2++ = 16 + (*src_y2++ * 219 / 255);
-                }
-        }
-}
-
-static void yuvj420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuvj42Xp_to_uyvy(420, dst_buffer, in_frame, width, height, pitch, rgb_shift);
-}
-
-static void yuvj422p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuvj42Xp_to_uyvy(422, dst_buffer, in_frame, width, height, pitch, rgb_shift);
-}
-
-static void yuvj444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        UNUSED(rgb_shift);
-        for(int y = 0; y < height; ++y) {
-                unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
-                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
-                OPTIMIZED_FOR (int x = 0; x < width - 1; x += 2) {
-                        int cb = ((src_cb[0] + src_cb[1] - 256) * 112 / 255) + 128;
-                        int cr = ((src_cr[0] + src_cr[1] - 256) * 112 / 255) + 128;
-                        src_cb += 2;
-                        src_cr += 2;
-                        *dst++ = cb;
-                        *dst++ = 16 + (*src_y++ * 219 / 255);
-                        *dst++ = cr;
-                        *dst++ = 16 + (*src_y++ * 219 / 255);
-                }
-        }
-}
-
 static void yuv420p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -2549,11 +2466,21 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy, true},
                 {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
                 {AV_PIX_FMT_YUV444P, RGBA, yuv444p_to_rgb32, false},
-                // 8-bit YUV (JPEG color range)
-                /// @todo for uyvy it just converts 601 full range to limited (but still 601)
-                {AV_PIX_FMT_YUVJ420P, UYVY, yuvj420p_to_uyvy, true},
-                {AV_PIX_FMT_YUVJ422P, UYVY, yuvj422p_to_uyvy, true},
-                {AV_PIX_FMT_YUVJ444P, UYVY, yuvj444p_to_uyvy, true},
+                // 8-bit YUV - this should be supposedly full range JPEG but lavd decoder doesn't honor
+                // GPUJPEG's SPIFF header indicating YUV BT.709 limited range. The YUVJ pixel formats
+                // are detected only for GPUJPEG generated JPEGs.
+                {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
+                {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
+                {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
+                {AV_PIX_FMT_YUVJ420P, RGBA, yuv420p_to_rgb32, false},
+                {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210, false},
+                {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_uyvy, true},
+                {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24, false},
+                {AV_PIX_FMT_YUVJ422P, RGBA, yuv422p_to_rgb32, false},
+                {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210, false},
+                {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy, true},
+                {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
+                {AV_PIX_FMT_YUVJ444P, RGBA, yuv444p_to_rgb32, false},
                 // 8-bit YUV (NV12)
                 {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
                 {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
