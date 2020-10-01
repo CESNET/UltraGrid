@@ -763,7 +763,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         struct timeval t4;
                         gettimeofday(&t4, NULL);
                         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f sec, pixfmt change %f s.\n", av_get_picture_type_char(s->frame->pict_type), tv_diff(t1, t0), tv_diff(t4, t3));
-                        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Pixel format: %s, color space: %s, range %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt), av_get_colorspace_name(s->codec_ctx->colorspace), av_color_range_name(s->codec_ctx->color_range));
                 }
 
                 if (len <= 0) {
