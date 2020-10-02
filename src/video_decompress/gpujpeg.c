@@ -104,7 +104,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
 
         switch (s->out_codec) {
         case I420:
-                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_JPEG,
+                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_BT709,
                                 GPUJPEG_420_U8_P0P1P2);
                 break;
         case RGBA:
