@@ -985,14 +985,6 @@ static bool try_open_codec(struct state_video_compress_libav *s,
         }
         pthread_mutex_unlock(s->lavcd_global_lock);
 
-        // setting again for JPEG encoder because avcodec_open2 overrides color_range from MPEG to JPEG for YUVJ* pix_fmts
-        if (pix_fmt == AV_PIX_FMT_YUVJ420P || pix_fmt == AV_PIX_FMT_YUVJ411P || pix_fmt == AV_PIX_FMT_YUVJ422P || pix_fmt == AV_PIX_FMT_YUVJ440P || pix_fmt == AV_PIX_FMT_YUVJ444P) {
-                if (const AVPixFmtDescriptor * desc = av_pix_fmt_desc_get(pix_fmt)) { // defaults
-                        s->codec_ctx->colorspace = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_SPC_RGB : AVCOL_SPC_BT709;
-                        s->codec_ctx->color_range = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
-                }
-                get_av_pixfmt_details(ug_codec, pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
-        }
         return true;
 }
 
