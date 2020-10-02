@@ -95,12 +95,17 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
                 return FALSE;
         }
 
+        // setting verbosity - a bit tricky now, gpujpeg_decoder_init needs to be called with some "valid" data
+        // otherwise, parameter setting is unneeded - it is done automaticaly by the image
         struct gpujpeg_parameters param;
         gpujpeg_set_default_parameters(&param);
         param.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
         struct gpujpeg_image_parameters param_image;
         gpujpeg_image_set_default_parameters(&param_image);
-        gpujpeg_decoder_init(s->decoder, &param, &param_image);
+        param_image.width = desc.width; // size must be non-zero in order the init to succeed
+        param_image.height = desc.height;
+        int rc = gpujpeg_decoder_init(s->decoder, &param, &param_image);
+        assert(rc == 0);
 
         switch (s->out_codec) {
         case I420:
