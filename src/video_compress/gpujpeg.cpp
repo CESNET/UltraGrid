@@ -63,24 +63,13 @@
 #include <set>
 #include <vector>
 
+#if LIBGPUJPEG_API_VERSION < 11
+#error "GPUJPEG API 10 or more requested!"
+#endif
+
 #define MOD_NAME "[GPUJPEG enc.] "
 
 using namespace std;
-
-#if LIBGPUJPEG_API_VERSION >= 7
-#define GJ_RGBA_SUPP 1
-#else
-#define GJ_RGBA_SUPP 0
-#endif
-
-// compat
-#if LIBGPUJPEG_API_VERSION <= 2
-#define GPUJPEG_444_U8_P012 GPUJPEG_4_4_4
-#define GPUJPEG_422_U8_P1020 GPUJPEG_4_2_2
-#endif
-#if LIBGPUJPEG_API_VERSION < 7
-#define GPUJPEG_YCBCR_JPEG GPUJPEG_YCBCR_BT601_256LVLS
-#endif
 
 namespace {
 struct state_video_compress_gpujpeg;
@@ -327,13 +316,10 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.comp_count = 3;
         m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
 
-#if LIBGPUJPEG_API_VERSION > 2
         switch (m_enc_input_codec) {
         case I420: m_param_image.pixel_format = GPUJPEG_420_U8_P0P1P2; break;
         case RGB: m_param_image.pixel_format = GPUJPEG_444_U8_P012; break;
-#if GJ_RGBA_SUPP == 1
         case RGBA: m_param_image.pixel_format = GPUJPEG_444_U8_P012Z; break;
-#endif
         case UYVY: m_param_image.pixel_format = GPUJPEG_422_U8_P1020; break;
         default:
                 log_msg(LOG_LEVEL_FATAL, MOD_NAME "Unexpected codec: %s\n",
@@ -341,10 +327,6 @@ bool encoder_state::configure_with(struct video_desc desc)
                 abort();
         }
         m_encoder = gpujpeg_encoder_create(NULL);
-#else
-        m_param_image.sampling_factor = m_enc_input_codec == RGB ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
-        m_encoder = gpujpeg_encoder_create(&m_encoder_param, &m_param_image);
-#endif
 
         int data_len = desc.width * desc.height * 3;
         m_pool.reconfigure(compressed_desc, data_len);
@@ -396,12 +378,7 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                         } else if (strcasecmp(tok, "Y709") == 0) {
                                 m_use_internal_codec = GPUJPEG_YCBCR_BT709;
                         } else if (strcasecmp(tok, "RGB") == 0) {
-#if LIBGPUJPEG_API_VERSION >= 4
                                 m_use_internal_codec = GPUJPEG_RGB;
-#else
-                                log_msg(LOG_LEVEL_ERROR, "[GPUJPEG] Cannot use RGB as an internal colorspace (old GPUJPEG).\n");
-                                return false;
-#endif
                         } else if (strstr(tok, "subsampling=") == tok) {
                                 m_subsampling = atoi(tok + strlen("subsampling="));
                                 assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
@@ -469,12 +446,10 @@ state_video_compress_gpujpeg *state_video_compress_gpujpeg::create(struct module
 
 struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 {
-#if LIBGPUJPEG_API_VERSION >= 7
         if (gpujpeg_version() != LIBGPUJPEG_API_VERSION) {
                 LOG(LOG_LEVEL_WARNING) << "GPUJPEG API version mismatch! (" <<
                                 gpujpeg_version() << " vs  " << LIBGPUJPEG_API_VERSION << ")\n";
         }
-#endif
         struct state_video_compress_gpujpeg *s;
 
         if(opts && strcmp(opts, "help") == 0) {
@@ -580,11 +555,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
 
                 struct gpujpeg_encoder_input encoder_input;
                 gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
-#if LIBGPUJPEG_API_VERSION <= 2
-                ret = gpujpeg_encoder_encode(m_encoder, &encoder_input, &compressed, &size);
-#else
                 ret = gpujpeg_encoder_encode(m_encoder, &m_encoder_param, &m_param_image, &encoder_input, &compressed, &size);
-#endif
 
                 if(ret != 0) {
                         return {};
