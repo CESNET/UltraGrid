@@ -324,7 +324,7 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.height = desc.height;
 
         m_param_image.comp_count = 3;
-        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : (desc.color_spec == I420 ? GPUJPEG_YCBCR_JPEG : GPUJPEG_YCBCR_BT709);
+        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
 
 #if LIBGPUJPEG_API_VERSION > 2
         switch (m_enc_input_codec) {
