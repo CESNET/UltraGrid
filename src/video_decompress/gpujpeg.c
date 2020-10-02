@@ -104,6 +104,9 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         gpujpeg_image_set_default_parameters(&param_image);
         param_image.width = desc.width; // size must be non-zero in order the init to succeed
         param_image.height = desc.height;
+        param_image.color_space = GPUJPEG_YCBCR_BT709; // assume now BT.709 as default - this is mainly applicable for FFmpeg-encoded
+                                                       // JPEGs that doesn't indicate explicitly color spec (no JFIF marker, only CS=ITU601
+                                                       // for BT.601 limited range - not enabled by UG encoder because FFmpeg emits it also for 709)
         int rc = gpujpeg_decoder_init(s->decoder, &param, &param_image);
         assert(rc == 0);
 
