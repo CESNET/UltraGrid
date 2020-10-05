@@ -64,15 +64,6 @@
 #define MOD_NAME "[XIMEA] "
 #define MICROSEC_IN_SEC 1000000.0
 
-#ifdef WIN32
-#define LIB_HANDLE HINSTANCE
-#define dlopen(name, flags) LoadLibraryA(name)
-#define dlsym GetProcAddress
-#define dlclose FreeLibrary
-#else
-#define LIB_HANDLE void *
-#endif
-
 struct ximea_functions {
         XIAPI XI_RETURN __cdecl (*xiGetNumberDevices)(OUT PDWORD pNumberDevices);
         XIAPI XI_RETURN __cdecl (*xiGetDeviceInfoString)(IN DWORD DevId, const char* prm, char* value, DWORD value_size);

@@ -40,6 +40,15 @@
 
 #include "host.h" // UNIQUE_NAME
 
+#ifdef _WIN32
+#define LIB_HANDLE HMODULE
+#define dlopen(name, flags) LoadLibraryA(name)
+#define dlsym GetProcAddress
+#define dlclose FreeLibrary
+#else
+#define LIB_HANDLE void *
+#endif
+
 /** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
 #define MK_STATIC_REF(A) &A, NULL
