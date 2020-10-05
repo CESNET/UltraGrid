@@ -86,7 +86,7 @@ enum library_class {
 const void *load_library(const char *name, enum library_class, int abi_version);
 void register_library(const char *name, const void *info, enum library_class, int abi_version, int hidden);
 void list_modules(enum library_class, int abi_version, bool full);
-void list_all_modules();
+bool list_all_modules();
 #ifdef __cplusplus
 }
 #endif

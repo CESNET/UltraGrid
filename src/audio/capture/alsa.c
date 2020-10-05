@@ -146,7 +146,7 @@ static void * audio_cap_alsa_init(const char *cfg)
         gettimeofday(&s->start_time, NULL);
         s->frame.bps = audio_capture_bps;
         s->frame.sample_rate = audio_capture_sample_rate;
-        s->min_device_channels = s->frame.ch_count = audio_capture_channels;
+        s->min_device_channels = s->frame.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->tmp_data = NULL;
 
         /* Set period size to 128 frames or more. */
@@ -218,7 +218,7 @@ static void * audio_cap_alsa_init(const char *cfg)
         if (!snd_pcm_hw_params_test_access(s->handle, params, SND_PCM_ACCESS_RW_INTERLEAVED)) {
                 s->non_interleaved = false;
         } else if (!snd_pcm_hw_params_test_access(s->handle, params, SND_PCM_ACCESS_RW_NONINTERLEAVED)) {
-                if (audio_capture_channels > 1) {
+                if (s->frame.ch_count > 1) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Non-interleaved mode "
                                         "available only when capturing mono!\n");
                         goto error;
@@ -339,7 +339,7 @@ static struct audio_frame *audio_cap_alsa_read(void *state)
         }
 
         if (s->non_interleaved) {
-                assert(audio_capture_channels == 1);
+                assert(s->frame.ch_count == 1);
                 discard_data = (char *) alloca(s->frames * s->frame.bps * (s->min_device_channels-1));
                 for (unsigned int i = 1; i < s->min_device_channels; ++i) {
                         read_ptr[i] = discard_data + (i - 1) * s->frames * s->frame.bps;

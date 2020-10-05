@@ -139,7 +139,7 @@ static void *display_aggregate_init(struct module *parent, const char *fmt, unsi
         while((item = strtok_r(tmp, "#", &save_ptr))) {
                 char *device;
                 char *config = strdup(item);
-                char *device_cfg = NULL;
+                const char *device_cfg = "";
                 unsigned int dev_flags = 0u;
                 device = config;
 		if(strchr(config, ':')) {
@@ -398,5 +398,5 @@ static const struct video_display_info display_aggregate_info = {
         DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
-REGISTER_MODULE(aggregate, &display_aggregate_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(aggregate, &display_aggregate_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

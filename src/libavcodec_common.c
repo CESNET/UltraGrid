@@ -47,7 +47,9 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef HAVE_SWSCALE
 #include <libswscale/swscale.h>
@@ -76,6 +78,12 @@
 
 #if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
 #define HAVE_12_AND_14_PLANAR_COLORSPACES 1
+#endif
+
+#ifdef WORDS_BIGENDIAN
+#define BYTE_SWAP(x) (3 - x)
+#else
+#define BYTE_SWAP(x) x
 #endif
 
 //
@@ -185,6 +193,56 @@ bool libav_codec_has_extradata(codec_t codec) {
 //
 // uv_to_av_convert conversions
 //
+//
+/* @brief Color space coedfficients - RGB full range to YCbCr bt. 709 limited range
+ *
+ * RGB should use SDI full range [1<<(depth-8)..255<<(depth-8)-1], see [limits]
+ *
+ * Scaled by 1<<COMP_BASE, footroom 16/255, headroom 235/255 (luma), 240/255 (chroma); limits [2^(depth-8)..255*2^(depth-8)-1]
+ * matrix Y = [ 0.182586, 0.614231, 0.062007; -0.100643, -0.338572, 0.4392157; 0.4392157, -0.398942, -0.040274 ]
+ * * [coefficients]: https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a "Rec. 709 coefficients"
+ * * [limits]:       https://tech.ebu.ch/docs/r/r103.pdf                             "SDI limits"
+ * @todo
+ * Use this transformations in all conversions.
+ * @{
+ */
+#define FULL_FOOT(depth) (1<<((depth)-8))
+#define FULL_HEAD(depth) ((255<<((depth)-8))-1)
+#define CLAMP_FULL(val, depth) MIN(FULL_HEAD(depth), MAX((val), FULL_FOOT(depth)))
+typedef int32_t comp_type_t; // int32_t provides much better performance than int_fast32_t
+#define COMP_BASE (sizeof(comp_type_t) == 4 ? 15 : 18) // computation will be less precise when comp_type_t is 32 bit
+static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 17, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
+static const comp_type_t y_r = (0.2126*219/255) * (1<<COMP_BASE);
+static const comp_type_t y_g = (0.7152*219/255) * (1<<COMP_BASE);
+static const comp_type_t y_b = (0.0722*219/255) * (1<<COMP_BASE);
+static const comp_type_t cb_r = (-0.2126/1.8556*224/255) * (1<<COMP_BASE);
+static const comp_type_t cb_g = (-0.7152/1.8556*224/255) * (1<<COMP_BASE);
+static const comp_type_t cb_b = ((1-0.0722)/1.8556*224/255) * (1<<COMP_BASE);
+static const comp_type_t cr_r = ((1-0.2126)/1.5748*224/255) * (1<<COMP_BASE);
+static const comp_type_t cr_g = (-0.7152/1.5748*224/255) * (1<<COMP_BASE);
+static const comp_type_t cr_b = (-0.0722/1.5748*224/255) * (1<<COMP_BASE);
+#define RGB_TO_Y_709_SCALED(r, g, b) ((r) * y_r + (g) * y_g + (b) * y_b)
+#define RGB_TO_CB_709_SCALED(r, g, b) ((r) * cb_r + (g) * cb_g + (b) * cb_b)
+#define RGB_TO_CR_709_SCALED(r, g, b) ((r) * cr_r + (g) * cr_g + (b) * cr_b)
+
+//  matrix Y1^-1 = inv(Y)
+static const comp_type_t y_scale = 1.164383 * (1<<COMP_BASE); // precomputed value, Y multiplier is same for all channels
+//static const comp_type_t r_y = 1; // during computation already contained in y_scale
+//static const comp_type_t r_cb = 0;
+static const comp_type_t r_cr = 1.792741 * (1<<COMP_BASE);
+//static const comp_type_t g_y = 1;
+static const comp_type_t g_cb = -0.213249 * (1<<COMP_BASE);
+static const comp_type_t g_cr = -0.532909 * (1<<COMP_BASE);
+//static const comp_type_t b_y = 1;
+static const comp_type_t b_cb = 2.112402 * (1<<COMP_BASE);
+//static const comp_type_t b_cr = 0;
+#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * r_cb */ + (cr) * r_cr)
+#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * g_cb    + (cr) * g_cr)
+#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * b_cb /* + (cr) * b_cr */)
+/// @}
+
+#define FORMAT_RGBA(r, g, b, depth) (CLAMP_FULL((r), (depth)) << rgb_shift[R] | CLAMP_FULL((g), (depth)) << rgb_shift[G] | CLAMP_FULL((b), (depth)) << rgb_shift[B])
+
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         int y;
@@ -640,6 +698,158 @@ static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
         }
 }
 
+/**
+ * Converts to yuv444p 10/12/14 le
+ */
+static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        const int src_linesize = vc_get_linesize(width, R10k);
+        for(int y = 0; y < height; y++) {
+                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                unsigned char *src = in_data + y * src_linesize;
+                OPTIMIZED_FOR(int x = 0; x < width; x++){
+                        comp_type_t r = src[0] << 2 | src[1] >> 6;
+                        comp_type_t g = (src[1] & 0x3F ) << 4 | src[2] >> 4;
+                        comp_type_t b = (src[2] & 0x0F) << 6 | src[3] >> 2;
+
+                        comp_type_t res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE+10-depth)) + (1<<(depth-4));
+                        comp_type_t res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+10-depth)) + (1<<(depth-1));
+                        comp_type_t res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE+10-depth)) + (1<<(depth-1));
+
+                        *dst_y++ = MIN(MAX(res_y, 1<<(depth-4)), 235 * (1<<(depth-8)));
+                        *dst_cb++ = MIN(MAX(res_cb, 1<<(depth-4)), 240 * (1<<(depth-8)));
+                        *dst_cr++ = MIN(MAX(res_cr, 1<<(depth-4)), 240 * (1<<(depth-8)));
+                        src += 4;
+                }
+        }
+}
+
+static void r10k_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r10k_to_yuv444pXXle(10, out_frame, in_data, width, height);
+}
+
+static void r10k_to_yuv444p12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r10k_to_yuv444pXXle(12, out_frame, in_data, width, height);
+}
+
+static void r10k_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r10k_to_yuv444pXXle(16, out_frame, in_data, width, height);
+}
+
+// RGB full range to YCbCr bt. 709 limited range
+static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+#define WRITE_RES \
+        res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-4));\
+        res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-1));\
+        res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-1));\
+        *dst_y++ = MIN(MAX(res_y, 1<<(depth-4)), 235 * (1<<(depth-8)));\
+        *dst_cb++ = MIN(MAX(res_cb, 1<<(depth-4)), 240 * (1<<(depth-8)));\
+        *dst_cr++ = MIN(MAX(res_cr, 1<<(depth-4)), 240 * (1<<(depth-8)));
+
+        const int src_linesize = vc_get_linesize(width, R12L);
+        for (int y = 0; y < height; ++y) {
+                unsigned char *src = in_data + y * src_linesize;
+                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
+			comp_type_t r = 0;
+			comp_type_t g = 0;
+			comp_type_t b = 0;
+                        comp_type_t res_y = 0;
+                        comp_type_t res_cb = 0;
+                        comp_type_t res_cr = 0;
+
+			r = src[BYTE_SWAP(0)];
+			r |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+			g = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // g0
+			b = src[BYTE_SWAP(3)];
+			src += 4;
+
+			b |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+                        WRITE_RES // 0
+			r = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // r1
+			g = src[BYTE_SWAP(2)];
+			g |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+			b = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+
+			b |= src[BYTE_SWAP(0)] << 4; // b1
+                        WRITE_RES // 1
+			r = src[BYTE_SWAP(1)];
+			r |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+			g = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // g2
+			src += 4;
+
+			b = src[BYTE_SWAP(0)];
+			b |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+                        WRITE_RES // 2
+			r = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // r3
+			g = src[BYTE_SWAP(3)];
+			src += 4;
+
+			g |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+			b = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // b3
+                        WRITE_RES // 3
+			r = src[BYTE_SWAP(2)];
+			r |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+			g = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+
+			g |= src[BYTE_SWAP(0)] << 4; // g4
+			b = src[BYTE_SWAP(1)];
+			b |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+			WRITE_RES // 4
+			r = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // r5
+			src += 4;
+
+			g = src[BYTE_SWAP(0)];
+			g |= (src[BYTE_SWAP(1)] & 0xF) << 8;
+			b = src[BYTE_SWAP(2)] << 4 | src[BYTE_SWAP(1)] >> 4; // b5
+                        WRITE_RES // 5
+			r = src[BYTE_SWAP(3)];
+			src += 4;
+
+			r |= (src[BYTE_SWAP(0)] & 0xF) << 8;
+			g = src[BYTE_SWAP(1)] << 4 | src[BYTE_SWAP(0)] >> 4; // g6
+			b = src[BYTE_SWAP(2)];
+			b |= (src[BYTE_SWAP(3)] & 0xF) << 8;
+                        WRITE_RES // 6
+			r = src[BYTE_SWAP(3)] >> 4;
+			src += 4;
+
+			r |= src[BYTE_SWAP(0)] << 4; // r7
+			g = src[BYTE_SWAP(1)];
+			g |= (src[BYTE_SWAP(2)] & 0xF) << 8;
+			b = src[BYTE_SWAP(3)] << 4 | src[BYTE_SWAP(2)] >> 4; // b7
+                        WRITE_RES // 7
+			src += 4;
+                }
+        }
+}
+
+static void r12l_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r12l_to_yuv444pXXle(10, out_frame, in_data, width, height);
+}
+
+static void r12l_to_yuv444p12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r12l_to_yuv444pXXle(12, out_frame, in_data, width, height);
+}
+
+static void r12l_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r12l_to_yuv444pXXle(16, out_frame, in_data, width, height);
+}
+
 static void rgb_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, RGB);
@@ -897,6 +1107,141 @@ static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict 
         }
 }
 
+static void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src_y = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        comp_type_t y = (y_scale * (*src_y++ - (1<<(depth-4))));
+                        comp_type_t cr = *src_cr++ - (1<<(depth-1));
+                        comp_type_t cb = *src_cb++ - (1<<(depth-1));
+
+                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> (COMP_BASE-10+depth);
+                        // r g b is now on 10 bit scale
+
+                        r = CLAMP_FULL(r, 10);
+                        g = CLAMP_FULL(g, 10);
+                        b = CLAMP_FULL(b, 10);
+
+			*dst++ = r >> 2;
+			*dst++ = (r & 0x3) << 6 | g >> 4;
+			*dst++ = (g & 0xF) << 4 | b >> 6;
+			*dst++ = (b & 0x3F) << 2;
+                }
+        }
+}
+
+static void yuv444p10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444pXXle_to_r10k(10, dst_buffer, frame, width, height, pitch, rgb_shift);
+}
+
+static void yuv444p12le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444pXXle_to_r10k(12, dst_buffer, frame, width, height, pitch, rgb_shift);
+}
+
+static void yuv444p16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444pXXle_to_r10k(16, dst_buffer, frame, width, height, pitch, rgb_shift);
+}
+
+static void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src_y = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+
+                OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
+                        comp_type_t r[8];
+                        comp_type_t g[8];
+                        comp_type_t b[8];
+                        OPTIMIZED_FOR (int j = 0; j < 8; ++j) {
+                                comp_type_t y = (y_scale * (*src_y++ - (1<<(depth-4))));
+                                comp_type_t cr = *src_cr++ - (1<<(depth-1));
+                                comp_type_t cb = *src_cb++ - (1<<(depth-1));
+                                comp_type_t rr = YCBCR_TO_R_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t gg = YCBCR_TO_G_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t bb = YCBCR_TO_B_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
+                                r[j] = CLAMP_FULL(rr, 12);
+                                g[j] = CLAMP_FULL(gg, 12);
+                                b[j] = CLAMP_FULL(bb, 12);
+                        }
+
+                        dst[BYTE_SWAP(0)] = r[0] & 0xff;
+                        dst[BYTE_SWAP(1)] = (g[0] & 0xf) << 4 | r[0] >> 8;
+                        dst[BYTE_SWAP(2)] = g[0] >> 4;
+                        dst[BYTE_SWAP(3)] = b[0] & 0xff;
+                        dst[4 + BYTE_SWAP(0)] = (r[1] & 0xf) << 4 | b[0] >> 8;
+                        dst[4 + BYTE_SWAP(1)] = r[1] >> 4;
+                        dst[4 + BYTE_SWAP(2)] = g[1] & 0xff;
+                        dst[4 + BYTE_SWAP(3)] = (b[1] & 0xf) << 4 | g[1] >> 8;
+                        dst[8 + BYTE_SWAP(0)] = b[1] >> 4;
+                        dst[8 + BYTE_SWAP(1)] = r[2] & 0xff;
+                        dst[8 + BYTE_SWAP(2)] = (g[2] & 0xf) << 4 | r[2] >> 8;
+                        dst[8 + BYTE_SWAP(3)] = g[2] >> 4;
+                        dst[12 + BYTE_SWAP(0)] = b[2] & 0xff;
+                        dst[12 + BYTE_SWAP(1)] = (r[3] & 0xf) << 4 | b[2] >> 8;
+                        dst[12 + BYTE_SWAP(2)] = r[3] >> 4;
+                        dst[12 + BYTE_SWAP(3)] = g[3] & 0xff;
+                        dst[16 + BYTE_SWAP(0)] = (b[3] & 0xf) << 4 | g[3] >> 8;
+                        dst[16 + BYTE_SWAP(1)] = b[3] >> 4;
+                        dst[16 + BYTE_SWAP(2)] = r[4] & 0xff;
+                        dst[16 + BYTE_SWAP(3)] = (g[4] & 0xf) << 4 | r[4] >> 8;
+                        dst[20 + BYTE_SWAP(0)] = g[4] >> 4;
+                        dst[20 + BYTE_SWAP(1)] = b[4] & 0xff;
+                        dst[20 + BYTE_SWAP(2)] = (r[5] & 0xf) << 4 | b[4] >> 8;
+                        dst[20 + BYTE_SWAP(3)] = r[5] >> 4;;
+                        dst[24 + BYTE_SWAP(0)] = g[5] & 0xff;
+                        dst[24 + BYTE_SWAP(1)] = (b[5] & 0xf) << 4 | g[5] >> 8;
+                        dst[24 + BYTE_SWAP(2)] = b[5] >> 4;
+                        dst[24 + BYTE_SWAP(3)] = r[6] & 0xff;
+                        dst[28 + BYTE_SWAP(0)] = (g[6] & 0xf) << 4 | r[6] >> 8;
+                        dst[28 + BYTE_SWAP(1)] = g[6] >> 4;
+                        dst[28 + BYTE_SWAP(2)] = b[6] & 0xff;
+                        dst[28 + BYTE_SWAP(3)] = (r[7] & 0xf) << 4 | b[6] >> 8;
+                        dst[32 + BYTE_SWAP(0)] = r[7] >> 4;
+                        dst[32 + BYTE_SWAP(1)] = g[7] & 0xff;
+                        dst[32 + BYTE_SWAP(2)] = (b[7] & 0xf) << 4 | g[7] >> 8;
+                        dst[32 + BYTE_SWAP(3)] = b[7] >> 4;
+                        dst += 36;
+                }
+        }
+}
+
+static void yuv444p10le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444pXXle_to_r12l(10, dst_buffer, frame, width, height, pitch, rgb_shift);
+}
+
+static void yuv444p12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444pXXle_to_r12l(12, dst_buffer, frame, width, height, pitch, rgb_shift);
+}
+
+static void yuv444p16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444pXXle_to_r12l(16, dst_buffer, frame, width, height, pitch, rgb_shift);
+}
+
 static void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -930,12 +1275,6 @@ static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
                 }
         }
 }
-
-#ifdef WORDS_BIGENDIAN
-#define BYTE_SWAP(x) (3 - x)
-#else
-#define BYTE_SWAP(x) x
-#endif
 
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
 static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
@@ -1343,24 +1682,29 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                 unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        int cb = *src_cbcr++ - 128;
-                        int cr = *src_cbcr++ - 128;
-                        int y = *src_y++ << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        comp_type_t cb = *src_cbcr++ - 128;
+                        comp_type_t cr = *src_cbcr++ - 128;
+                        comp_type_t y = *src_y++ * y_scale;
+                        comp_type_t r = r_cr * cr;
+                        comp_type_t g = g_cb * cb + g_cr * cr;
+                        comp_type_t b = b_cb * cb;
                         if (rgba) {
-                                *dst++ = 255;
+                                *((uint32_t *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                dst += 4;
+                        } else {
+                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
                         }
-                        y = *src_y++ << 16;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+
+                        y = *src_y++ * y_scale;
                         if (rgba) {
-                                *dst++ = 255;
+                                *((uint32_t *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                dst += 4;
+                        } else {
+                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
                         }
                 }
         }
@@ -1379,105 +1723,67 @@ static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_
 }
 
 /**
- * Changes pixel format from planar YUV 422 to packed RGB/A.
+ * Changes pixel format from planar 8-bit YUV to packed RGB/A.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
-static inline void yuv422p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
         UNUSED(rgb_shift);
-        for(int y = 0; y < height; ++y) {
-                unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
-                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
-
-                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        int cb = *src_cb++ - 128;
-                        int cr = *src_cr++ - 128;
-                        int y = *src_y++ << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst++ = 255;
-                        }
-                        y = *src_y++ << 16;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst++ = 255;
-                        }
-                }
-        }
-}
-
-static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuv422p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
-}
-
-static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuv422p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
-}
-
-/**
- * Changes pixel format from planar YUV 420 to packed RGB/A.
- * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
- */
-static inline void yuv420p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
-{
-        UNUSED(rgb_shift);
+        UNUSED(subsampling);
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
                 unsigned char *src_y2 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);
-                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
-                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
                 unsigned char *dst1 = (unsigned char *) dst_buffer + pitch * (y * 2);
                 unsigned char *dst2 = (unsigned char *) dst_buffer + pitch * (y * 2 + 1);
 
+                unsigned char *src_cb1;
+                unsigned char *src_cr1;
+                unsigned char *src_cb2;
+                unsigned char *src_cr2;
+                if (subsampling == 420) {
+                        src_cb1 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
+                        src_cr1 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
+                } else {
+                        src_cb1 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y * 2);
+                        src_cr1 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * (y * 2);
+                        src_cb2 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y * 2 + 1);
+                        src_cr2 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * (y * 2 + 1);
+                }
+
+#define WRITE_RES_YUV8P_TO_RGB(DST) if (rgba) {\
+                                *((uint32_t *) DST) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);\
+                                DST += 4;\
+                        } else {\
+                                *DST++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);\
+                                *DST++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);\
+                                *DST++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);\
+                        }\
+
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        int cb = *src_cb++ - 128;
-                        int cr = *src_cr++ - 128;
-                        int y = *src_y1++ << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst1++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst1++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst1++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst1++ = 255;
+                        comp_type_t cb = *src_cb1++ - 128;
+                        comp_type_t cr = *src_cr1++ - 128;
+                        comp_type_t y = *src_y1++ * y_scale;
+                        comp_type_t r = r_cr * cr;
+                        comp_type_t g = g_cb * cb + g_cr * cr;
+                        comp_type_t b = b_cb * cb;
+                        WRITE_RES_YUV8P_TO_RGB(dst1)
+
+                        y = *src_y1++ * y_scale;
+                        WRITE_RES_YUV8P_TO_RGB(dst1)
+
+                        if (subsampling == 422) {
+                                cb = *src_cb2++ - 128;
+                                cr = *src_cr2++ - 128;
+                                r = r_cr * cr;
+                                g = g_cb * cb + g_cr * cr;
+                                b = b_cb * cb;
                         }
-                        y = *src_y1++ << 16;
-                        *dst1++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst1++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst1++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst1++ = 255;
-                        }
-                        y = *src_y2++ << 16;
-                        *dst2++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst2++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst2++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst2++ = 255;
-                        }
-                        y = *src_y2++ << 16;
-                        *dst2++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst2++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst2++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
-                        if (rgba) {
-                                *dst2++ = 255;
-                        }
+                        y = *src_y2++ * y_scale;
+                        WRITE_RES_YUV8P_TO_RGB(dst2)
+
+                        y = *src_y2++ * y_scale;
+                        WRITE_RES_YUV8P_TO_RGB(dst2)
                 }
         }
 }
@@ -1485,14 +1791,27 @@ static inline void yuv420p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
 static void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        yuv420p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+        yuv8p_to_rgb(420, dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
 static void yuv420p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        yuv420p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+        yuv8p_to_rgb(420, dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
+
+static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv8p_to_rgb(422, dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
+}
+
+static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv8p_to_rgb(422, dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
+}
+
 
 /**
  * Changes pixel format from planar YUV 444 to packed RGB/A.
@@ -1511,15 +1830,17 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         int cb = *src_cb++ - 128;
                         int cr = *src_cr++ - 128;
-                        int y = *src_y++ << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        int y = *src_y++ << COMP_BASE;
+                        int r = r_cr * cr;
+                        int g = g_cb * cb + g_cr * cr;
+                        int b = b_cb * cb;
                         if (rgba) {
-                                *dst++ = 255;
+                                *((uint32_t *) dst) = (MIN(MAX((r + y) >> COMP_BASE, 1), 254) << rgb_shift[R] | MIN(MAX((g + y) >> COMP_BASE, 1), 254) << rgb_shift[G] | MIN(MAX((b + y) >> COMP_BASE, 1), 254) << rgb_shift[B]);
+                                dst += 4;
+                        } else {
+                                *dst++ = MIN(MAX((r + y) >> COMP_BASE, 1), 254);
+                                *dst++ = MIN(MAX((g + y) >> COMP_BASE, 1), 254);
+                                *dst++ = MIN(MAX((b + y) >> COMP_BASE, 1), 254);
                         }
                 }
         }
@@ -1795,69 +2116,91 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
-static inline void yuv420p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, int out_bit_depth)
+{
+        assert(subsampling == 422 || subsampling == 420);
+        for (int y = 0; y < height / 2; ++y) {
+                uint16_t * __restrict src_y1 = (uint16_t *) (frame->data[0] + frame->linesize[0] * 2 * y);
+                uint16_t * __restrict src_y2 = (uint16_t *) (frame->data[0] + frame->linesize[0] * (2 * y + 1));
+                uint16_t * __restrict src_cb1;
+                uint16_t * __restrict src_cr1;
+                uint16_t * __restrict src_cb2;
+                uint16_t * __restrict src_cr2;
+                if (subsampling == 420) {
+                        src_cb1 = src_cb2 = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
+                        src_cr1 = src_cr2 = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                } else {
+                        src_cb1 = (uint16_t *) (frame->data[1] + frame->linesize[1] * (2 * y));
+                        src_cb2 = (uint16_t *) (frame->data[1] + frame->linesize[1] * (2 * y + 1));
+                        src_cr1 = (uint16_t *) (frame->data[2] + frame->linesize[2] * (2 * y));
+                        src_cr2 = (uint16_t *) (frame->data[2] + frame->linesize[2] * (2 * y + 1));
+                }
+                unsigned char *dst1 = (unsigned char *) dst_buffer + (2 * y) * pitch;
+                unsigned char *dst2 = (unsigned char *) dst_buffer + (2 * y + 1) * pitch;
+
+                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
+                        comp_type_t cr = *src_cr1++ - (1<<9);
+                        comp_type_t cb = *src_cb1++ - (1<<9);
+                        comp_type_t rr = YCBCR_TO_R_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t gg = YCBCR_TO_G_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
+
+#                       define WRITE_RES_YUV10P_TO_RGB(Y, DST) {\
+                                comp_type_t r = Y + rr;\
+                                comp_type_t g = Y + gg;\
+                                comp_type_t b = Y + bb;\
+                                r = CLAMP_FULL(r, 8);\
+                                g = CLAMP_FULL(g, 8);\
+                                b = CLAMP_FULL(b, 8);\
+                                if (out_bit_depth == 32) {\
+                                        *((uint32_t *) DST) = (r << rgb_shift[R] | g << rgb_shift[G] | b << rgb_shift[B]);\
+                                        DST += 4;\
+                                } else {\
+                                        *DST++ = r;\
+                                        *DST++ = g;\
+                                        *DST++ = b;\
+                                }\
+                        }
+
+                        comp_type_t y1 = (y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + 2);
+                        WRITE_RES_YUV10P_TO_RGB(y1, dst1)
+
+                        comp_type_t y11 = (y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + 2);
+                        WRITE_RES_YUV10P_TO_RGB(y11, dst1)
+
+                        if (subsampling == 422) {
+                                cr = *src_cr2++ - (1<<9);
+                                cb = *src_cb2++ - (1<<9);
+                                rr = YCBCR_TO_R_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
+                                gg = YCBCR_TO_G_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
+                                bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
+                        }
+
+                        comp_type_t y2 = (y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + 2);
+                        WRITE_RES_YUV10P_TO_RGB(y2, dst2)
+
+                        comp_type_t y22 = (y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + 2);
+                        WRITE_RES_YUV10P_TO_RGB(y22, dst2)
+                }
+        }
+}
+
+#define MAKE_YUV_TO_RGB_FUNCTION_NAME(subs, out_bit_depth) yuv ## subs ## p10le_to_rgb ## out_bit_depth
+
+#define MAKE_YUV_TO_RGB_FUNCTION(subs, out_bit_depth) static void MAKE_YUV_TO_RGB_FUNCTION_NAME(subs, out_bit_depth)(char * __restrict dst_buffer, AVFrame * __restrict in_frame,\
+                int width, int height, int pitch, int * __restrict rgb_shift) {\
+        yuvp10le_to_rgb(subs, dst_buffer, in_frame, width, height, pitch, rgb_shift, out_bit_depth);\
+}
+
+MAKE_YUV_TO_RGB_FUNCTION(420, 24)
+MAKE_YUV_TO_RGB_FUNCTION(420, 32)
+MAKE_YUV_TO_RGB_FUNCTION(422, 24)
+MAKE_YUV_TO_RGB_FUNCTION(422, 32)
+
+static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
-        decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
-        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
-        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
-        char *uyvy = tmp;
-        yuv420p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
-        for (int i = 0; i < height; i++) {
-                decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
-                                rgb_shift[R], rgb_shift[G], rgb_shift[B]);
-                uyvy += vc_get_linesize(width, UYVY);
-                dst_buffer += pitch;
-        }
-        free(tmp);
-}
-
-static inline void yuv420p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuv420p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
-}
-
-static inline void yuv420p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuv420p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
-}
-
-static void yuv422p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
-{
-        decoder_t decoder = rgba ? vc_copylineUYVYtoRGBA : vc_copylineUYVYtoRGB;
-        int linesize = vc_get_linesize(width, rgba ? RGBA : RGB);
-        char *tmp = malloc(vc_get_linesize(width, UYVY) * height);
-        char *uyvy = tmp;
-        yuv422p10le_to_uyvy(uyvy, in_frame, width, height, vc_get_linesize(width, UYVY), rgb_shift);
-        for (int i = 0; i < height; i++) {
-                decoder((unsigned char *) dst_buffer, (unsigned char *) uyvy, linesize,
-                                rgb_shift[R], rgb_shift[G], rgb_shift[B]);
-                uyvy += vc_get_linesize(width, UYVY);
-                dst_buffer += pitch;
-        }
-        free(tmp);
-}
-
-static inline void yuv422p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuv422p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
-}
-
-static inline void yuv422p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        yuv422p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
-}
-
-
-static inline void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        UNUSED(rgb_shift);
         for (int y = 0; y < height; y++) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
@@ -1865,39 +2208,34 @@ static inline void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * 
                 uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        int cb = (*src_cb++ >> 2) - 128;
-                        int cr = (*src_cr++ >> 2) - 128;
-                        int y = (*src_y++ >> 2) << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-                        *dst++ = MIN(MAX(r + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(g + y, 0), (1<<24) - 1) >> 16;
-                        *dst++ = MIN(MAX(b + y, 0), (1<<24) - 1) >> 16;
+                        comp_type_t cb = (*src_cb++ >> 2) - 128;
+                        comp_type_t cr = (*src_cr++ >> 2) - 128;
+                        comp_type_t y = (*src_y++ >> 2) * y_scale;
+                        comp_type_t r = r_cr * cr;
+                        comp_type_t g = g_cb * cb + g_cr * cr;
+                        comp_type_t b = b_cb * cb;
+                        if (rgba) {
+                                *(uint32_t *)(void *) dst = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                dst += 4;
+                        } else {
+                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
+                        }
                 }
         }
+}
+
+static inline void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
 static inline void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
-        for (int y = 0; y < height; y++) {
-                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
-
-                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        int cb = (*src_cb++ >> 2) - 128;
-                        int cr = (*src_cr++ >> 2) - 128;
-                        int y = (*src_y++ >> 2) << 16;
-                        int r = 75700 * cr;
-                        int g = -26864 * cb - 38050 * cr;
-                        int b = 133176 * cb;
-			*dst++ = (MIN(MAX(r + y, 0), (1<<24) - 1) >> 16) << rgb_shift[0] | (MIN(MAX(g + y, 0), (1<<24) - 1) >> 16) << rgb_shift[1] |
-                                (MIN(MAX(b + y, 0), (1<<24) - 1) >> 16) << rgb_shift[2];
-                }
-        }
+        yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
 static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
@@ -2031,32 +2369,63 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
          * conversions below the others.
          */
         static const struct uv_to_av_conversion uv_to_av_conversions[] = {
-                { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
-                { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
-                { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
-                { v210, AV_PIX_FMT_YUV444P16LE, v210_to_yuv444p16le },
+                { v210, AV_PIX_FMT_YUV420P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv420p10le },
+                { v210, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv422p10le },
+                { v210, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p10le },
+                { v210, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p16le },
+                { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },
+                { R10k, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p12le },
+                { R10k, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p16le },
+                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p10le },
+                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p12le },
+                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p16le },
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
-                { v210, AV_PIX_FMT_P010LE, v210_to_p010le },
+                { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
 #endif
-                { UYVY, AV_PIX_FMT_YUV422P, uyvy_to_yuv422p },
-                { UYVY, AV_PIX_FMT_YUVJ422P, uyvy_to_yuv422p },
-                { UYVY, AV_PIX_FMT_YUV420P, uyvy_to_yuv420p },
-                { UYVY, AV_PIX_FMT_YUVJ420P, uyvy_to_yuv420p },
-                { UYVY, AV_PIX_FMT_NV12, uyvy_to_nv12 },
-                { UYVY, AV_PIX_FMT_YUV444P, uyvy_to_yuv444p },
-                { UYVY, AV_PIX_FMT_YUVJ444P, uyvy_to_yuv444p },
-                { RGB, AV_PIX_FMT_BGR0, rgb_to_bgr0 },
-                { RGB, AV_PIX_FMT_GBRP, rgb_to_gbrp },
-                { RGBA, AV_PIX_FMT_GBRP, rgba_to_gbrp },
-                { R10k, AV_PIX_FMT_BGR0, r10k_to_bgr0 },
-                { R10k, AV_PIX_FMT_GBRP10LE, r10k_to_gbrp10le },
-                { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
+                { UYVY, AV_PIX_FMT_YUV422P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
+                { UYVY, AV_PIX_FMT_YUVJ422P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
+                { UYVY, AV_PIX_FMT_YUV420P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
+                { UYVY, AV_PIX_FMT_YUVJ420P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
+                { UYVY, AV_PIX_FMT_NV12,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_nv12 },
+                { UYVY, AV_PIX_FMT_YUV444P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv444p },
+                { UYVY, AV_PIX_FMT_YUVJ444P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv444p },
+                { RGB, AV_PIX_FMT_BGR0,         AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgb_to_bgr0 },
+                { RGB, AV_PIX_FMT_GBRP,         AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgb_to_gbrp },
+                { RGBA, AV_PIX_FMT_GBRP,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgba_to_gbrp },
+                { R10k, AV_PIX_FMT_BGR0,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_bgr0 },
+                { R10k, AV_PIX_FMT_GBRP10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp10le },
+                { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
-                { R12L, AV_PIX_FMT_GBRP12LE, r12l_to_gbrp12le },
+                { R12L, AV_PIX_FMT_GBRP12LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r12l_to_gbrp12le },
 #endif
-                { 0, 0, 0 }
+                { 0, 0, 0, 0, 0 }
         };
         return uv_to_av_conversions;
+}
+
+pixfmt_callback_t get_uv_to_av_conversion(codec_t uv_codec, int av_codec) {
+        for (const struct uv_to_av_conversion *conversions = get_uv_to_av_conversions();
+                        conversions->func != 0; conversions++) {
+                if (conversions->dst == av_codec &&
+                                conversions->src == uv_codec) {
+                        return conversions->func;
+                }
+        }
+
+        return NULL;
+}
+
+void get_av_pixfmt_details(codec_t uv_codec, int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range)
+{
+        for (const struct uv_to_av_conversion *conversions = get_uv_to_av_conversions();
+                        conversions->func != 0; conversions++) {
+                if (conversions->dst == av_codec &&
+                                conversions->src == uv_codec) {
+                        *colorspace = conversions->colorspace;
+                        *color_range = conversions->color_range;
+                        return;
+                }
+        }
 }
 
 /**
@@ -2076,8 +2445,10 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
                 {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, true},
                 {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
+                {AV_PIX_FMT_YUV444P10LE, R10k, yuv444p10le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
+                {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p10le_to_r12l, false},
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
                 {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
@@ -2095,7 +2466,9 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy, true},
                 {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
                 {AV_PIX_FMT_YUV444P, RGBA, yuv444p_to_rgb32, false},
-                // 8-bit YUV (JPEG color range)
+                // 8-bit YUV - this should be supposedly full range JPEG but lavd decoder doesn't honor
+                // GPUJPEG's SPIFF header indicating YUV BT.709 limited range. The YUVJ pixel formats
+                // are detected only for GPUJPEG generated JPEGs.
                 {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
                 {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
                 {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
@@ -2112,6 +2485,12 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
                 {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
                 {AV_PIX_FMT_NV12, RGB, nv12_to_rgb32, false},
+                // 12-bit YUV
+                {AV_PIX_FMT_YUV444P12LE, R10k, yuv444p12le_to_r10k, false},
+                {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p12le_to_r12l, false},
+                // 16-bit YUV
+                {AV_PIX_FMT_YUV444P16LE, R10k, yuv444p16le_to_r10k, false},
+                {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p16le_to_r12l, false},
                 // RGB
                 {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
                 {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},

@@ -52,6 +52,7 @@
 #include "utils/video_frame_pool.h"
 #include "video.h"
 
+#include <algorithm>
 #include <initializer_list>
 #include <libgpujpeg/gpujpeg_encoder.h>
 #include <libgpujpeg/gpujpeg_version.h>
@@ -62,24 +63,13 @@
 #include <set>
 #include <vector>
 
+#if LIBGPUJPEG_API_VERSION < 11
+#error "GPUJPEG API 10 or more requested!"
+#endif
+
 #define MOD_NAME "[GPUJPEG enc.] "
 
 using namespace std;
-
-#if LIBGPUJPEG_API_VERSION >= 7
-#define GJ_RGBA_SUPP 1
-#else
-#define GJ_RGBA_SUPP 0
-#endif
-
-// compat
-#if LIBGPUJPEG_API_VERSION <= 2
-#define GPUJPEG_444_U8_P012 GPUJPEG_4_4_4
-#define GPUJPEG_422_U8_P1020 GPUJPEG_4_2_2
-#endif
-#if LIBGPUJPEG_API_VERSION < 7
-#define GPUJPEG_YCBCR_JPEG GPUJPEG_YCBCR_BT601_256LVLS
-#endif
 
 namespace {
 struct state_video_compress_gpujpeg;
@@ -156,9 +146,7 @@ public:
         int                     m_quality;
         bool                    m_force_interleaved = false;
         int                     m_subsampling = 0; // 444, 422 or 420; 0 -> autoselect
-        codec_t                 m_use_internal_codec = VIDEO_CODEC_NONE; // RGB or UYVY,
-                                                                         // VIDEO_CODEC_NONE
-                                                                         // if no preferrence
+        enum gpujpeg_color_space m_use_internal_codec = GPUJPEG_NONE; // requested internal codec
 
         synchronized_queue<shared_ptr<struct video_frame>, 1> m_out_queue; ///< queue for compressed frames
         mutex                                                 m_occupancy_lock;
@@ -261,7 +249,7 @@ bool encoder_state::configure_with(struct video_desc desc)
         compressed_desc.color_spec = JPEG;
 
         if (IS_I420(desc.color_spec)) {
-                if (m_parent_state->m_use_internal_codec == RGB ||
+                if ((m_parent_state->m_use_internal_codec != GPUJPEG_NONE && m_parent_state->m_use_internal_codec != GPUJPEG_YCBCR_BT709) ||
                                 (m_parent_state->m_subsampling != 0 && m_parent_state->m_subsampling != 420)) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Converting from planar pixel formats is "
                                         "possible only without subsampling/color space change.\n");
@@ -297,7 +285,7 @@ bool encoder_state::configure_with(struct video_desc desc)
                 m_encoder_param.restart_interval = codec_is_a_rgb(m_enc_input_codec) ? 8 : 4;
         }
 
-	m_encoder_param.verbose = 0;
+	m_encoder_param.verbose = max<int>(0, log_level - LOG_LEVEL_INFO);
 	m_encoder_param.segment_info = 1;
 
         /* LUMA */
@@ -315,10 +303,11 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_encoder_param.sampling_factor[2].vertical = 1;
 
         m_encoder_param.interleaved = (codec_is_a_rgb(m_enc_input_codec) && !m_parent_state->m_force_interleaved) ? 0 : 1;
-
-        if (m_parent_state->m_use_internal_codec == RGB ||
-                        (codec_is_a_rgb(m_enc_input_codec) && !m_parent_state->m_use_internal_codec)) {
-                m_encoder_param.color_space_internal = GPUJPEG_RGB;
+        if (m_parent_state->m_use_internal_codec == GPUJPEG_NONE) {
+                m_encoder_param.color_space_internal = codec_is_a_rgb(m_enc_input_codec)
+                        ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
+        } else {
+                m_encoder_param.color_space_internal = m_parent_state->m_use_internal_codec;
         }
 
         gpujpeg_image_set_default_parameters(&m_param_image);
@@ -327,16 +316,13 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.height = desc.height;
 
         m_param_image.comp_count = 3;
-        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : (IS_I420(desc.color_spec) ? GPUJPEG_YCBCR_JPEG : GPUJPEG_YCBCR_BT709);
+        m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
 
-#if LIBGPUJPEG_API_VERSION > 2
         switch (m_enc_input_codec) {
         case CUDA_I420:
         case I420: m_param_image.pixel_format = GPUJPEG_420_U8_P0P1P2; break;
         case RGB: m_param_image.pixel_format = GPUJPEG_444_U8_P012; break;
-#if GJ_RGBA_SUPP == 1
         case RGBA: m_param_image.pixel_format = GPUJPEG_444_U8_P012Z; break;
-#endif
         case UYVY: m_param_image.pixel_format = GPUJPEG_422_U8_P1020; break;
         default:
                 log_msg(LOG_LEVEL_FATAL, MOD_NAME "Unexpected codec: %s\n",
@@ -344,10 +330,6 @@ bool encoder_state::configure_with(struct video_desc desc)
                 abort();
         }
         m_encoder = gpujpeg_encoder_create(NULL);
-#else
-        m_param_image.sampling_factor = m_enc_input_codec == RGB ? GPUJPEG_4_4_4 : GPUJPEG_4_2_2;
-        m_encoder = gpujpeg_encoder_create(&m_encoder_param, &m_param_image);
-#endif
 
         int data_len = desc.width * desc.height * 3;
         m_pool.reconfigure(compressed_desc, data_len);
@@ -392,15 +374,14 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                                 m_quality = atoi(tok + strlen("restart="));
                         } else if (strcasecmp(tok, "interleaved") == 0) {
                                 m_force_interleaved = true;
-                        } else if (strcasecmp(tok, "YUV") == 0) {
-                                m_use_internal_codec = UYVY;
+                        } else if (strcasecmp(tok, "Y601") == 0) {
+                                m_use_internal_codec = GPUJPEG_YCBCR_BT601;
+                        } else if (strcasecmp(tok, "Y601full") == 0) {
+                                m_use_internal_codec = GPUJPEG_YCBCR_BT601_256LVLS;
+                        } else if (strcasecmp(tok, "Y709") == 0) {
+                                m_use_internal_codec = GPUJPEG_YCBCR_BT709;
                         } else if (strcasecmp(tok, "RGB") == 0) {
-#if LIBGPUJPEG_API_VERSION >= 4
-                                m_use_internal_codec = RGB;
-#else
-                                log_msg(LOG_LEVEL_ERROR, "[GPUJPEG] Cannot use RGB as an internal colorspace (old GPUJPEG).\n");
-                                return false;
-#endif
+                                m_use_internal_codec = GPUJPEG_RGB;
                         } else if (strstr(tok, "subsampling=") == tok) {
                                 m_subsampling = atoi(tok + strlen("subsampling="));
                                 assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
@@ -468,17 +449,15 @@ state_video_compress_gpujpeg *state_video_compress_gpujpeg::create(struct module
 
 struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 {
-#if LIBGPUJPEG_API_VERSION >= 7
         if (gpujpeg_version() != LIBGPUJPEG_API_VERSION) {
                 LOG(LOG_LEVEL_WARNING) << "GPUJPEG API version mismatch! (" <<
                                 gpujpeg_version() << " vs  " << LIBGPUJPEG_API_VERSION << ")\n";
         }
-#endif
         struct state_video_compress_gpujpeg *s;
 
         if(opts && strcmp(opts, "help") == 0) {
                 cout << "GPUJPEG comperssion usage:\n";
-                cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|:YUV][:subsampling=<sub>]\n");
+                cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|Y601|Y601full|Y709]][:subsampling=<sub>]\n");
                 cout << "where\n";
                 cout << BOLD("\tquality\n") <<
                         "\t\tJPEG quality coefficient [0..100] - more is better\n";
@@ -493,9 +472,8 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                         "\t\tNon-interleaved has slightly better performance for RGB at the\n"
                         "\t\texpense of worse compatibility. Therefore this option may be\n"
                         "\t\tenabled safely.\n";
-                cout << BOLD("\tRGB|YUV\n") <<
-                        "\t\tforce RGB or YUV as an internal JPEG color space (otherwise\n"
-                        "\t\tsource color space is kept).\n";
+                cout << BOLD("\tRGB|Y601|Y601full|Y709\n") <<
+                        "\t\tforce internal JPEG color space (otherwise source color space is kept).\n";
                 cout << BOLD("\t<sub>\n") <<
                         "\t\tUse specified JPEG subsampling (444, 422 or 420).\n";
                 cout << "\n";
@@ -584,11 +562,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 } else {
                         gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
                 }
-#if LIBGPUJPEG_API_VERSION <= 2
-                ret = gpujpeg_encoder_encode(m_encoder, &encoder_input, &compressed, &size);
-#else
                 ret = gpujpeg_encoder_encode(m_encoder, &m_encoder_param, &m_param_image, &encoder_input, &compressed, &size);
-#endif
 
                 if(ret != 0) {
                         return {};

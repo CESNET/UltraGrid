@@ -68,7 +68,11 @@ if [ -n "$appimage_key" ]; then
 fi
 
 wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
-./appimagetool --sign --comp gzip -u "zsync|https://github.com/${GITHUB_REPOSITORY-CESNET/UltraGrid}/releases/download/nightly/UltraGrid-nightly-x86_64.AppImage.zsync" $APPDIR $APPNAME
+UPDATE_INFORMATION=
+if [ $# -ge 1 ]; then
+        UPDATE_INFORMATION="-u zsync|$1"
+fi
+./appimagetool --sign --comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
 )
 
 echo $APPNAME

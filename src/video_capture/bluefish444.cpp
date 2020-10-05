@@ -377,9 +377,10 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
 {
         memset(&s->objHancDecode, 0, sizeof(s->objHancDecode));
 
+        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->objHancDecode.audio_ch_required_mask = 0;
         /* MONO_CHANNEL_9 and _10 are used for analog output */
-        switch(audio_capture_channels) {
+        switch (s->audio.ch_count) {
                 case 16:
                         s->objHancDecode.audio_ch_required_mask |= MONO_CHANNEL_18;
                         // fall through
@@ -444,7 +445,6 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
         }
 
         s->audio.bps = 2;
-        s->audio.ch_count = audio_capture_channels;
         s->audio.sample_rate = 48000; // perhaps the driver does not support different
         s->audio.max_size = 4*4096*16;
 

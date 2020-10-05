@@ -84,7 +84,7 @@
 using rang::style;
 using namespace std;
 
-unsigned int audio_capture_channels = DEFAULT_AUDIO_CAPTURE_CHANNELS;
+unsigned int audio_capture_channels = 0;
 unsigned int audio_capture_bps = 0;
 unsigned int audio_capture_sample_rate = 0;
 
@@ -541,8 +541,9 @@ ADD_TO_PARAM("audio-cap-frames", "* audio-cap-frames=<f>\n"
                 "  Sets number of audio frames captured at once (CoreAudio)\n");
 ADD_TO_PARAM("audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n"
                 "  Disables audio adaptive playback buffer (CoreAudio/JACK)\n");
-ADD_TO_PARAM("low-latency-audio", "* low-latency-audio\n"
-                "  Try to reduce audio latency at the expense of worse reliability\n");
+ADD_TO_PARAM("low-latency-audio", "* low-latency-audio[=ultra]\n"
+                "  Try to reduce audio latency at the expense of worse reliability\n"
+                "  Add ultra for even more aggressive setting.\n");
 ADD_TO_PARAM("window-title", "* window-title=<title>\n"
                 "  Use alternative window title (SDL/GL only)\n");
 

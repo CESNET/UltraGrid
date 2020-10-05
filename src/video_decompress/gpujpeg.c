@@ -52,20 +52,8 @@
 #include <stdlib.h>
 #include "lib_common.h"
 
-#if LIBGPUJPEG_API_VERSION >= 7
-#define GJ_RGBA_SUPP 1
-#else
-#define GJ_RGBA_SUPP 0
-#endif
-
-// compat
-#if LIBGPUJPEG_API_VERSION <= 2
-#define GPUJPEG_444_U8_P012 GPUJPEG_4_4_4
-#define GPUJPEG_422_U8_P1020 GPUJPEG_4_2_2
-#endif
-
-#if LIBGPUJPEG_API_VERSION < 9
-#define GPUJPEG_444_U8_P012A GPUJPEG_444_U8_P012Z
+#if LIBGPUJPEG_API_VERSION < 11
+#error "GPUJPEG API 11 or more requested!"
 #endif
 
 #define MOD_NAME "[GPUJPEG dec.] "
@@ -85,27 +73,36 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
 {
         s->desc = desc;
 
-
-#if LIBGPUJPEG_API_VERSION <= 2
-        s->decoder = gpujpeg_decoder_create();
-#else
         s->decoder = gpujpeg_decoder_create(NULL);
-#endif
         if(!s->decoder) {
                 return FALSE;
         }
+
+        // setting verbosity - a bit tricky now, gpujpeg_decoder_init needs to be called with some "valid" data
+        // otherwise, parameter setting is unneeded - it is done automaticaly by the image
+        struct gpujpeg_parameters param;
+        gpujpeg_set_default_parameters(&param);
+        param.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
+        struct gpujpeg_image_parameters param_image;
+        gpujpeg_image_set_default_parameters(&param_image);
+        param_image.width = desc.width; // size must be non-zero in order the init to succeed
+        param_image.height = desc.height;
+        param_image.color_space = GPUJPEG_YCBCR_BT709; // assume now BT.709 as default - this is mainly applicable for FFmpeg-encoded
+                                                       // JPEGs that doesn't indicate explicitly color spec (no JFIF marker, only CS=ITU601
+                                                       // for BT.601 limited range - not enabled by UG encoder because FFmpeg emits it also for 709)
+        int rc = gpujpeg_decoder_init(s->decoder, &param, &param_image);
+        assert(rc == 0);
+
         switch (s->out_codec) {
         case I420:
-                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_JPEG,
+                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_BT709,
                                 GPUJPEG_420_U8_P0P1P2);
                 break;
         case RGBA:
-#if GJ_RGBA_SUPP == 1
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
                                 s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16 && vc_get_linesize(desc.width, RGBA) == s->pitch ?
                                 GPUJPEG_444_U8_P012A : GPUJPEG_444_U8_P012);
                 break;
-#endif
         case RGB:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
                                 GPUJPEG_444_U8_P012);
@@ -125,15 +122,12 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
 
 static void * gpujpeg_decompress_init(void)
 {
-#if LIBGPUJPEG_API_VERSION >= 7
         if (gpujpeg_version() != LIBGPUJPEG_API_VERSION) {
                 log_msg(LOG_LEVEL_WARNING, "GPUJPEG API version mismatch! (%d vs %d)\n",
                                 gpujpeg_version(), LIBGPUJPEG_API_VERSION);
         }
-#endif
-        struct state_decompress_gpujpeg *s;
 
-        s = (struct state_decompress_gpujpeg *) calloc(1, sizeof(struct state_decompress_gpujpeg));
+        struct state_decompress_gpujpeg *s = (struct state_decompress_gpujpeg *) calloc(1, sizeof(struct state_decompress_gpujpeg));
 
         int ret;
         printf("Initializing CUDA device %d...\n", cuda_devices[0]);
@@ -176,17 +170,10 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
         }
 }
 
-#if LIBGPUJPEG_API_VERSION >= 4
 static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
         *internal_codec = VIDEO_CODEC_NONE;
 	struct gpujpeg_image_parameters params = { 0 };
-#if LIBGPUJPEG_API_VERSION >= 6
-	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL) != 0) {
-#elif LIBGPUJPEG_API_VERSION >= 5
-	if (gpujpeg_reader_get_image_info(buffer, len, &params, NULL) != 0) {
-#else
-	if (gpujpeg_decoder_get_image_info(buffer, len, &params) != 0) {
-#endif
+	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL, MAX(0, log_level - LOG_LEVEL_INFO)) != 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - cannot get image info!\n");
 		return DECODER_GOT_FRAME;
 	}
@@ -203,11 +190,7 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 	case GPUJPEG_YCBCR_BT601:
 	case GPUJPEG_YCBCR_BT601_256LVLS:
 	case GPUJPEG_YCBCR_BT709:
-#if LIBGPUJPEG_API_VERSION < 8
-                *internal_codec = UYVY;
-#else
                 *internal_codec = params.pixel_format == GPUJPEG_420_U8_P0P1P2 ? I420 : UYVY;
-#endif
 		break;
 	default:
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - unhandled color space: %s\n",
@@ -218,7 +201,6 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 	log_msg(LOG_LEVEL_VERBOSE, "JPEG color space: %s\n", gpujpeg_color_space_get_name(params.color_space));
 	return DECODER_GOT_CODEC;
 }
-#endif
 
 static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
@@ -231,11 +213,7 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         int linesize;
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
-#if LIBGPUJPEG_API_VERSION >= 4
                 return gpujpeg_probe_internal_codec(buffer, src_len, internal_codec);
-#else
-                assert("Old GPUJPEG, cannot probe!" && 0);
-#endif
         }
 
         linesize = vc_get_linesize(s->desc.width, s->out_codec);
@@ -243,9 +221,7 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         gpujpeg_set_device(cuda_devices[0]);
 
         if (s->pitch == linesize && (s->out_codec == UYVY || s->out_codec == RGB
-#if GJ_RGBA_SUPP == 1
                                 || (s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16)
-#endif
                         )) {
                 gpujpeg_decoder_output_set_custom(&decoder_output, dst);
                 //int data_decompressed_size = decoder_output.data_size;
@@ -315,38 +291,33 @@ static void gpujpeg_decompress_done(void *state)
 
 static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
         static const struct decode_from_to ret[] = {
-#if LIBGPUJPEG_API_VERSION >= 4
-		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
-#endif
+		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 }, // for probe
 		{ JPEG, RGB, RGB, 300 },
-		{ JPEG, RGB, RGBA, 300 + (1 - GJ_RGBA_SUPP) * 50 }, // 300 when GJ support RGBA natively,
-                                                                    // 350 when using CPU conversion
+		{ JPEG, RGB, RGBA, 300  },
 		{ JPEG, UYVY, UYVY, 300 },
 		{ JPEG, I420, I420, 300 },
 		{ JPEG, I420, UYVY, 500 },
 		{ JPEG, RGB, UYVY, 700 },
 		{ JPEG, UYVY, RGB, 700 },
-		{ JPEG, UYVY, RGBA, 700  + (1 - GJ_RGBA_SUPP) * 50},
+		{ JPEG, UYVY, RGBA, 700 },
 		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
 		{ JPEG, VIDEO_CODEC_NONE, UYVY, 900 },
-		{ JPEG, VIDEO_CODEC_NONE, RGBA, 900 +  (1 - GJ_RGBA_SUPP) * 50},
-#if LIBGPUJPEG_API_VERSION > 6
+		{ JPEG, VIDEO_CODEC_NONE, RGBA, 900 },
                 // decoding from FFmpeg MJPG has lower priority than libavcodec
                 // decoder because those files doesn't has much independent
                 // segments (1 per MCU row -> 68 for HD) -> lavd may be better
 		{ MJPG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 90 },
 		{ MJPG, RGB, RGB, 600 },
-		{ MJPG, RGB, RGBA, 600 + (1 - GJ_RGBA_SUPP) * 50 },
+		{ MJPG, RGB, RGBA, 600 },
 		{ MJPG, UYVY, UYVY, 600 },
 		{ MJPG, I420, I420, 600 },
 		{ MJPG, I420, UYVY, 700 },
 		{ MJPG, RGB, UYVY, 800 },
 		{ MJPG, UYVY, RGB, 800 },
-		{ MJPG, UYVY, RGBA, 800  + (1 - GJ_RGBA_SUPP) * 50},
+		{ MJPG, UYVY, RGBA, 800 },
 		{ MJPG, VIDEO_CODEC_NONE, RGB, 920 },
 		{ MJPG, VIDEO_CODEC_NONE, UYVY, 920 },
-		{ MJPG, VIDEO_CODEC_NONE, RGBA, 920 +  (1 - GJ_RGBA_SUPP) * 50},
-#endif
+		{ MJPG, VIDEO_CODEC_NONE, RGBA, 920 },
 		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
         return ret;

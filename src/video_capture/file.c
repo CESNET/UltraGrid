@@ -80,6 +80,7 @@
 #include "video.h"
 #include "video_capture.h"
 
+static const double AUDIO_RATIO = 1.05; ///< at this ratio the audio frame can be longer than the video frame
 #define MAGIC to_fourcc('u', 'g', 'l', 'f')
 #define MOD_NAME "[File cap.] "
 
@@ -101,7 +102,7 @@ struct vidcap_state_lavf_decoder {
         bool use_audio;
 
         int video_stream_idx, audio_stream_idx;
-        int64_t last_vid_pts;
+        int64_t last_vid_pts; ///< last played PTS, if PTS == PTS_NO_VALUE, DTS is stored instead
 
         struct video_desc video_desc;
 
@@ -185,10 +186,14 @@ static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame
                 s->audio_frame.data_len += plane_count * bps * s->aud_ctx->frame_size;
         } else {
                 int data_size = av_samples_get_buffer_size(NULL, s->audio_frame.ch_count,
-                                s->aud_ctx->frame_size,
+                                frame->nb_samples,
                                 s->aud_ctx->sample_fmt, 1);
-                append_audio_frame(&s->audio_frame, (char *) frame->data[0],
-                                data_size);
+                if (data_size < 0) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME " av_samples_get_buffer_size", data_size);
+                } else {
+                        append_audio_frame(&s->audio_frame, (char *) frame->data[0],
+                                        data_size);
+                }
         }
         pthread_mutex_unlock(&s->audio_frame_lock);
 }
@@ -262,10 +267,21 @@ static void *vidcap_file_worker(void *state) {
                 }
                 CHECK_FF(ret, FAIL_WORKER); // check the retval of av_read_frame for error other than EOF
 
-                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %" PRId64 ", size %d\n",
+                AVRational tb = s->fmt_ctx->streams[pkt.stream_index]->time_base;
+
+                char pts_val[128] = "NO VALUE";
+                if (pkt.pts != AV_NOPTS_VALUE) {
+                        snprintf(pts_val, sizeof pts_val, "%" PRId64, pkt.pts);
+                }
+                char dts_val[128] = "NO VALUE";
+                if (pkt.dts != AV_NOPTS_VALUE) {
+                        snprintf(dts_val, sizeof dts_val, "%" PRId64, pkt.dts);
+                }
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %f (pts %s, dts %s), size %d\n",
                                 av_get_media_type_string(
                                         s->fmt_ctx->streams[pkt.stream_index]->codecpar->codec_type),
-                                pkt.stream_index, pkt.pos, pkt.size);
+                                pkt.stream_index, (double) (pkt.pts == AV_NOPTS_VALUE ? pkt.dts : pkt.pts)
+                                * tb.num / tb.den, pts_val, dts_val, pkt.size);
 
                 if (pkt.stream_index == s->audio_stream_idx) {
                         ret = avcodec_send_packet(s->aud_ctx, &pkt);
@@ -288,7 +304,7 @@ static void *vidcap_file_worker(void *state) {
                         }
                         av_frame_free(&frame);
                 } else if (pkt.stream_index == s->video_stream_idx) {
-                        s->last_vid_pts = pkt.pts;
+                        s->last_vid_pts = pkt.pts == AV_NOPTS_VALUE ? pkt.dts : pkt.pts;
                         struct video_frame *out;
                         if (s->no_decode) {
                                 out = vf_alloc_desc(s->video_desc);
@@ -300,6 +316,9 @@ static void *vidcap_file_worker(void *state) {
                         } else {
                                 AVFrame * frame = av_frame_alloc();
                                 int got_frame = 0;
+
+                                struct timeval t0;
+                                gettimeofday(&t0, NULL);
                                 ret = avcodec_send_packet(s->vid_ctx, &pkt);
                                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
                                         ret = avcodec_receive_frame(s->vid_ctx, frame);
@@ -307,9 +326,12 @@ static void *vidcap_file_worker(void *state) {
                                                 got_frame = 1;
                                         }
                                 }
+                                struct timeval t1;
+                                gettimeofday(&t1, NULL);
                                 if (ret != 0) {
                                         print_decoder_error(MOD_NAME, ret);
                                 }
+                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Video decompress duration: %f\n", tv_diff(t1, t0));
 
                                 if (ret < 0 || !got_frame) {
                                         if (ret < 0) {
@@ -389,6 +411,9 @@ static AVCodecContext *vidcap_file_open_dec_ctx(AVCodec *dec, AVStream *st) {
         if (!dec_ctx) {
                 return NULL;
         }
+        dec_ctx->thread_count = 0; // means auto for most codecs
+        dec_ctx->thread_type = FF_THREAD_SLICE;
+
         /* Copy codec parameters from input stream to output codec context */
         if (avcodec_parameters_to_context(dec_ctx, st->codecpar) < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to copy parameters\n");
@@ -465,17 +490,16 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 
         /* open input file, and allocate format context */
         if ((rc = avformat_open_input(&s->fmt_ctx, s->src_filename, NULL, NULL)) < 0) {
-                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not open source file %s: ", s->src_filename);
+                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not open source file %s", s->src_filename);
         }
 
         /* retrieve stream information */
         if (rc >= 0 && (rc = avformat_find_stream_info(s->fmt_ctx, NULL)) < 0) {
-                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not find stream information: \n");
+                snprintf(errbuf, sizeof errbuf, MOD_NAME "Could not find stream information");
         }
 
         if (rc < 0) {
-                av_strerror(rc, errbuf + strlen(errbuf), sizeof errbuf - strlen(errbuf));
-                log_msg(LOG_LEVEL_ERROR, "%s\n", errbuf);
+                print_libav_error(LOG_LEVEL_ERROR, errbuf, rc);
                 vidcap_file_common_cleanup(s);
                 return VIDCAP_INIT_FAIL;
         }
@@ -550,6 +574,8 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 s->video_desc.interlacing = PROGRESSIVE; /// @todo other modes
         }
 
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Capturing audio idx %d, video idx %d\n", s->audio_stream_idx, s->video_stream_idx);
+
         s->last_vid_pts = s->fmt_ctx->streams[s->video_stream_idx]->start_time;
 
         playback_register_keyboard_ctl(&s->mod);
@@ -577,6 +603,28 @@ static void vidcap_file_dispose_audio(struct audio_frame *f) {
         free(f);
 }
 
+static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s, double video_fps) {
+        pthread_mutex_lock(&s->audio_frame_lock);
+
+        struct audio_frame *ret = (struct audio_frame *) malloc(sizeof(struct audio_frame));
+        memcpy(ret, &s->audio_frame, sizeof *ret);
+
+        // capture more data to ensure the buffer won't grow - it is capped with actually read
+        // data, still. Moreover there number of audio samples per video frame period may not
+        // be integer. It shouldn't be much, however, not to confuse adaptible audio buffer.
+        ret->max_size =
+                ret->data_len = MIN((int) (AUDIO_RATIO * ret->sample_rate / video_fps) * ret->bps * ret->ch_count , s->audio_frame.data_len);
+        ret->data = (char *) malloc(ret->max_size);
+        memcpy(ret->data, s->audio_frame.data, ret->data_len);
+
+        s->audio_frame.data_len -= ret->data_len;
+        memmove(s->audio_frame.data, s->audio_frame.data + ret->data_len, s->audio_frame.data_len);
+
+        ret->dispose = vidcap_file_dispose_audio;
+
+        pthread_mutex_unlock(&s->audio_frame_lock);
+        return ret;
+}
 
 static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **audio) {
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
@@ -597,11 +645,7 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_consumed);
 
-        pthread_mutex_lock(&s->audio_frame_lock);
-        *audio = audio_frame_copy(&s->audio_frame, false);
-        (*audio)->dispose = vidcap_file_dispose_audio;
-        s->audio_frame.data_len = 0;
-        pthread_mutex_unlock(&s->audio_frame_lock);
+        *audio = get_audio(s, out->fps);
 
         struct timeval t;
         do {
@@ -630,7 +674,7 @@ static const struct video_capture_info vidcap_file_info = {
         vidcap_file_init,
         vidcap_file_done,
         vidcap_file_grab,
-        false
+        true
 };
 
 REGISTER_MODULE(file, &vidcap_file_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

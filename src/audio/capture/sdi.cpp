@@ -166,31 +166,26 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
 
         unique_lock<mutex> lk(s->lock);
 
-        if(
-                        s->audio_frame[FRAME_CAPTURE].bps != frame->bps ||
+        if (s->audio_frame[FRAME_CAPTURE].bps != frame->bps ||
                         s->audio_frame[FRAME_CAPTURE].ch_count != frame->ch_count ||
-                        s->audio_frame[FRAME_CAPTURE].sample_rate != frame->sample_rate
-          ) {
+                        s->audio_frame[FRAME_CAPTURE].sample_rate != frame->sample_rate) {
                 s->audio_frame[FRAME_CAPTURE].bps = frame->bps;
                 s->audio_frame[FRAME_CAPTURE].ch_count = frame->ch_count;
                 s->audio_frame[FRAME_CAPTURE].sample_rate = frame->sample_rate;
                 s->audio_frame[FRAME_CAPTURE].data_len = 0;
+                s->audio_frame[FRAME_CAPTURE].max_size = frame->bps * frame->ch_count * frame->sample_rate / 1000L * MAX_BUF_SIZE_MS;
+                s->audio_frame[FRAME_CAPTURE].data = static_cast<char *>(malloc(s->audio_frame[FRAME_CAPTURE].max_size));
         }
 
-        int needed_size = frame->data_len + s->audio_frame[FRAME_CAPTURE].data_len;
-        if (needed_size > frame->bps * frame->ch_count * frame->sample_rate / 1000l * MAX_BUF_SIZE_MS) {
-                fprintf(stderr, "[SDI] Maximal audio buffer length %ld ms exceeded! Dropping samples.\n",
-                                MAX_BUF_SIZE_MS);
-        } else {
-                if (needed_size > (int) s->audio_frame[FRAME_CAPTURE].max_size) {
-                        free(s->audio_frame[FRAME_CAPTURE].data);
-                        s->audio_frame[FRAME_CAPTURE].max_size = needed_size;
-                        s->audio_frame[FRAME_CAPTURE].data = (char *) malloc(needed_size);
-                }
-                memcpy(s->audio_frame[FRAME_CAPTURE].data + s->audio_frame[FRAME_CAPTURE].data_len,
-                                frame->data, frame->data_len);
-                s->audio_frame[FRAME_CAPTURE].data_len += frame->data_len;
+        int len = frame->data_len;
+        if (len + s->audio_frame[FRAME_CAPTURE].data_len > s->audio_frame[FRAME_CAPTURE].max_size) {
+                LOG(LOG_LEVEL_WARNING) << "[SDI] Maximal audio buffer length " << MAX_BUF_SIZE_MS << " ms exceeded! Dropping "
+                        << len - (s->audio_frame[FRAME_CAPTURE].max_size - s->audio_frame[FRAME_CAPTURE].data_len) << " samples.\n";
+                len = s->audio_frame[FRAME_CAPTURE].max_size - s->audio_frame[FRAME_CAPTURE].data_len;
         }
+        memcpy(s->audio_frame[FRAME_CAPTURE].data + s->audio_frame[FRAME_CAPTURE].data_len,
+                        frame->data, len);
+        s->audio_frame[FRAME_CAPTURE].data_len += len;
 
         lk.unlock();
         s->audio_frame_ready_cv.notify_one();

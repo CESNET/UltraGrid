@@ -47,6 +47,7 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -55,11 +56,20 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/hresult.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
 
+#define MOD_NAME "[screen win] "
+
 extern const struct video_capture_info vidcap_dshow_info;
+
+struct vidcap_screen_win_state {
+        HMODULE screen_cap_lib;
+        bool filter_registered;
+        void *dshow_state;
+};
 
 static void show_help()
 {
@@ -68,7 +78,6 @@ static void show_help()
         color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-t screen");
         color_out(COLOR_OUT_BOLD, "[:width=<w>][:height=<h>][:fps=<f>]\n");
 }
-
 
 static struct vidcap_type * vidcap_screen_win_probe(bool verbose, void (**deleter)(void *))
 {
@@ -106,7 +115,7 @@ static bool set_key(const char *key, int val)
                 }
         }
         DWORD val_dword = val;
-        if (RegSetValueExA(hKey, key, 0L, REG_DWORD, &val_dword, sizeof val_dword) != ERROR_SUCCESS) {
+        if (RegSetValueExA(hKey, key, 0L, REG_DWORD, (BYTE *) &val_dword, sizeof val_dword) != ERROR_SUCCESS) {
                 return false;
         }
 
@@ -161,9 +170,33 @@ static bool vidcap_screen_win_process_params(const char *fmt)
         return true;
 }
 
+typedef HRESULT __stdcall (*func)();
 
-#define CHECK_NOT_NULL_EX(cmd, err_action) do { if ((cmd) == NULL) { log_msg(LOG_LEVEL_ERROR, "[screen] %s\n", #cmd); err_action; } } while(0)
-#define CHECK_NOT_NULL(cmd) CHECK_NOT_NULL_EX(cmd, return VIDCAP_INIT_FAIL);
+#define CHECK_NOT_NULL_EX(cmd, err_action) do { if ((cmd) == NULL) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", #cmd); err_action; } } while(0)
+#define CHECK_NOT_NULL(cmd) CHECK_NOT_NULL_EX(cmd, return);
+static void cleanup(struct vidcap_screen_win_state *s) {
+        assert(s != NULL);
+
+        if (s->dshow_state) {
+                vidcap_dshow_info.done(s->dshow_state);
+        }
+
+        if (s->filter_registered) {
+                func unregister_filter = NULL;
+                CHECK_NOT_NULL(unregister_filter = (func)(void *) GetProcAddress(s->screen_cap_lib, "DllUnregisterServer"));
+                if (unregister_filter != NULL) {
+                        unregister_filter();
+                }
+        }
+
+        if (s->screen_cap_lib) {
+                FreeLibrary(s->screen_cap_lib);
+        }
+        free(s);
+}
+
+#undef CHECK_NOT_NULL
+#define CHECK_NOT_NULL(cmd) CHECK_NOT_NULL_EX(cmd, cleanup(s));
 static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
 {
         const char *cfg = vidcap_params_get_fmt(params);
@@ -177,39 +210,41 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-        HMODULE mod;
-        CHECK_NOT_NULL(mod = LoadLibraryA("screen-capture-recorder-x64.dll"));
-        typedef void (*func)();
+        struct vidcap_screen_win_state *s = calloc(1, sizeof *s);
+
+        CHECK_NOT_NULL(s->screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"));
         func register_filter;
-        CHECK_NOT_NULL(register_filter = (func) GetProcAddress(mod, "DllRegisterServer"));
-        register_filter();
-        FreeLibrary(mod);
+        CHECK_NOT_NULL(register_filter = (func)(void *) GetProcAddress(s->screen_cap_lib, "DllRegisterServer"));
+        HRESULT res = register_filter();
+        if (FAILED(res)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
+                cleanup(s);
+                return VIDCAP_INIT_FAIL;
+        }
+        s->filter_registered = true;
         struct vidcap_params *params_dshow = vidcap_params_allocate();
         vidcap_params_set_device(params_dshow, "dshow:device=screen-capture-recorder");
-        int ret = vidcap_dshow_info.init(params_dshow, state);
+        int ret = vidcap_dshow_info.init(params_dshow, &s->dshow_state);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "DirectShow init failed: %d\n", ret);
+                cleanup(s);
+                return VIDCAP_INIT_FAIL;
+        }
         vidcap_params_free_struct(params_dshow);
 
+        *state = s;
         return ret;
 }
 
-#undef CHECK_NOT_NULL
-#define CHECK_NOT_NULL(cmd) CHECK_NOT_NULL_EX(cmd, return);
 static void vidcap_screen_win_done(void *state)
 {
-        vidcap_dshow_info.done(state);
-
-        HMODULE mod;
-        CHECK_NOT_NULL(mod = LoadLibraryA("screen-capture-recorder-x64.dll"));
-        typedef void (*func)();
-        func unregister_filter;
-        CHECK_NOT_NULL(unregister_filter = (func) GetProcAddress(mod, "DllUnregisterServer"));
-        unregister_filter();
-        FreeLibrary(mod);
+        cleanup(state);
 }
 
 static struct video_frame * vidcap_screen_win_grab(void *state, struct audio_frame **audio)
 {
-        return vidcap_dshow_info.grab(state, audio);
+        struct vidcap_screen_win_state *s = state;
+        return vidcap_dshow_info.grab(s->dshow_state, audio);
 }
 
 static const struct video_capture_info vidcap_screen_win_info = {

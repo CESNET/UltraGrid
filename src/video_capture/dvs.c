@@ -482,17 +482,17 @@ static int vidcap_dvs_init(struct vidcap_params *params, void **state)
                 if (res != SV_OK) {
                         goto error;
                 }
-                if(audio_capture_channels != 2 && audio_capture_channels != 1) {
+                s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+                if (s->audio.ch_count != 2 && s->audio.ch_count != 1) {
                         fprintf(stderr, "[DVS cap.] Invalid channel count %d. "
                                         "Currently only 1 or 2 channels are supported.\n",
-                                        audio_capture_channels);
+                                        s->audio.ch_count);
                         goto error;
                 }
                 res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, 1); // one pair
                 if (res != SV_OK) {
                         goto error;
                 }
-                s->audio.ch_count = audio_capture_channels;
 
                 sv_query(s->sv, SV_QUERY_AUDIOBITS, 0, &i);
                 s->audio.bps = i / 8;
@@ -504,7 +504,7 @@ static int vidcap_dvs_init(struct vidcap_params *params, void **state)
                 s->audio_bufs[0] = malloc(s->audio.sample_rate * 2 * s->audio.bps);
                 s->audio_bufs[1] = malloc(s->audio.sample_rate * 2 * s->audio.bps);
 
-                if(audio_capture_channels == 1) {
+                if (s->audio.ch_count == 1) {
                         // data need to be demultiplexed
                         s->audio.max_size = s->audio.sample_rate * s->audio.bps;
                         s->audio.data = (char *) malloc(s->audio.max_size);

@@ -2542,4 +2542,14 @@ void codec_get_planes_subsampling(codec_t pix_fmt, int *sub) {
         }
 }
 
+bool codec_is_420(codec_t pix_fmt)
+{
+        return pixfmt_plane_info[pix_fmt].plane_info[0] == 1 &&
+                pixfmt_plane_info[pix_fmt].plane_info[1] == 1 &&
+                pixfmt_plane_info[pix_fmt].plane_info[2] == 2 &&
+                pixfmt_plane_info[pix_fmt].plane_info[3] == 2 &&
+                pixfmt_plane_info[pix_fmt].plane_info[4] == 2 &&
+                pixfmt_plane_info[pix_fmt].plane_info[5] == 2;
+}
+
 /* vim: set expandtab sw=8: */

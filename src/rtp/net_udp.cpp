@@ -64,17 +64,22 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <utility> // std::swap
 
+using std::array;
 using std::condition_variable;
 using std::max;
 using std::mutex;
 using std::queue;
+using std::string;
 using std::swap;
+using std::to_string;
 using std::unique_lock;
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
@@ -84,6 +89,9 @@ static void *udp_reader(void *arg);
 
 #define IPv4	4
 #define IPv6	6
+
+constexpr int ERRBUF_SIZE = 255;
+const constexpr char *MOD_NAME = "[RTP UDP] ";
 
 #ifdef WIN2K_IPV6
 const struct in6_addr in6addr_any = { IN6ADDR_ANY_INIT };
@@ -204,9 +212,9 @@ static void udp_clean_async_state(socket_udp *s);
 
 void socket_error(const char *msg, ...)
 {
-        char buffer[255];
-        uint32_t blen = sizeof(buffer) / sizeof(buffer[0]);
         va_list ap;
+        array<char, ERRBUF_SIZE> buffer{};
+        array<char, ERRBUF_SIZE> strerror_buf{"unknown"};
 
 #ifdef WIN32
 #define WSERR(x) {#x,x}
@@ -221,33 +229,45 @@ void socket_error(const char *msg, ...)
                 WSERR(WSAENOTCONN), WSERR(WSAENOTSOCK), WSERR(WSAEOPNOTSUPP),
                 WSERR(WSAESHUTDOWN), WSERR(WSAEWOULDBLOCK), WSERR(WSAEMSGSIZE),
                 WSERR(WSAEHOSTUNREACH), WSERR(WSAECONNABORTED),
-                    WSERR(WSAECONNRESET),
+                WSERR(WSAECONNRESET), WSERR(WSAEADDRINUSE),
                 WSERR(WSAEADDRNOTAVAIL), WSERR(WSAEAFNOSUPPORT),
                     WSERR(WSAEDESTADDRREQ),
                 WSERR(WSAENETUNREACH), WSERR(WSAETIMEDOUT), WSERR(WSAENOPROTOOPT),
                 WSERR(0)
         };
 
-        int i, e = WSAGetLastError();
-        i = 0;
+        int i = 0;
+        int e = WSAGetLastError();
+        if (e == WSAECONNRESET) {
+                return;
+        }
         while (ws_errs[i].errno_code && ws_errs[i].errno_code != e) {
                 i++;
         }
         va_start(ap, msg);
-        _vsnprintf(buffer, blen, msg, ap);
+        _vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
         va_end(ap);
-        if (e != WSAECONNRESET)
-                log_msg(LOG_LEVEL_ERROR, "ERROR: %s, (%d - %s)\n", msg, e, ws_errs[i].errname);
+
+        if (i == 0) { // let system format the error message
+                FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
+                                NULL,                // lpsource
+                                e,                   // message id
+                                MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
+                                strerror_buf.data(), // output buffer
+                                strerror_buf.size(), // size of msgbuf, bytes
+                                NULL);               // va_list of arguments
+        }
+        const char *errname = i == 0 ? strerror_buf.data() : ws_errs[i].errname;
+        LOG(LOG_LEVEL_ERROR) << "ERROR: " << buffer.data() << ", (" << e << " - " << errname << ")\n";
 #else
         va_start(ap, msg);
-        vsnprintf(buffer, blen, msg, ap);
+        vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
         va_end(ap);
-        char strerror_buf[255] = "";
 #if ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
-        strerror_r(errno, strerror_buf, sizeof strerror_buf); // XSI version
-        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_buf);
+        strerror_r(errno, strerror_buf.data(), strerror_buf.size()); // XSI version
+        LOG(LOG_LEVEL_ERROR) << buffer.data() << ": " << strerror_buf.data() << "\n";
 #else // GNU strerror_r version
-        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_r(errno, strerror_buf, sizeof strerror_buf));
+        LOG(LOG_LEVEL_ERROR) << buffer.data() << ": " << strerror_r(errno, strerror_buf.data(), strerror_buf.size()) << "\n";
 #endif
 #endif
 }
@@ -1517,64 +1537,70 @@ bool udp_is_ipv6(socket_udp *s)
 
 /**
  * @retval  0 success
- * @retval -1 failed
- * @retval -2 incorrect service or hostname (not a port number)
+ * @retval -1 port pair is not free
+ * @retval -2 another error
  */
-int udp_port_pair_is_free(const char *addr, int force_ip_version, int even_port)
+int udp_port_pair_is_free(int force_ip_version, int even_port)
 {
-        struct sockaddr *sin;
-        struct addrinfo hints, *res0;
-        int err;
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = force_ip_version ? (force_ip_version == 6 ? AF_INET6 : AF_INET) : AF_UNSPEC;
+        struct addrinfo hints{};
+        struct addrinfo *res0 = nullptr;
+        hints.ai_family = force_ip_version == 4 ? AF_INET : AF_INET6;
+        hints.ai_flags = AI_NUMERICSERV | AI_PASSIVE;
         hints.ai_socktype = SOCK_DGRAM;
-        char tx_port_str[7];
-        sprintf(tx_port_str, "%u", 5004);
-        if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
+        string tx_port_str = to_string(5004);
+        if (int err = getaddrinfo(nullptr, tx_port_str.c_str(), &hints, &res0)) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                log_msg(LOG_LEVEL_VERBOSE, "getaddrinfo: %s\n", gai_strerror(err));
-                return err == EAI_NONAME ? -2 : -1;
-        } else {
-                sin = res0->ai_addr;
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " getaddrinfo: " <<  gai_strerror(err) << "\n";
+                return -2;
         }
 
         for (int i = 0; i < 2; ++i) {
+                struct sockaddr *sin = res0->ai_addr;
                 fd_t fd;
 
                 if (sin->sa_family == AF_INET6) {
                         struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) sin;
                         int ipv6only = 0;
                         s_in6->sin6_port = htons(even_port + i);
-                        s_in6->sin6_addr = in6addr_any;
                         fd = socket(AF_INET6, SOCK_DGRAM, 0);
                         if (fd != INVALID_SOCKET) {
                                 if (SETSOCKOPT
                                                 (fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
                                                  sizeof(ipv6only)) != 0) {
-                                        socket_error("setsockopt IPV6_V6ONLY");
+                                        socket_error("%s - setsockopt IPV6_V6ONLY", static_cast<const char *>(__func__));
                                         CLOSESOCKET(fd);
                                         freeaddrinfo(res0);
-                                        return -1;
+                                        return -2;
                                 }
                         }
                 } else {
                         struct sockaddr_in *s_in = (struct sockaddr_in *) sin;
-                        s_in->sin_addr.s_addr = INADDR_ANY;
                         s_in->sin_port = htons(even_port + i);
                         fd = socket(AF_INET, SOCK_DGRAM, 0);
                 }
 
                 if (fd == INVALID_SOCKET) {
-                        socket_error("Unable to initialize socket");
+                        socket_error("%s - unable to initialize socket", static_cast<const char *>(__func__));
                         freeaddrinfo(res0);
-                        return -1;
+                        return -2;
                 }
 
                 if (bind(fd, (struct sockaddr *) sin, res0->ai_addrlen) != 0) {
+                        int ret = 0;
+#ifdef _WIN32
+                        if (WSAGetLastError() == WSAEADDRINUSE) {
+#else
+                        if (errno == EADDRINUSE) {
+#endif
+                                ret = -1;
+                        } else {
+                                ret = -2;
+                                socket_error("%s - cannot bind", static_cast<const char *>(__func__));
+                        }
                         freeaddrinfo(res0);
                         CLOSESOCKET(fd);
-                        return -1;
+                        return ret;
                 }
 
                 CLOSESOCKET(fd);

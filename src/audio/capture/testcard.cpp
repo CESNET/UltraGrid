@@ -220,7 +220,7 @@ static void * audio_cap_testcard_init(const char *cfg)
         case EBU:
         case SILENCE:
         {
-                s->audio.ch_count = audio_capture_channels;
+                s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
                 s->audio.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
                         DEFAULT_AUDIO_SAMPLE_RATE;
                 s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_AUDIO_BPS;

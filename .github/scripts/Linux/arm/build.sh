@@ -100,9 +100,6 @@ elif [ x"$1" = x"--tool" ]; then
 	TOOL=$2
 	shift 2
 	$DIR/bin/$TOOL "$@"
-elif [ x"$1" = x"--gui" ]; then
-	shift
-	$DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh "$@"
 elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
 	usage
 	exit 0

@@ -58,6 +58,7 @@
 using namespace std;
 
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
+static constexpr const char *MOD_NAME = "[multiplier] ";
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
 struct sub_display {
@@ -102,8 +103,6 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
 {
         struct state_multiplier *s;
         char *fmt_copy = NULL;
-        const char *requested_display = NULL;
-        const char *cfg = NULL;
 
         s = new state_multiplier();
 
@@ -113,7 +112,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                     delete s;
                     return &display_init_noerr;
                 }
-            
+
                 if (isdigit(fmt[0])) { // fork
                         struct state_multiplier *orig;
                         sscanf(fmt, "%p", &orig);
@@ -133,9 +132,9 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
 
         char *saveptr;
         for(char *token = strtok_r(fmt_copy, "#", &saveptr); token; token = strtok_r(NULL, "#", &saveptr)){
-                requested_display = token;
-                printf("%s\n", token);
-                cfg = NULL;
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Initializing display " << token << "\n";
+                const char *requested_display = token;
+                const char *cfg = "";
                 char *delim = strchr(token, ':');
                 if (delim) {
                         *delim = '\0';
@@ -347,5 +346,5 @@ static const struct video_display_info display_multiplier_info = {
         display_multiplier_needs_mainloop,
 };
 
-REGISTER_MODULE(multiplier, &display_multiplier_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(multiplier, &display_multiplier_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

@@ -308,7 +308,12 @@ void list_modules(enum library_class cls, int abi_version, bool full) {
         }
 }
 
-void list_all_modules() {
+/**
+ * @retval false if there occurs some problem opening one or more modules, true otherwise
+ */
+bool list_all_modules() {
+        bool ret = true;
+
         for (auto cls_it = library_class_info.begin(); cls_it != library_class_info.end();
                         ++cls_it) {
                 cout << cls_it->second.class_name << "\n";
@@ -322,12 +327,15 @@ void list_all_modules() {
         }
 
         if (!lib_errors.empty()) {
+                ret = false;
                 cout << rang::style::bold << rang::fg::red << "Errors:\n" << rang::fg::reset << rang::style::reset;
                 for (auto && item : lib_errors) {
                         cout << "\t" << rang::fg::red << item.first << rang::fg::reset << "\n\t\t" << item.second << "\n";
                 }
                 cout << "\n";
         }
+
+        return ret;
 }
 
 map<string, const void *> get_libraries_for_class(enum library_class cls, int abi_version, bool include_hidden)

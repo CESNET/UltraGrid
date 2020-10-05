@@ -103,8 +103,8 @@ void list_video_display_devices(bool full)
 
 /**
  * @brief Initializes video display.
- * @param[in] id     video display identifier that will be initialized
- * @param[in] fmt    command-line entered format string
+ * @param[in] requested_display  video display module name, not NULL
+ * @param[in] fmt    command-line entered format string, not NULL
  * @param[in] flags  bit sum of @ref display_flags
  * @param[out] state output display state. Defined only if initialization was successful.
  * @retval    0  if sucessful
@@ -114,6 +114,8 @@ void list_video_display_devices(bool full)
 int initialize_video_display(struct module *parent, const char *requested_display,
                 const char *fmt, unsigned int flags, const char *postprocess, struct display **out)
 {
+        assert (requested_display != NULL && fmt != NULL && out != NULL);
+
         if (postprocess && (strcmp(postprocess, "help") == 0 || strcmp(postprocess, "fullhelp") == 0)) {
                 show_vo_postprocess_help(strcmp(postprocess, "fullhelp") == 0);
                 return 1;

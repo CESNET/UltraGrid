@@ -271,14 +271,18 @@ static void crash_signal_handler(int sig)
                 *ptr++ = message1[i];
         }
 #ifndef WIN32
-        *ptr++ = ' '; *ptr++ = '(';
-        for (size_t i = 0; i < sizeof sys_siglist[sig] - 1; ++i) {
-                if (sys_siglist[sig][i] == '\0') {
-                        break;
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
+        const char *sig_desc = sigdescr_np(sig);
+#else
+        const char *sig_desc = sys_siglist[sig];
+#endif
+        if (sig_desc != NULL) {
+                *ptr++ = ' '; *ptr++ = '(';
+                for (size_t i = 0; sig_desc[i] != '\0'; ++i) {
+                        *ptr++ = sig_desc[i];
                 }
-                *ptr++ = sys_siglist[sig][i];
+                *ptr++ = ')';
         }
-        *ptr++ = ')';
 #endif
         const char message2[] = ".\n\nPlease send a bug report to address ";
         for (size_t i = 0; i < sizeof message2 - 1; ++i) {
@@ -619,7 +623,7 @@ static bool parse_params(char *optarg)
         return true;
 }
 
-#define EXIT(retval) { common_cleanup(init); return retval; }
+#define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 
 int main(int argc, char *argv[])
 {
@@ -1068,8 +1072,7 @@ int main(int argc, char *argv[])
                         video_offset = atoi(optarg) < 0 ? abs(atoi(optarg)) : 0;
                         break;
                 case OPT_LIST_MODULES:
-                        list_all_modules();
-                        EXIT(EXIT_SUCCESS);
+                        EXIT(list_all_modules() ? EXIT_SUCCESS : EXIT_FAILURE);
                 case OPT_START_PAUSED:
                         start_paused = true;
                         break;

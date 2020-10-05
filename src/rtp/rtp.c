@@ -1113,13 +1113,12 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         if (rx_port == 0) {
                 for (int i = 1<<15; i < 1<<16; i += 2) {
                         // this stuff is not atomic. but... it cannot be done in this way, either
-                        int ret = udp_port_pair_is_free(addr, force_ip_version, i);
+                        int ret = udp_port_pair_is_free(force_ip_version, i);
                         if (ret == 0) {
                                 rx_port = i;
                                 break;
                         }
                         if (ret == -2) {
-                                log_msg(LOG_LEVEL_ERROR, "Name or service is not known!\n");
                                 free(session);
                                 return NULL;
                         }

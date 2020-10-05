@@ -83,7 +83,8 @@ void error(int status);
 void exit_uv(int status);
 
 #define DEFAULT_AUDIO_CAPTURE_CHANNELS 1
-extern unsigned int audio_capture_channels;
+extern unsigned int audio_capture_channels;    ///< user-specified chan. count, if zero, module should choose
+                                               ///< best/native or DEFAULT_AUDIO_CAPTURE_CHANNELS
 extern unsigned int audio_capture_bps;         // user-specified bps, if zero, module should choose
                                                // best bps by itself
 extern unsigned int audio_capture_sample_rate; // user-specified sample rate, if zero, module should

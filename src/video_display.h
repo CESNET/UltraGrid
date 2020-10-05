@@ -174,8 +174,8 @@ extern int display_init_noerr;
 
 void                     list_video_display_devices(bool full);
 int                      initialize_video_display(struct module *parent,
-                const char *requested_display, const char *fmt, unsigned int flags,
-                const char *postprocess, struct display **out);
+                /* not_null */ const char *requested_display, /* not_null */ const char *fmt,
+                unsigned int flags, const char *postprocess, /* not_null */ struct display **out);
 bool                     display_needs_mainloop(struct display *d);
 void                     display_run(struct display *d);
 void                     display_join(struct display *d);

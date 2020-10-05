@@ -262,14 +262,14 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
         if (strlen(enc) || strlen(dec)) {
                 strncat(buf, " (", buflen - strlen(buf) - 1);
                 if (strlen(enc)) {
-                        strncat(buf, "enc:", buflen - strlen(buf) - 1);
+                        strncat(buf, "encoders:", buflen - strlen(buf) - 1);
                         strncat(buf, enc, buflen - strlen(buf) - 1);
                 }
                 if (strlen(dec)) {
                         if (strlen(enc)) {
                                 strncat(buf, ", ", buflen - strlen(buf) - 1);
                         }
-                        strncat(buf, "dec:", buflen - strlen(buf) - 1);
+                        strncat(buf, "decoders:", buflen - strlen(buf) - 1);
                         strncat(buf, dec, buflen - strlen(buf) - 1);
                 }
                 strncat(buf, ")", buflen - strlen(buf) - 1);
@@ -277,7 +277,7 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 #elif LIBAVCODEC_VERSION_MAJOR >= 54
         const AVCodec *codec;
         if ((codec = avcodec_find_encoder(id))) {
-                strncpy(buf, " (enc:", buflen - 1);
+                strncpy(buf, " (encoders:", buflen - 1);
                 buf[buflen - 1] = '\0';
                 do {
                         if (av_codec_is_encoder(codec) && codec->id == id) {
@@ -293,7 +293,7 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
                 } else {
                         strncat(buf, " (", buflen - strlen(buf) - 1);
                 }
-                strncat(buf, "dec:", buflen - strlen(buf) - 1);
+                strncat(buf, "decoders:", buflen - strlen(buf) - 1);
                 do {
                         if (av_codec_is_decoder(codec) && codec->id == id) {
                                 strncat(buf, " ", buflen - strlen(buf) - 1);
@@ -841,10 +841,10 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         bool is_rgb = codec_is_a_rgb(in_desc.color_spec);
         int preferred_subsampling = requested_subsampling;
         if (requested_subsampling == 0) {
-                if (in_desc.interlacing == INTERLACED_MERGED) {
-                        preferred_subsampling = 422;
-                } else {
+                if (codec_is_420(in_desc.color_spec)) { /// @todo perhaps better would be take the subs. directly
                         preferred_subsampling = 420;
+                } else {
+                        preferred_subsampling = 422;
                 }
         }
         // sort
@@ -937,7 +937,7 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                            AVPixelFormat &pix_fmt,
                            struct video_desc desc,
                            codec_t ug_codec,
-                           AVCodec *codec)
+                           const AVCodec *codec)
 {
         // avcodec_alloc_context3 allocates context and sets default value
         s->codec_ctx = avcodec_alloc_context3(codec);
@@ -967,6 +967,13 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 pix_fmt = AV_PIX_FMT_NV12;
         }
 #endif
+
+        if (const AVPixFmtDescriptor * desc = av_pix_fmt_desc_get(pix_fmt)) { // defaults
+                s->codec_ctx->colorspace = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_SPC_RGB : AVCOL_SPC_BT709;
+                s->codec_ctx->color_range = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
+        }
+        get_av_pixfmt_details(ug_codec, pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
+
         /* open it */
         pthread_mutex_lock(s->lavcd_global_lock);
         if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
@@ -976,8 +983,8 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 pthread_mutex_unlock(s->lavcd_global_lock);
                 return false;
         }
-
         pthread_mutex_unlock(s->lavcd_global_lock);
+
         return true;
 }
 

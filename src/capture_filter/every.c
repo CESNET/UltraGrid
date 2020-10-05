@@ -66,6 +66,7 @@ static void usage() {
         printf("every usage:\n");
         printf("\tevery:numerator[/denominator]\n\n");
         printf("Example: every:2 - every second frame will be dropped\n");
+        printf("The special case every:0 can be used to discard all frames\n");
 }
 
 static int init(struct module *parent, const char *cfg, void **state)
@@ -83,7 +84,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 if(strchr(cfg, '/')) {
                         denom = atoi(strchr(cfg, '/') + 1);
                 }
-                if (denom > n) {
+                if (denom > n && n != 0) {
                         log_msg(LOG_LEVEL_ERROR, "Currently, numerator has to be greater "
                                "(or equal, which, however, has a little use) than denominator.\n");
                         return -1;
@@ -116,6 +117,11 @@ static void dispose_frame(struct video_frame *f) {
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_every *s = state;
+
+        if (s->num == 0) {
+                VIDEO_FRAME_DISPOSE(in);
+                return NULL;
+        }
 
         s->current = (s->current + 1) % s->num;
 
