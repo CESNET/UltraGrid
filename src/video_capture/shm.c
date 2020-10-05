@@ -69,9 +69,9 @@
 #define BUFFERS 2
 #define DEFAULT_FPS 120.0
 #define FOOTER to_fourcc('F', 'O', 'O', 'T')
-#define MAX_BUF_LEN (7680 * 2160 * 3 / 2)
+#define MAX_BUF_LEN (7680 * 2160 * 4)
 #define KEY "UltraGrid-SHM"
-#define SHM_VERSION 9
+#define SHM_VERSION 10;
 #define MAGIC to_fourcc('V', 'C', 'C', 'U')
 #define MOD_NAME "[shm] "
 #define UG_CUDA_IPC_HANDLE_SIZE 64 // originally definde by CUDA
@@ -85,6 +85,7 @@ static void shm_dispose_frame(struct video_frame *f);
 struct shm_frame {
         atomic_bool buffer_free;
         int width, height;
+        int color_space; // 0 - YUV 420, 1 - RGBA
         bool stereo; ///< in data there are actually stored sequentially 2 buffers
         char cuda_ipc_mem_handle[UG_CUDA_IPC_HANDLE_SIZE];
         char data[MAX_BUF_LEN];
@@ -365,6 +366,7 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
 
         assert(s->shm->frames[s->shm->read_head].footer == FOOTER);
 
+        s->f[s->shm->read_head]->color_spec = s->shm->frames[s->shm->read_head].color_space == 0 ? (s->use_gpu ? CUDA_I420 : I420) : RGBA;
         s->f[s->shm->read_head]->tiles[0].width = s->shm->frames[s->shm->read_head].width;
         s->f[s->shm->read_head]->tiles[0].height = s->shm->frames[s->shm->read_head].height;
         s->f[s->shm->read_head]->tiles[0].data_len = vc_get_datalen(s->f[s->shm->read_head]->tiles[0].width, s->f[s->shm->read_head]->tiles[0].height, s->f[s->shm->read_head]->color_spec);
