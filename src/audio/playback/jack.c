@@ -41,6 +41,11 @@
 #include "config_win32.h"
 #endif
 
+#define DEFAULT_AUDIO_BUF_LEN_MS 50
+#define MAX_LEN_MS 1000
+#define MAX_PORTS 64
+#define MOD_NAME "[JACK playback] "
+
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
 #include "audio/utils.h"
@@ -55,12 +60,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#define DEFAULT_AUDIO_BUF_LEN_MS 50
-#define MAX_LEN_MS 1000
-#define MAX_PORTS 64
-#define MOD_NAME "[JACK playback] "
-
 
 struct state_jack_playback {
         char *jack_ports_pattern;

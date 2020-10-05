@@ -60,13 +60,13 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
         *count = 0;
         client = jack_client_open(client_name, JackNullOption, &status);
         if(status & JackFailure) {
-                fprintf(stderr, "[JACK playback] Opening JACK client failed.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Opening JACK client failed.\n");
                 return NULL;
         }
 
         ports = jack_get_ports(client, NULL, NULL, port_flags);
         if(ports == NULL) {
-                fprintf(stderr, "[JACK playback] Unable to enumerate ports.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to enumerate ports.\n");
                 return NULL;
         }
 
