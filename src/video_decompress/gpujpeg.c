@@ -180,7 +180,9 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
 static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
         *internal_codec = VIDEO_CODEC_NONE;
 	struct gpujpeg_image_parameters params = { 0 };
-#if LIBGPUJPEG_API_VERSION >= 6
+#if LIBGPUJPEG_API_VERSION >= 11
+	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL, MAX(0, log_level - LOG_LEVEL_INFO)) != 0) {
+#elif LIBGPUJPEG_API_VERSION >= 6
 	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL) != 0) {
 #elif LIBGPUJPEG_API_VERSION >= 5
 	if (gpujpeg_reader_get_image_info(buffer, len, &params, NULL) != 0) {
