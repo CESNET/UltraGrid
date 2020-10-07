@@ -5,13 +5,13 @@ TEMP_INST=/tmp/install
 
 CPATH=/usr/local/include:/usr/local/opt/qt/include
 LIBRARY_PATH=/usr/local/lib:/usr/local/opt/qt/lib
-echo "::set-env name=AJA_DIRECTORY::$AJA_INST"
-echo "::set-env name=UG_SKIP_NET_TESTS::1"
-echo "::set-env name=CPATH::$CPATH"
-echo "::set-env name=LIBRARY_PATH::$LIBRARY_PATH"
+echo "AJA_DIRECTORY=$AJA_INST" >> $GITHUB_ENV
+echo "UG_SKIP_NET_TESTS=1" >> $GITHUB_ENV
+echo "CPATH=$CPATH" >> $GITHUB_ENV
+echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV
 # libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
-echo "::set-env name=PKG_CONFIG_PATH::/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig"
-echo "::add-path::/usr/local/opt/qt/bin"
+echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig" >> $GITHUB_ENV
+echo "/usr/local/opt/qt/bin" >> $GITHUB_PATH
 
 brew install autoconf automake cppunit libtool pkg-config
 brew install ffmpeg portaudio sdl2
@@ -57,10 +57,10 @@ if [ -f /var/tmp/sdks/NDISDK_Apple.pkg  ]; then
         export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /Library/NDI/lib/x64"
         export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}/Library/NDI/lib/x64
         export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}/Library/NDI/lib/x64"
-        echo "::set-env name=CPATH::$CPATH"
-        echo "::set-env name=DYLIBBUNDLER_FLAGS::$DYLIBBUNDLER_FLAGS"
-        echo "::set-env name=LIBRARY_PATH::$LIBRARY_PATH"
-        echo "::set-env name=MY_DYLD_LIBRARY_PATH::$MY_DYLD_LIBRARY_PATH"
+        echo "CPATH=$CPATH" >> $GITHUB_ENV
+        echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> $GITHUB_ENV
+        echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV
+        echo "MY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH" >> $GITHUB_ENV
         cd $TEMP_INST
 fi
 

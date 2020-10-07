@@ -16,7 +16,7 @@ if (-Not $version) {
   throw "Cannot get MSVS version"
 }
 $version = $version.Trim()
-echo "::add-path::$installDir\VC\Tools\MSVC\$version\bin\HostX64\x64" # cl
-echo "::add-path::$installDir\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
-echo "::add-path::$installDir\MSBuild\Current\Bin"
+echo "$installDir\VC\Tools\MSVC\$version\bin\HostX64\x64" >> ${env:GITHUB_PATH} # cl
+echo "$installDir\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin" >> ${env:GITHUB_PATH}
+echo "$installDir\MSBuild\Current\Bin" >> ${env:GITHUB_PATH}
 
