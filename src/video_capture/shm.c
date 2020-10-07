@@ -379,6 +379,7 @@ static struct video_frame *vidcap_shm_grab(void *state, struct audio_frame **aud
         } else {
                 s->f[s->shm->read_head]->tile_count = 1;
         }
+        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Captured frame %dx%d %s (tiles: %d)\n", s->f[s->shm->read_head]->tiles[0].width, s->f[s->shm->read_head]->tiles[0].height, get_codec_name(s->f[s->shm->read_head]->color_spec), s->f[s->shm->read_head]->tile_count);
         assert(!s->shm->frames[s->shm->read_head].buffer_free);
 
         pthread_mutex_lock(&s->render_pkt_lock);
