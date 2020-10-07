@@ -152,6 +152,7 @@ COMMON_OBJS     = \
 		src/utils/video_frame_pool.o \
 		src/utils/wait_obj.o \
 		src/utils/worker.o \
+		src/utils/profile_timer.o \
 		src/video.o \
 		src/video_frame.o \
 		src/video_codec.o \
