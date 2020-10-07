@@ -13,5 +13,5 @@ fi
 
 export VERSION TAG
 
-echo "::set-env name=VERSION::$VERSION"
-echo "::set-env name=TAG::$TAG"
+echo "VERSION=$VERSION" >> $GITHUB_ENV
+echo "TAG=$TAG" >> $GITHUB_ENV

@@ -1,17 +1,17 @@
 #!/bin/bash -eux
 
-echo "::set-env name=AJA_DIRECTORY::/var/tmp/ntv2sdk"
-echo "::set-env name=CPATH::/usr/local/qt/include"
-echo "::set-env name=LIBRARY_PATH::/usr/local/qt/lib"
-echo "::set-env name=PKG_CONFIG_PATH::/usr/local/qt/lib/pkgconfig"
-echo "::add-path::/usr/local/qt/bin"
+echo "AJA_DIRECTORY=/var/tmp/ntv2sdk" >> $GITHUB_ENV
+echo "CPATH=/usr/local/qt/include" >> $GITHUB_ENV
+echo "LIBRARY_PATH=/usr/local/qt/lib" >> $GITHUB_ENV
+echo "PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig" >> $GITHUB_ENV
+echo "/usr/local/qt/bin" >> $GITHUB_PATH
 
 if command -v gcc-5; then
         CUDA_HOST_COMPILER=gcc-5
 else
         CUDA_HOST_COMPILER=gcc-6
 fi
-echo "::set-env name=CUDA_HOST_COMPILER::$CUDA_HOST_COMPILER"
+echo "CUDA_HOST_COMPILER=$CUDA_HOST_COMPILER" >> $GITHUB_ENV
 
 sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
 sudo apt update
