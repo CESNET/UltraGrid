@@ -29,8 +29,8 @@ sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
-( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig )
-( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic )
+( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig || exit 1 )
+( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
 
