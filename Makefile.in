@@ -35,6 +35,7 @@ GUI_TARGET    = @GUI_TARGET@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
 TEST_TARGET  = bin/run_tests$(EXEEXT)
 
+PACKAGE_TARNAME ?= @PACKAGE_TARNAME@
 PREFIX = @prefix@
 prefix = $(PREFIX)
 exec_prefix = @exec_prefix@
@@ -43,8 +44,7 @@ bindir = @bindir@
 libdir = @libdir@
 datadir = @datadir@
 datarootdir = @datarootdir@
-docdir = @docdir@/ultragrid
-uv_datadir = @datadir@/ultragrid
+docdir = @docdir@
 mandir = @mandir@
 man1dir = @mandir@/man1
 srcdir        = @srcdir@
@@ -666,12 +666,11 @@ install: all
 		$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)/ultragrid;\
 		$(INSTALL) -m 755 @MODULES@ $(DESTDIR)$(libdir)/ultragrid;\
 	fi
-	$(INSTALL) -d -m 755 $(DESTDIR)$(uv_datadir)
-	$(INSTALL) -m 755 $(srcdir)/data/ultragrid-bugreport-collect.sh $(DESTDIR)$(uv_datadir)
 	$(INSTALL) -d -m 755 $(DESTDIR)$(docdir)
 	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)$(docdir)
-	$(INSTALL) -m 644 $(srcdir)/COPYRIGHT $(DESTDIR)$(docdir)
+	$(INSTALL) -m 644 $(srcdir)/CONTRIBUTING.md $(srcdir)/COPYRIGHT $(srcdir)/INSTALL $(srcdir)/NEWS $(srcdir)/README.md $(DESTDIR)$(docdir)
 	$(CP) $(srcdir)/speex-1.2rc1/COPYING $(DESTDIR)$(docdir)/COPYING.speex
+	$(INSTALL) -m 755 $(srcdir)/data/ultragrid-bugreport-collect.sh $(DESTDIR)$(docdir)
 	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
 	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(srcdir)/data/hd-rum-transcode.1 $(DESTDIR)$(man1dir)
 	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
@@ -680,11 +679,10 @@ uninstall:
 	$(RM) $(DESTDIR)$(bindir)/uv
 	$(RM) $(DESTDIR)$(bindir)/hd-rum-transcode
 	if [ -n "@MODULES@" ]; then for n in @MODULES@; do $(RM) $(DESTDIR)$(libdir)/ultragrid/`basename $$n`; done; fi
-	$(RM) $(DESTDIR)$(uv_datadir)/ultragrid-bugreport-collect.sh
 	for n in $(DOCS); do $(RM) $(DESTDIR)$(docdir)$$n; done;
-	$(RM) $(DESTDIR)$(docdir)COPYRIGHT
-	$(RM) $(DESTDIR)$(docdir)COPYING.speex
-	$(RM) $(DESTDIR)$(uv_datadir)ultragrid-bugreport-collect.sh
+	$(RM) $(DESTDIR)$(docdir)/CONTRIBUTING.md $(DESTDIR)$(docdir)/COPYRIGHT $(DESTDIR)$(docdir)/INSTALL $(DESTDIR)$(docdir)/NEWS $(DESTDIR)$(docdir)/README.md
+	$(RM) $(DESTDIR)$(docdir)/COPYING.speex
+	$(RM) $(DESTDIR)$(docdir)/ultragrid-bugreport-collect.sh
 	if [ -f "$(GUI_TARGET)" ]; then \
 		$(RM) $(DESTDIR)$(bindir)/`basename $(GUI_TARGET)`;\
 		$(RM) $(DESTDIR)$(datadir)/applications/uv-qt.desktop;\
