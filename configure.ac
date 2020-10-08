@@ -132,9 +132,9 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
         APPEXT=.app
-        AC_SUBST(APPEXT)
 elif expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
+        APPEXT=.exe
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 else
         system=Linux

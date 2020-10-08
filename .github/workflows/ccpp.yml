@@ -245,7 +245,7 @@ jobs:
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel '[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt $NDI --with-live555=/usr/local'
+      run: C:\msys64\usr\bin\bash -cel '[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --prefix=/ --bindir=/ --docdir=/doc --enable-qt $NDI --with-live555=/usr/local'
     - name: make
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
@@ -255,11 +255,11 @@ jobs:
         C:\msys64\usr\bin\bash -cel '
           cp gui/QT/uv-qt.exe bin
           rm bin/run_tests.exe
-          IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done
-          windeployqt bin/uv-qt.exe
-          cp data/update.ps1 bin
-          mkdir build
-          mv bin build/UltraGrid-$VERSION-win64'
+          export DESTDIR=build/UltraGrid-$VERSION-win64
+          make install
+          IFS=\"|\"; for exe in $DESTDIR/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" $DESTDIR; done; done
+          windeployqt $DESTDIR/uv-qt.exe
+          cp data/update.ps1 $DESTDIR'
     - name: make dist-check
       run: C:\msys64\usr\bin\bash -cel 'PATH=
         /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe'

@@ -28,7 +28,6 @@ GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 CUDA_COMPILER = @CUDA_COMPILER@
 SYSTEM	      = @system@
-APPEXT        = @APPEXT@
 
 GUI_EXE       = @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
@@ -463,7 +462,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
-gui/QT/uv-qt$(APPEXT): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
+$(GUI_TARGET): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	$(MKDIR_P) $(dir $@)
 	if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
 	cd gui/QT && $(QMAKE) "DESTDIR+=./" $(srcdir)/../../gui/QT && make -j 4
