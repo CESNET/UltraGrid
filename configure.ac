@@ -2268,10 +2268,10 @@ fi
 # -------------------------------------------------------------------------------------------------
 gpujpeg_to_dxt=no
 AC_ARG_ENABLE(gpujpeg_to_dxt,
-[  --disable-jpeg-to-dxt   disable GPUJPEG DXT transcoder (default is auto)]
+[  --disable-jpeg-to-dxt   disable GPUJPEG DXT transcoder (default is disable)]
 [                          Requires: CUDA libgpujpeg],
               [gpujpeg_to_dxt_req=$enableval],
-              [gpujpeg_to_dxt_req=$build_default])
+              [gpujpeg_to_dxt_req=no])
 
 if test $gpujpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
         "$found_gpujpeg" = yes
@@ -2280,7 +2280,7 @@ then
         DEFINE_CUDA_DXT
         gpujpeg_to_dxt=yes
         GPUJPEG_TO_DXT_INC=" $CUDA_INC"
-        GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $JPEG_LIB"
+        GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $GPUJPEG_LIB"
         GPUJPEG_TO_DXT_OBJ="src/video_decompress/gpujpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
         ADD_MODULE("vdecompress_gpujpeg_to_dxt", $GPUJPEG_TO_DXT_OBJ, "$GPUJPEG_TO_DXT_LIB")
         AC_DEFINE([HAVE_GPUJPEG_TO_DXT], [1], [Build with GPUJPEG DXT transcode support])
