@@ -292,7 +292,7 @@ static void crash_signal_handler(int sig)
                 *ptr++ = PACKAGE_BUGREPORT[i];
         }
         *ptr++ = '.'; *ptr++ = '\n';
-        const char message3[] = "You may find some tips how to report bugs in file REPORTING-BUGS distributed with ";
+        const char message3[] = "You may find some tips how to report bugs in file doc/reporting_bugs.md distributed with ";
         for (size_t i = 0; i < sizeof message3 - 1; ++i) {
                 *ptr++ = message3[i];
         }

@@ -18,7 +18,7 @@ way or extend this document.
 
 ## Resources
 
-- [Adding modules HOWTO](ADDING-MODULES.md)
+- [Adding modules HOWTO](doc/ADDING-MODULES.md)
 - [Doxygen](https://frakira.fi.muni.cz/~xpulec/ultragrid-doxygen/html/)
 - [GitHub devel page](https://github.com/CESNET/UltraGrid/wiki/Developer-Documentation)
 - [Trello board](https://trello.com/b/PjZW4sas/ultragrid-development) tracking the development
@@ -27,7 +27,7 @@ way or extend this document.
 You can either fill an issue at GitHub or contact our development team directly
 with the e-mail or use a chat. If you suspect that the issue may not be always
 replicable, you can use a script `ultragrid-bugreport-collect.sh` to collect
-data about a computer and attach its result. See also [here](REPORTING-BUGS.md).
+data about a computer and attach its result. See also [here](doc/REPORTING-BUGS.md).
 
 Especially for various questions about UltraGrid usage you may also use our Matrix chat
 [![@ultragrid:matrix.org](https://img.shields.io/badge/Matrix-chat-black)](https://matrix.to/#/!IrTYOLJOmZIoTBiITI:matrix.org?via=matrix.org).
