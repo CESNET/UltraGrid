@@ -2314,19 +2314,19 @@ static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         uint8_t tmp;
                         // U
-                        tmp = *src_cbcr++ >> 2;
+                        tmp = *src_cbcr++ >> 8;
                         *dst1++ = tmp;
                         *dst2++ = tmp;
                         // Y
-                        *dst1++ = *src_y1++ >> 2;
-                        *dst2++ = *src_y2++ >> 2;
+                        *dst1++ = *src_y1++ >> 8;
+                        *dst2++ = *src_y2++ >> 8;
                         // V
-                        tmp = *src_cbcr++ >> 2;
+                        tmp = *src_cbcr++ >> 8;
                         *dst1++ = tmp;
                         *dst2++ = tmp;
                         // Y
-                        *dst1++ = *src_y1++ >> 2;
-                        *dst2++ = *src_y2++ >> 2;
+                        *dst1++ = *src_y1++ >> 8;
+                        *dst2++ = *src_y2++ >> 8;
                 }
         }
 }
