@@ -2539,13 +2539,16 @@ av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
 */
 struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPixelFormat SrcFormat, unsigned int DstW, unsigned int DstH, enum AVPixelFormat DstFormat, int64_t Flags) {
     struct SwsContext *Context = sws_alloc_context();
-    // 0 = limited range, 1 = full range
-    int SrcRange = 1;
-    int DstRange = 1;
-
     if (!Context) {
             return 0;
     }
+
+    const struct AVPixFmtDescriptor *SrcFormatDesc = av_pix_fmt_desc_get(SrcFormat);
+    const struct AVPixFmtDescriptor *DstFormatDesc = av_pix_fmt_desc_get(DstFormat);
+
+    // 0 = limited range, 1 = full range
+    int SrcRange = SrcFormatDesc != NULL && (SrcFormatDesc->flags & AV_PIX_FMT_FLAG_RGB) != 0 ? 1 : 0;
+    int DstRange = DstFormatDesc != NULL && (DstFormatDesc->flags & AV_PIX_FMT_FLAG_RGB) != 0 ? 1 : 0;
 
     av_opt_set_int(Context, "sws_flags",  Flags, 0);
     av_opt_set_int(Context, "srcw",       SrcW, 0);
