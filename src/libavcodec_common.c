@@ -2487,7 +2487,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_NV12, RGB, nv12_to_rgb32, false},
                 // 12-bit YUV
                 {AV_PIX_FMT_YUV444P12LE, R10k, yuv444p12le_to_r10k, false},
-                {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p12le_to_r12l, false},
+                {AV_PIX_FMT_YUV444P12LE, R12L, yuv444p12le_to_r12l, false},
                 // 16-bit YUV
                 {AV_PIX_FMT_YUV444P16LE, R10k, yuv444p16le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p16le_to_r12l, false},
