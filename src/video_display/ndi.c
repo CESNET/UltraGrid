@@ -207,7 +207,7 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
         NDI_video_frame.p_data = (uint8_t *) frame->tiles[0].data;
         NDI_video_frame.frame_rate_N = get_framerate_n(frame->fps);
         NDI_video_frame.frame_rate_D = get_framerate_d(frame->fps);
-        NDI_video_frame.frame_format_type = frame->interlacing = PROGRESSIVE ? NDIlib_frame_format_type_progressive : NDIlib_frame_format_type_interleaved;
+        NDI_video_frame.frame_format_type = frame->interlacing == PROGRESSIVE ? NDIlib_frame_format_type_progressive : NDIlib_frame_format_type_interleaved;
         NDI_video_frame.timecode = NDIlib_send_timecode_synthesize;
 
         NDIlib_send_send_video_v2(s->pNDI_send, &NDI_video_frame);
