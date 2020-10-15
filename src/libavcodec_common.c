@@ -1624,6 +1624,30 @@ static void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
         }
 }
 
+static void yuv444p16le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < height; ++y) {
+                unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y + 1;
+                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y + 1;
+                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y + 1;
+                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
+
+                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
+                        *dst++ = (*src_cb + *(src_cb + 2)) / 2;
+                        src_cb += 4;
+                        *dst++ = *src_y;
+                        src_y += 2;
+                        *dst++ = (*src_cr + *(src_cr + 2)) / 2;
+                        src_cr += 4;
+                        *dst++ = *src_y;
+                        src_y += 2;
+                }
+        }
+}
+
+
 static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -2491,6 +2515,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 // 16-bit YUV
                 {AV_PIX_FMT_YUV444P16LE, R10k, yuv444p16le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p16le_to_r12l, false},
+                {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, true},
                 // RGB
                 {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
                 {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
