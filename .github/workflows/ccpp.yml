@@ -88,7 +88,7 @@ jobs:
     - name: Install FFmpeg
       run: .github/scripts/Linux/install_ffmpeg.sh
     - name: configure
-      run: "[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --enable-jack-transport=force --with-live555=/usr/local $NDI"
+      run: "[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local $NDI"
     - name: make
       run: make -j4
     - name: make check
