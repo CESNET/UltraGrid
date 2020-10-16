@@ -2422,35 +2422,21 @@ jack_trans=no
 jack=no
 
 AC_ARG_ENABLE(jack-transport,
-[  --enable-jack-transport[=force] enable JACK transport (default is auto; disabled in modular build, can be forced)]
+[  --enable-jack-transport[=force] enable JACK transport (default is auto)]
 [                          Requires: jack],
 	[jack_trans_req=$enableval],
         [jack_trans_req=$build_default])
 
-if test $jack_trans_req = yes -a $build_libraries = yes
-then
-        AC_MSG_ERROR([JACK transport is currently incompatible with modular build]);
-fi
 
 AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
-AC_CHECK_LIB(jack, jack_client_new, [FOUND_JACK_L=yes]
-                                    [JACK_LIB=-ljack], FOUND_JACK_L=no)
-if test $FOUND_JACK_L = no; then
-        # Windows
-        AC_CHECK_LIB(libjack64, jack_client_new, [FOUND_JACK_L=yes]
-                                                 [JACK_LIB=-llibjack64], FOUND_JACK_L=no)
-fi
 
-if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes -a \( $build_libraries = no -o $jack_trans_req = force \)
+if test $jack_trans_req != no -a $FOUND_JACK_H = yes
 then
     JACK_TRANS_OBJ="src/audio/jack.o"
-    JACK_TRANS_LIB="$JACK_LIB"
     AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
     jack_trans=yes
 fi
 AC_SUBST(JACK_TRANS_OBJ)
-AC_SUBST(JACK_TRANS_LIB)
-AC_SUBST(JACK_TRANS_INC)
 
 # sound system
 AC_ARG_ENABLE(jack,
@@ -2459,7 +2445,7 @@ AC_ARG_ENABLE(jack,
 	[jack_req=$enableval],
         [jack_req=$build_default])
 
-if test $jack_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
+if test $jack_req != no -a $FOUND_JACK_H = yes
 then
     JACK_CAP_OBJ="src/audio/capture/jack.o"
     JACK_PLAY_OBJ="src/audio/playback/jack.o"
