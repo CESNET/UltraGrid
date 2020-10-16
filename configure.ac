@@ -2505,8 +2505,8 @@ then
     JACK_PLAY_OBJ="src/audio/playback/jack.o"
     AC_DEFINE([HAVE_JACK], [1], [Build with JACK support])
     jack=yes
-    ADD_MODULE("acap_jack", "$JACK_CAP_OBJ", "$JACK_LIB")
-    ADD_MODULE("aplay_jack", "$JACK_PLAY_OBJ", "$JACK_LIB")
+    ADD_MODULE("acap_jack", "$JACK_CAP_OBJ", "")
+    ADD_MODULE("aplay_jack", "$JACK_PLAY_OBJ", "")
 fi
 
 if test $jack = yes -a $speex = no

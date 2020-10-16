@@ -38,7 +38,35 @@
 #ifndef LIB_COMMON_H
 #define LIB_COMMON_H
 
+#include "config_unix.h"
+#include "config_win32.h"
+
 #include "host.h" // UNIQUE_NAME
+
+#ifdef _WIN32
+#define LIB_HANDLE HMODULE
+#define dlopen(name, flags) LoadLibraryA(name)
+#define dlsym GetProcAddress
+#define dlclose FreeLibrary
+#if !defined __cplusplus && !defined thread_local
+#define thread_local _Thread_local
+#endif
+static char *dlerror(void) ATTRIBUTE(unused);
+
+static char *dlerror(void) {
+        thread_local static char buf[1024] = "(unknown)";
+        FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
+                        NULL,                // lpsource
+                        GetLastError(),                   // message id
+                        MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
+                        buf, // output buffer
+                        sizeof buf, // size of msgbuf, bytes
+                        NULL);               // va_list of arguments
+        return buf;
+}
+#else // ! defined _WIN32
+#define LIB_HANDLE void *
+#endif // defined _WIN32
 
 /** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
