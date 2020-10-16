@@ -44,9 +44,6 @@ while read -r x; do
                 continue
         fi
         NAME=$(echo "$x" | awk '{ print $1 }')
-        if [ "$NAME" = libjack.so.0 ]; then # JACK is currently handled in AppRun
-                continue
-        fi
         EXCLUDE_LIST="$EXCLUDE_LIST $NAME"
 done < excludelist
 for n in $EXCLUDE_LIST; do
