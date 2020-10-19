@@ -1,7 +1,7 @@
 #!/bin/sh -eux
 
 export CPATH=/usr/local/include${CPATH:+":$CPATH"}
-export EXTRA_LIB_PATH=/usr/local/cuda/lib64:/usr/local/lib
+EXTRA_LIB_PATH=/usr/local/cuda/lib64:/usr/local/lib
 export LIBRARY_PATH=$EXTRA_LIB_PATH${LIBRARY_PATH:+":$LIBRARY_PATH"}
 export LD_LIBRARY_PATH=$EXTRA_LIB_PATH${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 export PATH=/usr/local/bin:$PATH
