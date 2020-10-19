@@ -65,14 +65,14 @@
 #define MICROSEC_IN_SEC 1000000.0
 
 struct ximea_functions {
-        XIAPI XI_RETURN __cdecl (*xiGetNumberDevices)(OUT PDWORD pNumberDevices);
-        XIAPI XI_RETURN __cdecl (*xiGetDeviceInfoString)(IN DWORD DevId, const char* prm, char* value, DWORD value_size);
-        XIAPI XI_RETURN __cdecl (*xiOpenDevice)(IN DWORD DevId, OUT PHANDLE hDevice);
-        XIAPI XI_RETURN __cdecl (*xiSetParamInt)(IN HANDLE hDevice, const char* prm, const int val);
-        XIAPI XI_RETURN __cdecl (*xiStartAcquisition)(IN HANDLE hDevice);
-        XIAPI XI_RETURN __cdecl (*xiGetImage)(IN HANDLE hDevice, IN DWORD timeout, OUT LPXI_IMG img);
-        XIAPI XI_RETURN __cdecl (*xiStopAcquisition)(IN HANDLE hDevice);
-        XIAPI XI_RETURN __cdecl (*xiCloseDevice)(IN HANDLE hDevice);
+        XI_RETURN __cdecl (*xiGetNumberDevices)(OUT PDWORD pNumberDevices);
+        XI_RETURN __cdecl (*xiGetDeviceInfoString)(IN DWORD DevId, const char* prm, char* value, DWORD value_size);
+        XI_RETURN __cdecl (*xiOpenDevice)(IN DWORD DevId, OUT PHANDLE hDevice);
+        XI_RETURN __cdecl (*xiSetParamInt)(IN HANDLE hDevice, const char* prm, const int val);
+        XI_RETURN __cdecl (*xiStartAcquisition)(IN HANDLE hDevice);
+        XI_RETURN __cdecl (*xiGetImage)(IN HANDLE hDevice, IN DWORD timeout, OUT LPXI_IMG img);
+        XI_RETURN __cdecl (*xiStopAcquisition)(IN HANDLE hDevice);
+        XI_RETURN __cdecl (*xiCloseDevice)(IN HANDLE hDevice);
         LIB_HANDLE handle;
 };
 
@@ -86,9 +86,9 @@ struct state_vidcap_ximea {
 };
 
 #define GET_SYMBOL(sym) do {\
-        f->sym = dlsym(f->handle, #sym);\
+        f->sym = (void *) dlsym(f->handle, #sym);\
         if (f->sym == NULL) {\
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find symbol %s\n", #sym);\
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find symbol %s: %s\n", #sym, dlerror());\
                 return false;\
         }\
 } while(0)
