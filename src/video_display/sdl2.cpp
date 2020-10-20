@@ -68,8 +68,8 @@
 
 #include <SDL2/SDL.h>
 
-#include <cstdint>
 #include <condition_variable>
+#include <cstdint>
 #include <list>
 #include <mutex>
 #include <queue>
@@ -377,7 +377,8 @@ static int display_sdl2_reconfigure(void *state, struct video_desc desc)
         return 1;
 }
 
-static const unordered_map<codec_t, uint32_t, hash<int>> pf_mapping = {
+struct ug_to_sdl_pf { codec_t first; uint32_t second; };
+static const ug_to_sdl_pf pf_mapping[] = {
         { I420, SDL_PIXELFORMAT_IYUV },
         { UYVY, SDL_PIXELFORMAT_UYVY },
         { YUYV, SDL_PIXELFORMAT_YUY2 },
@@ -390,19 +391,32 @@ static const unordered_map<codec_t, uint32_t, hash<int>> pf_mapping = {
 #endif
 };
 
-static bool create_texture(struct state_sdl2 *s, struct video_desc desc) {
-        uint32_t format;
-        auto it = pf_mapping.find(desc.color_spec);
-        if (it == pf_mapping.end()) {
-                abort();
+static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
+        const auto *it = find_if(begin(pf_mapping), end(pf_mapping), [ug_codec](const ug_to_sdl_pf &u) { return u.first == ug_codec; });
+        if (it == end(pf_mapping)) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong codec: " << get_codec_name(ug_codec) << "\n";
+                return SDL_PIXELFORMAT_UNKNOWN;
         }
-        format = it->second;
+        return it->second;
+}
 
+static auto get_supported_pfs() {
+        vector<codec_t> codecs;
+        codecs.reserve(sizeof pf_mapping / sizeof pf_mapping[0]);
+
+        for (auto item : pf_mapping) {
+                codecs.push_back(item.first);
+        }
+        return codecs;
+}
+
+
+static bool create_texture(struct state_sdl2 *s, struct video_desc desc) {
         if (s->texture) {
                 SDL_DestroyTexture(s->texture);
         }
 
-        s->texture = SDL_CreateTexture(s->renderer, format, SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
+        s->texture = SDL_CreateTexture(s->renderer, get_ug_to_sdl_format(desc.color_spec), SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
         if (!s->texture) {
                 log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create texture: %s\n", SDL_GetError());
                 return false;
@@ -693,18 +707,14 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, int nonbloc
 static int display_sdl2_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        codec_t codecs[pf_mapping.size()];
-
-        int i = 0;
-        for (auto item : pf_mapping) {
-                codecs[i++] = item.first;
-        }
+        auto codecs = get_supported_pfs();
+        size_t codecs_len = codecs.size() * sizeof(codec_t);
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if (sizeof(codecs) <= *len) {
-                                memcpy(val, codecs, sizeof(codecs));
-                                *len = sizeof(codecs);
+                        if (codecs_len <= *len) {
+                                memcpy(val, codecs.data(), codecs_len);
+                                *len = codecs_len;
                         } else {
                                 return FALSE;
                         }
