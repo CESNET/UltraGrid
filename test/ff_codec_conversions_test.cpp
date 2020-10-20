@@ -51,22 +51,22 @@ ff_codec_conversions_test::tearDown()
 
 #define TIMER(t) struct timeval t{}; gettimeofday(&(t), nullptr)
 void
-ff_codec_conversions_test::test_yuv444p16le_from_to_r10k()
+ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
 {
         using namespace std::string_literals;
 
-        constexpr int width = 1920;
-        constexpr int height = 1080;
+        constexpr int width = 320;
+        constexpr int height = 240;
         vector <unsigned char> rgba_buf(width * height * 4);
 
         /// @todo Use 10-bit natively
-        auto test_pattern = [&] {
+        auto test_pattern = [&](AVPixelFormat avfmt) {
                 vector <unsigned char> r10k_buf(width * height * 4);
                 copy(rgba_buf.begin(), rgba_buf.end(), r10k_buf.begin());
                 toR10k(r10k_buf.data(), width, height);
 
                 AVFrame frame;
-                frame.format = AV_PIX_FMT_YUV444P16LE;
+                frame.format = avfmt;
                 frame.width = width;
                 frame.height = height;
 
@@ -112,17 +112,19 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_r10k()
                 CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 1);
         };
 
-        int i = 0;
-        for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = (i++ / 4) % 0x100; });
-        test_pattern();
+        for (auto f : { AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUV444P16LE }) {
+                int i = 0;
+                for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = (i++ / 4) % 0x100; });
+                test_pattern(f);
 
-        array<unsigned char, 4> pattern{ 0xFFU, 0, 0, 0xFFU };
-        for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = pattern[i++ % 4]; });
-        test_pattern();
+                array<unsigned char, 4> pattern{ 0xFFU, 0, 0, 0xFFU };
+                for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = pattern[i++ % 4]; });
+                test_pattern(f);
 
-        default_random_engine rand_gen;
-        for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = rand_gen() % 0x100; });
-        test_pattern();
+                default_random_engine rand_gen;
+                for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = rand_gen() % 0x100; });
+                test_pattern(f);
+        }
 }
 
 void
@@ -130,7 +132,7 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
 {
         using namespace std::string_literals;
 
-        constexpr int width = 480;
+        constexpr int width = 320;
         constexpr int height = 240;
         vector <unsigned char> rgb_buf(width * height * 3);
 
