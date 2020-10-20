@@ -9,7 +9,7 @@ if (!${env:no_cuda}) {
   Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_441.22_win10.exe -OutFile cuda_inst.exe
   Start-Process -FilePath "cuda_inst.exe" -ArgumentList "-s nvcc_10.2" -Wait -NoNewWindow
   Remove-Item cuda_inst.exe
-  echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin" >> $GITHUB_PATH
+  echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin" >> ${env:GITHUB_PATH}
 }
 
 # Install XIMEA
@@ -28,7 +28,7 @@ if (${env:SDK_URL} -and ${env:GITHUB_REF} -eq "refs/heads/ndi-build") {
   Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT"
   Sleep 10
   $sdk=(dir "C:\Program Files\NewTek" -Filter *SDK -Name)
-  echo "C:\Program Files\NewTek\$sdk\Bin\x64" >> $GITHUB_PATH
+  echo "C:\Program Files\NewTek\$sdk\Bin\x64" >> ${env:GITHUB_PATH}
   #Remove-Item C:\ndi.exe
 }
 
