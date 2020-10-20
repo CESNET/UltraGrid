@@ -1647,7 +1647,6 @@ static void yuv444p16le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
-
 static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -1690,7 +1689,6 @@ static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
                 }
         }
 }
-
 
 /**
  * Changes pixel format from planar YUV 422 to packed RGB/A.
@@ -2467,12 +2465,11 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV422P10LE, RGBA, yuv422p10le_to_rgb32, false},
                 {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
-                {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, true},
                 {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P10LE, R10k, yuv444p10le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
-                {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p10le_to_r12l, false},
+                {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
                 {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
@@ -2515,7 +2512,8 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 // 16-bit YUV
                 {AV_PIX_FMT_YUV444P16LE, R10k, yuv444p16le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p16le_to_r12l, false},
-                {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, true},
+                {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, false},
+                {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, false},
                 // RGB
                 {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
                 {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
