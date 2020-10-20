@@ -11,7 +11,7 @@ class ff_codec_conversions_test : public CPPUNIT_NS::TestFixture
 {
   CPPUNIT_TEST_SUITE( ff_codec_conversions_test );
   CPPUNIT_TEST( test_yuv444p16le_from_to_r10k );
-  CPPUNIT_TEST( test_yuv444p16le_from_to_r12l );
+  CPPUNIT_TEST( test_yuv444pXXle_from_to_r12l );
   CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -21,7 +21,7 @@ public:
   void tearDown();
 
   void test_yuv444p16le_from_to_r10k();
-  void test_yuv444p16le_from_to_r12l();
+  void test_yuv444pXXle_from_to_r12l();
 };
 
 #endif // defined HAVE_LAVC

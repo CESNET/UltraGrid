@@ -126,22 +126,22 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_r10k()
 }
 
 void
-ff_codec_conversions_test::test_yuv444p16le_from_to_r12l()
+ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
 {
         using namespace std::string_literals;
 
-        constexpr int width = 1920;
-        constexpr int height = 1080;
+        constexpr int width = 480;
+        constexpr int height = 240;
         vector <unsigned char> rgb_buf(width * height * 3);
 
         /// @todo Use 12-bit natively
-        auto test_pattern = [&] {
+        auto test_pattern = [&](AVPixelFormat avfmt) {
                 vector <unsigned char> r12l_buf(vc_get_datalen(width, height, R12L));
                 decoder_t rgb_to_r12l = get_decoder_from_to(RGB, R12L, true);
                 rgb_to_r12l(r12l_buf.data(), rgb_buf.data(), vc_get_datalen(width, height, R12L), 0, 8, 16);
 
                 AVFrame frame;
-                frame.format = AV_PIX_FMT_YUV444P16LE;
+                frame.format = avfmt;
                 frame.width = width;
                 frame.height = height;
 
@@ -186,17 +186,19 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_r12l()
                 CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 1);
         };
 
-        int i = 0;
-        array<unsigned char, 3> pattern{ 0xFFU, 0, 0 };
-        for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = pattern[i++ % 3]; });
-        test_pattern();
+        for (auto f : { AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUV444P16LE }) {
+                int i = 0;
+                array<unsigned char, 3> pattern{ 0xFFU, 0, 0 };
+                for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = pattern[i++ % 3]; });
+                test_pattern(f);
 
-        for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = (i++ / 3) % 0x100; });
-        test_pattern();
+                for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = (i++ / 3) % 0x100; });
+                test_pattern(f);
 
-        default_random_engine rand_gen;
-        for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = rand_gen() % 0x100; });
-        test_pattern();
+                default_random_engine rand_gen;
+                for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = rand_gen() % 0x100; });
+                test_pattern(f);
+        }
 }
 
 #endif // defined HAVE_CPPUNIT && HAVE_LAVC
