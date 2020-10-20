@@ -2505,7 +2505,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 // 8-bit YUV (NV12)
                 {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
                 {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
-                {AV_PIX_FMT_NV12, RGB, nv12_to_rgb32, false},
+                {AV_PIX_FMT_NV12, RGBA, nv12_to_rgb32, false},
                 // 12-bit YUV
                 {AV_PIX_FMT_YUV444P12LE, R10k, yuv444p12le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P12LE, R12L, yuv444p12le_to_r12l, false},
