@@ -63,6 +63,7 @@
 #define BUFF_ELEM (1<<16)
 #define BUFF_SIZE (BUFF_ELEM * sizeof(float))
 #define MAX_PORTS 8
+#define MOD_NAME "[JACK trans.] "
 
 struct state_jack {
         struct libjack_connection *libjack;
@@ -155,7 +156,7 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
         s->out_channel_count = s->out_channel_count_req = ch_count;
 
         if ((ports = s->libjack->get_ports (s->client, s->out_port_pattern, NULL, JackPortIsInput)) == NULL) {
-                fprintf(stderr, "Cannot find any ports matching pattern '%s'\n", s->out_port_pattern);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find any ports matching pattern '%s'\n", s->out_port_pattern);
                 s->out_channel_count = 0;
                 return;
         }
@@ -168,21 +169,20 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
         while (ports[i]) ++i;
 
         if(i < s->out_channel_count) {
-                fprintf(stderr, "Not enought output ports found matching pattern '%s': "
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enought output ports found matching pattern '%s': "
                                 "%d requested, %d found\n", s->out_port_pattern, s->record.ch_count, i);
-                fprintf(stderr, "Reducing port count to %d\n", i);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Reducing port count to %d\n", i);
                 s->out_channel_count = i;
         }
          
         for(i = 0; i < s->out_channel_count; ++i) {
-                fprintf(stderr, "%s\n\n\n", ports[i]);
                 if (s->libjack->connect (s->client, s->libjack->port_name (s->output_port[i]), ports[i])) {
-                        fprintf (stderr, "cannot connect output ports\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot connect output ports: %s\n", ports[i]);
                 }
                 s->play_buffer[i] = malloc(BUFF_SIZE);
         }
         
-        fprintf(stderr, "[JACK] Sending %d output audio streams (ports).\n", s->out_channel_count);
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Sending %d output audio streams (ports).\n", s->out_channel_count);
  
         free (ports);
 }
@@ -243,16 +243,16 @@ static int attach_input_ports(struct state_jack *s)
         int i = 0;
         const char **ports;
         if ((ports = s->libjack->get_ports (s->client, s->in_port_pattern, NULL, JackPortIsOutput)) == NULL) {
-                 fprintf(stderr, "Cannot find any ports matching pattern '%s'\n", s->in_port_pattern);
+                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find any ports matching pattern '%s'\n", s->in_port_pattern);
                  return FALSE;
          }
          
          while (ports[i]) ++i;
          if(i < s->record.ch_count) {
-                 fprintf(stderr, "Not enought input ports found matching pattern '%s': "
-                                "%d requested, %d found\n", s->in_port_pattern, s->record.ch_count, i);
-                fprintf(stderr, "Reducing port count to %d\n", i);
-                s->record.ch_count = i;
+                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enought input ports found matching pattern '%s': "
+                                 "%d requested, %d found\n", s->in_port_pattern, s->record.ch_count, i);
+                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Reducing port count to %d\n", i);
+                 s->record.ch_count = i;
          }
          
          for(i = 0; i < s->in_ch_count; ++i) {
@@ -290,7 +290,7 @@ void * jack_start(const char *cfg)
         int ret = settings_init(s, cfg_copy);
         free(cfg_copy);
         if (ret != 0) {
-                fprintf(stderr, "Setting JACK failed. Check configuration ('-j' option).\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Setting JACK failed. Check configuration ('-j' option).\n");
                 goto error;
         }
         
@@ -300,13 +300,13 @@ void * jack_start(const char *cfg)
         
         s->client = s->libjack->client_open(CLIENT_NAME, JackNullOption, NULL);
         if(s->libjack->set_process_callback(s->client, jack_process_callback, (void *) s)  != 0) {
-                fprintf(stderr, "[jack] Callback initialization problem.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Callback initialization problem.\n");
                 goto error;
         }
         
         if(s->libjack->set_sample_rate_callback(s->client,
 		jack_samplerate_changed_callback, (void *) s)) {
-                        fprintf(stderr, "[jack] Callback initialization problem.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Sample rate callback initialization problem.\n");
                         goto error;
 	}
         
