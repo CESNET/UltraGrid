@@ -392,6 +392,10 @@ static const ug_to_sdl_pf pf_mapping[] = {
 };
 
 static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
+        if (ug_codec == R10k) {
+                return SDL_PIXELFORMAT_ARGB2101010;
+        }
+
         const auto *it = find_if(begin(pf_mapping), end(pf_mapping), [ug_codec](const ug_to_sdl_pf &u) { return u.first == ug_codec; });
         if (it == end(pf_mapping)) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong codec: " << get_codec_name(ug_codec) << "\n";
@@ -400,6 +404,10 @@ static uint32_t get_ug_to_sdl_format(codec_t ug_codec) {
         return it->second;
 }
 
+ADD_TO_PARAM("sdl2-r10k",
+         "* sdl2-r10k\n"
+         "  Enable 10-bit RGB support for SDL2 (EXPERIMENTAL)\n");
+
 static auto get_supported_pfs() {
         vector<codec_t> codecs;
         codecs.reserve(sizeof pf_mapping / sizeof pf_mapping[0]);
@@ -407,9 +415,11 @@ static auto get_supported_pfs() {
         for (auto item : pf_mapping) {
                 codecs.push_back(item.first);
         }
+        if (get_commandline_param("sdl2-r10k") != nullptr) {
+                codecs.push_back(R10k);
+        }
         return codecs;
 }
-
 
 static bool create_texture(struct state_sdl2 *s, struct video_desc desc) {
         if (s->texture) {
