@@ -526,6 +526,7 @@ int
 pbuf_decode(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_point const & curr_time,
                              decode_frame_t decode_func, void *data)
 {
+        using namespace std::chrono_literals;
         /* Find the first complete frame that has reached it's playout */
         /* time, and decode it into the framebuffer. Mark the frame as */
         /* decoded, but otherwise leave it in the playout buffer.      */
@@ -545,6 +546,9 @@ pbuf_decode(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_p
                                 curr->decoded = 1;
                                 return ret;
                         } else {
+                                if (curr_time > curr->playout_time + 1s) {
+                                        curr->completed = true;
+                                }
                                 debug_msg
                                     ("Unable to decode frame due to missing data (RTP TS=%u)\n",
                                      curr->rtp_timestamp);

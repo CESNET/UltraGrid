@@ -1624,6 +1624,29 @@ static void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
         }
 }
 
+static void yuv444p16le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < height; ++y) {
+                unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y + 1;
+                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y + 1;
+                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y + 1;
+                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
+
+                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
+                        *dst++ = (*src_cb + *(src_cb + 2)) / 2;
+                        src_cb += 4;
+                        *dst++ = *src_y;
+                        src_y += 2;
+                        *dst++ = (*src_cr + *(src_cr + 2)) / 2;
+                        src_cr += 4;
+                        *dst++ = *src_y;
+                        src_y += 2;
+                }
+        }
+}
+
 static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -1666,7 +1689,6 @@ static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
                 }
         }
 }
-
 
 /**
  * Changes pixel format from planar YUV 422 to packed RGB/A.
@@ -2314,19 +2336,19 @@ static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         uint8_t tmp;
                         // U
-                        tmp = *src_cbcr++ >> 2;
+                        tmp = *src_cbcr++ >> 8;
                         *dst1++ = tmp;
                         *dst2++ = tmp;
                         // Y
-                        *dst1++ = *src_y1++ >> 2;
-                        *dst2++ = *src_y2++ >> 2;
+                        *dst1++ = *src_y1++ >> 8;
+                        *dst2++ = *src_y2++ >> 8;
                         // V
-                        tmp = *src_cbcr++ >> 2;
+                        tmp = *src_cbcr++ >> 8;
                         *dst1++ = tmp;
                         *dst2++ = tmp;
                         // Y
-                        *dst1++ = *src_y1++ >> 2;
-                        *dst2++ = *src_y2++ >> 2;
+                        *dst1++ = *src_y1++ >> 8;
+                        *dst2++ = *src_y2++ >> 8;
                 }
         }
 }
@@ -2376,8 +2398,8 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },
                 { R10k, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p12le },
                 { R10k, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p16le },
-                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p10le },
-                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p12le },
+                { R12L, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p10le },
+                { R12L, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p12le },
                 { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p16le },
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
@@ -2443,12 +2465,11 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV422P10LE, RGBA, yuv422p10le_to_rgb32, false},
                 {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
-                {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, true},
                 {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P10LE, R10k, yuv444p10le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
-                {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p10le_to_r12l, false},
+                {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
                 {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
@@ -2484,13 +2505,15 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 // 8-bit YUV (NV12)
                 {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
                 {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
-                {AV_PIX_FMT_NV12, RGB, nv12_to_rgb32, false},
+                {AV_PIX_FMT_NV12, RGBA, nv12_to_rgb32, false},
                 // 12-bit YUV
                 {AV_PIX_FMT_YUV444P12LE, R10k, yuv444p12le_to_r10k, false},
-                {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p12le_to_r12l, false},
+                {AV_PIX_FMT_YUV444P12LE, R12L, yuv444p12le_to_r12l, false},
                 // 16-bit YUV
                 {AV_PIX_FMT_YUV444P16LE, R10k, yuv444p16le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p16le_to_r12l, false},
+                {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, false},
+                {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, false},
                 // RGB
                 {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
                 {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
@@ -2539,13 +2562,16 @@ av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
 */
 struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPixelFormat SrcFormat, unsigned int DstW, unsigned int DstH, enum AVPixelFormat DstFormat, int64_t Flags) {
     struct SwsContext *Context = sws_alloc_context();
-    // 0 = limited range, 1 = full range
-    int SrcRange = 1;
-    int DstRange = 1;
-
     if (!Context) {
             return 0;
     }
+
+    const struct AVPixFmtDescriptor *SrcFormatDesc = av_pix_fmt_desc_get(SrcFormat);
+    const struct AVPixFmtDescriptor *DstFormatDesc = av_pix_fmt_desc_get(DstFormat);
+
+    // 0 = limited range, 1 = full range
+    int SrcRange = SrcFormatDesc != NULL && (SrcFormatDesc->flags & AV_PIX_FMT_FLAG_RGB) != 0 ? 1 : 0;
+    int DstRange = DstFormatDesc != NULL && (DstFormatDesc->flags & AV_PIX_FMT_FLAG_RGB) != 0 ? 1 : 0;
 
     av_opt_set_int(Context, "sws_flags",  Flags, 0);
     av_opt_set_int(Context, "srcw",       SrcW, 0);

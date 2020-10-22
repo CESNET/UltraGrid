@@ -456,3 +456,15 @@ void buf_get_planes(int width, int height, codec_t color_spec, char *data, char 
         }
 }
 
+void buf_get_linesizes(int width, codec_t color_spec, int *linesize)
+{
+        int sub[8];
+        codec_get_planes_subsampling(color_spec, sub);
+        for (int i = 0; i < 4; ++i) {
+                if (sub[2 * i] == 0) {
+                        break;
+                }
+                linesize[i] = (width + sub[2 * i] - 1) / sub[2 * i];
+        }
+}
+

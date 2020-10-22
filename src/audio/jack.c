@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2020 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,11 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * @todo
+ * It looks like there is no jack_stop()?
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -49,6 +54,7 @@
 
 #include "audio/audio.h"
 #include "audio/jack.h"
+#include "jack_common.h"
 #include "pthread.h"
 #include "rtp/rtp.h"
 #include "rtp/pbuf.h"
@@ -57,8 +63,11 @@
 #define BUFF_ELEM (1<<16)
 #define BUFF_SIZE (BUFF_ELEM * sizeof(float))
 #define MAX_PORTS 8
+#define MOD_NAME "[JACK trans.] "
 
 struct state_jack {
+        struct libjack_connection *libjack;
+
         unsigned int sender:1,
                         receiver:1;
                         
@@ -102,7 +111,7 @@ int jack_process_callback(jack_nframes_t nframes, void *arg) {
                 
                 int to_end = BUFF_SIZE - s->play_buffer_start;
                 jack_default_audio_sample_t *out =
-                        jack_port_get_buffer (s->output_port[i], nframes);
+                        s->libjack->port_get_buffer (s->output_port[i], nframes);
                 if(to_end > send_b) {
                         memcpy (out, s->play_buffer[i] + s->play_buffer_start,
                                 send_b);
@@ -119,7 +128,7 @@ int jack_process_callback(jack_nframes_t nframes, void *arg) {
         for(i = 0; i < s->record.ch_count; ++i) {
                 int j;
                 jack_default_audio_sample_t *in =
-                        jack_port_get_buffer (s->input_port[i], nframes);
+                        s->libjack->port_get_buffer (s->input_port[i], nframes);
                 for(j = 0; j < (int) nframes; ++j) {
                         *(int *)(void *)(s->rec_buffer + ((s->rec_buffer_end + (j * s->record.ch_count + i) * sizeof(int32_t)) % BUFF_SIZE)) =
                                         in[j] * INT_MAX;
@@ -146,13 +155,13 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
 
         s->out_channel_count = s->out_channel_count_req = ch_count;
 
-        if ((ports = jack_get_ports (s->client, s->out_port_pattern, NULL, JackPortIsInput)) == NULL) {
-                fprintf(stderr, "Cannot find any ports matching pattern '%s'\n", s->out_port_pattern);
+        if ((ports = s->libjack->get_ports (s->client, s->out_port_pattern, NULL, JackPortIsInput)) == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find any ports matching pattern '%s'\n", s->out_port_pattern);
                 s->out_channel_count = 0;
                 return;
         }
         for (i = 0; i < s->record.ch_count; ++i) {
-                jack_disconnect(s->client, jack_port_name (s->output_port[i]), ports[i]);
+                s->libjack->disconnect(s->client, s->libjack->port_name (s->output_port[i]), ports[i]);
                 free(s->play_buffer[i]);
         }
 
@@ -160,21 +169,20 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
         while (ports[i]) ++i;
 
         if(i < s->out_channel_count) {
-                fprintf(stderr, "Not enought output ports found matching pattern '%s': "
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enought output ports found matching pattern '%s': "
                                 "%d requested, %d found\n", s->out_port_pattern, s->record.ch_count, i);
-                fprintf(stderr, "Reducing port count to %d\n", i);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Reducing port count to %d\n", i);
                 s->out_channel_count = i;
         }
          
         for(i = 0; i < s->out_channel_count; ++i) {
-                fprintf(stderr, "%s\n\n\n", ports[i]);
-                if (jack_connect (s->client, jack_port_name (s->output_port[i]), ports[i])) {
-                        fprintf (stderr, "cannot connect output ports\n");
+                if (s->libjack->connect (s->client, s->libjack->port_name (s->output_port[i]), ports[i])) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot connect output ports: %s\n", ports[i]);
                 }
                 s->play_buffer[i] = malloc(BUFF_SIZE);
         }
         
-        fprintf(stderr, "[JACK] Sending %d output audio streams (ports).\n", s->out_channel_count);
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Sending %d output audio streams (ports).\n", s->out_channel_count);
  
         free (ports);
 }
@@ -234,21 +242,21 @@ static int attach_input_ports(struct state_jack *s)
 {
         int i = 0;
         const char **ports;
-        if ((ports = jack_get_ports (s->client, s->in_port_pattern, NULL, JackPortIsOutput)) == NULL) {
-                 fprintf(stderr, "Cannot find any ports matching pattern '%s'\n", s->in_port_pattern);
+        if ((ports = s->libjack->get_ports (s->client, s->in_port_pattern, NULL, JackPortIsOutput)) == NULL) {
+                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find any ports matching pattern '%s'\n", s->in_port_pattern);
                  return FALSE;
          }
          
          while (ports[i]) ++i;
          if(i < s->record.ch_count) {
-                 fprintf(stderr, "Not enought input ports found matching pattern '%s': "
-                                "%d requested, %d found\n", s->in_port_pattern, s->record.ch_count, i);
-                fprintf(stderr, "Reducing port count to %d\n", i);
-                s->record.ch_count = i;
+                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enought input ports found matching pattern '%s': "
+                                 "%d requested, %d found\n", s->in_port_pattern, s->record.ch_count, i);
+                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Reducing port count to %d\n", i);
+                 s->record.ch_count = i;
          }
          
          for(i = 0; i < s->in_ch_count; ++i) {
-                 if (jack_connect (s->client, ports[i], jack_port_name (s->input_port[i]))) {
+                 if (s->libjack->connect (s->client, ports[i], s->libjack->port_name (s->input_port[i]))) {
                          fprintf (stderr, "cannot connect input ports\n");
                  }
          }
@@ -262,6 +270,12 @@ void * jack_start(const char *cfg)
         struct state_jack *s;
          
         s = (struct state_jack *) malloc(sizeof(struct state_jack));
+        assert (s != NULL);
+        s->libjack = open_libjack();
+        if (s->libjack == NULL) {
+                free(s);
+                return NULL;
+        }
         
         s->in_port_pattern = NULL;
         s->out_port_pattern = NULL;
@@ -276,25 +290,23 @@ void * jack_start(const char *cfg)
         int ret = settings_init(s, cfg_copy);
         free(cfg_copy);
         if (ret != 0) {
-                fprintf(stderr, "Setting JACK failed. Check configuration ('-j' option).\n");
-                free(s);
-                return NULL;
-        }
-        
-        if(!s->sender && !s->receiver) {
-                free(s);
-                return NULL;
-        }
-        
-        s->client = jack_client_open(CLIENT_NAME, JackNullOption, NULL);
-        if(jack_set_process_callback(s->client, jack_process_callback, (void *) s)  != 0) {
-                fprintf(stderr, "[jack] Callback initialization problem.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Setting JACK failed. Check configuration ('-j' option).\n");
                 goto error;
         }
         
-        if(jack_set_sample_rate_callback(s->client,
+        if(!s->sender && !s->receiver) {
+                goto error;
+        }
+        
+        s->client = s->libjack->client_open(CLIENT_NAME, JackNullOption, NULL);
+        if(s->libjack->set_process_callback(s->client, jack_process_callback, (void *) s)  != 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Callback initialization problem.\n");
+                goto error;
+        }
+        
+        if(s->libjack->set_sample_rate_callback(s->client,
 		jack_samplerate_changed_callback, (void *) s)) {
-                        fprintf(stderr, "[jack] Callback initialization problem.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Sample rate callback initialization problem.\n");
                         goto error;
 	}
         
@@ -306,7 +318,7 @@ void * jack_start(const char *cfg)
                 
                 for(i = 0; i < MAX_PORTS; ++i) {
                         snprintf(name, 30, "out_%02u", i);
-                        s->output_port[i] = jack_port_register (s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+                        s->output_port[i] = s->libjack->port_register (s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
                 }
                 
                 s->out_channel_count = s->out_channel_count_req = 0;
@@ -318,16 +330,16 @@ void * jack_start(const char *cfg)
                 
                 for(i = 0; i < s->in_ch_count; ++i) {
                         snprintf(name, 30, "in_%02u", i);
-                        s->input_port[i] = jack_port_register (s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
+                        s->input_port[i] = s->libjack->port_register (s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
                 }
                 
-                s->record.sample_rate = jack_get_sample_rate (s->client);
+                s->record.sample_rate = s->libjack->get_sample_rate (s->client);
                 s->record.bps = sizeof(int32_t);
                 s->record.ch_count = s->in_ch_count;
                 s->rec_buffer = s->record.data = (void *) malloc(BUFF_SIZE);
         }
         
-        if (jack_activate (s->client)) {
+        if (s->libjack->activate (s->client)) {
                  fprintf (stderr, "cannot activate client");
                  goto error;
         }
@@ -338,7 +350,9 @@ void * jack_start(const char *cfg)
          }
         
         return s;
-error:        
+error:
+        close_libjack(s->libjack);
+        free(s);
         return NULL;
 }
 

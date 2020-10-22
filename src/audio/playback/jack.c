@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2019 CESNET z.s.p.o.
+ * Copyright (c) 2012-2020 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,11 @@
 #include "config_win32.h"
 #endif
 
+#define DEFAULT_AUDIO_BUF_LEN_MS 50
+#define MAX_LEN_MS 1000
+#define MAX_PORTS 64
+#define MOD_NAME "[JACK playback] "
+
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
 #include "audio/utils.h"
@@ -56,13 +61,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define DEFAULT_AUDIO_BUF_LEN_MS 50
-#define MAX_LEN_MS 1000
-#define MAX_PORTS 64
-#define MOD_NAME "[JACK playback] "
-
-
 struct state_jack_playback {
+        struct libjack_connection *libjack;
+
         char *jack_ports_pattern;
         int jack_sample_rate;
         jack_client_t *client;
@@ -116,7 +117,7 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
 
         for (int i = 0; i < s->desc.ch_count; ++i) {
                 jack_default_audio_sample_t *out =
-                        jack_port_get_buffer (s->output_port[i], nframes_available);
+                        s->libjack->port_get_buffer (s->output_port[i], nframes_available);
                 assert(out != NULL);
                 demux_channel((char *) out, s->tmp, sizeof(float), len, s->desc.ch_count, i);
         }
@@ -172,6 +173,12 @@ static void * audio_play_jack_init(const char *cfg)
                 return NULL;
         }
 
+        s->libjack = open_libjack();
+        if (s->libjack == NULL) {
+                free(s);
+                return NULL;
+        }
+
         char *dup = strdup(cfg);
         assert(dup != NULL);
         char *tmp = dup, *item, *save_ptr;
@@ -203,28 +210,28 @@ static void * audio_play_jack_init(const char *cfg)
 
         s->jack_ports_pattern = strdup(source_name);
 
-        s->client = jack_client_open(client_name, JackNullOption, &status);
+        s->client = s->libjack->client_open(client_name, JackNullOption, &status);
         if(status & JackFailure) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Opening JACK client failed.\n");
                 goto error;
         }
 
-        if(jack_set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
+        if (s->libjack->set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Registering callback problem.\n");
                 goto release_client;
         }
 
 
-        if(jack_set_process_callback(s->client, jack_process_callback, (void *) s) != 0) {
+        if (s->libjack->set_process_callback(s->client, jack_process_callback, (void *) s) != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Process callback registration problem.\n");
                 goto release_client;
         }
 
-        s->jack_sample_rate = jack_get_sample_rate (s->client);
+        s->jack_sample_rate = s->libjack->get_sample_rate (s->client);
         log_msg(LOG_LEVEL_INFO, "JACK sample rate: %d\n", s->jack_sample_rate);
 
 
-        ports = jack_get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
+        ports = s->libjack->get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to input ports matching %s.\n", s->jack_ports_pattern);
                 goto release_client;
@@ -240,7 +247,7 @@ static void * audio_play_jack_init(const char *cfg)
                 
                 for(i = 0; i < MAX_PORTS; ++i) {
                         snprintf(name, 30, "playback_%02u", i);
-                        s->output_port[i] = jack_port_register (s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+                        s->output_port[i] = s->libjack->port_register (s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
                 }
         }
                 
@@ -248,8 +255,9 @@ static void * audio_play_jack_init(const char *cfg)
         return s;
 
 release_client:
-        jack_client_close(s->client);
+        s->libjack->client_close(s->client);
 error:
+        close_libjack(s->libjack);
         free(dup);
         free(s);
         return NULL;
@@ -296,9 +304,9 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
 
         assert(desc.bps == 4 && desc.sample_rate == s->jack_sample_rate && desc.codec == AC_PCM);
 
-        jack_deactivate(s->client);
+        s->libjack->deactivate(s->client);
 
-        ports = jack_get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
+        ports = s->libjack->get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to input ports matching %s.\n", s->jack_ports_pattern);
                 return FALSE;
@@ -335,7 +343,7 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
 
         /* for all channels previously connected */
         for(i = 0; i < desc.ch_count; ++i) {
-                jack_disconnect(s->client, jack_port_name (s->output_port[i]), ports[i]);
+                s->libjack->disconnect(s->client, s->libjack->port_name (s->output_port[i]), ports[i]);
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Port %d: %s\n", i, ports[i]);
         }
         free(s->tmp);
@@ -348,13 +356,13 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
         s->tmp = malloc(s->max_channel_len);
         s->converted = malloc(desc.ch_count * s->max_channel_len);
 
-        if(jack_activate(s->client)) {
+        if (s->libjack->activate(s->client)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot activate client.\n");
                 return FALSE;
         }
 
         for(i = 0; i < desc.ch_count; ++i) {
-                if (jack_connect (s->client, jack_port_name (s->output_port[i]), ports[i])) {
+                if (s->libjack->connect (s->client, s->libjack->port_name (s->output_port[i]), ports[i])) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot connect output port: %d.\n", i);
                         return FALSE;
                 }
@@ -383,13 +391,15 @@ static void audio_play_jack_done(void *state)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
 
-        jack_client_close(s->client);
+        s->libjack->client_close(s->client);
         free(s->tmp);
         free(s->converted);
         free(s->jack_ports_pattern);
         if (s->buffer_fns) {
                 s->buffer_fns->destroy(s->data);
         }
+
+        close_libjack(s->libjack);
 
         free(s);
 }

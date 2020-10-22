@@ -1,17 +1,17 @@
 #!/bin/bash -eux
 
-echo "::set-env name=AJA_DIRECTORY::/var/tmp/ntv2sdk"
-echo "::set-env name=CPATH::/usr/local/qt/include"
-echo "::set-env name=LIBRARY_PATH::/usr/local/qt/lib"
-echo "::set-env name=PKG_CONFIG_PATH::/usr/local/qt/lib/pkgconfig"
-echo "::add-path::/usr/local/qt/bin"
+echo "AJA_DIRECTORY=/var/tmp/ntv2sdk" >> $GITHUB_ENV
+echo "CPATH=/usr/local/qt/include" >> $GITHUB_ENV
+echo "LIBRARY_PATH=/usr/local/qt/lib" >> $GITHUB_ENV
+echo "PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig" >> $GITHUB_ENV
+echo "/usr/local/qt/bin" >> $GITHUB_PATH
 
 if command -v gcc-5; then
         CUDA_HOST_COMPILER=gcc-5
 else
         CUDA_HOST_COMPILER=gcc-6
 fi
-echo "::set-env name=CUDA_HOST_COMPILER::$CUDA_HOST_COMPILER"
+echo "CUDA_HOST_COMPILER=$CUDA_HOST_COMPILER" >> $GITHUB_ENV
 
 sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
 sudo apt update
@@ -24,13 +24,13 @@ sudo apt install portaudio19-dev libjack-jackd2-dev libasound-dev libv4l-dev
 
 # for FFmpeg
 sudo apt build-dep ffmpeg
-sudo apt-get remove 'libx264*' nasm
+sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' 'libx264*' nasm
 sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
-( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig )
-( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic )
+( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig || exit 1 )
+( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
 
