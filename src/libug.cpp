@@ -63,7 +63,7 @@ struct ug_sender *ug_sender_init(const char *receiver, int mtu,
         //RTP
         params["mtu"].i = mtu;
         params["receiver"].str = receiver;
-        params["rx_port"].i = 0;
+        params["rx_port"].i = PORT_BASE;
         params["tx_port"].i = PORT_BASE;
         params["force_ip_version"].i = 0;
         params["mcast_if"].str = NULL;
