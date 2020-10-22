@@ -45,7 +45,8 @@ struct ug_sender {
         }
 };
 
-struct ug_sender *ug_sender_init(const char *receiver, int mtu)
+struct ug_sender *ug_sender_init(const char *receiver, int mtu,
+                render_packet_received_callback_t rprc, void *rprc_udata)
 {
         struct ug_sender *s = new ug_sender();
 
@@ -88,6 +89,9 @@ struct ug_sender *ug_sender_init(const char *receiver, int mtu)
                 return nullptr;
         }
 
+        render_packet_received_callback = rprc;
+        render_packet_received_callback_udata = rprc_udata;
+
         return s;
 }
 
@@ -116,6 +120,8 @@ void ug_send_frame(struct ug_sender *s, const char *data, size_t len, ug_codec_t
 
 void ug_sender_done(struct ug_sender *s)
 {
+        render_packet_received_callback = nullptr;
+        render_packet_received_callback_udata = nullptr;
         delete s;
 }
 

@@ -1,13 +1,21 @@
-#include <libug.h>
 #include <unistd.h>
+
+#include <stdio.h>
 #include <stdlib.h>
+
+#include <libug.h>
 
 #define WIDTH 1920
 #define HEIGHT 1920
 #define FPS 30.0
 
-int main() {
-        struct ug_sender_state *s = ug_sender_init("localhost", 1500);
+static void render_packet_received_callback(void *udata, struct RenderPacket *pkt) {
+        (void) udata;
+        printf("Received RenderPacket: %p\n", pkt);
+}
+
+int main(int argc, char *argv[]) {
+        struct ug_sender *s = ug_sender_init(argc == 1 ? "localhost" : argv[1], 1500, render_packet_received_callback, NULL);
         if (!s) {
                 return 1;
         }

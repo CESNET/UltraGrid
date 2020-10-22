@@ -91,6 +91,11 @@ unsigned int audio_capture_sample_rate = 0;
 unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
 unsigned int cuda_devices_count = 1;
 
+struct RenderPacket;
+
+render_packet_received_callback_t render_packet_received_callback = NULL;
+void *render_packet_received_callback_udata = NULL;
+
 int audio_init_state_ok;
 
 uint32_t RTT = 0;               /*  this is computed by handle_rr in rtp_callback */

@@ -66,6 +66,8 @@
 
 #define BUG_MSG "Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
 
+#include "libug.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -89,6 +91,9 @@ extern unsigned int audio_capture_bps;         // user-specified bps, if zero, m
                                                // best bps by itself
 extern unsigned int audio_capture_sample_rate; // user-specified sample rate, if zero, module should
                                                // choose best value by itself (usually 48000)
+
+extern render_packet_received_callback_t render_packet_received_callback;
+extern void *render_packet_received_callback_udata;
 
 #define MAX_CUDA_DEVICES 4
 extern unsigned int cuda_devices[];

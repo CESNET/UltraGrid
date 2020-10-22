@@ -18,6 +18,9 @@ extern "C" {
 #define LIBUG_DLL
 #endif
 
+struct RenderPacket;
+typedef void (*render_packet_received_callback_t)(void *udata, struct RenderPacket *pkt);
+
 typedef enum {
         UG_VIDEO_CODEC_NONE = 0, ///< dummy color spec
         UG_RGBA,     ///< RGBA 8-bit
@@ -25,7 +28,8 @@ typedef enum {
 
 struct ug_sender;
 
-LIBUG_DLL struct ug_sender *ug_sender_init(const char *receiver, int mtu);
+LIBUG_DLL struct ug_sender *ug_sender_init(const char *receiver, int mtu,
+                render_packet_received_callback_t rprc, void *rprc_udata);
 LIBUG_DLL void ug_send_frame(struct ug_sender *state, const char *data, size_t len, ug_codec_t codec, int width, int height);
 LIBUG_DLL void ug_sender_done(struct ug_sender *state);
 
