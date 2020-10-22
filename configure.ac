@@ -135,13 +135,17 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 elif expr "$host_os" : ".*mingw32.*" > /dev/null || expr "$host_os" : ".*msys.*" > /dev/null; then
         system=Windows
         APPEXT=.exe
+        DLEXT=.dll
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 else
         system=Linux
+        DLEXT=.so
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
 fi
 AC_MSG_RESULT($system);
 AC_SUBST(system)
+AC_SUBST(DLEXT)
+COMMON_FLAGS="$COMMON_FLAGS -DLIBUG_EXPORT"
 
 if test $build != $host; then
         cross_compile=yes

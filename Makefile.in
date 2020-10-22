@@ -19,6 +19,7 @@ INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compres
 DECKLINK_PATH = @DECKLINK_PATH@
 DYLIBBUNDLER  = @DYLIBBUNDLER@
 DYLIBBUNDLER_FLAGS += @DYLIBBUNDLER_FLAGS@
+DLEXT         = @DLEXT@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
 PERF          = bin/uv_perf
@@ -205,7 +206,7 @@ REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) @MODULES@ configure-messages
+all: $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) lib/libug$(DLEXT) @MODULES@ configure-messages
 
 src/dir-stamp:
 	$(MKDIR_P) $(dir $@)
@@ -237,6 +238,10 @@ endif
 $(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(MKDIR_P) $(dir $@)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
+
+lib/libug$(DLEXT): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) src/libug.o
+	$(MKDIR_P) $(dir $@)
+	$(LINKER) $(LDFLAGS) --shared $(OBJS) src/libug.o $(LIBS) -o $@ -Wl,--out-implib,lib/libug.a
 
 %.o: %.c $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
