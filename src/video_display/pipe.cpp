@@ -39,6 +39,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <iostream>
 #include <list>
 #include <mutex>
 
@@ -50,6 +51,7 @@
 #include "video_display.h"
 #include "video_display/pipe.hpp"
 
+using std::cout;
 using std::list;
 using std::mutex;
 using std::lock_guard;
@@ -57,9 +59,10 @@ using std::lock_guard;
 struct state_pipe {
         struct module *parent;
         frame_recv_delegate *delegate;
-        struct video_desc desc;
-        list<struct audio_frame *> audio_frames;
-        mutex audio_lock;
+        codec_t decode_to;
+        struct video_desc desc{};
+        list<struct audio_frame *> audio_frames{};
+        mutex audio_lock{};
 };
 
 static struct display *display_pipe_fork(void *state)
@@ -74,6 +77,11 @@ static struct display *display_pipe_fork(void *state)
         if (rc == 0) return out; else return NULL;
 }
 
+static void display_pipe_usage() {
+        cout << "Usage:\n"
+                "\t-d pipe:<ptr>[:codec=<c>]\n";
+}
+
 /**
  * @note
  * Audio is always received regardless if enabled in flags.
@@ -81,16 +89,34 @@ static struct display *display_pipe_fork(void *state)
 static void *display_pipe_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(flags);
+        codec_t decode_to = UYVY;
         frame_recv_delegate *delegate;
 
         if (!fmt || strlen(fmt) == 0 || strcmp(fmt, "help") == 0) {
                 fprintf(stderr, "Pipe dummy video driver. For internal usage - please do not use.\n");
+                if (fmt != nullptr && strcmp(fmt, "help") == 0) {
+                        display_pipe_usage();
+                }
                 return nullptr;
         }
 
         sscanf(fmt, "%p", &delegate);
+        if (strchr(fmt, ':') != nullptr) {
+                fmt = strchr(fmt, ':') + 1;
+                if (strstr(fmt, "codec=") == fmt) {
+                        const char *codec_name = fmt + strlen("codec=");
+                        decode_to = get_codec_from_name(codec_name);
+                        if (decode_to == VIDEO_CODEC_NONE) {
+                                LOG(LOG_LEVEL_ERROR) << "Wrong codec name: " << codec_name << "\n";
+                                return nullptr;
+                        }
+                } else {
+                        display_pipe_usage();
+                        return nullptr;
+                }
+        }
 
-        struct state_pipe *s = new state_pipe{parent, delegate, video_desc(), {}, {}};
+        auto *s = new state_pipe{parent, delegate, decode_to};
 
         return s;
 }
@@ -180,20 +206,17 @@ static void display_pipe_run(void *state)
 
 static int display_pipe_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(state);
-        codec_t codecs[] = {UYVY};
+        auto *s = static_cast<struct state_pipe *>(state);
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if(sizeof(codecs) <= *len) {
-                                memcpy(val, codecs, sizeof(codecs));
-                        } else {
+                        if(sizeof(codec_t) > *len) {
                                 return FALSE;
                         }
-
-                        *len = sizeof(codecs);
+                        memcpy(val, &s->decode_to, sizeof(s->decode_to));
+                        *len = sizeof s->decode_to;
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
