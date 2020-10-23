@@ -18,19 +18,46 @@ extern "C" {
 #define LIBUG_DLL
 #endif
 
+#define DEFAULT_UG_PORT 5004
+
 struct RenderPacket;
 typedef void (*render_packet_received_callback_t)(void *udata, struct RenderPacket *pkt);
 
 typedef enum {
-        UG_VIDEO_CODEC_NONE = 0, ///< dummy color spec
-        UG_RGBA,     ///< RGBA 8-bit
-} ug_codec_t;
+        UG_RGBA = 1,     ///< RGBA 8-bit
+        UG_I420 = 29,    ///< planar YUV 4:2:0 in one buffer
+} libug_pixfmt_t;
+
+typedef enum {
+        UG_UNCOMPRESSED = 0, ///< uncompressed input pixel format
+        UG_JPEG,             ///< JPEG compression (from FFmpeg, CPU-backed)
+} libug_compression_t;
 
 struct ug_sender;
 
-LIBUG_DLL struct ug_sender *ug_sender_init(const char *receiver, int mtu,
-                render_packet_received_callback_t rprc, void *rprc_udata);
-LIBUG_DLL void ug_send_frame(struct ug_sender *state, const char *data, size_t len, ug_codec_t codec, int width, int height);
+/**
+ * Optional parameters must be set to zero
+ */
+struct ug_sender_parameters {
+        const char *receiver;                    ///< receiver address
+        int mtu;                                 ///< MTU (optional, default 1500)
+        libug_compression_t compression;         ///< compression setting
+        render_packet_received_callback_t rprc;  ///< callback for received position data (optional)
+        void *rprc_udata;                        ///< user data passed to the rprc callback (optional)
+        int tx_port;                             ///< TX port (optional, default 5004)
+        int rx_port;                             ///< RX port (optional, default 5004)
+};
+
+/**
+ * @param init_params  @see ug_sender_parameters
+ */
+LIBUG_DLL struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params);
+/**
+ * @brief Sends data buffer
+ *
+ * This function is blocking.
+ */
+LIBUG_DLL void ug_send_frame(struct ug_sender *state, const char *data, libug_pixfmt_t pixel_format, int width, int height);
 LIBUG_DLL void ug_sender_done(struct ug_sender *state);
 
 #ifdef __cplusplus

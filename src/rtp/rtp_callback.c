@@ -289,7 +289,9 @@ void rtp_vr_recv_callback(struct rtp *session, rtp_event * e)
                 if (render_packet_received_callback) {
                         render_packet_received_callback(render_packet_received_callback_udata, &pkt);
                 } else {
-                        vidcap_shm_set_view(shm, &pkt);
+                        if (shm) {
+                                vidcap_shm_set_view(shm, &pkt);
+                        }
                 }
         } else {
                 debug_msg("Received position data, dismissed (capture is not shm/cuda).\n");
