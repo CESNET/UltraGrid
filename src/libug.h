@@ -60,6 +60,18 @@ LIBUG_DLL struct ug_sender *ug_sender_init(const struct ug_sender_parameters *in
 LIBUG_DLL void ug_send_frame(struct ug_sender *state, const char *data, libug_pixfmt_t pixel_format, int width, int height);
 LIBUG_DLL void ug_sender_done(struct ug_sender *state);
 
+struct ug_receiver;
+
+/// Optional parameters must be set to zero
+struct ug_receiver_parameters {
+        const char *display;                     ///< display to use (optional, default vrg)
+        const char *sender;                      ///< sender address for RTCP (optional)
+        int tx_port;                             ///< TX port for RTCP (optional, unused if sender unset, default 5004)
+        int rx_port;                             ///< RX port for RTCP (optional, unused if sender unset, default 5004)
+};
+LIBUG_DLL struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params);
+LIBUG_DLL void ug_receiver_done(struct ug_receiver *state);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

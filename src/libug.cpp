@@ -15,6 +15,8 @@
 #include "src/host.h"
 #include "utils/wait_obj.h"
 #include "video.h"
+#include "video_display.h"
+#include "video_display/pipe.hpp"
 #include "video_rxtx.h"
 
 using namespace std;
@@ -22,8 +24,8 @@ using namespace std;
 extern "C" void exit_uv(int status);
 
 void exit_uv(int status) {
-        LOG(LOG_LEVEL_WARNING) << "Requested exit with code " << status << " but continuing anyway "
-                "(we are not UltraGrid).\n";
+        should_exit = true;
+        LOG(LOG_LEVEL_WARNING) << "Requested exit with code " << status << ".\n";
 }
 
 struct ug_sender {
@@ -132,6 +134,109 @@ void ug_sender_done(struct ug_sender *s)
 {
         render_packet_received_callback = nullptr;
         render_packet_received_callback_udata = nullptr;
+        delete s;
+}
+
+struct ug_receiver {
+        struct video_rxtx *video_rxtx{};
+        struct display *display{};
+        struct module root_module;
+
+        ug_receiver() {
+                module_init_default(&root_module);
+                root_module.cls = MODULE_CLASS_ROOT;
+                //root_module.new_message = state_uv::new_message;
+                root_module.priv_data = this;
+        }
+
+        virtual ~ug_receiver() {
+                if (video_rxtx != nullptr) {
+                        video_rxtx->join();
+                        delete video_rxtx;
+                }
+                if (display != nullptr) {
+                        display_done(display);
+                }
+        }
+
+        pthread_t display_thread;
+        pthread_t receiver_thread;
+};
+
+struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params)
+{
+        struct ug_receiver *s = new ug_receiver();
+
+        chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
+        map<string, param_u> params;
+
+        // common
+        params["parent"].ptr = &s->root_module;
+        params["exporter"].ptr = NULL;
+        params["compression"].str = "none";
+        params["rxtx_mode"].i = MODE_RECEIVER;
+        params["paused"].b = false;
+
+        //RTP
+        params["mtu"].i = 9000; // doesn't matter
+        params["receiver"].str = init_params->sender ? init_params->sender : "localhost";
+        params["rx_port"].i = init_params->rx_port ? init_params->rx_port : DEFAULT_UG_PORT;
+        params["tx_port"].i = init_params->tx_port ? init_params->tx_port : 0;
+        params["force_ip_version"].i = 0;
+        params["mcast_if"].str = NULL;
+        params["fec"].str = "none";
+        params["encryption"].str = NULL;
+        params["bitrate"].ll = RATE_UNLIMITED;
+        params["start_time"].cptr = (const void *) &start_time;
+        params["video_delay"].vptr = 0;
+
+#if 0
+        // -> decoder-use-codec
+        const char *pixfmt_name = get_codec_name((codec_t) requested_pixel_format);
+        if (pixfmt_name == nullptr) {
+                LOG(LOG_LEVEL_ERROR) << "Wrong codec: " << requested_pixel_format << "\n";
+                delete s;
+                return nullptr;
+        }
+#endif
+        if (initialize_video_display(&s->root_module, init_params->display != nullptr ? init_params->display : "vrg", "", 0, nullptr, &s->display) != 0) {
+                LOG(LOG_LEVEL_ERROR) << "Unable to initialize VRG display!\n";
+                delete s;
+                return nullptr;
+        }
+
+        // UltraGrid RTP
+        params["decoder_mode"].l = VIDEO_NORMAL;
+        params["display_device"].ptr = s->display;
+
+        params["shm_state"].ptr = nullptr;
+
+        try {
+                s->video_rxtx = video_rxtx::create("ultragrid_rtp", params);
+                if (s->video_rxtx == nullptr) {
+                        delete s;
+                        return nullptr;
+                }
+        } catch (exception const &err) {
+                LOG(LOG_LEVEL_ERROR) << err.what() << endl;
+                delete s;
+                return nullptr;
+        }
+
+        pthread_create(&s->receiver_thread, NULL, video_rxtx::receiver_thread,
+                                         (void *) s->video_rxtx);
+        pthread_create(&s->display_thread, nullptr, (void* (*)(void*)) display_run, s->display);
+
+
+        return s;
+}
+
+void ug_receiver_done(struct ug_receiver *s)
+{
+        exit_uv(0);
+        pthread_join(s->receiver_thread, NULL);
+        pthread_join(s->display_thread, NULL);
+
         delete s;
 }
 
