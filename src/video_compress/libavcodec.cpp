@@ -501,9 +501,7 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
 
         s = new state_video_compress_libav();
         s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
-        if (log_level >= LOG_LEVEL_VERBOSE) {
-                av_log_set_level(AV_LOG_VERBOSE);
-        }
+        av_log_set_level((log_level - 1) * 8);
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         /*  register all the codecs (you can also register only the codec
          *         you wish to have smaller code */
