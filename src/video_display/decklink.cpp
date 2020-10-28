@@ -109,6 +109,9 @@ namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
 public:
+        unsigned long int   frames_dropped = 0;
+        unsigned long int   frames_late = 0;
+        unsigned long int   frames_flushed = 0;
         virtual ~PlaybackDelegate() = default;
         // IUnknown needs only a dummy implementation
         virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID , LPVOID *)        { return E_NOINTERFACE;}
@@ -118,11 +121,17 @@ public:
         virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 	{
                 if (result == bmdOutputFrameDisplayedLate){
+                        this->frames_late++;
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Late frame\n";
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Frames late " << this->frames_late << std::endl;
                 } else if (result == bmdOutputFrameDropped){
+                        this->frames_dropped++;
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dropped frame\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Frames dropped " << this->frames_dropped << std::endl;
                 } else if (result == bmdOutputFrameFlushed){
+                        this->frames_flushed++;
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Flushed frame\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Frames flushed " << this->frames_flushed << std::endl;
                 }
 
 		if (log_level >= LOG_LEVEL_DEBUG) {
@@ -328,6 +337,9 @@ struct state_decklink {
 
         unsigned long int   frames;
         unsigned long int   frames_last;
+        unsigned long int   frames_dropped;
+        unsigned long int   frames_late;
+        unsigned long int   frames_flushed;
         bool                stereo;
         bool                initialized_audio;
         bool                initialized_video;
@@ -616,6 +628,13 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                 double fps = (s->frames - s->frames_last) / seconds;
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
                         s->frames - s->frames_last, seconds, fps);
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << s->frames - s->frames_last << "frames in " << seconds 
+                                    << " seconds = " << fps << " FPS" << std::endl;;
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "Frames cumlative " << s->state.at(0).delegate->frames_late
+                                     << " late, " << s->state.at(0).delegate->frames_dropped 
+                                     << " dropped, " << s->state.at(0).delegate->frames_flushed
+                                     << " flushed." << std::endl;;
+
                 s->tv = tv;
                 s->frames_last = s->frames;
         }

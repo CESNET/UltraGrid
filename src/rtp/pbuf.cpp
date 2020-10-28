@@ -112,6 +112,8 @@ struct pbuf {
         int longest_gap; // longest loss
         bool out_of_order_pkts;
         bool dups; // duplicite packets
+        int num_dups;
+        int num_out_of_order_pkts;
 };
 
 static void free_cdata(struct coded_data *head);
@@ -351,9 +353,11 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         unsigned long long current_bit = 1ull << (pkt->seq % number_word_bits);
         if ((playout_buf->packets[pkt->seq / number_word_bits] & ~current_bit) > current_bit) {
                 playout_buf->out_of_order_pkts = true;
+                playout_buf->num_out_of_order_pkts++;
         }
         if (playout_buf->packets[pkt->seq / number_word_bits] & current_bit) {
                 playout_buf->dups = true;
+                playout_buf->num_dups++;
         }
         playout_buf->packets[pkt->seq / number_word_bits] |= current_bit;
         if ((uint16_t) (pkt->seq - playout_buf->last_report_seq) >= STATS_INTERVAL * 2) {
@@ -386,6 +390,8 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                         << setprecision(4) << loss_pct << "%" << fg::reset
                         << "), " << playout_buf->expected_pkts - playout_buf->received_pkts
                         << " lost, max loss " << playout_buf->longest_gap
+                        << " ,num reordered " << playout_buf->num_out_of_order_pkts
+                        << " ,num dups " << playout_buf->num_dups
                         << (playout_buf->out_of_order_pkts ? ", reordered pkts" : "")
                         << (playout_buf->dups ? ", dups" : "") << ".\n";
                 playout_buf->expected_pkts = playout_buf->received_pkts = 0;
@@ -393,6 +399,8 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                 playout_buf->longest_gap = 0;
                 playout_buf->out_of_order_pkts = false;
                 playout_buf->dups = false;
+                playout_buf->num_dups = 0;
+                playout_buf->num_out_of_order_pkts = 0;
         }
 
         if (playout_buf->frst == NULL && playout_buf->last == NULL) {
