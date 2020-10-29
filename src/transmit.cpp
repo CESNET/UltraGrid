@@ -284,7 +284,7 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                 }
         } else if(strcasecmp(fec, "RS") == 0) {
                 if(tx->media_type == TX_MEDIA_AUDIO) {
-                        fprintf(stderr, "LDGM is not currently supported for audio!\n");
+                        fprintf(stderr, "Reed–Solomon is not currently supported for audio!\n");
                         ret = false;
                 } else {
                         snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "RS cfg %s",
