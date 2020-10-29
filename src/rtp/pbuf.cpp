@@ -107,7 +107,10 @@ struct pbuf {
         unsigned long long packets[(1<<16) / sizeof(unsigned long long) / 8];
         int last_report_seq;
         int received_pkts, expected_pkts; // currently computed values
-        long long int received_pkts_cum, expected_pkts_cum; // cumulative values
+        long long int received_pkts_cum;
+        long long int expected_pkts_cum;
+        long long int num_dups_cum; 
+        long long int num_out_of_order_pkts_cum;
         uint32_t last_display_ts;
         int longest_gap; // longest loss
         bool out_of_order_pkts;
@@ -200,11 +203,13 @@ void pbuf_destroy(struct pbuf *playout_buf) {
 
                 if (playout_buf->received_pkts_cum) { // print only if relevant
                         log_msg(LOG_LEVEL_INFO, "Pbuf: total %lld/%lld packets received "
-                                        "(%.5lf%%).\n",
+                                        "(%.5lf%%) %lld reordered %lld dups.\n",
                                         playout_buf->received_pkts_cum,
                                         playout_buf->expected_pkts_cum,
                                         (double) playout_buf->received_pkts_cum /
-                                        playout_buf->expected_pkts_cum * 100.0);
+                                        playout_buf->expected_pkts_cum * 100.0,
+                                        playout_buf->num_out_of_order_pkts_cum,
+                                        playout_buf->num_dups_cum);
                 }
 
                 struct pbuf_node *curr = playout_buf->frst;
@@ -354,10 +359,12 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         if ((playout_buf->packets[pkt->seq / number_word_bits] & ~current_bit) > current_bit) {
                 playout_buf->out_of_order_pkts = true;
                 playout_buf->num_out_of_order_pkts++;
+                playout_buf->num_out_of_order_pkts_cum++;
         }
         if (playout_buf->packets[pkt->seq / number_word_bits] & current_bit) {
                 playout_buf->dups = true;
                 playout_buf->num_dups++;
+                playout_buf->num_dups_cum++;
         }
         playout_buf->packets[pkt->seq / number_word_bits] |= current_bit;
         if ((uint16_t) (pkt->seq - playout_buf->last_report_seq) >= STATS_INTERVAL * 2) {
@@ -388,12 +395,24 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                         << playout_buf->expected_pkts << " packets received ("
                         << (loss_pct < 100.0 ? fg::red : fg::reset)
                         << setprecision(4) << loss_pct << "%" << fg::reset
-                        << "), " << playout_buf->expected_pkts - playout_buf->received_pkts
-                        << " lost, max loss " << playout_buf->longest_gap
-                        << " ,num reordered " << playout_buf->num_out_of_order_pkts
-                        << " ,num dups " << playout_buf->num_dups
+                        << "), lost " << playout_buf->expected_pkts - playout_buf->received_pkts
+                        << ", max loss " << playout_buf->longest_gap
+                        << ", reordered " << playout_buf->num_out_of_order_pkts
+                        << ", dups " << playout_buf->num_dups
                         << (playout_buf->out_of_order_pkts ? ", reordered pkts" : "")
                         << (playout_buf->dups ? ", dups" : "") << ".\n";
+
+                 LOG(LOG_LEVEL_INFO) << "SSRC " << hex << setfill('0') << setw(8) <<
+                        pkt->ssrc << ": cumulative " << setw(0) << dec
+                        << playout_buf->received_pkts_cum << "/"
+                        << playout_buf->expected_pkts_cum  << " packets received ("
+                        << (double) playout_buf->received_pkts_cum /
+                                    playout_buf->expected_pkts_cum * 100.0
+                        <<"% ),"
+                        << " lost "<< playout_buf->expected_pkts_cum - playout_buf->received_pkts_cum
+                        << " / reordered "  << playout_buf->num_out_of_order_pkts_cum
+                        << " / dups " << playout_buf->num_dups_cum <<".\n";
+                        
                 playout_buf->expected_pkts = playout_buf->received_pkts = 0;
                 playout_buf->last_display_ts = pkt->ts;
                 playout_buf->longest_gap = 0;

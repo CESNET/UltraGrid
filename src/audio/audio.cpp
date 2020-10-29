@@ -99,7 +99,7 @@ enum audio_transport_device {
         NET_STANDARD
 };
 
-#define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
+#define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 4096)
 
 struct audio_network_parameters {
         char *addr = nullptr;
