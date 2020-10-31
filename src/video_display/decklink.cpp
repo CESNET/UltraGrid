@@ -625,8 +625,6 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                 double fps = (s->frames - s->frames_last) / seconds;
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
                         s->frames - s->frames_last, seconds, fps);
-                LOG(LOG_LEVEL_INFO) << MOD_NAME << s->frames - s->frames_last << " frames in " << seconds 
-                                    << " seconds = " << fps << " FPS" << std::endl;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Frames cumulative " << s->state.at(0).delegate->frames_late
                                      << " late, " << s->state.at(0).delegate->frames_dropped 
                                      << " dropped, " << s->state.at(0).delegate->frames_flushed
