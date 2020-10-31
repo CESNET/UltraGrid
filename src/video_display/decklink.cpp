@@ -337,9 +337,6 @@ struct state_decklink {
 
         unsigned long int   frames;
         unsigned long int   frames_last;
-        unsigned long int   frames_dropped;
-        unsigned long int   frames_late;
-        unsigned long int   frames_flushed;
         bool                stereo;
         bool                initialized_audio;
         bool                initialized_video;
@@ -629,11 +626,11 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
                         s->frames - s->frames_last, seconds, fps);
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << s->frames - s->frames_last << " frames in " << seconds 
-                                    << " seconds = " << fps << " FPS" << std::endl;;
+                                    << " seconds = " << fps << " FPS" << std::endl;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Frames cumulative " << s->state.at(0).delegate->frames_late
                                      << " late, " << s->state.at(0).delegate->frames_dropped 
                                      << " dropped, " << s->state.at(0).delegate->frames_flushed
-                                     << " flushed." << std::endl;;
+                                     << " flushed." << std::endl;
 
                 s->tv = tv;
                 s->frames_last = s->frames;
