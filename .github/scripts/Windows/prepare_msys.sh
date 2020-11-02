@@ -27,7 +27,10 @@ if test -d "$JACK_D"; then
         export LIBRARY_PATH=$LIBRARY_PATH:$JACK_D/lib
 fi
 
+unset temp tmp # defined by /etc/profile, causes CineForm MSBuild fail (GitHub issue #99)
+
 cd `cygpath $GITHUB_WORKSPACE`
+
 EOF
 
 . ~/.bash_profile
