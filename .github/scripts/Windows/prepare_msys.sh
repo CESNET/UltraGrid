@@ -77,5 +77,5 @@ wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.
 ( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local || exit 1 )
 
 # Build CineForm
-( git submodule update --init cineform-sdk && cd cineform-sdk && cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig || exit 1 )
+( git submodule update --init cineform-sdk && cd cineform-sdk && cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 . && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig || exit 1 )
 
