@@ -167,6 +167,12 @@ public:
 						(char *) buffer + (s->desc.height - i - 1) * linesize,
 						linesize);
 			}
+		} else if (s->desc.color_spec == RGBA) { // convert from ABGR and bottom-to-top
+			for(unsigned int i = 0; i < s->desc.height; ++i) {
+				vc_copylineRGBA(s->grabBuffer + i * linesize,
+						buffer + (s->desc.height - i - 1) * linesize,
+						linesize, 16, 8, 0);
+			}
 		} else {
 			memcpy((char *) s->grabBuffer, (char *) buffer, len);
 		}
