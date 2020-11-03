@@ -651,7 +651,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 if (tx->bitrate == RATE_AUTO) { // adaptive (spread packets to 75% frame time)
                         packet_rate = packet_rate_auto;
                 } else { // bitrate given manually
-                        long long int bitrate = tx->bitrate | RATE_FLAG_FIXED_RATE;
+                        long long int bitrate = tx->bitrate & ~RATE_FLAG_FIXED_RATE;
                         int avg_packet_size = tile->data_len / packet_count;
                         packet_rate = 1000ll * 1000 * 1000 * avg_packet_size * 8 / bitrate; // fixed rate
                         if ((tx->bitrate & RATE_FLAG_FIXED_RATE) == 0) { // adaptive capped rate
