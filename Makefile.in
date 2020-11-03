@@ -263,6 +263,7 @@ $(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS
 %.cu.lib: %.cu $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
 	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
+	touch $@
 
 src/libavcodec_common.o: src/libavcodec_common.c $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
