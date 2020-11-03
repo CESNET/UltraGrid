@@ -89,6 +89,20 @@ void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2
 class Logger
 {
 public:
+        static void preinit() {
+                if (!rang::rang_implementation::supportsColor()
+                                || !rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
+                        return;
+                }
+                // force ANSI sequences even when written to ostringstream
+                rang::setControlMode(rang::control::Force);
+#ifdef _WIN32
+                // ANSI control sequences need to be explicitly set in Windows
+                if (rang::rang_implementation::setWinTermAnsiColors(std::clog.rdbuf())) {
+                        rang::setWinTermMode(rang::winTerm::Ansi);
+                }
+#endif
+        }
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
                 rang::fg color = rang::fg::reset;

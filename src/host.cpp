@@ -240,6 +240,8 @@ struct init_data *common_preinit(int argc, char *argv[])
         perf_init();
         perf_record(UVP_INIT, 0);
 
+        Logger::preinit();
+
         return init;
 }
 
