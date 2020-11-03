@@ -81,6 +81,7 @@ void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2
 #ifdef __cplusplus
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include "compat/platform_time.h"
 #include "rang.hpp"
 
@@ -90,9 +91,6 @@ class Logger
 public:
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
-                std::cerr << rang::style::reset << rang::fg::reset;
-        }
-        inline std::ostream& Get() {
                 rang::fg color = rang::fg::reset;
                 rang::style style = rang::style::reset;
 
@@ -102,20 +100,20 @@ public:
                 case LOG_LEVEL_WARNING: color = rang::fg::yellow; break;
                 case LOG_LEVEL_NOTICE:  color = rang::fg::green; break;
                 }
-                std::cerr << style << color;
+                std::ostringstream timestamp;
                 if (log_level >= LOG_LEVEL_VERBOSE) {
-                        unsigned long long time_ms = time_since_epoch_in_ms();
-                        auto flags = std::cerr.flags();
-                        auto precision = std::cerr.precision();
-                        std::cerr << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
-                        std::cerr.precision(precision);
-                        std::cerr.flags(flags);
+                        auto time_ms = time_since_epoch_in_ms();
+                        timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
                 }
 
-                return std::cerr;
+                std::clog << style << color << timestamp.str() << oss.str() << rang::style::reset << rang::fg::reset;
+        }
+        inline std::ostream& Get() {
+                return oss;
         }
 private:
         int level;
+        std::ostringstream oss;
 };
 
 #define LOG(level) \
