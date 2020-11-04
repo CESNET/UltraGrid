@@ -113,7 +113,10 @@ public:
                                 std::clog << "    Last message repeated " << count << " times\r";
                                 return;
                         }
-                        delete last;
+                        if (last != nullptr && last->count > 0) {
+                                std::clog << "\n";
+                                delete last;
+                        }
                 }
 
                 switch (level) {
