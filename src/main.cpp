@@ -739,6 +739,8 @@ int main(int argc, char *argv[])
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
 
+        const char *log_opt = nullptr;
+
         // First we need to set verbosity level prior to everything else.
         // common_preinit() uses the verbosity level.
         while ((ch =
@@ -747,9 +749,9 @@ int main(int argc, char *argv[])
                 switch (ch) {
                 case OPT_VERBOSE:
                         if (optarg) {
-                                log_level = atoi(optarg);
+                                log_opt = optarg;
                         } else {
-                                log_level = LOG_LEVEL_VERBOSE;
+                                log_opt = "verbose";
                         }
                         break;
                 default:
@@ -758,7 +760,7 @@ int main(int argc, char *argv[])
         }
         optind = 1;
 
-        if ((init = common_preinit(argc, argv)) == nullptr) {
+        if ((init = common_preinit(argc, argv, log_opt)) == nullptr) {
                 log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
                 EXIT(EXIT_FAILURE);
         }

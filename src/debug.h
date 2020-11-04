@@ -40,6 +40,10 @@
 #ifndef _RAT_DEBUG_H
 #define _RAT_DEBUG_H
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif // ! defined __cplusplus
+
 #define UNUSED(x)	(x=x)
 
 #define LOG_LEVEL_QUIET   0 ///< suppress all logging
@@ -74,6 +78,8 @@ void debug_dump(void*lp, int len);
 #define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
 
+bool set_log_level(const char *optarg, bool *logger_repeat_msgs);
+
 #ifdef __cplusplus
 }
 #endif
@@ -90,19 +96,19 @@ void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2
 class Logger
 {
 public:
-        static void preinit() {
-                if (!rang::rang_implementation::supportsColor()
-                                || !rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
-                        return;
-                }
-                // force ANSI sequences even when written to ostringstream
-                rang::setControlMode(rang::control::Force);
+        static void preinit(bool skip_repeated) {
+                Logger::skip_repeated = skip_repeated;
+                if (rang::rang_implementation::supportsColor()
+                                && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
+                        // force ANSI sequences even when written to ostringstream
+                        rang::setControlMode(rang::control::Force);
 #ifdef _WIN32
-                // ANSI control sequences need to be explicitly set in Windows
-                if (rang::rang_implementation::setWinTermAnsiColors(std::clog.rdbuf())) {
-                        rang::setWinTermMode(rang::winTerm::Ansi);
-                }
+                        // ANSI control sequences need to be explicitly set in Windows
+                        if (rang::rang_implementation::setWinTermAnsiColors(std::clog.rdbuf())) {
+                                rang::setWinTermMode(rang::winTerm::Ansi);
+                        }
 #endif
+                }
         }
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
@@ -111,8 +117,7 @@ public:
 
                 std::string msg = oss.str();
 
-                // check for repeated message
-                if (rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
+                if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
                         auto last = last_msg.exchange(nullptr);
                         if (last != nullptr && last->msg == msg) {
                                 int count = last->count += 1;
@@ -150,6 +155,7 @@ private:
         int level;
         std::ostringstream oss;
 
+        static bool skip_repeated;
         struct last_message {
                 std::string msg;
                 int count{0};

@@ -180,4 +180,68 @@ void debug_dump(void *lp, int len)
         }
 }
 
+bool set_log_level(const char *optarg, bool *logger_repeat_msgs) {
+        using namespace std::string_literals;
+        using std::clog;
+        using std::cout;
+
+        *logger_repeat_msgs = false;
+        if (optarg == nullptr) {
+                log_level = LOG_LEVEL_VERBOSE;
+                return true;
+        }
+
+        static const struct { const char *name; int level; } mapping[] = {
+                { "quiet", LOG_LEVEL_QUIET },
+                { "fatal", LOG_LEVEL_FATAL },
+                { "error", LOG_LEVEL_ERROR },
+                { "warning", LOG_LEVEL_WARNING},
+                { "notice", LOG_LEVEL_NOTICE},
+                { "info", LOG_LEVEL_INFO  },
+                { "verbose", LOG_LEVEL_VERBOSE},
+                { "debug", LOG_LEVEL_DEBUG },
+                { "debug2", LOG_LEVEL_DEBUG2 },
+        };
+
+        if ("help"s == optarg) {
+                cout << "log level: [0-8";
+                for (auto m : mapping) {
+                        cout << "|" << m.name;
+                }
+                cout << "][+repeat]\n";
+                cout << "\trepeat - print repeating log messages\n";
+                return false;
+        }
+
+        if (strstr(optarg, "+repeat") != nullptr) {
+                *logger_repeat_msgs = true;
+        }
+
+        if (optarg[0] == '+') {
+                return true;
+        }
+
+        if (isdigit(optarg[0])) {
+                long val = strtol(optarg, nullptr, 0);
+                if (val < 0 || val > LOG_LEVEL_MAX) {
+                        clog << "Log: wrong value: " << log_level << "\n";
+                        return false;
+                }
+                log_level = val;
+                return true;
+        }
+
+        for (auto m : mapping) {
+                if (strstr(optarg, m.name) == optarg) {
+                        log_level = m.level;
+                        return true;
+                }
+        }
+
+        LOG(LOG_LEVEL_ERROR) << "Wrong log level specification: " << optarg << "\n";
+        return false;
+}
+
 std::atomic<Logger::last_message *> Logger::last_msg{};
+bool Logger::skip_repeated = true;
+
