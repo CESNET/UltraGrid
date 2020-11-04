@@ -96,20 +96,7 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs);
 class Logger
 {
 public:
-        static void preinit(bool skip_repeated) {
-                Logger::skip_repeated = skip_repeated;
-                if (rang::rang_implementation::supportsColor()
-                                && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
-                        // force ANSI sequences even when written to ostringstream
-                        rang::setControlMode(rang::control::Force);
-#ifdef _WIN32
-                        // ANSI control sequences need to be explicitly set in Windows
-                        if (rang::rang_implementation::setWinTermAnsiColors(std::clog.rdbuf())) {
-                                rang::setWinTermMode(rang::winTerm::Ansi);
-                        }
-#endif
-                }
-        }
+        static void preinit(bool skip_repeated);
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
                 rang::fg color = rang::fg::reset;
