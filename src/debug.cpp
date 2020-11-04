@@ -179,3 +179,5 @@ void debug_dump(void *lp, int len)
                 start = i;      /* next line starting byte */
         }
 }
+
+std::atomic<Logger::last_message *> Logger::last_msg{};

@@ -79,6 +79,7 @@ void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2
 #endif
 
 #ifdef __cplusplus
+#include <atomic>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -108,19 +109,39 @@ public:
                 rang::fg color = rang::fg::reset;
                 rang::style style = rang::style::reset;
 
+                std::string msg = oss.str();
+
+                // check for repeated message
+                if (rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
+                        auto last = last_msg.exchange(nullptr);
+                        if (last != nullptr && last->msg == msg) {
+                                int count = last->count += 1;
+                                auto current = last_msg.exchange(last);
+                                delete current;
+                                std::clog << "    Last message repeated " << count << " times\r";
+                                return;
+                        }
+                        delete last;
+                }
+
                 switch (level) {
                 case LOG_LEVEL_FATAL:   color = rang::fg::red; style = rang::style::bold; break;
                 case LOG_LEVEL_ERROR:   color = rang::fg::red; break;
                 case LOG_LEVEL_WARNING: color = rang::fg::yellow; break;
                 case LOG_LEVEL_NOTICE:  color = rang::fg::green; break;
                 }
+
                 std::ostringstream timestamp;
                 if (log_level >= LOG_LEVEL_VERBOSE) {
                         auto time_ms = time_since_epoch_in_ms();
                         timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
                 }
 
-                std::clog << style << color << timestamp.str() << oss.str() << rang::style::reset << rang::fg::reset;
+                std::clog << style << color << timestamp.str() << msg << rang::style::reset << rang::fg::reset;
+
+                auto *lmsg = new last_message{std::move(msg)};
+                auto current = last_msg.exchange(lmsg);
+                delete current;
         }
         inline std::ostream& Get() {
                 return oss;
@@ -128,6 +149,12 @@ public:
 private:
         int level;
         std::ostringstream oss;
+
+        struct last_message {
+                std::string msg;
+                int count{0};
+        };
+        static std::atomic<last_message *> last_msg; // leaks last message upon exit
 };
 
 #define LOG(level) \
