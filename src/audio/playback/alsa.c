@@ -103,9 +103,6 @@ struct state_alsa_playback {
         snd_pcm_t *handle;
         struct audio_desc desc;
 
-        struct timeval start_time;
-        long long int played_samples;
-
         /* Local configuration with handle_underrun workaround set for PulseAudio
            ALSA plugin.  Will be NULL if the PA ALSA plugin is not in use or the
            workaround is not required. */
@@ -834,8 +831,6 @@ static void * audio_play_alsa_init(const char *cfg)
 		log_msg(LOG_LEVEL_WARNING, MOD_NAME "Async API is experimental, in case of problems use either \"thread\" or \"sync\" API\n");
 	}
 
-        gettimeofday(&s->start_time, NULL);
-
         if(cfg && strlen(cfg) > 0) {
                 if(strcmp(cfg, "help") == 0) {
                         printf("Usage\n");
@@ -964,8 +959,6 @@ static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
                 signed2unsigned(frame->data, frame->data, frame->data_len);
         }
 
-        s->played_samples += frame->data_len / frame->bps / frame->ch_count;
-    
         int frames = frame->data_len / (frame->bps * frame->ch_count);
         rc = write_samples(s->handle, frame, frames, s->non_interleaved, s->playback_mode);
         if (rc == -EPIPE) {
@@ -1038,8 +1031,6 @@ static void audio_play_alsa_done(void *state)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
 
-        struct timeval t;
-
         if (s->playback_mode == THREAD && s->thread_started) {
                 pthread_mutex_lock(&s->lock);
                 s->should_exit_thread = true;
@@ -1050,11 +1041,6 @@ static void audio_play_alsa_done(void *state)
         if (s->playback_mode == ASYNC && s->pcm_callback) {
                 snd_async_del_handler(s->pcm_callback);
         }
-
-        gettimeofday(&t, NULL);
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "Played %lld samples in %f seconds (%f samples per second).\n",
-                        s->played_samples, tv_diff(t, s->start_time),
-                        s->played_samples / tv_diff(t, s->start_time));
 
         snd_pcm_drain(s->handle);
         snd_pcm_close(s->handle);
