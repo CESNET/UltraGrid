@@ -189,7 +189,7 @@ struct init_data *common_preinit(int argc, char *argv[], const char *log_opt)
         uv_argc = argc;
         uv_argv = argv;
 
-        if (!set_log_level(log_opt, &logger_repeat_msgs)) {
+        if (log_opt != nullptr && !set_log_level(log_opt, &logger_repeat_msgs)) {
                 return nullptr;
         }
 

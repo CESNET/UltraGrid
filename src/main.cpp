@@ -133,7 +133,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
 #define OPT_PROTOCOL (('P' << 8) | 'R')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
-#define OPT_VERBOSE (('V' << 8) | 'E')
 #define OPT_VIDEO_CODECS (('V' << 8) | 'C')
 #define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
@@ -716,7 +715,7 @@ int main(int argc, char *argv[])
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
                 {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
-                {"verbose", optional_argument, 0, OPT_VERBOSE},
+                {"verbose", optional_argument, nullptr, 'V'},
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
                 {"capabilities", no_argument, 0, OPT_CAPABILITIES},
                 {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
@@ -731,7 +730,7 @@ int main(int argc, char *argv[])
                 {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
                 {0, 0, 0, 0}
         };
-        const char optstring[] = "d:t:m:r:s:v46c:hM:p:f:P:l:A:";
+        const char optstring[] = "d:t:m:r:s:v46c:hM:p:f:P:l:A:V";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -747,11 +746,11 @@ int main(int argc, char *argv[])
                 getopt_long(argc, argv, optstring, getopt_options,
                             NULL)) != -1) {
                 switch (ch) {
-                case OPT_VERBOSE:
+                case 'V':
                         if (optarg) {
                                 log_opt = optarg;
                         } else {
-                                log_opt = "verbose";
+                                log_level += 1;
                         }
                         break;
                 default:
@@ -1059,7 +1058,7 @@ int main(int argc, char *argv[])
                                 connection_type = 0;
                         }
                         break;
-                case OPT_VERBOSE:
+                case 'V':
                         break; // already handled earlier
                 case OPT_WINDOW_TITLE:
                         log_msg(LOG_LEVEL_WARNING, "Deprecated option used, please use "

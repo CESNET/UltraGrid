@@ -181,15 +181,12 @@ void debug_dump(void *lp, int len)
 }
 
 bool set_log_level(const char *optarg, bool *logger_repeat_msgs) {
+        assert(optarg != nullptr);
+        assert(logger_repeat_msgs != nullptr);
+
         using namespace std::string_literals;
         using std::clog;
         using std::cout;
-
-        *logger_repeat_msgs = false;
-        if (optarg == nullptr) {
-                log_level = LOG_LEVEL_VERBOSE;
-                return true;
-        }
 
         static const struct { const char *name; int level; } mapping[] = {
                 { "quiet", LOG_LEVEL_QUIET },
@@ -204,7 +201,7 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs) {
         };
 
         if ("help"s == optarg) {
-                cout << "log level: [0-8";
+                cout << "log level: [0-" << LOG_LEVEL_MAX;
                 for (auto m : mapping) {
                         cout << "|" << m.name;
                 }
