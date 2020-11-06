@@ -772,24 +772,20 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
-        int rtp_hdr_len;
 
         fec_check_messages(tx);
 
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);
 
-        if(tx->encryption) {
-                rtp_hdr_len = sizeof(crypto_payload_hdr_t) + sizeof(audio_payload_hdr_t);
+        int rtp_hdr_len = sizeof(audio_payload_hdr_t);
+        int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12 + sizeof(audio_payload_hdr_t); // MTU - IP hdr - UDP hdr - RTP hdr - payload_hdr
+        if (tx->encryption) {
+                hdrs_len += sizeof(crypto_payload_hdr_t) + tx->enc_funcs->get_overhead(tx->encryption);
+                rtp_hdr_len += sizeof(crypto_payload_hdr_t);
                 pt = PT_ENCRYPT_AUDIO;
         } else {
-                rtp_hdr_len = sizeof(audio_payload_hdr_t);
                 pt = PT_AUDIO; /* PT set for audio in our packet format */
-        }
-
-        int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12 + sizeof(audio_payload_hdr_t); // MTU - IP hdr - UDP hdr - RTP hdr - payload_hdr
-        if(tx->encryption) {
-                hdrs_len += sizeof(crypto_payload_hdr_t);
         }
 
         for(channel = 0; channel < buffer->get_channel_count(); ++channel)
