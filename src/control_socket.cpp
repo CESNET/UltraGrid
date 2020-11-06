@@ -806,8 +806,8 @@ static void * control_thread(void *args)
 
                         while(cur) {
                                 if(FD_ISSET(cur->fd, &fds)) {
-                                        ssize_t ret = recv(cur->fd, cur->buff + cur->buff_len,
-                                                        sizeof(cur->buff) - cur->buff_len, 0);
+                                        ssize_t ret = PLATFORM_PIPE_READ(cur->fd, cur->buff + cur->buff_len,
+                                                        sizeof(cur->buff) - cur->buff_len);
                                         if(ret == -1) {
                                                 fprintf(stderr, "Error reading socket, closing!!!\n");
                                         }

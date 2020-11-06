@@ -967,7 +967,7 @@ void udp_exit(socket_udp * s)
         if (!s->local_is_slave) {
                 if (s->local->multithreaded) {
                         char c = 0;
-                        int ret = send(s->local->should_exit_fd[1], &c, 1, 0);
+                        int ret = PLATFORM_PIPE_WRITE(s->local->should_exit_fd[1], &c, 1);
                         assert (ret == 1);
                         s->local->should_exit = true;
                         s->local->reader_cv.notify_one();

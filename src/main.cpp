@@ -172,7 +172,9 @@ struct state_uv {
         static void should_exit_watcher(state_uv *s) {
                 set_thread_name(__func__);
                 char c;
-                while (recv(s->should_exit_pipe[0], &c, 1, 0) != 1) perror("recv");
+                while (PLATFORM_PIPE_READ(s->should_exit_pipe[0], &c, 1) != 1) {
+                        perror("PLATFORM_PIPE_READ");
+                }
                 unique_lock<mutex> lk(s->lock);
                 for (auto c : s->should_exit_callbacks) {
                         get<0>(c)(get<1>(c));
@@ -185,7 +187,9 @@ struct state_uv {
                         return;
                 }
                 should_exit_thread_notified = true;
-                while (send(should_exit_pipe[1], &c, 1, 0) != 1) perror("send");
+                while (PLATFORM_PIPE_WRITE(should_exit_pipe[1], &c, 1) != 1) {
+                        perror("PLATFORM_PIPE_WRITE");
+                }
         }
         static void new_message(struct module *mod)
         {

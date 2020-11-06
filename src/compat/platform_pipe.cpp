@@ -42,7 +42,6 @@
 #include "config_win32.h"
 
 #include "compat/platform_pipe.h"
-#include "debug.h"
 #include "rtp/net_udp.h" // socket_error
 
 #include <thread>
@@ -141,6 +140,17 @@ static void * worker(void *args)
         return NULL;
 }
 
+/// @brief return regular pipe if available if our implementation fails
+static int system_pipe(fd_t p[2])
+{
+#ifdef _WIN32
+        (void) p;
+        return -1;
+#else
+        fprintf(stderr, "Using native pipe instead of custom implementaton.\n");
+        return pipe(p);
+#endif
+}
 
 int platform_pipe_init(fd_t p[2])
 {
@@ -177,7 +187,7 @@ int platform_pipe_init(fd_t p[2])
         fd_t sock = open_socket(&par.port);
         if (sock == INVALID_SOCKET) {
                 perror("open_socket");
-                return -1;
+                return system_pipe(p);
         }
 
         DECLARE_TIMEOUT(timeout, 1);
@@ -197,7 +207,7 @@ int platform_pipe_init(fd_t p[2])
                 perror("pipe accept");
                 thr.join();
                 CLOSESOCKET(sock);
-                return -1;
+                return system_pipe(p);
         }
         thr.join();
         if (setsockopt(p[0], SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<sockopt_t>(&old_timeout), sizeof old_timeout) != 0) {
@@ -207,7 +217,7 @@ int platform_pipe_init(fd_t p[2])
         if (p[1] == INVALID_SOCKET) {
                 CLOSESOCKET(sock);
                 perror("accept");
-                return -1;
+                return system_pipe(p);
         }
         CLOSESOCKET(sock);
 
