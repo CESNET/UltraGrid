@@ -2175,9 +2175,16 @@ AC_ARG_ENABLE(gpujpeg,
         [gpujpeg_req=$build_default])
 
 
-PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
+PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [ libgpujpeg ], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
+PKG_CHECK_MODULES([LIBGPUJPEG], [ libgpujpeg >= 0.11 ], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
 
-if test "$found_gpujpeg" != yes
+if test "$found_gpujpeg_any" = yes -a "$found_gpujpeg" = no; then
+        AC_MSG_WARN([Old GPUJPEG version found, please upgrade]);
+fi
+
+# try to find without pkg-config (but only if old version was not detected - to avoid side-loading
+# that version without pkg-config version check)
+if test "$found_gpujpeg_any" != yes -a "$found_gpujpeg" != yes
 then
         GPUJPEG_LIB="$GPUJPEG_LIB -lgpujpeg"
         SAVED_LIBS=$LIBS
