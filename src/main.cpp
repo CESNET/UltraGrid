@@ -1131,7 +1131,7 @@ int main(int argc, char *argv[])
                         audio_codec = "OPUS:sample_rate=48000";
                 }
                 if (requested_compression == nullptr) {
-                        requested_compression = "none"; // will be set later
+                        requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
                 }
                 if (force_ip_version == 0 && strcasecmp(video_protocol, "rtsp") == 0) {
                         force_ip_version = 4;
