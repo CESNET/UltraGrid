@@ -92,6 +92,8 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs);
 #include "compat/platform_time.h"
 #include "rang.hpp"
 
+class keyboard_control; // friend
+
 // Log, version 0.1: a simple logging class
 class Logger
 {
@@ -145,12 +147,14 @@ private:
         int level;
         std::ostringstream oss;
 
-        static bool skip_repeated;
+        static std::atomic<bool> skip_repeated;
         struct last_message {
                 std::string msg;
                 int count{0};
         };
         static std::atomic<last_message *> last_msg; // leaks last message upon exit
+
+        friend class keyboard_control;
 };
 
 #define LOG(level) \

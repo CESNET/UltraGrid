@@ -258,5 +258,5 @@ void Logger::preinit(bool skip_repeated)
 }
 
 std::atomic<Logger::last_message *> Logger::last_msg{};
-bool Logger::skip_repeated = true;
+std::atomic<bool> Logger::skip_repeated{true};
 
