@@ -89,6 +89,7 @@
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/misc.h"
+#include "utils/nat.h"
 #include "utils/net.h"
 #include "utils/thread.h"
 #include "utils/wait_obj.h"
@@ -377,6 +378,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-M <video_mode>", {"received video mode (eg tiled-4K, 3D,",
                                 "dual-link)"});
                 print_help_item("-p <postprocess> | help", {"postprocess module"});
+                print_help_item("-N|--nat-traverse"s, {"try to deploy NAT traversal techniques"s});
         }
         print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
                         "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%%\" or", "\"ldgm:<k>:<m>:<c>\"",
@@ -732,9 +734,10 @@ int main(int argc, char *argv[])
                 {"param", required_argument, 0, OPT_PARAM},
                 {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
                 {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
+                {"nat-traverse", no_argument, nullptr, 'N'},
                 {0, 0, 0, 0}
         };
-        const char optstring[] = "d:t:m:r:s:v46c:hM:p:f:P:l:A:V";
+        const char *optstring = "d:t:m:r:s:v46c:hM:Np:f:P:l:A:V";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -743,6 +746,8 @@ int main(int argc, char *argv[])
         const char *video_protocol_opts = "";
 
         const char *log_opt = nullptr;
+        bool setup_nat_traverse = false;
+        struct ug_nat_traverse *nat_traverse = nullptr;
 
         // First we need to set verbosity level prior to everything else.
         // common_preinit() uses the verbosity level.
@@ -1092,6 +1097,9 @@ int main(int argc, char *argv[])
                 case OPT_VIDEO_CODECS:
                         print_video_codecs();
                         EXIT(EXIT_SUCCESS);
+                case 'N':
+                        setup_nat_traverse = true;
+                        break;
                 case '?':
                 default:
                         usage(uv_argv[0]);
@@ -1239,6 +1247,10 @@ int main(int argc, char *argv[])
         if (control_init(control_port, connection_type, &control, &uv.root_module, force_ip_version) != 0) {
                 LOG(LOG_LEVEL_FATAL) << "Error: Unable to initialize remote control!\n";
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
+        }
+
+        if (setup_nat_traverse) {
+                nat_traverse = start_nat_traverse(video_rx_port, audio_rx_port);
         }
 
         uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,
@@ -1502,6 +1514,8 @@ cleanup:
                 vidcap_done(uv.capture_device);
         if (uv.display_device)
                 display_done(uv.display_device);
+
+        stop_nat_traverse(nat_traverse);
 
         kc.stop();
         control_done(control);
