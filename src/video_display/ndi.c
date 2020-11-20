@@ -273,18 +273,14 @@ static void display_ndi_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct display_ndi *s = (struct display_ndi *) state;
         assert(frame->bps == 4);
-        float *tmp = malloc(frame->data_len);
-        NDIlib_audio_frame_v2_t NDI_audio_frame = { 0 };
+        NDIlib_audio_frame_interleaved_32s_t NDI_audio_frame = { 0 };
         NDI_audio_frame.sample_rate = frame->sample_rate;
         NDI_audio_frame.no_channels = frame->ch_count;
         NDI_audio_frame.timecode = NDIlib_send_timecode_synthesize;
-        NDI_audio_frame.p_data = tmp;
-        NDI_audio_frame.channel_stride_in_bytes = frame->data_len / frame->ch_count;
-        NDI_audio_frame.no_samples = frame->data_len / frame->ch_count / sizeof(float);
-        int2float((char *) tmp, frame->data, frame->data_len);
+        NDI_audio_frame.p_data = (int32_t *) frame->data;
+        NDI_audio_frame.no_samples = frame->data_len / frame->ch_count / sizeof NDI_audio_frame.p_data[0];
 
-        NDIlib_send_send_audio_v2(s->pNDI_send, &NDI_audio_frame);
-        free(tmp);
+        NDIlib_util_send_send_audio_interleaved_32s(s->pNDI_send, &NDI_audio_frame);
 }
 
 static int display_ndi_reconfigure_audio(void *state, int quant_samples, int channels,
