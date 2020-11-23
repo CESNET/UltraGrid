@@ -417,33 +417,35 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
         vt->name = "ndi";
         vt->description = "NDI source";
 
-        if (verbose) {
-                auto pNDI_find = NDIlib_find_create_v2();
-                if (pNDI_find == nullptr) {
-                        LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot create finder object!\n";
-                        return vt;
-                }
+        if (!verbose) {
+                return vt;
+        }
 
-                uint32_t nr_sources = 0;
-                const NDIlib_source_t* p_sources = nullptr;
-                // Give sources some time to occur
-                usleep(100 * 1000);
-                // we do not usea NDIlib_find_wait_for_sources() here because: 1) if there is
-                // no source, it will still wait requested amount of time and 2) if there are
-                // more sources, it will continue after first source found while there can be more
-                p_sources = NDIlib_find_get_current_sources(pNDI_find, &nr_sources);
+        auto pNDI_find = NDIlib_find_create_v2();
+        if (pNDI_find == nullptr) {
+                LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot create finder object!\n";
+                return vt;
+        }
 
-                vt->cards = (struct device_info *) calloc(nr_sources, sizeof(struct device_info));
-                if (vt->cards == nullptr) {
-                        NDIlib_find_destroy(pNDI_find);
-                        return vt;
-                }
-                vt->card_count = nr_sources;
-                for (int i = 0; i < static_cast<int>(nr_sources); ++i) {
-                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "%s", p_sources[i].p_url_address);
-                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "%s", p_sources[i].p_ndi_name);
-                        vt->cards[i].repeatable = true;
-                }
+        uint32_t nr_sources = 0;
+        const NDIlib_source_t* p_sources = nullptr;
+        // Give sources some time to occur
+        usleep(100 * 1000);
+        // we do not usea NDIlib_find_wait_for_sources() here because: 1) if there is
+        // no source, it will still wait requested amount of time and 2) if there are
+        // more sources, it will continue after first source found while there can be more
+        p_sources = NDIlib_find_get_current_sources(pNDI_find, &nr_sources);
+
+        vt->cards = (struct device_info *) calloc(nr_sources, sizeof(struct device_info));
+        if (vt->cards == nullptr) {
+                NDIlib_find_destroy(pNDI_find);
+                return vt;
+        }
+        vt->card_count = nr_sources;
+        for (int i = 0; i < static_cast<int>(nr_sources); ++i) {
+                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "%s", p_sources[i].p_url_address);
+                snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "%s", p_sources[i].p_ndi_name);
+                vt->cards[i].repeatable = true;
         }
 
         NDIlib_find_destroy(pNDI_find);
