@@ -282,16 +282,13 @@ void UltragridWindow::showSettings(){
 
 void UltragridWindow::saveSettings(){
 	const auto &optMap = settings.getOptionMap();
-	QFileDialog fileDialog(this);
-	fileDialog.setFileMode(QFileDialog::AnyFile);
-	fileDialog.setNameFilter(tr("Json (*.json)"));
-	fileDialog.setDefaultSuffix("json");
 
-	QStringList fileNames;
-	if (fileDialog.exec())
-		fileNames = fileDialog.selectedFiles();
+	QString filename = QFileDialog::getSaveFileName(this, "Save Settings", "", "Json (*.json)");
+	if(!filename.endsWith(QString(".json"))){
+		filename.append(QString(".json"));
+	}
 
-	QFile outFile(fileNames.first());
+	QFile outFile(filename);
 
 	if (!outFile.open(QIODevice::WriteOnly)) {
 		qWarning("Couldn't open save file.");
@@ -343,6 +340,9 @@ void UltragridWindow::loadSettings(){
 	QStringList fileNames;
 	if (fileDialog.exec())
 		fileNames = fileDialog.selectedFiles();
+
+	if(fileNames.empty())
+		return;
 
 	loadSettingsFile(fileNames.first());
 
