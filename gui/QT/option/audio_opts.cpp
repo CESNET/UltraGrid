@@ -28,14 +28,16 @@ const char * const sdiAudioCards[] = {
     "decklink",
     "aja",
     "dvs",
-    "deltacast"
+    "deltacast",
+    "ndi",
+    "spout",
+    "syphon",
 };
 
 const char * const sdiAudio[] = {
     "analog",
     "AESEBU",
     "embedded",
-    "decklink"
 };
 
 static std::vector<std::vector<ConditionItem>> getSdiCond(const std::string &opt){
