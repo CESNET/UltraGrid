@@ -474,7 +474,7 @@ static void probe_devices_callback(state_vidcap_syphon *s)
                 s->probed_devices = (struct device_info *) realloc(s->probed_devices, s->probed_devices_count * sizeof(struct device_info));
                 memset(&s->probed_devices[s->probed_devices_count - 1], 0, sizeof(struct device_info));
                 snprintf(s->probed_devices[s->probed_devices_count - 1].id, sizeof s->probed_devices[s->probed_devices_count - 1].id,
-                                "app=%s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
+                                "%s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
                 snprintf(s->probed_devices[s->probed_devices_count - 1].name, sizeof s->probed_devices[s->probed_devices_count - 1].name,
                                 "Syphon %s", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String]);
         }

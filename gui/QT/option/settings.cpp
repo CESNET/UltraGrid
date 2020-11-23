@@ -214,7 +214,14 @@ const static struct{
 	{"preview", Option::BoolOpt, "", "t", true, "", ""},
 	{"vuMeter", Option::BoolOpt, "", "t", true, "", ""},
 	{"errors_fatal", Option::BoolOpt, " --param errors-fatal", "t", true, "", ""},
+	{"aja.device", Option::StringOpt, ":device=", "", false, "video.source", "aja"},
+	{"bluefish444.device", Option::StringOpt, ":device=", "", false, "video.source", "bluefish444"},
+	{"deltacast.device", Option::StringOpt, ":device=", "", false, "video.source", "deltacast"},
+	{"deltacast-dv.device", Option::StringOpt, ":device=", "", false, "video.source", "deltacast-dv"},
+	{"dvs.device", Option::StringOpt, ":", "", false, "video.source", "dvs"},
 	{"ndi.device", Option::StringOpt, ":url=", "", false, "video.source", "ndi"},
+	{"syphon.device", Option::StringOpt, ":app=", "", false, "video.source", "syphon"},
+	{"ximea.device", Option::StringOpt, ":device=", "", false, "video.source", "ximea"},
 };
 
 const struct {
