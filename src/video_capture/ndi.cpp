@@ -137,6 +137,7 @@ static void show_help() {
                 cout << "\t\t" << p_sources[i].p_ndi_name << " - " << p_sources[i].p_url_address << "\n";
         }
         cout << "\n";
+        NDIlib_find_destroy(pNDI_find);
 }
 
 static int vidcap_ndi_init(struct vidcap_params *params, void **state)
@@ -434,6 +435,7 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
 
                 vt->cards = (struct device_info *) calloc(nr_sources, sizeof(struct device_info));
                 if (vt->cards == nullptr) {
+                        NDIlib_find_destroy(pNDI_find);
                         return vt;
                 }
                 vt->card_count = nr_sources;
@@ -443,6 +445,8 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
                         vt->cards[i].repeatable = true;
                 }
         }
+
+        NDIlib_find_destroy(pNDI_find);
 
         return vt;
 }
