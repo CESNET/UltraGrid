@@ -214,6 +214,7 @@ const static struct{
 	{"preview", Option::BoolOpt, "", "t", true, "", ""},
 	{"vuMeter", Option::BoolOpt, "", "t", true, "", ""},
 	{"errors_fatal", Option::BoolOpt, " --param errors-fatal", "t", true, "", ""},
+	{"ndi.device", Option::StringOpt, ":url=", "", false, "video.source", "ndi"},
 };
 
 const struct {
@@ -371,4 +372,4 @@ void Settings::changedAll(){
 	}
 }
 
-
+/* vim: set noexpandtab: */
