@@ -44,16 +44,20 @@
 #include "gl_context.h" // it looks like it needs to be included prior to Spout.h
 
 #include <chrono>
+#include <iostream>
 #include <SpoutSDK/Spout.h>
 
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture.h"
 
 #define DEFAULT_FPS 60.0
 #define DEFAULT_CODEC RGB
+
+using std::cout;
 
 /**
  * Class state_vidcap_spout must be value-initialized
@@ -73,11 +77,12 @@ struct state_vidcap_spout {
 
 static void usage()
 {
-        printf("\t-t spout[:name=<server_name>][:fps=<fps>][:codec=<codec>]\n");
-        printf("\n");
-        printf("\tname\n\t\tSPOUT server name\n");
-        printf("\tfps\n\t\tFPS count (default: %.2lf)\n", DEFAULT_FPS);
-        printf("\tcodec\n\t\tvideo codec (default: %s)\n", get_codec_name(DEFAULT_CODEC));
+        cout << "Usage:\n";
+        cout << "\t" << BOLD(RED("-t spout") << "[:name=<server_name>][:fps=<fps>][:codec=<codec>]") << "\n";
+        cout << "where\n";
+        cout << "\t" << BOLD("name") << "\n\t\tSPOUT server name\n";
+        cout << "\t" << BOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
+        cout << "\t" << BOLD("codec") << "\n\t\tvideo codec (default: " << get_codec_name(DEFAULT_CODEC) << ")\n";
 }
 
 static int vidcap_spout_init(struct vidcap_params *params, void **state)
