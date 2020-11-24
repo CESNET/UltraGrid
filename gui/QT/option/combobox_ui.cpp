@@ -40,7 +40,8 @@ static bool conditionsSatisfied(
     for(const auto &condClause : conds){
         bool orRes = false;
         for(const auto &condItem : condClause){
-            bool val = condItem.value.val == settings->getOption(condItem.value.opt).getValue();
+            //Check if condItem.value.val is the prefix of the currently set value
+            bool val = settings->getOption(condItem.value.opt).getValue().rfind(condItem.value.val, 0) == 0;
 
             //negate result if negation is true
             val = val != condItem.negation;
