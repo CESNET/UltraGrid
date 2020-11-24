@@ -65,10 +65,16 @@ make install
 cd -
 
 # Install SPOUT
-wget --no-verbose https://frakira.fi.muni.cz/~xpulec/SpoutSDK.zip # this is the SDK subdirectory installed by Spout installer
-unzip SpoutSDK.zip -d src
-MSBuild.exe -p:PlatformToolset=v142  -p:Configuration=Release -p:Platform=x64 src/SpoutSDK/VS2012
-data/scripts/build_spout64.sh src/SpoutSDK/VS2012/x64/Release
+git clone --depth 1 https://github.com/leadedge/Spout2.git
+mkdir Spout2/SpoutSDK/Source/build
+cd Spout2/SpoutSDK/Source/build
+cmake -G 'MSYS Makefiles' ..
+cmake --build .
+cp libSpout.a /usr/local/lib
+cd -
+mkdir /usr/local/include/SpoutSDK
+cp Spout2/SpoutSDK/Source/*.h /usr/local/include/SpoutSDK
+rm -rf Spout2
 
 # Install FFMPEG
 wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z && 7z x ffmpeg-release-full-shared.7z && cp -r ffmpeg-*build-shared/{bin,lib,include} /usr/local && rm -rf ffmpeg-* || exit 1

@@ -2877,17 +2877,25 @@ AC_ARG_ENABLE(spout,
     [spout_req=$build_default]
     )
 
-FOUND_SPOUT_WRAPPER=no
+FOUND_SPOUT=no
 if test $system = Windows
 then
-        AC_CHECK_LIB(spout_wrapper, spout_create_receiver, [FOUND_SPOUT_WRAPPER=yes])
+        AC_LANG_PUSH([C++])
+        SAVED_LIBS="$LIBS"
+        SPOUT_LIBS="-lSpout -lgdi32 -lDXGI -lVersion -ld3d9 -ld3d11 -lopengl32 -lShlwapi"
+        LIBS="$LIBS $SPOUT_LIBS"
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <SpoutSDK/Spout.h>]],
+                       [[SpoutSender *sender = new SpoutSender;]])],
+                       FOUND_SPOUT=yes, FOUND_SPOUT=no)
+        LIBS=$SAVED_LIBS
+        AC_LANG_POP([C++])
 fi
 
-if test $spout_req != no -a "$OPENGL" = yes -a $FOUND_SPOUT_WRAPPER = yes
+if test $spout_req != no -a "$OPENGL" = yes -a $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
-        LIBS="$LIBS -lspout_wrapper"
-        OBJS="$OBJS src/video_capture/spout.o"
+        LIBS="$LIBS $SPOUT_LIBS"
+        OBJS="$OBJS src/spout_receiver.o src/spout_sender.o src/video_capture/spout.o"
         spout=yes
 fi
 

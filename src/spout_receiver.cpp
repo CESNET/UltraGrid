@@ -34,7 +34,7 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "SpoutSDK/Spout.h"
+#include <SpoutSDK/Spout.h>
 
 #include "spout_receiver.h"
 
