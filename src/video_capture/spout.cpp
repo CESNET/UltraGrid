@@ -41,13 +41,14 @@
 #include "config_win32.h"
 #endif
 
+#include "gl_context.h" // it looks like it needs to be included prior to Spout.h
+
 #include <chrono>
+#include <SpoutSDK/Spout.h>
 
 #include "debug.h"
-#include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
-#include "spout_receiver.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -59,7 +60,7 @@
  */
 struct state_vidcap_spout {
         struct video_desc desc;
-        void *spout_state;
+        SpoutReceiver *spout_state;
         struct gl_context glc;
         GLenum gl_format;
 
@@ -139,14 +140,18 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
 
         unsigned int width = 0, height = 0;
 
-        s->spout_state = spout_create_receiver(s->server_name, &width, &height);
-        if (!s->spout_state) {
-                LOG(LOG_LEVEL_ERROR) << "[SPOUT] Unable to initialize SPOUT state!\n";
+        s->spout_state = new SpoutReceiver;
+        s->spout_state->CreateReceiver(s->server_name, width, height);
+        bool connected;
+        s->spout_state->CheckReceiver(s->server_name, width, height, connected);
+        if (!connected) {
+                LOG(LOG_LEVEL_ERROR) << "[SPOUT] Not connected to server '" << s->server_name << "'. Is it running?\n";
+                s->spout_state->ReleaseReceiver();
+                delete s->spout_state;
                 delete s;
                 return VIDCAP_INIT_FAIL;
-        } else {
-                LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Initialized successfully - server name: " << s->server_name << ", width: " << width << ", height: " << height << ", fps: " << fps << ", codec: " << get_codec_name_long(codec) << "\n";
         }
+        LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Initialized successfully - server name: " << s->server_name << ", width: " << width << ", height: " << height << ", fps: " << fps << ", codec: " << get_codec_name_long(codec) << "\n";
 
         s->desc = video_desc{width, height, codec, fps, PROGRESSIVE, 1};
 
@@ -162,7 +167,8 @@ static void vidcap_spout_done(void *state)
         state_vidcap_spout *s = (state_vidcap_spout *) state;
 
         gl_context_make_current(&s->glc);
-        spout_receiver_delete(s->spout_state);
+        s->spout_state->ReleaseReceiver();
+        delete s->spout_state;
         destroy_gl_context(&s->glc);
 
         delete s;
@@ -175,12 +181,11 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         struct video_frame *out = vf_alloc_desc_data(s->desc);
         out->callbacks.dispose = vf_free;
 
-        bool ret;
         unsigned int width, height;
         width = s->desc.width;
         height = s->desc.height;
         gl_context_make_current(&s->glc);
-        ret = spout_receiver_recvframe(s->spout_state, s->server_name, width, height, out->tiles[0].data, s->gl_format);
+        bool ret = s->spout_state->ReceiveImage(s->server_name, width, height, (unsigned char *) out->tiles[0].data, s->gl_format);
         gl_context_make_current(NULL);
         if (ret) {
                 // statistics

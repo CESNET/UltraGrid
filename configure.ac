@@ -2895,7 +2895,7 @@ if test $spout_req != no -a "$OPENGL" = yes -a $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
         LIBS="$LIBS $SPOUT_LIBS"
-        OBJS="$OBJS src/spout_receiver.o src/spout_sender.o src/video_capture/spout.o"
+        OBJS="$OBJS src/spout_sender.o src/video_capture/spout.o"
         spout=yes
 fi
 
