@@ -220,6 +220,7 @@ const static struct{
 	{"deltacast-dv.device", Option::StringOpt, ":", "", false, "video.source", "deltacast-dv"},
 	{"dvs.device", Option::StringOpt, ":", "", false, "video.source", "dvs"},
 	{"ndi.device", Option::StringOpt, ":", "", false, "video.source", "ndi"},
+	{"spout.device", Option::StringOpt, ":", "", false, "video.source", "spout"},
 	{"syphon.device", Option::StringOpt, ":", "", false, "video.source", "syphon"},
 	{"ximea.device", Option::StringOpt, ":", "", false, "video.source", "ximea"},
 };

@@ -7,7 +7,6 @@
 std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
 	const char * const whiteList[] = {
 		"bitflow",
-		"spout",
 	};
     const std::string optStr = "video.source";
 

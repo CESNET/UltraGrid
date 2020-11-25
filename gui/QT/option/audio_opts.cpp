@@ -30,8 +30,6 @@ const char * const sdiAudioCards[] = {
     "dvs",
     "deltacast",
     "ndi",
-    "spout",
-    "syphon",
 };
 
 const char * const sdiAudio[] = {
