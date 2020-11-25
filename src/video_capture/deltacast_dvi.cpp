@@ -199,7 +199,7 @@ vidcap_deltacast_dvi_probe(bool verbose, void (**deleter)(void *))
                 }
                 VHD_CloseBoardHandle(BoardHandle);
 
-                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "%" PRIu32, i);
+                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%" PRIu32, i);
                 snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%" PRIu32,
                                 board.c_str(), i);
         }

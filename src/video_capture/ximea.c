@@ -351,7 +351,7 @@ static struct vidcap_type *vidcap_ximea_probe(bool verbose, void (**deleter)(voi
 
         vt->cards = calloc(count, sizeof(struct device_info));
         for (DWORD i = 0; i < count; ++i) {
-                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "%d", (int) i);
+                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%d", (int) i);
                 char name[256];
                 if (funcs.xiGetDeviceInfoString(i, XI_PRM_DEVICE_NAME, name, sizeof name) == XI_OK) {
                         strncpy(vt->cards[i].name, name, sizeof vt->cards[i].name);
