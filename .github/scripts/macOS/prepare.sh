@@ -77,6 +77,9 @@ wget --no-verbose https://github.com/Syphon/Syphon-Framework/releases/download/5
 unzip Syphon.SDK.5.zip
 sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
 
+# Install cross-platform deps
+$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
+
 # Remove installation files
 cd
 rm -rf $TEMP_INST

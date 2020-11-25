@@ -66,6 +66,8 @@ cd live555
 git checkout 35c375
 ./genMakefiles linux-64bit
 sudo make install CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
-
 cd ..
+
+# Install cross-platform deps
+$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 

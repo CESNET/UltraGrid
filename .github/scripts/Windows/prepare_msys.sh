@@ -5,8 +5,8 @@ set -ex
 mkdir -p /usr/local/lib /usr/local/bin /usr/local/include
 cat >> ~/.bash_profile <<'EOF'
 export PATH=/mingw64/bin:/usr/local/bin:$PATH
-export CPATH=/usr/local/include
-export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/mingw64/lib/pkgconfig
+export CPATH=/usr/local/include:/usr/include
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:/mingw64/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib
 
 CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
@@ -37,7 +37,7 @@ EOF
 
 PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
-$PACMAN_INSTALL automake autoconf git make pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip
+$PACMAN_INSTALL automake autoconf git make pkgconf mingw-w64-x86_64-binutils mingw-w64-x86_64-gcc mingw-w64-x86_64-cppunit unzip zip
 $PACMAN_INSTALL mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-freeglut
 $PACMAN_INSTALL mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 $PACMAN_INSTALL mingw-w64-x86_64-glib2 mingw-w64-x86_64-curl # RTSP capture
@@ -45,6 +45,7 @@ pacman -Scc --noconfirm # make some free space
 $PACMAN_INSTALL mingw-w64-x86_64-qt5
 $PACMAN_INSTALL mingw-w64-x86_64-imagemagick mingw-w64-x86_64-opencv
 $PACMAN_INSTALL p7zip
+$PACMAN_INSTALL libtool # PCP
 pacman -Scc --noconfirm
 
 # Build AJA wrapper if we have SDK
@@ -74,4 +75,7 @@ wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.
 
 # Build CineForm
 ( git submodule update --init cineform-sdk && cd cineform-sdk && cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 . && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig || exit 1 )
+
+# Install cross-platform deps
+$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 
