@@ -44,6 +44,7 @@
 #include "gl_context.h" // it looks like it needs to be included prior to Spout.h
 
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <iostream>
 #include <SpoutSDK/Spout.h>
@@ -53,6 +54,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/misc.h" // urlencode, urldecode
 #include "video.h"
 #include "video_capture.h"
 
@@ -109,6 +111,9 @@ static void usage()
                         LOG(LOG_LEVEL_ERROR) << "Cannot get server " << name.data() << "details\n";
                 }
                 cout << "\t" << i << ") " << BOLD(name.data()) << " - width: " << width << ", height: " << height << "\n";
+                if (strchr(name.data(), '%') != nullptr) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Percent sign (\"%\") present in name - replace with \"%25\" in specification.\n";
+                }
         }
 }
 
@@ -154,7 +159,11 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                 } else if (strstr(item, "device=") == item) {
                         device_idx = stoi(item + strlen("device="));
                 } else if (strstr(item, "name=") == item) {
-                        strncpy(s->server_name, item + strlen("name="), sizeof(s->server_name) - 1);
+                        if (urldecode(s->server_name, sizeof s->server_name, item + strlen("name=")) == 0) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Improperly formatted name: " << item + strlen("name=") << "\n";
+                                LOG(LOG_LEVEL_INFO) << MOD_NAME << "Interpreting name literally. If server name contains a percent sign (\"%\"), replace with \"%25\"\n";
+                                strncpy(s->server_name, item + strlen("name="), sizeof(s->server_name) - 1);
+                        }
                 } else if (strstr(item, "fps=") == item) {
                         fps = atof(item + strlen("fps="));
                 } else if (strstr(item, "codec=") == item) {
@@ -309,7 +318,10 @@ static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(voi
                         snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%d", i);
                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT #%d", i);
                 } else {
-                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "name=", name.data());
+                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "name=");
+                        urlencode(vt->cards[i].id + strlen(vt->cards[i].id),
+                                        sizeof vt->cards[i].id - strlen(vt->cards[i].id),
+                                        name.data(), isalnum);
                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT %s", name.data());
                 }
                 vt->cards[i].repeatable = true;

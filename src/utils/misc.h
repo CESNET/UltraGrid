@@ -38,7 +38,12 @@
 #ifndef UTILS_MISC_H_
 #define UTILS_MISC_H_
 
+#ifdef __cplusplus
+#include <cstddef>
+#else
 #include <stdbool.h>
+#include <stddef.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,6 +57,8 @@ int get_framerate_d(double framerate);
 #define DELDEL "\177\177"
 #define ESCAPED_COLON "\\:"
 void replace_all(char *in, const char *from, const char *to);
+size_t urlencode(char *out, size_t max_len, const char *in, int (*eval)(int c));
+size_t urldecode(char *out, size_t max_len, const char *in);
 
 /**
  * @brief Creates FourCC word
