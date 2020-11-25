@@ -680,7 +680,6 @@ install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)$(docdir)
 	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)$(docdir)
 	$(INSTALL) -m 644 $(srcdir)/CONTRIBUTING.md $(srcdir)/COPYRIGHT $(srcdir)/INSTALL $(srcdir)/NEWS $(srcdir)/README.md $(DESTDIR)$(docdir)
-	$(CP) $(srcdir)/speex-1.2rc1/COPYING $(DESTDIR)$(docdir)/COPYING.speex
 	$(INSTALL) -m 755 $(srcdir)/data/ultragrid-bugreport-collect.sh $(DESTDIR)$(docdir)
 	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
 	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(srcdir)/data/hd-rum-transcode.1 $(DESTDIR)$(man1dir)
@@ -692,7 +691,6 @@ uninstall:
 	if [ -n "@MODULES@" ]; then for n in @MODULES@; do $(RM) $(DESTDIR)$(libdir)/ultragrid/`basename $$n`; done; fi
 	for n in $(DOCS); do $(RM) $(DESTDIR)$(docdir)$$n; done;
 	$(RM) $(DESTDIR)$(docdir)/CONTRIBUTING.md $(DESTDIR)$(docdir)/COPYRIGHT $(DESTDIR)$(docdir)/INSTALL $(DESTDIR)$(docdir)/NEWS $(DESTDIR)$(docdir)/README.md
-	$(RM) $(DESTDIR)$(docdir)/COPYING.speex
 	$(RM) $(DESTDIR)$(docdir)/ultragrid-bugreport-collect.sh
 	if [ -f "$(GUI_TARGET)" ]; then \
 		$(RM) $(DESTDIR)$(bindir)/`basename $(GUI_TARGET)`;\
