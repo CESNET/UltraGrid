@@ -68,9 +68,10 @@ cd -
 git clone --depth 1 https://github.com/leadedge/Spout2.git
 mkdir Spout2/SpoutSDK/Source/build
 cd Spout2/SpoutSDK/Source/build
-cmake -G 'MSYS Makefiles' ..
+cmake -DBUILD_SHARED_LIBS=ON -G 'MSYS Makefiles' ..
 cmake --build .
-cp libSpout.a /usr/local/lib
+cp libSpout.dll /usr/local/bin
+cp libSpout.dll.a /usr/local/lib
 cd -
 mkdir /usr/local/include/SpoutSDK
 cp Spout2/SpoutSDK/Source/*.h /usr/local/include/SpoutSDK

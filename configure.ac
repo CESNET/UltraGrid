@@ -2882,8 +2882,7 @@ if test $system = Windows
 then
         AC_LANG_PUSH([C++])
         SAVED_LIBS="$LIBS"
-        SPOUT_LIBS="-lSpout -lgdi32 -lDXGI -lVersion -ld3d9 -ld3d11 -lopengl32 -lShlwapi"
-        LIBS="$LIBS $SPOUT_LIBS"
+        LIBS="$LIBS -lSpout"
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <SpoutSDK/Spout.h>]],
                        [[SpoutSender *sender = new SpoutSender;]])],
                        FOUND_SPOUT=yes, FOUND_SPOUT=no)
@@ -2894,7 +2893,7 @@ fi
 if test $spout_req != no -a "$OPENGL" = yes -a $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
-        LIBS="$LIBS $SPOUT_LIBS"
+        LIBS="$LIBS -lSpout"
         OBJS="$OBJS src/spout_sender.o src/video_capture/spout.o"
         spout=yes
 fi
