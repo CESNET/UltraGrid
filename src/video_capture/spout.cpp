@@ -72,7 +72,7 @@ using std::string;
  */
 struct state_vidcap_spout {
         struct video_desc desc;
-        SpoutReceiver *spout_state;
+        shared_ptr<SpoutReceiver> spout_state;
         struct gl_context glc;
         GLenum gl_format;
 
@@ -92,7 +92,7 @@ static void usage()
         cout << "\t" << BOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
         cout << "\t" << BOLD("codec") << "\n\t\tvideo codec (default: " << get_codec_name(DEFAULT_CODEC) << ")\n";
         cout << "\nServers:\n";
-        auto receiver = new SpoutReceiver;
+        auto receiver = shared_ptr<SpoutReceiver>(new SpoutReceiver);
         int count = receiver->GetSenderCount();
 
         for (int i = 0; i < count; ++i) {
@@ -110,7 +110,6 @@ static void usage()
                 }
                 cout << "\t" << i << ") " << BOLD(name.data()) << " - width: " << width << ", height: " << height << "\n";
         }
-        delete receiver;
 }
 
 static string vidcap_spout_get_device_name(int idx)
@@ -206,14 +205,13 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
 
         unsigned int width = 0, height = 0;
 
-        s->spout_state = new SpoutReceiver;
+        s->spout_state = shared_ptr<SpoutReceiver>(new SpoutReceiver);
         s->spout_state->CreateReceiver(s->server_name, width, height);
         bool connected;
         s->spout_state->CheckReceiver(s->server_name, width, height, connected);
         if (!connected) {
                 LOG(LOG_LEVEL_ERROR) << "[SPOUT] Not connected to server '" << s->server_name << "'. Is it running?\n";
                 s->spout_state->ReleaseReceiver();
-                delete s->spout_state;
                 delete s;
                 return VIDCAP_INIT_FAIL;
         }
@@ -234,7 +232,6 @@ static void vidcap_spout_done(void *state)
 
         gl_context_make_current(&s->glc);
         s->spout_state->ReleaseReceiver();
-        delete s->spout_state;
         destroy_gl_context(&s->glc);
 
         delete s;
