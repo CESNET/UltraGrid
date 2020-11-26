@@ -158,7 +158,7 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                 } else if (strstr(item, "name=") == item) {
                         char *name = item + strlen("name=");
                         if (strstr(name, "urlencoded=") == name) {
-                                name += "urlencoded=";
+                                name += strlen("urlencoded=");
                                 if (urldecode(s->server_name, sizeof s->server_name, name) == 0) {
                                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Improperly formatted name: " << item + strlen("name=") << "\n";
                                         ret = VIDCAP_INIT_FAIL;
@@ -323,7 +323,7 @@ static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(voi
                         snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "name=urlencoded=");
                         urlencode(vt->cards[i].id + strlen(vt->cards[i].id),
                                         sizeof vt->cards[i].id - strlen(vt->cards[i].id),
-                                        name.data(), isalnum);
+                                        name.data(), urlencode_rfc3986_eval, false);
                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT %s", name.data());
                 }
                 vt->cards[i].repeatable = true;

@@ -183,27 +183,45 @@ void replace_all(char *in, const char *from, const char *to) {
         }
 }
 
+int urlencode_html5_eval(int c)
+{
+        return isalnum(c) || c == '*' || c == '-' || c == '.' || c == '_';
+}
+
+int urlencode_rfc3986_eval(int c)
+{
+        return isalnum(c) || c == '~' || c == '-' || c == '.' || c == '_';
+}
+
 /**
  * Replaces all occurences where eval() evaluates to true with %-encoding
- * @param in      input
- * @param out     output array
- * @param max_len maximal lenght to be written (including terminating NUL)
- * @param eval    predictor if an input character should be replaced (functions
- *                from ctype.h may be used)
+ * @param in        input
+ * @param out       output array
+ * @param max_len   maximal lenght to be written (including terminating NUL)
+ * @param eval_pass predictor if an input character should be kept (functions
+ *                  from ctype.h may be used)
+ * @param space_plus_replace replace spaces (' ') with ASCII plus sign -
+ *                  should be true for HTML5 URL encoding, false for RFC 3986
  * @returns bytes written to out
  *
  * @note
  * Symbol ' ' is not treated specially (unlike in classic URL encoding which
  * translates it to '+'.
+ * @todo
+ * There may be a LUT as in https://rosettacode.org/wiki/URL_encoding#C
  */
-size_t urlencode(char *out, size_t max_len, const char *in, int (*eval)(int c))
+size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int c),
+                bool space_plus_replace)
 {
         if (max_len == 0 || max_len >= INT_MAX) { // prevent overflow
                 return 0;
         }
         size_t len = 0;
         while (*in && len < max_len - 1) {
-                if (eval(*in) != 0) {
+                if (*in == ' ' && space_plus_replace) {
+                        *out++ = '+';
+                        in++;
+                } else if (eval_pass(*in) != 0) {
                         *out++ = *in++;
                         len++;
                 } else {
@@ -247,7 +265,10 @@ size_t urldecode(char *out, size_t max_len, const char *in)
         }
         size_t len = 0;
         while (*in && len < max_len - 1) {
-                if (*in != '%') {
+                if (*in == '+') {
+                        *out++ = ' ';
+                        in++;
+                } else if (*in != '%') {
                         *out++ = *in++;
                 } else {
                         in++; // skip '%'

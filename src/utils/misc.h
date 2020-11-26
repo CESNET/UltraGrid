@@ -57,7 +57,10 @@ int get_framerate_d(double framerate);
 #define DELDEL "\177\177"
 #define ESCAPED_COLON "\\:"
 void replace_all(char *in, const char *from, const char *to);
-size_t urlencode(char *out, size_t max_len, const char *in, int (*eval)(int c));
+
+int urlencode_html5_eval(int c);
+int urlencode_rfc3986_eval(int c);
+size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int c), bool space_plus_replace);
 size_t urldecode(char *out, size_t max_len, const char *in);
 
 /**
