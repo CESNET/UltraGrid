@@ -6,7 +6,7 @@ mkdir -p /usr/local/lib /usr/local/bin /usr/local/include
 cat >> ~/.bash_profile <<'EOF'
 export PATH=/mingw64/bin:/usr/local/bin:$PATH
 export CPATH=/usr/local/include
-export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/mingw64/lib/pkgconfig
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/mingw64/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib
 
 CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
