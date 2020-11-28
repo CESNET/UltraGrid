@@ -283,7 +283,11 @@ std::string Settings::getLaunchParams() const{
 	out += getOption("audio.source").getLaunchOption();
 	out += getOption("audio.source.channels").getLaunchOption();
 	out += getOption("audio.compress").getLaunchOption();
-	out += getOption("audio.playback").getLaunchOption();
+	std::string audioPlay = getOption("audio.playback").getLaunchOption();
+	if(audioPlay.empty() && getOption("preview").isEnabled()){
+		audioPlay = " -r dummy";
+	}
+	out += audioPlay;
 	out += getOption("network.fec").getLaunchOption();
 	out += getOption("network.port").getLaunchOption();
 	out += getOption("network.control_port").getLaunchOption();
