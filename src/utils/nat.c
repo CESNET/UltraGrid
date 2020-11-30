@@ -302,8 +302,8 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
         r = sendnewportmappingrequest(natpmp, NATPMP_PROTOCOL_UDP,
                         privateport, publicport,
                         lifetime);
-        log_msg(r < 0 ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE,
-                        "[NAT PMP] sendnewportmappingrequest returned %d (%s)\n",
+        log_msg(r < 0 ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, MOD_NAME
+                        "NAT PMP - sendnewportmappingrequest returned %d (%s)\n",
                         r, r == 12 ? "SUCCESS" : "FAILED");
         if (r < 0) {
                 return false;
@@ -318,16 +318,16 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
                 getnatpmprequesttimeout(natpmp, &timeout);
                 select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
                 r = readnatpmpresponseorretry(natpmp, &response);
-                log_msg(LOG_LEVEL_VERBOSE, "[NAT PMP] readnatpmpresponseorretry returned %d (%s)\n",
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "NAT PMP - readnatpmpresponseorretry returned %d (%s)\n",
                                 r, r == 0 ? "OK" : (r == NATPMP_TRYAGAIN ? "TRY AGAIN" : "FAILED"));
         } while(r==NATPMP_TRYAGAIN);
         if(r<0) {
-                log_msg(LOG_LEVEL_ERROR, "[NAT PMP] readnatpmpresponseorretry() failed : %s\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "NAT PMP - readnatpmpresponseorretry() failed : %s\n",
                                 strnatpmperr(r));
                 return false;
         }
 
-        log_msg(LOG_LEVEL_INFO, "[NAT PMP] Mapped public port %hu protocol %s to local port %hu "
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "NAT PMP - Mapped public port %hu protocol %s to local port %hu "
                         "liftime %u\n",
                         response.pnu.newportmapping.mappedpublicport,
                         response.type == NATPMP_RESPTYPE_UDPPORTMAPPING ? "UDP" :
@@ -335,7 +335,7 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
                          "UNKNOWN"),
                         response.pnu.newportmapping.privateport,
                         response.pnu.newportmapping.lifetime);
-        log_msg(LOG_LEVEL_DEBUG, "[NAT PMP] epoch = %u\n", response.epoch);
+        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "NAT PMP - epoch = %u\n", response.epoch);
 
         return true;
 }
@@ -347,17 +347,17 @@ static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int 
         natpmp_t natpmp;
         int r = 0;
         r = initnatpmp(&natpmp, 0, 0);
-        log_msg(r < 0 ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, "[NAT PMP] initnatpmp returned %d (%s)\n", r,
+        log_msg(r < 0 ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, MOD_NAME "NAT PMP - initnatpmp returned %d (%s)\n", r,
                         r ? "FAILED" : "SUCCESS");
         if (r < 0) {
                 return false;
         }
         gateway_in_use.s_addr = natpmp.gateway;
-        log_msg(LOG_LEVEL_NOTICE, "[NAT PMP] using gateway: %s\n", inet_ntoa(gateway_in_use));
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "NAT PMP - using gateway: %s\n", inet_ntoa(gateway_in_use));
 
         /* sendpublicaddressrequest() */
         r = sendpublicaddressrequest(&natpmp);
-        log_msg(r < 0 ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, "[NAT PMP] sendpublicaddressrequest returned %d (%s)\n",
+        log_msg(r < 0 ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, MOD_NAME "NAT PMP - sendpublicaddressrequest returned %d (%s)\n",
                         r, r == 2 ? "SUCCESS" : "FAILED");
         if (r < 0) {
                 return false;
@@ -372,17 +372,17 @@ static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int 
                 getnatpmprequesttimeout(&natpmp, &timeout);
                 r = select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
                 if(r<0) {
-                        log_msg(LOG_LEVEL_ERROR, "[NAT PMP] select()\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "NAT PMP - select()\n");
                         return false;
                 }
                 r = readnatpmpresponseorretry(&natpmp, &response);
                 int sav_errno = errno;
-                log_msg(r < 0 ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, "[NAT PMP] readnatpmpresponseorretry returned %d (%s)\n",
+                log_msg(r < 0 ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, MOD_NAME "NAT PMP - readnatpmpresponseorretry returned %d (%s)\n",
                                 r, r == 0 ? "OK" : ( r== NATPMP_TRYAGAIN ? "TRY AGAIN" : "FAILED"));
                 if (r < 0 && r != NATPMP_TRYAGAIN) {
-                        log_msg(LOG_LEVEL_ERROR, "[NAT_PMP] readnatpmpresponseorretry() failed : %s\n",
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "NAT PMP - readnatpmpresponseorretry() failed : %s\n",
                                         strnatpmperr(r));
-                        log_msg(LOG_LEVEL_ERROR, "[NAT PMP]  errno=%d '%s'\n",
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "NAT PMP - errno=%d '%s'\n",
                                         sav_errno, strerror(sav_errno));
                 }
         } while(r==NATPMP_TRYAGAIN);
@@ -391,8 +391,8 @@ static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int 
                 return false;
         }
 
-        log_msg(LOG_LEVEL_NOTICE, "[NAT PMP] Public IP address: %s\n", inet_ntoa(response.pnu.publicaddress.addr));
-        log_msg(LOG_LEVEL_DEBUG, "[NAT PMP] epoch = %u\n", response.epoch);
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "NAT PMP - Public IP address: %s\n", inet_ntoa(response.pnu.publicaddress.addr));
+        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "NAT PMP - epoch = %u\n", response.epoch);
 
         if (!nat_pmp_add_mapping(&natpmp, video_rx_port, video_rx_port, lifetime) ||
                         !nat_pmp_add_mapping(&natpmp, audio_rx_port, audio_rx_port, lifetime)) {
@@ -400,7 +400,7 @@ static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int 
         }
 
         r = closenatpmp(&natpmp);
-        log_msg(LOG_LEVEL_VERBOSE, "[NAT PMP] closenatpmp() returned %d (%s)\n", r, r==0?"SUCCESS":"FAILED");
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "NAT PMP - closenatpmp() returned %d (%s)\n", r, r==0?"SUCCESS":"FAILED");
         return r >= 0;
 }
 
@@ -445,7 +445,7 @@ struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port
                 if (strlen(config) > 0 && strcmp(nat_traverse_info[i].name_short, config) != 0) {
                         continue;
                 }
-                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Trying: %s\n", nat_traverse_info[s.traverse].name_long);
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Trying: %s\n", nat_traverse_info[i].name_long);
                 not_found = false;
                 if (nat_traverse_info[i].init(&s, video_rx_port, audio_rx_port, ALLOCATION_TIMEOUT)) {
                         s.traverse = i;
