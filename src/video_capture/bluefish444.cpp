@@ -351,24 +351,29 @@ vidcap_bluefish444_probe(bool verbose, void (**deleter)(void *))
         *deleter = free;
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->name        = "bluefish444";
-		vt->description = "Bluefish444 video capture";
-
-                if (verbose) {
-                        BLUE_S32 iDevices;
-                        BLUEVELVETC_HANDLE pSDK = bfcFactory();
-                        bfcEnumerate(pSDK, &iDevices);
-                        bfcDestroy(pSDK);
-
-                        vt->card_count = iDevices;
-                        vt->cards = (struct device_info *) calloc(iDevices, sizeof(struct device_info));
-                        for (int i = 0; i < iDevices; ++i) {
-                                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "%d", i + 1);
-                                snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Bluefish444 card #%d", i);
-                        }
-                }
+	if (vt == NULL) {
+                return NULL;
         }
+
+        vt->name        = "bluefish444";
+        vt->description = "Bluefish444 video capture";
+
+        if (!verbose) {
+                return vt;
+        }
+
+        BLUE_S32 iDevices;
+        BLUEVELVETC_HANDLE pSDK = bfcFactory();
+        bfcEnumerate(pSDK, &iDevices);
+        bfcDestroy(pSDK);
+
+        vt->card_count = iDevices;
+        vt->cards = (struct device_info *) calloc(iDevices, sizeof(struct device_info));
+        for (int i = 0; i < iDevices; ++i) {
+                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "%d", i + 1);
+                snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Bluefish444 card #%d", i);
+        }
+
 	return vt;
 }
 

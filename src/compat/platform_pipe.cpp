@@ -42,10 +42,23 @@
 #include "config_win32.h"
 
 #include "compat/platform_pipe.h"
+#include "rtp/net_udp.h" // socket_error
 
 #include <thread>
 
 using std::thread;
+
+#ifdef _WIN32
+#define DECLARE_TIMEOUT(name, init_val_s) DWORD name = init_val_s * 1000
+typedef char *sockopt_t;
+#else
+#define DECLARE_TIMEOUT(name, init_val_s) struct timeval name = { init_val_s, 0 }
+typedef void *sockopt_t;
+#endif
+
+#ifndef HAVE_CONFIG_H // compiled outside of UltraGrid
+#define socket_error(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 static fd_t open_socket(int *port)
 {
@@ -90,11 +103,25 @@ static fd_t connect_to_socket(int local_port)
                 return INVALID_SOCKET;
         }
         int ret;
+
+        DECLARE_TIMEOUT(timeout, 1);
+        DECLARE_TIMEOUT(old_timeout, 0);
+        socklen_t old_timeout_len = sizeof old_timeout;
+        if (getsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<sockopt_t>(&old_timeout), &old_timeout_len) != 0) {
+                socket_error("pipe getsockopt");
+        }
+        if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<sockopt_t>(&timeout), sizeof timeout) != 0) {
+                socket_error("pipe setsockopt");
+        }
         ret = connect(fd, (struct sockaddr *) &s_in,
                                 sizeof(s_in));
         if (ret != 0) {
+                socket_error("pipe connect");
                 CLOSESOCKET(fd);
                 return INVALID_SOCKET;
+        }
+        if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<sockopt_t>(&old_timeout), old_timeout_len) != 0) {
+                socket_error("pipe setsockopt");
         }
 
         return fd;
@@ -113,6 +140,17 @@ static void * worker(void *args)
         return NULL;
 }
 
+/// @brief return regular pipe if available if our implementation fails
+static int system_pipe(fd_t p[2])
+{
+#ifdef _WIN32
+        (void) p;
+        return -1;
+#else
+        fprintf(stderr, "Using native pipe instead of custom implementaton.\n");
+        return pipe(p);
+#endif
+}
 
 int platform_pipe_init(fd_t p[2])
 {
@@ -149,23 +187,37 @@ int platform_pipe_init(fd_t p[2])
         fd_t sock = open_socket(&par.port);
         if (sock == INVALID_SOCKET) {
                 perror("open_socket");
-                return -1;
+                return system_pipe(p);
+        }
+
+        DECLARE_TIMEOUT(timeout, 1);
+        DECLARE_TIMEOUT(old_timeout, 0);
+        socklen_t old_timeout_len = sizeof old_timeout;
+        if (getsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<sockopt_t>(&old_timeout), &old_timeout_len) != 0) {
+                socket_error("pipe getsockopt");
+        }
+        if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<sockopt_t>(&timeout), sizeof timeout) != 0) {
+                socket_error("pipe setsockopt");
         }
 
         thread thr(worker, &par);
 
         p[0] = accept(sock, NULL, NULL);
         if (p[0] == INVALID_SOCKET) {
-                perror("accept");
+                perror("pipe accept");
+                thr.join();
                 CLOSESOCKET(sock);
-                return -1;
+                return system_pipe(p);
         }
         thr.join();
+        if (setsockopt(p[0], SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<sockopt_t>(&old_timeout), old_timeout_len) != 0) {
+                socket_error("pipe setsockopt");
+        }
         p[1] = par.sock;
         if (p[1] == INVALID_SOCKET) {
                 CLOSESOCKET(sock);
                 perror("accept");
-                return -1;
+                return system_pipe(p);
         }
         CLOSESOCKET(sock);
 

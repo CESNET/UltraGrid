@@ -214,6 +214,15 @@ const static struct{
 	{"preview", Option::BoolOpt, "", "t", true, "", ""},
 	{"vuMeter", Option::BoolOpt, "", "t", true, "", ""},
 	{"errors_fatal", Option::BoolOpt, " --param errors-fatal", "t", true, "", ""},
+	{"aja.device", Option::StringOpt, ":", "", false, "video.source", "aja"},
+	{"bluefish444.device", Option::StringOpt, ":", "", false, "video.source", "bluefish444"},
+	{"deltacast.device", Option::StringOpt, ":", "", false, "video.source", "deltacast"},
+	{"deltacast-dv.device", Option::StringOpt, ":", "", false, "video.source", "deltacast-dv"},
+	{"dvs.device", Option::StringOpt, ":", "", false, "video.source", "dvs"},
+	{"ndi.device", Option::StringOpt, ":", "", false, "video.source", "ndi"},
+	{"spout.device", Option::StringOpt, ":", "", false, "video.source", "spout"},
+	{"syphon.device", Option::StringOpt, ":", "", false, "video.source", "syphon"},
+	{"ximea.device", Option::StringOpt, ":", "", false, "video.source", "ximea"},
 };
 
 const struct {
@@ -275,7 +284,11 @@ std::string Settings::getLaunchParams() const{
 	out += getOption("audio.source").getLaunchOption();
 	out += getOption("audio.source.channels").getLaunchOption();
 	out += getOption("audio.compress").getLaunchOption();
-	out += getOption("audio.playback").getLaunchOption();
+	std::string audioPlay = getOption("audio.playback").getLaunchOption();
+	if(audioPlay.empty() && getOption("preview").isEnabled()){
+		audioPlay = " -r dummy";
+	}
+	out += audioPlay;
 	out += getOption("network.fec").getLaunchOption();
 	out += getOption("network.port").getLaunchOption();
 	out += getOption("network.control_port").getLaunchOption();
@@ -371,4 +384,4 @@ void Settings::changedAll(){
 	}
 }
 
-
+/* vim: set noexpandtab: */

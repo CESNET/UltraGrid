@@ -816,59 +816,60 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose, void (**deleter)(
         *deleter = free;
 
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "testcard";
-                vt->description = "Video testcard";
+        if (vt == NULL) {
+                return NULL;
+        }
 
-                if (verbose) {
-                        vt->card_count = 1;
-                        vt->cards = (struct device_info *) calloc(vt->card_count, sizeof(struct device_info));
-                        vt->cards[0].id[0] = '\0';
-                        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing signal");
+        vt->name = "testcard";
+        vt->description = "Video testcard";
 
-                        struct {
-                                int width;
-                                int height;
-                        } sizes[] = {
-                                {1280, 720},
-                                {1920, 1080},
-                                {3840, 2160},
-                        };
-                        int framerates[] = {24, 30, 60};
-                        const char * const pix_fmts[] = {"UYVY", "RGB"};
+        if (!verbose) {
+                return vt;
+        }
 
-                        snprintf(vt->cards[0].modes[0].name,
-                                        sizeof vt->cards[0].name, "Default");
-                        snprintf(vt->cards[0].modes[0].id,
-                                        sizeof vt->cards[0].id,
-                                        "{\"width\":\"\", "
-                                        "\"height\":\"\", "
-                                        "\"format\":\"\", "
-                                        "\"fps\":\"\"}");
+        vt->card_count = 1;
+        vt->cards = (struct device_info *) calloc(vt->card_count, sizeof(struct device_info));
+        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing signal");
 
-                        int i = 1;
-                        for(const auto &pix_fmt : pix_fmts){
-                                for(const auto &size : sizes){
-                                        for(const auto &fps : framerates){
-                                                snprintf(vt->cards[0].modes[i].name,
-                                                                sizeof vt->cards[0].name,
-                                                                "%dx%d@%d %s",
-                                                                size.width, size.height,
-                                                                fps, pix_fmt);
-                                                snprintf(vt->cards[0].modes[i].id,
-                                                                sizeof vt->cards[0].id,
-                                                                "{\"width\":\"%d\", "
-                                                                "\"height\":\"%d\", "
-                                                                "\"format\":\"%s\", "
-                                                                "\"fps\":\"%d\"}",
-                                                                size.width, size.height,
-                                                                pix_fmt, fps);
-                                                i++;
-                                        }
-                                }
+        struct {
+                int width;
+                int height;
+        } sizes[] = {
+                {1280, 720},
+                {1920, 1080},
+                {3840, 2160},
+        };
+        int framerates[] = {24, 30, 60};
+        const char * const pix_fmts[] = {"UYVY", "RGB"};
 
+        snprintf(vt->cards[0].modes[0].name,
+                        sizeof vt->cards[0].name, "Default");
+        snprintf(vt->cards[0].modes[0].id,
+                        sizeof vt->cards[0].id,
+                        "{\"width\":\"\", "
+                        "\"height\":\"\", "
+                        "\"format\":\"\", "
+                        "\"fps\":\"\"}");
+
+        int i = 1;
+        for(const auto &pix_fmt : pix_fmts){
+                for(const auto &size : sizes){
+                        for(const auto &fps : framerates){
+                                snprintf(vt->cards[0].modes[i].name,
+                                                sizeof vt->cards[0].name,
+                                                "%dx%d@%d %s",
+                                                size.width, size.height,
+                                                fps, pix_fmt);
+                                snprintf(vt->cards[0].modes[i].id,
+                                                sizeof vt->cards[0].id,
+                                                "{\"width\":\"%d\", "
+                                                "\"height\":\"%d\", "
+                                                "\"format\":\"%s\", "
+                                                "\"fps\":\"%d\"}",
+                                                size.width, size.height,
+                                                pix_fmt, fps);
+                                i++;
                         }
-
                 }
         }
         return vt;

@@ -106,7 +106,7 @@ struct sdp {
 };
 
 struct sdp *new_sdp(int ip_version, const char *receiver) {
-    assert(ip_version == 0 || ip_version == 4 || ip_version == 6);
+    assert(ip_version == 4 || ip_version == 6);
     struct sdp *sdp;
     sdp = calloc(1, sizeof(struct sdp));
     assert(sdp != NULL);
@@ -137,9 +137,9 @@ struct sdp *new_sdp(int ip_version, const char *receiver) {
         connection_address = receiver;
     }
     strncpy(sdp->version, "v=0\n", STR_LENGTH - 1);
-    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version == 0 ? 4 : 6, origin_address);
+    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version, origin_address);
     strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
-    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version == 0 ? 4 : 6, connection_address);
+    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, connection_address);
     strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
 
     return sdp;

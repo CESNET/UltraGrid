@@ -122,21 +122,25 @@ vidcap_deltacast_probe(bool verbose, void (**deleter)(void *))
         *deleter = free;
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->name        = "deltacast";
-		vt->description = "DELTACAST card";
+	if (vt == NULL) {
+                return NULL;
+        }
 
-                if (verbose) {
-                        ULONG             Result,DllVersion,NbBoards;
-                        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
-                        if (Result == VHDERR_NOERROR) {
-                                vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
-                                vt->card_count = NbBoards;
-                                for (ULONG i = 0; i < NbBoards; ++i) {
-                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%" PRIu32, i);
-                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %" PRIu32, i);
-                                }
-                        }
+        vt->name        = "deltacast";
+        vt->description = "DELTACAST card";
+
+        if (!verbose) {
+                return vt;
+        }
+
+        ULONG             Result,DllVersion,NbBoards;
+        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
+        if (Result == VHDERR_NOERROR) {
+                vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
+                vt->card_count = NbBoards;
+                for (ULONG i = 0; i < NbBoards; ++i) {
+                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%" PRIu32, i);
+                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %" PRIu32, i);
                 }
 	}
 	return vt;

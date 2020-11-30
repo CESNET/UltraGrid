@@ -164,9 +164,7 @@ ADD_TO_PARAM("audioenc-frame-duration", "* audioenc-frame-duration=<ms>\n"
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool silent,
                 int bitrate)
 {
-        if (log_level >= LOG_LEVEL_VERBOSE) {
-                av_log_set_level(AV_LOG_VERBOSE);
-        }
+        av_log_set_level((log_level - 1) * 8);
 
         enum AVCodecID codec_id = AV_CODEC_ID_NONE;
 

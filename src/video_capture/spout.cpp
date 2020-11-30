@@ -41,25 +41,40 @@
 #include "config_win32.h"
 #endif
 
+#include "gl_context.h" // it looks like it needs to be included prior to Spout.h
+
+#include <array>
+#include <cctype>
 #include <chrono>
+#include <iostream>
+#include <SpoutSDK/Spout.h>
+#include <string>
 
 #include "debug.h"
-#include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
-#include "spout_receiver.h"
+#include "utils/color_out.h"
+#include "utils/misc.h" // urlencode, urldecode
 #include "video.h"
 #include "video_capture.h"
 
 #define DEFAULT_FPS 60.0
 #define DEFAULT_CODEC RGB
 
+static constexpr const char *MOD_NAME = "[SPOUT] ";
+
+using std::array;
+using std::cout;
+using std::shared_ptr;
+using std::stoi;
+using std::string;
+
 /**
  * Class state_vidcap_spout must be value-initialized
  */
 struct state_vidcap_spout {
         struct video_desc desc;
-        void *spout_state;
+        shared_ptr<SpoutReceiver> spout_state;
         struct gl_context glc;
         GLenum gl_format;
 
@@ -72,17 +87,59 @@ struct state_vidcap_spout {
 
 static void usage()
 {
-        printf("\t-t spout[:name=<server_name>][:fps=<fps>][:codec=<codec>]\n");
-        printf("\n");
-        printf("\tname\n\t\tSPOUT server name\n");
-        printf("\tfps\n\t\tFPS count (default: %.2lf)\n", DEFAULT_FPS);
-        printf("\tcodec\n\t\tvideo codec (default: %s)\n", get_codec_name(DEFAULT_CODEC));
+        cout << "Usage:\n";
+        cout << "\t" << BOLD(RED("-t spout") << "[:name=<server_name>|device=<idx>][:fps=<fps>][:codec=<codec>]") << "\n";
+        cout << "where\n";
+        cout << "\t" << BOLD("name") << "\n\t\tSPOUT server name\n";
+        cout << "\t" << BOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
+        cout << "\t" << BOLD("codec") << "\n\t\tvideo codec (default: " << get_codec_name(DEFAULT_CODEC) << ")\n";
+        cout << "\nServers:\n";
+        auto receiver = shared_ptr<SpoutReceiver>(new SpoutReceiver);
+        int count = receiver->GetSenderCount();
+
+        for (int i = 0; i < count; ++i) {
+                array<char, 256> name{};
+                if (!receiver->GetSenderName(i, name.data(), name.size())) {
+                        LOG(LOG_LEVEL_ERROR) << "Cannot get name for server #" << i << "\n";
+                        continue;
+                }
+                unsigned int width = 0;
+                unsigned int height = 0;
+                HANDLE dxShareHandle = 0;
+                DWORD dwFormat = 0;
+                if (!receiver->GetSenderInfo(name.data(), width, height, dxShareHandle, dwFormat)) {
+                        LOG(LOG_LEVEL_ERROR) << "Cannot get server " << name.data() << "details\n";
+                }
+                cout << "\t" << i << ") " << BOLD(name.data()) << " - width: " << width << ", height: " << height << "\n";
+        }
+}
+
+static string vidcap_spout_get_device_name(int idx)
+{
+        if (idx < 0) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Negative indices not allowed, given: " << idx << "\n";
+                return {};
+        }
+        auto receiver = shared_ptr<SpoutReceiver>(new SpoutReceiver);
+        int count = receiver->GetSenderCount();
+        if (idx >= count) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot find server #" << idx << " (total count " << count << ")!\n";
+                return {};
+        }
+
+        array<char, 256> name{};
+        if (!receiver->GetSenderName(idx, name.data(), name.size())) {
+                LOG(LOG_LEVEL_ERROR) << "Cannot get name for server #" << idx << "\n";
+                return {};
+        }
+        return name.data();
 }
 
 static int vidcap_spout_init(struct vidcap_params *params, void **state)
 {
         state_vidcap_spout *s = new state_vidcap_spout();
 
+        int device_idx = 0;
         double fps = DEFAULT_FPS;
         codec_t codec = DEFAULT_CODEC;
 
@@ -96,8 +153,19 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                         usage();
                         ret = VIDCAP_INIT_NOERR;
                         break;
+                } else if (strstr(item, "device=") == item) {
+                        device_idx = stoi(item + strlen("device="));
                 } else if (strstr(item, "name=") == item) {
-                        strncpy(s->server_name, item + strlen("name="), sizeof(s->server_name) - 1);
+                        char *name = item + strlen("name=");
+                        if (strstr(name, "urlencoded=") == name) {
+                                name += strlen("urlencoded=");
+                                if (urldecode(s->server_name, sizeof s->server_name, name) == 0) {
+                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Improperly formatted name: " << item + strlen("name=") << "\n";
+                                        ret = VIDCAP_INIT_FAIL;
+                                }
+                        } else {
+                                strncpy(s->server_name, item + strlen("name="), sizeof(s->server_name) - 1);
+                        }
                 } else if (strstr(item, "fps=") == item) {
                         fps = atof(item + strlen("fps="));
                 } else if (strstr(item, "codec=") == item) {
@@ -130,6 +198,15 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
+        if (strlen(s->server_name) == 0) {
+                const string &name = vidcap_spout_get_device_name(device_idx);
+                if (name.empty()) {
+                        delete s;
+                        return VIDCAP_INIT_FAIL;
+                }
+                strncpy(s->server_name, name.c_str(), sizeof s->server_name - 1);
+        }
+
         if (!init_gl_context(&s->glc, GL_CONTEXT_ANY)) {
                 LOG(LOG_LEVEL_ERROR) << "[SPOUT] Unable to initialize GL context!\n";
                 delete s;
@@ -139,14 +216,17 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
 
         unsigned int width = 0, height = 0;
 
-        s->spout_state = spout_create_receiver(s->server_name, &width, &height);
-        if (!s->spout_state) {
-                LOG(LOG_LEVEL_ERROR) << "[SPOUT] Unable to initialize SPOUT state!\n";
+        s->spout_state = shared_ptr<SpoutReceiver>(new SpoutReceiver);
+        s->spout_state->CreateReceiver(s->server_name, width, height);
+        bool connected;
+        s->spout_state->CheckReceiver(s->server_name, width, height, connected);
+        if (!connected) {
+                LOG(LOG_LEVEL_ERROR) << "[SPOUT] Not connected to server '" << s->server_name << "'. Is it running?\n";
+                s->spout_state->ReleaseReceiver();
                 delete s;
                 return VIDCAP_INIT_FAIL;
-        } else {
-                LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Initialized successfully - server name: " << s->server_name << ", width: " << width << ", height: " << height << ", fps: " << fps << ", codec: " << get_codec_name_long(codec) << "\n";
         }
+        LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Initialized successfully - server name: " << s->server_name << ", width: " << width << ", height: " << height << ", fps: " << fps << ", codec: " << get_codec_name_long(codec) << "\n";
 
         s->desc = video_desc{width, height, codec, fps, PROGRESSIVE, 1};
 
@@ -162,7 +242,7 @@ static void vidcap_spout_done(void *state)
         state_vidcap_spout *s = (state_vidcap_spout *) state;
 
         gl_context_make_current(&s->glc);
-        spout_receiver_delete(s->spout_state);
+        s->spout_state->ReleaseReceiver();
         destroy_gl_context(&s->glc);
 
         delete s;
@@ -175,12 +255,11 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         struct video_frame *out = vf_alloc_desc_data(s->desc);
         out->callbacks.dispose = vf_free;
 
-        bool ret;
         unsigned int width, height;
         width = s->desc.width;
         height = s->desc.height;
         gl_context_make_current(&s->glc);
-        ret = spout_receiver_recvframe(s->spout_state, s->server_name, width, height, out->tiles[0].data, s->gl_format);
+        bool ret = s->spout_state->ReceiveImage(s->server_name, width, height, (unsigned char *) out->tiles[0].data, s->gl_format);
         gl_context_make_current(NULL);
         if (ret) {
                 // statistics
@@ -219,6 +298,35 @@ static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(voi
         if (vt != NULL) {
                 vt->name = "spout";
                 vt->description = "SPOUT capture client";
+        }
+
+        if (!verbose) {
+                return vt;
+        }
+
+        auto receiver = shared_ptr<SpoutReceiver>(new SpoutReceiver);
+        int count = receiver->GetSenderCount();
+
+        vt->cards = (struct device_info *) calloc(count, sizeof(struct device_info));
+        if (vt->cards == nullptr) {
+                return vt;
+        }
+        vt->card_count = count;
+
+        for (int i = 0; i < count; ++i) {
+                array<char, 256> name{};
+                if (!receiver->GetSenderName(i, name.data(), name.size())) {
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Cannot get name for server #" << i << "\n";
+                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%d", i);
+                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT #%d", i);
+                } else {
+                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "name=urlencoded=");
+                        urlencode(vt->cards[i].id + strlen(vt->cards[i].id),
+                                        sizeof vt->cards[i].id - strlen(vt->cards[i].id),
+                                        name.data(), urlencode_rfc3986_eval, false);
+                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT %s", name.data());
+                }
+                vt->cards[i].repeatable = true;
         }
         return vt;
 }

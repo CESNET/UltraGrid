@@ -40,6 +40,10 @@
 #ifndef _RAT_DEBUG_H
 #define _RAT_DEBUG_H
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif // ! defined __cplusplus
+
 #define UNUSED(x)	(x=x)
 
 #define LOG_LEVEL_QUIET   0 ///< suppress all logging
@@ -74,27 +78,48 @@ void debug_dump(void*lp, int len);
 #define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
 
+bool set_log_level(const char *optarg, bool *logger_repeat_msgs);
+
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef __cplusplus
+#include <atomic>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include "compat/platform_time.h"
 #include "rang.hpp"
+
+class keyboard_control; // friend
 
 // Log, version 0.1: a simple logging class
 class Logger
 {
 public:
+        static void preinit(bool skip_repeated);
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
-                std::cerr << rang::style::reset << rang::fg::reset;
-        }
-        inline std::ostream& Get() {
                 rang::fg color = rang::fg::reset;
                 rang::style style = rang::style::reset;
+
+                std::string msg = oss.str();
+
+                if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
+                        auto last = last_msg.exchange(nullptr);
+                        if (last != nullptr && last->msg == msg) {
+                                int count = last->count += 1;
+                                auto current = last_msg.exchange(last);
+                                delete current;
+                                std::clog << "    Last message repeated " << count << " times\r";
+                                return;
+                        }
+                        if (last != nullptr && last->count > 0) {
+                                std::clog << "\n";
+                                delete last;
+                        }
+                }
 
                 switch (level) {
                 case LOG_LEVEL_FATAL:   color = rang::fg::red; style = rang::style::bold; break;
@@ -102,20 +127,34 @@ public:
                 case LOG_LEVEL_WARNING: color = rang::fg::yellow; break;
                 case LOG_LEVEL_NOTICE:  color = rang::fg::green; break;
                 }
-                std::cerr << style << color;
+
+                std::ostringstream timestamp;
                 if (log_level >= LOG_LEVEL_VERBOSE) {
-                        unsigned long long time_ms = time_since_epoch_in_ms();
-                        auto flags = std::cerr.flags();
-                        auto precision = std::cerr.precision();
-                        std::cerr << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
-                        std::cerr.precision(precision);
-                        std::cerr.flags(flags);
+                        auto time_ms = time_since_epoch_in_ms();
+                        timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
                 }
 
-                return std::cerr;
+                std::clog << style << color << timestamp.str() << msg << rang::style::reset << rang::fg::reset;
+
+                auto *lmsg = new last_message{std::move(msg)};
+                auto current = last_msg.exchange(lmsg);
+                delete current;
+        }
+        inline std::ostream& Get() {
+                return oss;
         }
 private:
         int level;
+        std::ostringstream oss;
+
+        static std::atomic<bool> skip_repeated;
+        struct last_message {
+                std::string msg;
+                int count{0};
+        };
+        static std::atomic<last_message *> last_msg; // leaks last message upon exit
+
+        friend class keyboard_control;
 };
 
 #define LOG(level) \

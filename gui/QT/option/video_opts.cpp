@@ -6,11 +6,7 @@
 
 std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
 	const char * const whiteList[] = {
-		"aja",
-		"dvs",
 		"bitflow",
-		"spout",
-		"syphon"
 	};
     const std::string optStr = "video.source";
 

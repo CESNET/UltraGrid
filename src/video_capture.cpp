@@ -112,6 +112,9 @@ void print_available_capturers()
 
                 void (*deleter)(void *) = nullptr;
                 struct vidcap_type *vt = vci->probe(true, &deleter);
+                if (vt == nullptr) {
+                        continue;
+                }
                 printf("[cap][capture] %s\n", item.first.c_str());
                 for (int i = 0; i < vt->card_count; ++i) {
                         printf("[capability][device][v2] {"

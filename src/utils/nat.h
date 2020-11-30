@@ -1,9 +1,9 @@
 /**
- * @file   spout_receiver.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   utils/nat.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2020 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,34 +35,26 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SPOUT_RECEIVER_H_
-#define SPOUT_RECEIVER_H_
+#ifndef UTILS_NAT_H_AC13CDA9_2B22_4441_A81A_9858C87CE0AA
+#define UTILS_NAT_H_AC13CDA9_2B22_4441_A81A_9858C87CE0AA
 
-#include <GL/gl.h>
-#include <stddef.h>
+#ifndef __cplusplus
 #include <stdbool.h>
+#endif // ! defined __cplusplus
 
 #ifdef __cplusplus
 extern "C" {
-#endif // __cplusplus
-
-#if defined _MSC_VER || defined __MINGW32__
-#ifdef EXPORT_DLL_SYMBOLS
-#define SPOUT_RECEIVER_DLL_API __declspec(dllexport)
-#else
-#define SPOUT_RECEIVER_DLL_API __declspec(dllimport)
-#endif
-#else // other platforms
-#define SPOUT_RECEIVER_DLL_API
 #endif
 
-SPOUT_RECEIVER_DLL_API void *spout_create_receiver(char *name, unsigned int *width, unsigned int *height);
-SPOUT_RECEIVER_DLL_API bool spout_receiver_recvframe(void *s, char *sender_name, unsigned int width, unsigned int height, char *data, GLenum glFormat);
-SPOUT_RECEIVER_DLL_API void spout_receiver_delete(void *s);
+struct ug_nat_traverse;
+
+struct ug_nat_traverse *start_nat_traverse(int video_rx_port, int audio_rx_port);
+void stop_nat_traverse(struct ug_nat_traverse *);
+
 
 #ifdef __cplusplus
 }
-#endif // __cplusplus
+#endif
 
-#endif // SPOUT_RECEIVER_H_
+#endif // defined UTILS_NAT_H_AC13CDA9_2B22_4441_A81A_9858C87CE0AA
 

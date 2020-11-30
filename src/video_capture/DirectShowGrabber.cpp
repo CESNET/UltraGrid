@@ -167,6 +167,12 @@ public:
 						(char *) buffer + (s->desc.height - i - 1) * linesize,
 						linesize);
 			}
+		} else if (s->desc.color_spec == RGBA) { // convert from ABGR and bottom-to-top
+			for(unsigned int i = 0; i < s->desc.height; ++i) {
+				vc_copylineRGBA(s->grabBuffer + i * linesize,
+						buffer + (s->desc.height - i - 1) * linesize,
+						linesize, 16, 8, 0);
+			}
 		} else {
 			memcpy((char *) s->grabBuffer, (char *) buffer, len);
 		}
@@ -1317,7 +1323,8 @@ static struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **
 	s->frame->tiles[0].data = (char *) s->returnBuffer;
 	//fprintf(stderr, "[dshow] s: %p\n", s);
 	//s->tile->data_len = s->width * s->height * 3;
-	s->frame->tiles[0].data_len = s->returnBufferLen;
+	s->frame->tiles[0].data_len = is_codec_opaque(s->frame->color_spec) ? s->returnBufferLen :
+		vc_get_datalen(s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec);
 
 /*
 	fprintf(stderr, "[dshow] s5: %p\n", s);

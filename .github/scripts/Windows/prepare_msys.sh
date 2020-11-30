@@ -6,7 +6,7 @@ mkdir -p /usr/local/lib /usr/local/bin /usr/local/include
 cat >> ~/.bash_profile <<'EOF'
 export PATH=/mingw64/bin:/usr/local/bin:$PATH
 export CPATH=/usr/local/include
-export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/mingw64/lib/pkgconfig
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/mingw64/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib
 
 CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
@@ -27,7 +27,10 @@ if test -d "$JACK_D"; then
         export LIBRARY_PATH=$LIBRARY_PATH:$JACK_D/lib
 fi
 
+unset temp tmp # defined by /etc/profile, causes CineForm MSBuild fail (GitHub issue #99)
+
 cd `cygpath $GITHUB_WORKSPACE`
+
 EOF
 
 . ~/.bash_profile
@@ -61,11 +64,7 @@ cd /c/live555
 make install
 cd -
 
-# Install SPOUT
-wget --no-verbose https://frakira.fi.muni.cz/~xpulec/SpoutSDK.zip # this is the SDK subdirectory installed by Spout installer
-unzip SpoutSDK.zip -d src
-MSBuild.exe -p:PlatformToolset=v142  -p:Configuration=Release -p:Platform=x64 src/SpoutSDK/VS2012
-data/scripts/build_spout64.sh src/SpoutSDK/VS2012/x64/Release
+$GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
 
 # Install FFMPEG
 wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z && 7z x ffmpeg-release-full-shared.7z && cp -r ffmpeg-*build-shared/{bin,lib,include} /usr/local && rm -rf ffmpeg-* || exit 1
@@ -74,5 +73,5 @@ wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.
 ( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local || exit 1 )
 
 # Build CineForm
-( git submodule update --init cineform-sdk && cd cineform-sdk && cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig || exit 1 )
+( git submodule update --init cineform-sdk && cd cineform-sdk && cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 . && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig || exit 1 )
 

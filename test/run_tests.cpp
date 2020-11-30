@@ -144,7 +144,7 @@ static bool run_unit_tests()
 int main(int argc, char **argv)
 {
         struct init_data *init = nullptr;
-        if ((init = common_preinit(argc, argv)) == nullptr) {
+        if ((init = common_preinit(argc, argv, nullptr)) == nullptr) {
                 return 2;
         }
 

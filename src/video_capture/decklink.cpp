@@ -825,10 +825,11 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
                 }
                 list<tuple<int, string, string, string>> modes = get_input_modes (deckLink);
                 int i = 0;
+                const int mode_count = sizeof vt->cards[vt->card_count - 1].modes /
+                                                sizeof vt->cards[vt->card_count - 1].modes[0];
                 for (auto &m : modes) {
                         for (auto &c : connections) {
-                                if (i >= (int) (sizeof vt->cards[vt->card_count - 1].modes /
-                                                sizeof vt->cards[vt->card_count - 1].modes[0])) { // no space
+                                if (i >= mode_count) { // no space
                                         break;
                                 }
 
@@ -843,14 +844,27 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
                         }
                 }
 
-                if (i < (int) (sizeof vt->cards[vt->card_count - 1].modes /
-                                        sizeof vt->cards[vt->card_count - 1].modes[0])) {
+                for (auto &c : connections) {
+                        if (i >= mode_count) {
+                                break;
+                        }
                         snprintf(vt->cards[vt->card_count - 1].modes[i].id,
                                         sizeof vt->cards[vt->card_count - 1].modes[i].id,
-                                        "{\"modeOpt\":\"detect-format\"}");
+                                        "{\"modeOpt\":\"connection=%s\"}",
+                                        c.c_str());
                         snprintf(vt->cards[vt->card_count - 1].modes[i].name,
                                         sizeof vt->cards[vt->card_count - 1].modes[i].name,
-                                        "UltraGrid auto-detect");
+                                        "Decklink Auto (%s)", c.c_str());
+                        if (++i >= mode_count) {
+                                break;
+                        }
+                        snprintf(vt->cards[vt->card_count - 1].modes[i].id,
+                                        sizeof vt->cards[vt->card_count - 1].modes[i].id,
+                                        "{\"modeOpt\":\"detect-format:connection=%s\"}",
+                                        c.c_str());
+                        snprintf(vt->cards[vt->card_count - 1].modes[i].name,
+                                        sizeof vt->cards[vt->card_count - 1].modes[i].name,
+                                        "UltraGrid auto-detect (%s)", c.c_str());
                         i++;
                 }
 

@@ -89,6 +89,7 @@
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/misc.h"
+#include "utils/nat.h"
 #include "utils/net.h"
 #include "utils/thread.h"
 #include "utils/wait_obj.h"
@@ -133,7 +134,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
 #define OPT_PROTOCOL (('P' << 8) | 'R')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
-#define OPT_VERBOSE (('V' << 8) | 'E')
 #define OPT_VIDEO_CODECS (('V' << 8) | 'C')
 #define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
 #define OPT_WINDOW_TITLE (('W' << 8) | 'T')
@@ -173,7 +173,9 @@ struct state_uv {
         static void should_exit_watcher(state_uv *s) {
                 set_thread_name(__func__);
                 char c;
-                while (recv(s->should_exit_pipe[0], &c, 1, 0) != 1) perror("recv");
+                while (PLATFORM_PIPE_READ(s->should_exit_pipe[0], &c, 1) != 1) {
+                        perror("PLATFORM_PIPE_READ");
+                }
                 unique_lock<mutex> lk(s->lock);
                 for (auto c : s->should_exit_callbacks) {
                         get<0>(c)(get<1>(c));
@@ -186,7 +188,9 @@ struct state_uv {
                         return;
                 }
                 should_exit_thread_notified = true;
-                while (send(should_exit_pipe[1], &c, 1, 0) != 1) perror("send");
+                while (PLATFORM_PIPE_WRITE(should_exit_pipe[1], &c, 1) != 1) {
+                        perror("PLATFORM_PIPE_WRITE");
+                }
         }
         static void new_message(struct module *mod)
         {
@@ -374,6 +378,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-M <video_mode>", {"received video mode (eg tiled-4K, 3D,",
                                 "dual-link)"});
                 print_help_item("-p <postprocess> | help", {"postprocess module"});
+                print_help_item("-N|--nat-traverse"s, {"try to deploy NAT traversal techniques"s});
         }
         print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
                         "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%%\" or", "\"ldgm:<k>:<m>:<c>\"",
@@ -716,7 +721,7 @@ int main(int argc, char *argv[])
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
                 {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
-                {"verbose", optional_argument, 0, OPT_VERBOSE},
+                {"verbose", optional_argument, nullptr, 'V'},
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
                 {"capabilities", no_argument, 0, OPT_CAPABILITIES},
                 {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
@@ -729,9 +734,10 @@ int main(int argc, char *argv[])
                 {"param", required_argument, 0, OPT_PARAM},
                 {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
                 {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
+                {"nat-traverse", no_argument, nullptr, 'N'},
                 {0, 0, 0, 0}
         };
-        const char optstring[] = "d:t:m:r:s:v46c:hM:p:f:P:l:A:";
+        const char *optstring = "d:t:m:r:s:v46c:hM:Np:f:P:l:A:V";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -739,17 +745,21 @@ int main(int argc, char *argv[])
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
 
+        const char *log_opt = nullptr;
+        bool setup_nat_traverse = false;
+        struct ug_nat_traverse *nat_traverse = nullptr;
+
         // First we need to set verbosity level prior to everything else.
         // common_preinit() uses the verbosity level.
         while ((ch =
                 getopt_long(argc, argv, optstring, getopt_options,
                             NULL)) != -1) {
                 switch (ch) {
-                case OPT_VERBOSE:
+                case 'V':
                         if (optarg) {
-                                log_level = atoi(optarg);
+                                log_opt = optarg;
                         } else {
-                                log_level = LOG_LEVEL_VERBOSE;
+                                log_level += 1;
                         }
                         break;
                 default:
@@ -758,7 +768,7 @@ int main(int argc, char *argv[])
         }
         optind = 1;
 
-        if ((init = common_preinit(argc, argv)) == nullptr) {
+        if ((init = common_preinit(argc, argv, log_opt)) == nullptr) {
                 log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
                 EXIT(EXIT_FAILURE);
         }
@@ -1057,7 +1067,7 @@ int main(int argc, char *argv[])
                                 connection_type = 0;
                         }
                         break;
-                case OPT_VERBOSE:
+                case 'V':
                         break; // already handled earlier
                 case OPT_WINDOW_TITLE:
                         log_msg(LOG_LEVEL_WARNING, "Deprecated option used, please use "
@@ -1087,6 +1097,9 @@ int main(int argc, char *argv[])
                 case OPT_VIDEO_CODECS:
                         print_video_codecs();
                         EXIT(EXIT_SUCCESS);
+                case 'N':
+                        setup_nat_traverse = true;
+                        break;
                 case '?':
                 default:
                         usage(uv_argv[0]);
@@ -1126,7 +1139,7 @@ int main(int argc, char *argv[])
                         audio_codec = "OPUS:sample_rate=48000";
                 }
                 if (requested_compression == nullptr) {
-                        requested_compression = "none"; // will be set later
+                        requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
                 }
                 if (force_ip_version == 0 && strcasecmp(video_protocol, "rtsp") == 0) {
                         force_ip_version = 4;
@@ -1234,6 +1247,10 @@ int main(int argc, char *argv[])
         if (control_init(control_port, connection_type, &control, &uv.root_module, force_ip_version) != 0) {
                 LOG(LOG_LEVEL_FATAL) << "Error: Unable to initialize remote control!\n";
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
+        }
+
+        if (setup_nat_traverse) {
+                nat_traverse = start_nat_traverse(video_rx_port, audio_rx_port);
         }
 
         uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,
@@ -1501,6 +1518,8 @@ cleanup:
                 vidcap_done(uv.capture_device);
         if (uv.display_device)
                 display_done(uv.display_device);
+
+        stop_nat_traverse(nat_traverse);
 
         kc.stop();
         control_done(control);

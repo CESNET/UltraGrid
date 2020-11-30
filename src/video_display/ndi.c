@@ -259,7 +259,7 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                         {
                                 assert(*len == sizeof(struct audio_desc));
                                 struct audio_desc *desc = (struct audio_desc *) val;
-                                desc->bps = 4;
+                                desc->bps = desc->bps <= 2 ? 2 : 4;
                                 desc->codec = AC_PCM;
                         }
                         break;
@@ -269,22 +269,28 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
         return TRUE;
 }
 
+#define NDI_SEND_AUDIO(frame, bit_depth) do { \
+                assert((frame)->bps * 8 == (bit_depth)); \
+                NDIlib_audio_frame_interleaved_ ## bit_depth ## s_t NDI_audio_frame = { 0 }; \
+                NDI_audio_frame.sample_rate = (frame)->sample_rate; \
+                NDI_audio_frame.no_channels = (frame)->ch_count; \
+                NDI_audio_frame.timecode = NDIlib_send_timecode_synthesize; \
+                NDI_audio_frame.p_data = (int ## bit_depth ## _t *) (frame)->data; \
+                NDI_audio_frame.no_samples = (frame)->data_len / (frame)->ch_count / ((bit_depth) / 8); \
+                \
+                NDIlib_util_send_send_audio_interleaved_ ## bit_depth ## s(s->pNDI_send, &NDI_audio_frame); \
+        } while(0)
+
 static void display_ndi_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct display_ndi *s = (struct display_ndi *) state;
-        assert(frame->bps == 4);
-        float *tmp = malloc(frame->data_len);
-        NDIlib_audio_frame_v2_t NDI_audio_frame = { 0 };
-        NDI_audio_frame.sample_rate = frame->sample_rate;
-        NDI_audio_frame.no_channels = frame->ch_count;
-        NDI_audio_frame.timecode = NDIlib_send_timecode_synthesize;
-        NDI_audio_frame.p_data = tmp;
-        NDI_audio_frame.channel_stride_in_bytes = frame->data_len / frame->ch_count;
-        NDI_audio_frame.no_samples = frame->data_len / frame->ch_count / sizeof(float);
-        int2float((char *) tmp, frame->data, frame->data_len);
-
-        NDIlib_send_send_audio_v2(s->pNDI_send, &NDI_audio_frame);
-        free(tmp);
+        switch (frame->bps * 8) {
+#define HANDLE_CASE(b) case b: NDI_SEND_AUDIO(frame, b); break;
+        HANDLE_CASE(16)
+        HANDLE_CASE(32)
+        default:
+                abort();
+        }
 }
 
 static int display_ndi_reconfigure_audio(void *state, int quant_samples, int channels,

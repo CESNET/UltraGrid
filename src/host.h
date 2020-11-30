@@ -122,7 +122,7 @@ void set_audio_delay(int val);
 #define RATE_FLAG_FIXED_RATE (1ll<<62ll) ///< use the bitrate as fixed, not capped
 
 struct init_data;
-struct init_data *common_preinit(int argc, char *argv[]);
+struct init_data *common_preinit(int argc, char *argv[], const char *log_opt);
 void common_cleanup(struct init_data *init_data);
 
 /**

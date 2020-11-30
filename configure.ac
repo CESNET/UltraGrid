@@ -2201,9 +2201,16 @@ AC_ARG_ENABLE(gpujpeg,
         [gpujpeg_req=$build_default])
 
 
-PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
+PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [ libgpujpeg ], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
+PKG_CHECK_MODULES([LIBGPUJPEG], [ libgpujpeg >= 0.11 ], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
 
-if test "$found_gpujpeg" != yes
+if test "$found_gpujpeg_any" = yes -a "$found_gpujpeg" = no; then
+        AC_MSG_WARN([Old GPUJPEG version found, please upgrade]);
+fi
+
+# try to find without pkg-config (but only if old version was not detected - to avoid side-loading
+# that version without pkg-config version check)
+if test "$found_gpujpeg_any" != yes -a "$found_gpujpeg" != yes
 then
         GPUJPEG_LIB="$GPUJPEG_LIB -lgpujpeg"
         SAVED_LIBS=$LIBS
@@ -2896,17 +2903,24 @@ AC_ARG_ENABLE(spout,
     [spout_req=$build_default]
     )
 
-FOUND_SPOUT_WRAPPER=no
+FOUND_SPOUT=no
 if test $system = Windows
 then
-        AC_CHECK_LIB(spout_wrapper, spout_create_receiver, [FOUND_SPOUT_WRAPPER=yes])
+        AC_LANG_PUSH([C++])
+        SAVED_LIBS="$LIBS"
+        LIBS="$LIBS -lSpout"
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <SpoutSDK/Spout.h>]],
+                       [[SpoutSender *sender = new SpoutSender;]])],
+                       FOUND_SPOUT=yes, FOUND_SPOUT=no)
+        LIBS=$SAVED_LIBS
+        AC_LANG_POP([C++])
 fi
 
-if test $spout_req != no -a "$OPENGL" = yes -a $FOUND_SPOUT_WRAPPER = yes
+if test $spout_req != no -a "$OPENGL" = yes -a $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
-        LIBS="$LIBS -lspout_wrapper"
-        OBJS="$OBJS src/video_capture/spout.o"
+        LIBS="$LIBS -lSpout"
+        OBJS="$OBJS src/spout_sender.o src/video_capture/spout.o"
         spout=yes
 fi
 

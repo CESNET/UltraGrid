@@ -121,7 +121,7 @@ keyboard_control::keyboard_control(struct module *parent) :
         m_should_exit(false),
         m_started(false),
         m_locked_against_changes(true),
-        guarded_keys { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '>', '<', 'e', 's', 'S', 'v', 'V' }
+        guarded_keys { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '>', '<', 'e', 's', 'S', 'v', 'V', 'r' }
 {
         m_start_time = time(NULL);
 
@@ -540,6 +540,10 @@ void keyboard_control::run()
                         cout << "Log level: " << log_level << "\n";
                         break;
                 }
+                case 'r':
+                        Logger::skip_repeated = !Logger::skip_repeated;
+                        cout << "Skip repeated messages: " << std::boolalpha << Logger::skip_repeated << std::noboolalpha << "\n";
+                        break;
                 case 's':
                         if (saved_log_level == -1) {
                                 saved_log_level = log_level;
@@ -672,6 +676,7 @@ void keyboard_control::usage()
                 BOLD("\t   M   ") << "- mute/unmute sender" << G('M') << "\n" <<
                 BOLD("\t   v   ") << "- increase verbosity level" << G('v') << "\n" <<
                 BOLD("\t   V   ") << "- decrease verbosity level" << G('V') << "\n" <<
+                BOLD("\t   r   ") << "- skip repeated messages (toggle) " << G('r') << "\n" <<
                 BOLD("\t   e   ") << "- record captured content (toggle)" << G('e') << "\n" <<
                 BOLD("\t   h   ") << "- show help" << G('h') << "\n" <<
                 BOLD("\t   i   ") << "- show various information" << G('i') << "\n" <<

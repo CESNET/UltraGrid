@@ -45,21 +45,22 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "debug.h"
-#include "host.h"
-
 #include "audio/audio.h"
 #include "audio/audio_playback.h"
 #include "audio/playback/sdi.h"
-
+#include "debug.h"
+#include "host.h"
 #include "lib_common.h"
-
+#include "tv.h"
 #include "video_display.h" /* flags */
 
 struct state_audio_playback {
         char name[128];
         const struct audio_playback_info *funcs;
         void *state;
+
+        struct timeval t0;
+        long long int samples_played;
 };
 
 void audio_playback_help(bool full)
@@ -73,6 +74,7 @@ int audio_playback_init(const char *device, const char *cfg, struct state_audio_
         struct state_audio_playback *s;
 
         s = calloc(1, sizeof(struct state_audio_playback));
+        gettimeofday(&s->t0, NULL);
         s->funcs = load_library(device, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
 
         if (s->funcs == NULL) {
@@ -111,10 +113,21 @@ struct state_audio_playback *audio_playback_init_null_device(void)
 
 void audio_playback_done(struct state_audio_playback *s)
 {
-        if(s) {
-                s->funcs->done(s->state);
-                free(s);
+        if (!s) {
+                return;
         }
+
+        if (s->samples_played > 0) {
+                struct timeval t1;
+                gettimeofday(&t1, NULL);
+
+                log_msg(LOG_LEVEL_INFO, "Played %lld audio samples in %f seconds (%f samples per second).\n",
+                                s->samples_played, tv_diff(t1, s->t0),
+                                s->samples_played / tv_diff(t1, s->t0));
+        }
+
+        s->funcs->done(s->state);
+        free(s);
 }
 
 unsigned int audio_playback_get_display_flags(struct state_audio_playback *s)
@@ -135,6 +148,7 @@ unsigned int audio_playback_get_display_flags(struct state_audio_playback *s)
 
 void audio_playback_put_frame(struct state_audio_playback *s, struct audio_frame *frame)
 {
+        s->samples_played += frame->data_len / frame->ch_count / frame->bps;
         s->funcs->write(s->state, frame);
 }
 

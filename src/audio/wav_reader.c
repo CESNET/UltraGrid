@@ -61,7 +61,7 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
 
         uint16_t ch_count;
         READ_N(&ch_count, 2);
-        if (ch_count > 100) {
+        if (ch_count > 128) {
                 return WAV_HDR_PARSE_INVALID_PARAM;
         }
         metadata->ch_count = ch_count;

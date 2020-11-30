@@ -165,38 +165,44 @@ vidcap_deltacast_dvi_probe(bool verbose, void (**deleter)(void *))
         *deleter = free;
     
 	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->name        = "deltacast-dv";
-		vt->description = "DELTACAST DVI/HDMI card";
+	if (vt == NULL) {
+                return NULL;
+        }
 
-                if (verbose) {
-                        ULONG Result,DllVersion,NbBoards;
-                        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
-                        if (Result == VHDERR_NOERROR) {
-                                vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
-                                vt->card_count = NbBoards;
-                                for (ULONG i = 0; i < NbBoards; ++i) {
-                                        string board{"Unknown board type"};
-                                        ULONG BoardType;
-                                        HANDLE BoardHandle = NULL;
-                                        Result = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
-                                        VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
-                                        if (Result == VHDERR_NOERROR)
-                                        {
-                                                auto it = board_type_map.find(BoardType);
-                                                if (it != board_type_map.end()) {
-                                                        board = it->second;
-                                                }
-                                        }
-                                        VHD_CloseBoardHandle(BoardHandle);
+        vt->name        = "deltacast-dv";
+        vt->description = "DELTACAST DVI/HDMI card";
 
-                                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%" PRIu32, i);
-                                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%" PRIu32,
-                                                        board.c_str(), i);
-                                }
+        if (!verbose) {
+                return vt;
+        }
+
+        ULONG Result,DllVersion,NbBoards;
+        Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
+        if (Result != VHDERR_NOERROR) {
+                return vt;
+        }
+
+        vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
+        vt->card_count = NbBoards;
+        for (ULONG i = 0; i < NbBoards; ++i) {
+                string board{"Unknown board type"};
+                ULONG BoardType;
+                HANDLE BoardHandle = NULL;
+                Result = VHD_OpenBoardHandle(i, &BoardHandle, NULL, 0);
+                VHD_GetBoardProperty(BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
+                if (Result == VHDERR_NOERROR)
+                {
+                        auto it = board_type_map.find(BoardType);
+                        if (it != board_type_map.end()) {
+                                board = it->second;
                         }
                 }
-	}
+                VHD_CloseBoardHandle(BoardHandle);
+
+                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%" PRIu32, i);
+                snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%" PRIu32,
+                                board.c_str(), i);
+        }
 	return vt;
 }
 

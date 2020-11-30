@@ -44,6 +44,8 @@
 #include "config_win32.h"
 #endif
 
+#include <getopt.h>
+
 #include "host.h"
 
 #include "audio/audio_capture.h"
@@ -184,12 +186,19 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
 }
 #endif
 
-struct init_data *common_preinit(int argc, char *argv[])
+struct init_data *common_preinit(int argc, char *argv[], const char *log_opt)
 {
         struct init_data *init;
+        bool logger_repeat_msgs = false;
 
         uv_argc = argc;
         uv_argv = argv;
+
+        if (log_opt != nullptr && !set_log_level(log_opt, &logger_repeat_msgs)) {
+                return nullptr;
+        }
+
+        Logger::preinit(!logger_repeat_msgs);
 
 #ifdef HAVE_X
         void *handle = dlopen(X11_LIB_NAME, RTLD_NOW);

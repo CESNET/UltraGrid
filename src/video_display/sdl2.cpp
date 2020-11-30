@@ -744,6 +744,16 @@ static void display_sdl2_new_message(struct module *mod)
         SDL_PushEvent(&event);
 }
 
+static void display_sdl2_put_audio_frame([[maybe_unused]] void *state, [[maybe_unused]] struct audio_frame *frame)
+{
+}
+
+static int display_sdl2_reconfigure_audio([[maybe_unused]] void *state, [[maybe_unused]] int quant_samples,
+                [[maybe_unused]] int channels, [[maybe_unused]] int sample_rate)
+{
+        return FALSE;
+}
+
 static const struct video_display_info display_sdl2_info = {
         [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
                 UNUSED(deleter);
@@ -760,8 +770,8 @@ static const struct video_display_info display_sdl2_info = {
         display_sdl2_putf,
         display_sdl2_reconfigure,
         display_sdl2_get_property,
-        NULL,
-        NULL,
+        display_sdl2_put_audio_frame,
+        display_sdl2_reconfigure_audio,
         DISPLAY_NEEDS_MAINLOOP,
 };
 

@@ -38,6 +38,9 @@
 #ifndef platform_pipe_h
 #define platform_pipe_h
 
+#include "config_unix.h"
+#include "config_win32.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -45,8 +48,23 @@ extern "C" {
 int platform_pipe_init(fd_t pipe[2]);
 void platform_pipe_close(fd_t pipe);
 
+#ifdef _WIN32
+#define PLATFORM_PIPE_READ(fd, buf, len) recv(fd, buf, len, 0)
+#define PLATFORM_PIPE_WRITE(fd, buf, len) send(fd, buf, len, 0)
+#else
+// the fallback implementation of platform_pipe is a plain pipe for which
+// doesn't work send()/recv(). read() and write(), however, works for both
+// socket and pipe (but doesn't so in Windows, therefore there is used
+// send()/recv()).
+//
+// PLATFORM_PIPE_READ()/PLATFORM_PIPE_WRITE() can be also safely be used if
+// unsure if underlying fd is a socket or a pipe.
+#define PLATFORM_PIPE_READ read
+#define PLATFORM_PIPE_WRITE write
+#endif
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus
 
-#endif /* _PLATFORM_SEMAPHORE_H */
+#endif /* defined platform_pipe_h */
