@@ -141,7 +141,7 @@ static void display_vrg_run(void *state)
                 }
                 high_resolution_clock::time_point t_end = high_resolution_clock::now();
                 LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
-                        duration_cast<microseconds>(t_start - t_end).count() / 1000000.0
+                        duration_cast<microseconds>(t_end - t_start).count() / 1000000.0
                         << " seconds\n";
 
                 struct RenderPacket render_packet;
