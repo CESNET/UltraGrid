@@ -64,18 +64,7 @@ cd /c/live555
 make install
 cd -
 
-# Install SPOUT
-git clone --depth 1 https://github.com/leadedge/Spout2.git
-mkdir Spout2/SpoutSDK/Source/build
-cd Spout2/SpoutSDK/Source/build
-cmake -DBUILD_SHARED_LIBS=ON -G 'MSYS Makefiles' ..
-cmake --build .
-cp libSpout.dll /usr/local/bin
-cp libSpout.dll.a /usr/local/lib
-cd -
-mkdir /usr/local/include/SpoutSDK
-cp Spout2/SpoutSDK/Source/*.h /usr/local/include/SpoutSDK
-rm -rf Spout2
+$GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
 
 # Install FFMPEG
 wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z && 7z x ffmpeg-release-full-shared.7z && cp -r ffmpeg-*build-shared/{bin,lib,include} /usr/local && rm -rf ffmpeg-* || exit 1
