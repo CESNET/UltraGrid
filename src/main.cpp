@@ -734,10 +734,10 @@ int main(int argc, char *argv[])
                 {"param", required_argument, 0, OPT_PARAM},
                 {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
                 {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
-                {"nat-traverse", no_argument, nullptr, 'N'},
+                {"nat-traverse", optional_argument, nullptr, 'N'},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "d:t:m:r:s:v46c:hM:Np:f:P:l:A:V";
+        const char *optstring = "d:t:m:r:s:v46c:hM:N::p:f:P:l:A:V";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -746,7 +746,7 @@ int main(int argc, char *argv[])
         const char *video_protocol_opts = "";
 
         const char *log_opt = nullptr;
-        bool setup_nat_traverse = false;
+        const char *nat_traverse_config = nullptr;
         struct ug_nat_traverse *nat_traverse = nullptr;
 
         // First we need to set verbosity level prior to everything else.
@@ -1098,7 +1098,7 @@ int main(int argc, char *argv[])
                         print_video_codecs();
                         EXIT(EXIT_SUCCESS);
                 case 'N':
-                        setup_nat_traverse = true;
+                        nat_traverse_config = optarg == nullptr ? "" : optarg;
                         break;
                 case '?':
                 default:
@@ -1249,8 +1249,9 @@ int main(int argc, char *argv[])
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
 
-        if (setup_nat_traverse) {
-                nat_traverse = start_nat_traverse(video_rx_port, audio_rx_port);
+        if ((nat_traverse = start_nat_traverse(nat_traverse_config, video_rx_port, audio_rx_port)) == nullptr) {
+                exit_uv(1);
+                goto cleanup;
         }
 
         uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,

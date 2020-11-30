@@ -34,6 +34,11 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * @todo
+ * keep-alive
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -46,6 +51,7 @@
 #endif // defined HAVE_PCP
 
 #include "debug.h"
+#include "utils/color_out.h"
 #include "utils/nat.h"
 
 #define ENABLE_STRNATPMPERR 1
@@ -56,10 +62,12 @@
 #define MOD_NAME "[NAT] "
 
 struct ug_nat_traverse {
-        enum {
+        enum traverse_t {
                 UG_NAT_TRAVERSE_NONE,
-                UG_NAT_TRAVERSE_NAT_PMP,
                 UG_NAT_TRAVERSE_PCP,
+                UG_NAT_TRAVERSE_FIRST = UG_NAT_TRAVERSE_PCP,
+                UG_NAT_TRAVERSE_NAT_PMP,
+                UG_NAT_TRAVERSE_LAST = UG_NAT_TRAVERSE_NAT_PMP,
         } traverse;
         union {
 #ifdef HAVE_PCP
@@ -69,9 +77,24 @@ struct ug_nat_traverse {
                         pcp_flow_t *video_flow;
                 } pcp_state;
 #endif // defined HAVE_PCP
-        };
+        } nat_state;
         int audio_rx_port;
         int video_rx_port;
+};
+
+static bool setup_pcp(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime);
+static void done_pcp(struct ug_nat_traverse *state);
+static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime);
+static void done_nat_pmp(struct ug_nat_traverse *state);
+
+static const struct nat_traverse_info_t {
+        const char *name_short; ///< for command-line specifiction
+        const char *name_long; ///< for output
+        bool (*init)(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime);
+        void (*done)(struct ug_nat_traverse *state);
+} nat_traverse_info[] = {
+        [ UG_NAT_TRAVERSE_PCP ] = { "pcp", "PCP", setup_pcp, done_pcp },
+        [ UG_NAT_TRAVERSE_NAT_PMP ] = { "natpmp", "NAT PMP", setup_nat_pmp, done_nat_pmp },
 };
 
 #ifdef HAVE_PCP
@@ -97,7 +120,11 @@ static int check_flow_info(pcp_flow_t* f)
             printf("\nFlow signaling failed.\n");
             ret_val = 4;
             break;
-        default:
+        case pcp_state_processing:
+            printf("\nFlow signaling processing.\n");
+            continue;
+        case pcp_state_partial_result:
+            printf("\nFlow signaling partial result.\n");
             continue;
         }
         break;
@@ -173,18 +200,26 @@ static void print_ext_addr(pcp_flow_t* f)
         free(info_buf);
     }
 }
-
-static void done_pcp(struct pcp_state *s)
-{
-        pcp_terminate(s->ctx, 1);
-}
+#endif // defined HAVE_PCP
 
 #define PCP_ASSERT_EQ(expr, val) { int rc = expr; if (rc != (val)) abort(); }
 #define PCP_ASSERT_NEQ(expr, val) { int rc = expr; if (rc == (val)) abort(); }
 #define PCP_WAIT_MS 500
 
-static bool setup_pcp(struct pcp_state *s, int video_rx_port, int audio_rx_port, int lifetime)
+static void done_pcp(struct ug_nat_traverse *state)
 {
+#ifdef HAVE_PCP
+        struct pcp_state *s = &state->nat_state.pcp_state;
+        pcp_terminate(s->ctx, 1);
+#else
+        UNUSED(state);
+#endif
+}
+
+static bool setup_pcp(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime)
+{
+#ifdef HAVE_PCP
+        struct pcp_state *s = &state->nat_state.pcp_state;
         struct sockaddr_in src = { 0 };
         struct sockaddr_in dst = { 0 };
         socklen_t src_len = sizeof src;
@@ -219,27 +254,42 @@ static bool setup_pcp(struct pcp_state *s, int video_rx_port, int audio_rx_port,
         }
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "PCP - cannot create flow!\n");
-                done_pcp(s);
+                done_pcp(state);
                 return false;
         }
         if (video_rx_port != 0) {
                 pcp_wait(s->video_flow, PCP_WAIT_MS, 0);
                 ret = ret && check_flow_info(s->video_flow) == 0;
-                print_ext_addr(s->video_flow);
+                if (ret) {
+                        print_ext_addr(s->video_flow);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "PCP - cannot create video flow!\n");
+                }
         }
         if (audio_rx_port != 0) {
                 pcp_wait(s->audio_flow, PCP_WAIT_MS, 0);
                 ret = ret && check_flow_info(s->audio_flow) == 0;
-                print_ext_addr(s->audio_flow);
+                if (ret) {
+                        print_ext_addr(s->audio_flow);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "PCP - cannot create video flow!\n");
+                }
         }
 
         if (!ret) {
-                done_pcp(s);
+                done_pcp(state);
         }
 
         return ret;
-}
+#else
+        UNUSED(state);
+        UNUSED(video_rx_port);
+        UNUSED(audio_rx_port);
+        UNUSED(lifetime);
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "PCP support not compiled in!\n");
+        return false;
 #endif // defined HAVE_PCP
+}
 
 static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicport, int lifetime)
 {
@@ -290,8 +340,9 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
         return true;
 }
 
-static bool setup_nat_pmp(int video_rx_port, int audio_rx_port, int lifetime)
+static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime)
 {
+        UNUSED(state);
         struct in_addr gateway_in_use = { 0 };
         natpmp_t natpmp;
         int r = 0;
@@ -353,28 +404,67 @@ static bool setup_nat_pmp(int video_rx_port, int audio_rx_port, int lifetime)
         return r >= 0;
 }
 
-struct ug_nat_traverse *start_nat_traverse(int video_rx_port, int audio_rx_port)
+static void done_nat_pmp(struct ug_nat_traverse *state) {
+        setup_nat_pmp(state, state->video_rx_port, state->audio_rx_port, 0);
+}
+
+/**
+ * @param config NULL  - do not enable NAT traversal
+ *                ""   - enable with default arguments
+ *               other - start with configuration
+ * @returns state, NULL on error (or help)
+ *
+ * @todo
+ * Add a hint advicing to enable NAT traversal if we are are receiver with a private address
+ */
+struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port, int audio_rx_port)
 {
+        if (config == NULL) {
+                return calloc(1, sizeof(struct ug_nat_traverse));
+        }
+
         assert(video_rx_port >= 0 && video_rx_port <= 65535 && audio_rx_port >= 0 && audio_rx_port <= 65535);
         struct ug_nat_traverse s = { .audio_rx_port = audio_rx_port, .video_rx_port = video_rx_port };
 
-#ifdef HAVE_PCP
-        if (setup_pcp(&s.pcp_state, video_rx_port, audio_rx_port, ALLOCATION_TIMEOUT)) {
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully set NAT traversal with PCP. Sender can send to external IP address.\n");
-                s.traverse = UG_NAT_TRAVERSE_PCP;
-                return memcpy(malloc(sizeof s), &s, sizeof s);
+        if (strcmp(config, "help") == 0) {
+                printf("Usage:\n");
+                color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-N");
+                color_out(COLOR_OUT_BOLD, "[config]\n");
+                printf("where:\n");
+                color_out(COLOR_OUT_BOLD, "\tconfig");
+                printf(" - one of:");
+                for (int i = UG_NAT_TRAVERSE_FIRST; i <= UG_NAT_TRAVERSE_LAST; ++i) {
+                        color_out(COLOR_OUT_BOLD, " %s", nat_traverse_info[i].name_short);
+                }
+                printf("\n");
+                return NULL;
         }
-#else
-        log_msg(LOG_LEVEL_WARNING, MOD_NAME "PCP support not compiled in!\n");
-#endif // defined HAVE_PCP
 
-        if (setup_nat_pmp(video_rx_port, audio_rx_port, ALLOCATION_TIMEOUT)) {
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully set NAT traversal with NAT PMP. Sender can send to external IP address.\n");
-                s.traverse = UG_NAT_TRAVERSE_NAT_PMP;
-                return memcpy(malloc(sizeof s), &s, sizeof s);
+        bool not_found = true;
+        for (int i = UG_NAT_TRAVERSE_FIRST; i <= UG_NAT_TRAVERSE_LAST; ++i) {
+                if (strlen(config) > 0 && strcmp(nat_traverse_info[i].name_short, config) != 0) {
+                        continue;
+                }
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Trying: %s\n", nat_traverse_info[s.traverse].name_long);
+                not_found = false;
+                if (nat_traverse_info[i].init(&s, video_rx_port, audio_rx_port, ALLOCATION_TIMEOUT)) {
+                        s.traverse = i;
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully set NAT traversal with %s. Sender can send to external IP address.\n", nat_traverse_info[s.traverse].name_long);
+                        break;
+                }
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s initialization failed!\n", nat_traverse_info[i].name_long);
         }
-        // other techniques may follow
-        return NULL;
+
+        if (s.traverse == UG_NAT_TRAVERSE_NONE) {
+                if (not_found) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong module name: %s.\n", config);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not initialize any NAT traversal.\n");
+                }
+                return NULL;
+        }
+
+        return memcpy(malloc(sizeof s), &s, sizeof s);
 }
 
 void stop_nat_traverse(struct ug_nat_traverse *s)
@@ -383,17 +473,8 @@ void stop_nat_traverse(struct ug_nat_traverse *s)
                 return;
         }
 
-        switch (s->traverse) {
-#ifdef HAVE_PCP
-        case UG_NAT_TRAVERSE_PCP:
-                done_pcp(&s->pcp_state);
-                break;
-#endif // defined HAVE_PCP
-        case UG_NAT_TRAVERSE_NAT_PMP:
-                setup_nat_pmp(s->video_rx_port, s->audio_rx_port, 0);
-                break;
-        default:
-                break;
+        if (nat_traverse_info[s->traverse].done) {
+                nat_traverse_info[s->traverse].done(s);
         }
 
         free(s);
