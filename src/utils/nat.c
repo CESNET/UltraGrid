@@ -185,19 +185,17 @@ static void done_pcp(struct pcp_state *s)
 
 static bool setup_pcp(struct pcp_state *s, int video_rx_port, int audio_rx_port, int lifetime)
 {
-        struct sockaddr_storage src = { 0 };
-        struct sockaddr_in *s_sin = (struct sockaddr_in *) &src;
-        struct sockaddr_storage dst = { 0 };
-        struct sockaddr_in *d_sin = (struct sockaddr_in *) &dst;
+        struct sockaddr_in src = { 0 };
+        struct sockaddr_in dst = { 0 };
         socklen_t src_len = sizeof src;
 
         s->ctx = pcp_init(ENABLE_AUTODISCOVERY, NULL);
         // handle errors
 
         // get our outbound IP address
-        d_sin->sin_family = AF_INET;
-        d_sin->sin_port = htons(80);
-        PCP_ASSERT_EQ(inet_pton(AF_INET, "93.184.216.34", &d_sin->sin_addr.s_addr), 1);
+        dst.sin_family = AF_INET;
+        dst.sin_port = htons(80);
+        PCP_ASSERT_EQ(inet_pton(AF_INET, "93.184.216.34", &dst.sin_addr.s_addr), 1);
         int fd = socket(AF_INET, SOCK_DGRAM, 0);
         PCP_ASSERT_NEQ(fd, -1);
         PCP_ASSERT_EQ(connect(fd, (struct sockaddr *) &dst, sizeof dst), 0);
@@ -206,14 +204,14 @@ static bool setup_pcp(struct pcp_state *s, int video_rx_port, int audio_rx_port,
 
         bool ret = true;
         if (video_rx_port) {
-                s_sin->sin_port = htons(video_rx_port);
+                src.sin_port = htons(video_rx_port);
                 s->video_flow = pcp_new_flow(s->ctx, (struct sockaddr*) &src, NULL, NULL, IPPROTO_UDP, lifetime, NULL);
                 if (s->video_flow == NULL) {
                         ret = false;
                 }
         }
         if (audio_rx_port) {
-                s_sin->sin_port = htons(audio_rx_port);
+                src.sin_port = htons(audio_rx_port);
                 s->audio_flow = pcp_new_flow(s->ctx, (struct sockaddr*) &src, NULL, NULL, IPPROTO_UDP, lifetime, NULL);
                 if (s->audio_flow == NULL) {
                         ret = false;
