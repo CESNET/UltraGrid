@@ -48,16 +48,18 @@
 #endif // defined HAVE_PCP
 
 #include "debug.h"
+#include "rtp/net_udp.h" // socket_error
 #include "utils/color_out.h"
 #include "utils/nat.h"
+#include "utils/net.h"
 
 #define ENABLE_STRNATPMPERR 1
 #define STATICLIB 1
 #include "ext-deps/libnatpmp-20150609/natpmp.h"
 
 #define DEFAULT_ALLOCATION_TIMEOUT_S 1800
-#define PREALLOCATE_S 5 ///< number of seconds that repeated allocation is performed before timeout
 #define MOD_NAME "[NAT] "
+#define PREALLOCATE_S 5 ///< number of seconds that repeated allocation is performed before timeout
 
 struct ug_nat_traverse {
         enum traverse_t {
@@ -206,10 +208,6 @@ static void print_ext_addr(pcp_flow_t* f)
 }
 #endif // defined HAVE_PCP
 
-#define PCP_ASSERT_EQ(expr, val) { int rc = expr; if (rc != (val)) abort(); }
-#define PCP_ASSERT_NEQ(expr, val) { int rc = expr; if (rc == (val)) abort(); }
-#define PCP_WAIT_MS 500
-
 static void done_pcp(struct ug_nat_traverse *state)
 {
 #ifdef HAVE_PCP
@@ -220,26 +218,40 @@ static void done_pcp(struct ug_nat_traverse *state)
 #endif
 }
 
+#define PCP_WAIT_MS 500
+
+#define NAT_ASSERT_EQ(expr, val) { int rc = expr; if (rc != (val)) { socket_error(#expr); return false; } }
+#define NAT_ASSERT_NEQ(expr, val) { int rc = expr; if (rc == (val)) { socket_error(#expr); return false; } }
+static bool get_outbound_ip(struct sockaddr_in *out) {
+        struct sockaddr_in dst = { 0 };
+        socklen_t src_len = sizeof *out;
+
+        dst.sin_family = AF_INET;
+        dst.sin_port = htons(80);
+        NAT_ASSERT_EQ(inet_pton(AF_INET, "93.184.216.34", &dst.sin_addr.s_addr), 1);
+        int fd = socket(AF_INET, SOCK_DGRAM, 0);
+        NAT_ASSERT_NEQ(fd, -1);
+        NAT_ASSERT_EQ(connect(fd, (struct sockaddr *) &dst, sizeof dst), 0);
+        NAT_ASSERT_EQ(getsockname(fd, (struct sockaddr *) out, &src_len), 0);
+        CLOSESOCKET(fd);
+
+        return true;
+}
+
 static bool setup_pcp(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime)
 {
 #ifdef HAVE_PCP
         struct pcp_state *s = &state->nat_state.pcp_state;
         struct sockaddr_in src = { 0 };
-        struct sockaddr_in dst = { 0 };
-        socklen_t src_len = sizeof src;
 
         s->ctx = pcp_init(ENABLE_AUTODISCOVERY, NULL);
         // handle errors
 
         // get our outbound IP address
-        dst.sin_family = AF_INET;
-        dst.sin_port = htons(80);
-        PCP_ASSERT_EQ(inet_pton(AF_INET, "93.184.216.34", &dst.sin_addr.s_addr), 1);
-        int fd = socket(AF_INET, SOCK_DGRAM, 0);
-        PCP_ASSERT_NEQ(fd, -1);
-        PCP_ASSERT_EQ(connect(fd, (struct sockaddr *) &dst, sizeof dst), 0);
-        PCP_ASSERT_EQ(getsockname(fd, (struct sockaddr *) &src, &src_len), 0);
-        CLOSESOCKET(fd);
+        if (!get_outbound_ip(&src)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "PCP - cannot get outbound address!\n");
+                return false;
+        }
 
         bool ret = true;
         if (video_rx_port) {
@@ -450,13 +462,17 @@ static void *nat_traverse_keepalive(void *state) {
  *                ""   - enable with default arguments
  *               other - start with configuration
  * @returns state, NULL on error (or help)
- *
- * @todo
- * Add a hint advicing to enable NAT traversal if we are are receiver with a private address
  */
 struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port, int audio_rx_port)
 {
         if (config == NULL) {
+                if (video_rx_port != 0 || audio_rx_port != 0) {
+                        struct sockaddr_in out;
+                        if (get_outbound_ip(&out) && is_addr_private((struct sockaddr *) &out)) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Private outbound IPv4 address detected and bound to a non-dynamic port. Consider adding '-N' option for NAT traversal.\n");
+                        }
+
+                }
                 return calloc(1, sizeof(struct ug_nat_traverse));
         }
 
