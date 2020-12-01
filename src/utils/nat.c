@@ -34,17 +34,14 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @file
- * @todo
- * keep-alive
- */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include <pthread.h>
 
 #ifdef HAVE_PCP
 #include <pcp-client/pcp.h>
@@ -58,7 +55,8 @@
 #define STATICLIB 1
 #include "ext-deps/libnatpmp-20150609/natpmp.h"
 
-#define ALLOCATION_TIMEOUT (4 * 3600)
+#define ALLOCATION_TIMEOUT_S 1800
+#define PREALLOCATE_S 5 ///< number of seconds that repeated allocation is performed before timeout
 #define MOD_NAME "[NAT] "
 
 struct ug_nat_traverse {
@@ -80,6 +78,11 @@ struct ug_nat_traverse {
         } nat_state;
         int audio_rx_port;
         int video_rx_port;
+
+        pthread_t keepalive_thread;
+        bool keepalive_should_exit;
+        pthread_mutex_t keepalive_mutex;
+        pthread_cond_t keepalive_cv;
 };
 
 static bool setup_pcp(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime);
@@ -408,6 +411,39 @@ static void done_nat_pmp(struct ug_nat_traverse *state) {
         setup_nat_pmp(state, state->video_rx_port, state->audio_rx_port, 0);
 }
 
+static void *nat_traverse_keepalive(void *state) {
+        struct ug_nat_traverse *s = state;
+
+        struct timespec timeout = { .tv_sec = time(NULL) + ALLOCATION_TIMEOUT_S - PREALLOCATE_S, .tv_nsec = 0 };
+
+        while (1) {
+                pthread_mutex_lock(&s->keepalive_mutex);
+                int rc = 0;
+                if (!s->keepalive_should_exit) {
+                        rc = pthread_cond_timedwait(&s->keepalive_cv, &s->keepalive_mutex, &timeout);
+                }
+                pthread_mutex_unlock(&s->keepalive_mutex);
+                if (s->keepalive_should_exit) {
+                        break;
+                }
+
+                if (rc != ETIMEDOUT) {
+                        perror(__func__);
+                        continue;
+                }
+
+                if (nat_traverse_info[s->traverse].init(s, s->video_rx_port, s->audio_rx_port, ALLOCATION_TIMEOUT_S)) {
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Mapping renewed successfully for %d seconds.\n", ALLOCATION_TIMEOUT_S);
+                        timeout.tv_sec = time(NULL) + ALLOCATION_TIMEOUT_S - PREALLOCATE_S;
+                } else {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Mapping renewal failed! Trying again in 5 seconds\n");
+                        timeout.tv_sec = time(NULL) + 5;
+                }
+        }
+
+        return NULL;
+}
+
 /**
  * @param config NULL  - do not enable NAT traversal
  *                ""   - enable with default arguments
@@ -424,7 +460,6 @@ struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port
         }
 
         assert(video_rx_port >= 0 && video_rx_port <= 65535 && audio_rx_port >= 0 && audio_rx_port <= 65535);
-        struct ug_nat_traverse s = { .audio_rx_port = audio_rx_port, .video_rx_port = video_rx_port };
 
         if (strcmp(config, "help") == 0) {
                 printf("Usage:\n");
@@ -440,6 +475,10 @@ struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port
                 return NULL;
         }
 
+        struct ug_nat_traverse *s = calloc(1, sizeof(struct ug_nat_traverse));
+        s->audio_rx_port = audio_rx_port;
+        s->video_rx_port = video_rx_port;
+
         bool not_found = true;
         for (int i = UG_NAT_TRAVERSE_FIRST; i <= UG_NAT_TRAVERSE_LAST; ++i) {
                 if (strlen(config) > 0 && strcmp(nat_traverse_info[i].name_short, config) != 0) {
@@ -447,24 +486,31 @@ struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port
                 }
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Trying: %s\n", nat_traverse_info[i].name_long);
                 not_found = false;
-                if (nat_traverse_info[i].init(&s, video_rx_port, audio_rx_port, ALLOCATION_TIMEOUT)) {
-                        s.traverse = i;
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully set NAT traversal with %s. Sender can send to external IP address.\n", nat_traverse_info[s.traverse].name_long);
+                if (nat_traverse_info[i].init(s, video_rx_port, audio_rx_port, ALLOCATION_TIMEOUT_S)) {
+                        s->traverse = i;
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Set NAT traversal with %s for %d seconds (auto-renewed). Sender can send to external IP address.\n", nat_traverse_info[i].name_long, ALLOCATION_TIMEOUT_S);
                         break;
                 }
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s initialization failed!\n", nat_traverse_info[i].name_long);
         }
 
-        if (s.traverse == UG_NAT_TRAVERSE_NONE) {
+        if (s->traverse == UG_NAT_TRAVERSE_NONE) {
                 if (not_found) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong module name: %s.\n", config);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not initialize any NAT traversal.\n");
                 }
+                free(s);
                 return NULL;
         }
 
-        return memcpy(malloc(sizeof s), &s, sizeof s);
+        int rc = 0;
+        rc |= pthread_mutex_init(&s->keepalive_mutex, NULL);
+        rc |= pthread_cond_init(&s->keepalive_cv, NULL);
+        rc |= pthread_create(&s->keepalive_thread, NULL, nat_traverse_keepalive, s);
+        assert(rc == 0);
+
+        return s;
 }
 
 void stop_nat_traverse(struct ug_nat_traverse *s)
@@ -472,6 +518,15 @@ void stop_nat_traverse(struct ug_nat_traverse *s)
         if (s == NULL) {
                 return;
         }
+
+        pthread_mutex_lock(&s->keepalive_mutex);
+        s->keepalive_should_exit = true;
+        pthread_mutex_unlock(&s->keepalive_mutex);
+        pthread_cond_signal(&s->keepalive_cv);
+        pthread_join(s->keepalive_thread, NULL);
+
+        pthread_mutex_destroy(&s->keepalive_mutex);
+        pthread_cond_destroy(&s->keepalive_cv);
 
         if (nat_traverse_info[s->traverse].done) {
                 nat_traverse_info[s->traverse].done(s);
