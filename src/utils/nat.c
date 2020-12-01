@@ -55,7 +55,7 @@
 #define STATICLIB 1
 #include "ext-deps/libnatpmp-20150609/natpmp.h"
 
-#define ALLOCATION_TIMEOUT_S 1800
+#define DEFAULT_ALLOCATION_TIMEOUT_S 1800
 #define PREALLOCATE_S 5 ///< number of seconds that repeated allocation is performed before timeout
 #define MOD_NAME "[NAT] "
 
@@ -78,6 +78,7 @@ struct ug_nat_traverse {
         } nat_state;
         int audio_rx_port;
         int video_rx_port;
+        int allocation_duration;
 
         pthread_t keepalive_thread;
         bool keepalive_should_exit;
@@ -414,7 +415,7 @@ static void done_nat_pmp(struct ug_nat_traverse *state) {
 static void *nat_traverse_keepalive(void *state) {
         struct ug_nat_traverse *s = state;
 
-        struct timespec timeout = { .tv_sec = time(NULL) + ALLOCATION_TIMEOUT_S - PREALLOCATE_S, .tv_nsec = 0 };
+        struct timespec timeout = { .tv_sec = time(NULL) + s->allocation_duration - PREALLOCATE_S, .tv_nsec = 0 };
 
         while (1) {
                 pthread_mutex_lock(&s->keepalive_mutex);
@@ -432,9 +433,9 @@ static void *nat_traverse_keepalive(void *state) {
                         continue;
                 }
 
-                if (nat_traverse_info[s->traverse].init(s, s->video_rx_port, s->audio_rx_port, ALLOCATION_TIMEOUT_S)) {
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Mapping renewed successfully for %d seconds.\n", ALLOCATION_TIMEOUT_S);
-                        timeout.tv_sec = time(NULL) + ALLOCATION_TIMEOUT_S - PREALLOCATE_S;
+                if (nat_traverse_info[s->traverse].init(s, s->video_rx_port, s->audio_rx_port, s->allocation_duration)) {
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Mapping renewed successfully for %d seconds.\n", s->allocation_duration);
+                        timeout.tv_sec = time(NULL) + s->allocation_duration - PREALLOCATE_S;
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Mapping renewal failed! Trying again in 5 seconds\n");
                         timeout.tv_sec = time(NULL) + 5;
@@ -464,31 +465,45 @@ struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port
         if (strcmp(config, "help") == 0) {
                 printf("Usage:\n");
                 color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-N");
-                color_out(COLOR_OUT_BOLD, "[config]\n");
+                color_out(COLOR_OUT_BOLD, "[protocol[:renewal-interval]]\n");
                 printf("where:\n");
-                color_out(COLOR_OUT_BOLD, "\tconfig");
+                color_out(COLOR_OUT_BOLD, "\tprotocol");
                 printf(" - one of:");
                 for (int i = UG_NAT_TRAVERSE_FIRST; i <= UG_NAT_TRAVERSE_LAST; ++i) {
                         color_out(COLOR_OUT_BOLD, " %s", nat_traverse_info[i].name_short);
                 }
                 printf("\n");
+                color_out(COLOR_OUT_BOLD, "\trenewal-interval");
+                printf(" - mapping renew interval (in seconds, min: %d)\n", PREALLOCATE_S + 1);
                 return NULL;
         }
 
         struct ug_nat_traverse *s = calloc(1, sizeof(struct ug_nat_traverse));
         s->audio_rx_port = audio_rx_port;
         s->video_rx_port = video_rx_port;
+        s->allocation_duration = DEFAULT_ALLOCATION_TIMEOUT_S;
 
         bool not_found = true;
+        char protocol[strlen(config) + 1];
+        strcpy(protocol, config);
+        if (strchr(protocol, ':') != NULL) {
+                s->allocation_duration = atoi(strchr(protocol, ':') + 1);
+                if (s->allocation_duration < PREALLOCATE_S + 1) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong renewal interval: %s, minimal: %d\n", strchr(protocol, ':') + 1, PREALLOCATE_S + 1);
+                        free(s);
+                        return NULL;
+                }
+                *strchr(protocol, ':') = '\0';
+        }
         for (int i = UG_NAT_TRAVERSE_FIRST; i <= UG_NAT_TRAVERSE_LAST; ++i) {
-                if (strlen(config) > 0 && strcmp(nat_traverse_info[i].name_short, config) != 0) {
+                if (strlen(protocol) > 0 && strcmp(nat_traverse_info[i].name_short, protocol) != 0) {
                         continue;
                 }
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Trying: %s\n", nat_traverse_info[i].name_long);
                 not_found = false;
-                if (nat_traverse_info[i].init(s, video_rx_port, audio_rx_port, ALLOCATION_TIMEOUT_S)) {
+                if (nat_traverse_info[i].init(s, video_rx_port, audio_rx_port, s->allocation_duration)) {
                         s->traverse = i;
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Set NAT traversal with %s for %d seconds (auto-renewed). Sender can send to external IP address.\n", nat_traverse_info[i].name_long, ALLOCATION_TIMEOUT_S);
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Set NAT traversal with %s for %d seconds (auto-renewed). Sender can send to external IP address.\n", nat_traverse_info[i].name_long, s->allocation_duration);
                         break;
                 }
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s initialization failed!\n", nat_traverse_info[i].name_long);
@@ -496,7 +511,7 @@ struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port
 
         if (s->traverse == UG_NAT_TRAVERSE_NONE) {
                 if (not_found) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong module name: %s.\n", config);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong module name: %s.\n", protocol);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not initialize any NAT traversal.\n");
                 }
