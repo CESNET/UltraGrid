@@ -2175,8 +2175,8 @@ AC_ARG_ENABLE(gpujpeg,
         [gpujpeg_req=$build_default])
 
 
-PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [ libgpujpeg ], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
-PKG_CHECK_MODULES([LIBGPUJPEG], [ libgpujpeg >= 0.11 ], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
+PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [libgpujpeg], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
+PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.12.0], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
 
 if test "$found_gpujpeg_any" = yes -a "$found_gpujpeg" = no; then
         AC_MSG_WARN([Old GPUJPEG version found, please upgrade]);
