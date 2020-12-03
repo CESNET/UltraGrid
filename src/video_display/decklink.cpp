@@ -105,9 +105,17 @@ using namespace std;
 using rang::fg;
 using rang::style;
 
+static int display_decklink_putf(void *state, struct video_frame *frame, int nonblock);
+
 namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
+private:
+        uint64_t frames_dropped = 0;
+        uint64_t frames_flushed = 0;
+        uint64_t frames_late = 0;
+
+        friend int ::display_decklink_putf(void *state, struct video_frame *frame, int nonblock);
 public:
         virtual ~PlaybackDelegate() = default;
         // IUnknown needs only a dummy implementation
@@ -118,11 +126,14 @@ public:
         virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 	{
                 if (result == bmdOutputFrameDisplayedLate){
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Late frame\n";
+                        frames_late += 1;
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Late frame (total: " << frames_late << ")\n";
                 } else if (result == bmdOutputFrameDropped){
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dropped frame\n";
+                        frames_dropped += 1;
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dropped frame (total: " << frames_dropped << ")\n";
                 } else if (result == bmdOutputFrameFlushed){
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Flushed frame\n";
+                        frames_flushed += 1;
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Flushed frame (total: " << frames_flushed << ")\n";
                 }
 
 		if (log_level >= LOG_LEVEL_DEBUG) {
@@ -614,8 +625,16 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
         double seconds = tv_diff(tv, s->tv);
         if (seconds > 5) {
                 double fps = (s->frames - s->frames_last) / seconds;
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
-                        s->frames - s->frames_last, seconds, fps);
+                if (log_level <= LOG_LEVEL_INFO) {
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
+                                        s->frames - s->frames_last, seconds, fps);
+                } else {
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->frames - s->frames_last <<
+                                " frames in " << seconds << " seconds = " << fps << " FPS ("
+                                << s->state.at(0).delegate->frames_late << " late, "
+                                << s->state.at(0).delegate->frames_dropped << " dropped, "
+                                << s->state.at(0).delegate->frames_flushed << " flushed cumulative)\n";
+                }
                 s->tv = tv;
                 s->frames_last = s->frames;
         }
