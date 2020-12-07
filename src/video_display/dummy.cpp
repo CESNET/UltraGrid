@@ -178,7 +178,7 @@ static void display_dummy_put_audio_frame(void *, struct audio_frame *)
 
 static int display_dummy_reconfigure_audio(void *, int, int, int)
 {
-        return FALSE;
+        return TRUE;
 }
 
 static const struct video_display_info display_dummy_info = {
