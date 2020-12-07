@@ -15,7 +15,9 @@ echo "CUDA_HOST_COMPILER=$CUDA_HOST_COMPILER" >> $GITHUB_ENV
 
 sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
 sudo apt update
-sudo apt install libcppunit-dev nvidia-cuda-toolkit
+sudo apt -y update
+sudo apt install libcppunit-dev
+sudo apt --no-install-recommends install nvidia-cuda-toolkit
 sudo apt install libglew-dev freeglut3-dev libgl1-mesa-dev
 sudo apt install libx11-dev
 sudo apt install libsdl2-dev
