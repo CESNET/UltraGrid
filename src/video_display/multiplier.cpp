@@ -307,19 +307,17 @@ static int display_multiplier_reconfigure(void *state, struct video_desc desc)
 
 static void display_multiplier_put_audio_frame(void *state, struct audio_frame *frame)
 {
-        UNUSED(state);
-        UNUSED(frame);
+        auto *s = static_cast<struct state_multiplier *>(state);
+
+        display_put_audio_frame(s->common->displays.at(0).real_display, frame);
 }
 
 static int display_multiplier_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
-        UNUSED(state);
-        UNUSED(quant_samples);
-        UNUSED(channels);
-        UNUSED(sample_rate);
+        auto *s = static_cast<struct state_multiplier *>(state);
 
-        return FALSE;
+        return display_reconfigure_audio(s->common->displays.at(0).real_display, quant_samples, channels, sample_rate);
 }
 
 static auto display_multiplier_needs_mainloop(void *state)
