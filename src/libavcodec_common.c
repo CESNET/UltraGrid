@@ -1746,13 +1746,11 @@ static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_
 
 /**
  * Changes pixel format from planar 8-bit YUV to packed RGB/A.
- * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
+ * Color space is assumed ITU-T Rec. 709 limited range.
  */
 static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
-        UNUSED(rgb_shift);
-        UNUSED(subsampling);
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
                 unsigned char *src_y2 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);
