@@ -15,7 +15,9 @@ echo "CUDA_HOST_COMPILER=$CUDA_HOST_COMPILER" >> $GITHUB_ENV
 
 sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
 sudo apt update
-sudo apt install libcppunit-dev nvidia-cuda-toolkit
+sudo apt -y update
+sudo apt install libcppunit-dev
+sudo apt --no-install-recommends install nvidia-cuda-toolkit
 sudo apt install libglew-dev freeglut3-dev libgl1-mesa-dev
 sudo apt install libx11-dev
 sudo apt install libsdl2-dev
@@ -29,7 +31,8 @@ sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
-( mkdir gpujpeg/build && cd gpujpeg/build && CC=$CUDA_HOST_COMPILER cmake .. && make && sudo make install && sudo ldconfig || exit 1 )
+sudo apt install libtool # gpujpeg
+( mkdir gpujpeg/build && cd gpujpeg/build && CUDA_FLAGS=-D_FORCE_INLINES CXXFLAGS=-std=c++11 CC=$CUDA_HOST_COMPILER ../autogen.sh && make && sudo make install && sudo ldconfig || exit 1 )
 ( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
@@ -66,6 +69,8 @@ cd live555
 git checkout 35c375
 ./genMakefiles linux-64bit
 sudo make install CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
-
 cd ..
+
+# Install cross-platform deps
+$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 

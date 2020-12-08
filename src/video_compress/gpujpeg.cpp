@@ -63,8 +63,8 @@
 #include <set>
 #include <vector>
 
-#if LIBGPUJPEG_API_VERSION < 11
-#error "GPUJPEG API 10 or more requested!"
+#ifndef GPUJPEG_VERSION_INT
+#error "Old GPUJPEG API detected!"
 #endif
 
 #define MOD_NAME "[GPUJPEG enc.] "
@@ -449,9 +449,10 @@ state_video_compress_gpujpeg *state_video_compress_gpujpeg::create(struct module
 
 struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 {
-        if (gpujpeg_version() != LIBGPUJPEG_API_VERSION) {
-                LOG(LOG_LEVEL_WARNING) << "GPUJPEG API version mismatch! (" <<
-                                gpujpeg_version() << " vs  " << LIBGPUJPEG_API_VERSION << ")\n";
+        if (gpujpeg_version() >> 8 != GPUJPEG_VERSION_INT >> 8) {
+                LOG(LOG_LEVEL_WARNING) << "GPUJPEG API version mismatch! (compiled: " <<
+                                gpujpeg_version_to_string(GPUJPEG_VERSION_INT) << ", library present: " <<
+                                gpujpeg_version_to_string(gpujpeg_version()) << ", required same minor version)\n";
         }
         struct state_video_compress_gpujpeg *s;
 

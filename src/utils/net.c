@@ -120,6 +120,27 @@ bool is_addr_loopback(struct sockaddr *sa)
         }
 }
 
+bool is_addr_private(struct sockaddr *sa)
+{
+        switch (sa->sa_family) {
+        case AF_UNIX:
+                return true;
+        case AF_INET:
+        {
+                struct sockaddr_in *sin = (struct sockaddr_in *) sa;
+                uint32_t addr = ntohl(sin->sin_addr.s_addr);
+                return ((addr >> 24U) == 10) || ((addr >> 20U) == 2753) || ((addr >> 16U) == 49320);
+        }
+        case AF_INET6:
+        {
+                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) sa;
+                return (sin->sin6_addr.s6_addr[0] & 0xFEU) == 0xFCU; // ULA
+        }
+        default:
+                return false;
+        }
+}
+
 bool is_host_loopback(const char *hostname)
 {
 	int gai_err;

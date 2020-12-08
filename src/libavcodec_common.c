@@ -241,7 +241,8 @@ static const comp_type_t b_cb = 2.112402 * (1<<COMP_BASE);
 #define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * b_cb /* + (cr) * b_cr */)
 /// @}
 
-#define FORMAT_RGBA(r, g, b, depth) (CLAMP_FULL((r), (depth)) << rgb_shift[R] | CLAMP_FULL((g), (depth)) << rgb_shift[G] | CLAMP_FULL((b), (depth)) << rgb_shift[B])
+#define FORMAT_RGBA(r, g, b, depth) (~(0xFFU << (rgb_shift[R]) | 0xFFU << (rgb_shift[G]) | 0xFFU << (rgb_shift[B])) | \
+        (CLAMP_FULL((r), (depth)) << rgb_shift[R] | CLAMP_FULL((g), (depth)) << rgb_shift[G] | CLAMP_FULL((b), (depth)) << rgb_shift[B]))
 
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
@@ -1746,13 +1747,11 @@ static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_
 
 /**
  * Changes pixel format from planar 8-bit YUV to packed RGB/A.
- * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
+ * Color space is assumed ITU-T Rec. 709 limited range.
  */
 static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
-        UNUSED(rgb_shift);
-        UNUSED(subsampling);
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
                 unsigned char *src_y2 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);

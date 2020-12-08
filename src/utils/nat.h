@@ -48,7 +48,7 @@ extern "C" {
 
 struct ug_nat_traverse;
 
-struct ug_nat_traverse *start_nat_traverse(int video_rx_port, int audio_rx_port);
+struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port, int audio_rx_port);
 void stop_nat_traverse(struct ug_nat_traverse *);
 
 

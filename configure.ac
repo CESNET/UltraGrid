@@ -2162,28 +2162,6 @@ AC_SUBST(CUDA_INC)
 AC_SUBST(CUDA_COMPILER)
 AC_SUBST(CUDA_COMPUTE_ARGS)
 
-# ---------------------------------------------------------------------
-# SHM capture
-# ---------------------------------------------------------------------
-shm_cap=no
-
-AC_ARG_ENABLE(shm-cap,
-[  --disable-shm-cap         disable SHM capture (auto)]
-[                             Requires: Linux],
-	[shm_cap_req=$enableval],
-        [shm_cap_req=$build_default])
-
-if test $shm_cap_req != no -a \( $system = Linux -o $system = Windows \); then
-        AC_DEFINE([HAVE_SHM], [1], [Build with SHM video capture])
-        ADD_MODULE("vidcap_shm", "src/video_capture/shm.o", "$CUDA_LIB")
-        shm_cap=yes
-fi
-
-if test $shm_cap_req = yes -a $shm_cap = no; then
-        AC_MSG_ERROR([SHM capture not found]);
-fi
-
-
 # -------------------------------------------------------------------------------------------------
 # GPUJPEG
 GPUJPEG_OBJ=
@@ -3157,6 +3135,27 @@ if test $vrg_req = yes -a $vrg = no; then
 fi
 
 # ---------------------------------------------------------------------
+# PCP
+# -----------------------------------
+pcp=no
+AC_ARG_ENABLE(pcp,
+              [  --disable-pcp       disable PCP suppport (default is auto)]
+              [            Requires: libpcp],
+              [pcp_req=$enableval],
+              [pcp_req=$build_default]
+              )
+PKG_CHECK_MODULES([PCP], [libpcp-client], [FOUND_PCP=yes], [FOUND_PCP=no])
+if test "$FOUND_PCP" = yes -a $pcp_req != no; then
+        LIBS="$PCP_LIBS $LIBS"
+        AC_DEFINE([HAVE_PCP], [1], [Build with PCP support])
+        pcp=yes
+fi
+
+if test $pcp_req = yes -a $pcp = no; then
+        AC_MSG_ERROR([PCP not found]);
+fi
+
+# ---------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------
 PKG_CHECK_MODULES([CPPUNIT], [cppunit], [cppunit=yes], [cppunit=no])
@@ -3298,6 +3297,7 @@ RESULT=`add_column "$RESULT" "Blank capture filter" $blank $?`
 RESULT=`add_column "$RESULT" "GPU accelerated LDGM" $ldgm_gpu $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
 RESULT=`add_column "$RESULT" "MCU-like video mixer" $video_mix $?`
+RESULT=`add_column "$RESULT" "PCP NAT traversal" $pcp $?`
 RESULT=`add_column "$RESULT" "Resize capture filter" $resize $?`
 RESULT=`add_column "$RESULT" "RTSP server" $rtsp_server $?`
 RESULT=`add_column "$RESULT" "Scale postprocessor" $scale $?`
