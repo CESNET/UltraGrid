@@ -63,7 +63,7 @@
 #include <set>
 #include <vector>
 
-#if GPUJPEG_VERSION_INT == 0
+#ifndef GPUJPEG_VERSION_INT
 #error "Old GPUJPEG API detected!"
 #endif
 
