@@ -447,9 +447,9 @@ state_video_compress_gpujpeg *state_video_compress_gpujpeg::create(struct module
 struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 {
         if (gpujpeg_version() >> 8 != GPUJPEG_VERSION_INT >> 8) {
-                LOG(LOG_LEVEL_WARNING) << "GPUJPEG API version mismatch! (" <<
-                                gpujpeg_version_to_string(gpujpeg_version()) << " vs  " <<
-                                gpujpeg_version_to_string(GPUJPEG_VERSION_INT) << ", required same minor version)\n";
+                LOG(LOG_LEVEL_WARNING) << "GPUJPEG API version mismatch! (compiled: " <<
+                                gpujpeg_version_to_string(GPUJPEG_VERSION_INT) << ", library present: " <<
+                                gpujpeg_version_to_string(gpujpeg_version()) << ", required same minor version)\n";
         }
         struct state_video_compress_gpujpeg *s;
 
