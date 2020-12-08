@@ -82,6 +82,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         // otherwise, parameter setting is unneeded - it is done automaticaly by the image
         struct gpujpeg_parameters param;
         gpujpeg_set_default_parameters(&param);
+        param.color_space_internal = GPUJPEG_YCBCR_BT709; // see comment bellow
         param.verbose = MAX(0, log_level - LOG_LEVEL_INFO);
         struct gpujpeg_image_parameters param_image;
         gpujpeg_image_set_default_parameters(&param_image);
