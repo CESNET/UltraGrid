@@ -15,7 +15,7 @@ install_pcp() {
         (
                 cd pcp
                 ./autogen.sh || true # autogen exits with 1
-                ./configure --disable-shared
+                CFLAGS=-fPIC ./configure --disable-shared
                 make -j 5
                 ${SUDO}make install
         )
