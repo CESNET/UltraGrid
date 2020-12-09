@@ -21,6 +21,10 @@
 
 using namespace std;
 
+static char app_name[] = "(undefined)";
+static char *argv[] = { app_name , nullptr };
+static int argc = 1;
+
 extern "C" void exit_uv(int status);
 
 void exit_uv(int status) {
@@ -28,12 +32,17 @@ void exit_uv(int status) {
         LOG(LOG_LEVEL_WARNING) << "Requested exit with code " << status << ".\n";
 }
 
+////////////////////////////////////
+//             SENDER
+////////////////////////////////////
 struct ug_sender {
         struct video_rxtx *video_rxtx{};
         struct wait_obj *wait_obj = wait_obj_init();
         struct module root_module;
+        struct init_data *common;
 
         ug_sender() {
+                common = common_preinit(argc, argv, nullptr);
                 module_init_default(&root_module);
                 root_module.cls = MODULE_CLASS_ROOT;
                 //root_module.new_message = state_uv::new_message;
@@ -46,6 +55,7 @@ struct ug_sender {
                         video_rxtx->join();
                         delete video_rxtx;
                 }
+                common_cleanup(common);
         }
 };
 
@@ -137,12 +147,17 @@ void ug_sender_done(struct ug_sender *s)
         delete s;
 }
 
+////////////////////////////////////
+//             RECEIVER
+////////////////////////////////////
 struct ug_receiver {
         struct video_rxtx *video_rxtx{};
         struct display *display{};
         struct module root_module;
+        struct init_data *common;
 
         ug_receiver() {
+                common = common_preinit(argc, argv, nullptr);
                 module_init_default(&root_module);
                 root_module.cls = MODULE_CLASS_ROOT;
                 //root_module.new_message = state_uv::new_message;
@@ -157,6 +172,7 @@ struct ug_receiver {
                 if (display != nullptr) {
                         display_done(display);
                 }
+                common_cleanup(common);
         }
 
         pthread_t display_thread;
@@ -225,7 +241,7 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
 
         pthread_create(&s->receiver_thread, NULL, video_rxtx::receiver_thread,
                                          (void *) s->video_rxtx);
-        pthread_create(&s->display_thread, nullptr, (void* (*)(void*)) display_run, s->display);
+        pthread_create(&s->display_thread, nullptr, (void* (*)(void*))(void *) display_run, s->display);
 
 
         return s;
