@@ -216,15 +216,11 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
                         *strchr(display, ':') = '\0';
                 }
         }
-#if 0
-        // -> decoder-use-codec
-        const char *pixfmt_name = get_codec_name((codec_t) requested_pixel_format);
-        if (pixfmt_name == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << "Wrong codec: " << requested_pixel_format << "\n";
-                delete s;
-                return nullptr;
+
+        if (init_params->decompress_to != 0) {
+                commandline_params["decoder-use-codec"] = get_codec_name((codec_t) init_params->decompress_to);
         }
-#endif
+
         if (initialize_video_display(&s->root_module, display, display_cfg, 0, nullptr, &s->display) != 0) {
                 LOG(LOG_LEVEL_ERROR) << "Unable to initialize VRG display!\n";
                 delete s;

@@ -68,6 +68,7 @@ struct ug_receiver_parameters {
         const char *sender;                      ///< sender address for RTCP (optional)
         int tx_port;                             ///< TX port for RTCP (optional, unused if sender unset, default 5004)
         int rx_port;                             ///< RX port for RTCP (optional, unused if sender unset, default 5004)
+        libug_pixfmt_t decompress_to;            ///< optional - pixel format to decompress to
 };
 LIBUG_DLL struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params);
 LIBUG_DLL void ug_receiver_done(struct ug_receiver *state);

@@ -1,5 +1,6 @@
 #include <unistd.h>
 
+#include <assert.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -31,14 +32,19 @@ static void usage(const char *progname) {
         printf("options:\n");
         printf("\t-h - show this help\n");
         printf("\t-d - display (default vrg)\n");
+        printf("\t-c I420|RGBA - force decompress to codec\n");
 }
 
 int main(int argc, char *argv[]) {
         struct ug_receiver_parameters init_params = { 0 };
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "d:h")) != -1) {
+        while ((ch = getopt(argc, argv, "c:d:h")) != -1) {
                 switch (ch) {
+                case 'c':
+                        assert(strcmp(optarg, "RGBA") == 0 || strcmp(optarg, "I420") == 0);
+                        init_params.decompress_to = strcmp(optarg, "RGBA") == 0 ? UG_RGBA : UG_I420;
+                        break;
                 case 'd':
                         init_params.display = optarg;
                         break;
