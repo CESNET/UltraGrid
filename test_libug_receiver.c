@@ -1,10 +1,30 @@
 #include <unistd.h>
 
+#include <pthread.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <libug.h>
+
+static bool exit_requested = false;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t cv = PTHREAD_COND_INITIALIZER;
+
+static void signal_handler(int signal) {
+        char msg[] = "Signal XXX caught... Exiting\n";
+        char *signum = strstr(msg, "XXX"); // allowed in POSIX.1-2016
+        signum[0] = '0' + ((signal / 100) % 10);
+        signum[1] = '0' + ((signal / 10) % 10);
+        signum[2] = '0' + (signal % 10);
+        write(2, msg, sizeof msg - 1);
+        pthread_mutex_lock(&lock);
+        exit_requested = true;
+        pthread_mutex_unlock(&lock);
+        pthread_cond_signal(&cv);
+}
 
 static void usage(const char *progname) {
         printf("%s [options] [sender[:port]]\n", progname);
@@ -44,11 +64,18 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        signal(SIGINT, signal_handler);
+        signal(SIGTERM, signal_handler);
+
         struct ug_receiver *s = ug_receiver_start(&init_params);
         if (!s) {
                 return 2;
         }
-        sleep(600);
+        pthread_mutex_lock(&lock);
+        while (!exit_requested) {
+                pthread_cond_wait(&cv, &lock);
+        }
         ug_receiver_done(s);
+        printf("Exit\n");
 }
 
