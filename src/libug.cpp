@@ -206,6 +206,16 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
         params["start_time"].cptr = (const void *) &start_time;
         params["video_delay"].vptr = 0;
 
+        char display[128] = "vrg";
+        const char *display_cfg = "";
+
+        if (init_params->display != nullptr) {
+                strncpy(display, init_params->display, sizeof display);
+                if (strchr(display, ':') != nullptr) {
+                        display_cfg = strchr(display, ':') + 1;
+                        *strchr(display, ':') = '\0';
+                }
+        }
 #if 0
         // -> decoder-use-codec
         const char *pixfmt_name = get_codec_name((codec_t) requested_pixel_format);
@@ -215,7 +225,7 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
                 return nullptr;
         }
 #endif
-        if (initialize_video_display(&s->root_module, init_params->display != nullptr ? init_params->display : "vrg", "", 0, nullptr, &s->display) != 0) {
+        if (initialize_video_display(&s->root_module, display, display_cfg, 0, nullptr, &s->display) != 0) {
                 LOG(LOG_LEVEL_ERROR) << "Unable to initialize VRG display!\n";
                 delete s;
                 return nullptr;
