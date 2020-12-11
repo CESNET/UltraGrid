@@ -59,7 +59,7 @@ done
 
 cp data/scripts/Linux-AppImage/AppRun data/scripts/Linux-AppImage/uv-wrapper.sh data/ultragrid.png $APPDIR
 cp data/uv-qt.desktop $APPDIR/ultragrid.desktop
-wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool
+wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/AppImageUpdate-x86_64.AppImage -O $APPDIR/appimageupdatetool
 chmod ugo+x $APPDIR/appimageupdatetool
 
 if [ -n "$appimage_key" ]; then
