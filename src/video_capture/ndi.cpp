@@ -230,7 +230,7 @@ static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *fr
                                 LOG(LOG_LEVEL_WARNING) << "[NDI] Audio frame too small!\n";
                                 return;
                         }
-                        *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in * (INT32_MAX / 10.0)));
+                        *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in * INT32_MAX));
                         in += frame->channel_stride_in_bytes / sizeof(float);
                         s->audio[s->audio_buf_idx].data_len += sizeof(int32_t);
                 }
