@@ -37,7 +37,7 @@ EOF
 
 PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
-$PACMAN_INSTALL automake autoconf git make pkgconf mingw-w64-x86_64-binutils mingw-w64-x86_64-gcc mingw-w64-x86_64-cppunit unzip zip
+$PACMAN_INSTALL automake autoconf git make pkgconf mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip
 $PACMAN_INSTALL mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-freeglut
 $PACMAN_INSTALL mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 $PACMAN_INSTALL mingw-w64-x86_64-glib2 mingw-w64-x86_64-curl # RTSP capture
