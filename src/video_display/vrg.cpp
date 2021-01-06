@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020 CESNET, z. s. p. o.
+ * Copyright (c) 2020-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,6 +54,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/misc.h"
+#include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_display.h"
 
@@ -72,6 +73,7 @@ using std::unique_lock;
 struct state_vrg {
         uint32_t magic;
         struct video_desc saved_desc;
+        video_frame_pool pool;
 
         high_resolution_clock::time_point t0 = high_resolution_clock::now();
         long long int frames;
@@ -180,7 +182,7 @@ static struct video_frame *display_vrg_getf(void *state)
         struct state_vrg *s = (struct state_vrg *) state;
         assert(s->magic == MAGIC_VRG);
 
-        return vf_alloc_desc_data(s->saved_desc);
+        return s->pool.get_pod_frame();
 }
 
 static int display_vrg_putf(void *state, struct video_frame *frame, int flags)
@@ -249,6 +251,7 @@ static int display_vrg_reconfigure(void *state, struct video_desc desc)
         assert(desc.color_spec == RGBA || desc.color_spec == I420);
 
         s->saved_desc = desc;
+        s->pool.reconfigure(desc);
 
         return TRUE;
 }
