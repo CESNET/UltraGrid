@@ -99,6 +99,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_BT709,
                                 GPUJPEG_420_U8_P0P1P2);
                 break;
+        case CUDA_RGBA:
         case RGBA:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
                                 s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16 && vc_get_linesize(desc.width, RGBA) == s->pitch ?
@@ -153,7 +154,8 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
         struct state_decompress_gpujpeg *s = (struct state_decompress_gpujpeg *) state;
         
         assert(out_codec == I420 || out_codec == RGB || out_codec == RGBA
-                        || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE);
+                        || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE
+                        || out_codec == CUDA_RGBA);
 
         if(s->out_codec == out_codec &&
                         s->pitch == pitch &&
@@ -225,7 +227,12 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         
         gpujpeg_set_device(cuda_devices[0]);
 
-        if (s->pitch == linesize && (s->out_codec == UYVY || s->out_codec == RGB
+        if (s->out_codec == CUDA_RGBA) {
+                gpujpeg_decoder_output_set_custom_cuda (&decoder_output, dst);
+                if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
+                        return DECODER_NO_FRAME;
+                }
+        } else if (s->pitch == linesize && (s->out_codec == UYVY || s->out_codec == RGB
                                 || (s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16)
                         )) {
                 gpujpeg_decoder_output_set_custom(&decoder_output, dst);
@@ -323,6 +330,10 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ MJPG, VIDEO_CODEC_NONE, RGB, 920 },
 		{ MJPG, VIDEO_CODEC_NONE, UYVY, 920 },
 		{ MJPG, VIDEO_CODEC_NONE, RGBA, 920 },
+                // for VRG
+		{ JPEG, VIDEO_CODEC_NONE, CUDA_RGBA, 200 },
+		{ MJPG, VIDEO_CODEC_NONE, CUDA_RGBA, 200 },
+
 		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
         };
         return ret;

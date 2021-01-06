@@ -44,6 +44,10 @@
 #include "video.h"
 #include "video_display.h"
 
+#ifdef HAVE_CUDA
+#include <cuda_runtime.h>
+#endif // defined HAVE_CUDA
+
 #include <algorithm>
 #include <chrono>
 #include <iostream>
@@ -58,7 +62,11 @@ using rang::fg;
 using rang::style;
 
 struct dummy_display_state {
-        dummy_display_state() : f(nullptr), t0(steady_clock::now()), frames(0) {}
+        dummy_display_state() : f(nullptr), t0(steady_clock::now()), frames(0) {
+#ifdef HAVE_CUDA
+                codecs.push_back(CUDA_RGBA);
+#endif
+        }
         struct video_frame *f;
         steady_clock::time_point t0;
         vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R12L, RGBA, RGB, BGR};
@@ -188,11 +196,32 @@ static auto display_dummy_get_property(void *state, int property, void *val, siz
         return TRUE;
 }
 
+#ifdef HAVE_CUDA
+static void display_dummy_cuda_frame_data_deleter(struct video_frame *f) {
+        cudaFree(f->tiles[0].data);
+}
+#endif
+
 static int display_dummy_reconfigure(void *state, struct video_desc desc)
 {
         dummy_display_state *s = (dummy_display_state *) state;
         vf_free(s->f);
-        s->f = vf_alloc_desc_data(desc);
+
+        if (desc.color_spec == CUDA_RGBA) {
+#ifdef HAVE_CUDA
+                s->f = vf_alloc_desc(desc);
+                if (cudaMallocManaged(&s->f->tiles[0].data, s->f->tiles[0].data_len) != cudaSuccess) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot alloc CUDA buffer!\n";
+                        return FALSE;
+                }
+                s->f->callbacks.data_deleter = display_dummy_cuda_frame_data_deleter;
+#else
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "CUDA support not compiled in!\n";
+                return FALSE;
+#endif // defined HAVE_CUDA
+        } else {
+                s->f = vf_alloc_desc_data(desc);
+        }
 
         return TRUE;
 }

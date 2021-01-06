@@ -8,7 +8,7 @@
  * not implementation files.
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2021 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,6 +100,7 @@ typedef enum {
         AV1,      ///< AOMedia Video 1
         I420,     ///< planar YCbCr 4:2:0
         CUDA_I420, ///< I420 in a CUDA buffer
+        CUDA_RGBA, ///< RGBA in a CUDA buffer
         VIDEO_CODEC_COUNT, ///< count of known video codecs (including VIDEO_CODEC_NONE)
         VIDEO_CODEC_END = VIDEO_CODEC_COUNT
 } codec_t;

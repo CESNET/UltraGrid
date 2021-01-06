@@ -200,6 +200,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "av1"},
         [I420] =  {"I420", "planar YUV 4:2:0",
                 to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, "yuv"},
+        [CUDA_RGBA] =  {"CUDA_RGBA", "CUDA RGBA",
+                to_fourcc('R','G','B','A'), 1, 4.0, 8, 4, TRUE, FALSE, FALSE, FALSE, "rgba"},
 };
 
 /// for planar pixel formats
