@@ -61,17 +61,10 @@ struct video_frame_pool_allocator {
         virtual ~video_frame_pool_allocator() {}
 };
 
-
 struct default_data_allocator : public video_frame_pool_allocator {
-        void *allocate(size_t size) override {
-                return malloc(size);
-        }
-        void deallocate(void *ptr) override {
-                free(ptr);
-        }
-        struct video_frame_pool_allocator *clone() const override {
-                return new default_data_allocator(*this);
-        }
+        void *allocate(size_t size) override;
+        void deallocate(void *ptr) override;
+        struct video_frame_pool_allocator *clone() const override;
 };
 
 struct video_frame_pool {
@@ -82,26 +75,13 @@ struct video_frame_pool {
                  *                        is called and that number of frames
                  *                        is unreturned, get_frames() will block.
                  */
-                video_frame_pool(unsigned int max_used_frames = 0, video_frame_pool_allocator const &alloc = default_data_allocator()) : m_allocator(alloc.clone()), m_generation(0), m_desc(), m_max_data_len(0), m_unreturned_frames(0), m_max_used_frames(max_used_frames) {
-                }
-
-                virtual ~video_frame_pool() {
-                        std::unique_lock<std::mutex> lk(m_lock);
-                        remove_free_frames();
-                        // wait also for all frames we gave out to return us
-                        m_frame_returned.wait(lk, [this] {return m_unreturned_frames == 0;});
-                }
+                video_frame_pool(unsigned int max_used_frames = 0, video_frame_pool_allocator const &alloc = default_data_allocator());
+                virtual ~video_frame_pool();
 
                 /**
                  * @param new_size  if omitted, deduce from video desc (only for pixel formats)
                  */
-                void reconfigure(struct video_desc new_desc, size_t new_size = SIZE_MAX) {
-                        std::unique_lock<std::mutex> lk(m_lock);
-                        m_desc = new_desc;
-                        m_max_data_len = new_size != SIZE_MAX ? new_size : new_desc.height * vc_get_linesize(new_desc.width, new_desc.color_spec);
-                        remove_free_frames();
-                        m_generation++;
-                }
+                void reconfigure(struct video_desc new_desc, size_t new_size = SIZE_MAX);
 
                 /**
                  * Returns free frame
@@ -109,93 +89,19 @@ struct video_frame_pool {
                  * If the pool size is exhausted (see constructor param),
                  * the call will block until there is some available.
                  */
-                std::shared_ptr<video_frame> get_frame() {
-                        assert(m_generation != 0);
-                        struct video_frame *ret = NULL;
-                        std::unique_lock<std::mutex> lk(m_lock);
-                        if (!m_free_frames.empty()) {
-                                ret = m_free_frames.front();
-                                m_free_frames.pop();
-                        } else if (m_max_used_frames > 0 && m_max_used_frames == m_unreturned_frames) {
-                                m_frame_returned.wait(lk, [this] {return m_unreturned_frames < m_max_used_frames;});
-                                assert(!m_free_frames.empty());
-                                ret = m_free_frames.front();
-                                m_free_frames.pop();
-                        } else {
-                                try {
-                                        ret = vf_alloc_desc(m_desc);
-                                        for (unsigned int i = 0; i < m_desc.tile_count; ++i) {
-                                                ret->tiles[i].data = (char *)
-                                                        m_allocator->allocate(m_max_data_len);
-                                                if (ret->tiles[i].data == NULL) {
-                                                        throw std::runtime_error("Cannot allocate data");
-                                                }
-                                                ret->tiles[i].data_len = m_max_data_len;
-                                        }
-                                } catch (std::exception &e) {
-                                        std::cerr << e.what() << std::endl;
-                                        deallocate_frame(ret);
-                                        throw e;
-                                }
-                        }
-                        m_unreturned_frames += 1;
-                        return std::shared_ptr<video_frame>(ret, std::bind([this](struct video_frame *frame, int generation) {
-                                        std::unique_lock<std::mutex> lk(m_lock);
-
-                                        assert(m_unreturned_frames > 0);
-                                        m_unreturned_frames -= 1;
-                                        m_frame_returned.notify_one();
-
-                                        if (this->m_generation != generation) {
-                                                this->deallocate_frame(frame);
-                                        } else {
-                                                m_free_frames.push(frame);
-                                        }
-                                }, std::placeholders::_1, m_generation));
-                }
+                std::shared_ptr<video_frame> get_frame();
 
                 /** @returns legacy struct pointer with dispose callback properly set */
-                struct video_frame *get_disposable_frame() {
-                        auto && frame = get_frame();
-                        struct video_frame *out = frame.get();
-                        out->callbacks.dispose_udata = new std::shared_ptr<video_frame>(frame);
-                        out->callbacks.dispose = [](video_frame *f) { delete static_cast<std::shared_ptr<video_frame> *>(f->callbacks.dispose_udata); };
-                        return out;
-                }
+                struct video_frame *get_disposable_frame();
 
                 /** @returns frame eligible to be freed by vf_free() */
-                struct video_frame *get_pod_frame() {
-                        auto && frame = get_frame();
-                        struct video_frame *out = vf_alloc_desc(video_desc_from_frame(frame.get()));
-                        for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                                out->tiles[i].data = frame->tiles[i].data;
-                        }
-                        out->callbacks.dispose_udata = new std::shared_ptr<video_frame>(frame);
-                        out->callbacks.data_deleter = [](video_frame *f) { delete static_cast<std::shared_ptr<video_frame> *>(f->callbacks.dispose_udata); };
-                        return out;
-                }
+                struct video_frame *get_pod_frame();
 
-                video_frame_pool_allocator const & get_allocator() {
-                        return *m_allocator;
-                }
+                video_frame_pool_allocator const & get_allocator();
 
         private:
-                void remove_free_frames() {
-                        while (!m_free_frames.empty()) {
-                                struct video_frame *frame = m_free_frames.front();
-                                m_free_frames.pop();
-                                deallocate_frame(frame);
-                        }
-                }
-
-                void deallocate_frame(struct video_frame *frame) {
-                        if (frame == NULL)
-                                return;
-                        for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                                m_allocator->deallocate(frame->tiles[i].data);
-                        }
-                        vf_free(frame);
-                }
+                void remove_free_frames();
+                void deallocate_frame(struct video_frame *frame);
 
                 std::unique_ptr<video_frame_pool_allocator> m_allocator;
                 std::queue<struct video_frame *> m_free_frames;
