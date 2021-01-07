@@ -38,18 +38,18 @@
 #include "video_frame_pool.h"
 
 void *video_frame_pool_init(struct video_desc desc, int len) {
-        auto out = new video_frame_pool<default_data_allocator>(len);
+        auto *out = new video_frame_pool(len, default_data_allocator());
         out->reconfigure(desc);
         return (void *) out;
 }
 
 struct video_frame *video_frame_pool_get_disposable_frame(void *state) {
-        auto s = static_cast<video_frame_pool<default_data_allocator>* >(state);
+        auto *s = static_cast<video_frame_pool* >(state);
         return s->get_disposable_frame();
 }
 
 void video_frame_pool_destroy(void *state) {
-        auto s = static_cast<video_frame_pool<default_data_allocator>* >(state);
+        auto *s = static_cast<video_frame_pool* >(state);
         delete s;
 }
 

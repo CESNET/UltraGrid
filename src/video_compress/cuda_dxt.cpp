@@ -56,8 +56,8 @@ using namespace std;
 
 namespace {
 
-struct cuda_buffer_data_allocator {
-        void *allocate(size_t size) {
+struct cuda_buffer_data_allocator : public video_frame_pool_allocator {
+        void *allocate(size_t size) override {
                 void *ptr;
                 if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc_host(&ptr,
                                         size)) {
@@ -65,8 +65,11 @@ struct cuda_buffer_data_allocator {
                 }
                 return ptr;
         }
-        void deallocate(void *ptr) {
+        void deallocate(void *ptr) override {
                 cuda_wrapper_free(ptr);
+        }
+        video_frame_pool_allocator *clone() const override {
+                return new cuda_buffer_data_allocator(*this);
         }
 };
 
@@ -81,7 +84,7 @@ struct state_video_compress_cuda_dxt {
         codec_t             out_codec;
         decoder_t           decoder;
 
-        video_frame_pool<cuda_buffer_data_allocator> pool;
+        video_frame_pool pool{0, cuda_buffer_data_allocator()};
 };
 
 static void cuda_dxt_compress_done(struct module *mod);

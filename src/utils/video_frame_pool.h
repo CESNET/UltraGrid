@@ -54,16 +54,26 @@
 #include <queue>
 #include <stdexcept>
 
-struct default_data_allocator {
-        void *allocate(size_t size) {
+struct video_frame_pool_allocator {
+        virtual void *allocate(size_t size) = 0;
+        virtual void deallocate(void *ptr) = 0;
+        virtual struct video_frame_pool_allocator *clone() const = 0;
+        virtual ~video_frame_pool_allocator() {}
+};
+
+
+struct default_data_allocator : public video_frame_pool_allocator {
+        void *allocate(size_t size) override {
                 return malloc(size);
         }
-        void deallocate(void *ptr) {
+        void deallocate(void *ptr) override {
                 free(ptr);
+        }
+        struct video_frame_pool_allocator *clone() const override {
+                return new default_data_allocator(*this);
         }
 };
 
-template <typename allocator>
 struct video_frame_pool {
         public:
                 /**
@@ -72,7 +82,7 @@ struct video_frame_pool {
                  *                        is called and that number of frames
                  *                        is unreturned, get_frames() will block.
                  */
-                video_frame_pool(unsigned int max_used_frames = 0) : m_generation(0), m_desc(), m_max_data_len(0), m_unreturned_frames(0), m_max_used_frames(max_used_frames) {
+                video_frame_pool(unsigned int max_used_frames = 0, video_frame_pool_allocator const &alloc = default_data_allocator()) : m_allocator(alloc.clone()), m_generation(0), m_desc(), m_max_data_len(0), m_unreturned_frames(0), m_max_used_frames(max_used_frames) {
                 }
 
                 virtual ~video_frame_pool() {
@@ -116,7 +126,7 @@ struct video_frame_pool {
                                         ret = vf_alloc_desc(m_desc);
                                         for (unsigned int i = 0; i < m_desc.tile_count; ++i) {
                                                 ret->tiles[i].data = (char *)
-                                                        m_allocator.allocate(m_max_data_len);
+                                                        m_allocator->allocate(m_max_data_len);
                                                 if (ret->tiles[i].data == NULL) {
                                                         throw std::runtime_error("Cannot allocate data");
                                                 }
@@ -165,8 +175,8 @@ struct video_frame_pool {
                         return out;
                 }
 
-                allocator & get_allocator() {
-                        return m_allocator;
+                video_frame_pool_allocator const & get_allocator() {
+                        return *m_allocator;
                 }
 
         private:
@@ -182,11 +192,12 @@ struct video_frame_pool {
                         if (frame == NULL)
                                 return;
                         for (unsigned int i = 0; i < frame->tile_count; ++i) {
-                                m_allocator.deallocate(frame->tiles[i].data);
+                                m_allocator->deallocate(frame->tiles[i].data);
                         }
                         vf_free(frame);
                 }
 
+                std::unique_ptr<video_frame_pool_allocator> m_allocator;
                 std::queue<struct video_frame *> m_free_frames;
                 std::mutex        m_lock;
                 std::condition_variable m_frame_returned;
@@ -194,7 +205,6 @@ struct video_frame_pool {
                 struct video_desc m_desc;
                 size_t            m_max_data_len;
                 unsigned int      m_unreturned_frames;
-                allocator         m_allocator;
                 unsigned int      m_max_used_frames;
 };
 #endif //  __cplusplus

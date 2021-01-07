@@ -161,7 +161,7 @@ class vidcap_state_aja {
                 uint32_t               mVideoBufferSize{};            ///     My video buffer size, in bytes
                 uint32_t               mAudioBufferSize{};            ///     My audio buffer size, in bytes
                 thread                 mProducerThread;               ///     My producer thread object -- does the frame capturing
-                video_frame_pool<aligned_data_allocator> mPool;
+                video_frame_pool       mPool;
                 shared_ptr<video_frame> mOutputFrame;
                 shared_ptr<uint32_t>   mOutputAudioFrame;
                 size_t                 mOutputAudioFrameSize{};
