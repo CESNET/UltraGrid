@@ -153,6 +153,18 @@ struct video_frame_pool {
                         return out;
                 }
 
+                /** @returns frame eligible to be freed by vf_free() */
+                struct video_frame *get_pod_frame() {
+                        auto && frame = get_frame();
+                        struct video_frame *out = vf_alloc_desc(video_desc_from_frame(frame.get()));
+                        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                                out->tiles[i].data = frame->tiles[i].data;
+                        }
+                        out->callbacks.dispose_udata = new std::shared_ptr<video_frame>(frame);
+                        out->callbacks.data_deleter = [](video_frame *f) { delete static_cast<std::shared_ptr<video_frame> *>(f->callbacks.dispose_udata); };
+                        return out;
+                }
+
                 allocator & get_allocator() {
                         return m_allocator;
                 }
