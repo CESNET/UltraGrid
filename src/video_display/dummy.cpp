@@ -44,10 +44,12 @@
 #include "video.h"
 #include "video_display.h"
 
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <vector>
 
+const size_t DEFAULT_DUMP_LEN = 32;
 const constexpr char *MOD_NAME = "[dummy] ";
 
 using namespace std;
@@ -62,16 +64,19 @@ struct dummy_display_state {
         vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R12L, RGBA, RGB, BGR};
         vector<int> rgb_shift = {0, 8, 16};
         int frames;
+
+        size_t dump_bytes = 0;
 };
 
 static auto display_dummy_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */) -> void *
 {
         if ("help"s == cfg) {
                 cout << "Usage:\n";
-                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>]\n" << style::reset;
+                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][hexdump[=<n>]]\n" << style::reset;
                 cout << "where\n";
                 cout << "\t" << style::bold << "<codec>" << style::reset << "   - force the use of a codec instead of default set\n";
                 cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (0, 8, 16)\n";
+                cout << "\t" << style::bold << "hexdump[=<n>]" << style::reset << " - dump first n (default " << DEFAULT_DUMP_LEN << ") bytes of every frame in hexadecimal format\n";
                 return static_cast<void *>(&display_init_noerr);
         }
         auto s = make_unique<dummy_display_state>();
@@ -87,6 +92,12 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong codec spec!\n";
                                 return nullptr;
                         }
+                } else if (strstr(item, "hexdump") != nullptr) {
+                        if (strstr(item, "hexdump=") != nullptr) {
+                                s->dump_bytes = stol(item + strlen("hexdump="), nullptr, 0);
+                        } else {
+                                s->dump_bytes = DEFAULT_DUMP_LEN;
+                        }
                 } else if (strstr(item, "rgb_shift=") != nullptr) {
                         item += strlen("rgb_shift=");
                         size_t len;
@@ -95,6 +106,9 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                         s->rgb_shift[1] = stoi(item, &len);
                         item += len + 1;
                         s->rgb_shift[2] = stoi(item, &len);
+                } else {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unrecognized option: " << item << "\n";
+                        return nullptr;
                 }
                 ccpy = nullptr;
         }
@@ -119,12 +133,23 @@ static struct video_frame *display_dummy_getf(void *state)
         return ((dummy_display_state *) state)->f;
 }
 
-static int display_dummy_putf(void *state, struct video_frame * /* frame */, int flags)
+static void dump_buf(unsigned char *buf, size_t len) {
+        printf("Frame content: ");
+        for (size_t i = 0; i < len; ++i) {
+                printf("%02hhx", *buf++);
+        }
+        printf("\n");
+}
+
+static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
 {
         if (flags == PUTF_DISCARD) {
                 return 0;
         }
         auto s = (dummy_display_state *) state;
+        if (frame != nullptr && s->dump_bytes > 0) {
+                dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes));
+        }
         auto curr_time = steady_clock::now();
         s->frames += 1;
         double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
