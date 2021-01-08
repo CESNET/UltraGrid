@@ -62,6 +62,10 @@
 #define MOD_NAME "[VRG] "
 #define MAGIC_VRG to_fourcc('V', 'R', 'G', ' ')
 
+#ifdef HAVE_CUDA
+#include <cuda_runtime.h>
+#endif
+
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
@@ -126,7 +130,7 @@ static void display_vrg_run(void *state)
                 }
 
                 if (configured_codec != f->color_spec) {
-                        enum VrgStreamApiError ret = vrgStreamInit(f->color_spec == RGBA ? VR_RGBA : YUV420);
+                        enum VrgStreamApiError ret = vrgStreamInit(f->color_spec == I420 ? YUV420 : VR_RGBA);
                         if (ret != Ok) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Initialization failed: " << ret << "\n";
                                 vf_free(f);
@@ -211,6 +215,9 @@ static int display_vrg_ctl_property(void *state, int property, void *val, size_t
 {
         struct state_vrg *s = (struct state_vrg *) state;
         codec_t codecs[] = {
+#ifdef HAVE_CUDA
+                CUDA_RGBA,
+#endif
                 I420,
                 RGBA,
         };
@@ -244,13 +251,41 @@ static int display_vrg_ctl_property(void *state, int property, void *val, size_t
         return TRUE;
 }
 
+struct vrg_cuda_allocator : public video_frame_pool_allocator {
+        void *allocate(size_t size) override {
+                void *ptr = nullptr;
+#ifdef HAVE_CUDA
+                if (cudaMallocManaged(&ptr, size) != cudaSuccess) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot alloc CUDA buffer!\n";
+                        return nullptr;
+                }
+#endif
+                return ptr;
+        }
+        void deallocate(void *ptr) override {
+#ifdef HAVE_CUDA
+                cudaFree(ptr);
+#else
+                UNUSED(ptr);
+#endif
+        }
+        video_frame_pool_allocator *clone() const override {
+                return new vrg_cuda_allocator(*this);
+        }
+};
+
 static int display_vrg_reconfigure(void *state, struct video_desc desc)
 {
         struct state_vrg *s = (struct state_vrg *) state;
         assert(s->magic == MAGIC_VRG);
-        assert(desc.color_spec == RGBA || desc.color_spec == I420);
+        assert(desc.color_spec == CUDA_RGBA || desc.color_spec == RGBA || desc.color_spec == I420);
 
         s->saved_desc = desc;
+        if (desc.color_spec == CUDA_RGBA) {
+                s->pool.replace_allocator(vrg_cuda_allocator());
+        } else {
+                s->pool.replace_allocator(default_data_allocator());
+        }
         s->pool.reconfigure(desc);
 
         return TRUE;
@@ -284,6 +319,7 @@ static const struct video_display_info display_vrg_info = {
         display_vrg_ctl_property,
         display_vrg_put_audio_frame,
         display_vrg_reconfigure_audio,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(vrg, &display_vrg_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
