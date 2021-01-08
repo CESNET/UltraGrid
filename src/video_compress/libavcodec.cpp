@@ -45,6 +45,7 @@
 
 #include "libavcodec_common.h"
 
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <list>
@@ -104,8 +105,11 @@ struct setparam_param {
         string thread_mode;
 };
 
-static constexpr const char *DEFAULT_NVENC_PRESET = "llhq";
-static constexpr const char *DEFAULT_NVENC_RC = "cbr_hq"; // cbr_ld_hq for equally sized frames
+constexpr const char *DEFAULT_NVENC_PRESET = "p7";
+constexpr const char *DEFAULT_NVENC_RC = "cbr";
+constexpr const char *DEFAULT_NVENC_TUNE = "ull";
+constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
+
 static constexpr const char *DEFAULT_QSV_PRESET = "medium";
 
 typedef struct {
@@ -719,13 +723,14 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                         preset = codec_params[ug_codec].get_preset(s->codec_ctx->codec->name, desc.width, desc.height, desc.fps);
                 }
 
-                if (!preset.empty()) {
+                if (!preset.empty() && preset != "defer"s) {
                         if (av_opt_set(s->codec_ctx->priv_data, "preset", preset.c_str(), 0) != 0) {
                                 LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to set preset.\n";
                         } else {
                                 LOG(LOG_LEVEL_INFO) << "[lavc] Setting preset to " << preset <<  ".\n";
                         }
-                } else {
+                }
+                if (preset.empty()) {
                         LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to find suitable preset for encoder " << s->codec_ctx->codec->name << ".\n";
                 }
         }
@@ -1688,15 +1693,27 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *para
 
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        int ret;
+        const char *preset = DEFAULT_NVENC_PRESET;
 
-        ret = av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC, 0);
-        if (ret != 0) { // older FFMPEG had only cbr
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Cannot set RC %s. Trying cbr.\n", DEFAULT_NVENC_RC);
-                ret = av_opt_set(codec_ctx->priv_data, "rc", "cbr", 0);
+        // important: if "tune" is not supported, then FALLBACK_NVENC_PRESET must be used (it is correlated). If unsupported preset
+        // were given, setting would succeed but would cause runtime errors.
+        if (int rc = av_opt_set(codec_ctx->priv_data, "tune", DEFAULT_NVENC_TUNE, 0)) {
+                array<char, LIBAV_ERRBUF_LEN> errbuf{};
+                av_strerror(rc, errbuf.data(), errbuf.size());
+                LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC tune to \"" << DEFAULT_NVENC_TUNE << "\" (" << errbuf.data() << "). Possibly old libavcodec.\n";
+                preset = FALLBACK_NVENC_PRESET;
         }
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set RC.\n");
+        if (int rc = av_opt_set(codec_ctx->priv_data, "preset", preset, 0)) {
+                array<char, LIBAV_ERRBUF_LEN> errbuf{};
+                av_strerror(rc, errbuf.data(), errbuf.size());
+                LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC preset to: " << preset << " (" << errbuf.data() << ").\n";
+        } else {
+                LOG(LOG_LEVEL_INFO) << "[lavc] Setting NVENC preset to " << preset << ".\n";
+        }
+
+        int ret = av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC, 0);
+        if (ret != 0) { // older FFMPEG had only cbr
+                LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set RC " << DEFAULT_NVENC_RC << ".\n";
         }
 
         ret = av_opt_set(codec_ctx->priv_data, "spatial_aq", "0", 0);
@@ -1769,6 +1786,7 @@ void show_encoder_help(string const &name) {
         }
 }
 
+/// @retval "defer" - preset will be set individually later (NVENC)
 static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps)
 {
         if (enc_name == "libx264" || enc_name == "libx264rgb") {
@@ -1780,7 +1798,7 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
         } else if (enc_name == "libx265") {
                 return string("ultrafast");
         } else if (regex_match(enc_name, regex(".*nvenc.*"))) { // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
-                return string(DEFAULT_NVENC_PRESET);
+                return "defer"s; // nvenc preset is handled with configure_nvenc()
         } else if (enc_name == "h264_qsv") {
                 return string(DEFAULT_QSV_PRESET);
         } else {

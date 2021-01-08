@@ -124,7 +124,7 @@ struct state_video_compress_uyvy {
 
         int gl_format;
 
-        video_frame_pool<default_data_allocator> *pool;
+        video_frame_pool *pool;
 };
 
 int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame *tx);
@@ -156,7 +156,7 @@ struct module * uyvy_compress_init(struct module *parent, const char *)
 
         gl_context_make_current(NULL);
 
-        s->pool = new video_frame_pool<default_data_allocator>();
+        s->pool = new video_frame_pool();
 
         module_init_default(&s->module_data);
         s->module_data.cls = MODULE_CLASS_DATA;

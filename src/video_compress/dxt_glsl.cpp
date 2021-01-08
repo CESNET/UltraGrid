@@ -79,7 +79,7 @@ struct state_video_compress_rtdxt {
 
         struct gl_context gl_context;
 
-        video_frame_pool<default_data_allocator> pool;
+        video_frame_pool pool;
 };
 
 static int configure_with(struct state_video_compress_rtdxt *s, struct video_frame *frame);

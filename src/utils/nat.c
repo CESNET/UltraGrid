@@ -82,6 +82,7 @@ struct ug_nat_traverse {
         int video_rx_port;
         int allocation_duration;
 
+        bool initialized; ///< whether the state was initialized
         pthread_t keepalive_thread;
         bool keepalive_should_exit;
         pthread_mutex_t keepalive_mutex;
@@ -541,12 +542,15 @@ struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port
         rc |= pthread_create(&s->keepalive_thread, NULL, nat_traverse_keepalive, s);
         assert(rc == 0);
 
+        s->initialized = true;
+
         return s;
 }
 
 void stop_nat_traverse(struct ug_nat_traverse *s)
 {
-        if (s == NULL) {
+        if (s == NULL || s->initialized == false) {
+                free(s);
                 return;
         }
 

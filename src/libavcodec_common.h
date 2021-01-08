@@ -60,6 +60,8 @@ extern "C" {
 #define G 1
 #define B 2
 
+#define LIBAV_ERRBUF_LEN 1024
+
 ///
 /// compat
 ///

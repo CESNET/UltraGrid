@@ -29,8 +29,8 @@ with the e-mail or use a chat. If you suspect that the issue may not be always
 replicable, you can use a script `ultragrid-bugreport-collect.sh` to collect
 data about a computer and attach its result. See also [here](doc/REPORTING-BUGS.md).
 
-Especially for various questions about UltraGrid usage you may also use our Matrix chat
-[![@ultragrid:matrix.org](https://img.shields.io/badge/Matrix-chat-black)](https://matrix.to/#/!IrTYOLJOmZIoTBiITI:matrix.org?via=matrix.org).
+For general questions, ideas or remarks you are encountered to use the project's
+[GitHub Discussions](https://github.com/CESNET/UltraGrid/discussions).
 
 ## Feature requests
 Feature requests can be submitted with the same channels as bugs.

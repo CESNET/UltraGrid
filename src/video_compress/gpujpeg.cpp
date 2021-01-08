@@ -87,7 +87,7 @@ private:
         int                                      m_device_id;
         struct gpujpeg_encoder                  *m_encoder;
         struct video_desc                        m_saved_desc;
-        video_frame_pool<default_data_allocator> m_pool;
+        video_frame_pool                         m_pool;
         decoder_t                                m_decoder;
         codec_t                                  m_enc_input_codec{};
         unique_ptr<char []>                      m_decoded;

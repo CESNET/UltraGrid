@@ -96,7 +96,7 @@ struct state_video_compress_j2k {
         struct cmpto_j2k_enc_cfg *enc_settings{};
         long long int rate; ///< bitrate in bits per second
         int mct; // force use of mct - -1 means default
-        video_frame_pool<default_data_allocator> pool; ///< pool for frames allocated by us but not yet consumed by encoder
+        video_frame_pool pool; ///< pool for frames allocated by us but not yet consumed by encoder
         unsigned int max_in_frames; ///< max number of frames between push and pop
         unsigned int in_frames{};   ///< number of currently encoding frames
         mutex lock;

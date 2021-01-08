@@ -21,5 +21,5 @@ else
         sudo chroot $BUILD_DIR /bin/sh -ec 'apt-get -y install libavcodec-dev libavformat-dev libswscale-dev'
 fi
 sudo chroot $BUILD_DIR /bin/sh -ec 'apt-get -y install desktop-file-utils git-core libfuse-dev libcairo2-dev cmake wget zsync' # to build appimagetool
-sudo chroot $BUILD_DIR /bin/sh -ec 'git clone https://github.com/AppImage/AppImageKit.git && cd AppImageKit && ./build.sh && cd build && cmake -DAUXILIARY_FILES_DESTINATION= .. && make install || exit 1'
+sudo chroot $BUILD_DIR /bin/sh -ec 'git clone -b 12 https://github.com/AppImage/AppImageKit.git && cd AppImageKit && patch -N -p1 < /mksquashfs-compilation-fix.patch && ./build.sh && cd build && cmake -DAUXILIARY_FILES_DESTINATION= .. && make install || exit 1'
 sudo chroot $BUILD_DIR /bin/sh -ec 'rm -rf AppImageKit; apt-get -y clean'
