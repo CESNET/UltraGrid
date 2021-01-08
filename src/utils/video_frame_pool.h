@@ -57,6 +57,7 @@
 struct video_frame_pool_allocator {
         virtual void *allocate(size_t size) = 0;
         virtual void deallocate(void *ptr) = 0;
+        /// @brief clones allocator
         virtual struct video_frame_pool_allocator *clone() const = 0;
         virtual ~video_frame_pool_allocator() {}
 };
@@ -98,6 +99,8 @@ struct video_frame_pool {
                 struct video_frame *get_pod_frame();
 
                 video_frame_pool_allocator const & get_allocator();
+                /// @brief replaces used allocator, waits until all frames are returned
+                void replace_allocator(video_frame_pool_allocator const &alloc);
 
         private:
                 void remove_free_frames();

@@ -37,6 +37,8 @@
 
 #include "video_frame_pool.h"
 
+using std::unique_ptr;
+
 void *default_data_allocator::allocate(size_t size) {
         return malloc(size);
 }
@@ -131,6 +133,15 @@ struct video_frame *video_frame_pool::get_pod_frame() {
 
 video_frame_pool_allocator const & video_frame_pool::get_allocator() {
         return *m_allocator;
+}
+
+void video_frame_pool::replace_allocator(video_frame_pool_allocator const &alloc) {
+        std::unique_lock<std::mutex> lk(m_lock);
+        remove_free_frames();
+        // wait also for all frames we gave out to return us
+        m_frame_returned.wait(lk, [this] {return m_unreturned_frames == 0;});
+
+        m_allocator = unique_ptr<video_frame_pool_allocator>(alloc.clone());
 }
 
 void video_frame_pool::remove_free_frames() {
