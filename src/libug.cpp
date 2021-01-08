@@ -32,6 +32,10 @@ void exit_uv(int status) {
         LOG(LOG_LEVEL_WARNING) << "Requested exit with code " << status << ".\n";
 }
 
+static_assert(static_cast<int>(UG_RGBA) == static_cast<int>(RGBA));
+static_assert(static_cast<int>(UG_I420) == static_cast<int>(I420));
+static_assert(static_cast<int>(UG_CUDA_RGBA) == static_cast<int>(CUDA_RGBA));
+
 ////////////////////////////////////
 //             SENDER
 ////////////////////////////////////
@@ -219,6 +223,10 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
 
         if (init_params->decompress_to != 0) {
                 commandline_params["decoder-use-codec"] = get_codec_name((codec_t) init_params->decompress_to);
+        }
+
+        if (init_params->force_gpu_decoding) {
+                commandline_params["decompress"] = "gpujpeg";
         }
 
         if (initialize_video_display(&s->root_module, display, display_cfg, 0, nullptr, &s->display) != 0) {
