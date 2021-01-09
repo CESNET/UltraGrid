@@ -205,3 +205,19 @@ codec_t get_codec_from_name(const char *name) {
         }
 }
 
+struct video_desc video_desc_from_frame(struct video_frame *frame)
+{
+        struct video_desc desc;
+
+        assert(frame != NULL);
+
+        desc.width = frame->tiles[0].width;
+        desc.height = frame->tiles[0].height;
+        desc.color_spec = frame->color_spec;
+        desc.fps = frame->fps;
+        desc.interlacing = frame->interlacing;
+        desc.tile_count = frame->tile_count;
+
+        return desc;
+}
+

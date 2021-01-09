@@ -41,7 +41,7 @@ cp src/video_display/aja.cpp aja_display.cpp
 MSVS_PATH=`/c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/Installer/vswhere.exe -latest -property installationPath`
 
 eval vssetup=\"$MSVS_PATH\"'\\VC\\Auxiliary\\Build\\vcvars64.bat'
-cmd //Q //C call "$vssetup" "&&" cl //LD //D_XKEYCHECK_H //DAJA_WINDOWS //DMSWindows //DAJA_NTV2SDK_VERSION_MAJOR=13 src/aja_common.cpp aja_capture.cpp aja_display.cpp src/video_capture/aja_win32_utils.cpp src/video_capture_params.cpp src/utils/config_file.cpp c:/AJA/lib/libajantv2.lib advapi32.lib user32.lib winmm.lib //Feaja
+cmd //Q //C call "$vssetup" "&&" cl //LD //D_XKEYCHECK_H //DAJA_WINDOWS //DMSWindows //DAJA_NTV2SDK_VERSION_MAJOR=13 src/aja_common.cpp aja_capture.cpp aja_display.cpp src/video_capture/aja_win32_utils.cpp src/video_capture_params.cpp src/utils/config_file.cpp src/utils/video_frame_pool.cpp c:/AJA/lib/libajantv2.lib advapi32.lib user32.lib winmm.lib //Feaja
 
 cp aja.lib /usr/local/lib
 cp aja.dll /usr/local/bin
