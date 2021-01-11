@@ -63,9 +63,11 @@
 #include "video.h"
 #include "video_display.h"
 
+#define DEFAULT_AUDIO_LEVEL 0
 #define MOD_NAME "[NDI disp.] "
 
 struct display_ndi {
+        int audio_level; ///< audio reference level - usually 0 or 20
         NDIlib_send_instance_t pNDI_send;
         struct video_desc desc;
         struct audio_desc audio_desc;
@@ -99,10 +101,12 @@ static void usage()
 {
         printf("Usage:\n");
         color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-d ndi");
-        color_out(COLOR_OUT_BOLD, "[:help][:name=<n>]\n");
+        color_out(COLOR_OUT_BOLD, "[:help][:name=<n>][:audio_level=<x>]\n");
         printf("\twhere\n");
         color_out(COLOR_OUT_BOLD, "\t\tname\n");
         printf("\t\t\tthe name of the server\n");
+        color_out(COLOR_OUT_BOLD, "\t\taudio_level\n");
+        printf("\t\t\taudio headroom above reference level (in dB, or mic/line, default %d)\n", DEFAULT_AUDIO_LEVEL);
 }
 
 #define BEGIN_TRY int ret = 0; do
@@ -118,7 +122,9 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
         UNUSED(parent);
 
         char *fmt_copy = NULL;
-        struct display_ndi *s = NULL;
+        struct display_ndi *s = calloc(1, sizeof(struct display_ndi));
+        s->audio_level = DEFAULT_AUDIO_LEVEL;
+
         BEGIN_TRY {
                 fmt_copy = strdup(fmt);
                 assert(fmt_copy != NULL);
@@ -130,7 +136,22 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                                 usage();
                                 THROW(HELP_SHOWN);
                         }
-                        if (strstr(item, "name=") != NULL) {
+                        if (strstr(item, "audio_level=") != NULL) {
+                                char *val = item + strlen("audio_level=");
+                                if (strcasecmp(val, "mic") == 0) {
+                                        s->audio_level = 0;
+                                } else if (strcasecmp(val, "line") == 0) {
+                                        s->audio_level = 20; // NOLINT
+                                } else {
+                                        char *endptr = NULL;
+                                        long val_num = strtol(val, &endptr, 0);
+                                        if (val_num < 0 || val_num >= INT_MAX || *val == '\0' || *endptr != '\0') {
+                                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong value: %s!\n", val);
+                                                THROW(FAIL);
+                                        }
+                                        s->audio_level = val_num; // NOLINT
+                                }
+                        } else if (strstr(item, "audio_level=") != NULL) {
                                 ndi_name = item + strlen("name=");
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
@@ -143,7 +164,6 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                         THROW(FAIL);
                 }
 
-                s = calloc(1, sizeof(struct display_ndi));
                 NDIlib_send_create_t NDI_send_create_desc = { 0 };
                 NDI_send_create_desc.clock_video = false;
                 NDI_send_create_desc.clock_audio = false;
@@ -274,6 +294,7 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                 NDIlib_audio_frame_interleaved_ ## bit_depth ## s_t NDI_audio_frame = { 0 }; \
                 NDI_audio_frame.sample_rate = (frame)->sample_rate; \
                 NDI_audio_frame.no_channels = (frame)->ch_count; \
+                NDI_audio_frame.reference_level = s->audio_level; \
                 NDI_audio_frame.timecode = NDIlib_send_timecode_synthesize; \
                 NDI_audio_frame.p_data = (int ## bit_depth ## _t *) (frame)->data; \
                 NDI_audio_frame.no_samples = (frame)->data_len / (frame)->ch_count / ((bit_depth) / 8); \
