@@ -71,6 +71,7 @@
 #include "video.h"
 #include "video_capture.h"
 
+static constexpr double DEFAULT_AUDIO_DIVISOR = 0;
 static constexpr const char *MOD_NAME = "[NDI] ";
 
 using std::array;
@@ -95,6 +96,9 @@ struct vidcap_state_ndi {
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         int frames = 0;
 
+        /// sample divisor derived from audio reference level - 10 for 20 dB
+        double audio_divisor = DEFAULT_AUDIO_DIVISOR; // NOLINT
+
         void print_stats() {
                 auto now = steady_clock::now();
                 double seconds = duration_cast<std::chrono::microseconds>(now - t0).count() / 1000000.0;
@@ -110,13 +114,15 @@ struct vidcap_state_ndi {
 static void show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-t ndi" << rang::fg::reset <<
-                "[:help][:name=<n>][:url=<u>]\n" << rang::style::reset <<
+                "[:help][:name=<n>][:url=<u>][:audio_level=<l>]\n" << rang::style::reset <<
                 "\twhere\n"
                 << rang::style::bold << "\t\tname\n" << rang::style::reset <<
                 "\t\t\tname of the NDI source in form "
                 "\"MACHINE_NAME (NDI_SOURCE_NAME)\"\n"
                 << rang::style::bold << "\t\turl\n" << rang::style::reset <<
                 "\t\t\tURL, typically <ip> or <ip>:<port>\n"
+                << rang::style::bold << "\t\taudio_level\n" << rang::style::reset <<
+                "\t\t\taudio headroom above reference level (in dB, or mic/line, default " << 20 * log(DEFAULT_AUDIO_DIVISOR) / log(10) << ")\n"
                 "\n";
 
         cout << "\tavailable sources (tentative, format: name - url):\n";
@@ -171,6 +177,23 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                                 s->requested_url += string(":") + strtok_r(nullptr, ":", &save_ptr);
                                 cout << s->requested_url;
                         }
+                } else if (strstr(item, "audio_level=") == item) {
+                        char *val = item + strlen("audio_level=");
+                        long ref_level = 0;
+                        if (strcasecmp(val, "mic") == 0) {
+                                ref_level = 0;
+                        } else if (strcasecmp(val, "line") == 0) {
+                                ref_level = 20; // NOLINT
+                        } else {
+                                char *endptr = nullptr;
+                                ref_level = strtol(val, &endptr, 0);
+                                if (ref_level < 0 || ref_level >= INT_MAX || *val == '\0' || *endptr != '\0') {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong value: " << val << "!\n";
+                                        delete s;
+                                        return VIDCAP_INIT_NOERR;
+                                }
+                        }
+                        s->audio_divisor = pow(10.0, ref_level / 20.0); // NOLINT
                 } else {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Unknown option: " << item << "\n";
                         delete s;
@@ -230,7 +253,7 @@ static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *fr
                                 LOG(LOG_LEVEL_WARNING) << "[NDI] Audio frame too small!\n";
                                 return;
                         }
-                        *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in * INT32_MAX));
+                        *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in / s->audio_divisor * INT32_MAX));
                         in += frame->channel_stride_in_bytes / sizeof(float);
                         s->audio[s->audio_buf_idx].data_len += sizeof(int32_t);
                 }
