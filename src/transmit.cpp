@@ -379,16 +379,14 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
         tx->buffer++;
 }
 
-void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx, uint32_t *video_hdr)
+void format_video_header(struct video_frame *frame, int tile_idx, uint32_t buffer_idx, uint32_t *video_hdr)
 {
-        uint32_t tmp;
+        assert(tile_idx == 0);
 
         video_hdr[3] = htonl(frame->tiles[tile_idx].width << 16 | frame->tiles[tile_idx].height);
         video_hdr[4] = get_fourcc(frame->color_spec);
         video_hdr[2] = htonl(frame->tiles[tile_idx].data_len);
-        tmp = tile_idx << 22;
-        tmp |= 0x3fffff & buffer_idx;
-        video_hdr[0] = htonl(tmp);
+        video_hdr[0] = htonl(buffer_idx);
 
         /* word 6 */
         video_hdr[5] = format_interl_fps_hdr_row(frame->interlacing, frame->fps);
@@ -528,7 +526,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 	LARGE_INTEGER start, stop, freq;
 #endif
         long delta, overslept = 0;
-        uint32_t tmp;
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
@@ -604,13 +601,12 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 }
         }
 
-        format_video_header(frame, substream, tx->buffer, video_hdr);
+        format_video_header(frame, substream, frame->id, video_hdr);
 
         if (frame->fec_params.type != FEC_NONE) {
-                tmp = substream << 22;
-                tmp |= 0x3fffff & tx->buffer;
+                assert(substream == 0);
                 // see definition in rtp_callback.h
-                fec_hdr[0] = htonl(tmp);
+                fec_hdr[0] = htonl(frame->seq);
                 fec_hdr[2] = htonl(tile->data_len);
                 fec_hdr[3] = htonl(
                                 frame->fec_params.k << 19 |
