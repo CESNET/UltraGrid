@@ -141,7 +141,7 @@ static void display_vrg_run(void *state)
 
                 enum VrgStreamApiError ret;
                 high_resolution_clock::time_point t_start = high_resolution_clock::now();
-                ret = vrgStreamSubmitFrame(s->frames, f->tiles[0].data);
+                ret = vrgStreamSubmitFrame(f->id, f->tiles[0].data);
                 if (ret != Ok) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
                 }
