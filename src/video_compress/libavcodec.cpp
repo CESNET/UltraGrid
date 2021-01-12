@@ -1317,6 +1317,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 vf_free(frame);
         };
         out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), dispose);
+        vf_copy_metadata(out.get(), tx.get());
 #if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
         int got_output;
         AVPacket *pkt;
