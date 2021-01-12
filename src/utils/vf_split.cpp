@@ -147,7 +147,7 @@ vector<shared_ptr<video_frame>> vf_separate_tiles(shared_ptr<video_frame> frame)
 
                 ret[i]->tiles[0].data_len = frame->tiles[i].data_len;
                 ret[i]->tiles[0].data = frame->tiles[i].data;
-                ret[i]->compress_start = frame->compress_start;
+                vf_copy_metadata(ret[i].get(), frame.get());
         }
 
         return ret;
@@ -172,6 +172,7 @@ shared_ptr<video_frame> vf_merge_tiles(std::vector<shared_ptr<video_frame>> cons
                 t0 = tiles[i]->compress_start < t0 ? tiles[i]->compress_start : t0;
                 t1 = tiles[i]->compress_end > t1 ? tiles[i]->compress_end : t1;
         }
+        vf_copy_metadata(ret.get(), tiles.at(0).get());
         ret->compress_start = t0;
         ret->compress_end = t1;
 
