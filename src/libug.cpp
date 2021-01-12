@@ -121,7 +121,7 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
         return s;
 }
 
-void ug_send_frame(struct ug_sender *s, const char *data, libug_pixfmt_t codec, int width, int height)
+void ug_send_frame(struct ug_sender *s, const char *data, libug_pixfmt_t codec, int width, int height, uint32_t seq)
 {
         struct video_frame *f = vf_alloc(1);
         f->color_spec = (codec_t) codec;
@@ -129,6 +129,7 @@ void ug_send_frame(struct ug_sender *s, const char *data, libug_pixfmt_t codec, 
         f->tiles[0].height = height;
         f->fps = 120;
         f->interlacing = PROGRESSIVE;
+        f->id = seq;
 
         f->tiles[0].data = const_cast<char *>(data);
         f->tiles[0].data_len = vc_get_datalen(width, height, f->color_spec);

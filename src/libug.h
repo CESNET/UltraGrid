@@ -4,8 +4,10 @@
 #if ! defined __cplusplus
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #else
 #include <cstddef>
+#include <cstdint>
 extern "C" {
 #endif
 
@@ -56,10 +58,11 @@ struct ug_sender_parameters {
 LIBUG_DLL struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params);
 /**
  * @brief Sends data buffer
+ * @param seq   sequence number to be passed to VRG submit frame
  *
  * This function is blocking.
  */
-LIBUG_DLL void ug_send_frame(struct ug_sender *state, const char *data, libug_pixfmt_t pixel_format, int width, int height);
+LIBUG_DLL void ug_send_frame(struct ug_sender *state, const char *data, libug_pixfmt_t pixel_format, int width, int height, uint32_t seq);
 LIBUG_DLL void ug_sender_done(struct ug_sender *state);
 
 struct ug_receiver;
