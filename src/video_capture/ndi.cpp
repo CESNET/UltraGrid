@@ -71,7 +71,7 @@
 #include "video.h"
 #include "video_capture.h"
 
-static constexpr double DEFAULT_AUDIO_DIVISOR = 0;
+static constexpr double DEFAULT_AUDIO_DIVISOR = 1;
 static constexpr const char *MOD_NAME = "[NDI] ";
 
 using std::array;
@@ -96,7 +96,7 @@ struct vidcap_state_ndi {
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         int frames = 0;
 
-        /// sample divisor derived from audio reference level - 10 for 20 dB
+        /// sample divisor derived from audio reference level - 1 for 0 dB, 10 for 20 dB
         double audio_divisor = DEFAULT_AUDIO_DIVISOR; // NOLINT
 
         void print_stats() {
