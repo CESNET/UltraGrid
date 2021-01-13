@@ -1,0 +1,47 @@
+diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
+index 887e11b1e2..b08fd87406 100644
+--- a/libavcodec/nvenc.c
++++ b/libavcodec/nvenc.c
+@@ -452,6 +452,12 @@ static int nvenc_check_capabilities(AVCodecContext *avctx)
+     }
+ #endif
+ 
++    ret = nvenc_check_cap(avctx, NV_ENC_CAPS_SUPPORT_INTRA_REFRESH);
++    if(ret <= 0) {
++        av_log(avctx, AV_LOG_WARNING, "Intra refresh not supported\n");
++        return AVERROR(ENOSYS);
++    }
++
+     ctx->support_dyn_bitrate = nvenc_check_cap(avctx, NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE);
+ 
+     return 0;
+@@ -1021,6 +1027,10 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
+     h264->sliceMode = 3;
+     h264->sliceModeData = 1;
+ 
++    h264->enableIntraRefresh = 1;
++    h264->intraRefreshPeriod = avctx->gop_size;
++    h264->intraRefreshCnt = avctx->gop_size - 1;
++
+     h264->disableSPSPPS = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 1 : 0;
+     h264->repeatSPSPPS  = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 0 : 1;
+     h264->outputAUD     = ctx->aud;
+@@ -1118,6 +1128,10 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
+     hevc->sliceMode = 3;
+     hevc->sliceModeData = 1;
+ 
++    hevc->enableIntraRefresh = 1;
++    hevc->intraRefreshPeriod = avctx->gop_size;
++    hevc->intraRefreshCnt = avctx->gop_size - 1;
++
+     hevc->disableSPSPPS = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 1 : 0;
+     hevc->repeatSPSPPS  = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 0 : 1;
+     hevc->outputAUD     = ctx->aud;
+@@ -1318,6 +1332,7 @@ static av_cold int nvenc_setup_encoder(AVCodecContext *avctx)
+         ctx->encode_config.frameIntervalP = 0;
+         ctx->encode_config.gopLength = 1;
+     }
++    ctx->encode_config.gopLength = NVENC_INFINITE_GOPLENGTH;
+ 
+     nvenc_recalc_surfaces(avctx);
+ 

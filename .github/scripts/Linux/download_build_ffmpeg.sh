@@ -20,5 +20,6 @@ sed -i '1,/sliceModeData = 1;/s/sliceModeData = 1;/sliceModeData = 8;/' libavcod
 ( git clone --depth 1 https://aomedia.googlesource.com/aom && mkdir -p aom/build && cd aom/build && cmake -DBUILD_SHARED_LIBS=1 .. &&  cmake --build . --parallel && sudo cmake --install . || exit 1 )
 install_nv_codec_headers
 install_svt
+patch -N -p1 < $GITHUB_WORKSPACE/.github/scripts/Linux/nvenc-intra-refresh.patch
 ./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame --enable-libsvthevc --enable-libsvtav1
 make -j $(nproc)
