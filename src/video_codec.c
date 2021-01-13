@@ -200,6 +200,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "av1"},
         [I420] =  {"I420", "planar YUV 4:2:0",
                 to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, "yuv"},
+        [Y216] =  {"Y216", "Packed 16-bit YUV 4:2:2 little-endian",
+                to_fourcc('Y','2','1','6'), 2, 4.0, 16, 8, FALSE, FALSE, FALSE, FALSE, "y216"},
 };
 
 /// for planar pixel formats
@@ -2352,6 +2354,42 @@ vc_copylineDPX10toRGB(unsigned char * __restrict dst, const unsigned char * __re
         }
 }
 
+static void vc_copylineUYVYtoY216(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        while (dst_len >= 8) {
+                *dst++ = 0;
+                *dst++ = src[1]; // Y0
+                *dst++ = 0;
+                *dst++ = src[0]; // U
+                *dst++ = 0;
+                *dst++ = src[3]; // Y1
+                *dst++ = 0;
+                *dst++ = src[2]; // V
+                src += 4;
+                dst_len -= 8;
+        }
+}
+
+static void vc_copylineY216toUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        while (dst_len >= 4) {
+                *dst++ = src[3];
+                *dst++ = src[1];
+                *dst++ = src[7];
+                *dst++ = src[5];
+                src += 8;
+                dst_len -= 4;
+        }
+}
+
 struct decoder_item {
         decoder_t decoder;
         codec_t in;
@@ -2387,6 +2425,8 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineDPX10toRGBA, DPX10, RGBA, false },
         { (decoder_t) vc_copylineDPX10toRGB,  DPX10, RGB, false },
         { vc_copylineRGB,         RGB,   RGB, false },
+        { vc_copylineUYVYtoY216,  UYVY,  Y216, false },
+        { vc_copylineY216toUYVY,  Y216,  UYVY, false },
 };
 
 /**

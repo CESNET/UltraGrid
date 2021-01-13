@@ -441,7 +441,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 
 static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
-static const codec_t codecs_12b[] = {RG48, R12L, VIDEO_CODEC_NONE};
+static const codec_t codecs_12b[] = {Y216, RG48, R12L, VIDEO_CODEC_NONE};
 
 static auto parse_format(char **fmt, char **save_ptr) {
         struct video_desc desc{};
@@ -620,11 +620,15 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
 
+                codec_t codec_first = s->frame->color_spec; // intermediate pixfmt used for with 2-step conversions
                 if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == UYVY || s->frame->color_spec == YUYV || s->frame->color_spec == RG48
-                                || s->frame->color_spec == RGB) {
+                                || s->frame->color_spec == RGB || s->frame->color_spec == Y216) {
                         codec_t codec_to = s->frame->color_spec;
-                        if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == YUYV) {
+                        if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == YUYV || s->frame->color_spec == Y216) { // no direct conversion from RGBA
                                 codec_to = UYVY;
+                                if (s->frame->color_spec == Y216) {
+                                        codec_first = UYVY;
+                                }
                         }
                         auto decoder = get_decoder_from_to(RGBA, codec_to, true);
                         auto src = move(data);
@@ -654,13 +658,20 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         auto src = move(data);
                         data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
                                            vf_get_tile(s->frame, 0)->height)), free_deleter);
-                        src = move(data);
+                        codec_first = RGB;
+                }
+
+                if (codec_first != s->frame->color_spec) {
+                        auto src = move(data);
                         data = decltype(data)(new unsigned char[s->frame->tiles[0].data_len], delarr_deleter);
+                        auto decoder = get_decoder_from_to(codec_first, s->frame->color_spec, true);
+                        assert(decoder != nullptr);
+
+                        int src_linesize = vc_get_linesize(s->frame->tiles[0].width, codec_first);
                         int dst_linesize = vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
-                        int src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGB);
                         for (int i = 0; i < (int) vf_get_tile(s->frame, 0)->height; ++i) {
-                                vc_copylineRGBtoR12L(data.get() + i * dst_linesize,
-                                                src.get() + i * src_linesize, dst_linesize, 0, 0, 0);
+                                decoder(data.get() + i * dst_linesize,
+                                                src.get() + i * src_linesize, dst_linesize, 0, 8, 16);
                         }
                 }
 
