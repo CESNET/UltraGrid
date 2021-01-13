@@ -1701,7 +1701,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         if (int rc = av_opt_set(codec_ctx->priv_data, "tune", DEFAULT_NVENC_TUNE, 0)) {
                 array<char, LIBAV_ERRBUF_LEN> errbuf{};
                 av_strerror(rc, errbuf.data(), errbuf.size());
-                LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC tune to \"" << DEFAULT_NVENC_TUNE << "\" (" << errbuf.data() << "). Possibly old libavcodec.\n";
+                LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC tune to \"" << DEFAULT_NVENC_TUNE << "\" (" << errbuf.data() << "). Possibly old libavcodec or compiled with old NVIDIA NVENC headers.\n";
                 preset = FALLBACK_NVENC_PRESET;
         }
         if (int rc = av_opt_set(codec_ctx->priv_data, "preset", preset, 0)) {
