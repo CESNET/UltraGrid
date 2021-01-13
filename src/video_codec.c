@@ -2354,6 +2354,77 @@ vc_copylineDPX10toRGB(unsigned char * __restrict dst, const unsigned char * __re
         }
 }
 
+static void vc_copylineRGBAtoR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        struct {
+                unsigned r:8;
+
+                unsigned gh:6;
+                unsigned p1:2;
+
+                unsigned bh:4;
+                unsigned p2:2;
+                unsigned gl:2;
+
+                unsigned p3:2;
+                unsigned p4:2;
+                unsigned bl:4;
+        } *d = (void *) dst;
+
+        while (dst_len >= 4) {
+                unsigned int r = *(src++);
+                unsigned int g = *(src++);
+                unsigned int b = *(src++);
+                src++;
+
+                d->r = r;
+                d->gh = g >> 2U;
+                d->gl = g & 0x3U;
+                d->bh = b >> 4U;
+                d->bl = b & 0xFU;
+
+                d->p1 = 0;
+                d->p2 = 0;
+                d->p3 = 0;
+                d->p4 = 0;
+
+                d++;
+                dst_len -= 4;
+        }
+}
+
+static void vc_copylineUYVYtoV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        struct {
+                unsigned a:10;
+                unsigned b:10;
+                unsigned c:10;
+                unsigned p1:2;
+        } *p = (void *)dst;
+        while (dst_len >= 4) {
+                unsigned int u = *(src++);
+                unsigned int y = *(src++);
+                unsigned int v = *(src++);
+
+                p->a = u << 2U;
+                p->b = y << 2U;
+                p->c = v << 2U;
+                p->p1 = 0;
+
+                p++;
+
+                dst_len -= 4;
+        }
+}
+
 static void vc_copylineUYVYtoY216(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -2425,6 +2496,8 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineDPX10toRGBA, DPX10, RGBA, false },
         { (decoder_t) vc_copylineDPX10toRGB,  DPX10, RGB, false },
         { vc_copylineRGB,         RGB,   RGB, false },
+        { vc_copylineRGBAtoR10k,  RGBA,  R10k, false },
+        { vc_copylineUYVYtoV210,  UYVY,  v210, false },
         { vc_copylineUYVYtoY216,  UYVY,  Y216, false },
         { vc_copylineY216toUYVY,  Y216,  UYVY, false },
 };

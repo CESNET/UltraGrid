@@ -621,16 +621,21 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
 
                 codec_t codec_first = s->frame->color_spec; // intermediate pixfmt used for with 2-step conversions
-                if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == UYVY || s->frame->color_spec == YUYV || s->frame->color_spec == RG48
+                if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == UYVY || s->frame->color_spec == YUYV
+                                || s->frame->color_spec == RG48 || s->frame->color_spec == R12L || s->frame->color_spec == R10k
                                 || s->frame->color_spec == RGB || s->frame->color_spec == Y216) {
                         codec_t codec_to = s->frame->color_spec;
                         if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == YUYV || s->frame->color_spec == Y216) { // no direct conversion from RGBA
                                 codec_to = UYVY;
-                                if (s->frame->color_spec == Y216) {
+                                if (s->frame->color_spec == Y216 || s->frame->color_spec == v210) { ///< those codecs will continue with @ref second_step
                                         codec_first = UYVY;
                                 }
                         }
+                        if (s->frame->color_spec == R12L) {
+                                codec_first = codec_to = RGB;
+                        }
                         auto decoder = get_decoder_from_to(RGBA, codec_to, true);
+                        assert(decoder != nullptr);
                         auto src = move(data);
                         data = decltype(data)(new unsigned char [s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, codec_to) + headroom], delarr_deleter);
                         size_t src_linesize = vc_get_linesize(s->frame->tiles[0].width, RGBA);
@@ -644,24 +649,12 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         }
                 }
 
-                if (s->frame->color_spec == I420 || s->frame->color_spec == v210) {
+                if (s->frame->color_spec == I420) {
                         auto src = move(data);
-                        if (s->frame->color_spec == v210) {
-                                data = decltype(data)(tov210(src.get(), s->frame->tiles[0].width,
-                                                vf_get_tile(s->frame, 0)->height), free_deleter);
-                        } else {
-                                data = decltype(data)(reinterpret_cast<unsigned char *>((toI420(reinterpret_cast<char *>(src.get()), s->frame->tiles[0].width, s->frame->tiles[0].height))), free_deleter);
-                        }
+                        data = decltype(data)(reinterpret_cast<unsigned char *>((toI420(reinterpret_cast<char *>(src.get()), s->frame->tiles[0].width, s->frame->tiles[0].height))), free_deleter);
                 }
 
-                if (s->frame->color_spec == R12L) {
-                        auto src = move(data);
-                        data = decltype(data)(reinterpret_cast<unsigned char *>(toRGB(src.get(), vf_get_tile(s->frame, 0)->width,
-                                           vf_get_tile(s->frame, 0)->height)), free_deleter);
-                        codec_first = RGB;
-                }
-
-                if (codec_first != s->frame->color_spec) {
+                if (codec_first != s->frame->color_spec) { ///< @anchor second_step
                         auto src = move(data);
                         data = decltype(data)(new unsigned char[s->frame->tiles[0].data_len], delarr_deleter);
                         auto decoder = get_decoder_from_to(codec_first, s->frame->color_spec, true);
@@ -673,11 +666,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                                 decoder(data.get() + i * dst_linesize,
                                                 src.get() + i * src_linesize, dst_linesize, 0, 8, 16);
                         }
-                }
-
-                if (s->frame->color_spec == R10k) {
-                        toR10k(data.get(), vf_get_tile(s->frame, 0)->width,
-                                        vf_get_tile(s->frame, 0)->height);
                 }
 
                 if(s->frame->color_spec == YUYV) {
