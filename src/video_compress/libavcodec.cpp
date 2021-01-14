@@ -1784,6 +1784,11 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         }
 
         set_forced_idr(codec_ctx, 1);
+        if (!param->no_periodic_intra){
+                if (int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0) != 0) {
+                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
+                }
+        }
 
         int ret = av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC, 0);
         if (ret != 0) { // older FFMPEG had only cbr
