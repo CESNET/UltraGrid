@@ -88,6 +88,7 @@ extern "C"{
 #define MOD_NAME "[lavc] "
 
 using namespace std;
+using namespace std::string_literals;
 using namespace rang;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
@@ -1749,6 +1750,26 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* 
         ret = av_opt_set(codec_ctx->priv_data, "forced-idr", force_idr_val, 0);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set IDR for SVT.\n");
+        }
+
+        if ("libsvt_hevc"s == codec_ctx->codec->name) {
+                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", 4, 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Row Count for SVT", ret);
+                }
+                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", 4, 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Column Count for SVT", ret);
+                }
+                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_slice_mode", 1, 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Slice Mode for SVT", ret);
+                }
+        } else { // libsvtav1
+                // tile_columns and tile_rows are Log2 values
+                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_columns", 2, 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Row Count for SVT", ret);
+                }
+                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_rows", 2, 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Column Count for SVT", ret);
+                }
         }
 }
 
