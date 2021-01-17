@@ -283,18 +283,15 @@ void rtp_vr_recv_callback(struct rtp *session, rtp_event * e)
         struct state_vidcap_shm *shm = (struct state_vidcap_shm *) ((void **) rtp_get_userdata(session))[1];
         assert(pckt_app->length - 2 == (sizeof(struct RenderPacket) + 3) / 4); // expected len of the APP data is the size
                                                                            // of struct RenderPacket / 4
-        if (shm != NULL) {
-                struct RenderPacket pkt;
-                memcpy(&pkt, pckt_app->data, sizeof pkt);
-                if (render_packet_received_callback) {
-                        render_packet_received_callback(render_packet_received_callback_udata, &pkt);
-                } else {
-                        if (shm) {
-                                vidcap_shm_set_view(shm, &pkt);
-                        }
-                }
+        struct RenderPacket pkt;
+        memcpy(&pkt, pckt_app->data, sizeof pkt);
+        log_msg(LOG_LEVEL_DEBUG, "Received position data for frame %u\n", pkt.frame);
+        if (render_packet_received_callback) {
+                render_packet_received_callback(render_packet_received_callback_udata, &pkt);
+        } else if (shm) {
+                vidcap_shm_set_view(shm, &pkt);
         } else {
-                debug_msg("Received position data, dismissed (capture is not shm/cuda).\n");
+                log_msg(LOG_LEVEL_VERBOSE, "Dismissed position data!\n");
         }
 #endif
 }
