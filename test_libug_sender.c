@@ -78,15 +78,16 @@ int main(int argc, char *argv[]) {
         size_t len = WIDTH * HEIGHT * 4;
         unsigned char *test = malloc(len);
         fill(test, WIDTH, HEIGHT, UG_RGBA);
-        int frames = 0;
+        uint32_t frames = 0;
+        uint32_t frames_last = 0;
         while (1) {
-                ug_send_frame(s, test, UG_RGBA, WIDTH, HEIGHT);
+                ug_send_frame(s, (char *) test, UG_RGBA, WIDTH, HEIGHT, frames);
                 frames += 1;
                 time_t seconds = time(NULL) - t0;
                 if (seconds > 0) {
-                        printf("Sent %d frames in last %ld second%s.\n", frames, seconds, seconds > 1 ? "s" : "");
+                        printf("Sent %d frames in last %ld second%s.\n", frames - frames_last, seconds, seconds > 1 ? "s" : "");
                         t0 += seconds;
-                        frames = 0;
+                        frames_last = frames;
                 }
                 usleep(1000 * 1000 / FPS);
         }
