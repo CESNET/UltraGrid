@@ -57,6 +57,7 @@
 #include "rtp/rtpenc_h264.h"
 #include "transmit.h"
 #include "tv.h"
+#include "ug_runtime_error.hpp"
 #include "utils/sdp.h"
 #include "video.h"
 #include "video_rxtx.h"
@@ -66,6 +67,7 @@ using rang::fg;
 using rang::style;
 using std::array;
 using std::cout;
+using std::exception;
 using std::shared_ptr;
 using std::string;
 
@@ -144,20 +146,19 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
 {
         int rc = ::sdp_add_video(m_sdp, m_saved_tx_port, codec);
-        if (rc == -1) {
-                LOG(LOG_LEVEL_ERROR) << "[SDP] Unsupported video codec for SDP (allowed H.264 and JPEG)!\n";
-                exit_uv(1);
-                return;
+        if (rc == -2) {
+                throw ug_runtime_error("[SDP] Unsupported video codec for SDP (allowed H.264 and JPEG)!\n");
         }
 	if (rc != 0) {
 		abort();
 	}
         if (!gen_sdp(m_sdp, m_requested_file.c_str())) {
-                throw string("[SDP] File creation failed\n");
+                LOG(LOG_LEVEL_ERROR) << "[SDP] File creation failed\n";
+                return;
         }
 #ifdef SDP_HTTP
         if (!sdp_run_http_server(m_sdp, m_requested_http_port, h264_sdp_video_rxtx::change_address_callback, this)) {
-                throw string("[SDP] Server run failed!\n");
+                LOG(LOG_LEVEL_ERROR) << "[SDP] Server run failed!\n";
         }
 #endif
 }
@@ -186,8 +187,14 @@ void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 		return;
         }
         if (m_sdp_configured_codec == VIDEO_CODEC_NONE) {
-                sdp_add_video(tx_frame->color_spec);
-                m_sdp_configured_codec = tx_frame->color_spec;
+                try {
+                        sdp_add_video(tx_frame->color_spec);
+                        m_sdp_configured_codec = tx_frame->color_spec;
+                } catch (exception const &e) {
+                        LOG(LOG_LEVEL_ERROR) << e.what();
+                        exit_uv(1);
+                        return;
+                }
         }
 
         if (m_sdp_configured_codec != tx_frame->color_spec) {
