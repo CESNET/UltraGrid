@@ -12,7 +12,7 @@ install_nv_codec_headers() {
         ( cd nv-codec-headers && make && sudo make install || exit 1 )
 }
 
-git clone --depth 1 https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg # n4.3 is needed for SVT HEVC patch
+git clone --depth 1 https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
 sed -i '1,/sliceModeData = 1;/s/sliceModeData = 1;/sliceModeData = 8;/' libavcodec/nvenc.c # only first occurence - for H.264, not HEVC
 ( git clone --depth 1 -b nasm-2.13.xx https://github.com/sezero/nasm.git && cd nasm && ./autogen.sh && ./configure && make nasm.1 && make ndisasm.1 && make -j $(nproc) && sudo make install || exit 1 )
