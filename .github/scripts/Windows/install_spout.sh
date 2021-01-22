@@ -1,7 +1,7 @@
 #!/bin/sh -eux
 # Install SPOUT
 
-git clone --depth 1 https://github.com/leadedge/Spout2.git
+git clone -b 2.006 --depth 1 https://github.com/leadedge/Spout2.git
 mkdir Spout2/SpoutSDK/Source/build
 cd Spout2/SpoutSDK/Source/build
 cmake -DBUILD_SHARED_LIBS=ON -G 'MSYS Makefiles' ..
