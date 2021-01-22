@@ -247,12 +247,14 @@ bool encoder_state::configure_with(struct video_desc desc)
         compressed_desc.color_spec = JPEG;
 
         if (desc.color_spec == I420) {
+#if GPUJPEG_VERSION_INT < GPUJPEG_MK_VERSION_INT(0, 14, 0)
                 if ((m_parent_state->m_use_internal_codec != GPUJPEG_NONE && m_parent_state->m_use_internal_codec != GPUJPEG_YCBCR_BT709) ||
                                 (m_parent_state->m_subsampling != 0 && m_parent_state->m_subsampling != 420)) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Converting from planar pixel formats is "
                                         "possible only without subsampling/color space change.\n");
                         return false;
                 }
+#endif
                 m_decoder = nullptr;
                 m_enc_input_codec = desc.color_spec;
         } else {
