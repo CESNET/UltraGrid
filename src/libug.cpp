@@ -72,6 +72,8 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
                 return nullptr;
         }
 
+        log_level += init_params->verbose;
+
         struct ug_sender *s = new ug_sender();
 
         chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
@@ -190,6 +192,8 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
 
         chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
         map<string, param_u> params;
+
+        log_level += init_params->verbose;
 
         // common
         params["parent"].ptr = &s->root_module;

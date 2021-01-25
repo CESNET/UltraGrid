@@ -50,6 +50,7 @@ struct ug_sender_parameters {
         void *rprc_udata;                        ///< user data passed to the rprc callback (optional)
         int tx_port;                             ///< TX port (optional, default 5004)
         int rx_port;                             ///< RX port (optional, default 5004)
+        int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
 };
 
 /**
@@ -75,6 +76,7 @@ struct ug_receiver_parameters {
         int rx_port;                             ///< RX port for RTCP (optional, unused if sender unset, default 5004)
         libug_pixfmt_t decompress_to;            ///< optional - pixel format to decompress to
         bool force_gpu_decoding;                 ///< force GPU decoding (decode with GPUJPEG)
+        int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
 };
 LIBUG_DLL struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params);
 LIBUG_DLL void ug_receiver_done(struct ug_receiver *state);
