@@ -71,6 +71,7 @@
 #include "video.h"
 #include "video_capture.h"
 
+static constexpr double DEFAULT_AUDIO_DIVISOR = 1;
 static constexpr const char *MOD_NAME = "[NDI] ";
 
 using std::array;
@@ -91,9 +92,13 @@ struct vidcap_state_ndi {
 
         string requested_name; // if not empty recv from requested NDI name
         string requested_url; // if not empty recv from requested URL (either addr or addr:port)
+        int requested_color = -1;
 
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         int frames = 0;
+
+        /// sample divisor derived from audio reference level - 1 for 0 dB, 10 for 20 dB
+        double audio_divisor = DEFAULT_AUDIO_DIVISOR; // NOLINT
 
         void print_stats() {
                 auto now = steady_clock::now();
@@ -110,13 +115,18 @@ struct vidcap_state_ndi {
 static void show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-t ndi" << rang::fg::reset <<
-                "[:help][:name=<n>][:url=<u>]\n" << rang::style::reset <<
+                "[:help][:name=<n>][:url=<u>][:audio_level=<l>][color=<c>]\n" << rang::style::reset <<
                 "\twhere\n"
                 << rang::style::bold << "\t\tname\n" << rang::style::reset <<
                 "\t\t\tname of the NDI source in form "
                 "\"MACHINE_NAME (NDI_SOURCE_NAME)\"\n"
                 << rang::style::bold << "\t\turl\n" << rang::style::reset <<
                 "\t\t\tURL, typically <ip> or <ip>:<port>\n"
+                << rang::style::bold << "\t\taudio_level\n" << rang::style::reset <<
+                "\t\t\taudio headroom above reference level (in dB, or mic/line, default " << 20 * log(DEFAULT_AUDIO_DIVISOR) / log(10) << ")\n"
+                << rang::style::bold << "\t\tcolor\n" << rang::style::reset <<
+                "\t\t\tcolor format, 0 - BGRX/BGRA, 1 - UYVY/BGRA, 2 - RGBX/RGBA, 3 - UYVY/RGBA, 100 - fastest (UYVY), 101 - best (default, P216/UYVY)\n"
+                "\t\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n"
                 "\n";
 
         cout << "\tavailable sources (tentative, format: name - url):\n";
@@ -143,6 +153,8 @@ static void show_help() {
 
 static int vidcap_ndi_init(struct vidcap_params *params, void **state)
 {
+        using namespace std::string_literals;
+        using std::stoi;
         // Not required, but "correct" (see the SDK documentation)
         if (!NDIlib_initialize()) {
                 LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot initialize NDI!\n";
@@ -171,6 +183,25 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                                 s->requested_url += string(":") + strtok_r(nullptr, ":", &save_ptr);
                                 cout << s->requested_url;
                         }
+                } else if (strstr(item, "audio_level=") == item) {
+                        char *val = item + strlen("audio_level=");
+                        long ref_level = 0;
+                        if (strcasecmp(val, "mic") == 0) {
+                                ref_level = 0;
+                        } else if (strcasecmp(val, "line") == 0) {
+                                ref_level = 20; // NOLINT
+                        } else {
+                                char *endptr = nullptr;
+                                ref_level = strtol(val, &endptr, 0);
+                                if (ref_level < 0 || ref_level >= INT_MAX || *val == '\0' || *endptr != '\0') {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong value: " << val << "!\n";
+                                        delete s;
+                                        return VIDCAP_INIT_NOERR;
+                                }
+                        }
+                        s->audio_divisor = pow(10.0, ref_level / 20.0); // NOLINT
+                } else if (strstr(item, "color=") == item) {
+                        s->requested_color = stoi(item + "color="s.length());
                 } else {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Unknown option: " << item << "\n";
                         delete s;
@@ -230,7 +261,7 @@ static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *fr
                                 LOG(LOG_LEVEL_WARNING) << "[NDI] Audio frame too small!\n";
                                 return;
                         }
-                        *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in * (INT32_MAX / 10.0)));
+                        *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in / s->audio_divisor * INT32_MAX));
                         in += frame->channel_stride_in_bytes / sizeof(float);
                         s->audio[s->audio_buf_idx].data_len += sizeof(int32_t);
                 }
@@ -267,6 +298,33 @@ static const NDIlib_source_t *get_matching_source(struct vidcap_state_ndi *s, co
         return nullptr;
 }
 
+using convert_t = void (*)(struct video_frame *, const uint8_t *);
+
+static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data)
+{
+        const auto *in_p = reinterpret_cast<const uint32_t *>(data);
+        auto *out_p = reinterpret_cast<uint32_t *>(out->tiles[0].data);
+        for (unsigned int i = 0; i < out->tiles[0].width * out->tiles[0].height; ++i) {
+                uint32_t argb = *in_p++;
+                *out_p++ = (argb & 0xFF000000U) | ((argb & 0xFFU) << 16U) | (argb & 0xFF00U) | ((argb & 0xFF0000U) >> 16U);
+        }
+}
+
+static void convert_P216_Y216(struct video_frame *out, const uint8_t *data)
+{
+        const auto *in_y = reinterpret_cast<const uint16_t *>(data);
+        const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data) + out->tiles[0].width * out->tiles[0].height;
+        auto *out_p = reinterpret_cast<uint16_t *>(out->tiles[0].data);
+        for (unsigned int i = 0; i < out->tiles[0].width; ++i) {
+                for (unsigned int j = 0; j < out->tiles[0].height; ++j) {
+                        *out_p++ = *in_y++;
+                        *out_p++ = *in_cb_cr++;
+                        *out_p++ = *in_y++;
+                        *out_p++ = *in_cb_cr++;
+                }
+        }
+}
+
 static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **audio)
 {
         auto s = static_cast<struct vidcap_state_ndi *>(state);
@@ -299,7 +357,9 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 }
 
                 // We now have at least one source, so we create a receiver to look at it.
-                s->pNDI_recv = NDIlib_recv_create_v3();
+                NDIlib_recv_create_v3_t create_settings{};
+                create_settings.color_format = s->requested_color == -1 ? NDIlib_recv_color_format_best : static_cast<NDIlib_recv_color_format_e>(s->requested_color);
+                s->pNDI_recv = NDIlib_recv_create_v3(&create_settings);
                 if (s->pNDI_recv == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Unable to create receiver!\n";
                         return nullptr;
@@ -324,39 +384,50 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
 
                 // Video data
         case NDIlib_frame_type_video:
+        {
+                convert_t convert = nullptr;
                 if (video_frame.frame_format_type != NDIlib_frame_format_type_progressive && video_frame.frame_format_type != NDIlib_frame_format_type_interleaved) {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Unsupported interlacing, please report to " PACKAGE_BUGREPORT "!\n";
                 }
-                union {
-                        uint32_t fcc_i;
-                        char fcc_s[5];
-                } u;
-                u.fcc_i = video_frame.FourCC;
-                u.fcc_s[4] = '\0';
-                if (video_frame.FourCC != NDIlib_FourCC_type_UYVY &&
-                                video_frame.FourCC != NDIlib_FourCC_type_RGBA &&
-                                video_frame.FourCC != NDIlib_FourCC_type_BGRA) {
-                        LOG(LOG_LEVEL_ERROR) << "[NDI] Unsupported codec '" << u.fcc_s << "', please report to " PACKAGE_BUGREPORT "!\n";
-
-                }
                 out_desc = {static_cast<unsigned int>(video_frame.xres),
                                 static_cast<unsigned int>(video_frame.yres),
-                                video_frame.FourCC == NDIlib_FourCC_type_UYVY ? UYVY : RGBA,
+                                VIDEO_CODEC_NONE,
                                 static_cast<double>(video_frame.frame_rate_N) / video_frame.frame_rate_D,
                                 video_frame.frame_format_type == NDIlib_frame_format_type_progressive ? PROGRESSIVE : INTERLACED_MERGED,
                                 1};
+                switch (video_frame.FourCC) {
+                        case NDIlib_FourCC_type_UYVA:
+                        case NDIlib_FourCC_type_UYVY:
+                                out_desc.color_spec = UYVY;
+                                break;
+                        case NDIlib_FourCC_type_PA16:
+                        case NDIlib_FourCC_type_P216:
+                                convert = convert_P216_Y216;
+                                out_desc.color_spec = Y216;
+                                break;
+                        case NDIlib_FourCC_type_BGRA:
+                        case NDIlib_FourCC_type_BGRX:
+                                convert = convert_BGRA_RGBA;
+                                // fall through
+                        case NDIlib_FourCC_type_RGBA:
+                                out_desc.color_spec = RGBA;
+                                break;
+                        default:
+                        {
+                                array<char, sizeof(uint32_t) + 1> fcc_s{};
+                                memcpy(fcc_s.data(), &video_frame.FourCC, sizeof(uint32_t));
+                                LOG(LOG_LEVEL_ERROR) << "[NDI] Unsupported codec '" << fcc_s.data() << "', please report to " PACKAGE_BUGREPORT "!\n";
+                                return {};
+                        }
+                }
                 if (s->last_desc != out_desc) {
                         LOG(LOG_LEVEL_NOTICE) << "[NDI] Received video changed: " << out_desc << "\n";
                         s->last_desc = out_desc;
                 }
-                if (video_frame.FourCC == NDIlib_FourCC_type_BGRA) { // BGRA -> RGBA
-                        out = vf_alloc_desc_data(out_desc);
-                        auto in_p = reinterpret_cast<uint32_t *>(video_frame.p_data);
-                        auto out_p = reinterpret_cast<uint32_t *>(out->tiles[0].data);
-                        for (int i = 0; i < video_frame.xres * video_frame.yres; ++i) {
-                                uint32_t argb = *in_p++;
-                                *out_p++ = (argb & 0xff000000) | ((argb & 0xff) << 16) | (argb & 0xff00) | ((argb & 0xff0000) >> 16);
-                        }
+                if (convert != nullptr) {
+                        auto *out = vf_alloc_desc_data(out_desc);
+                        assert(video_frame.line_stride_in_bytes == video_frame.xres * get_bits_per_component(out_desc.color_spec) / 8);
+                        convert(out, video_frame.p_data);
                         NDIlib_recv_free_video_v2(s->pNDI_recv, &video_frame);
                         out->callbacks.dispose = vf_free;
                 } else {
@@ -376,7 +447,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 s->print_stats();
                 return out;
                 break;
-
+        }
                 // Audio data
         case NDIlib_frame_type_audio:
                 if (s->capture_audio) {

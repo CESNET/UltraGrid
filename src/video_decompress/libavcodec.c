@@ -83,8 +83,6 @@ struct state_libavcodec_decompress {
         bool             last_frame_seq_initialized;
 
         struct video_desc saved_desc;
-        unsigned int     broken_h264_mt_decoding_workaroud_warning_displayed;
-        bool             broken_h264_mt_decoding_workaroud_active;
 
         struct state_libavcodec_decompress_sws {
 #ifdef HAVE_SWSCALE
@@ -100,10 +98,7 @@ struct state_libavcodec_decompress {
 #endif
 };
 
-static void error_callback(void *, int, const char *, va_list);
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
-
-static bool broken_h264_mt_decoding = false;
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
@@ -150,43 +145,42 @@ static void deconfigure(struct state_libavcodec_decompress *s)
 #endif // defined HAVE_SWSCALE
 }
 
-ADD_TO_PARAM("lavd-thread-count",
-                "* lavd-thread-count=<thread_count>\n");
+ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F]\n"
+                "  Use <thread_count> decoding threads (0 is usually auto).\n"
+                "  Flag 'F' enables frame parallelism (disabled by default).\n");
 static void set_codec_context_params(struct state_libavcodec_decompress *s)
 {
         int thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
+        bool use_frame_threads = false; // use frame threads
         const char *thread_count_opt = get_commandline_param("lavd-thread-count");
         if (thread_count_opt != NULL) {
                 char *endptr = NULL;
                 errno = 0;
                 long val = strtol(thread_count_opt, &endptr, 0);
-                if (errno == 0 && thread_count_opt[0] != '\0' && *endptr == '\0' && val >= 0 && val <= INT_MAX) {
+                if (errno == 0 && thread_count_opt[0] != '\0' && val >= 0 && val <= INT_MAX && (*endptr == '\0' || toupper(*endptr) == 'F')) {
                         thread_count = val;
+                        if (toupper(*endptr) == 'F') {
+                                use_frame_threads = true;
+                        }
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Wrong value for thread count: %s\n", thread_count_opt);
                 }
         }
+
+        s->codec_ctx->thread_count = thread_count;
         // zero should mean count equal to the number of virtual cores
-        if (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
-                if(!broken_h264_mt_decoding) {
-                        s->codec_ctx->thread_count = thread_count;
-                        s->codec_ctx->thread_type = FF_THREAD_SLICE;
-                        s->broken_h264_mt_decoding_workaroud_active = false;
-                } else {
-                        s->broken_h264_mt_decoding_workaroud_active = true;
-                }
-        } else {
-                if (thread_count > 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Codec doesn't support slice-based multithreading but requesting %d threads.\n", thread_count);
-                }
-#if 0
-                if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
-                        s->codec_ctx->thread_count = 0;
+        if (use_frame_threads) {
+                if (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
                         s->codec_ctx->thread_type = FF_THREAD_FRAME;
                 } else {
-                        fprintf(stderr, "[lavd] Warning: Codec doesn't support frame-based multithreading.\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Codec doesn't support frame-based multithreading but requested.\n");
                 }
-#endif
+        } else {
+                if (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
+                        s->codec_ctx->thread_type = FF_THREAD_SLICE;
+                } else {
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Warning: Codec doesn't support slice-based multithreading.\n");
+                }
         }
 
         s->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
@@ -388,8 +382,6 @@ static void * libavcodec_decompress_init(void)
         av_init_packet(&s->pkt);
         s->pkt.data = NULL;
         s->pkt.size = 0;
-
-        av_log_set_callback(error_callback);
 
 #ifdef HWACC_COMMON
         hwaccel_state_init(&s->hwaccel);
@@ -734,12 +726,6 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
 #endif // HAVE_SWSCALE
 }
 
-static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
-        if(strcmp("unset current_picture_ptr on %d. slice\n", fmt) == 0)
-                broken_h264_mt_decoding = true;
-        av_log_default_callback(ptr, level, fmt, vl);
-}
-
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
@@ -855,17 +841,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         s->pkt.size -= len;
                         s->pkt.data += len;
                 }
-        }
-
-        if(broken_h264_mt_decoding) {
-                if(!s->broken_h264_mt_decoding_workaroud_active) {
-                        libavcodec_decompress_reconfigure(s, s->saved_desc,
-                                        s->rgb_shift[R], s->rgb_shift[G], s->rgb_shift[B],
-                                        s->pitch, s->out_codec);
-                }
-                if(s->broken_h264_mt_decoding_workaroud_warning_displayed++ % 1000 == 0)
-                        av_log(NULL, AV_LOG_WARNING, "Broken multi-threaded decoder detected, "
-                                        "switching to a single-threaded one! Consider upgrading your Libavcodec.\n");
         }
 
         if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE) {

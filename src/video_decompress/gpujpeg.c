@@ -52,10 +52,6 @@
 #include <stdlib.h>
 #include "lib_common.h"
 
-#if LIBGPUJPEG_API_VERSION < 11
-#error "GPUJPEG API 11 or more requested!"
-#endif
-
 #define MOD_NAME "[GPUJPEG dec.] "
 
 struct state_decompress_gpujpeg {
@@ -315,6 +311,9 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
 		{ JPEG, VIDEO_CODEC_NONE, UYVY, 900 },
 		{ JPEG, VIDEO_CODEC_NONE, RGBA, 900 },
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 13, 0)
+		{ JPEG, VIDEO_CODEC_NONE, I420, 900 },
+#endif
                 // decoding from FFmpeg MJPG has lower priority than libavcodec
                 // decoder because those files doesn't has much independent
                 // segments (1 per MCU row -> 68 for HD) -> lavd may be better
@@ -330,6 +329,9 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ MJPG, VIDEO_CODEC_NONE, RGB, 920 },
 		{ MJPG, VIDEO_CODEC_NONE, UYVY, 920 },
 		{ MJPG, VIDEO_CODEC_NONE, RGBA, 920 },
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 13, 0)
+		{ MJPG, VIDEO_CODEC_NONE, I420, 920 },
+#endif
                 // for VRG
 		{ JPEG, VIDEO_CODEC_NONE, CUDA_RGBA, 200 },
 		{ MJPG, VIDEO_CODEC_NONE, CUDA_RGBA, 200 },
@@ -350,3 +352,4 @@ static const struct video_decompress_info gpujpeg_info = {
 
 REGISTER_MODULE(gpujpeg, &gpujpeg_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
+/* vi: set expandtab sw=8: */

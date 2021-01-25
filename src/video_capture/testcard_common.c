@@ -73,52 +73,18 @@ const int rect_colors[] = {
  */
 unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int height)
 {
-        struct {
-                unsigned a:10;
-                unsigned b:10;
-                unsigned c:10;
-                unsigned p1:2;
-        } *p;
-        unsigned int i, j;
-
         unsigned int linesize = vc_get_linesize(width, v210);
 
         unsigned char *dst = (unsigned char *)malloc(linesize * height);
-        unsigned char *src;
-        unsigned char *ret = dst;
+        decoder_t vc_copylineUYVYtoV210 = get_decoder_from_to(UYVY, v210, true);
+        assert(vc_copylineUYVYtoV210 != NULL);
 
-        for (j = 0; j < height; j++) {
-                p = (void *)dst;
+        for (unsigned j = 0; j < height; j++) {
+                vc_copylineUYVYtoV210(dst, in, linesize, 0, 0, 0);
                 dst += linesize;
-                src = in;
                 in += width * 2;
-                for (i = 0; i < width; i += 3) {
-                        unsigned int u, y, v;
-
-                        u = *(src++);
-                        y = *(src++);
-                        v = *(src++);
-
-                        p->a = u << 2;
-                        p->b = y << 2;
-                        p->c = v << 2;
-                        p->p1 = 0;
-
-                        p++;
-
-                        u = *(src++);
-                        y = *(src++);
-                        v = *(src++);
-
-                        p->a = u << 2;
-                        p->b = y << 2;
-                        p->c = v << 2;
-                        p->p1 = 0;
-
-                        p++;
-                }
         }
-        return ret;
+        return dst;
 }
 
 /**
@@ -169,47 +135,15 @@ char *toI420(const char *input, unsigned int width, unsigned int height)
 
 void toR10k(unsigned char *in, unsigned int width, unsigned int height)
 {
-        struct {
-                unsigned r:8;
+        unsigned char *dst = (void *)in;
 
-                unsigned gh:6;
-                unsigned p1:2;
+        decoder_t decoder = get_decoder_from_to(RGBA, R10k, true);
+        assert(decoder != NULL);
 
-                unsigned bh:4;
-                unsigned p2:2;
-                unsigned gl:2;
-
-                unsigned p3:2;
-                unsigned p4:2;
-                unsigned bl:4;
-        } *d;
-
-        unsigned int i, j;
-
-        d = (void *)in;
-
-        for (j = 0; j < height; j++) {
-                for (i = 0; i < width; i++) {
-                        unsigned int r, g, b;
-
-                        r = *(in++);
-                        g = *(in++);
-                        b = *(in++);
-                        in++;
-
-                        d->r = r;
-                        d->gh = g >> 2;
-                        d->gl = g & 0x3;
-                        d->bh = b >> 4;
-                        d->bl = b & 0xf;
-
-                        d->p1 = 0;
-                        d->p2 = 0;
-                        d->p3 = 0;
-                        d->p4 = 0;
-
-                        d++;
-                }
+        for (unsigned j = 0; j < height; j++) {
+                decoder(dst, in, width * 4, 0, 0, 0);
+                dst += width * 4;
+                in += width * 4;
         }
 }
 
