@@ -141,7 +141,9 @@ static void display_vrg_run(void *state)
 
                 enum VrgStreamApiError ret;
                 high_resolution_clock::time_point t_start = high_resolution_clock::now();
-                ret = vrgStreamSubmitFrame(f->id, f->tiles[0].data);
+                struct RenderPacket render_packet{};
+                render_packet.frame = f->id;
+                ret = vrgStreamSubmitFrame(&render_packet, f->tiles[0].data, CPU);
                 if (ret != Ok) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
                 }
@@ -150,8 +152,7 @@ static void display_vrg_run(void *state)
                         duration_cast<microseconds>(t_end - t_start).count() / 1000000.0
                         << " seconds\n";
 
-                struct RenderPacket render_packet;
-                ret = vrgStreamRenderFrame(s->frames, &render_packet);
+                ret = vrgStreamRenderFrame(&render_packet);
                 if (ret != Ok) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Render Frame failed: " << ret << "\n";
                 } else {
