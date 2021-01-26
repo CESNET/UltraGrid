@@ -66,9 +66,16 @@ enum VrgInputFormat {
 	NV12 = 2
 };
 
+enum VrgMemory {
+	CPU = 0,
+	DX11 = 1,
+	CUDA = 2,
+	GL = 3
+};
+
 VRG_STREAM_API enum VrgStreamApiError vrgStreamInit(enum VrgInputFormat inputFormat);
 
-VRG_STREAM_API enum VrgStreamApiError vrgStreamRenderFrame(int frame_no, struct RenderPacket *packet);
+VRG_STREAM_API enum VrgStreamApiError vrgStreamRenderFrame(struct RenderPacket *packet);
 
-VRG_STREAM_API enum VrgStreamApiError vrgStreamSubmitFrame(int frame_no, void* sbs_image_data);
+VRG_STREAM_API enum VrgStreamApiError vrgStreamSubmitFrame(struct RenderPacket* packet, void* sbs_image_data, enum VrgMemory api);
 
