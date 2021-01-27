@@ -128,6 +128,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 }
         }
 
+        vf_copy_metadata(out, in);
+
         VIDEO_FRAME_DISPOSE(in);
 
         return out;
