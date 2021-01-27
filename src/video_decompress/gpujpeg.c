@@ -102,7 +102,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         case CUDA_RGBA:
         case RGBA:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
-                                s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16 && vc_get_linesize(desc.width, RGBA) == s->pitch ?
+                                s->out_codec == CUDA_RGBA || (s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16 && vc_get_linesize(desc.width, RGBA) == s->pitch) ?
                                 GPUJPEG_444_U8_P012A : GPUJPEG_444_U8_P012);
                 break;
         case RGB:
