@@ -50,9 +50,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <vector>
 
+const constexpr char *DUMP_FILE = "dummy.dump";
 const size_t DEFAULT_DUMP_LEN = 32;
 const constexpr char *MOD_NAME = "[dummy] ";
 
@@ -74,17 +76,19 @@ struct dummy_display_state {
         int frames;
 
         size_t dump_bytes = 0;
+        bool dump_to_file;
 };
 
 static auto display_dummy_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */) -> void *
 {
         if ("help"s == cfg) {
                 cout << "Usage:\n";
-                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][hexdump[=<n>]]\n" << style::reset;
+                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][hexdump[=<n>]][dump_to_file]\n" << style::reset;
                 cout << "where\n";
                 cout << "\t" << style::bold << "<codec>" << style::reset << "   - force the use of a codec instead of default set\n";
                 cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (0, 8, 16)\n";
                 cout << "\t" << style::bold << "hexdump[=<n>]" << style::reset << " - dump first n (default " << DEFAULT_DUMP_LEN << ") bytes of every frame in hexadecimal format\n";
+                cout << "\t" << style::bold << "dump_to_file" << style::reset << " - dump first frame to file \"" << DUMP_FILE << "\"\n";
                 return static_cast<void *>(&display_init_noerr);
         }
         auto s = make_unique<dummy_display_state>();
@@ -100,6 +104,8 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong codec spec!\n";
                                 return nullptr;
                         }
+                } else if (strstr(item, "dump_to_file") != nullptr) {
+                        s->dump_to_file = true;
                 } else if (strstr(item, "hexdump") != nullptr) {
                         if (strstr(item, "hexdump=") != nullptr) {
                                 s->dump_bytes = stol(item + strlen("hexdump="), nullptr, 0);
@@ -157,6 +163,11 @@ static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
         auto s = (dummy_display_state *) state;
         if (frame != nullptr && s->dump_bytes > 0) {
                 dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes));
+                if (s->dump_to_file) {
+                        std::ofstream out(DUMP_FILE, std::ifstream::out | std::ifstream::binary);
+                        out.write(frame->tiles[0].data, frame->tiles[0].data_len);
+                        s->dump_to_file = false;
+                }
         }
         auto curr_time = steady_clock::now();
         s->frames += 1;
