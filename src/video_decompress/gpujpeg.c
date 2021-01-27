@@ -45,6 +45,7 @@
 #include "video.h"
 #include "video_decompress.h"
 
+#include <cuda_runtime.h>
 #include <libgpujpeg/gpujpeg_decoder.h>
 #include <libgpujpeg/gpujpeg_version.h>
 //#include "compat/platform_semaphore.h"
@@ -61,6 +62,9 @@ struct state_decompress_gpujpeg {
         int rshift, gshift, bshift;
         int pitch;
         codec_t out_codec;
+
+        uint8_t *cuda_tmp_buf;
+        bool unstripe;
 };
 
 static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc desc);
@@ -115,6 +119,10 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
                 assert("Invalid codec!" && 0);
         }
 
+        if (cudaMalloc(&s->cuda_tmp_buf, desc.width * desc.height * 4) != cudaSuccess) {
+                log_msg(LOG_LEVEL_WARNING, "Cannot allocate CUDA buffer!\n");
+        }
+
         return TRUE;
 }
 
@@ -140,9 +148,16 @@ static void * gpujpeg_decompress_init(void)
                 return NULL;
         }
 
+        if (get_commandline_param("gpujpeg-unstripe") != NULL) {
+                s->unstripe = true;
+        }
 
         return s;
 }
+
+ADD_TO_PARAM("gpujpeg-unstripe",
+         "* gpujepg-unstripe\n"
+         "  Unstripes GPU RGBA JPEG (8x1)\n");
 
 static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
@@ -169,6 +184,8 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
                 if(s->decoder) {
                         gpujpeg_decoder_destroy(s->decoder);
                 }
+                cudaFree(s->cuda_tmp_buf);
+                s->cuda_tmp_buf = NULL;
                 return configure_with(s, desc);
         }
 }
@@ -224,9 +241,23 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         gpujpeg_set_device(cuda_devices[0]);
 
         if (s->out_codec == CUDA_RGBA) {
-                gpujpeg_decoder_output_set_custom_cuda (&decoder_output, dst);
-                if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
-                        return DECODER_NO_FRAME;
+                if (s->unstripe) {
+                        assert(s->cuda_tmp_buf != NULL);
+                        gpujpeg_decoder_output_set_custom_cuda (&decoder_output, s->cuda_tmp_buf);
+                        if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
+                                return DECODER_NO_FRAME;
+                        }
+                        for (int i = 0; i < 8; ++i) {
+                                if (cudaMemcpy2D(dst + 4 * i * s->desc.width, 4 * s->desc.width * 8,
+                                                s->cuda_tmp_buf + i * 4 * s->desc.width * (s->desc.height / 8), 4 * s->desc.width, 4 * s->desc.width, s->desc.height / 8, cudaMemcpyDefault) != cudaSuccess) {
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                                }
+                        }
+                } else {
+                        gpujpeg_decoder_output_set_custom_cuda (&decoder_output, dst);
+                        if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
+                                return DECODER_NO_FRAME;
+                        }
                 }
         } else if (s->pitch == linesize && (s->out_codec == UYVY || s->out_codec == RGB
                                 || (s->out_codec == RGBA && s->rshift == 0 && s->gshift == 8 && s->bshift == 16)
@@ -294,6 +325,7 @@ static void gpujpeg_decompress_done(void *state)
         if(s->decoder) {
                 gpujpeg_decoder_destroy(s->decoder);
         }
+        cudaFree(s->cuda_tmp_buf);
         free(s);
 }
 
