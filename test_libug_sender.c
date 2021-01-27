@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
                 init_params.receiver = argv[0];
                 if (strchr(argv[0], ':') != NULL) {
                         char *port_str = strchr(argv[0], ':') + 1;
-                        *strchr(argv[1], ':') = '\0';
+                        *strchr(argv[0], ':') = '\0';
                         init_params.tx_port = atoi(port_str);
                 }
         }
