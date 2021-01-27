@@ -51,6 +51,7 @@ struct ug_sender_parameters {
         int tx_port;                             ///< TX port (optional, default 5004)
         int rx_port;                             ///< RX port (optional, default 5004)
         int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
+        int disable_strips;                      ///< do not enable 8x1 strips (to improve compression), default 0 (enable)
 };
 
 /**
@@ -77,6 +78,7 @@ struct ug_receiver_parameters {
         libug_pixfmt_t decompress_to;            ///< optional - pixel format to decompress to
         bool force_gpu_decoding;                 ///< force GPU decoding (decode with GPUJPEG)
         int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
+        int disable_strips;                      ///< do not enable 8x1 strips (to improve compression), default 0 (enable)
 };
 LIBUG_DLL struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params);
 LIBUG_DLL void ug_receiver_done(struct ug_receiver *state);

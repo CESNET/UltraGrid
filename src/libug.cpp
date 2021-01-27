@@ -10,6 +10,7 @@
 
 #include "libug.h"
 
+#include "capture_filter.h"
 #include "debug.h"
 #include "host.h"
 #include "src/host.h"
@@ -44,6 +45,7 @@ struct ug_sender {
         struct wait_obj *wait_obj = wait_obj_init();
         struct module root_module;
         struct init_data *common;
+        struct capture_filter *stripe = nullptr;
 
         ug_sender() {
                 common = common_preinit(argc, argv, nullptr);
@@ -117,6 +119,12 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
                 return nullptr;
         }
 
+        if (init_params->disable_strips == 0) {
+                if (capture_filter_init(nullptr, "stripe", &s->stripe) != 0) {
+                        abort();
+                }
+        }
+
         render_packet_received_callback = init_params->rprc;
         render_packet_received_callback_udata = init_params->rprc_udata;
 
@@ -136,13 +144,19 @@ void ug_send_frame(struct ug_sender *s, const char *data, libug_pixfmt_t codec, 
         f->tiles[0].data = const_cast<char *>(data);
         f->tiles[0].data_len = vc_get_datalen(width, height, f->color_spec);
 
-        wait_obj_reset(s->wait_obj);
-        auto frame = shared_ptr<video_frame>(f, [&](struct video_frame *) {
-                        wait_obj_notify(s->wait_obj);
-                        });
-        s->video_rxtx->send(move(frame));
+        if (s->stripe) {
+                struct video_frame *strips = capture_filter(s->stripe, f);
+                auto frame = shared_ptr<video_frame>(strips, strips->callbacks.dispose);
+                s->video_rxtx->send(move(frame));
+        } else {
+                wait_obj_reset(s->wait_obj);
+                auto frame = shared_ptr<video_frame>(f, [&](struct video_frame *) {
+                                wait_obj_notify(s->wait_obj);
+                                });
+                s->video_rxtx->send(move(frame));
 
-        wait_obj_wait(s->wait_obj);
+                wait_obj_wait(s->wait_obj);
+        }
 
         vf_free(f);
 }
@@ -151,6 +165,9 @@ void ug_sender_done(struct ug_sender *s)
 {
         render_packet_received_callback = nullptr;
         render_packet_received_callback_udata = nullptr;
+        if (s->stripe) {
+                capture_filter_destroy(s->stripe);
+        }
         delete s;
 }
 
@@ -224,6 +241,10 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
                         display_cfg = strchr(display, ':') + 1;
                         *strchr(display, ':') = '\0';
                 }
+        }
+
+        if (init_params->disable_strips == 0) {
+                commandline_params["gpujpeg-unstripe"] = string();
         }
 
         if (init_params->decompress_to != 0) {
