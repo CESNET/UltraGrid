@@ -94,11 +94,37 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
         out->callbacks.dispose = vf_free;
 
-        int in_linesize = vc_get_linesize(in->tiles[0].width, out->color_spec);
-        int out_linesize = vc_get_linesize(out->tiles[0].width, out->color_spec);
-        for (unsigned int y = 0; y < in->tiles[0].height; ++y) {
-                for (unsigned int i = 0; i < FACTOR; ++i) {
-                        memcpy(out->tiles[0].data + y * out_linesize + i * out_linesize * in->tiles[0].height, in->tiles[0].data + y * in_linesize + i * out_linesize, out_linesize);
+        if (in->color_spec == I420) {
+                int in_linesize = in->tiles[0].width;
+                int out_linesize = out->tiles[0].width;
+                for (unsigned int y = 0; y < in->tiles[0].height; ++y) {
+                        for (unsigned int i = 0; i < FACTOR; ++i) {
+                                memcpy(out->tiles[0].data + y * out_linesize + i * out_linesize * in->tiles[0].height, in->tiles[0].data + y * in_linesize + i * out_linesize, out_linesize);
+                        }
+                }
+                in_linesize /= 2;
+                out_linesize /= 2;
+                for (unsigned int y = 0; y < in->tiles[0].height / 2; ++y) {
+                        // u
+                        for (unsigned int i = 0; i < FACTOR; ++i) {
+                                const int in_off = in->tiles[0].width * in->tiles[0].height;
+                                const int out_off = out->tiles[0].width * out->tiles[0].height;
+                                memcpy(out->tiles[0].data + out_off + y * out_linesize + i * out_linesize * in->tiles[0].height / 2, in->tiles[0].data + in_off + y * in_linesize + i * out_linesize, out_linesize);
+                        }
+                        // v
+                        for (unsigned int i = 0; i < FACTOR; ++i) {
+                                const int in_off = in->tiles[0].width * in->tiles[0].height / 4 * 5;
+                                const int out_off = out->tiles[0].width * out->tiles[0].height / 4 * 5;
+                                memcpy(out->tiles[0].data + out_off + y * out_linesize + i * out_linesize * in->tiles[0].height / 2, in->tiles[0].data + in_off + y * in_linesize + i * out_linesize, out_linesize);
+                        }
+                }
+        } else {
+                int in_linesize = vc_get_linesize(in->tiles[0].width, out->color_spec);
+                int out_linesize = vc_get_linesize(out->tiles[0].width, out->color_spec);
+                for (unsigned int y = 0; y < in->tiles[0].height; ++y) {
+                        for (unsigned int i = 0; i < FACTOR; ++i) {
+                                memcpy(out->tiles[0].data + y * out_linesize + i * out_linesize * in->tiles[0].height, in->tiles[0].data + y * in_linesize + i * out_linesize, out_linesize);
+                        }
                 }
         }
 
