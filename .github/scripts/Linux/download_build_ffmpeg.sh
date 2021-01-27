@@ -6,9 +6,9 @@ install_svt() {
         git apply SVT-HEVC/ffmpeg_plugin/0001*.patch
 }
 
-# The NVENC API implies respective driver version (see libavcodec/nvenc.c), thus we use SDK 8.1 to work with a reasonably old driver version (390)
+# The NVENC API implies respective driver version (see libavcodec/nvenc.c), consider capping the version for backward compatibility
 install_nv_codec_headers() {
-        git clone -b sdk/8.1 https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
+        git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
         ( cd nv-codec-headers && make && sudo make install || exit 1 )
 }
 
