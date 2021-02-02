@@ -43,6 +43,7 @@
 
 #include <sys/types.h>
 #include <dirent.h>
+#include <limits.h>
 
 #include "export.h"
 
@@ -53,6 +54,8 @@
 #include "utils/color_out.h"
 #include "video_export.h"
 
+#define MOD_NAME "[export] "
+
 struct exporter {
         struct module mod;
         char *dir;
@@ -61,6 +64,8 @@ struct exporter {
         struct audio_export *audio_export;
         bool exporting;
         pthread_mutex_t lock;
+
+        long long int limit; ///< number of video frames to record, -1 == unlimited (default)
 };
 
 static bool create_dir(struct exporter *s);
@@ -72,23 +77,48 @@ static void new_msg(struct module *mod) {
         process_messages(mod->priv_data);
 }
 
-struct exporter *export_init(struct module *parent, const char *path, bool should_export)
+#define HANDLE_ERROR export_destroy(s); return NULL;
+#define OPTLEN_MAX 40 ///< max length of cmdline options
+
+struct exporter *export_init(struct module *parent, const char *cfg, bool should_export)
 {
         struct exporter *s = calloc(1, sizeof(struct exporter));
         pthread_mutex_init(&s->lock, NULL);
+        s->limit = -1;
 
-        if (path) {
-                if (strcmp(path, "help") == 0) {
+        if (cfg) {
+                if (strcmp(cfg, "help") == 0) {
                         color_out(0, "Usage:\n");
                         color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
-                        color_out(COLOR_OUT_BOLD, "[=<dir>[:paused]]\n");
-                        free(s);
+                        color_out(COLOR_OUT_BOLD, "[=<dir>[:paused][:limit=<n>]]\n");
+                        color_out(0, "where\n");
+                        color_out(COLOR_OUT_BOLD, "\tlimit=<n>");
+                        color_out(0, " - write at most <n> video frames\n");
+                        export_destroy(s);
                         return NULL;
                 }
-                s->dir = strdup(path);
-                if (strstr(s->dir, ":paused")) {
-                        should_export = false; // start paused
-                        *strstr(s->dir, ":paused") = '\0'; // remove ":paused" from dirname
+                char cfg_copy[PATH_MAX + OPTLEN_MAX] = "";
+                char *save_ptr = NULL;
+                strncpy(cfg_copy, cfg, sizeof cfg_copy - 1);
+                s->dir = strtok_r(cfg_copy, ":", &save_ptr);
+                if (s->dir == NULL) {
+                        HANDLE_ERROR
+                }
+                s->dir = strdup(s->dir);
+                char *item = NULL;
+                while ((item = strtok_r(NULL, ":", &save_ptr)) != NULL) {
+                        if (strstr(item, "paused") == item) {
+                                should_export = false; // start paused
+                        } else if (strstr(item, "limit=") == item) {
+                                s->limit = strtoll(item + strlen("limit="), NULL, 0);
+                                if (s->limit < 0) {
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong limit: %s!\n", item + strlen("limit="));
+                                        HANDLE_ERROR
+                                }
+                        } else {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
+                                HANDLE_ERROR
+                        }
                 }
         } else {
                 s->dir_auto = true;
@@ -96,7 +126,7 @@ struct exporter *export_init(struct module *parent, const char *path, bool shoul
 
         if (should_export) {
                 if (!enable_export(s)) {
-                        goto error;
+                        HANDLE_ERROR
                 }
         }
 
@@ -107,12 +137,6 @@ struct exporter *export_init(struct module *parent, const char *path, bool shoul
         module_register(&s->mod, parent);
 
         return s;
-
-error:
-        pthread_mutex_destroy(&s->lock);
-        free(s->dir);
-        free(s);
-        return NULL;
 }
 
 static bool enable_export(struct exporter *s)
@@ -294,6 +318,12 @@ void export_video(struct exporter *s, struct video_frame *frame)
         pthread_mutex_lock(&s->lock);
         if (s->exporting) {
                 video_export(s->video_export, frame);
+        }
+        if (s->limit > 0) {
+                if (--s->limit == 0) {
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Stopping export - limit reached.\n");
+                        disable_export(s);
+                }
         }
         pthread_mutex_unlock(&s->lock);
 }

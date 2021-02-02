@@ -38,6 +38,10 @@
 #ifndef EXPORT_H_
 #define EXPORT_H_
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -47,7 +51,7 @@ struct exporter;
 struct module;
 struct video_frame;
 
-struct exporter *export_init(struct module *parent, const char *path, bool should_export);
+struct exporter *export_init(struct module *parent, const char *cfg, bool should_export);
 void export_destroy(struct exporter *state);
 void export_audio(struct exporter *state, struct audio_frame *frame);
 void export_video(struct exporter *state, struct video_frame *frame);
