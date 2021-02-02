@@ -47,6 +47,12 @@
 #define LOG(level) if (level > log_level) ; else std::cerr
 #endif
 
+
+// compat
+#ifndef NTV2_AUDIOSIZE_MAX
+#define NTV2_AUDIOSIZE_MAX      (401 * 1024)
+#endif
+
 namespace ultragrid {
 namespace aja {
 static const std::map<NTV2FrameBufferFormat, codec_t> codec_map = {

@@ -173,7 +173,7 @@ class vidcap_state_aja {
                 struct audio_frame     mAudio{};
                 int                    mMaxAudioChannels{0};
                 NTV2AudioSource        mAudioSource{};
-                NTV2TCSource           mTimeCodeSource{};              ///< @brief     Time code source
+                NTV2TCIndex            mTimeCodeSource{};              ///< @brief     Time code source
                 bool                   mbFixedReference{false};
                 bool                   mCheckFor4K{false};
                 uint32_t               mAudioInLastAddress{};          ///< @brief My record of the location of the last audio sample captured
@@ -583,9 +583,9 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mTimeCodeSource = ::NTV2InputSourceToTimecodeIndex(mInputSource);
 #endif
         else if (NTV2_INPUT_SOURCE_IS_ANALOG (mInputSource))
-                mTimeCodeSource = NTV2_TCSOURCE_LTC1;
+                mTimeCodeSource = NTV2_TCINDEX_LTC1;
         else
-                mTimeCodeSource = NTV2_TCSOURCE_DEFAULT;
+                mTimeCodeSource = NTV2_TCINDEX_DEFAULT;
 
         //      Determine the input video signal format...
         if (mVideoFormat == NTV2_FORMAT_UNKNOWN) {
@@ -740,7 +740,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
 
         //      Reset both the input and output sides of the audio system so that the buffer
         //      pointers are reset to zero and inhibited from advancing.
-        CHECK(mDevice.SetAudioInputReset(mAudioSystem, true));
+        CHECK(mDevice.StopAudioInput(mAudioSystem));
 
         //      Ensure that the audio system will capture samples when the reset is removed
         CHECK(mDevice.SetAudioCaptureEnable (mAudioSystem, true));
@@ -786,7 +786,7 @@ void vidcap_state_aja::Quit()
         mProducerThread.join();
 
         //      Don't leave the audio system active after we exit
-        CHECK(mDevice.SetAudioInputReset      (mAudioSystem, true));
+        CHECK(mDevice.StopAudioInput(mAudioSystem));
 }       //      Quit
 
 //////////////////////////////////////////////
@@ -829,7 +829,7 @@ void vidcap_state_aja::CaptureFrames (void)
         //      Wait until the hardware starts filling the new buffers, and then start audio
         //      capture as soon as possible to match the video...
         CHECK(mDevice.WaitForInputFieldID (fieldID, mInputChannel));
-        CHECK(mDevice.SetAudioInputReset (mAudioSystem, false));
+        CHECK(mDevice.StartAudioInput(mAudioSystem));
 
         mAudioInLastAddress             = audioReadOffset;
         audioInWrapAddress              = audioOutWrapAddress + audioReadOffset;
@@ -890,10 +890,10 @@ void vidcap_state_aja::CaptureFrames (void)
                 }
 
                 if (log_level >= LOG_LEVEL_DEBUG) {
-                        RP188_STRUCT    timecodeValue;
+                        NTV2_RP188      timecodeValue;
                         string 		timeCodeString;
                         //      Use the embedded input time code...
-                        CHECK(mDevice.GetRP188Data (mInputChannel, 0, timecodeValue));
+                        CHECK(mDevice.GetRP188Data (mInputChannel, timecodeValue));
                         CRP188  inputRP188Info  (timecodeValue);
                         CHECK(inputRP188Info.GetRP188Str (timeCodeString));
                         LOG(LOG_LEVEL_DEBUG) << "AJA: Captured frame with timecode: " << timeCodeString << '\n';
