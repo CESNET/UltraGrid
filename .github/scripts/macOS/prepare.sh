@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/bin/bash -eux
 
 AJA_INST=/var/tmp/ntv2sdk # AJA installation directory
 TEMP_INST=/tmp/install
@@ -25,10 +25,11 @@ brew install qt
 mkdir $TEMP_INST
 cd $TEMP_INST
 
-# Install XIMEA
-if [ -f /var/tmp/sdks/m3api.tar.xz ]; then
-        sudo tar xJf /var/tmp/sdks/m3api.tar.xz -C $(xcrun --show-sdk-path)/System/Library/Frameworks
-fi
+# Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
+hdiutil mount /var/tmp/sdks-free/XIMEA_OSX_SP.dmg
+sudo cp -a /Volumes/XIMEA/m3api.framework $(xcrun --show-sdk-path)/System/Library/Frameworks
+sudo xattr -dr com.apple.quarantine $(xcrun --show-sdk-path)/System/Library/Frameworks
+umount /Volumes/XIMEA
 
 # Install AJA
 if [ -f /var/tmp/sdks/ntv2sdkmac.zip ]; then
