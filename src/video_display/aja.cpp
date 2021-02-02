@@ -85,7 +85,6 @@
  * 48,000 samples per second requires 6,408 samples x 4 bytes/sample x 16 = 410,112 bytes
  * 402K will suffice, with 1536 bytes to spare
  */
-#define NTV2_AUDIOSIZE_MAX      (2 * 201 * 1024)
 #define BPS                     4
 #define SAMPLE_RATE             48000
 
@@ -274,7 +273,7 @@ display::~display() {
         }
 
         //      Don't leave the audio system active after we exit
-        CHECK_EX(mDevice.SetAudioOutputReset(mAudioSystem, true), "Restore Audio", NOOP);
+        CHECK_EX(mDevice.StopAudioOutput(mAudioSystem), "Restore Audio", NOOP);
 }
 
 void display::Init()
@@ -469,7 +468,7 @@ AJAStatus display::SetUpAudio ()
 
         //      Reset both the input and output sides of the audio system so that the buffer
         //      pointers are reset to zero and inhibited from advancing.
-        CHECK(mDevice.SetAudioOutputReset(mAudioSystem, true));
+        CHECK(mDevice.StopAudioOutput(mAudioSystem));
         mAudioIsReset = true;
 
         CHECK(mDevice.GetAudioWrapAddress(mAudioOutWrapAddress, mAudioSystem));
@@ -644,7 +643,7 @@ void display::process_frames()
                         lock_guard<mutex> lk(mAudioLock);
                         if (mAudioIsReset && mAudioLen > 0) {
                                 //      Now that the audio system has some samples to play, playback can be taken out of reset...
-                                CHECK(mDevice.SetAudioOutputReset (mAudioSystem, false));
+                                CHECK(mDevice.StartAudioOutput(mAudioSystem));
                                 mAudioIsReset = false;
                         }
 
