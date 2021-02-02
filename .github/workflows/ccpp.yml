@@ -143,7 +143,18 @@ jobs:
       if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
         mkdir /var/tmp/sdks && cd /var/tmp/sdks
-        curl -S -O $SDK_URL/m3api.tar.xz -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMasterHD_mac.tar.xz -O $SDK_URL/NDISDK_Apple.pkg
+        curl -S -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMasterHD_mac.tar.xz -O $SDK_URL/NDISDK_Apple.pkg
+    - name: Cache Free SDKs
+      id: cache-macos-free-sdks
+      uses: actions/cache@v1
+      with:
+        path: '/var/tmp/free-sdks'
+        key: cache-macos-free-sdks
+    - name: Download Free SDKs
+      if: steps.cache-macos-free-sdk.outputs.cache-hit != 'true'
+      run: |
+        mkdir /var/tmp/sdks-free && cd /var/tmp/sdks-free
+        curl -S -LO https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg
     - name: bootstrap
       run: |
         . .github/scripts/environment.sh
