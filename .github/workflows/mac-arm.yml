@@ -1,0 +1,78 @@
+name: macOS ARM testing
+
+on:
+  push:
+    branches:
+      - master
+      - ndi-build
+      - 'release/*'
+      - test-mac-arm
+    paths:
+      - '.github/scripts/**'
+      - '.github/workflows/ccpp.yml'
+      - '**.c'
+      - '**.cpp'
+      - '**.cu'
+      - '**.h'
+      - '**.hpp'
+      - '**.m'
+      - '**.mm'
+      - 'autogen.sh'
+      - 'cineform-sdk'
+      - 'configure.ac'
+      - 'data/scripts/**'
+      - 'gpujpeg'
+      - 'Makefile.in'
+
+jobs:
+  macOS:
+    name: run macOS
+    runs-on: macos-latest
+    env:
+      altool_pass: ${{ secrets.altool_pass }}
+      apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
+      SDK_URL: ${{ secrets.SDK_URL }}
+
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: Cache SDKs
+      id: cache-macos-sdks
+      uses: actions/cache@v1
+      with:
+        path: '/var/tmp/sdks'
+        key: cache-macos-sdks
+    - name: Download SDKs
+      if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
+      run: |
+        mkdir /var/tmp/sdks && cd /var/tmp/sdks
+        curl -S -O $SDK_URL/m3api.tar.xz -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMasterHD_mac.tar.xz -O $SDK_URL/NDISDK_Apple.pkg
+    - name: bootstrap
+      run: |
+        . .github/scripts/environment.sh
+        .github/scripts/macOS/prepare_macports.sh
+    - name: configure
+      run: "export ARCH=-msse4.2; [ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-live555=/usr/local $NDI"
+    - name: make bundle
+      run: make -j4 gui-bundle
+    - name: sign+notarize
+      run: .github/scripts/macOS/sign.sh gui/QT/uv-qt.app
+    - name: make dmg
+      run: |
+        make osx-gui-dmg
+        mv UltraGrid.dmg UltraGrid-$VERSION.dmg
+    - name: make check
+      run: make check
+    - name: make distcheck
+      run: |
+        for n in lib opt; do sudo mv /usr/local/$n /usr/local/$n-; done # hide local libs
+        make distcheck TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv GUI_EXE=gui/QT/uv-qt.app/Contents/MacOS/uv-qt
+        for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
+    - name: Upload Build
+      uses: actions/upload-artifact@v1
+      with:
+        name: UltraGrid CI macOS build
+        path: UltraGrid-${{ env.VERSION }}.dmg
+
+# vi: set expandtab sw=2:
