@@ -128,7 +128,7 @@ then
 fi
 
 AC_MSG_CHECKING([OS family])
-if expr "$host_os" : ".*darwin.*" > /dev/null; then
+if test "$host_vendor" = "apple"; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
         APPEXT=.app
