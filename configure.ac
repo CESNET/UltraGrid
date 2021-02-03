@@ -45,6 +45,11 @@ typedef bool _Bool;
 # define __bool_true_false_are_defined 1
 #endif
 #endif // ! defined __cplusplus
+
+#undef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#undef MAX
+#define MAX(a,b) (((a)>(b))?(a):(b))
 ])
 
 AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
@@ -234,38 +239,6 @@ CXXFLAGS="$CXXFLAGS $ARCH"
 LDFLAGS="$LDFLAGS $ARCH"
 
 AC_CHECK_HEADERS([termios.h])
-
-AH_BOTTOM([
-/*
- * Mac OS X Snow Leopard does not have posix_memalign
- * so supplying a fake one (Macs allocate always aligned pointers
- * to a 16 byte boundry.
- */
-#if defined HAVE_MACOSX
-#include <Availability.h>
-#ifndef __MAC_10_9
-#include <errno.h>
-#include <stdlib.h>
-#ifndef POSIX_MEMALIGN
-#define POSIX_MEMALIGN
-static inline int posix_memalign(void **memptr, size_t alignment, size_t size);
-
-static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
-{
-       if(!alignment || (alignment & (alignment - 1)) || alignment > 16) return EINVAL;
-       *memptr=malloc(size);
-       if(!*memptr) return ENOMEM;
-       return 0;
-}
-#endif // POSIX_MEMALIGN
-#endif // !defined __MAC_10_9
-#endif // defined HAVE_MACOSX
-
-#undef MIN
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#undef MAX
-#define MAX(a,b) (((a)>(b))?(a):(b))
-])
 
 # @param $1 name of the module
 function MODULE_NAME() {
