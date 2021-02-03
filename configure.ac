@@ -2852,7 +2852,7 @@ AC_ARG_ENABLE(syphon,
 
 MY_CHECK_FRAMEWORK([Syphon])
 
-if test $syphon_req != no -a $my_cv_framework_Syphon = yes
+if test $syphon_req != no -a $my_cv_framework_Syphon = yes -a $host_cpu = x86_64
 then
         AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
         LIBS="$LIBS -framework Syphon"
