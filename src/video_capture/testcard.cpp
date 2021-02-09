@@ -836,6 +836,7 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
 
                 return state->tiled;
         }
+        state->frame->render_packet.frame += 1;
         return state->frame;
 }
 

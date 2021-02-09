@@ -54,6 +54,8 @@
 #include <queue>
 #include <stdexcept>
 
+struct video_frame;
+
 struct video_frame_pool_allocator {
         virtual void *allocate(size_t size) = 0;
         virtual void deallocate(void *ptr) = 0;

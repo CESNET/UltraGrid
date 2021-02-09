@@ -282,6 +282,7 @@ struct video_frame {
         uint32_t ssrc;
 
         uint32_t seq; ///< sequential number, used internally by JPEG encoder
+        struct RenderPacket render_packet; /// VRG
         uint32_t timecode; ///< BCD timecode (hours, minutes, seconds, frame number)
         uint64_t compress_start; ///< in ms from epoch
         uint64_t compress_end; ///< in ms from epoch

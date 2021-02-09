@@ -446,6 +446,7 @@ static void *fec_thread(void *args) {
 
                 data->nofec_frame = vf_alloc(data->recv_frame->tile_count);
                 data->nofec_frame->ssrc = data->recv_frame->ssrc;
+                memcpy(&data->nofec_frame->render_packet, &data->recv_frame->render_packet, sizeof(RenderPacket));
 
                 if (data->recv_frame->fec_params.type != FEC_NONE) {
                         bool buffer_swapped = false;
@@ -454,7 +455,7 @@ static void *fec_thread(void *args) {
                                 char *fec_out_buffer = NULL;
                                 int fec_out_len = 0;
 
-                                if (data->recv_frame->tiles[pos].data_len != (unsigned int) sum_map(data->pckt_list[pos])) {
+                                if (data->recv_frame->tiles[pos].data_len > (unsigned int) sum_map(data->pckt_list[pos])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
                                                         (unsigned int) data->buffer_num[pos],
                                                         data->recv_frame->tiles[pos].data_len,
@@ -537,7 +538,7 @@ static void *fec_thread(void *args) {
                                 data->nofec_frame->tiles[i].data_len = data->recv_frame->tiles[i].data_len;
                                 data->nofec_frame->tiles[i].data = data->recv_frame->tiles[i].data;
 
-                                if (data->recv_frame->tiles[i].data_len != (unsigned int) sum_map(data->pckt_list[i])) {
+                                if (data->recv_frame->tiles[i].data_len > (unsigned int) sum_map(data->pckt_list[i])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.%s\n", i,
                                                         (unsigned int) data->buffer_num[i],
                                                         data->recv_frame->tiles[i].data_len,
@@ -711,6 +712,7 @@ static void *decompress_thread(void *args) {
                         }
 
                         decoder->frame->ssrc = msg->nofec_frame->ssrc;
+                        memcpy(&decoder->frame->render_packet, &msg->nofec_frame->render_packet, sizeof(RenderPacket));
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
@@ -1510,7 +1512,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
 
         int k = 0, m = 0, c = 0, seed = 0; // LDGM
-        int buffer_number, buffer_length;
+        unsigned int buffer_number, buffer_length;
 
         int pt;
         bool buffer_swapped = false;
@@ -1693,6 +1695,12 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 buffer_num[substream] = buffer_number;
                 frame->tiles[substream].data_len = buffer_length;
                 pckt_list[substream][data_pos] = len;
+
+                if (data_pos == buffer_length) {  // VRG specific - store RenderPacket
+                        assert(len == sizeof frame->render_packet);
+                        memcpy(&frame->render_packet, data, len);
+                        goto next_packet;
+                }
 
                 if ((pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) && decoder->decoder_type == LINE_DECODER) {
                         struct tile *tile = NULL;

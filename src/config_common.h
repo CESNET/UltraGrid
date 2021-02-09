@@ -24,4 +24,13 @@ typedef bool _Bool;
 #undef MAX
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
+// VrgInputFormat::RGBA conflicts with codec_t::RGBA
+#define RGBA VR_RGBA
+#ifdef HAVE_VRG_H
+#include <vrgstream.h>
+#else
+#include "vrgstream-fallback.h"
+#endif
+#undef RGBA
+
 #endif // defined CONFIG_COMMON_H_A4B25A33_74EC_435F_95DD_9738A7A23EA9

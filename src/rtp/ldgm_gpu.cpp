@@ -1,3 +1,7 @@
+#include "config_msvc.h"
+#include "config_unix.h"
+#include "config_win32.h"
+
 #include "ldgm/src/ldgm-session-gpu.h"
 #include "ldgm.h"
 #include "lib_common.h"

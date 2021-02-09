@@ -171,6 +171,7 @@ static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
         }
         auto curr_time = steady_clock::now();
         s->frames += 1;
+        LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "Received frame with RenderPacket ID: " << frame->render_packet.frame << "\n";
         double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
         if (seconds >= 5.0) {
                 double fps = s->frames / seconds;

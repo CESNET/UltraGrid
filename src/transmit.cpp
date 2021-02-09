@@ -660,6 +660,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 }
         }
 
+        packet_count += 1; // VRG - one extra packet for RenderPacket
         // initialize header array with values (except offset which is different among
         // different packts)
         void *rtp_headers = malloc(packet_count * rtp_hdr_len);
@@ -708,9 +709,17 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                 data = encrypted_data;
                         }
 
-                        rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
+                        rtp_send_data_hdr(rtp_session, ts, pt, 0, 0, 0,
                                   (char *) rtp_hdr_packet, rtp_hdr_len,
                                   data, data_len, 0, 0, 0);
+
+                        if (m == 1) {
+                                rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
+                                rtp_hdr_packet[1] = htonl(pos);
+                                rtp_send_data_hdr(rtp_session, ts, pt, 1, 0, 0,
+                                                (char *) rtp_hdr_packet, rtp_hdr_len,
+                                                (char *) &frame->render_packet, sizeof frame->render_packet, 0, 0, 0);
+                        }
                 }
 
                 if(tx->fec_scheme == FEC_MULT) {

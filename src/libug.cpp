@@ -139,7 +139,9 @@ void ug_send_frame(struct ug_sender *s, const char *data, libug_pixfmt_t codec, 
         f->tiles[0].height = height;
         f->fps = 120;
         f->interlacing = PROGRESSIVE;
-        f->id = seq;
+        struct RenderPacket render_packet{};
+        render_packet.frame = seq;
+        f->render_packet = render_packet;
 
         f->tiles[0].data = const_cast<char *>(data);
         f->tiles[0].data_len = vc_get_datalen(width, height, f->color_spec);

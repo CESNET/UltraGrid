@@ -34,6 +34,13 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif // defined HAVE_CONFIG_H
+#include "config_msvc.h"
+#include "config_unix.h"
+#include "config_win32.h"
+
 
 #include "video_frame_pool.h"
 
