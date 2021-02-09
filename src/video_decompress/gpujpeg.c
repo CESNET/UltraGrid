@@ -148,16 +148,12 @@ static void * gpujpeg_decompress_init(void)
                 return NULL;
         }
 
-        if (get_commandline_param("gpujpeg-unstripe") != NULL) {
+        if (get_commandline_param("unstripe") != NULL) {
                 s->unstripe = true;
         }
 
         return s;
 }
-
-ADD_TO_PARAM("gpujpeg-unstripe",
-         "* gpujepg-unstripe\n"
-         "  Unstripes GPU RGBA JPEG (8x1)\n");
 
 static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)

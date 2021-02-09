@@ -560,4 +560,7 @@ ADD_TO_PARAM("low-latency-audio", "* low-latency-audio[=ultra]\n"
                 "  Add ultra for even more aggressive setting.\n");
 ADD_TO_PARAM("window-title", "* window-title=<title>\n"
                 "  Use alternative window title (SDL/GL only)\n");
+ADD_TO_PARAM("unstripe",
+         "* unstripe\n"
+         "  Unstripes GPU RGBA JPEG (8x1)\n");
 

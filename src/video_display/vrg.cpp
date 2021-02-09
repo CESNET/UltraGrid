@@ -143,6 +143,12 @@ static void display_vrg_run(void *state)
                 high_resolution_clock::time_point t_start = high_resolution_clock::now();
                 struct RenderPacket render_packet{};
                 render_packet.frame = f->id;
+                render_packet.pix_width_eye = f->tiles[0].width / 2;
+                render_packet.pix_height_eye = f->tiles[0].height;
+                if (get_commandline_param("unstripe") != NULL) {
+                        render_packet.pix_width_eye *= 8;
+                        render_packet.pix_height_eye /= 8;
+                }
                 ret = vrgStreamSubmitFrame(&render_packet, f->tiles[0].data, CPU);
                 if (ret != Ok) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";

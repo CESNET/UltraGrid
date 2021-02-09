@@ -244,7 +244,7 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
         }
 
         if (init_params->disable_strips == 0) {
-                commandline_params["gpujpeg-unstripe"] = string();
+                commandline_params["unstripe"] = string();
         }
 
         if (init_params->decompress_to != 0) {
