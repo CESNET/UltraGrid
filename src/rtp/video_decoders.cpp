@@ -446,7 +446,6 @@ static void *fec_thread(void *args) {
 
                 data->nofec_frame = vf_alloc(data->recv_frame->tile_count);
                 data->nofec_frame->ssrc = data->recv_frame->ssrc;
-                data->nofec_frame->id = data->recv_frame->id;
 
                 if (data->recv_frame->fec_params.type != FEC_NONE) {
                         bool buffer_swapped = false;
@@ -712,7 +711,6 @@ static void *decompress_thread(void *args) {
                         }
 
                         decoder->frame->ssrc = msg->nofec_frame->ssrc;
-                        decoder->frame->id = msg->nofec_frame->id;
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
@@ -1401,7 +1399,8 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
         uint32_t tmp;
         int fps_pt, fpsd, fd, fi;
 
-        desc->tile_count = 1; // substreams not supported in this UG version
+        tmp = ntohl(hdr[0]);
+        desc->tile_count = (tmp >> 22) + 1; // a bit hacky - assuming this packet is from last substream
 
         desc->width = ntohl(hdr[3]) >> 16;
         desc->height = ntohl(hdr[3]) & 0xffff;
@@ -1511,7 +1510,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
 
         int k = 0, m = 0, c = 0, seed = 0; // LDGM
-        uint32_t buffer_number, buffer_length;
+        int buffer_number, buffer_length;
 
         int pt;
         bool buffer_swapped = false;
@@ -1575,8 +1574,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 pt = pckt->pt;
                 hdr = (uint32_t *)(void *) pckt->data;
                 data_pos = ntohl(hdr[1]);
-                substream = 0;
-                buffer_number = ntohl(hdr[0]);
+                tmp = ntohl(hdr[0]);
+                substream = tmp >> 22;
+                buffer_number = tmp & 0x3fffff;
                 buffer_length = ntohl(hdr[2]);
                 ssrc = pckt->ssrc;
 
@@ -1691,7 +1691,6 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                 }
 
                 buffer_num[substream] = buffer_number;
-                frame->id = buffer_number;
                 frame->tiles[substream].data_len = buffer_length;
                 pckt_list[substream][data_pos] = len;
 

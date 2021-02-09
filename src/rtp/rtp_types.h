@@ -68,7 +68,8 @@
  * Video payload
  *
  * 1st word
- * bits 0 - 31 buffer // VR modification - differs from upstream UG where there are 10 first bits substream ID
+ * bits 0 - 9 substream
+ * bits 10 - 31 buffer
  *
  * 2nd word
  * bits 0 - 31 offset
