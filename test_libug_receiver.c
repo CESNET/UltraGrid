@@ -33,13 +33,14 @@ static void usage(const char *progname) {
         printf("\t-h - show this help\n");
         printf("\t-d - display (default vrg)\n");
         printf("\t-c I420|RGBA - force decompress to codec\n");
+        printf("\t-n - disable strips\n");
 }
 
 int main(int argc, char *argv[]) {
         struct ug_receiver_parameters init_params = { 0 };
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "c:d:h")) != -1) {
+        while ((ch = getopt(argc, argv, "c:d:hn")) != -1) {
                 switch (ch) {
                 case 'c':
                         assert(strcmp(optarg, "RGBA") == 0 || strcmp(optarg, "I420") == 0);
@@ -51,6 +52,9 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         usage(argv[0]);
                         return 0;
+                case 'n':
+                        init_params.disable_strips = 1;
+                        break;
                 default:
                         usage(argv[0]);
                         return 1;

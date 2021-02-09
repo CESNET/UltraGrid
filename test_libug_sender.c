@@ -22,6 +22,7 @@ static void usage(const char *progname) {
         printf("options:\n");
         printf("\t-h - show this help\n");
         printf("\t-j - use JPEG\n");
+        printf("\t-n - disable strips\n");
 }
 
 static void fill(unsigned char *data, int width, int height, libug_pixfmt_t pixfmt) {
@@ -42,15 +43,19 @@ int main(int argc, char *argv[]) {
         init_params.compression = UG_UNCOMPRESSED;
         init_params.rprc = render_packet_received_callback;
         init_params.rprc_udata = NULL; // not used by render_packet_received_callback()
+        bool disable_strips = false;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "hj")) != -1) {
+        while ((ch = getopt(argc, argv, "hjn")) != -1) {
                 switch (ch) {
                 case 'h':
                         usage(argv[0]);
                         return 0;
                 case 'j':
                         init_params.compression = UG_JPEG;
+                        break;
+                case 'n':
+                        init_params.disable_strips = 1;
                         break;
                 default:
                         usage(argv[0]);
