@@ -91,8 +91,8 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
         //RTP
         params["mtu"].i = init_params->mtu != 0 ? init_params->mtu : 1500;
         params["receiver"].str = init_params->receiver;
-        params["rx_port"].i = init_params->rx_port != 0 ? init_params->rx_port : DEFAULT_UG_PORT;
-        params["tx_port"].i = init_params->tx_port != 0 ? init_params->tx_port : DEFAULT_UG_PORT;
+        params["rx_port"].i = 0;
+        params["tx_port"].i = init_params->port != 0 ? init_params->port : DEFAULT_UG_PORT;
         params["force_ip_version"].i = 0;
         params["mcast_if"].str = NULL;
         params["fec"].str = "none";
@@ -222,8 +222,8 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
         //RTP
         params["mtu"].i = 9000; // doesn't matter
         params["receiver"].str = init_params->sender ? init_params->sender : "localhost";
-        params["rx_port"].i = init_params->rx_port ? init_params->rx_port : DEFAULT_UG_PORT;
-        params["tx_port"].i = init_params->tx_port ? init_params->tx_port : 0;
+        params["rx_port"].i = init_params->port ? init_params->port : DEFAULT_UG_PORT;
+        params["tx_port"].i = 0;
         params["force_ip_version"].i = 0;
         params["mcast_if"].str = NULL;
         params["fec"].str = "none";

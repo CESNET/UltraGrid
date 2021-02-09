@@ -65,8 +65,7 @@ int main(int argc, char *argv[]) {
                 if (strchr(argv[0], ':') != NULL) {
                         char *port_str = strchr(argv[0], ':') + 1;
                         *strchr(argv[1], ':') = '\0';
-                        init_params.rx_port =
-                                init_params.tx_port = atoi(port_str);
+                        init_params.port = atoi(port_str);
                 }
         }
 

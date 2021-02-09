@@ -48,8 +48,7 @@ struct ug_sender_parameters {
         libug_compression_t compression;         ///< compression setting
         render_packet_received_callback_t rprc;  ///< callback for received position data (optional)
         void *rprc_udata;                        ///< user data passed to the rprc callback (optional)
-        int tx_port;                             ///< TX port (optional, default 5004)
-        int rx_port;                             ///< RX port (optional, default 5004)
+        int port;                                ///< port (optional, default 5004)
         int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
         int disable_strips;                      ///< do not enable 8x1 strips (to improve compression), default 0 (enable)
 };
@@ -73,8 +72,7 @@ struct ug_receiver;
 struct ug_receiver_parameters {
         const char *display;                     ///< display to use (optional, default vrg)
         const char *sender;                      ///< sender address for RTCP (optional)
-        int tx_port;                             ///< TX port for RTCP (optional, unused if sender unset, default 5004)
-        int rx_port;                             ///< RX port for RTCP (optional, unused if sender unset, default 5004)
+        int port;                                ///< port for back channel (optional, default 5004; will use port + 1 for back channel)
         libug_pixfmt_t decompress_to;            ///< optional - pixel format to decompress to
         bool force_gpu_decoding;                 ///< force GPU decoding (decode with GPUJPEG)
         int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)

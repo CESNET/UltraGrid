@@ -1108,35 +1108,16 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->opt = (options *) malloc(sizeof(options));
         session->userdata = userdata;
         session->mt_recv = multithreaded;
-        session->send_rtcp_to_origin = tx_port == 0 && is_host_loopback(addr);
+        session->send_rtcp_to_origin = false; // VRG
 
-        if (rx_port == 0) {
-                for (int i = 1<<15; i < 1<<16; i += 2) {
-                        // this stuff is not atomic. but... it cannot be done in this way, either
-                        int ret = udp_port_pair_is_free(force_ip_version, i);
-                        if (ret == 0) {
-                                rx_port = i;
-                                break;
-                        }
-                        if (ret == -2) {
-                                free(session);
-                                return NULL;
-                        }
-                }
-                if (rx_port == 0) {
-                        fprintf(stderr, "Unable to find empty RTP port pair!\n");
-                } else {
-                        verbose_msg("Found empty UDP port pair %d/%d\n", rx_port, rx_port + 1);
-                }
-        }
-        if (tx_port == 0) {
-                tx_port = rx_port;
-        }
+        // VRG specific changes
+        assert((rx_port == 0 || tx_port == 0) && (rx_port != 0 || tx_port != 0));
         session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, force_ip_version, multithreaded);
+        uint16_t rtcp_rx_port = rx_port == 0 ? tx_port + 1 : 0;
+        uint16_t rtcp_tx_port = (rx_port == 0 ? tx_port : rx_port) + 1;
 
         session->rtcp_socket =
-            udp_init_if(addr, iface, (uint16_t) (rx_port + (rx_port ? 1 : 0)),
-                        (uint16_t) (tx_port + (tx_port ? 1 : 0)), ttl, force_ip_version, false);
+            udp_init_if(addr, iface, rtcp_rx_port, rtcp_tx_port, ttl, force_ip_version, false);
 
         init_opt(session);
 
