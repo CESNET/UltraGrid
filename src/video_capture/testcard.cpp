@@ -578,10 +578,14 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         fseek(in, 0L, SEEK_SET);
 
                         if (s->frame->tiles[0].data_len != filesize) {
-                                fprintf(stderr, "Error wrong file size for selected "
-                                                "resolution and codec. File size %ld, "
-                                                "computed size %d\n", filesize, s->frame->tiles[0].data_len);
-                                goto error;
+                                int level = s->frame->tiles[0].data_len < filesize ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR;
+                                LOG(level) << MOD_NAME  << "Wrong file size for selected "
+                                                "resolution and codec. File size " << filesize << ", "
+                                                "computed size " << s->frame->tiles[0].data_len << "\n";
+                                filesize = s->frame->tiles[0].data_len;
+                                if (level == LOG_LEVEL_ERROR) {
+                                        goto error;
+                                }
                         }
 
                         if (in == nullptr || fread(vf_get_tile(s->frame, 0)->data, filesize, 1, in) != 1) {

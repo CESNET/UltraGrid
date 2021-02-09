@@ -66,6 +66,11 @@
 #include "video_display/splashscreen.h"
 #include "video.h"
 
+/// @todo remove the defines when no longer needed
+#ifdef __arm64__
+#define SDL_DISABLE_MMINTRIN_H 1
+#define SDL_DISABLE_IMMINTRIN_H 1
+#endif // defined __arm64__
 #include <SDL2/SDL.h>
 
 #include <condition_variable>
