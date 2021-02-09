@@ -48,7 +48,11 @@
 
 // VrgInputFormat::RGBA conflicts with codec_t::RGBA
 #define RGBA VR_RGBA
+#ifdef HAVE_VRG_H
 #include <vrgstream.h>
+#else
+#include "vrgstream-fallback.h"
+#endif
 #undef RGBA
 
 #include "debug.h"

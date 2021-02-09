@@ -44,6 +44,14 @@
 #include "config_win32.h"
 #endif
 
+#define RGBA VR_RGBA
+#ifdef HAVE_VRG_H
+#include <vrgstream.h>
+#else
+#include "vrgstream-fallback.h"
+#endif
+#undef RGBA
+
 #include <assert.h>
 #ifdef HAVE_MACOSX
 #include <OpenGL/gl.h>
@@ -90,6 +98,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "rang.hpp"
+#include "rtp/rtp.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
@@ -318,6 +327,8 @@ struct state_gl {
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
 #endif
+
+        struct rtp *rtp;
 
         state_gl(struct module *parent) : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
                 fbo_id(0), texture_display(0), texture_uyvy(0), pbo_id(0),
@@ -1766,7 +1777,7 @@ static void glut_close_callback(void)
 
 static int display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(state);
+        auto *s = static_cast<struct state_gl *>(state);
         codec_t codecs[] = {
 #ifdef HWACC_VDPAU
                 HW_VDPAU,
@@ -1809,6 +1820,9 @@ static int display_gl_get_property(void *state, int property, void *val, size_t 
                                 return FALSE;
                         }
                         *len = sizeof(supported_il_modes);
+                        break;
+                case DISPLAY_PROPERTY_S_RTP:
+                        s->rtp = *(struct rtp **) val;
                         break;
                 default:
                         return FALSE;
@@ -1925,6 +1939,11 @@ static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
 
         lk.unlock();
         s->new_frame_ready_cv.notify_one();
+
+        RenderPacket render_packet{};
+        static uint32_t frame_id = 0;
+        render_packet.frame = frame_id++;
+        rtp_send_rtcp_app(s->rtp, "VIEW", sizeof render_packet, (char *) &render_packet);
 
         return 0;
 }
