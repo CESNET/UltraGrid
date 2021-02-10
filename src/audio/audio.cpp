@@ -308,7 +308,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
 
         s->audio_network_parameters.addr = strdup(addr);
         s->audio_network_parameters.recv_port = recv_port;
-        s->audio_network_parameters.send_port = send_port;
+        s->audio_network_parameters.send_port = send_port != 0 ? send_port : 5006;
         s->audio_network_parameters.rtp_udata[0] = s->audio_participants;
         s->audio_network_parameters.force_ip_version = force_ip_version;
         s->audio_network_parameters.mcast_if = mcast_if
