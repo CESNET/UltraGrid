@@ -1200,74 +1200,6 @@ then
 fi
 
 # ------------------------------------------------------------------------------
-# Panorama gl display
-# ------------------------------------------------------------------------------
-GLM_INC=-I$srcdir/glm
-panogl_disp=no
-AC_ARG_ENABLE(panogl_disp,
-[  --disable-panogl_disp            disable gl panorama display (default is auto]
-[                          Requires:  sdl2 gl],
-    [panogl_disp_req=$enableval],
-    [panogl_disp_req=$build_default]
-    )
-
-PKG_CHECK_MODULES([SDL2], [sdl2], [found_sdl2=yes], [found_sdl2=no])
-if test $panogl_disp_req = yes -a $found_sdl2 = no; then
-        AC_MSG_ERROR([SDL2 not found]);
-fi
-
-if test $panogl_disp_req != no -a $found_sdl2 = yes
-then
-        PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o"
-        AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
-        # on Win override libs from pkg-config because those contain
-        # "-mwindows" which causes output to be scratched by cmd.exe
-        # (but not MSYS2!)
-        if test $system = Windows; then
-                PANOGL_LIBS="-lSDL2"
-        fi
-        PANOGL_LIBS+=$SDL2_LIBS
-        ADD_MODULE("display_panogl", "$PANOGL_OBJ", "$PANOGL_LIBS")
-        INC="$INC $GLM_INC"
-        panogl_disp=yes
-fi
-
-# ------------------------------------------------------------------------------
-# OpenXR VR gl display
-# ------------------------------------------------------------------------------
-GLM_INC=-I$srcdir/glm
-xrgl_disp=no
-AC_ARG_ENABLE(xrgl_disp,
-[  --disable-xrgl_disp            disable OpenXR VR display (default is auto]
-[                          Requires:  sdl2 gl openxr],
-    [xrgl_disp_req=$enableval],
-    [xrgl_disp_req=$build_default]
-    )
-
-define(xrgl_deps, [sdl2 openxr])
-
-PKG_CHECK_MODULES([XRGLDISP], [xrgl_deps], [FOUND_XRGL_DEPS=yes], [FOUND_XRGL_DEPS=no])
-if test $xrgl_disp_req = yes -a $FOUND_XRGL_DEPS = no; then
-        AC_MSG_ERROR([XRGL deps not found]);
-fi
-
-if test $xrgl_disp_req != no -a $FOUND_XRGL_DEPS = yes
-then
-        XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o"
-        AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
-        # on Win override libs from pkg-config because those contain
-        # "-mwindows" which causes output to be scratched by cmd.exe
-        # (but not MSYS2!)
-        if test $system = Windows; then
-                XRGLDISP_LIBS="-lSDL2"
-        fi
-        XRGLDISP_LIBS+=$SDL2_LIB
-        ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
-        INC="$INC $GLM_INC"
-        xrgl_disp=yes
-fi
-
-# ------------------------------------------------------------------------------
 # SDL1/2 Stuff
 # ------------------------------------------------------------------------------
 sdl=no
@@ -1335,6 +1267,68 @@ then
         SDL_LIB="$SDL1_LIBS -lX11" # X11 for x11_common.o
         sdl_version=1
         sdl=yes
+fi
+
+# ------------------------------------------------------------------------------
+# Panorama gl display
+# ------------------------------------------------------------------------------
+GLM_INC=-I$srcdir/glm
+panogl_disp=no
+AC_ARG_ENABLE(panogl_disp,
+[  --disable-panogl_disp            disable gl panorama display (default is auto]
+[                          Requires:  sdl2 gl],
+    [panogl_disp_req=$enableval],
+    [panogl_disp_req=$build_default]
+    )
+
+if test $panogl_disp_req = yes; then
+        if test $sdl = no -o $sdl_version != 2; then
+                AC_MSG_ERROR([SDL2 not found]);
+        fi
+fi
+
+if test $panogl_disp_req != no -a $sdl = yes -a $sdl_version = 2
+then
+        PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o"
+        AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
+        PANOGL_LIBS=$SDL_LIB
+        ADD_MODULE("display_panogl", "$PANOGL_OBJ", "$PANOGL_LIBS")
+        INC="$INC $GLM_INC"
+        panogl_disp=yes
+fi
+
+# ------------------------------------------------------------------------------
+# OpenXR VR gl display
+# ------------------------------------------------------------------------------
+GLM_INC=-I$srcdir/glm
+xrgl_disp=no
+AC_ARG_ENABLE(xrgl_disp,
+[  --disable-xrgl_disp            disable OpenXR VR display (default is auto]
+[                          Requires:  sdl2 gl openxr],
+    [xrgl_disp_req=$enableval],
+    [xrgl_disp_req=$build_default]
+    )
+
+define(xrgl_deps, [openxr])
+
+PKG_CHECK_MODULES([XRGLDISP], [xrgl_deps], [FOUND_XRGL_DEPS=yes], [FOUND_XRGL_DEPS=no])
+
+if test $sdl = no -o $sdl_version != 2; then
+        FOUND_XRGL_DEPS=no
+fi
+
+if test $xrgl_disp_req = yes -a $FOUND_XRGL_DEPS = no; then
+        AC_MSG_ERROR([XRGL deps not found]);
+fi
+
+if test $xrgl_disp_req != no -a $FOUND_XRGL_DEPS = yes
+then
+        XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o"
+        AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
+        XRGLDISP_LIBS+=$SDL_LIB
+        ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
+        INC="$INC $GLM_INC"
+        xrgl_disp=yes
 fi
 
 # -------------------------------------------------------------------------------------------------
