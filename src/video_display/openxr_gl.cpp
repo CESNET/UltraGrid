@@ -35,21 +35,22 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#       include "config.h"
+#       include "config_unix.h"
+#       include "config_win32.h"
+#endif //HAVE_CONFIG_H
 
 #include <chrono>
 #include <thread>
 
 #include <assert.h>
-//#include <GL/glew.h>
-#include <X11/Xlib.h>
-#include <GL/glew.h>
-#include <GL/glx.h>
-#define XR_USE_PLATFORM_XLIB
-#define XR_USE_GRAPHICS_API_OPENGL
+#ifdef HAVE_LINUX
+#       include <X11/Xlib.h>
+#       include <GL/glew.h>
+#       include <GL/glx.h>
+#       define XR_USE_PLATFORM_XLIB
+#       define XR_USE_GRAPHICS_API_OPENGL
+#endif //HAVE_LINUX
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
@@ -77,19 +78,11 @@ class Openxr_session{
 public:
         Openxr_session(XrInstance instance,
                         XrSystemId systemId,
-                        Display *xDisplay,
-                        GLXContext glxContext,
-                        GLXDrawable glxDrawable)
+                        const void *xrGraphicsBindingOpenGL)
         {
-                XrGraphicsBindingOpenGLXlibKHR graphics_binding_gl = {};
-                graphics_binding_gl.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR;
-                graphics_binding_gl.xDisplay = xDisplay;
-                graphics_binding_gl.glxContext = glxContext;
-                graphics_binding_gl.glxDrawable = glxDrawable;
-
                 XrSessionCreateInfo session_create_info = {};
                 session_create_info.type = XR_TYPE_SESSION_CREATE_INFO;
-                session_create_info.next = &graphics_binding_gl;
+                session_create_info.next = xrGraphicsBindingOpenGL;
                 session_create_info.systemId = systemId;
 
                 XrResult result;
@@ -615,17 +608,23 @@ static void display_xrgl_run(void *state){
 
         std::thread worker_thread(worker, s);
 
-        Display *xDisplay = nullptr;
-        GLXContext glxContext;
-        GLXDrawable glxDrawable;
+#ifdef HAVE_LINUX
+        XrGraphicsBindingOpenGLXlibKHR graphics_binding_gl = {};
+        graphics_binding_gl.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR;
+        graphics_binding_gl.xDisplay = nullptr;
 
-        s->window.getXlibHandles(&xDisplay, &glxContext, &glxDrawable);
+        s->window.getXlibHandles(&graphics_binding_gl.xDisplay,
+                        &graphics_binding_gl.glxContext,
+                        &graphics_binding_gl.glxDrawable);
 
         Openxr_session session(s->xr_state.instance.get(),
                         s->xr_state.system_id,
-                        xDisplay,
-                        glxContext,
-                        glxDrawable);
+                        &graphics_binding_gl);
+#else
+        //TODO: Implement GL OpenXR binding for other platforms
+        log_msg(LOG_LEVEL_ERROR, "OpenXR and OpenGL binding not implemented on this platform!\n");
+        return;
+#endif //HAVE_LINUX
 
         std::vector<XrViewConfigurationView> config_views = get_views(s->xr_state);
 

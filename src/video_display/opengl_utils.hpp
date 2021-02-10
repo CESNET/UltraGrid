@@ -37,9 +37,23 @@
 #ifndef OPENGL_UTILS_HPP
 #define OPENGL_UTILS_HPP
 
-#include <X11/Xlib.h>
-#include <GL/glew.h>
-#include <GL/glx.h>
+#ifdef HAVE_CONFIG_H
+#       include "config.h"
+#endif //HAVE_CONFIG_H
+
+#ifdef HAVE_MACOSX
+#       include <OpenGL/gl.h>
+#       include <OpenGL/OpenGL.h> // CGL
+#       include <OpenGL/glext.h>
+#elif defined HAVE_LINUX
+#       include <X11/Xlib.h>
+#       include <GL/glew.h>
+#       include <GL/glx.h>
+#else // WIN32
+#       include <GL/glew.h>
+#       include <GL/glut.h>
+#endif //HAVE_MACOSX
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 #include <mutex>
@@ -476,12 +490,14 @@ struct Sdl_window{
         Sdl_window& operator=(const Sdl_window&) = delete;
         Sdl_window& operator=(Sdl_window&& o) { swap(o); return *this; }
 
+#ifdef HAVE_LIBX11
         /**
          * Used to obtain Xlib window handles
          */
         void getXlibHandles(Display  **xDisplay,
                         GLXContext *glxContext,
                         GLXDrawable *glxDrawable);
+#endif //HAVE_LIBX11
 
         /**
          * Sets window title
