@@ -536,6 +536,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 uint8_t *jpeg_enc_input_data;
 
                 if (m_decoder && m_decoder != vc_memcpy) {
+                        assert(tx.get()->mem_location == CPU_MEM);
                         unsigned char *line1 = (unsigned char *) in_tile->data;
                         unsigned char *line2 = (unsigned char *) m_decoded.get();
 
@@ -557,7 +558,12 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 int ret;
 
                 struct gpujpeg_encoder_input encoder_input;
-                gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
+                if(tx.get()->mem_location == CUDA_MEM){
+                        gpujpeg_encoder_input_set_gpu_image(&encoder_input, jpeg_enc_input_data);
+                } else {
+                        gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
+                }
+
                 ret = gpujpeg_encoder_encode(m_encoder, &m_encoder_param, &m_param_image, &encoder_input, &compressed, &size);
 
                 if(ret != 0) {

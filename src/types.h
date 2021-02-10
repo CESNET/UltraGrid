@@ -243,6 +243,11 @@ struct tile {
 
 #define ANYSIZE_ARRAY 1
 
+enum mem_location_t {
+        CPU_MEM = 0,
+        CUDA_MEM
+};
+
 /**
  * @brief Struct video_frame represents a video frame and contains video description.
  */
@@ -251,6 +256,7 @@ struct video_frame {
         enum interlacing_t   interlacing;
         double               fps;
         frame_type_t         frame_type;
+        enum mem_location_t  mem_location;
 
         /** @name Fragment Stuff 
          * @{ */
