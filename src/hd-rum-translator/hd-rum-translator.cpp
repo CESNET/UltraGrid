@@ -682,7 +682,21 @@ static string format_port_list(struct hd_rum_translator_state *s)
     return oss.str();
 }
 
-#define EXIT(retval) { common_cleanup(init); return retval; }
+static void hd_rum_translator_deinit(struct hd_rum_translator_state *s) {
+    if(s->decompress) {
+        hd_rum_decompress_done(s->decompress);
+    }
+
+    for (unsigned int i = 0; i < s->replicas.size(); i++) {
+        delete s->replicas[i];
+    }
+
+    control_done(s->control_state);
+
+    qdestroy(s->queue);
+}
+
+#define EXIT(retval) { hd_rum_translator_deinit(&state); if (sock_in != nullptr) udp_exit(sock_in); common_cleanup(init); return retval; }
 int main(int argc, char **argv)
 {
     struct init_data *init;
@@ -690,7 +704,7 @@ int main(int argc, char **argv)
 
     int qsize;
     int bufsize;
-    socket_udp *sock_in;
+    socket_udp *sock_in = nullptr;
     pthread_t thread;
     int err = 0;
     int i;
@@ -903,20 +917,8 @@ int main(int argc, char **argv)
 
     pthread_join(thread, NULL);
 
-    if(state.decompress) {
-        hd_rum_decompress_done(state.decompress);
-    }
-
-    for (unsigned int i = 0; i < state.replicas.size(); i++) {
-        delete state.replicas[i];
-    }
-
-    control_done(state.control_state);
-
+    hd_rum_translator_deinit(&state);
     udp_exit(sock_in);
-
-    qdestroy(state.queue);
-
     common_cleanup(init);
 
     printf("Exit\n");
