@@ -748,6 +748,58 @@ fi
 AC_SUBST(DECKLINK_PATH)
 
 # -------------------------------------------------------------------------------------------------
+# gpustitch stuff
+# -------------------------------------------------------------------------------------------------
+
+GPUSTITCH_OBJ=
+GPUSTITCH_INC=
+GPUSTITCH_LIB=
+GPUSTITCH_PATH=
+gpustitch=no
+gpustitch_req=auto
+
+AC_ARG_ENABLE(gpustitch,
+[  --disable-gpustitch      disable gpustitch (default is auto)]
+[                          Requires: gpustitch],
+	[gpustitch_req=$enableval])
+
+PKG_CHECK_MODULES([LIBGPUSTITCH], [libgpustitch >= 0.0.1 ], [found_gpustitch=yes], [found_gpustitch=no])
+
+if test "$found_gpustitch" != yes
+then
+        GPUSTITCH_LIB="$GPUSTITCH_LIB -lgpustitch"
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $GPUSTITCH_LIB"
+        AC_CHECK_HEADER([libgpustitch/stitcher.hpp])
+        LIBS=$SAVED_LIBS
+        if test "$ac_cv_header_libgpustitch_stitcher_hpp" = yes
+        then
+                found_gpustitch=yes
+        else
+                found_gpustitch=no
+        fi
+fi
+
+if test "$gpustitch_req" != no -a \
+        "$found_gpustitch" = yes
+then
+        gpustitch=yes
+
+        GPUSTITCH_INC="$GPUSTITCH_INC $LIBGPUSTITCH_CFLAGS"
+        GPUSTITCH_LIB="$GPUSTITCH_LIB $LIBGPUSTITCH_LIBS"
+        GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.$CU_OBJ_SUFFIX $CUDA_COMMON_OBJ"
+        AC_DEFINE([HAVE_GPUSTITCH], [1], [Build with GPUSTITCH support])
+        ADD_MODULE("vidcap_gpustitch", "$GPUSTITCH_OBJ", "$GPUSTITCH_LIB")
+
+        INC="$INC $GPUSTITCH_INC"
+        CUDA_MESSAGE
+fi
+
+if test $gpustitch_req = yes -a $gpustitch = no; then
+        AC_MSG_ERROR([GPUSTITCH not found]);
+fi
+
+# -------------------------------------------------------------------------------------------------
 # Bluefish444 stuff
 # -------------------------------------------------------------------------------------------------
 BLUEFISH444_PATH=
@@ -3261,6 +3313,7 @@ RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
 RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
 RESULT=`add_column "$RESULT" "OpenXR VR Display" $xrgl_disp $?`
+RESULT=`add_column "$RESULT" "Gpustitch" $gpustitch $?`
 RESULT=`end_section "$RESULT"`
 
 # compressions
