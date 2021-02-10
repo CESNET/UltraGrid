@@ -1148,6 +1148,39 @@ then
 fi
 
 # ------------------------------------------------------------------------------
+# Panorama gl display
+# ------------------------------------------------------------------------------
+GLM_INC=-I$srcdir/glm
+panogl_disp=no
+AC_ARG_ENABLE(panogl_disp,
+[  --disable-panogl_disp            disable gl panorama display (default is auto]
+[                          Requires:  glew sdl2 gl],
+    [panogl_disp_req=$enableval],
+    [panogl_disp_req=$build_default]
+    )
+
+PKG_CHECK_MODULES([SDL2], [sdl2], [found_sdl2=yes], [found_sdl2=no])
+if test $panogl_disp_req = yes -a $found_sdl2 = no; then
+        AC_MSG_ERROR([SDL2 not found]);
+fi
+
+if test $panogl_disp_req != no -a $found_sdl2 = yes
+then
+        PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o"
+        AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
+        # on Win override libs from pkg-config because those contain
+        # "-mwindows" which causes output to be scratched by cmd.exe
+        # (but not MSYS2!)
+        if test $system = Windows; then
+                PANOGL_LIBS="-lSDL2"
+        fi
+        PANOGL_LIBS+=$SDL2_LIBS
+        ADD_MODULE("display_panogl", "$PANOGL_OBJ", "$PANOGL_LIBS")
+        INC="$INC $GLM_INC"
+        panogl_disp=yes
+fi
+
+# ------------------------------------------------------------------------------
 # SDL1/2 Stuff
 # ------------------------------------------------------------------------------
 sdl=no
@@ -3191,6 +3224,7 @@ RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
+RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
 RESULT=`end_section "$RESULT"`
 
 # compressions
