@@ -1324,7 +1324,7 @@ then
                 SDL2_LIBS="-lSDL2"
         fi
         ADD_MODULE("display_sdl2", "$SDL2_OBJ", "$SDL2_LIBS")
-        SDL_LIB=$SDL2_LIB
+        SDL_LIB=$SDL2_LIBS
         sdl_version=2
         sdl=yes
 elif test $sdl1_req != no -a $found_sdl1 = yes
@@ -1332,7 +1332,7 @@ then
         SDL1_OBJ="src/video_display/sdl.o src/x11_common.o"
         AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
         ADD_MODULE("display_sdl", "$SDL1_OBJ", "$SDL1_LIBS")
-        SDL_LIB="$SDL1_LIB -lX11" # X11 for x11_common.o
+        SDL_LIB="$SDL1_LIBS -lX11" # X11 for x11_common.o
         sdl_version=1
         sdl=yes
 fi
