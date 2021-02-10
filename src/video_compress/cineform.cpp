@@ -411,6 +411,10 @@ static void cineform_compress_push(struct module *state, std::shared_ptr<video_f
                 return;
 
         if(!tx){
+                if (!s->started) {
+                        video_desc desc{1920, 1080, UYVY, 25.0, PROGRESSIVE, 1};
+                        configure_with(s, desc);
+                }
                 std::unique_ptr<video_frame, decltype(&vf_free)> dummy(vf_alloc_desc_data(s->precompress_desc), vf_free);
                 video_frame *dummy_ptr = dummy.get();
 
