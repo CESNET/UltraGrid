@@ -13,7 +13,7 @@ CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = mkdir -p
 CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@
 LDFLAGS      =  @LDFLAGS@
-LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
+LIBS         += @LIBS@ @MATHLIBS@ @JACK_TRANS_LIB@ -lm -pthread
 INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
                 @JACK_TRANS_INC@ @SPEEX_INC@ \
 		@CUDA_INC@ @INC@
