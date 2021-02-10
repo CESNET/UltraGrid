@@ -42,8 +42,8 @@
 #endif //HAVE_CONFIG_H
 
 #ifdef HAVE_MACOSX
-#       include <OpenGL/gl.h>
 #       include <OpenGL/OpenGL.h> // CGL
+#       include <OpenGL/gl3.h>
 #       include <OpenGL/glext.h>
 #elif defined HAVE_LINUX
 #       include <X11/Xlib.h>
@@ -55,7 +55,7 @@
 #endif //HAVE_MACOSX
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
+//#include <SDL2/SDL_opengl.h>
 #include <mutex>
 #include <memory>
 
