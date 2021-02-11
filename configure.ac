@@ -1270,9 +1270,28 @@ then
 fi
 
 # ------------------------------------------------------------------------------
+# GLM (OpenGL math library)
+# ------------------------------------------------------------------------------
+GLM_INC=
+GLM_DIR=$srcdir/glm
+glm=no
+
+PKG_CHECK_MODULES([GLM], [glm], [FOUND_GLM=yes], [FOUND_GLM=no])
+
+if test $FOUND_GLM = yes; then
+        GLM_INC=$GLM_CFLAGS
+        glm=yes
+else
+        AC_CHECK_FILE([$GLM_DIR/glm/glm.hpp], [found_glm_hpp=yes], [found_glm_hpp=no])
+        if test $found_glm_hpp = yes; then
+                glm=yes
+                GLM_INC=-I$GLM_DIR
+        fi
+fi
+
+# ------------------------------------------------------------------------------
 # Panorama gl display
 # ------------------------------------------------------------------------------
-GLM_INC=-I$srcdir/glm
 panogl_disp=no
 AC_ARG_ENABLE(panogl_disp,
 [  --disable-panogl_disp            disable gl panorama display (default is auto]
@@ -1285,9 +1304,13 @@ if test $panogl_disp_req = yes; then
         if test $sdl = no -o $sdl_version != 2; then
                 AC_MSG_ERROR([SDL2 not found]);
         fi
+
+        if test $glm = no; then
+                AC_MSG_ERROR([GLM not found]);
+        fi
 fi
 
-if test $panogl_disp_req != no -a $sdl = yes -a $sdl_version = 2
+if test $panogl_disp_req != no -a $sdl = yes -a $sdl_version = 2 -a $glm = yes
 then
         PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o"
         AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
@@ -1300,7 +1323,6 @@ fi
 # ------------------------------------------------------------------------------
 # OpenXR VR gl display
 # ------------------------------------------------------------------------------
-GLM_INC=-I$srcdir/glm
 xrgl_disp=no
 AC_ARG_ENABLE(xrgl_disp,
 [  --disable-xrgl_disp            disable OpenXR VR display (default is auto]
@@ -1313,7 +1335,7 @@ define(xrgl_deps, [openxr])
 
 PKG_CHECK_MODULES([XRGLDISP], [xrgl_deps], [FOUND_XRGL_DEPS=yes], [FOUND_XRGL_DEPS=no])
 
-if test $sdl = no -o $sdl_version != 2; then
+if test $sdl = no -o $sdl_version != 2 -o $glm = no; then
         FOUND_XRGL_DEPS=no
 fi
 
