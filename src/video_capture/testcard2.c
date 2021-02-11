@@ -43,8 +43,6 @@
 #include "config_win32.h"
 #include "host.h"
  
-#ifdef HAVE_SDL
-
 #include "debug.h"
 #include "lib_common.h"
 #include "tv.h"
@@ -54,9 +52,17 @@
 #include "compat/platform_semaphore.h"
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef HAVE_SDL2
+#include <SDL2/SDL.h>
+#else
 #include <SDL/SDL.h>
+#endif
 #ifdef HAVE_LIBSDL_TTF
+#ifdef HAVE_SDL2
+#include <SDL2/SDL_ttf.h>
+#else
 #include <SDL/SDL_ttf.h>
+#endif
 #endif
 #include "audio/audio.h"
 #include <pthread.h>
@@ -101,7 +107,7 @@ struct testcard_state2 {
 static int configure_audio(struct testcard_state2 *s)
 {
         s->audio.bps = AUDIO_BPS;
-        s->audio.ch_count = audio_capture_channels > 0 > audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
         
         s->audio_silence = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
@@ -401,11 +407,11 @@ void * vidcap_testcard2_thread(void *arg)
                 text = TTF_RenderText_Solid(font,
                         frames, col);
 #endif
+#ifdef HAVE_LIBSDL_TTF
                 SDL_Rect src_rect;
                 src_rect.x=0;
                 src_rect.y=0;
                 
-#ifdef HAVE_LIBSDL_TTF
                 r.y += (r.h - text->h) / 2;
                 r.x = (s->tile->width - src_rect.w) / 2;
                 src_rect.w=text->w;
@@ -413,26 +419,29 @@ void * vidcap_testcard2_thread(void *arg)
                 SDL_BlitSurface(text,  &src_rect,  surf, &r);
                 SDL_FreeSurface(text);
 #endif
+                char *data = surf->pixels;
                             
                 if (s->frame->color_spec == UYVY || s->frame->color_spec == v210) {
-                        char *tmp = (char *) malloc(s->size * bpp * 2);
+                        char *tmp = (char *) malloc(s->size * 2);
                         vc_copylineRGBAtoUYVY((unsigned char *) tmp, (unsigned char *) surf->pixels,
                                         s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
-                        free (surf->pixels);
-                        s->data = tmp;
+                        data = tmp;
                 }
 
                 if (s->frame->color_spec == v210) {
                         surf->pixels =
-                            (char *)tov210((unsigned char *) surf->pixels, s->tile->width);
+                            (char *)tov210((unsigned char *) surf->pixels, s->tile->width, s->tile->height);
                 }
 
                 if (s->frame->color_spec == R10k) {
                         toR10k((unsigned char *) surf->pixels, s->tile->width, s->tile->height);
                 }
                 
-                memcpy(s->tile->data, surf->pixels, s->tile->data_len);
+                memcpy(s->tile->data, data, s->tile->data_len);
 
+                if (data != surf->pixels) {
+                        free(data);
+                }
                 SDL_FreeSurface(surf);
                 
                 int since_start_usec;
@@ -545,4 +554,3 @@ static const struct video_capture_info vidcap_testcard2_info = {
 
 REGISTER_MODULE(testcard2, &vidcap_testcard2_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-#endif
