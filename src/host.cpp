@@ -463,6 +463,34 @@ bool validate_param(const char *param)
         return false;
 }
 
+bool parse_params(char *optarg)
+{
+        if (optarg != nullptr && strcmp(optarg, "help") == 0) {
+                puts("Params can be one or more (separated by comma) of following:");
+                print_param_doc();
+                return false;
+        }
+        char *item = nullptr;
+        char *save_ptr = nullptr;
+        while ((item = strtok_r(optarg, ",", &save_ptr)) != nullptr) {
+                char *key_cstr = item;
+                if (strchr(item, '=') != nullptr) {
+                        char *val_cstr = strchr(item, '=') + 1;
+                        *strchr(item, '=') = '\0';
+                        commandline_params[key_cstr] = val_cstr;
+                } else {
+                        commandline_params[key_cstr] = string();
+                }
+                if (!validate_param(key_cstr)) {
+                        LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key_cstr << "\n";
+                        LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
+                        return false;
+                }
+                optarg = nullptr;
+        }
+        return true;
+}
+
 void print_param_doc()
 {
         for (unsigned int i = 0; i < sizeof params / sizeof params[0]; ++i) {

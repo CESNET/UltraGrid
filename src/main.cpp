@@ -601,33 +601,6 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         return true;
 }
 
-static bool parse_params(char *optarg)
-{
-        if (optarg && strcmp(optarg, "help") == 0) {
-                puts("Params can be one or more (separated by comma) of following:");
-                print_param_doc();
-                return false;
-        }
-        char *item, *save_ptr;
-        while ((item = strtok_r(optarg, ",", &save_ptr))) {
-                char *key_cstr = item;
-                if (strchr(item, '=')) {
-                        char *val_cstr = strchr(item, '=') + 1;
-                        *strchr(item, '=') = '\0';
-                        commandline_params[key_cstr] = val_cstr;
-                } else {
-                        commandline_params[key_cstr] = string();
-                }
-                if (!validate_param(key_cstr)) {
-                        log_msg(LOG_LEVEL_ERROR, "Unknown parameter: %s\n", key_cstr);
-                        log_msg(LOG_LEVEL_INFO, "Type '%s --param help' for list.\n", uv_argv[0]);
-                        return false;
-                }
-                optarg = NULL;
-        }
-        return true;
-}
-
 #define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 
 int main(int argc, char *argv[])
