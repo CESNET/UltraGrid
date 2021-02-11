@@ -250,6 +250,10 @@ static struct item *qinit(int qsize)
 
 static void qdestroy(struct item *queue)
 {
+    if (queue == nullptr) {
+        return;
+    }
+
     struct item *q = queue;
     do {
         free(q->buf);
