@@ -15,7 +15,7 @@ echo "/usr/local/opt/qt/bin" >> $GITHUB_PATH
 
 brew install autoconf automake cppunit libtool pkg-config
 brew install ffmpeg portaudio sdl2
-brew install imagemagick jack opencv openssl
+brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
 ( cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
 brew install qt

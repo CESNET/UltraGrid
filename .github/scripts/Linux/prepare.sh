@@ -22,7 +22,7 @@ sudo apt install libglew-dev freeglut3-dev libgl1-mesa-dev
 sudo apt install libx11-dev
 sudo apt install libsdl2-dev
 sudo apt install libssl-dev
-sudo apt install portaudio19-dev libjack-jackd2-dev libasound-dev libv4l-dev
+sudo apt install libasound-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev portaudio19-dev
 
 # for FFmpeg
 sudo apt build-dep ffmpeg
