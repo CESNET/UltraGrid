@@ -3187,6 +3187,28 @@ if test $cineform_req = yes -a $cineform = no; then
 fi
 
 # ---------------------------------------------------------------------
+# NAT-PMP
+# -----------------------------------
+natpmp=no
+AC_ARG_ENABLE(natpmp,
+              [  --disable-natpmp       disable NAT-PMP suppport (default is auto)]
+              [            Requires: natpmp],
+              [natpmp_req=$enableval],
+              [natpmp_req=$build_default]
+              )
+AC_CHECK_HEADER(natpmp.h, FOUND_NATPMP_H=yes, FOUND_NATPMP_H=no)
+AC_CHECK_LIB(natpmp, initnatpmp,  FOUND_NATPMP_L=yes, FOUND_NATPMP_L=no)
+if test "$FOUND_NATPMP_H" = yes -a "$FOUND_NATPMP_L" -a $natpmp_req != no; then
+        LIBS="-lnatpmp $LIBS"
+        AC_DEFINE([HAVE_NATPMP], [1], [Build with NAT-PMP support])
+        natpmp=yes
+fi
+
+if test $natpmp_req = yes -a $natpmp = no; then
+        AC_MSG_ERROR([NAT-PMP not found]);
+fi
+
+# ---------------------------------------------------------------------
 # PCP
 # -----------------------------------
 pcp=no
@@ -3350,6 +3372,7 @@ RESULT=`add_column "$RESULT" "Blank capture filter" $blank $?`
 RESULT=`add_column "$RESULT" "GPU accelerated LDGM" $ldgm_gpu $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
 RESULT=`add_column "$RESULT" "MCU-like video mixer" $video_mix $?`
+RESULT=`add_column "$RESULT" "NAT-PMP traversal" $natpmp $?`
 RESULT=`add_column "$RESULT" "PCP NAT traversal" $pcp $?`
 RESULT=`add_column "$RESULT" "Resize capture filter" $resize $?`
 RESULT=`add_column "$RESULT" "RTSP server" $rtsp_server $?`

@@ -43,6 +43,11 @@
 
 #include <pthread.h>
 
+#ifdef HAVE_NATPMP
+#define ENABLE_STRNATPMPERR 1
+#define STATICLIB 1
+#include <natpmp.h>
+#endif // defined HAVE_NATPMP
 #ifdef HAVE_PCP
 #include <pcp-client/pcp.h>
 #endif // defined HAVE_PCP
@@ -52,10 +57,6 @@
 #include "utils/color_out.h"
 #include "utils/nat.h"
 #include "utils/net.h"
-
-#define ENABLE_STRNATPMPERR 1
-#define STATICLIB 1
-#include "ext-deps/libnatpmp-20150609/natpmp.h"
 
 #define DEFAULT_ALLOCATION_TIMEOUT_S 1800
 #define MOD_NAME "[NAT] "
@@ -308,6 +309,7 @@ static bool setup_pcp(struct ug_nat_traverse *state, int video_rx_port, int audi
 #endif // defined HAVE_PCP
 }
 
+#ifdef HAVE_NATPMP
 static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicport, int lifetime)
 {
         if (privateport == 0 && publicport == 0) {
@@ -356,10 +358,12 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
 
         return true;
 }
+#endif // defined HAVE_NATPMP
 
 static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime)
 {
         UNUSED(state);
+#ifdef HAVE_NATPMP
         struct in_addr gateway_in_use = { 0 };
         natpmp_t natpmp;
         int r = 0;
@@ -419,6 +423,13 @@ static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int 
         r = closenatpmp(&natpmp);
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "NAT PMP - closenatpmp() returned %d (%s)\n", r, r==0?"SUCCESS":"FAILED");
         return r >= 0;
+#else
+        UNUSED(video_rx_port);
+        UNUSED(audio_rx_port);
+        UNUSED(lifetime);
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "NAT-PMP support not compiled in!\n");
+        return false;
+#endif // defined HAVE_NATPMP
 }
 
 static void done_nat_pmp(struct ug_nat_traverse *state) {

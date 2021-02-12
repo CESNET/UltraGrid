@@ -194,7 +194,6 @@ COMMON_OBJS     = \
 		ldgm/matrix-gen/matrix-generator.o \
 		ldgm/matrix-gen/ldpc-matrix.o \
 		rs/fec.o \
-		ext-deps/libnatpmp-20150609/libnatpmp.a \
 
 OBJS	      = @OBJS@ \
 		$(COMMON_OBJS)
@@ -266,16 +265,6 @@ $(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS
 	$(MKDIR_P) $(dir $@)
 	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 	touch $@
-
-ext-deps/libnatpmp-20150609/libnatpmp.a:
-	$(MKDIR_P) $(dir $@)
-ifeq ($(SYSTEM),Windows)
-	cd $(srcdir)/ext-deps/libnatpmp-20150609 && cmd /c build.bat
-	mv $(srcdir)/ext-deps/libnatpmp-20150609/natpmp.a $(dir $@)/libnatpmp.a
-else
-	make -C $(srcdir)/ext-deps/libnatpmp-20150609 libnatpmp.a
-	[ -f $@ ] || mv $(srcdir)/ext-deps/libnatpmp-20150609/libnatpmp.a $(dir $@)
-endif
 
 src/libavcodec_common.o: src/libavcodec_common.c $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
