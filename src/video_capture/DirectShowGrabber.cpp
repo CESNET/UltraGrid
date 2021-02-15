@@ -80,7 +80,6 @@ struct vidcap_dshow_state {
 	bool convert_YUYV_RGB; ///< @todo check - currently newer set
 
 	struct video_frame *frame;
-	long frameLength;
 	long grabBufferLen;
 	long returnBufferLen;
 	bool haveNewReturnBuffer;
@@ -183,7 +182,10 @@ public:
 			s->haveNewReturnBuffer = true;
 		}
 		LeaveCriticalSection(&s->returnBufferCS);
-		if (grabMightWait) WakeConditionVariable(&s->grabWaitCV);
+		if (grabMightWait) {
+			LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "WakeConditionVariable s->grabWaitCV\n";
+			WakeConditionVariable(&s->grabWaitCV);
+		}
 
 		return S_OK;
 	}
@@ -267,6 +269,13 @@ static bool common_init(struct vidcap_dshow_state *s) {
 		ErrorDescription(res);
 		return false;
 	}
+
+	// Create non-inheritable mutex without a name, owned by this thread
+	InitializeCriticalSectionAndSpinCount(&s->returnBufferCS, 0x40);
+	s->haveNewReturnBuffer = false;
+
+	s->frames = 0;
+	gettimeofday(&s->t0, NULL);
 
 	// create device enumerator
 	res = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&s->devEnumerator));
@@ -1234,15 +1243,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		goto error;
 	}
 
-	// Create non-inheritable mutex without a name, owned by this thread
-	InitializeCriticalSectionAndSpinCount(&s->returnBufferCS, 0x40);
-	s->haveNewReturnBuffer = false;
-
 	s->frame = vf_alloc_desc(s->desc);
-	s->frameLength = 0;
-
-	s->frames = 0;
-	gettimeofday(&s->t0, NULL);
 
 	*state = s;
 	return VIDCAP_INIT_OK;
@@ -1289,15 +1290,16 @@ static struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **
 	struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) state;
 	*audio = NULL;
 
-	//fprintf(stderr, "[dshow] GRAB: enter: %d\n", s->deviceNumber);
+	LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "GRAB: enter: " << s->deviceNumber << "\n";
 	EnterCriticalSection(&s->returnBufferCS);
 	//fprintf(stderr, "[dshow] s: %p\n", s);
 	while (!s->haveNewReturnBuffer) {
-		//fprintf(stderr, "[dshow] s: %p\n", s);
+		LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Wait CV\n";
 		SleepConditionVariableCS(&s->grabWaitCV, &s->returnBufferCS, INFINITE);
 		//fprintf(stderr, "[dshow] s: %p\n", s);
 	}
 
+	LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Swap buffers\n";
 	//fprintf(stderr, "[dshow] s: %p\n", s);
 	// switch the buffers
 	BYTE *tmp = s->returnBuffer;
