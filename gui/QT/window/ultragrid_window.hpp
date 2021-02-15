@@ -2,6 +2,7 @@
 #define ULTRAGRID_WINDOW_HPP
 
 #include <QProcess>
+#include <QStringList>
 #include <vector>
 #include <memory>
 
@@ -38,7 +39,7 @@ private:
 
 	AvailableSettings availableSettings;
 
-	QString launchArgs;
+	QStringList launchArgs;
 	QStringList getOptionsForParam(QString param);
 	LogWindow log;
 	SettingsWindow settingsWindow;

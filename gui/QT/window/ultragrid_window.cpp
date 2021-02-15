@@ -12,6 +12,20 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
+namespace {
+QString argListToString(const QStringList& argList){
+	return argList.join(" ");
+}
+
+QStringList argStringToList(const QString& argString){
+	return argString.split(" ", Qt::SkipEmptyParts);
+}
+
+QStringList argStringToList(const std::string& argString){
+	return QString::fromStdString(argString).split(" ", Qt::SkipEmptyParts);
+}
+} //anonymous namespace
+
 UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.setupUi(this);
 	//ui.terminal->setVisible(false);
@@ -19,7 +33,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.actionTest->setVisible(true);
 #endif //DEBUG
 
-	ultragridExecutable = "\"" + UltragridWindow::findUltragridExecutable() + "\"";
+	ultragridExecutable = UltragridWindow::findUltragridExecutable();
 
 #ifndef __linux
 	ui.actionUse_hw_acceleration->setVisible(false);
@@ -152,13 +166,9 @@ void UltragridWindow::start(){
 
 	stopPreview();
 
-	QString command(ultragridExecutable);
-
-	command += " ";
-	command += launchArgs;
 	process.setProcessChannelMode(QProcess::MergedChannels);
-	log.write("Command: " + command + "\n\n");
-	process.start(command);
+	log.write("Command args: " + argListToString(launchArgs) + "\n\n");
+	process.start(ultragridExecutable, launchArgs);
 }
 
 void UltragridWindow::schedulePreview(){
@@ -176,8 +186,7 @@ void UltragridWindow::startPreview(){
 	while(previewProcess.state() != QProcess::NotRunning)
 		stopPreview();
 
-	QString command(ultragridExecutable);
-	command += QString::fromStdString(settings.getPreviewParams());
+	QStringList previewArgs = argStringToList(settings.getPreviewParams());
 	/*
 	if(sourceOption->getCurrentValue() != "none"){
 		//We prevent video from network overriding local sources
@@ -187,9 +196,9 @@ void UltragridWindow::startPreview(){
 	*/
 
 #ifdef DEBUG
-	log.write("Preview: " + command + "\n\n");
+	log.write("Preview: " + argListToString(previewArgs) + "\n\n");
 #endif
-	previewProcess.start(command);
+	previewProcess.start(ultragridExecutable, previewArgs);
 }
 
 void UltragridWindow::stopPreview(){
@@ -203,11 +212,14 @@ void UltragridWindow::stopPreview(){
 }
 
 void UltragridWindow::editArgs(const QString &text){
-	launchArgs = text;
+	launchArgs = argStringToList(text);
 }
 
 void UltragridWindow::setArgs(){
 	QString args = QString::fromStdString(settings.getLaunchParams());
+
+	launchArgs = argStringToList(args);
+
 #ifdef DEBUG
 	log.write("set args: " + args + "\n");
 #endif
