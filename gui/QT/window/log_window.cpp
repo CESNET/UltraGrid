@@ -2,6 +2,7 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
+#include <QtGlobal>
 #include "log_window.hpp"
 
 LogWindow::LogWindow(QWidget *parent): QDialog(parent){
@@ -10,6 +11,12 @@ LogWindow::LogWindow(QWidget *parent): QDialog(parent){
 	setWindowFlags(windowFlags()
 			| Qt::WindowMinimizeButtonHint
 			| Qt::WindowCloseButtonHint);
+
+#if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
+	ui.terminal->setTabStopWidth(40);
+#else
+	ui.terminal->setTabStopDistance(40);
+#endif
 
 	connect(ui.copyBtn, SIGNAL(clicked()), this, SLOT(copyToClipboard()));
 	connect(ui.saveBtn, SIGNAL(clicked()), this, SLOT(saveToFile()));

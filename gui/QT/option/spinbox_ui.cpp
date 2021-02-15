@@ -10,7 +10,7 @@ SpinBoxUi::SpinBoxUi(QSpinBox *spinbox, Settings *settings, const std::string &o
 }
 
 void SpinBoxUi::connectSignals(){
-	connect(spinbox, Overload<const QString &>::of(&QSpinBox::valueChanged),
+	connect(spinbox, &QSpinBox::textChanged,
             this, &SpinBoxUi::textEdited);
 }
 

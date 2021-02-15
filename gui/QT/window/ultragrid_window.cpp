@@ -380,7 +380,7 @@ void UltragridWindow::processFinished(int code, QProcess::ExitStatus status){
 		msgBox.setText("Ultragrid has exited with an error! If you need help, please send an email "
 				"to ultragrid-dev@cesnet.cz with log attached.");
 		QPushButton *showLogBtn = msgBox.addButton(tr("Show log"), QMessageBox::ActionRole);
-		QPushButton *dissmissBtn = msgBox.addButton(tr("Dismiss"), QMessageBox::RejectRole);
+		msgBox.addButton(tr("Dismiss"), QMessageBox::RejectRole);
 		msgBox.exec();
 
 		if(msgBox.clickedButton() == showLogBtn){

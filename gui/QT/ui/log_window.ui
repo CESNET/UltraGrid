@@ -91,9 +91,6 @@
        <family>Monospace</family>
       </font>
      </property>
-     <property name="tabStopWidth">
-      <number>40</number>
-     </property>
      <property name="placeholderText">
       <string/>
      </property>

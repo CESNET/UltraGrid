@@ -247,6 +247,7 @@ Settings::Settings() : dummy(this){
 		if(!i.parent[0])
 			opt.addOnChangeCallback(test_callback);
 #endif
+		(void) opt; //suppress unused warning
 	}
 
 	for(const auto &i : optionCallbacks){
