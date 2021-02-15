@@ -77,6 +77,12 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	processStatus.setText("UG: Stopped");
 	ui.statusbar->addWidget(&processStatus);
 	ui.statusbar->addWidget(&previewStatus);
+
+	QString verString(GIT_CURRENT_SHA1);
+	verString += GIT_CURRENT_BRANCH;
+
+	versionLabel.setText(QString("Ver: ") + verString);
+	ui.statusbar->addPermanentWidget(&versionLabel);
 }
 
 void UltragridWindow::refresh(){

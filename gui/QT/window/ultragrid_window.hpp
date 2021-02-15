@@ -51,6 +51,8 @@ private:
 	QLabel processStatus;
 	QLabel previewStatus;
 
+	QLabel versionLabel;
+
 
 public slots:
 	void about();
