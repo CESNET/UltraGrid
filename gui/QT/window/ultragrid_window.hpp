@@ -48,6 +48,9 @@ private:
 	Settings settings;
 	SettingsUi settingsUi;
 
+	QLabel processStatus;
+	QLabel previewStatus;
+
 
 public slots:
 	void about();
@@ -70,6 +73,8 @@ private slots:
 	void setStartBtnText(QProcess::ProcessState);
 	void processStateChanged(QProcess::ProcessState);
 	void processFinished(int, QProcess::ExitStatus);
+	void previewStateChanged(QProcess::ProcessState);
+	void previewFinished(int, QProcess::ExitStatus);
 	void enablePreview(bool);
 
 	void schedulePreview();
