@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QByteArray>
+#include <QtGlobal>
 
 #include "ultragrid_window.hpp"
 
@@ -18,11 +19,19 @@ QString argListToString(const QStringList& argList){
 }
 
 QStringList argStringToList(const QString& argString){
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+	return argString.split(" ", QString::SkipEmptyParts);
+#else
 	return argString.split(" ", Qt::SkipEmptyParts);
+#endif
 }
 
 QStringList argStringToList(const std::string& argString){
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+	return QString::fromStdString(argString).split(" ", QString::SkipEmptyParts);
+#else
 	return QString::fromStdString(argString).split(" ", Qt::SkipEmptyParts);
+#endif
 }
 } //anonymous namespace
 
