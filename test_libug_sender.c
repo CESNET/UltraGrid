@@ -26,13 +26,16 @@ static void usage(const char *progname) {
         printf("\t-v - increase verbosity (use twice for debug)\n");
 }
 
+#define MIN(a, b)      (((a) < (b))? (a): (b))
+#define MAX(a, b)      (((a) > (b))? (a): (b))
+
 static void fill(unsigned char *data, int width, int height, libug_pixfmt_t pixfmt) {
         assert(pixfmt == UG_RGBA);
         for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
-                        *data++ = x % 256;
-                        *data++ = x % 256;
-                        *data++ = x % 256;
+                        *data++ = MIN(256, y % (3 * 256)) % 256;
+                        *data++ = MIN(256, MAX(0, y - 256) % (3 * 256)) % 256;
+                        *data++ = MIN(256, MAX(0, y - 512) % (3 * 256)) % 256;
                         *data++ = 255;
                 }
         }
@@ -85,12 +88,12 @@ int main(int argc, char *argv[]) {
         }
         time_t t0 = time(NULL);
         size_t len = WIDTH * HEIGHT * 4;
-        unsigned char *test = malloc(len);
-        fill(test, WIDTH, HEIGHT, UG_RGBA);
+        unsigned char *test = malloc(len + 768 * WIDTH * 4);
+        fill(test, WIDTH, HEIGHT + 768, UG_RGBA);
         uint32_t frames = 0;
         uint32_t frames_last = 0;
         while (1) {
-                ug_send_frame(s, (char *) test, UG_RGBA, WIDTH, HEIGHT, frames);
+                ug_send_frame(s, (char *) test + WIDTH * 4 * (frames % 768), UG_RGBA, WIDTH, HEIGHT, frames);
                 frames += 1;
                 time_t seconds = time(NULL) - t0;
                 if (seconds > 0) {
