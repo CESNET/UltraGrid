@@ -8,8 +8,8 @@
 
 #include <libug.h>
 
-#define WIDTH 1920
-#define HEIGHT 1080
+#define DEFAULT_WIDTH 1920
+#define DEFAULT_HEIGHT 1080
 #define FPS 30.0
 
 static void render_packet_received_callback(void *udata, struct RenderPacket *pkt) {
@@ -23,6 +23,7 @@ static void usage(const char *progname) {
         printf("\t-h - show this help\n");
         printf("\t-j - use JPEG\n");
         printf("\t-n - disable strips\n");
+        printf("\t-s - size (WxH)\n");
         printf("\t-v - increase verbosity (use twice for debug)\n");
 }
 
@@ -48,9 +49,11 @@ int main(int argc, char *argv[]) {
         init_params.rprc = render_packet_received_callback;
         init_params.rprc_udata = NULL; // not used by render_packet_received_callback()
         bool disable_strips = false;
+        int width = DEFAULT_WIDTH;
+        int height = DEFAULT_HEIGHT;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "hjnv")) != -1) {
+        while ((ch = getopt(argc, argv, "hjns:v")) != -1) {
                 switch (ch) {
                 case 'h':
                         usage(argv[0]);
@@ -60,6 +63,11 @@ int main(int argc, char *argv[]) {
                         break;
                 case 'n':
                         init_params.disable_strips = 1;
+                        break;
+                case 's':
+                        width = atoi(optarg);
+                        assert(strchr(optarg, 'x') != NULL);
+                        height = atoi(strchr(optarg, 'x') + 1);
                         break;
                 case 'v':
                         init_params.verbose += 1;
@@ -87,13 +95,13 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
         time_t t0 = time(NULL);
-        size_t len = WIDTH * HEIGHT * 4;
-        unsigned char *test = malloc(len + 768 * WIDTH * 4);
-        fill(test, WIDTH, HEIGHT + 768, UG_RGBA);
+        size_t len = width * height * 4;
+        unsigned char *test = malloc(len + 768 * width * 4);
+        fill(test, width, height + 768, UG_RGBA);
         uint32_t frames = 0;
         uint32_t frames_last = 0;
         while (1) {
-                ug_send_frame(s, (char *) test + WIDTH * 4 * (frames % 768), UG_RGBA, WIDTH, HEIGHT, frames);
+                ug_send_frame(s, (char *) test + width * 4 * (frames % 768), UG_RGBA, width, height, frames);
                 frames += 1;
                 time_t seconds = time(NULL) - t0;
                 if (seconds > 0) {
