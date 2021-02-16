@@ -359,6 +359,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 // We now have at least one source, so we create a receiver to look at it.
                 NDIlib_recv_create_v3_t create_settings{};
                 create_settings.color_format = s->requested_color == -1 ? NDIlib_recv_color_format_best : static_cast<NDIlib_recv_color_format_e>(s->requested_color);
+                create_settings.allow_video_fields = false;
                 s->pNDI_recv = NDIlib_recv_create_v3(&create_settings);
                 if (s->pNDI_recv == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Unable to create receiver!\n";
