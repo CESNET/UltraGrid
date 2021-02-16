@@ -365,6 +365,11 @@ static void * libavcodec_decompress_init(void)
 {
         struct state_libavcodec_decompress *s;
 
+        if (get_commandline_param("unstripe") != NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unstripe is not supported!\n");
+                return NULL;
+        }
+
         s = (struct state_libavcodec_decompress *)
                 calloc(1, sizeof(struct state_libavcodec_decompress));
 

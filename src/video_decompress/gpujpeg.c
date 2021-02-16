@@ -236,6 +236,11 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         
         gpujpeg_set_device(cuda_devices[0]);
 
+        if (s->unstripe || s->out_codec != CUDA_RGBA) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot unstripe - only supported to out codec CUDA_RGBA!\n");
+                return DECODER_NO_FRAME;
+        }
+
         if (s->out_codec == CUDA_RGBA) {
                 if (s->unstripe) {
                         assert(s->cuda_tmp_buf != NULL);
