@@ -10,6 +10,9 @@ Q_OBJECT
 
 public:
     WidgetUi(Settings *settings, const std::string &opt);
+	WidgetUi(WidgetUi&&) = delete;
+
+	WidgetUi& operator=(WidgetUi&&) = delete;
 
     virtual ~WidgetUi() {  }
 
@@ -25,6 +28,8 @@ protected:
     std::set<std::string> registeredCallbacks;
 
     void registerCallback();
+
+	static void optChangeCallbackStatic(Option&, bool, void *);
 
     virtual void connectSignals() = 0;
     virtual void updateUiState() = 0;

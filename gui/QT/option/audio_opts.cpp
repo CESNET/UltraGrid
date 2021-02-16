@@ -102,7 +102,9 @@ std::vector<SettingItem> getAudioSrc(AvailableSettings *availSettings){
     return res;
 }
 
-void audioCompressionCallback(Ui::UltragridWindow *win, Option &opt, bool suboption){
+void audioCompressionCallback(Option &opt, bool suboption, void *opaque){
+	Ui::UltragridWindow *win = static_cast<Ui::UltragridWindow *>(opaque);
+
 	if(suboption)
 		return;
 

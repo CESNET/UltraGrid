@@ -170,7 +170,8 @@ static std::string getBitrateOpt(Settings *settings){
 	return opt;
 }
 
-void videoCompressBitrateCallback(LineEditUi *bitrateLine, Option &opt, bool suboption){
+void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque){
+	LineEditUi *bitrateLine = static_cast<LineEditUi *>(opaque);
     if(suboption)
         return;
 

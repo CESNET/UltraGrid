@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <QMetaType>
+#include <functional>
 #include "settings_ui.hpp"
 
 void SettingsUi::init(Settings *settings, AvailableSettings *availableSettings){
@@ -46,9 +47,9 @@ void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 			settings,
 			"");
 	addControl(videoBitrate);
-	using namespace std::placeholders;
+
 	settings->getOption("video.compress").addOnChangeCallback(
-			std::bind(videoCompressBitrateCallback, videoBitrate, _1, _2)
+			Option::Callback(videoCompressBitrateCallback, videoBitrate)
 			);
 
 	addControl(
@@ -110,37 +111,38 @@ void SettingsUi::refreshAll(){
 	}
 }
 
-void vuMeterCallback(Ui::UltragridWindow *win, Option &opt, bool /*suboption*/){
-	win->vuMeter->setVisible(opt.isEnabled());
+void SettingsUi::refreshAllCallback(Option&, bool, void *opaque){
+	static_cast<SettingsUi *>(opaque)->refreshAll();
+}
+
+void vuMeterCallback(Option &opt, bool /*suboption*/, void *opaque){
+	static_cast<Ui::UltragridWindow *>(opaque)->vuMeter->setVisible(opt.isEnabled());
 }
 
 void SettingsUi::addCallbacks(){
-	using namespace std::placeholders;
+	settings->getOption("video.compress").addOnChangeCallback(
+			Option::Callback(&SettingsUi::jpegLabelCallback, this));
 
-#define OPTION_CALLBACK(opt, fun) { opt, std::bind(fun, this, _1, _2) }
-	const static struct{
-		const char *opt;
-		std::function<void(Option &, bool)> callback;
-	} callbacks[] = {
-		OPTION_CALLBACK("video.compress", &SettingsUi::jpegLabelCallback),
-		{"audio.compress", std::bind(audioCompressionCallback, mainWin, _1, _2)},
-		{"advanced", std::bind(&SettingsUi::refreshAll, this)},
-		{"vuMeter", std::bind(vuMeterCallback, mainWin, _1, _2)},
-	};
-#undef OPTION_CALLBACK
+	settings->getOption("audio.compress").addOnChangeCallback(
+			Option::Callback(&audioCompressionCallback, mainWin));
 
-	for(const auto & call : callbacks){
-		settings->getOption(call.opt).addOnChangeCallback(call.callback);
-	}
+	settings->getOption("advanced").addOnChangeCallback(
+			Option::Callback(&SettingsUi::refreshAllCallback, this));
+
+	settings->getOption("vuMeter").addOnChangeCallback(
+			Option::Callback(&vuMeterCallback, mainWin));
 }
 
 void SettingsUi::test(){
 	printf("%s\n", settings->getLaunchParams().c_str());
 }
 
-void SettingsUi::jpegLabelCallback(Option &opt, bool suboption){
+void SettingsUi::jpegLabelCallback(Option &opt, bool suboption, void *opaque){
 	if(suboption)
 		return;
+
+	SettingsUi *obj = static_cast<SettingsUi *>(opaque);
+	Ui::UltragridWindow* mainWin = obj->mainWin;
 
 	mainWin->videoBitrateLabel->setEnabled(true);
 	mainWin->videoBitrateEdit->setEnabled(true);
@@ -155,11 +157,6 @@ void SettingsUi::jpegLabelCallback(Option &opt, bool suboption){
 			mainWin->videoBitrateEdit->setEnabled(false);
 		}
 	}
-}
-
-void SettingsUi::fecCallback(Option &opt, bool){
-	mainWin->fECCheckBox->setChecked(opt.isEnabled());
-	settingsWin->fecGroupBox->setChecked(opt.isEnabled());
 }
 
 void SettingsUi::initSettingsWin(Ui::Settings *ui){

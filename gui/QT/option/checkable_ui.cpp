@@ -1,5 +1,3 @@
-#include <functional>
-
 #include "checkable_ui.hpp"
 
 CheckableUi::CheckableUi(Settings *settings, const std::string &opt) :

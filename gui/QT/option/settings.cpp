@@ -1,6 +1,21 @@
 #include <iostream>
 #include "settings.hpp"
 
+Option::Callback::Callback(fcn_type func_ptr, void *opaque) :
+	func_ptr(func_ptr),
+	opaque(opaque)
+{
+
+}
+
+void Option::Callback::operator()(Option& opt, bool suboption) const{
+	func_ptr(opt, suboption, opaque);
+}
+
+bool Option::Callback::operator==(const Callback& o) const{
+	return func_ptr == o.func_ptr && opaque == o.opaque;
+}
+
 std::string Option::getName() const{
 	return name;
 }
@@ -45,8 +60,9 @@ void Option::changed(){
 	}
 }
 
-void Option::suboptionChanged(Option &opt, bool){
-	for(const auto &callback : onChangeCallbacks){
+void Option::suboptionChanged(Option &opt, bool, void *opaque){
+	Option *obj = static_cast<Option *>(opaque);
+	for(const auto &callback : obj->onChangeCallbacks){
 		callback(opt, true);
 	}
 }
@@ -75,8 +91,7 @@ void Option::setEnabled(bool enable, bool suppressCallback){
 }
 
 void Option::addSuboption(Option *sub, const std::string &limit){
-	using namespace std::placeholders;
-	sub->addOnChangeCallback(std::bind(&Option::suboptionChanged, this, _1, _2));
+	sub->addOnChangeCallback(Callback(&Option::suboptionChanged, this));
 	suboptions.push_back(std::make_pair(limit, sub));
 }
 
@@ -89,14 +104,14 @@ Settings *Option::getSettings(){
 }
 
 #ifdef DEBUG
-static void test_callback(Option &opt, bool){
+static void test_callback(Option &opt, bool, void *){
 	std::cout << "Callback: " << opt.getName()
 		<< ": " << opt.getValue()
 		<< " (" << opt.isEnabled() << ")" << std::endl;
 }
 #endif
 
-static void fec_builder_callback(Option &opt, bool subopt){
+static void fec_builder_callback(Option &opt, bool subopt, void *){
 	if(!subopt)
 		return;
 
@@ -126,7 +141,7 @@ static void fec_builder_callback(Option &opt, bool subopt){
 
 }
 
-static void fec_auto_callback(Option &opt, bool /*subopt*/){
+static void fec_auto_callback(Option &opt, bool /*subopt*/, void *){
 	Settings *settings = opt.getSettings();
 
 	if(!settings->getOption("network.fec.auto").isEnabled())
@@ -228,7 +243,7 @@ const static struct{
 
 const struct {
 	const char *name;
-	Option::Callback callback;
+	Option::Callback::fcn_type callback;
 } optionCallbacks[] = {
 	{"network.fec", fec_builder_callback},
 	{"video.compress", fec_auto_callback},
@@ -252,7 +267,7 @@ Settings::Settings() : dummy(this){
 	}
 
 	for(const auto &i : optionCallbacks){
-		getOption(i.name).addOnChangeCallback(i.callback);
+		getOption(i.name).addOnChangeCallback(Option::Callback(i.callback, nullptr));
 	}
 
 	std::cout << getLaunchParams() << std::endl;

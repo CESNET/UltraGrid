@@ -4,14 +4,26 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <functional>
 #include <memory>
 
 class Settings;
 
 class Option{
 public:
-	using Callback = std::function<void(Option &, bool)>;
+	class Callback{
+		public:
+			using fcn_type = void (*)(Option &, bool, void *);
+
+			Callback(fcn_type func_ptr, void *opaque);
+
+			void operator()(Option &, bool) const;
+			bool operator==(const Callback&) const;
+
+		private:
+			fcn_type func_ptr;
+			void *opaque;
+	};
+
 	enum OptType{
 		StringOpt,
 		BoolOpt,
@@ -66,7 +78,7 @@ protected:
 
 	OptType type;
 
-	void suboptionChanged(Option &opt, bool suboption);
+	static void suboptionChanged(Option &opt, bool suboption, void *opaque);
 
 	std::vector<Callback> onChangeCallbacks;
 	std::vector<std::pair<std::string, Option *>> suboptions;
