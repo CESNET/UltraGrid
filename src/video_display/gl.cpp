@@ -576,6 +576,11 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
 {
         struct state_gl	*s = (struct state_gl *) state;
 
+        if (get_commandline_param("unstripe") != nullptr) {
+                desc.width *= 8;
+                desc.height /= 8;
+        }
+
         assert (desc.color_spec == RGBA ||
                         desc.color_spec == RGB  ||
                         desc.color_spec == UYVY ||
