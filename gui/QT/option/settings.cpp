@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include "settings.hpp"
 
 Option::Callback::Callback(fcn_type func_ptr, void *opaque) :
@@ -97,6 +98,24 @@ void Option::addSuboption(Option *sub, const std::string &limit){
 
 void Option::addOnChangeCallback(Callback callback){
 	onChangeCallbacks.push_back(callback);
+}
+
+void Option::removeOnChangeCallback(const Callback& callback){
+	auto it = std::find(onChangeCallbacks.begin(), onChangeCallbacks.end(), callback);
+
+	if(it == onChangeCallbacks.end()){
+		std::cout << "Attempted to remove non-existent callback "
+			<< name
+			<< std::endl;
+		return;
+	}
+
+#ifdef DEBUG
+	std::cout << "Removing callback "
+		<< name
+		<< std::endl;
+#endif
+	onChangeCallbacks.erase(it);
 }
 
 Settings *Option::getSettings(){

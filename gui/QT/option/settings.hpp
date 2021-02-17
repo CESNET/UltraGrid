@@ -64,6 +64,7 @@ public:
 
 	void addSuboption(Option *sub, const std::string &limit = "");
 	void addOnChangeCallback(Callback callback);
+	void removeOnChangeCallback(const Callback& callback);
 
 	Settings *getSettings();
 	void changed();

@@ -10,11 +10,13 @@ Q_OBJECT
 
 public:
     WidgetUi(Settings *settings, const std::string &opt);
+	WidgetUi(const WidgetUi&) = delete;
 	WidgetUi(WidgetUi&&) = delete;
 
+	WidgetUi& operator=(const WidgetUi&) = delete;
 	WidgetUi& operator=(WidgetUi&&) = delete;
 
-    virtual ~WidgetUi() {  }
+    virtual ~WidgetUi();
 
     void setOpt(const std::string &opt);
 
@@ -25,7 +27,7 @@ public:
 protected:
     Settings *settings;
     std::string opt;
-    std::set<std::string> registeredCallbacks;
+    std::map<std::string, Option::Callback> registeredCallbacks;
 
     void registerCallback();
 
