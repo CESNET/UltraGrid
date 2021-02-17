@@ -204,6 +204,14 @@ static struct video_frame *display_ndi_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
+static const struct {
+        codec_t ug_codec;
+        NDIlib_FourCC_video_type_e ndi_fourcc;
+} codec_mapping[] = {
+        { RGBA, NDIlib_FourCC_type_RGBA },
+        { UYVY, NDIlib_FourCC_type_UYVY },
+};
+
 /**
  * flag = PUTF_NONBLOCK is not implemented
  */
@@ -223,7 +231,12 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
         NDIlib_video_frame_v2_t NDI_video_frame = { 0 };
         NDI_video_frame.xres = s->desc.width;
         NDI_video_frame.yres = s->desc.height;
-        NDI_video_frame.FourCC = s->desc.color_spec == RGBA ? NDIlib_FourCC_type_RGBA : NDIlib_FourCC_type_UYVY;
+        for (size_t i = 0; i < sizeof codec_mapping / sizeof codec_mapping[0]; ++i) {
+                if (codec_mapping[i].ug_codec == frame->color_spec) {
+                        NDI_video_frame.FourCC = codec_mapping[i].ndi_fourcc;
+                }
+        }
+        assert(NDI_video_frame.FourCC != 0);
         NDI_video_frame.p_data = (uint8_t *) frame->tiles[0].data;
         NDI_video_frame.frame_rate_N = get_framerate_n(frame->fps);
         NDI_video_frame.frame_rate_D = get_framerate_d(frame->fps);
@@ -239,9 +252,13 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
 static int display_ndi_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        codec_t codecs[] = {RGBA, UYVY};
+        codec_t codecs[sizeof codec_mapping / sizeof codec_mapping[0]];
         int rgb_shift[] = {0, 8, 16};
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED};
+
+        for (size_t i = 0; i < sizeof codec_mapping / sizeof codec_mapping[0]; ++i) {
+                codecs[i] = codec_mapping[i].ug_codec;
+        }
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
