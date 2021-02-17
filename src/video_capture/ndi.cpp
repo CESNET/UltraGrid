@@ -330,8 +330,8 @@ static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, int 
         const auto *in_y = reinterpret_cast<const uint16_t *>(data);
         const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data) + out->tiles[0].width * out->tiles[0].height;
         auto *out_p = reinterpret_cast<uint16_t *>(out->tiles[0].data) + 2 * field_idx * out->tiles[0].width;
-        for (unsigned int i = 0; i < out->tiles[0].height; ++i) {
-                for (unsigned int j = 0; j < out->tiles[0].width; i += total_fields) {
+        for (unsigned int i = 0; i < out->tiles[0].height;  i += total_fields) {
+                for (unsigned int j = 0; j < out->tiles[0].width; j += 2) {
                         *out_p++ = *in_y++;
                         *out_p++ = *in_cb_cr++;
                         *out_p++ = *in_y++;
