@@ -94,7 +94,7 @@ struct vidcap_state_ndi {
 
         string requested_name; // if not empty recv from requested NDI name
         string requested_url; // if not empty recv from requested URL (either addr or addr:port)
-        int requested_color = -1;
+        NDIlib_recv_create_v3_t create_settings{};
 
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         int frames = 0;
@@ -117,7 +117,7 @@ struct vidcap_state_ndi {
 static void show_help() {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-t ndi" << rang::fg::reset <<
-                "[:help][:name=<n>][:url=<u>][:audio_level=<l>][color=<c>]\n" << rang::style::reset <<
+                "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:color=<c>][:progressive]\n" << rang::style::reset <<
                 "\twhere\n"
                 << rang::style::bold << "\t\tname\n" << rang::style::reset <<
                 "\t\t\tname of the NDI source in form "
@@ -129,6 +129,8 @@ static void show_help() {
                 << rang::style::bold << "\t\tcolor\n" << rang::style::reset <<
                 "\t\t\tcolor format, 0 - BGRX/BGRA, 1 - UYVY/BGRA, 2 - RGBX/RGBA, 3 - UYVY/RGBA, 100 - fastest (UYVY), 101 - best (default, P216/UYVY)\n"
                 "\t\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n"
+                << rang::style::bold << "\t\tprogressive\n" << rang::style::reset <<
+                "\t\t\tprefer progressive capture for interlaced input\n"
                 "\n";
 
         cout << "\tavailable sources (tentative, format: name - url):\n";
@@ -166,6 +168,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0u) {
                 s->capture_audio = true;
         }
+        s->create_settings.color_format = NDIlib_recv_color_format_best;
 
         const char *fmt = vidcap_params_get_fmt(params);
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
@@ -203,7 +206,9 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                         }
                         s->audio_divisor = pow(10.0, ref_level / 20.0); // NOLINT
                 } else if (strstr(item, "color=") == item) {
-                        s->requested_color = stoi(item + "color="s.length());
+                        s->create_settings.color_format = static_cast<NDIlib_recv_color_format_e>(stoi(item + "color="s.length()));
+                } else if (strstr(item, "progressive") == item) {
+                        s->create_settings.allow_video_fields = false;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Unknown option: " << item << "\n";
                         delete s;
@@ -212,6 +217,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
 
                 tmp = nullptr;
         }
+
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -378,10 +384,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 }
 
                 // We now have at least one source, so we create a receiver to look at it.
-                NDIlib_recv_create_v3_t create_settings{};
-                create_settings.color_format = s->requested_color == -1 ? NDIlib_recv_color_format_best : static_cast<NDIlib_recv_color_format_e>(s->requested_color);
-                create_settings.allow_video_fields = false;
-                s->pNDI_recv = NDIlib_recv_create_v3(&create_settings);
+                s->pNDI_recv = NDIlib_recv_create_v3(&s->create_settings);
                 if (s->pNDI_recv == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Unable to create receiver!\n";
                         return nullptr;
