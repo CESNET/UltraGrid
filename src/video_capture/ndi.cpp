@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,6 +89,8 @@ struct vidcap_state_ndi {
         int audio_buf_idx = 0;
         bool capture_audio = false;
         struct video_desc last_desc{};
+
+        NDIlib_video_frame_v2_t field_0; ///< stored to asssemble interleaved interlaced video together with field 1
 
         string requested_name; // if not empty recv from requested NDI name
         string requested_url; // if not empty recv from requested URL (either addr or addr:port)
@@ -223,6 +225,10 @@ static void vidcap_ndi_done(void *state)
                 free(i.data);
         }
 
+        if (s->field_0.p_data != nullptr) {
+                NDIlib_recv_free_video_v2(s->pNDI_recv, &s->field_0);
+        }
+
         // Destroy the NDI finder.
         NDIlib_find_destroy(s->pNDI_find);
 
@@ -298,30 +304,45 @@ static const NDIlib_source_t *get_matching_source(struct vidcap_state_ndi *s, co
         return nullptr;
 }
 
-using convert_t = void (*)(struct video_frame *, const uint8_t *);
+using convert_t = void (*)(struct video_frame *, const uint8_t *, int field_idx, int total_fields);
 
-static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data)
+static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data, int field_idx, int total_fields)
 {
         const auto *in_p = reinterpret_cast<const uint32_t *>(data);
-        auto *out_p = reinterpret_cast<uint32_t *>(out->tiles[0].data);
-        for (unsigned int i = 0; i < out->tiles[0].width * out->tiles[0].height; ++i) {
-                uint32_t argb = *in_p++;
-                *out_p++ = (argb & 0xFF000000U) | ((argb & 0xFFU) << 16U) | (argb & 0xFF00U) | ((argb & 0xFF0000U) >> 16U);
+        auto *out_p = reinterpret_cast<uint32_t *>(out->tiles[0].data) + field_idx * out->tiles[0].width;
+        for (unsigned int i = 0; i < out->tiles[0].height; i += total_fields) {
+                for (unsigned int j = 0; j < out->tiles[0].width; j++) {
+                        uint32_t argb = *in_p++;
+                        *out_p++ = (argb & 0xFF000000U) | ((argb & 0xFFU) << 16U) | (argb & 0xFF00U) | ((argb & 0xFF0000U) >> 16U);
+                }
+                out_p += (total_fields - 1) * out->tiles[0].width;
         }
 }
 
-static void convert_P216_Y216(struct video_frame *out, const uint8_t *data)
+static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, int field_idx, int total_fields)
 {
         const auto *in_y = reinterpret_cast<const uint16_t *>(data);
         const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data) + out->tiles[0].width * out->tiles[0].height;
-        auto *out_p = reinterpret_cast<uint16_t *>(out->tiles[0].data);
-        for (unsigned int i = 0; i < out->tiles[0].width; ++i) {
-                for (unsigned int j = 0; j < out->tiles[0].height; ++j) {
+        auto *out_p = reinterpret_cast<uint16_t *>(out->tiles[0].data) + 2 * field_idx * out->tiles[0].width;
+        for (unsigned int i = 0; i < out->tiles[0].height; ++i) {
+                for (unsigned int j = 0; j < out->tiles[0].width; i += total_fields) {
                         *out_p++ = *in_y++;
                         *out_p++ = *in_cb_cr++;
                         *out_p++ = *in_y++;
                         *out_p++ = *in_cb_cr++;
                 }
+                out_p += (total_fields - 1) * out->tiles[0].width * 2;
+        }
+}
+
+static void convert_memcpy(struct video_frame *out, const uint8_t *data, int field_idx, int total_fields)
+{
+        size_t linesize = vc_get_linesize(out->tiles[0].width, out->color_spec);
+        auto *out_p = out->tiles[0].data + field_idx * linesize;
+        for (unsigned int i = 0; i < out->tiles[0].height; i += total_fields) {
+                memcpy(out_p, data, linesize);
+                out_p += total_fields * linesize;
+                data += linesize;
         }
 }
 
@@ -387,11 +408,11 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         case NDIlib_frame_type_video:
         {
                 convert_t convert = nullptr;
-                if (video_frame.frame_format_type != NDIlib_frame_format_type_progressive && video_frame.frame_format_type != NDIlib_frame_format_type_interleaved) {
-                        LOG(LOG_LEVEL_ERROR) << "[NDI] Unsupported interlacing, please report to " PACKAGE_BUGREPORT "!\n";
-                }
+
                 out_desc = {static_cast<unsigned int>(video_frame.xres),
-                                static_cast<unsigned int>(video_frame.yres),
+                                static_cast<unsigned int>(video_frame.yres) *
+                                       (video_frame.frame_format_type == NDIlib_frame_format_type_field_0 ||
+                                       video_frame.frame_format_type == NDIlib_frame_format_type_field_1 ? 2 : 1),
                                 VIDEO_CODEC_NONE,
                                 static_cast<double>(video_frame.frame_rate_N) / video_frame.frame_rate_D,
                                 video_frame.frame_format_type == NDIlib_frame_format_type_progressive ? PROGRESSIVE : INTERLACED_MERGED,
@@ -425,11 +446,38 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 if (s->last_desc != out_desc) {
                         LOG(LOG_LEVEL_NOTICE) << "[NDI] Received video changed: " << out_desc << "\n";
                         s->last_desc = out_desc;
+                        if (s->field_0.p_data != nullptr) {
+                                NDIlib_recv_free_video_v2(s->pNDI_recv, &s->field_0);
+                                s->field_0 = NDIlib_video_frame_v2_t();
+                        }
                 }
+
+                if (video_frame.frame_format_type == NDIlib_frame_format_type_field_0) {
+                        s->field_0 = video_frame;
+                        return nullptr;
+                }
+                if (video_frame.frame_format_type == NDIlib_frame_format_type_field_1) {
+                        if (convert == nullptr) {
+                                convert = convert_memcpy;
+                        }
+                }
+
                 if (convert != nullptr) {
                         out = vf_alloc_desc_data(out_desc);
                         assert(video_frame.line_stride_in_bytes == vc_get_linesize(video_frame.xres, out_desc.color_spec));
-                        convert(out, video_frame.p_data);
+                        int field_count = video_frame.frame_format_type == NDIlib_frame_format_type_field_1 ? 2 : 1;
+                        if (field_count > 1) {
+                                if (s->field_0.p_data == nullptr) {
+                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Missing corresponding field!\n";
+                                } else {
+                                        convert(out, s->field_0.p_data, 0, field_count);
+                                        NDIlib_recv_free_video_v2(s->pNDI_recv, &s->field_0);
+                                        s->field_0 = NDIlib_video_frame_v2_t();
+                                }
+                                convert(out, video_frame.p_data, 1, field_count);
+                        } else {
+                                convert(out, video_frame.p_data, 0, 1);
+                        }
                         NDIlib_recv_free_video_v2(s->pNDI_recv, &video_frame);
                         out->callbacks.dispose = vf_free;
                 } else {
