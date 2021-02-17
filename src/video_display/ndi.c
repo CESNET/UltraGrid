@@ -71,6 +71,8 @@ struct display_ndi {
         NDIlib_send_instance_t pNDI_send;
         struct video_desc desc;
         struct audio_desc audio_desc;
+
+        char *convert_buffer; ///< for codecs that need conversion (eg. Y216->P216)
 };
 
 static void display_ndi_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -93,6 +95,8 @@ static int display_ndi_reconfigure(void *state, struct video_desc desc)
         struct display_ndi *s = (struct display_ndi *) state;
 
         s->desc = desc;
+        free(s->convert_buffer);
+        s->convert_buffer = malloc(MAX_BPS * desc.width * desc.height + MAX_PADDING);
 
         return TRUE;
 }
@@ -193,6 +197,7 @@ static void display_ndi_done(void *state)
         struct display_ndi *s = (struct display_ndi *) state;
 
         NDIlib_send_destroy(s->pNDI_send);
+        free(s->convert_buffer);
         free(s);
         NDIlib_destroy();
 }
@@ -204,12 +209,33 @@ static struct video_frame *display_ndi_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
+typedef void ndi_disp_convert_t(const struct video_frame *f, char *out);
+
+static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out)
+{
+        uint16_t *in = (uint16_t *) f->tiles[0].data;
+        uint16_t *out_y = (uint16_t *) out;
+        uint16_t *out_cb_cr = (uint16_t *) out + f->tiles[0].width * f->tiles[0].height;
+
+        for (unsigned int i = 0; i < f->tiles[0].height; ++i) {
+                for (unsigned int j = 0; j < f->tiles[0].width; j += 2) {
+                        *out_y++ = *in++;
+                        *out_cb_cr++ = *in++;
+                        *out_y++ = *in++;
+                        *out_cb_cr++ = *in++;
+                }
+        }
+}
+
 static const struct {
         codec_t ug_codec;
         NDIlib_FourCC_video_type_e ndi_fourcc;
+        ndi_disp_convert_t *convert;
 } codec_mapping[] = {
-        { RGBA, NDIlib_FourCC_type_RGBA },
-        { UYVY, NDIlib_FourCC_type_UYVY },
+        { RGBA, NDIlib_FourCC_type_RGBA, NULL },
+        { UYVY, NDIlib_FourCC_type_UYVY, NULL },
+        { I420, NDIlib_FourCC_video_type_I420, NULL },
+        { Y216, NDIlib_FourCC_type_P216, ndi_disp_convert_Y216_to_P216 },
 };
 
 /**
@@ -228,20 +254,29 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
                 return TRUE;
         }
 
+        ndi_disp_convert_t *convert = NULL;
+
         NDIlib_video_frame_v2_t NDI_video_frame = { 0 };
         NDI_video_frame.xres = s->desc.width;
         NDI_video_frame.yres = s->desc.height;
         for (size_t i = 0; i < sizeof codec_mapping / sizeof codec_mapping[0]; ++i) {
                 if (codec_mapping[i].ug_codec == frame->color_spec) {
                         NDI_video_frame.FourCC = codec_mapping[i].ndi_fourcc;
+                        convert = codec_mapping[i].convert;
                 }
         }
         assert(NDI_video_frame.FourCC != 0);
-        NDI_video_frame.p_data = (uint8_t *) frame->tiles[0].data;
         NDI_video_frame.frame_rate_N = get_framerate_n(frame->fps);
         NDI_video_frame.frame_rate_D = get_framerate_d(frame->fps);
         NDI_video_frame.frame_format_type = frame->interlacing == PROGRESSIVE ? NDIlib_frame_format_type_progressive : NDIlib_frame_format_type_interleaved;
         NDI_video_frame.timecode = NDIlib_send_timecode_synthesize;
+
+        if (convert != NULL) {
+                convert(frame, s->convert_buffer);
+                NDI_video_frame.p_data = (uint8_t *) s->convert_buffer;
+        } else {
+                NDI_video_frame.p_data = (uint8_t *) frame->tiles[0].data;
+        }
 
         NDIlib_send_send_video_v2(s->pNDI_send, &NDI_video_frame);
         vf_free(frame);
