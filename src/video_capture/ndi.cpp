@@ -411,6 +411,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                 convert = convert_BGRA_RGBA;
                                 // fall through
                         case NDIlib_FourCC_type_RGBA:
+                        case NDIlib_FourCC_type_RGBX:
                                 out_desc.color_spec = RGBA;
                                 break;
                         default:
