@@ -90,6 +90,7 @@ struct vidcap_dshow_state {
 
 	unsigned long frames;
 	struct timeval t0;
+	bool should_exit;
 
 	CRITICAL_SECTION returnBufferCS;
 	CONDITION_VARIABLE grabWaitCV;
@@ -886,6 +887,14 @@ static HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory)
     return hr;
 }
 
+static void vidcap_dshow_should_exit(void *state) {
+	auto *s = static_cast<vidcap_dshow_state *>(state);
+	EnterCriticalSection(&s->returnBufferCS);
+	s->should_exit = true;
+	LeaveCriticalSection(&s->returnBufferCS);
+	WakeConditionVariable(&s->grabWaitCV);
+}
+
 static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	struct vidcap_dshow_state *s;
 	HRESULT res;
@@ -1244,6 +1253,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	}
 
 	s->frame = vf_alloc_desc(s->desc);
+	register_should_exit_callback(vidcap_params_get_parent(params), vidcap_dshow_should_exit, s);
 
 	*state = s;
 	return VIDCAP_INIT_OK;
@@ -1293,10 +1303,15 @@ static struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **
 	LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "GRAB: enter: " << s->deviceNumber << "\n";
 	EnterCriticalSection(&s->returnBufferCS);
 	//fprintf(stderr, "[dshow] s: %p\n", s);
-	while (!s->haveNewReturnBuffer) {
+	while (!s->haveNewReturnBuffer && !s->should_exit) {
 		LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Wait CV\n";
 		SleepConditionVariableCS(&s->grabWaitCV, &s->returnBufferCS, INFINITE);
 		//fprintf(stderr, "[dshow] s: %p\n", s);
+	}
+
+	if (s->should_exit) {
+		LeaveCriticalSection(&s->returnBufferCS);
+		return nullptr;
 	}
 
 	LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Swap buffers\n";
