@@ -426,8 +426,8 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                         s->last_desc = out_desc;
                 }
                 if (convert != nullptr) {
-                        auto *out = vf_alloc_desc_data(out_desc);
-                        assert(video_frame.line_stride_in_bytes == video_frame.xres * get_bits_per_component(out_desc.color_spec) / 8);
+                        out = vf_alloc_desc_data(out_desc);
+                        assert(video_frame.line_stride_in_bytes == vc_get_linesize(video_frame.xres, out_desc.color_spec));
                         convert(out, video_frame.p_data);
                         NDIlib_recv_free_video_v2(s->pNDI_recv, &video_frame);
                         out->callbacks.dispose = vf_free;
