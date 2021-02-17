@@ -42,6 +42,47 @@ void AvailableSettings::queryAll(const std::string &executable){
 	queryCap(lines, AUDIO_COMPRESS, "[cap][audio_compress] ");
 	
 	queryDevices(lines);
+	queryVideoCompress(lines);
+}
+
+void AvailableSettings::queryVideoCompress(const QStringList &lines){
+	const char * const devStr = "[capability][video_compress][v2]";
+	size_t devStrLen = strlen(devStr);
+
+	videoCompressModules.clear();
+
+	videoCompressModules.push_back({
+			"libavcodec",
+			{
+				{"Bitrate", "Video Bitrate desc", "quality", ":bitrate=", false},
+				{"Crf", "Constant rate factor", "crf", ":crf=", false},
+			},
+			{
+				{
+					"H.264",
+					{
+						{"default", ":codec=H.264"},
+						{"libx264", ":encoder=libx264"}
+					}
+				}
+			}
+			});
+
+	videoCompressModules.push_back({
+			"cineform",
+			{
+				{"Quality", "Video quality desc", "quality", ":quality=", false},
+				{"Threads", "Number of threads to use", "threads", ":threads=", false},
+			},
+			{
+				{
+					"Cineform",
+					{
+						{"default", ""}
+					}
+				}
+			}
+			});
 }
 
 void AvailableSettings::queryDevices(const QStringList &lines){
