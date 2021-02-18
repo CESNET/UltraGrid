@@ -120,36 +120,61 @@ static const VideoCompressItem videoCodecs[] = {
 	{"Cineform", "cineform", false},
 };
 
+void populateVideoCompressSettings(AvailableSettings *availSettings,
+		Settings* settings)
+{
+	for(const auto& mod : availSettings->getVideoCompressModules()){
+		std::string codecOptKey = mod.name + ".codec";
+		settings->addOption(codecOptKey,
+				Option::SilentOpt,
+				"",
+				mod.codecs[0].name,
+				false,
+				"video.compress",
+				mod.name);
+
+		for(const auto& modOption: mod.opts){
+			settings->addOption(modOption.key,
+					modOption.booleanOpt ? Option::BoolOpt : Option::StringOpt,
+					modOption.optStr,
+					"",
+					false,
+					"video.compress." + mod.name,
+					mod.name
+					);
+		}
+
+		for(const auto& codec : mod.codecs){
+			std::string optName = "video.compress.";
+			optName += mod.name;
+			optName += ".codec";
+
+			settings->addOption(codec.name + ".encoder",
+					Option::StringOpt,
+					"",
+					codec.encoders[0].optStr,
+					true,
+					optName,
+					codec.name);
+		}
+	}
+}
+
 std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings){
     std::vector<SettingItem> res;
 
     const std::string optStr = "video.compress";
 
-    for(const auto &i : videoCodecs){
-        SettingItem item;
-        item.name = i.displayName;
-        std::string value;
-        if(i.isLibav){
-            value = "libavcodec";
-            item.opts.push_back({optStr + ".libavcodec.codec", i.value});
-        } else {
-            value = i.value;
-        }
-        item.opts.push_back({optStr, value});
+	for(const auto& mod : availSettings->getVideoCompressModules()){
+		for(const auto& codec : mod.codecs){
+			SettingItem item;
+			item.name = codec.name;
+			item.opts.push_back({"video.compress", mod.name});
+			item.opts.push_back({"video.compress." + mod.name + ".codec", codec.name});
 
-        bool available = value.empty() ? true : false;
-        for(const auto &i : availSettings->getAvailableSettings(VIDEO_COMPRESS)){
-            if(value == i){
-                available = true;
-                break;
-            }
-        }
-        if(!available){
-            item.conditions.push_back({{{"advanced", "t"}, false}});
-        }
-
-        res.push_back(std::move(item));
-    }
+			res.push_back(std::move(item));
+		}
+	}
 
     return res;
 }

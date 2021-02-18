@@ -15,6 +15,8 @@ void SettingsUi::addControl(WidgetUi *widget){
 	connect(widget, &WidgetUi::changed, this, &SettingsUi::changed);
 }
 
+
+
 void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 	mainWin = ui;
 

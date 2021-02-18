@@ -14,6 +14,9 @@ std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings);
 std::vector<SettingItem> getVideoModes(AvailableSettings *availSettings);
 std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings);
 
+void populateVideoCompressSettings(AvailableSettings *availSettings,
+		Settings* settings);
+
 void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque);
 
 

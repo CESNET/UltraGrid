@@ -60,6 +60,8 @@ void AvailableSettings::queryVideoCompress(const QStringList &lines){
 
 	videoCompressModules.clear();
 
+	videoCompressModules.emplace_back(CompressModule{"", {}, {Codec{"None", {Encoder{"default", ""}}}}});
+
 	foreach ( const QString &line, lines ) {
 		if(!line.startsWith(devStr))
 			continue;

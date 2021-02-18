@@ -46,10 +46,10 @@ std::string Option::getLaunchOption() const{
 		return enabled ? param : "";
 	}
 
-	if(!enabled || value.empty() || type == OptType::SilentOpt)
-		return "";
+	std::string out = "";
+	if(enabled && !value.empty() && type != OptType::SilentOpt)
+		out = param + value;
 
-	std::string out = param + value;
 	out += getSubVals();
 
 	return out;
@@ -218,12 +218,6 @@ const static struct{
 	{"sdl.deinterlace", Option::BoolOpt, ":d", "f", false, "video.display", "sdl"},
 	{"sdl.fullscreen", Option::BoolOpt, ":fs", "f", false, "video.display", "sdl"},
 	{"video.compress", Option::StringOpt, " -c ", "", false, "", ""},
-	{"libavcodec.codec", Option::StringOpt, ":codec=", "", false, "video.compress", "libavcodec"},
-	{"H.264.bitrate", Option::StringOpt, ":bitrate=", "", false, "video.compress.libavcodec.codec", "H.264"},
-	{"H.265.bitrate", Option::StringOpt, ":bitrate=", "", false, "video.compress.libavcodec.codec", "H.265"},
-	{"MJPEG.bitrate", Option::StringOpt, ":bitrate=", "", false, "video.compress.libavcodec.codec", "MJPEG"},
-	{"VP8.bitrate", Option::StringOpt, ":bitrate=", "", false, "video.compress.libavcodec.codec", "VP8"},
-	{"jpeg.quality", Option::StringOpt, ":", "", false, "video.compress", "jpeg"},
 	{"audio.source", Option::StringOpt, " -s ", "", false, "", ""},
 	{"audio.source.channels", Option::StringOpt, " --audio-capture-format channels=", "", false, "", ""},
 	{"audio.playback", Option::StringOpt, " -r ", "", false, "", ""},

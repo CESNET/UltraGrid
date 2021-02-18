@@ -78,6 +78,10 @@ public:
 
 	const std::vector<Device>& getDevices(SettingType type) const;
 
+	const std::vector<CompressModule>& getVideoCompressModules() const {
+		return videoCompressModules;
+	}
+
 private:
 	std::vector<std::string> available[SETTING_TYPE_COUNT];
 	std::vector<Device> devices[SETTING_TYPE_COUNT];
