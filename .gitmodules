@@ -7,3 +7,9 @@
 [submodule "glm"]
 	path = glm
 	url = https://github.com/g-truc/glm.git
+[submodule "ext-deps/speex"]
+	path = ext-deps/speex
+	url = https://gitlab.xiph.org/xiph/speex
+[submodule "ext-deps/speexdsp"]
+	path = ext-deps/speexdsp
+	url = https://gitlab.xiph.org/xiph/speexdsp

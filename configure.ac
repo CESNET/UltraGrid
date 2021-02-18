@@ -2493,16 +2493,33 @@ fi
 # SPEEX
 
 speex=yes
-SPEEX_PATH=speex-1.2rc1
-SPEEX_INC=-I$srcdir/${SPEEX_PATH}/include
-SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
-SPEEX_OBJ="$SPEEX_OBJ src/audio/echo.o"
+SPEEX_PATH=ext-deps/speex
+SPEEXDSP_PATH=ext-deps/speexdsp
+SPEEX_INC="-I$srcdir/${SPEEX_PATH}/include -I$srcdir/${SPEEXDSP_PATH}/include"
+SPEEX_OBJ="src/audio/echo.o src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
 SPEEX_LIB=
 AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
+
+SAVED_CFLAGS=$CFLAGS
+SAVED_CPPFLAGS=$CPPFLAGS
+CFLAGS="$CFLAGS $SPEEX_INC"
+CPPFLAGS="$CPPFLAGS $SPEEX_INC"
+AC_CHECK_HEADER([speex/speex.h])
+AC_CHECK_HEADER([speex/speex_resampler.h])
+CFLAGS=$SAVED_CFLAGS
+CPPFLAGS=$SAVED_CPPFLAGS
+
+if test "$ac_cv_header_speex_speex_h" != yes -o "$ac_cv_header_speex_speex_resampler_h" != yes; then
+        AC_MSG_ERROR([Speex/SpeexDSP is a hard dependency, download it into $SPEEX_PATH and $SPEEXDSP_PATH]
+[This should be usually automatic - please report to $PACKAGE_BUGREPORT if not sure why getting this.]);
+fi
+
 
 AC_SUBST(SPEEX_INC)
 AC_SUBST(SPEEX_LIB)
 AC_SUBST(SPEEX_OBJ)
+AC_SUBST(SPEEX_PATH)
+AC_SUBST(SPEEXDSP_PATH)
 
 # -------------------------------------------------------------------------------------------------
 #
