@@ -20,3 +20,12 @@ void LineEditUi::updateUiState(){
     updateUiState(getOptValue());
 }
 
+void LineEditUi::setEnabled(bool enabled){
+	line->setEnabled(enabled);
+}
+
+void LineEditUi::setToolTip(const QString& toolTip){
+	line->setToolTip(toolTip);
+}
+
+

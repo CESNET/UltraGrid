@@ -10,6 +10,9 @@ Q_OBJECT
 public:
     LineEditUi(QLineEdit *line, Settings *settings, const std::string &opt);
 
+	void setEnabled(bool enabled);
+	void setToolTip(const QString& toolTip);
+
 private:
     QLineEdit *line;
 

@@ -1,4 +1,5 @@
 #include <cstring>
+#include <QLabel>
 
 #include "video_opts.hpp"
 #include "combobox_ui.hpp"
@@ -134,12 +135,12 @@ void populateVideoCompressSettings(AvailableSettings *availSettings,
 				mod.name);
 
 		for(const auto& modOption: mod.opts){
-			settings->addOption(modOption.key,
+			settings->addOption(mod.name + "." + modOption.key,
 					modOption.booleanOpt ? Option::BoolOpt : Option::StringOpt,
 					modOption.optStr,
 					"",
 					false,
-					"video.compress." + mod.name,
+					"video.compress",
 					mod.name
 					);
 		}
@@ -179,26 +180,39 @@ std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings){
     return res;
 }
 
-static std::string getBitrateOpt(Settings *settings){
-	std::string codec = settings->getOption("video.compress").getValue();
-	std::string opt = "video.compress." + codec;
-	if(codec == "libavcodec"){
-		opt += ".codec."
-			+ settings->getOption("video.compress.libavcodec.codec").getValue()
-			+ ".bitrate";
-	} else if (codec == "jpeg") {
-		opt += ".quality";
-	} else {
-		opt += codec + ".bitrate";
+void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque){
+	VideoBitrateCallbackData *data = static_cast<VideoBitrateCallbackData *>(opaque);
+	if(suboption)
+		return;
+
+	Settings *settings = opt.getSettings();
+	std::string mod = settings->getOption("video.compress").getValue();
+	std::string codec = settings->getOption("video.compress." + mod + ".codec").getValue();
+
+	bool enableEdit = false;
+	QString toolTip;
+	QString qualityLabel;
+
+	for(const auto& compMod : data->availSettings->getVideoCompressModules()){
+		if(compMod.name == mod){
+			for(const auto& modOpt : compMod.opts){
+				if(modOpt.key == "quality"){
+					enableEdit = true;
+					toolTip = QString::fromStdString(modOpt.displayDesc);
+					qualityLabel = QString::fromStdString(modOpt.displayName);
+					break;
+				}
+			}
+		}
 	}
 
-	return opt;
-}
-
-void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque){
-	LineEditUi *bitrateLine = static_cast<LineEditUi *>(opaque);
-    if(suboption)
-        return;
-
-    bitrateLine->setOpt(getBitrateOpt(opt.getSettings()));
+    data->lineEditUi->setOpt("video.compress." + mod + ".quality");
+	data->lineEditUi->setEnabled(enableEdit);
+	data->lineEditUi->setToolTip(toolTip);
+	if(data->label){
+		data->label->setEnabled(enableEdit);
+		data->label->setToolTip(toolTip);
+		if(!qualityLabel.isEmpty())
+			data->label->setText(qualityLabel);
+	}
 }

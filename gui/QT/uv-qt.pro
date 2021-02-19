@@ -65,6 +65,7 @@ HEADERS += window/ultragrid_window.hpp \
 	option/audio_opts.hpp \
 	option/video_opts.hpp \
 	util/overload.hpp \
+	util/extra_callback_data.hpp \
 
 FORMS += ui/ultragrid_window.ui \
 	ui/log_window.ui \

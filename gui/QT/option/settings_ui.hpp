@@ -37,7 +37,6 @@ private:
 
 	std::vector<std::unique_ptr<WidgetUi>> uiControls;
 
-	static void jpegLabelCallback(Option &opt, bool suboption, void *); 
 	static void refreshAllCallback(Option&, bool, void *);
 
 	void addCallbacks();

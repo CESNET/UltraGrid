@@ -2,8 +2,10 @@
 #define WIDGET_UI
 
 #include <QObject>
-#include <set>
+#include <vector>
+#include <utility>
 #include "settings.hpp"
+#include "extra_callback_data.hpp"
 
 class WidgetUi : public QObject{
 Q_OBJECT
@@ -23,11 +25,15 @@ public:
     virtual void refresh() {  }
 
     void registerCallback(const std::string &option);
+    void registerCustomCallback(const std::string &option,
+			Option::Callback callback,
+			std::unique_ptr<ExtraCallbackData>&& extraDataPtr = nullptr);
 
 protected:
     Settings *settings;
     std::string opt;
-    std::map<std::string, Option::Callback> registeredCallbacks;
+    std::vector<std::pair<std::string, Option::Callback>> registeredCallbacks;
+    std::vector<std::unique_ptr<ExtraCallbackData>> extraData;
 
     void registerCallback();
 

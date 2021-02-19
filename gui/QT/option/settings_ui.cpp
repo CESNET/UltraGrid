@@ -3,6 +3,7 @@
 #include <QMetaType>
 #include <functional>
 #include "settings_ui.hpp"
+#include "video_opts.hpp"
 
 void SettingsUi::init(Settings *settings, AvailableSettings *availableSettings){
 	this->settings = settings;
@@ -50,9 +51,17 @@ void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 			"");
 	addControl(videoBitrate);
 
-	settings->getOption("video.compress").addOnChangeCallback(
-			Option::Callback(videoCompressBitrateCallback, videoBitrate)
-			);
+	std::unique_ptr<VideoBitrateCallbackData> vidBitrateCallData(new VideoBitrateCallbackData());
+
+	vidBitrateCallData->availSettings = availableSettings;
+	vidBitrateCallData->lineEditUi = videoBitrate;
+	vidBitrateCallData->label = mainWin->videoBitrateLabel;
+
+	auto extraPtr = vidBitrateCallData.get();
+	videoBitrate->registerCustomCallback("video.compress",
+			Option::Callback(videoCompressBitrateCallback, extraPtr),
+			std::move(vidBitrateCallData));
+
 
 	addControl(
 			new ComboBoxUi(ui->videoCompressionComboBox,
@@ -122,9 +131,6 @@ void vuMeterCallback(Option &opt, bool /*suboption*/, void *opaque){
 }
 
 void SettingsUi::addCallbacks(){
-	settings->getOption("video.compress").addOnChangeCallback(
-			Option::Callback(&SettingsUi::jpegLabelCallback, this));
-
 	settings->getOption("audio.compress").addOnChangeCallback(
 			Option::Callback(&audioCompressionCallback, mainWin));
 
@@ -137,28 +143,6 @@ void SettingsUi::addCallbacks(){
 
 void SettingsUi::test(){
 	printf("%s\n", settings->getLaunchParams().c_str());
-}
-
-void SettingsUi::jpegLabelCallback(Option &opt, bool suboption, void *opaque){
-	if(suboption)
-		return;
-
-	SettingsUi *obj = static_cast<SettingsUi *>(opaque);
-	Ui::UltragridWindow* mainWin = obj->mainWin;
-
-	mainWin->videoBitrateLabel->setEnabled(true);
-	mainWin->videoBitrateEdit->setEnabled(true);
-
-	const std::string &val = opt.getValue();
-	if(val == "jpeg"){
-		mainWin->videoBitrateLabel->setText(QString("Jpeg quality"));
-	} else {
-		mainWin->videoBitrateLabel->setText(QString("Bitrate"));
-		if(val == ""){
-			mainWin->videoBitrateLabel->setEnabled(false);
-			mainWin->videoBitrateEdit->setEnabled(false);
-		}
-	}
 }
 
 void SettingsUi::initSettingsWin(Ui::Settings *ui){

@@ -22,14 +22,36 @@ void WidgetUi::optChangeCallbackStatic(Option& opt, bool subopt, void *opaque){
 	static_cast<WidgetUi *>(opaque)->optChangeCallback(opt, subopt);
 }
 
+void WidgetUi::registerCustomCallback(const std::string &option,
+		Option::Callback callback,
+		std::unique_ptr<ExtraCallbackData>&& extraDataPtr)
+{
+	if(option == "")
+		return;
+
+	std::pair<std::string, Option::Callback> elToInsert(option, callback);
+
+	auto it = std::find(registeredCallbacks.begin(),
+			registeredCallbacks.end(), elToInsert);
+	if(it != registeredCallbacks.end()){
+		return;
+	}
+
+
+	settings->getOption(option).addOnChangeCallback(callback);
+	registeredCallbacks.push_back(elToInsert);
+
+	if(extraDataPtr)
+		extraData.emplace_back(std::move(extraDataPtr));
+
+}
+
 void WidgetUi::registerCallback(const std::string &option){
-	if(option == "" || registeredCallbacks.find(option) != registeredCallbacks.end())
+	if(option == "")
 		return;
 
 	Option::Callback callback(&WidgetUi::optChangeCallbackStatic, this);
-	settings->getOption(option).addOnChangeCallback(callback);
-
-	registeredCallbacks.insert({option, callback});
+	registerCustomCallback(option, callback);
 }
 
 void WidgetUi::registerCallback(){
