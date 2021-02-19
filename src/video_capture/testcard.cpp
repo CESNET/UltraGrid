@@ -352,7 +352,7 @@ static auto configure_sdl_mixer_audio(struct testcard_state *s) {
 
         s->midi_buf = ring_buffer_init(AUDIO_BUFFER_SIZE(s->audio.ch_count) /* 1 sec */);
 
-        printf("[testcard] Initialized MIDI\n");
+        cout << MOD_NAME << "Initialized MIDI\n";
 
         return true;
 #else
