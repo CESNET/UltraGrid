@@ -249,6 +249,12 @@ static void vidcap_ndi_done(void *state)
 static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *frame)
 {
         struct audio_desc d{4, frame->sample_rate, static_cast<int>(audio_capture_channels > 0 ? audio_capture_channels : frame->no_channels), AC_PCM};
+
+        if (frame->no_channels != d.ch_count && s->audio[s->audio_buf_idx].ch_count == 0 && s->audio_buf_idx == 0) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Requested " << s->audio[s->audio_buf_idx].ch_count
+                        << " channels, stream has " << frame->no_channels << "!\n";
+        }
+
         if (!audio_desc_eq(d, audio_desc_from_audio_frame(&s->audio[s->audio_buf_idx]))) {
                 free(s->audio[s->audio_buf_idx].data);
                 s->audio[s->audio_buf_idx].bps = 4;
@@ -260,21 +266,21 @@ static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *fr
                 s->audio[s->audio_buf_idx].data = static_cast<char *>(malloc(s->audio[s->audio_buf_idx].max_size));
         }
 
-        if (frame->no_channels > s->audio[s->audio_buf_idx].ch_count) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Requested " << s->audio[s->audio_buf_idx].ch_count << " channels, stream has only "
-                        << frame->no_channels << "!\n";
-        }
-
         for (int i = 0; i < frame->no_samples; ++i) {
                 float *in = frame->p_data + i;
                 int32_t *out = (int32_t *) s->audio[s->audio_buf_idx].data + i * d.ch_count;
-                for (int j = 0; j < max(d.ch_count, frame->no_channels); ++j) {
+                int j = 0;
+                for (; j < min(d.ch_count, frame->no_channels); ++j) {
                         if (s->audio[s->audio_buf_idx].data_len >= s->audio[s->audio_buf_idx].max_size) {
                                 LOG(LOG_LEVEL_WARNING) << "[NDI] Audio frame too small!\n";
                                 return;
                         }
                         *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in / s->audio_divisor * INT32_MAX));
                         in += frame->channel_stride_in_bytes / sizeof(float);
+                        s->audio[s->audio_buf_idx].data_len += sizeof(int32_t);
+                }
+                for (; j < d.ch_count; ++j) { // fill excess channels with zeros
+                        *out++ = 0;
                         s->audio[s->audio_buf_idx].data_len += sizeof(int32_t);
                 }
         }
