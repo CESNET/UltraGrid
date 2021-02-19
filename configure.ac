@@ -1600,6 +1600,7 @@ then
 
         if test "$FOUND_SDL_MIXER" = yes
         then
+                AC_DEFINE([HAVE_LIBSDL_MIXER], [1], [Build testcard with SDL Mixer support])
                 TESTCARD_LIB="$SDL_MIXER_LIBS"
         fi
 

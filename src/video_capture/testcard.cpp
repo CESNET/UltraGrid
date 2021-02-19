@@ -68,6 +68,7 @@
 #include "video_capture/testcard_common.h"
 #include "song1.h"
 #include "utils/color_out.h"
+#include "utils/ring_buffer.h"
 #include "utils/vf_split.h"
 #include <algorithm>
 #include <stdio.h>
@@ -274,8 +275,13 @@ struct testcard_state {
         int tiles_cnt_vertical;
 
         vector <char> audio_data;
-        volatile int audio_start, audio_end;
-        unsigned int grab_audio:1;
+        struct ring_buffer *midi_buf{};
+        enum class grab_audio_t {
+                NONE,
+                ANY,
+                MIDI,
+                SINE,
+        } grab_audio;
 
         unsigned int still_image;
         unique_ptr<image_pattern> pattern {new image_pattern_bars};
@@ -292,22 +298,12 @@ static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r
 }
 
 #if defined HAVE_LIBSDL_MIXER && ! defined HAVE_MACOSX
-static void grab_audio(int chan, void *stream, int len, void *udata)
+static void midi_audio_callback(int chan, void *stream, int len, void *udata)
 {
         UNUSED(chan);
         struct testcard_state *s = (struct testcard_state *) udata;
 
-        if(s->audio_end + len <= AUDIO_BUFFER_SIZE(s->audio.ch_count)) {
-                memcpy(&s->audio_data[s->audio_end], stream, len);
-                s->audio_end += len;
-        } else {
-                int offset = AUDIO_BUFFER_SIZE(s->audio.ch_count) - s->audio_end;
-                memcpy(&s->audio_data[s->audio_end], stream, offset);
-                memcpy(s->audio_data.data(), (char *) stream + offset, len - offset);
-                s->audio_end = len - offset;
-        }
-        /* just hack - Mix_Volume doesn't mute correctly the audio */
-        memset(stream, 0, len);
+        ring_buffer_write(s->midi_buf, static_cast<const char *>(stream), len);
 }
 #endif
 
@@ -343,7 +339,7 @@ static auto configure_sdl_mixer_audio(struct testcard_state *s) {
         music = Mix_LoadMUS(filename);
 
         // register grab as a postmix processor
-        if(!Mix_RegisterEffect(MIX_CHANNEL_POST, grab_audio, NULL, s)) {
+        if (!Mix_RegisterEffect(MIX_CHANNEL_POST, midi_audio_callback, nullptr, s)) {
                 printf("[testcard] Mix_RegisterEffect: %s\n", Mix_GetError());
                 return false;
         }
@@ -354,7 +350,9 @@ static auto configure_sdl_mixer_audio(struct testcard_state *s) {
         }
         Mix_Volume(-1, 0);
 
-        printf("[testcard] playing audio\n");
+        s->midi_buf = ring_buffer_init(AUDIO_BUFFER_SIZE(s->audio.ch_count) /* 1 sec */);
+
+        printf("[testcard] Initialized MIDI\n");
 
         return true;
 #else
@@ -373,21 +371,30 @@ static void configure_fallback_audio(struct testcard_state *s) {
         }
 }
 
-static void configure_audio(struct testcard_state *s)
+static auto configure_audio(struct testcard_state *s)
 {
-        s->audio_start = 0;
-        s->audio_end = 0;
         s->audio.bps = AUDIO_BPS;
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
-        s->audio_data.resize(AUDIO_BUFFER_SIZE(s->audio.ch_count) /* 1 sec */);
+        s->audio.max_size = AUDIO_BUFFER_SIZE(s->audio.ch_count);
+        s->audio_data.resize(s->audio.max_size);
+        s->audio.data = s->audio_data.data();
 
-        if (configure_sdl_mixer_audio(s)) {
-                return;
+        if (s->grab_audio != testcard_state::grab_audio_t::SINE) {
+                if (configure_sdl_mixer_audio(s)) {
+                        s->grab_audio = testcard_state::grab_audio_t::MIDI;
+                        return true;
+                }
+                if (s->grab_audio == testcard_state::grab_audio_t::MIDI) {
+                        return false;
+                }
         }
 
         LOG(LOG_LEVEL_WARNING) << MOD_NAME "SDL-mixer missing, running on Mac or other problem - using fallback audio.\n";
         configure_fallback_audio(s);
+        s->grab_audio = testcard_state::grab_audio_t::SINE;
+
+        return true;
 }
 
 
@@ -554,7 +561,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>]\n");
+                cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>][:apattern=sine|midi]\n");
                 cout << "where\n";
                 cout << BOLD("\t<filename>") << " - use file named filename instead of default bars\n";
                 cout << BOLD("\tp") << " - pan with frame\n";
@@ -562,6 +569,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\ti|sf") << " - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
                 cout << BOLD("\tstill") << " - send still image\n";
                 cout << BOLD("\tpattern") << " - pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>\n");
+                cout << BOLD("\tapattern") << " - audio pattern to use - \"sine\" or an included \"midi\"\n";
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
         }
@@ -636,6 +644,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                                 fprintf(stderr, "[testcard] Unknown pattern!\n");;
                                 goto error;
                         }
+                } else if (strstr(tmp, "apattern=") == tmp) {
+                        s->grab_audio = strcasecmp(tmp + strlen("apattern="), "sine") == 0 ? testcard_state::grab_audio_t::SINE : testcard_state::grab_audio_t::MIDI;
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
                         goto error;
@@ -720,10 +730,15 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
-                s->grab_audio = TRUE;
-                configure_audio(s);
+                if (s->grab_audio == testcard_state::grab_audio_t::NONE) {
+                        s->grab_audio = testcard_state::grab_audio_t::ANY;
+                }
+                if (!configure_audio(s)) {
+                        LOG(LOG_LEVEL_ERROR) << "Cannot initialize audio!\n";
+                        goto error;
+                }
         } else {
-                s->grab_audio = FALSE;
+                s->grab_audio = testcard_state::grab_audio_t::NONE;
         }
 
         free(fmt);
@@ -755,6 +770,7 @@ static void vidcap_testcard_done(void *state)
                 vf_free(s->tiled);
         }
         vf_free(s->frame);
+        ring_buffer_destroy(s->midi_buf);
         delete s;
 }
 
@@ -773,27 +789,18 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
 
         state->last_frame_time = curr_time;
 
-        if (state->grab_audio) {
-                state->audio.data = &state->audio_data[state->audio_start];
-#if defined HAVE_LIBSDL_MIXER && ! defined HAVE_MACOSX
-                if(state->audio_start < state->audio_end) {
-                        int tmp = state->audio_end;
-                        state->audio.data_len = tmp - state->audio_start;
-                        state->audio_start = tmp;
+        if (state->grab_audio != testcard_state::grab_audio_t::NONE) {
+                if (state->grab_audio == testcard_state::grab_audio_t::MIDI) {
+                        state->audio.data_len = ring_buffer_read(state->midi_buf, state->audio.data, state->audio.max_size);
+                } else if (state->grab_audio == testcard_state::grab_audio_t::SINE) {
+                        state->audio.data_len = state->audio.ch_count * state->audio.bps * AUDIO_SAMPLE_RATE / state->frame->fps;
+                        state->audio.data += state->audio.data_len;
+                        if (state->audio.data + state->audio.data_len > state->audio_data.data() + AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
+                                state->audio.data = state->audio_data.data();
+                        }
                 } else {
-                        state->audio.data_len =
-                                AUDIO_BUFFER_SIZE(state->audio.ch_count) -
-                                state->audio_start;
-                        state->audio_start = 0;
+                        abort();
                 }
-#else
-                state->audio.data = &state->audio_data[state->audio_start];
-                state->audio.data_len = state->audio.ch_count * state->audio.bps * AUDIO_SAMPLE_RATE / state->frame->fps;
-                state->audio_start += state->audio.data_len;
-                if (state->audio_start + state->audio.data_len > AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
-                        state->audio_start = 0;
-                }
-#endif
                 if(state->audio.data_len > 0)
                         *audio = &state->audio;
                 else
