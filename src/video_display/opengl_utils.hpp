@@ -450,8 +450,6 @@ struct Scene{
         float rot_x = 0;
         float rot_y = 0;
         float fov = 55;
-
-        int width, height;
 };
 
 /**
