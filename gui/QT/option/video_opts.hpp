@@ -2,6 +2,7 @@
 #define VIDEO_OPTS_HPP
 
 #include <vector>
+#include <string>
 #include "available_settings.hpp"
 #include "settings.hpp"
 #include "extra_callback_data.hpp"
@@ -21,6 +22,9 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings);
 std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings);
 std::vector<SettingItem> getVideoModes(AvailableSettings *availSettings);
 std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings);
+
+std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
+		const std::string& mod, const std::string& codec);
 
 void populateVideoCompressSettings(AvailableSettings *availSettings,
 		Settings* settings);

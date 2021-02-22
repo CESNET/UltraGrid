@@ -105,6 +105,32 @@ std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings){
     return res;
 }
 
+std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
+		const std::string& mod, const std::string& codec)
+{
+    std::vector<SettingItem> res;
+
+	for(const auto& compMod : availSettings->getVideoCompressModules()){
+		if(compMod.name != mod)
+			continue;
+
+		for(const auto& modCodec : compMod.codecs){
+			if(modCodec.name != codec)
+				continue;
+
+			for(const auto& encoder: modCodec.encoders){
+				SettingItem item;
+				item.name = encoder.name;
+				item.opts.push_back({"video.compress." + mod + ".codec." + codec + ".encoder", encoder.optStr});
+
+				res.emplace_back(std::move(item));
+			}
+		}
+	}
+
+	return res;
+}
+
 struct VideoCompressItem{
 	const char * displayName;
 	const char * value;

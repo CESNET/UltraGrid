@@ -36,6 +36,7 @@ private:
 	AvailableSettings *availableSettings = nullptr;
 
 	std::vector<std::unique_ptr<WidgetUi>> uiControls;
+	std::vector<std::unique_ptr<WidgetUi>> codecControls;
 
 	static void refreshAllCallback(Option&, bool, void *);
 
@@ -46,6 +47,11 @@ private:
 private slots:
 
 	void test();
+
+	void buildSettingsCodecList();
+	void settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *prev);
+	void buildCodecOptControls(const std::string& mod, const std::string& codec);
+	
 
 signals:
 	void changed();

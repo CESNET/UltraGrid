@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <iostream>
 #include <QMetaType>
+#include <QLabel>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QCheckBox>
 #include <functional>
 #include "settings_ui.hpp"
 #include "video_opts.hpp"
@@ -176,4 +180,101 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new CheckboxUi(ui->decodeAccelCheck, settings, "decode.hwaccel"));
 	addControl(new CheckboxUi(ui->errorsFatalBox, settings, "errors_fatal"));
 	addControl(new LineEditUi(ui->encryptionLineEdit, settings, "encryption"));
+
+	buildSettingsCodecList();
+	connect(settingsWin->codecList, &QListWidget::currentItemChanged,
+			this, &SettingsUi::settingsCodecSelected);
+}
+
+void SettingsUi::buildSettingsCodecList(){
+	QListWidget *list = settingsWin->codecList;
+	list->clear();
+
+	auto codecs = getVideoCompress(availableSettings);
+
+	for(const auto& codec : codecs){
+		QListWidgetItem *item = new QListWidgetItem(list);
+		item->setText(QString::fromStdString(codec.name));
+		item->setData(Qt::UserRole, QVariant::fromValue(codec));
+
+		list->addItem(item);
+	}
+}
+
+void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *){
+	const SettingItem &settingItem = curr->data(Qt::UserRole).value<SettingItem>();
+
+	auto modIt = std::find_if(settingItem.opts.begin(), settingItem.opts.end(),
+			[](const SettingValue& si){ return si.opt == "video.compress"; });
+
+	if(modIt == settingItem.opts.end())
+		return;
+
+	const std::string& modName = modIt->val;
+
+	auto codecIt = std::find_if(settingItem.opts.begin(), settingItem.opts.end(),
+			[modName](const SettingValue& si){
+				return si.opt == "video.compress." + modName + ".codec"; });
+
+	if(codecIt == settingItem.opts.end())
+		return;
+
+	buildCodecOptControls(modName, codecIt->val);
+}
+
+void SettingsUi::buildCodecOptControls(const std::string& mod, const std::string& codec){
+	codecControls.clear();
+
+	QWidget *container = new QWidget();
+	QFormLayout *formLayout = new QFormLayout(container);
+
+	QComboBox *encoderCombo = new QComboBox();
+	formLayout->addRow("Encoder", encoderCombo);
+
+	WidgetUi *encoderComboUi = new ComboBoxUi(encoderCombo,
+			settings,
+			"video.compress." + mod + ".codec." + codec + ".encoder",
+			std::bind(getCodecEncoders, availableSettings,  mod, codec));
+
+	codecControls.emplace_back(encoderComboUi);
+	connect(encoderComboUi, &WidgetUi::changed, this, &SettingsUi::changed);
+
+	for(const auto& compMod : availableSettings->getVideoCompressModules()){
+		if(compMod.name == mod){
+			for(const auto& modOpt : compMod.opts){
+				QLabel *label = new QLabel(QString::fromStdString(modOpt.displayName));
+				QWidget *field = nullptr;
+				WidgetUi *widgetUi = nullptr;
+				std::string optKey = "video.compress." + mod + "." + modOpt.key;
+				if(modOpt.booleanOpt){
+					QCheckBox *checkBox = new QCheckBox();
+					field = checkBox;
+
+					widgetUi = new CheckboxUi(checkBox,
+							settings,
+							optKey);
+				} else {
+					QLineEdit *lineEdit = new QLineEdit();
+					field = lineEdit;
+
+					widgetUi = new LineEditUi(lineEdit,
+							settings,
+							optKey);
+				}
+				label->setToolTip(QString::fromStdString(modOpt.displayDesc));
+				field->setToolTip(QString::fromStdString(modOpt.displayDesc));
+
+				formLayout->addRow(label, field);
+
+				codecControls.emplace_back(widgetUi);
+				connect(widgetUi, &WidgetUi::changed, this, &SettingsUi::changed);
+			}
+		}
+	}
+
+	container->setLayout(formLayout);
+
+	delete settingsWin->scrollContents;
+	settingsWin->scrollContents = container;
+	settingsWin->codecOptScroll->setWidget(container);
 }
