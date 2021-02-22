@@ -55,6 +55,8 @@ private:
 	double rmsLevel[num_channels];
 	int updatesPerSecond;
 
+	bool connected = false;
+
 	void updateVolumes();
 	void connect_ug();
 	void disconnect_ug();
