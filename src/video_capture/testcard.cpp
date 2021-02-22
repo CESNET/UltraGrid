@@ -281,7 +281,7 @@ struct testcard_state {
                 ANY,
                 MIDI,
                 SINE,
-        } grab_audio;
+        } grab_audio = grab_audio_t::NONE;
 
         unsigned int still_image;
         unique_ptr<image_pattern> pattern {new image_pattern_bars};

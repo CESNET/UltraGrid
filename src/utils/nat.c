@@ -222,16 +222,18 @@ static void done_pcp(struct ug_nat_traverse *state)
 
 #define PCP_WAIT_MS 500
 
-#define NAT_ASSERT_EQ(expr, val) { int rc = expr; if (rc != (val)) { socket_error(#expr); return false; } }
-#define NAT_ASSERT_NEQ(expr, val) { int rc = expr; if (rc == (val)) { socket_error(#expr); return false; } }
+#define NAT_HANDLE_ERROR(msg) { if (fd != -1) CLOSESOCKET(fd); socket_error(msg); return false; }
+#define NAT_ASSERT_EQ(expr, val) { int rc = expr; if (rc != (val)) NAT_HANDLE_ERROR(#expr) }
+#define NAT_ASSERT_NEQ(expr, val) { int rc = expr; if (rc == (val)) NAT_HANDLE_ERROR(#expr) }
 static bool get_outbound_ip(struct sockaddr_in *out) {
         struct sockaddr_in dst = { 0 };
         socklen_t src_len = sizeof *out;
 
         dst.sin_family = AF_INET;
         dst.sin_port = htons(80);
+        int fd = -1;
         NAT_ASSERT_EQ(inet_pton(AF_INET, "93.184.216.34", &dst.sin_addr.s_addr), 1);
-        int fd = socket(AF_INET, SOCK_DGRAM, 0);
+        fd = socket(AF_INET, SOCK_DGRAM, 0);
         NAT_ASSERT_NEQ(fd, -1);
         NAT_ASSERT_EQ(connect(fd, (struct sockaddr *) &dst, sizeof dst), 0);
         NAT_ASSERT_EQ(getsockname(fd, (struct sockaddr *) out, &src_len), 0);

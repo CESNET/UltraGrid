@@ -52,6 +52,10 @@ LDGM_session::set_pcMatrix ( char* fname)
     }
 //    printf ( "In matrix file: K %d M %d Columns %d\n", k_f, m_f, w_f );
 
+    if (w_f < 2) {
+        throw string("Invalid parameter in parity matrix!");
+    }
+
     if ( k_f != param_k || m_f != param_m)
     {
         ostringstream oss;

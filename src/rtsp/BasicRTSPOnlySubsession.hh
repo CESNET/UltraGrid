@@ -62,7 +62,9 @@ public:
     Destinations(struct in_addr const& destAddr,
         Port const& rtpDestPort,
         Port const& rtcpDestPort)
-: isTCP(False), addr(destAddr), rtpPort(rtpDestPort), rtcpPort(rtcpDestPort) {
+: isTCP(False), addr(destAddr), rtpPort(rtpDestPort), rtcpPort(rtcpDestPort),
+        tcpSocketNum(0), rtpChannelId(0), rtcpChannelId(0)
+    {
     }
     Destinations(int tcpSockNum, unsigned char rtpChanId, unsigned char rtcpChanId)
     : isTCP(True), rtpPort(0) /*dummy*/, rtcpPort(0) /*dummy*/,

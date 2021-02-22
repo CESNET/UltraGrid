@@ -106,7 +106,7 @@ static int
 rtsp_options(CURL *curl, const char *uri);
 
 /* send RTSP DESCRIBE request and write sdp response to a file */
-static int
+static bool
 rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename);
 
 /* send RTSP SETUP request */
@@ -710,7 +710,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     }
 
     /* request session description and write response to sdp file */
-    if(rtsp_describe(s->curl, s->uri, sdp_filename)==0){
+    if (!rtsp_describe(s->curl, s->uri, sdp_filename)) {
         goto error;
     }
 
@@ -963,7 +963,7 @@ rtsp_options(CURL *curl, const char *uri) {
 /**
  * send RTSP DESCRIBE request and write sdp response to a file
  */
-static int
+static bool
 rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename) {
     CURLcode res = CURLE_OK;
     FILE *sdp_fp = fopen(sdp_filename, "wt");
@@ -981,19 +981,19 @@ rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename) {
     if (curl_easy_perform(curl) != CURLE_OK){
         error_msg("[RTSP DESCRIBE] curl_easy_perform failed\n");
         error_msg("[RTSP DESCRIBE] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
-        return 0;
+        goto error;
     }
 
     my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout, goto error);
     if (sdp_fp != stdout) {
         fclose(sdp_fp);
     }
-    return 1;
+    return true;
 error:
     if (sdp_fp != stdout) {
         fclose(sdp_fp);
     }
-    return -1;
+    return false;
 }
 
 /**
@@ -1061,14 +1061,15 @@ rtsp_teardown(CURL *curl, const char *uri) {
 static void
 get_sdp_filename(const char *url, char *sdp_filename) {
     const char *s = strrchr(url, '/');
-    debug_msg("sdp_file get: %s\n", sdp_filename);
 
-    if (s != NULL) {
-        s++;
-        if (s[0] != '\0') {
-            sprintf(sdp_filename, "%s.sdp", s);
-        }
+    if (s == nullptr) {
+        return;
     }
+    s++;
+    if (strlen(s) > 0) {
+        sprintf(sdp_filename, "%s.sdp", s);
+    }
+    debug_msg("sdp_file get: %s\n", sdp_filename);
 }
 
 static struct vidcap_type *
@@ -1139,6 +1140,9 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
                 nal_aux = strstr(sprop, "=");
                 nal_aux++;
                 nal = strtok(nal_aux, ",;");
+                if (nal == nullptr) {
+                    continue;
+                }
                 //convert base64 to hex
                 guchar *nals_aux = g_base64_decode(nal, &length);
                 memcpy(nals + len_nals, nals_aux, length);
@@ -1194,3 +1198,4 @@ static const struct video_capture_info vidcap_rtsp_info = {
 
 REGISTER_MODULE(rtsp, &vidcap_rtsp_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
+/* vim: set expandtab sw=4: */
