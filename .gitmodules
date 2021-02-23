@@ -1,6 +1,3 @@
-[submodule "gpujpeg"]
-	path = gpujpeg
-	url = https://github.com/CESNET/GPUJPEG.git
 [submodule "cineform-sdk"]
 	path = cineform-sdk
 	url = https://github.com/gopro/cineform-sdk.git

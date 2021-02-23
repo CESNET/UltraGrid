@@ -32,7 +32,7 @@ sudo apt --no-install-recommends install asciidoc xmlto
 sudo apt install libopencv-dev
 sudo apt install libglib2.0-dev libcurl4-nss-dev
 sudo apt install libtool # gpujpeg
-( mkdir gpujpeg/build && cd gpujpeg/build && CUDA_FLAGS=-D_FORCE_INLINES CXXFLAGS=-std=c++11 CC=$CUDA_HOST_COMPILER ../autogen.sh && make && sudo make install && sudo ldconfig || exit 1 )
+( ./bootstrap_gpujpeg.sh -d && mkdir ext-deps/gpujpeg/build && cd ext-deps/gpujpeg/build && CUDA_FLAGS=-D_FORCE_INLINES CXXFLAGS=-std=c++11 CC=$CUDA_HOST_COMPILER ../autogen.sh && make && sudo make install && sudo ldconfig || exit 1 )
 ( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
