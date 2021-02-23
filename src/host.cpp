@@ -44,6 +44,9 @@
 #include "config_win32.h"
 #endif
 
+#ifndef _WIN32
+#include <execinfo.h>
+#endif // defined WIN32
 #include <getopt.h>
 
 #include "host.h"
@@ -62,6 +65,8 @@
 #include "video_display.h"
 #include "capture_filter.h"
 #include "video.h"
+
+#include <array>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -181,6 +186,17 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
 }
 #endif
 
+/**
+ * dummy load of libgcc for backtrace() to be signal safe within crash_signal_handler() (see backtrace(3))
+ */
+static void load_libgcc()
+{
+#ifndef WIN32
+        array<void *, 1> addresses{};
+        backtrace(addresses.data(), addresses.size());
+#endif
+}
+
 struct init_data *common_preinit(int argc, char *argv[], const char *log_opt)
 {
         struct init_data *init;
@@ -249,10 +265,10 @@ struct init_data *common_preinit(int argc, char *argv[], const char *log_opt)
         perf_init();
         perf_record(UVP_INIT, 0);
 
+        load_libgcc();
+
         return init;
 }
-
-#include <sstream>
 
 void print_capabilities(struct module *root, bool use_vidcap)
 {

@@ -62,8 +62,12 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
+#ifndef _WIN32
+#include <execinfo.h>
+#endif // defined WIN32
 #include <getopt.h>
 #include <iostream>
 #include <list>
@@ -275,6 +279,12 @@ static void crash_signal_handler(int sig)
                 *ptr++ = message1[i];
         }
 #ifndef WIN32
+        char backtrace_msg[] = "Backtrace:\n";
+        write(2, backtrace_msg, sizeof backtrace_msg);
+        array<void *, 256> addresses{};
+        int num_symbols = backtrace(addresses.data(), addresses.size());
+        backtrace_symbols_fd(addresses.data(), num_symbols, 2);
+
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
         const char *sig_desc = sigdescr_np(sig);
 #else
