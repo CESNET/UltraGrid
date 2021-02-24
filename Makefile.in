@@ -516,33 +516,33 @@ distcheck:
 	[ -z "$(GUI_EXE)" ] || $(GUI_EXE) -h
 
 # -------------------------------------------------------------------------------------------------
-ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+ag-plugins: data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 
-AG_PLUGIN_TX_SCRIPTS = $(srcdir)/ag_plugin/uvSenderService.py \
-                       $(srcdir)/ag_plugin/uvSenderService.svc \
-                       $(srcdir)/ag_plugin/uvSenderService.manifest
+AG_PLUGIN_TX_SCRIPTS = $(srcdir)/data/ag_plugin/uvSenderService.py \
+                       $(srcdir)/data/ag_plugin/uvSenderService.svc \
+                       $(srcdir)/data/ag_plugin/uvSenderService.manifest
 
-ag_plugin/uvSenderService.zip: $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+data/ag_plugin/uvSenderService.zip: $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
 
 	@echo "Creating AccessGrid plugin: uvSenderService.zip"
-	@rm  -f ag_plugin/uvSenderService.zip
-	@zip -j ag_plugin/uvSenderService.zip $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+	@rm  -f data/ag_plugin/uvSenderService.zip
+	@zip -j data/ag_plugin/uvSenderService.zip $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
 
-AG_PLUGIN_RX_SCRIPTS = $(srcdir)/ag_plugin/uvReceiverService.py \
-                       $(srcdir)/ag_plugin/uvReceiverService.svc \
-                       $(srcdir)/ag_plugin/uvReceiverService.manifest
+AG_PLUGIN_RX_SCRIPTS = $(srcdir)/data/ag_plugin/uvReceiverService.py \
+                       $(srcdir)/data/ag_plugin/uvReceiverService.svc \
+                       $(srcdir)/data/ag_plugin/uvReceiverService.manifest
 
-ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+data/ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 	$(MKDIR_P) $(dir $@)
 	@echo "Creating AccessGrid plugin: uvReceiverService.zip"
-	@rm  -f ag_plugin/uvReceiverService.zip
-	@zip -j ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+	@rm  -f data/ag_plugin/uvReceiverService.zip
+	@zip -j data/ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 
 # -------------------------------------------------------------------------------------------------
 clean:
 	-rm -f $(OBJS) $(GENERAED_HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
 	-rm -f $(TEST_OBJS) bin/run_tests
-	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+	-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(GUI_BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
