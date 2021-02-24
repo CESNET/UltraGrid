@@ -10,3 +10,6 @@
 [submodule "ext-deps/speexdsp"]
 	path = ext-deps/speexdsp
 	url = https://gitlab.xiph.org/xiph/speexdsp
+[submodule "ext-deps/zfec"]
+	path = ext-deps/zfec
+	url = https://github.com/tahoe-lafs/zfec

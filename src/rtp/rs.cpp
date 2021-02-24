@@ -55,7 +55,10 @@
 #define MAX_N 255
 
 extern "C" {
-#include "rs/fec.h"
+#ifndef _MSC_VER
+#define restrict __restrict
+#endif
+#include "ext-deps/zfec/zfec/fec.h"
 }
 
 static void usage();

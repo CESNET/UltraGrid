@@ -3,7 +3,9 @@
 ## @param $1 name
 ## @param $2 fallback Gzip URL
 ## @param $3 fallback Git URL
-## @retval 1 submodule was updated
+## @param $4 if set to 1, report submodule update
+## @retval 1 submodule was updated (and $4 was set to 1)
+## @retval 0 otherwise
 fetch_submodule() {
         MODULE=$1
         FALLBACK_URL=$2
@@ -34,7 +36,7 @@ fetch_submodule() {
                         echo "not needed"
                         return 0
                 fi
-                return 1
+                return ${4:-0}
         fi
         return 0
 }

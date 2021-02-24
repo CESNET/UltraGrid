@@ -9,7 +9,7 @@
 
 for module in speex speexdsp; do
         set +e
-        fetch_submodule $module http://downloads.us.xiph.org/releases/speex/${module}-1.2.0.tar.gz https://gitlab.xiph.org/xiph/$module
+        fetch_submodule $module http://downloads.us.xiph.org/releases/speex/${module}-1.2.0.tar.gz https://gitlab.xiph.org/xiph/$module 1
         [ $? = 1 ] && SUBMODULE_UPDATED=yes || SUBMODULE_UPDATED=no
         set -e
 
