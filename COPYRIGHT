@@ -63,34 +63,6 @@ UltraGrid - A High Definition Collaboratory
 External libraries
 ------------------
 
-### libnatpmp
-
-Copyright (c) 2007-2011, Thomas BERNARD
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright notice,
-      this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright notice,
-      this list of conditions and the following disclaimer in the documentation
-      and/or other materials provided with the distribution.
-    * The name of the author may not be used to endorse or promote products
-          derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
-
 ### Speex
 
 Copyright 2002-2008 	Xiph.org Foundation
@@ -128,3 +100,14 @@ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+### zfec
+
+This package implements an “erasure code”, or “forward error correction code”.
+
+You may use this package under the GNU General Public License, version 2 or, at your option, any later version. You may use this package under the Transitive Grace Period Public Licence, version 1.0 or, at your option, any later version. (You may choose to use this package under the terms of either licence, at your option.) See the file COPYING.GPL for the terms of the GNU General Public License, version 2. See the file COPYING.TGPPL.rst for the terms of the Transitive Grace Period Public Licence, version 1.0.
+
+The most widely known example of an erasure code is the RAID-5 algorithm which makes it so that in the event of the loss of any one hard drive, the stored data can be completely recovered. The algorithm in the zfec package has a similar effect, but instead of recovering from the loss of only a single element, it can be parameterized to choose in advance the number of elements whose loss it can tolerate.
+
+This package is largely based on the old “fec” library by Luigi Rizzo et al., which is a mature and optimized implementation of erasure coding. The zfec package makes several changes from the original “fec” package, including addition of the Python API, refactoring of the C API to support zero-copy operation, a few clean-ups and optimizations of the core code itself, and the addition of a command-line tool named “zfec”.
+
