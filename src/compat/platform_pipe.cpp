@@ -183,7 +183,7 @@ int platform_pipe_init(fd_t p[2])
         }
 #endif
 
-        struct params par;
+        struct params par{};
         fd_t sock = open_socket(&par.port);
         if (sock == INVALID_SOCKET) {
                 perror("open_socket");

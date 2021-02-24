@@ -27,31 +27,6 @@ AC_C_CHAR_UNSIGNED
 AC_HEADER_STDBOOL
 PKG_PROG_PKG_CONFIG
 
-AH_BOTTOM([
-#ifndef __cplusplus
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# ifndef HAVE__BOOL
-#  ifdef __cplusplus
-typedef bool _Bool;
-#  else
-#   define _Bool signed char
-#  endif
-# endif
-# define bool _Bool
-# define false 0
-# define true 1
-# define __bool_true_false_are_defined 1
-#endif
-#endif // ! defined __cplusplus
-
-#undef MIN
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#undef MAX
-#define MAX(a,b) (((a)>(b))?(a):(b))
-])
-
 AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
@@ -295,7 +270,7 @@ AC_SUBST(DYLIBBUNDLER)
 # Additional macros
 # -------------------------------------------------------------------------------------------------
 AC_DEFUN([CUDA_MESSAGE], [
-          if test -z "$cuda_msg_defined"; then
+          if test -z "$cuda_msg_defined" -a $system != Windows; then
                   POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
 If not done so, you can accomplish this by adding line:\n\
@@ -690,13 +665,11 @@ AC_ARG_ENABLE(decklink,
 [  --disable-decklink      disable DeckLink (default is auto)]
 [                          Requires: DesktopVideo],
 	[decklink_req=$enableval])
-DECKLINK_INC=
+DECKLINK_INC=$srcdir/ext-deps/DeckLink
 
 case "$system" in
 	MacOSX)
-                if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=$srcdir/DeckLink/Mac
-                fi
+                DECKLINK_INC=$DECKLINK_INC/Mac
                 OLD_LIBS=$LIBS
                 LIBS="$LIBS -framework CoreFoundation"
                 AC_LANG_PUSH(C++)
@@ -710,9 +683,7 @@ case "$system" in
                 AC_LANG_POP(C++)
                 ;;
 	Windows)
-                if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=$srcdir/DeckLink/Windows
-                fi
+                DECKLINK_INC=$DECKLINK_INC/Windows
                 SAVED_LIBS=$LIBS
                 LIBS="$LIBS -lole32"
                 AC_LANG_PUSH(C++)
@@ -731,9 +702,7 @@ case "$system" in
                 AC_LANG_POP(C++)
                 ;;
         *)
-                if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=$srcdir/DeckLink/Linux
-                fi
+                DECKLINK_INC=$DECKLINK_INC/Linux
 
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK_SRC=yes, FOUND_DECKLINK_SRC=no)
@@ -775,6 +744,58 @@ if test $decklink_req = yes -a $decklink = no; then
 fi
 
 AC_SUBST(DECKLINK_PATH)
+
+# -------------------------------------------------------------------------------------------------
+# gpustitch stuff
+# -------------------------------------------------------------------------------------------------
+
+GPUSTITCH_OBJ=
+GPUSTITCH_INC=
+GPUSTITCH_LIB=
+GPUSTITCH_PATH=
+gpustitch=no
+gpustitch_req=auto
+
+AC_ARG_ENABLE(gpustitch,
+[  --disable-gpustitch      disable gpustitch (default is auto)]
+[                          Requires: gpustitch],
+	[gpustitch_req=$enableval])
+
+PKG_CHECK_MODULES([LIBGPUSTITCH], [libgpustitch >= 0.0.1 ], [found_gpustitch=yes], [found_gpustitch=no])
+
+if test "$found_gpustitch" != yes
+then
+        GPUSTITCH_LIB="$GPUSTITCH_LIB -lgpustitch"
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $GPUSTITCH_LIB"
+        AC_CHECK_HEADER([libgpustitch/stitcher.hpp])
+        LIBS=$SAVED_LIBS
+        if test "$ac_cv_header_libgpustitch_stitcher_hpp" = yes
+        then
+                found_gpustitch=yes
+        else
+                found_gpustitch=no
+        fi
+fi
+
+if test "$gpustitch_req" != no -a \
+        "$found_gpustitch" = yes
+then
+        gpustitch=yes
+
+        GPUSTITCH_INC="$GPUSTITCH_INC $LIBGPUSTITCH_CFLAGS"
+        GPUSTITCH_LIB="$GPUSTITCH_LIB $LIBGPUSTITCH_LIBS"
+        GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.$CU_OBJ_SUFFIX $CUDA_COMMON_OBJ"
+        AC_DEFINE([HAVE_GPUSTITCH], [1], [Build with GPUSTITCH support])
+        ADD_MODULE("vidcap_gpustitch", "$GPUSTITCH_OBJ", "$GPUSTITCH_LIB")
+
+        INC="$INC $GPUSTITCH_INC"
+        CUDA_MESSAGE
+fi
+
+if test $gpustitch_req = yes -a $gpustitch = no; then
+        AC_MSG_ERROR([GPUSTITCH not found]);
+fi
 
 # -------------------------------------------------------------------------------------------------
 # Bluefish444 stuff
@@ -1233,7 +1254,7 @@ then
                 SDL2_LIBS="-lSDL2"
         fi
         ADD_MODULE("display_sdl2", "$SDL2_OBJ", "$SDL2_LIBS")
-        SDL_LIB=$SDL2_LIB
+        SDL_LIB=$SDL2_LIBS
         sdl_version=2
         sdl=yes
 elif test $sdl1_req != no -a $found_sdl1 = yes
@@ -1241,9 +1262,93 @@ then
         SDL1_OBJ="src/video_display/sdl.o src/x11_common.o"
         AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
         ADD_MODULE("display_sdl", "$SDL1_OBJ", "$SDL1_LIBS")
-        SDL_LIB="$SDL1_LIB -lX11" # X11 for x11_common.o
+        SDL_LIB="$SDL1_LIBS -lX11" # X11 for x11_common.o
         sdl_version=1
         sdl=yes
+fi
+
+# ------------------------------------------------------------------------------
+# GLM (OpenGL math library)
+# ------------------------------------------------------------------------------
+GLM_INC=
+GLM_DIR=$srcdir/glm
+glm=no
+
+PKG_CHECK_MODULES([GLM], [glm], [FOUND_GLM=yes], [FOUND_GLM=no])
+
+if test $FOUND_GLM = yes; then
+        GLM_INC=$GLM_CFLAGS
+        glm=yes
+else
+        AC_CHECK_FILE([$GLM_DIR/glm/glm.hpp], [found_glm_hpp=yes], [found_glm_hpp=no])
+        if test $found_glm_hpp = yes; then
+                glm=yes
+                GLM_INC=-I$GLM_DIR
+        fi
+fi
+
+# ------------------------------------------------------------------------------
+# Panorama gl display
+# ------------------------------------------------------------------------------
+panogl_disp=no
+AC_ARG_ENABLE(panogl_disp,
+[  --disable-panogl_disp            disable gl panorama display (default is auto]
+[                          Requires:  sdl2 gl],
+    [panogl_disp_req=$enableval],
+    [panogl_disp_req=$build_default]
+    )
+
+if test $panogl_disp_req = yes; then
+        if test $sdl = no -o $sdl_version != 2; then
+                AC_MSG_ERROR([SDL2 not found]);
+        fi
+
+        if test $glm = no; then
+                AC_MSG_ERROR([GLM not found]);
+        fi
+fi
+
+if test $panogl_disp_req != no -a $sdl = yes -a $sdl_version = 2 -a $glm = yes
+then
+        PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o"
+        AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
+        PANOGL_LIBS=$SDL_LIB
+        ADD_MODULE("display_panogl", "$PANOGL_OBJ", "$PANOGL_LIBS")
+        INC="$INC $GLM_INC"
+        panogl_disp=yes
+fi
+
+# ------------------------------------------------------------------------------
+# OpenXR VR gl display
+# ------------------------------------------------------------------------------
+xrgl_disp=no
+AC_ARG_ENABLE(xrgl_disp,
+[  --disable-xrgl_disp            disable OpenXR VR display (default is auto]
+[                          Requires:  sdl2 gl openxr],
+    [xrgl_disp_req=$enableval],
+    [xrgl_disp_req=$build_default]
+    )
+
+define(xrgl_deps, [openxr])
+
+PKG_CHECK_MODULES([XRGLDISP], [xrgl_deps], [FOUND_XRGL_DEPS=yes], [FOUND_XRGL_DEPS=no])
+
+if test $sdl = no -o $sdl_version != 2 -o $glm = no; then
+        FOUND_XRGL_DEPS=no
+fi
+
+if test $xrgl_disp_req = yes -a $FOUND_XRGL_DEPS = no; then
+        AC_MSG_ERROR([XRGL deps not found]);
+fi
+
+if test $xrgl_disp_req != no -a $FOUND_XRGL_DEPS = yes
+then
+        XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o"
+        AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
+        XRGLDISP_LIBS+=$SDL_LIB
+        ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
+        INC="$INC $GLM_INC"
+        xrgl_disp=yes
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -1493,6 +1598,7 @@ then
 
         if test "$FOUND_SDL_MIXER" = yes
         then
+                AC_DEFINE([HAVE_LIBSDL_MIXER], [1], [Build testcard with SDL Mixer support])
                 TESTCARD_LIB="$SDL_MIXER_LIBS"
         fi
 
@@ -2175,8 +2281,11 @@ AC_ARG_ENABLE(gpujpeg,
         [gpujpeg_req=$build_default])
 
 
-PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [ libgpujpeg ], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
-PKG_CHECK_MODULES([LIBGPUJPEG], [ libgpujpeg >= 0.11 ], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
+SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
+PKG_CONFIG_PATH="ext-deps/gpujpeg/install/share/pkgconfig:$PKG_CONFIG_PATH"
+PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [libgpujpeg], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
+PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.12.0], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
+PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
 
 if test "$found_gpujpeg_any" = yes -a "$found_gpujpeg" = no; then
         AC_MSG_WARN([Old GPUJPEG version found, please upgrade]);
@@ -2408,16 +2517,33 @@ fi
 # SPEEX
 
 speex=yes
-SPEEX_PATH=speex-1.2rc1
-SPEEX_INC=-I$srcdir/${SPEEX_PATH}/include
-SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
-SPEEX_OBJ="$SPEEX_OBJ src/audio/echo.o"
+SPEEX_PATH=ext-deps/speex
+SPEEXDSP_PATH=ext-deps/speexdsp
+SPEEX_INC="-I$srcdir/${SPEEX_PATH}/include -I$srcdir/${SPEEXDSP_PATH}/include"
+SPEEX_OBJ="src/audio/echo.o src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
 SPEEX_LIB=
 AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
+
+SAVED_CFLAGS=$CFLAGS
+SAVED_CPPFLAGS=$CPPFLAGS
+CFLAGS="$CFLAGS $SPEEX_INC"
+CPPFLAGS="$CPPFLAGS $SPEEX_INC"
+AC_CHECK_HEADER([speex/speex.h])
+AC_CHECK_HEADER([speex/speex_resampler.h])
+CFLAGS=$SAVED_CFLAGS
+CPPFLAGS=$SAVED_CPPFLAGS
+
+if test "$ac_cv_header_speex_speex_h" != yes -o "$ac_cv_header_speex_speex_resampler_h" != yes; then
+        AC_MSG_ERROR([Speex/SpeexDSP is a hard dependency, download it into $SPEEX_PATH and $SPEEXDSP_PATH]
+[This should be usually automatic - please report to $PACKAGE_BUGREPORT if not sure why getting this.]);
+fi
+
 
 AC_SUBST(SPEEX_INC)
 AC_SUBST(SPEEX_LIB)
 AC_SUBST(SPEEX_OBJ)
+AC_SUBST(SPEEX_PATH)
+AC_SUBST(SPEEXDSP_PATH)
 
 # -------------------------------------------------------------------------------------------------
 #
@@ -3131,6 +3257,28 @@ if test $vrg_req = yes -a $vrg = no; then
 fi
 
 # ---------------------------------------------------------------------
+# NAT-PMP
+# -----------------------------------
+natpmp=no
+AC_ARG_ENABLE(natpmp,
+              [  --disable-natpmp       disable NAT-PMP suppport (default is auto)]
+              [            Requires: natpmp],
+              [natpmp_req=$enableval],
+              [natpmp_req=$build_default]
+              )
+AC_CHECK_HEADER(natpmp.h, FOUND_NATPMP_H=yes, FOUND_NATPMP_H=no)
+AC_CHECK_LIB(natpmp, initnatpmp,  FOUND_NATPMP_L=yes, FOUND_NATPMP_L=no)
+if test "$FOUND_NATPMP_H" = yes -a "$FOUND_NATPMP_L" -a $natpmp_req != no; then
+        LIBS="-lnatpmp $LIBS"
+        AC_DEFINE([HAVE_NATPMP], [1], [Build with NAT-PMP support])
+        natpmp=yes
+fi
+
+if test $natpmp_req = yes -a $natpmp = no; then
+        AC_MSG_ERROR([NAT-PMP not found]);
+fi
+
+# ---------------------------------------------------------------------
 # PCP
 # -----------------------------------
 pcp=no
@@ -3262,8 +3410,11 @@ RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
 RESULT=`add_column "$RESULT" "DVS" $dvs $?`
 RESULT=`add_column "$RESULT" "File input" $file $?`
+RESULT=`add_column "$RESULT" "Gpustitch" $gpustitch $?`
 RESULT=`add_column "$RESULT" "NDI" $ndi $?`
 RESULT=`add_column "$RESULT" "OpenGL" $gl_display $?`
+RESULT=`add_column "$RESULT" "OpenXR VR Display" $xrgl_disp $?`
+RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
@@ -3277,6 +3428,7 @@ RESULT=`end_section "$RESULT"`
 
 # compressions
 RESULT=`start_section "$RESULT" "Compressions"`
+RESULT=`add_column "$RESULT" "Cineform" $cineform $?`
 RESULT=`add_column "$RESULT" "Comprimato J2K" $cmpto_j2k $?`
 RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
 RESULT=`add_column "$RESULT" "GPUJPEG" $gpujpeg $?`
@@ -3284,7 +3436,6 @@ RESULT=`add_column "$RESULT" "GPUJPEG transcode to DXT" $gpujpeg_to_dxt $?`
 RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec $?`
 RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
 RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
-RESULT=`add_column "$RESULT" "Cineform" $cineform $?`
 RESULT=`end_section "$RESULT"`
 
 # other
@@ -3293,6 +3444,7 @@ RESULT=`add_column "$RESULT" "Blank capture filter" $blank $?`
 RESULT=`add_column "$RESULT" "GPU accelerated LDGM" $ldgm_gpu $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
 RESULT=`add_column "$RESULT" "MCU-like video mixer" $video_mix $?`
+RESULT=`add_column "$RESULT" "NAT-PMP traversal" $natpmp $?`
 RESULT=`add_column "$RESULT" "PCP NAT traversal" $pcp $?`
 RESULT=`add_column "$RESULT" "Resize capture filter" $resize $?`
 RESULT=`add_column "$RESULT" "RTSP server" $rtsp_server $?`

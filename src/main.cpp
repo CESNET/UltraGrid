@@ -62,8 +62,12 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
+#ifndef _WIN32
+#include <execinfo.h>
+#endif // defined WIN32
 #include <getopt.h>
 #include <iostream>
 #include <list>
@@ -275,6 +279,12 @@ static void crash_signal_handler(int sig)
                 *ptr++ = message1[i];
         }
 #ifndef WIN32
+        char backtrace_msg[] = "Backtrace:\n";
+        write(2, backtrace_msg, sizeof backtrace_msg);
+        array<void *, 256> addresses{};
+        int num_symbols = backtrace(addresses.data(), addresses.size());
+        backtrace_symbols_fd(addresses.data(), num_symbols, 2);
+
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
         const char *sig_desc = sigdescr_np(sig);
 #else
@@ -296,7 +306,7 @@ static void crash_signal_handler(int sig)
                 *ptr++ = PACKAGE_BUGREPORT[i];
         }
         *ptr++ = '.'; *ptr++ = '\n';
-        const char message3[] = "You may find some tips how to report bugs in file doc/reporting_bugs.md distributed with ";
+        const char message3[] = "You may find some tips how to report bugs in file doc/REPORTING_BUGS.md distributed with ";
         for (size_t i = 0; i < sizeof message3 - 1; ++i) {
                 *ptr++ = message3[i];
         }
@@ -597,33 +607,6 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         }
         if (fixed) {
                 *bitrate |= RATE_FLAG_FIXED_RATE;
-        }
-        return true;
-}
-
-static bool parse_params(char *optarg)
-{
-        if (optarg && strcmp(optarg, "help") == 0) {
-                puts("Params can be one or more (separated by comma) of following:");
-                print_param_doc();
-                return false;
-        }
-        char *item, *save_ptr;
-        while ((item = strtok_r(optarg, ",", &save_ptr))) {
-                char *key_cstr = item;
-                if (strchr(item, '=')) {
-                        char *val_cstr = strchr(item, '=') + 1;
-                        *strchr(item, '=') = '\0';
-                        commandline_params[key_cstr] = val_cstr;
-                } else {
-                        commandline_params[key_cstr] = string();
-                }
-                if (!validate_param(key_cstr)) {
-                        log_msg(LOG_LEVEL_ERROR, "Unknown parameter: %s\n", key_cstr);
-                        log_msg(LOG_LEVEL_INFO, "Type '%s --param help' for list.\n", uv_argv[0]);
-                        return false;
-                }
-                optarg = NULL;
         }
         return true;
 }

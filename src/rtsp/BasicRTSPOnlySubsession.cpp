@@ -126,6 +126,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				trackId()); // a=control:<track-id>
 
 		fSDPLines = sdpLines;
+		free(rtpmapLine);
 	}
 	//AStream
 	if (avType == audio || avType == av) {
@@ -174,6 +175,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				trackId()); // a=control:<track-id>
 
 		fSDPLines = sdpLines;
+		free(rtpmapLine);
 	}
 }
 

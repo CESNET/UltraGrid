@@ -68,6 +68,7 @@
 #include "video_capture/testcard_common.h"
 #include "song1.h"
 #include "utils/color_out.h"
+#include "utils/ring_buffer.h"
 #include "utils/vf_split.h"
 #include <algorithm>
 #include <stdio.h>
@@ -76,16 +77,21 @@
 #include <memory>
 #include <random>
 #ifdef HAVE_LIBSDL_MIXER
+#ifdef HAVE_SDL2
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
+#else
 #include <SDL/SDL.h>
 #include <SDL/SDL_mixer.h>
+#endif // defined HAVE_SDL2
 #endif /* HAVE_LIBSDL_MIXER */
+#include <vector>
 #include "audio/audio.h"
 
 #define AUDIO_SAMPLE_RATE 48000
 #define AUDIO_BPS 2
 #define BUFFER_SEC 1
-#define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
-                s->audio.ch_count * BUFFER_SEC)
+constexpr int AUDIO_BUFFER_SIZE(int ch_count) { return AUDIO_SAMPLE_RATE * AUDIO_BPS * ch_count * BUFFER_SEC; }
 #define MOD_NAME "[testcard] "
 constexpr video_desc default_format = { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 };
 constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
@@ -105,23 +111,23 @@ struct testcard_pixmap {
 static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color);
 
 class image_pattern {
-public:
-        static unique_ptr<image_pattern> create(const char *pattern) noexcept;
-        auto init(int width, int height) {
-                auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
-                size_t data_len = width * height * 4 + headroom;
-                auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
-                fill(width, height, out.get());
-                return out;
-        }
-        virtual ~image_pattern() = default;
-        image_pattern() = default;
-        image_pattern(const image_pattern &) = delete;
-        image_pattern & operator=(const image_pattern &) = delete;
-        image_pattern(image_pattern &&) = delete;
-        image_pattern && operator=(image_pattern &&) = delete;
-private:
-        virtual void fill(int width, int height, unsigned char *data) = 0;
+        public:
+                static unique_ptr<image_pattern> create(const char *pattern) noexcept;
+                auto init(int width, int height) {
+                        auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
+                        size_t data_len = width * height * 4 + headroom;
+                        auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
+                        fill(width, height, out.get());
+                        return out;
+                }
+                virtual ~image_pattern() = default;
+                image_pattern() = default;
+                image_pattern(const image_pattern &) = delete;
+                image_pattern & operator=(const image_pattern &) = delete;
+                image_pattern(image_pattern &&) = delete;
+                image_pattern && operator=(image_pattern &&) = delete;
+        private:
+                virtual void fill(int width, int height, unsigned char *data) = 0;
 };
 
 class image_pattern_bars : public image_pattern {
@@ -168,56 +174,56 @@ class image_pattern_bars : public image_pattern {
 };
 
 class image_pattern_blank : public image_pattern {
-public:
-        explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
+        public:
+                explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
 
-private:
-        void fill(int width, int height, unsigned char *data) override {
-                for (int i = 0; i < width * height; ++i) {
-                        (reinterpret_cast<uint32_t *>(data))[i] = color;
+        private:
+                void fill(int width, int height, unsigned char *data) override {
+                        for (int i = 0; i < width * height; ++i) {
+                                (reinterpret_cast<uint32_t *>(data))[i] = color;
+                        }
                 }
-        }
-        uint32_t color;
+                uint32_t color;
 };
 
 class image_pattern_gradient : public image_pattern {
-public:
-        explicit image_pattern_gradient(uint32_t c) : color(c) {}
-        static constexpr uint32_t red = 0xFFU;
-private:
-        void fill(int width, int height, unsigned char *data) override {
-                auto *ptr = reinterpret_cast<uint32_t *>(data);
-                for (int j = 0; j < height; j += 1) {
-                        uint8_t r = sin(static_cast<double>(j) / height * M_PI) * (color & 0xFFU);
-                        uint8_t g = sin(static_cast<double>(j) / height * M_PI) * ((color >> 8) & 0xFFU);
-                        uint8_t b = sin(static_cast<double>(j) / height * M_PI) * ((color >> 16) & 0xFFU);
-                        uint32_t val = (0xFFU << 24U) | (b << 16) | (g << 8) | r;
-                        for (int i = 0; i < width; i += 1) {
-                                *ptr++ = val;
+        public:
+                explicit image_pattern_gradient(uint32_t c) : color(c) {}
+                static constexpr uint32_t red = 0xFFU;
+        private:
+                void fill(int width, int height, unsigned char *data) override {
+                        auto *ptr = reinterpret_cast<uint32_t *>(data);
+                        for (int j = 0; j < height; j += 1) {
+                                uint8_t r = sin(static_cast<double>(j) / height * M_PI) * (color & 0xFFU);
+                                uint8_t g = sin(static_cast<double>(j) / height * M_PI) * ((color >> 8) & 0xFFU);
+                                uint8_t b = sin(static_cast<double>(j) / height * M_PI) * ((color >> 16) & 0xFFU);
+                                uint32_t val = (0xFFU << 24U) | (b << 16) | (g << 8) | r;
+                                for (int i = 0; i < width; i += 1) {
+                                        *ptr++ = val;
+                                }
                         }
                 }
-        }
-        uint32_t color;
+                uint32_t color;
 };
 
 class image_pattern_gradient2 : public image_pattern {
-private:
-        static constexpr unsigned int alpha{0xFFU};
-        static constexpr unsigned int black{0xFFU};
-        static constexpr unsigned int rshift{0U};
-        static constexpr unsigned int gshift{8U};
-        static constexpr unsigned int bshift{16U};
-        static constexpr unsigned int ashift{24U};
-        void fill(int width, int height, unsigned char *data) override {
-                auto *ptr = reinterpret_cast<unsigned int *>(data);
-                for (int j = 0; j < height; j += 1) {
-                        for (int i = 0; i < width; i += 1) {
-                                unsigned int gray = i * black / width;
-                                uint32_t val = (alpha << ashift) | (gray << bshift) | (gray << gshift) | (gray << rshift);
-                                *ptr++ = val;
+        private:
+                static constexpr unsigned int alpha{0xFFU};
+                static constexpr unsigned int black{0xFFU};
+                static constexpr unsigned int rshift{0U};
+                static constexpr unsigned int gshift{8U};
+                static constexpr unsigned int bshift{16U};
+                static constexpr unsigned int ashift{24U};
+                void fill(int width, int height, unsigned char *data) override {
+                        auto *ptr = reinterpret_cast<unsigned int *>(data);
+                        for (int j = 0; j < height; j += 1) {
+                                for (int i = 0; i < width; i += 1) {
+                                        unsigned int gray = i * black / width;
+                                        uint32_t val = (alpha << ashift) | (gray << bshift) | (gray << gshift) | (gray << rshift);
+                                        *ptr++ = val;
+                                }
                         }
                 }
-        }
 };
 
 class image_pattern_noise : public image_pattern {
@@ -268,9 +274,14 @@ struct testcard_state {
         int tiles_cnt_horizontal;
         int tiles_cnt_vertical;
 
-        char *audio_data;
-        volatile int audio_start, audio_end;
-        unsigned int grab_audio:1;
+        vector <char> audio_data;
+        struct ring_buffer *midi_buf{};
+        enum class grab_audio_t {
+                NONE,
+                ANY,
+                MIDI,
+                SINE,
+        } grab_audio = grab_audio_t::NONE;
 
         unsigned int still_image;
         unique_ptr<image_pattern> pattern {new image_pattern_bars};
@@ -287,85 +298,105 @@ static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r
 }
 
 #if defined HAVE_LIBSDL_MIXER && ! defined HAVE_MACOSX
-static void grab_audio(int chan, void *stream, int len, void *udata)
+static void midi_audio_callback(int chan, void *stream, int len, void *udata)
 {
         UNUSED(chan);
         struct testcard_state *s = (struct testcard_state *) udata;
 
-        if(s->audio_end + len <= (int) AUDIO_BUFFER_SIZE) {
-                memcpy(s->audio_data + s->audio_end, stream, len);
-                s->audio_end += len;
-        } else {
-                int offset = AUDIO_BUFFER_SIZE - s->audio_end;
-                memcpy(s->audio_data + s->audio_end, stream, offset);
-                memcpy(s->audio_data, (char *) stream + offset, len - offset);
-                s->audio_end = len - offset;
-        }
-        /* just hack - Mix_Volume doesn't mute correctly the audio */
-        memset(stream, 0, len);
+        ring_buffer_write(s->midi_buf, static_cast<const char *>(stream), len);
 }
 #endif
 
-static int configure_audio(struct testcard_state *s)
-{
-        UNUSED(s);
-
+static auto configure_sdl_mixer_audio(struct testcard_state *s) {
 #if defined HAVE_LIBSDL_MIXER && ! defined HAVE_MACOSX
         char filename[1024] = "";
         int fd;
         Mix_Music *music;
         ssize_t bytes_written = 0l;
 
-        s->audio_data = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
-        s->audio_start = 0;
-        s->audio_end = 0;
-        s->audio.bps = AUDIO_BPS;
-        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
-        s->audio.sample_rate = AUDIO_SAMPLE_RATE;
-
         SDL_Init(SDL_INIT_AUDIO);
 
         if( Mix_OpenAudio( AUDIO_SAMPLE_RATE, AUDIO_S16LSB,
-                        s->audio.ch_count, 4096 ) == -1 ) {
+                                s->audio.ch_count, 4096 ) == -1 ) {
                 fprintf(stderr,"[testcard] error initalizing sound\n");
-                return -1;
+                return false;
         }
         strncpy(filename, "/tmp/uv.midiXXXXXX", sizeof filename - 1);
         fd = mkstemp(filename);
         if (fd < 0) {
                 perror("mkstemp");
-                return -1;
+                return false;
         }
 
         do {
                 ssize_t ret;
                 ret = write(fd, song1 + bytes_written,
                                 sizeof(song1) - bytes_written);
-                if(ret < 0) return -1;
+                if(ret < 0) return false;
                 bytes_written += ret;
         } while (bytes_written < (ssize_t) sizeof(song1));
         close(fd);
         music = Mix_LoadMUS(filename);
 
         // register grab as a postmix processor
-        if(!Mix_RegisterEffect(MIX_CHANNEL_POST, grab_audio, NULL, s)) {
+        if (!Mix_RegisterEffect(MIX_CHANNEL_POST, midi_audio_callback, nullptr, s)) {
                 printf("[testcard] Mix_RegisterEffect: %s\n", Mix_GetError());
-                return -1;
+                return false;
         }
 
         if(Mix_PlayMusic(music,-1)==-1){
                 fprintf(stderr, "[testcard] error playing midi\n");
-                return -1;
+                return false;
         }
         Mix_Volume(-1, 0);
 
-        printf("[testcard] playing audio\n");
+        s->midi_buf = ring_buffer_init(AUDIO_BUFFER_SIZE(s->audio.ch_count) /* 1 sec */);
 
-        return 0;
+        cout << MOD_NAME << "Initialized MIDI\n";
+
+        return true;
 #else
-        return -2;
+        UNUSED(s);
+        return false;
 #endif
 }
+
+static void configure_fallback_audio(struct testcard_state *s) {
+        static_assert(AUDIO_BPS == sizeof(int16_t), "Only 2-byte audio is supported for testcard audio at the moment");
+        const int frequency = 1000;
+        const double scale = 0.1;
+
+        for (int i = 0; i < AUDIO_BUFFER_SIZE(s->audio.ch_count) / AUDIO_BPS; i += 1) {
+                *(reinterpret_cast<int16_t*>(&s->audio_data[i * AUDIO_BPS])) = round(sin((static_cast<double>(i) / (static_cast<double>(AUDIO_SAMPLE_RATE) / frequency)) * M_PI * 2. ) * ((1LL << (AUDIO_BPS * 8)) / 2 - 1) * scale);
+        }
+}
+
+static auto configure_audio(struct testcard_state *s)
+{
+        s->audio.bps = AUDIO_BPS;
+        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        s->audio.sample_rate = AUDIO_SAMPLE_RATE;
+        s->audio.max_size = AUDIO_BUFFER_SIZE(s->audio.ch_count);
+        s->audio_data.resize(s->audio.max_size);
+        s->audio.data = s->audio_data.data();
+
+        if (s->grab_audio != testcard_state::grab_audio_t::SINE) {
+                if (configure_sdl_mixer_audio(s)) {
+                        s->grab_audio = testcard_state::grab_audio_t::MIDI;
+                        return true;
+                }
+                if (s->grab_audio == testcard_state::grab_audio_t::MIDI) {
+                        return false;
+                }
+        }
+
+        LOG(LOG_LEVEL_WARNING) << MOD_NAME "SDL-mixer missing, running on Mac or other problem - using fallback audio.\n";
+        configure_fallback_audio(s);
+        s->grab_audio = testcard_state::grab_audio_t::SINE;
+
+        return true;
+}
+
 
 static int configure_tiling(struct testcard_state *s, const char *fmt)
 {
@@ -392,7 +423,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         s->tiled->interlacing = s->frame->interlacing;
 
         tile_cnt = grid_w *
-                                grid_h;
+                grid_h;
         assert(tile_cnt >= 1);
 
         s->tiles_data = (char **) malloc(tile_cnt *
@@ -414,7 +445,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 
                 s->tiled->tiles[x].data =
                         s->tiles_data[x] = (char *) realloc(s->tiled->tiles[x].data,
-                                s->tiled->tiles[x].data_len * grid_h * 2);
+                                        s->tiled->tiles[x].data_len * grid_h * 2);
 
 
                 memcpy(s->tiled->tiles[x].data + s->tiled->tiles[x].data_len  * grid_h,
@@ -530,7 +561,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>]\n");
+                cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>][:apattern=sine|midi]\n");
                 cout << "where\n";
                 cout << BOLD("\t<filename>") << " - use file named filename instead of default bars\n";
                 cout << BOLD("\tp") << " - pan with frame\n";
@@ -538,6 +569,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\ti|sf") << " - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
                 cout << BOLD("\tstill") << " - send still image\n";
                 cout << BOLD("\tpattern") << " - pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>\n");
+                cout << BOLD("\tapattern") << " - audio pattern to use - \"sine\" or an included \"midi\"\n";
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
         }
@@ -580,8 +612,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         if (s->frame->tiles[0].data_len != filesize) {
                                 int level = s->frame->tiles[0].data_len < filesize ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR;
                                 LOG(level) << MOD_NAME  << "Wrong file size for selected "
-                                                "resolution and codec. File size " << filesize << ", "
-                                                "computed size " << s->frame->tiles[0].data_len << "\n";
+                                        "resolution and codec. File size " << filesize << ", "
+                                        "computed size " << s->frame->tiles[0].data_len << "\n";
                                 filesize = s->frame->tiles[0].data_len;
                                 if (level == LOG_LEVEL_ERROR) {
                                         goto error;
@@ -612,6 +644,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                                 fprintf(stderr, "[testcard] Unknown pattern!\n");;
                                 goto error;
                         }
+                } else if (strstr(tmp, "apattern=") == tmp) {
+                        s->grab_audio = strcasecmp(tmp + strlen("apattern="), "sine") == 0 ? testcard_state::grab_audio_t::SINE : testcard_state::grab_audio_t::MIDI;
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
                         goto error;
@@ -696,14 +730,15 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
-                s->grab_audio = TRUE;
-                if(configure_audio(s) != 0) {
-                        s->grab_audio = FALSE;
-                        fprintf(stderr, "[testcard] Disabling audio output. "
-                                        "SDL-mixer missing, running on Mac or other problem.\n");
+                if (s->grab_audio == testcard_state::grab_audio_t::NONE) {
+                        s->grab_audio = testcard_state::grab_audio_t::ANY;
+                }
+                if (!configure_audio(s)) {
+                        LOG(LOG_LEVEL_ERROR) << "Cannot initialize audio!\n";
+                        goto error;
                 }
         } else {
-                s->grab_audio = FALSE;
+                s->grab_audio = testcard_state::grab_audio_t::NONE;
         }
 
         free(fmt);
@@ -735,9 +770,7 @@ static void vidcap_testcard_done(void *state)
                 vf_free(s->tiled);
         }
         vf_free(s->frame);
-        if(s->audio_data) {
-                free(s->audio_data);
-        }
+        ring_buffer_destroy(s->midi_buf);
         delete s;
 }
 
@@ -750,30 +783,28 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
                 std::chrono::steady_clock::now();
 
         if (std::chrono::duration_cast<std::chrono::duration<double>>(curr_time - state->last_frame_time).count() <
-            1.0 / (double)state->frame->fps) {
+                        1.0 / state->frame->fps) {
                 return NULL;
         }
 
         state->last_frame_time = curr_time;
 
-        if (state->grab_audio) {
-#ifdef HAVE_LIBSDL_MIXER
-                state->audio.data = state->audio_data + state->audio_start;
-                if(state->audio_start <= state->audio_end) {
-                        int tmp = state->audio_end;
-                        state->audio.data_len = tmp - state->audio_start;
-                        state->audio_start = tmp;
+        if (state->grab_audio != testcard_state::grab_audio_t::NONE) {
+                if (state->grab_audio == testcard_state::grab_audio_t::MIDI) {
+                        state->audio.data_len = ring_buffer_read(state->midi_buf, state->audio.data, state->audio.max_size);
+                } else if (state->grab_audio == testcard_state::grab_audio_t::SINE) {
+                        state->audio.data_len = state->audio.ch_count * state->audio.bps * AUDIO_SAMPLE_RATE / state->frame->fps;
+                        state->audio.data += state->audio.data_len;
+                        if (state->audio.data + state->audio.data_len > state->audio_data.data() + AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
+                                state->audio.data = state->audio_data.data();
+                        }
                 } else {
-                        state->audio.data_len =
-                                AUDIO_BUFFER_SIZE -
-                                state->audio_start;
-                        state->audio_start = 0;
+                        abort();
                 }
                 if(state->audio.data_len > 0)
                         *audio = &state->audio;
                 else
                         *audio = NULL;
-#endif
         } else {
                 *audio = NULL;
         }

@@ -14,6 +14,9 @@ mkdir tmpinstall
 make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local $APPDIR
 
+make -C hd-rum-multi
+cp hd-rum-multi/hd-rum $APPDIR/bin
+
 # add platform and other Qt plugins if using dynamic libs
 # @todo copy only needed ones
 # @todo use https://github.com/probonopd/linuxdeployqt

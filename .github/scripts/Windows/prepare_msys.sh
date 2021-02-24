@@ -65,6 +65,7 @@ cd /c/live555
 make install
 cd -
 
+$GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh
 $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
 
 # Install FFMPEG

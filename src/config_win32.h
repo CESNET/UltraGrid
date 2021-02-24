@@ -52,6 +52,8 @@
 #define __MSVCRT_VERSION__ 0x700
 #endif
 
+#include "config_common.h"
+
 #include <assert.h>
 #include <process.h>
 #include <malloc.h>

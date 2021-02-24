@@ -35,7 +35,7 @@ int main(int argc, char *argv[]){
 	//important: If this line is removed parsing float numbers for vu meter fails
 	std::setlocale(LC_NUMERIC, "C");
 
-	process.start("\"" + ultragridExecutable + "\"");
+	process.start(ultragridExecutable, QStringList());
 	if(process.waitForStarted(1000) == false) {
 		QMessageBox msgBox;
 		msgBox.setText(ultragridExecutable + " doesn't seem to be executable.");

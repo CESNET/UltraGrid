@@ -5,12 +5,35 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QByteArray>
+#include <QtGlobal>
 
 #include "ultragrid_window.hpp"
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #endif
+
+namespace {
+QString argListToString(const QStringList& argList){
+	return argList.join(" ");
+}
+
+QStringList argStringToList(const QString& argString){
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+	return argString.split(" ", QString::SkipEmptyParts);
+#else
+	return argString.split(" ", Qt::SkipEmptyParts);
+#endif
+}
+
+QStringList argStringToList(const std::string& argString){
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
+	return QString::fromStdString(argString).split(" ", QString::SkipEmptyParts);
+#else
+	return QString::fromStdString(argString).split(" ", Qt::SkipEmptyParts);
+#endif
+}
+} //anonymous namespace
 
 UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.setupUi(this);
@@ -19,7 +42,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.actionTest->setVisible(true);
 #endif //DEBUG
 
-	ultragridExecutable = "\"" + UltragridWindow::findUltragridExecutable() + "\"";
+	ultragridExecutable = UltragridWindow::findUltragridExecutable();
 
 #ifndef __linux
 	ui.actionUse_hw_acceleration->setVisible(false);
@@ -58,6 +81,17 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	checkPreview();
 	startPreview();
 	setupPreviewCallbacks();
+
+	previewStatus.setText("Preview: Stopped");
+	processStatus.setText("UG: Stopped");
+	ui.statusbar->addWidget(&processStatus);
+	ui.statusbar->addWidget(&previewStatus);
+
+	QString verString(GIT_CURRENT_SHA1);
+	verString += GIT_CURRENT_BRANCH;
+
+	versionLabel.setText(QString("Ver: ") + verString);
+	ui.statusbar->addPermanentWidget(&versionLabel);
 }
 
 void UltragridWindow::refresh(){
@@ -152,13 +186,9 @@ void UltragridWindow::start(){
 
 	stopPreview();
 
-	QString command(ultragridExecutable);
-
-	command += " ";
-	command += launchArgs;
 	process.setProcessChannelMode(QProcess::MergedChannels);
-	log.write("Command: " + command + "\n\n");
-	process.start(command);
+	log.write("Command args: " + argListToString(launchArgs) + "\n\n");
+	process.start(ultragridExecutable, launchArgs);
 }
 
 void UltragridWindow::schedulePreview(){
@@ -176,8 +206,7 @@ void UltragridWindow::startPreview(){
 	while(previewProcess.state() != QProcess::NotRunning)
 		stopPreview();
 
-	QString command(ultragridExecutable);
-	command += QString::fromStdString(settings.getPreviewParams());
+	QStringList previewArgs = argStringToList(settings.getPreviewParams());
 	/*
 	if(sourceOption->getCurrentValue() != "none"){
 		//We prevent video from network overriding local sources
@@ -187,9 +216,9 @@ void UltragridWindow::startPreview(){
 	*/
 
 #ifdef DEBUG
-	log.write("Preview: " + command + "\n\n");
+	log.write("Preview: " + argListToString(previewArgs) + "\n\n");
 #endif
-	previewProcess.start(command);
+	previewProcess.start(ultragridExecutable, previewArgs);
 }
 
 void UltragridWindow::stopPreview(){
@@ -203,11 +232,14 @@ void UltragridWindow::stopPreview(){
 }
 
 void UltragridWindow::editArgs(const QString &text){
-	launchArgs = text;
+	launchArgs = argStringToList(text);
 }
 
 void UltragridWindow::setArgs(){
 	QString args = QString::fromStdString(settings.getLaunchParams());
+
+	launchArgs = argStringToList(args);
+
 #ifdef DEBUG
 	log.write("set args: " + args + "\n");
 #endif
@@ -249,6 +281,9 @@ void UltragridWindow::connectSignals(){
 	connect(&process, SIGNAL(readyReadStandardError()), this, SLOT(outputAvailable()));
 	connect(&process, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(processStateChanged(QProcess::ProcessState)));
 	connect(&process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
+
+	connect(&previewProcess, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(previewStateChanged(QProcess::ProcessState)));
+	connect(&previewProcess, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(previewFinished(int, QProcess::ExitStatus)));
 
 	connect(ui.arguments, SIGNAL(textChanged(const QString &)), this, SLOT(editArgs(const QString &)));
 	connect(ui.editCheckBox, SIGNAL(toggled(bool)), this, SLOT(setArgs()));
@@ -368,6 +403,8 @@ void UltragridWindow::processStateChanged(QProcess::ProcessState s){
 
 	if(s == QProcess::NotRunning){
 		startPreview();
+	} else if(s == QProcess::Running){
+		processStatus.setText("UG: Running");
 	}
 }
 
@@ -380,12 +417,30 @@ void UltragridWindow::processFinished(int code, QProcess::ExitStatus status){
 		msgBox.setText("Ultragrid has exited with an error! If you need help, please send an email "
 				"to ultragrid-dev@cesnet.cz with log attached.");
 		QPushButton *showLogBtn = msgBox.addButton(tr("Show log"), QMessageBox::ActionRole);
-		QPushButton *dissmissBtn = msgBox.addButton(tr("Dismiss"), QMessageBox::RejectRole);
+		msgBox.addButton(tr("Dismiss"), QMessageBox::RejectRole);
 		msgBox.exec();
 
 		if(msgBox.clickedButton() == showLogBtn){
 			showLog();
 		}
+
+		processStatus.setText("UG: Crashed");
+	} else {
+		processStatus.setText("UG: Stopped");
+	}
+}
+
+void UltragridWindow::previewStateChanged(QProcess::ProcessState s){
+	if(s == QProcess::Running){
+		previewStatus.setText("Preview: Running");
+	}
+}
+
+void UltragridWindow::previewFinished(int code, QProcess::ExitStatus status){
+	if(status == QProcess::CrashExit || code != 0){
+		previewStatus.setText("Preview: Crashed");
+	} else {
+		previewStatus.setText("Preview: Stopped");
 	}
 }
 

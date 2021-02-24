@@ -28,6 +28,8 @@ GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 CUDA_COMPILER = @CUDA_COMPILER@
 SYSTEM	      = @system@
+SPEEX_PATH    = @SPEEX_PATH@
+SPEEXDSP_PATH = @SPEEXDSP_PATH@
 
 GUI_EXE       = @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
@@ -57,6 +59,7 @@ GENERATED_HEADERS              = @GENERATED_HEADERS@
 ALL_INCLUDES	= $(wildcard $(srcdir)/src/*.h $(srcdir)/src/*/*.h $(srcdir)/src/*/*/*.h $(srcdir)/src/*.hpp $(srcdir)/src/*/*.hpp) $(wildcard $(srcdir)/unittest/*.h)
 
 COMMON_OBJS     = \
+		ext-deps/zfec/zfec/fec.o \
 	        src/bitstream.o \
 		src/control_socket.o \
 		src/debug.o \
@@ -196,8 +199,6 @@ COMMON_OBJS     = \
 		ldgm/src/tanner.o \
 		ldgm/matrix-gen/matrix-generator.o \
 		ldgm/matrix-gen/ldpc-matrix.o \
-		rs/fec.o \
-		ext-deps/libnatpmp-20150609/libnatpmp.a \
 
 OBJS	      = @OBJS@ \
 		$(COMMON_OBJS)
@@ -274,16 +275,6 @@ lib/libug$(DLEXT): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) src/libug.o
 	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 	touch $@
 
-ext-deps/libnatpmp-20150609/libnatpmp.a:
-	$(MKDIR_P) $(dir $@)
-ifeq ($(SYSTEM),Windows)
-	cd $(srcdir)/ext-deps/libnatpmp-20150609 && cmd /c build.bat
-	mv $(srcdir)/ext-deps/libnatpmp-20150609/natpmp.a $(dir $@)/libnatpmp.a
-else
-	make -C $(srcdir)/ext-deps/libnatpmp-20150609 libnatpmp.a
-	[ -f $@ ] || mv $(srcdir)/ext-deps/libnatpmp-20150609/libnatpmp.a $(dir $@)
-endif
-
 src/libavcodec_common.o: src/libavcodec_common.c $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Ofast $(INC) -c $< -o $@
@@ -297,31 +288,33 @@ ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -c $< -o $@
 
+ext-deps/zfec/zfec/fec.o: ext-deps/zfec/zfec/fec.c
+	$(CC) $(CFLAGS) -Wno-old-style-declaration -Wno-missing-declarations -Wno-missing-prototypes -Wno-sign-compare $(INC) -c $< -o $@
 
 SPEEX_FLAGS=-Wno-sign-compare -Wno-unused-parameter -Wno-bad-function-cast -Wno-missing-prototypes -Wno-missing-declarations -O3
 src/audio/resample.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/resample.c  -fPIC -DPIC -o $@
 
 src/audio/preprocess.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/preprocess.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/preprocess.c  -fPIC -DPIC -o $@
 
 src/audio/filterbank.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -I/include -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/filterbank.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -I/include -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/filterbank.c  -fPIC -DPIC -o $@
 
 src/audio/fftwrap.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/fftwrap.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEX_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEX_PATH)/libspeex/fftwrap.c  -fPIC -DPIC -o $@
 
 src/audio/smallft.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/smallft.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEX_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEX_PATH)/libspeex/smallft.c  -fPIC -DPIC -o $@
 
 src/audio/mdf.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -DDISABLE_WARNINGS -I. -I $(srcdir)/speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/mdf.c  -fPIC -DPIC -o $@
 
 src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.m $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
@@ -532,33 +525,33 @@ distcheck:
 	[ -z "$(GUI_EXE)" ] || $(GUI_EXE) -h
 
 # -------------------------------------------------------------------------------------------------
-ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+ag-plugins: data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 
-AG_PLUGIN_TX_SCRIPTS = $(srcdir)/ag_plugin/uvSenderService.py \
-                       $(srcdir)/ag_plugin/uvSenderService.svc \
-                       $(srcdir)/ag_plugin/uvSenderService.manifest
+AG_PLUGIN_TX_SCRIPTS = $(srcdir)/data/ag_plugin/uvSenderService.py \
+                       $(srcdir)/data/ag_plugin/uvSenderService.svc \
+                       $(srcdir)/data/ag_plugin/uvSenderService.manifest
 
-ag_plugin/uvSenderService.zip: $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+data/ag_plugin/uvSenderService.zip: $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
 
 	@echo "Creating AccessGrid plugin: uvSenderService.zip"
-	@rm  -f ag_plugin/uvSenderService.zip
-	@zip -j ag_plugin/uvSenderService.zip $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+	@rm  -f data/ag_plugin/uvSenderService.zip
+	@zip -j data/ag_plugin/uvSenderService.zip $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
 
-AG_PLUGIN_RX_SCRIPTS = $(srcdir)/ag_plugin/uvReceiverService.py \
-                       $(srcdir)/ag_plugin/uvReceiverService.svc \
-                       $(srcdir)/ag_plugin/uvReceiverService.manifest
+AG_PLUGIN_RX_SCRIPTS = $(srcdir)/data/ag_plugin/uvReceiverService.py \
+                       $(srcdir)/data/ag_plugin/uvReceiverService.svc \
+                       $(srcdir)/data/ag_plugin/uvReceiverService.manifest
 
-ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+data/ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 	$(MKDIR_P) $(dir $@)
 	@echo "Creating AccessGrid plugin: uvReceiverService.zip"
-	@rm  -f ag_plugin/uvReceiverService.zip
-	@zip -j ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+	@rm  -f data/ag_plugin/uvReceiverService.zip
+	@zip -j data/ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 
 # -------------------------------------------------------------------------------------------------
 clean:
 	-rm -f $(OBJS) $(GENERAED_HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
 	-rm -f $(TEST_OBJS) bin/run_tests
-	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+	-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(GUI_BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o

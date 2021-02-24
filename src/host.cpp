@@ -44,6 +44,9 @@
 #include "config_win32.h"
 #endif
 
+#ifndef _WIN32
+#include <execinfo.h>
+#endif // defined WIN32
 #include <getopt.h>
 
 #include "host.h"
@@ -62,6 +65,8 @@
 #include "video_display.h"
 #include "capture_filter.h"
 #include "video.h"
+
+#include <array>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -186,6 +191,17 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
 }
 #endif
 
+/**
+ * dummy load of libgcc for backtrace() to be signal safe within crash_signal_handler() (see backtrace(3))
+ */
+static void load_libgcc()
+{
+#ifndef WIN32
+        array<void *, 1> addresses{};
+        backtrace(addresses.data(), addresses.size());
+#endif
+}
+
 struct init_data *common_preinit(int argc, char *argv[], const char *log_opt)
 {
         struct init_data *init;
@@ -254,10 +270,10 @@ struct init_data *common_preinit(int argc, char *argv[], const char *log_opt)
         perf_init();
         perf_record(UVP_INIT, 0);
 
+        load_libgcc();
+
         return init;
 }
-
-#include <sstream>
 
 void print_capabilities(struct module *root, bool use_vidcap)
 {
@@ -466,6 +482,34 @@ bool validate_param(const char *param)
                 }
         }
         return false;
+}
+
+bool parse_params(char *optarg)
+{
+        if (optarg != nullptr && strcmp(optarg, "help") == 0) {
+                puts("Params can be one or more (separated by comma) of following:");
+                print_param_doc();
+                return false;
+        }
+        char *item = nullptr;
+        char *save_ptr = nullptr;
+        while ((item = strtok_r(optarg, ",", &save_ptr)) != nullptr) {
+                char *key_cstr = item;
+                if (strchr(item, '=') != nullptr) {
+                        char *val_cstr = strchr(item, '=') + 1;
+                        *strchr(item, '=') = '\0';
+                        commandline_params[key_cstr] = val_cstr;
+                } else {
+                        commandline_params[key_cstr] = string();
+                }
+                if (!validate_param(key_cstr)) {
+                        LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key_cstr << "\n";
+                        LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
+                        return false;
+                }
+                optarg = nullptr;
+        }
+        return true;
 }
 
 void print_param_doc()

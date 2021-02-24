@@ -1,5 +1,6 @@
 #include <QProcess>
 #include <QString>
+#include <QStringList>
 #include <QRegularExpression>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,9 +19,9 @@ static bool vectorContains(const std::vector<std::string> &v, const std::string 
 	return false;
 }
 
-static QStringList getProcessOutput(const std::string& executable, const std::string& command){
+static QStringList getProcessOutput(const std::string& executable, const QStringList& args){
 	QProcess process;
-	process.start((executable + command).c_str());
+	process.start(executable.c_str(), args);
 	process.waitForFinished();
 
 	QString output = QString(process.readAllStandardOutput());
@@ -30,7 +31,7 @@ static QStringList getProcessOutput(const std::string& executable, const std::st
 }
 
 void AvailableSettings::queryAll(const std::string &executable){
-	QStringList lines = getProcessOutput(executable, " --capabilities");
+	QStringList lines = getProcessOutput(executable, QStringList() << "--capabilities");
 
 	queryCap(lines, VIDEO_SRC, "[cap][capture] ");
 	queryCap(lines, VIDEO_DISPLAY, "[cap][display] ");

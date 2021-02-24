@@ -80,7 +80,6 @@ struct vidcap_dshow_state {
 	bool convert_YUYV_RGB; ///< @todo check - currently newer set
 
 	struct video_frame *frame;
-	long frameLength;
 	long grabBufferLen;
 	long returnBufferLen;
 	bool haveNewReturnBuffer;
@@ -91,6 +90,7 @@ struct vidcap_dshow_state {
 
 	unsigned long frames;
 	struct timeval t0;
+	bool should_exit;
 
 	CRITICAL_SECTION returnBufferCS;
 	CONDITION_VARIABLE grabWaitCV;
@@ -183,7 +183,10 @@ public:
 			s->haveNewReturnBuffer = true;
 		}
 		LeaveCriticalSection(&s->returnBufferCS);
-		if (grabMightWait) WakeConditionVariable(&s->grabWaitCV);
+		if (grabMightWait) {
+			LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "WakeConditionVariable s->grabWaitCV\n";
+			WakeConditionVariable(&s->grabWaitCV);
+		}
 
 		return S_OK;
 	}
@@ -267,6 +270,13 @@ static bool common_init(struct vidcap_dshow_state *s) {
 		ErrorDescription(res);
 		return false;
 	}
+
+	// Create non-inheritable mutex without a name, owned by this thread
+	InitializeCriticalSectionAndSpinCount(&s->returnBufferCS, 0x40);
+	s->haveNewReturnBuffer = false;
+
+	s->frames = 0;
+	gettimeofday(&s->t0, NULL);
 
 	// create device enumerator
 	res = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&s->devEnumerator));
@@ -877,6 +887,14 @@ static HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory)
     return hr;
 }
 
+static void vidcap_dshow_should_exit(void *state) {
+	auto *s = static_cast<vidcap_dshow_state *>(state);
+	EnterCriticalSection(&s->returnBufferCS);
+	s->should_exit = true;
+	LeaveCriticalSection(&s->returnBufferCS);
+	WakeConditionVariable(&s->grabWaitCV);
+}
+
 static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 	struct vidcap_dshow_state *s;
 	HRESULT res;
@@ -1234,15 +1252,8 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 		goto error;
 	}
 
-	// Create non-inheritable mutex without a name, owned by this thread
-	InitializeCriticalSectionAndSpinCount(&s->returnBufferCS, 0x40);
-	s->haveNewReturnBuffer = false;
-
 	s->frame = vf_alloc_desc(s->desc);
-	s->frameLength = 0;
-
-	s->frames = 0;
-	gettimeofday(&s->t0, NULL);
+	register_should_exit_callback(vidcap_params_get_parent(params), vidcap_dshow_should_exit, s);
 
 	*state = s;
 	return VIDCAP_INIT_OK;
@@ -1289,15 +1300,21 @@ static struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **
 	struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) state;
 	*audio = NULL;
 
-	//fprintf(stderr, "[dshow] GRAB: enter: %d\n", s->deviceNumber);
+	LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "GRAB: enter: " << s->deviceNumber << "\n";
 	EnterCriticalSection(&s->returnBufferCS);
 	//fprintf(stderr, "[dshow] s: %p\n", s);
-	while (!s->haveNewReturnBuffer) {
-		//fprintf(stderr, "[dshow] s: %p\n", s);
+	while (!s->haveNewReturnBuffer && !s->should_exit) {
+		LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Wait CV\n";
 		SleepConditionVariableCS(&s->grabWaitCV, &s->returnBufferCS, INFINITE);
 		//fprintf(stderr, "[dshow] s: %p\n", s);
 	}
 
+	if (s->should_exit) {
+		LeaveCriticalSection(&s->returnBufferCS);
+		return nullptr;
+	}
+
+	LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Swap buffers\n";
 	//fprintf(stderr, "[dshow] s: %p\n", s);
 	// switch the buffers
 	BYTE *tmp = s->returnBuffer;

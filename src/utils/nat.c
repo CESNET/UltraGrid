@@ -43,6 +43,11 @@
 
 #include <pthread.h>
 
+#ifdef HAVE_NATPMP
+#define ENABLE_STRNATPMPERR 1
+#define STATICLIB 1
+#include <natpmp.h>
+#endif // defined HAVE_NATPMP
 #ifdef HAVE_PCP
 #include <pcp-client/pcp.h>
 #endif // defined HAVE_PCP
@@ -52,10 +57,6 @@
 #include "utils/color_out.h"
 #include "utils/nat.h"
 #include "utils/net.h"
-
-#define ENABLE_STRNATPMPERR 1
-#define STATICLIB 1
-#include "ext-deps/libnatpmp-20150609/natpmp.h"
 
 #define DEFAULT_ALLOCATION_TIMEOUT_S 1800
 #define MOD_NAME "[NAT] "
@@ -221,16 +222,18 @@ static void done_pcp(struct ug_nat_traverse *state)
 
 #define PCP_WAIT_MS 500
 
-#define NAT_ASSERT_EQ(expr, val) { int rc = expr; if (rc != (val)) { socket_error(#expr); return false; } }
-#define NAT_ASSERT_NEQ(expr, val) { int rc = expr; if (rc == (val)) { socket_error(#expr); return false; } }
+#define NAT_HANDLE_ERROR(msg) { if (fd != -1) CLOSESOCKET(fd); socket_error(msg); return false; }
+#define NAT_ASSERT_EQ(expr, val) { int rc = expr; if (rc != (val)) NAT_HANDLE_ERROR(#expr) }
+#define NAT_ASSERT_NEQ(expr, val) { int rc = expr; if (rc == (val)) NAT_HANDLE_ERROR(#expr) }
 static bool get_outbound_ip(struct sockaddr_in *out) {
         struct sockaddr_in dst = { 0 };
         socklen_t src_len = sizeof *out;
 
         dst.sin_family = AF_INET;
         dst.sin_port = htons(80);
+        int fd = -1;
         NAT_ASSERT_EQ(inet_pton(AF_INET, "93.184.216.34", &dst.sin_addr.s_addr), 1);
-        int fd = socket(AF_INET, SOCK_DGRAM, 0);
+        fd = socket(AF_INET, SOCK_DGRAM, 0);
         NAT_ASSERT_NEQ(fd, -1);
         NAT_ASSERT_EQ(connect(fd, (struct sockaddr *) &dst, sizeof dst), 0);
         NAT_ASSERT_EQ(getsockname(fd, (struct sockaddr *) out, &src_len), 0);
@@ -308,6 +311,7 @@ static bool setup_pcp(struct ug_nat_traverse *state, int video_rx_port, int audi
 #endif // defined HAVE_PCP
 }
 
+#ifdef HAVE_NATPMP
 static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicport, int lifetime)
 {
         if (privateport == 0 && publicport == 0) {
@@ -356,10 +360,12 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
 
         return true;
 }
+#endif // defined HAVE_NATPMP
 
 static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int audio_rx_port, int lifetime)
 {
         UNUSED(state);
+#ifdef HAVE_NATPMP
         struct in_addr gateway_in_use = { 0 };
         natpmp_t natpmp;
         int r = 0;
@@ -419,6 +425,13 @@ static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int 
         r = closenatpmp(&natpmp);
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "NAT PMP - closenatpmp() returned %d (%s)\n", r, r==0?"SUCCESS":"FAILED");
         return r >= 0;
+#else
+        UNUSED(video_rx_port);
+        UNUSED(audio_rx_port);
+        UNUSED(lifetime);
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "NAT-PMP support not compiled in!\n");
+        return false;
+#endif // defined HAVE_NATPMP
 }
 
 static void done_nat_pmp(struct ug_nat_traverse *state) {

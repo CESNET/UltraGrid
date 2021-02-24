@@ -138,6 +138,7 @@ void print_configuration(void);
 const char *get_commandline_param(const char *key);
 
 bool set_output_buffering();
+bool parse_params(char *optarg);
 void register_param(const char *param, const char *doc);
 bool validate_param(const char *param);
 void print_param_doc(void);

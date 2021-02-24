@@ -238,6 +238,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if(res!=0){
             error_msg("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->param.num, s->param.denom, i);
             error_msg("\t\t No scale factor applied at all. No frame returns...\n");
+            vf_free(frame);
             return NULL;
         }
     }

@@ -2,6 +2,7 @@
 #define ULTRAGRID_WINDOW_HPP
 
 #include <QProcess>
+#include <QStringList>
 #include <vector>
 #include <memory>
 
@@ -38,7 +39,7 @@ private:
 
 	AvailableSettings availableSettings;
 
-	QString launchArgs;
+	QStringList launchArgs;
 	QStringList getOptionsForParam(QString param);
 	LogWindow log;
 	SettingsWindow settingsWindow;
@@ -46,6 +47,11 @@ private:
 	QTimer previewTimer;
 	Settings settings;
 	SettingsUi settingsUi;
+
+	QLabel processStatus;
+	QLabel previewStatus;
+
+	QLabel versionLabel;
 
 
 public slots:
@@ -69,6 +75,8 @@ private slots:
 	void setStartBtnText(QProcess::ProcessState);
 	void processStateChanged(QProcess::ProcessState);
 	void processFinished(int, QProcess::ExitStatus);
+	void previewStateChanged(QProcess::ProcessState);
+	void previewFinished(int, QProcess::ExitStatus);
 	void enablePreview(bool);
 
 	void schedulePreview();

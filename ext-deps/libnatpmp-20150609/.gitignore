@@ -1,7 +1,0 @@
-!*
-*.a
-*.o
-*.so
-natpmpc-shared
-natpmpc-static
-testgetgateway

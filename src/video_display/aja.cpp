@@ -156,7 +156,7 @@ struct display {
         void join();
         void process_frames();
 
-        bool mOutIsRGB;
+        bool mOutIsRGB = false;
         static const ULWord app = AJA_FOURCC ('U','L','G','R');
 
         CNTV2Card mDevice;

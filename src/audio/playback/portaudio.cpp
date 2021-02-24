@@ -164,6 +164,10 @@ static void * audio_play_portaudio_init(const char *cfg)
                         return &audio_init_state_ok;
                 } else {
                         output_device = atoi(cfg);
+                        if (output_device < 0) {
+                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME << "Wrong device index: " << cfg << "\n";
+                                return NULL;
+                        }
                 }
         } else {
                 output_device = -1;
@@ -341,15 +345,13 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
 		portaudio_print_device_info(Pa_GetDefaultOutputDevice());
 		printf("\n");
 		outputParameters.device = Pa_GetDefaultOutputDevice();
-	}
-	else if(s->device >= 0)
-	{
+	} else {
+                assert(s->device >= 0);
 		printf("\nUsing output audio device:");
 		portaudio_print_device_info(s->device);
 		printf("\n");
 		outputParameters.device = s->device;
-	}
-		
+        }
                 
         if(desc.ch_count <= s->max_output_channels)
                 outputParameters.channelCount = desc.ch_count; // output channels

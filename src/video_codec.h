@@ -53,8 +53,8 @@
 extern "C" {
 #endif
 
-#define MAX_BPS 5 /* 4.5 for R12L */
-#define MAX_PADDING 16
+#define MAX_BPS 8 /* for RG48 */ ///< maximal (average) number of pixels per know pixel formats (up-round if needed)
+#define MAX_PADDING 16           ///< maximal padding that may be needed to align to pixfmt block size
 
 /**
  * @brief Defines type for pixelformat conversions

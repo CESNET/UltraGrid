@@ -73,10 +73,10 @@ struct dummy_display_state {
         steady_clock::time_point t0;
         vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R12L, RGBA, RGB, BGR};
         vector<int> rgb_shift = {0, 8, 16};
-        int frames;
+        int frames = 0;
 
         size_t dump_bytes = 0;
-        bool dump_to_file;
+        bool dump_to_file = false;
 };
 
 static auto display_dummy_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */) -> void *

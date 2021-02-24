@@ -33,6 +33,13 @@ astat.commands = cd $$PWD/../../tools && make -f Makefile.astat lib
 QMAKE_EXTRA_TARGETS += astat
 PRE_TARGETDEPS += astat_lib
 
+system("which git"): HAS_GIT = TRUE
+
+equals(HAS_GIT, "TRUE") {
+	DEFINES += GIT_CURRENT_SHA1="\\\"$(shell git -C \""$$_PRO_FILE_PWD_"\" rev-parse --short HEAD)\\\""
+	DEFINES += GIT_CURRENT_BRANCH="\\\"$(shell git -C \""$$_PRO_FILE_PWD_"\" name-rev --name-only HEAD)\\\""
+}
+
 
 # Input
 HEADERS += window/ultragrid_window.hpp \
