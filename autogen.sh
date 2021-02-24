@@ -12,7 +12,7 @@ ORIGDIR=`pwd`
 cd $srcdir
 
 . ./data/scripts/add_cl_if_not_present.sh # add --with-cuda-host-compiler=<cl> to current params (Win)
-. ./data/scripts/install_speex.sh
+./data/scripts/install_speex.sh
 
 # install config.guess config.sub install-sh missing
 echo "Running automake..."
