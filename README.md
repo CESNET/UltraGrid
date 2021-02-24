@@ -12,7 +12,7 @@ UltraGrid - A High Definition Collaboratory
    * Copyright (c) 2001-2004 University of Southern California 
    * Copyright (c) 2003-2004 University of Glasgow
    * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
-   * Copyright (c) 2005-2020 CESNET z.s.p.o.
+   * Copyright (c) 2005-2021 CESNET z.s.p.o.
    * All rights reserved.
 
    This software is distributed under license, see the file
@@ -67,22 +67,30 @@ About UltraGrid
 
    The contents of this directory are as follows:
 
-       COPYRIGHT         Full license terms and conditions
-       INSTALL           Installation instructions
-       NEWS              Change log and modification history
-       README.md         This file
-       bin/              Compiled binaries
-       doc/              Documentation
-       src/              Source code for the UltraGrid system
-       test/             Source code and binaries for test routines
-       Makefile.in       Build script
-       acconfig.h        "       "
-       config.guess      "       "
-       config.sub        "       "
-       configure         "       "
-       configure.ac      "       "
-       install-shx       "       "
+       bin/                  Compiled binaries
+       data/                 Various assets used by UG that is not source code
+       doc/                  Documentation
+       ext-deps/             External dependencies that are required by UG
+       gui/                  Sources for UltraGrid GUI
+       hd-rum-multi/         Simple standalone packet reflector
+       src/                  Source code for the UltraGrid system
+       package_specs/        Specifications for OBS
+       test/                 Source code and binaries for test routines
+       tools/                Small standalone helper tools
+       autogen.sh            Build script
+       configure.ac          "       "
+       Makefile.in           "       "
+       bootstrap_gpujpeg.sh  script to download and build GPUJPEG for use with UG
+       CONTRIBUTING.md       Various information for contributors
+       COPYRIGHT             Full license terms and conditions
+       Doxyfile              Doxygen configuration
+       INSTALL               Installation instructions
+       NEWS                  Change log and modification history
+       README.md             This file
 
+   There are also subdirectories `cuda_dxt`, `dxt_compress` and `ldgm` which contain
+   libraries that are integral part of UltraGrid but are relatively standalone and
+   self-contained.
 
 Hardware and Software Requirements
 ----------------------------------
