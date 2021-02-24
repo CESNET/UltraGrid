@@ -3361,8 +3361,11 @@ RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
 RESULT=`add_column "$RESULT" "DVS" $dvs $?`
 RESULT=`add_column "$RESULT" "File input" $file $?`
+RESULT=`add_column "$RESULT" "Gpustitch" $gpustitch $?`
 RESULT=`add_column "$RESULT" "NDI" $ndi $?`
 RESULT=`add_column "$RESULT" "OpenGL" $gl_display $?`
+RESULT=`add_column "$RESULT" "OpenXR VR Display" $xrgl_disp $?`
+RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
@@ -3370,13 +3373,11 @@ RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "XIMEA" $ximea $?`
-RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
-RESULT=`add_column "$RESULT" "OpenXR VR Display" $xrgl_disp $?`
-RESULT=`add_column "$RESULT" "Gpustitch" $gpustitch $?`
 RESULT=`end_section "$RESULT"`
 
 # compressions
 RESULT=`start_section "$RESULT" "Compressions"`
+RESULT=`add_column "$RESULT" "Cineform" $cineform $?`
 RESULT=`add_column "$RESULT" "Comprimato J2K" $cmpto_j2k $?`
 RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
 RESULT=`add_column "$RESULT" "GPUJPEG" $gpujpeg $?`
@@ -3384,7 +3385,6 @@ RESULT=`add_column "$RESULT" "GPUJPEG transcode to DXT" $gpujpeg_to_dxt $?`
 RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec $?`
 RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
 RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
-RESULT=`add_column "$RESULT" "Cineform" $cineform $?`
 RESULT=`end_section "$RESULT"`
 
 # other
