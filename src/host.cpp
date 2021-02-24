@@ -314,6 +314,51 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
                                 ")\n";
                 }
+
+                if(vci->get_module_info){
+                        auto module_info = vci->get_module_info();
+                        cout << "[capability][video_compress][v3] {"
+                                "\"name\":\"" << it.first << "\", "
+                                "\"options\": [";
+
+                        int i = 0;
+                        for(const auto& opt : module_info.opts){
+                                if(i++ > 0)
+                                        cout << ", ";
+
+                                cout << "{"
+                                        "\"display_name\":\"" << opt.display_name << "\", "
+                                        "\"display_desc\":\"" << opt.display_desc << "\", "
+                                        "\"key\":\"" << opt.key << "\", "
+                                        "\"opt_str\":\"" << opt.opt_str << "\", "
+                                        "\"is_boolean\":\"" << (opt.is_boolean ? "t" : "f") << "\"}";
+                        }
+
+                        cout << "], "
+                                "\"codecs\": [";
+
+                        int j = 0;
+                        for(const auto& c : module_info.codecs){
+                                if(j++ > 0)
+                                        cout << ", ";
+
+                                cout << "{\"name\":\"" << c.name << "\", "
+                                        "\"encoders\":[";
+
+                                int z = 0;
+                                for(const auto& e : c.encoders){
+                                        if(z++ > 0)
+                                                cout << ", ";
+
+                                        cout << "{\"name\":\"" << e.name << "\", "
+                                                "\"opt_str\":\"" << e.opt_str << "\"}";
+                                }
+                                cout << "]}";
+                        }
+
+                        cout << "]}" << std::endl;
+
+                }
         }
 
         // capture filters

@@ -344,7 +344,8 @@ const struct video_compress_info rtdxt_info = {
                         { "DXT5", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 8.0);},
                                 {75, 0.3, 35}, {15, 0.1, 20} },
                 } : list<compress_preset>{};
-        }
+        },
+        NULL
 };
 
 REGISTER_MODULE(rtdxt, &rtdxt_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);

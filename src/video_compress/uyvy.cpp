@@ -308,7 +308,8 @@ const struct video_compress_info uyvy_info = {
         NULL,
         NULL,
         NULL,
-        [] {return list<compress_preset>{}; }
+        [] {return list<compress_preset>{}; },
+        NULL
 };
 
 REGISTER_MODULE(uyvy, &uyvy_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);

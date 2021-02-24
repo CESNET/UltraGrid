@@ -110,7 +110,8 @@ const struct video_compress_info none_info = {
                         { "", 100, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * get_bpp(d->color_spec) * 8.0);},
                                 {0, 1, 0}, {0, 1, 0} },
                 };
-        }
+        },
+        NULL
 };
 
 REGISTER_MODULE(none, &none_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
