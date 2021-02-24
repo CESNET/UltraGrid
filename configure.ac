@@ -266,7 +266,7 @@ AC_SUBST(DYLIBBUNDLER)
 # Additional macros
 # -------------------------------------------------------------------------------------------------
 AC_DEFUN([CUDA_MESSAGE], [
-          if test -z "$cuda_msg_defined"; then
+          if test -z "$cuda_msg_defined" -a $system != Windows; then
                   POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
 If not done so, you can accomplish this by adding line:\n\
