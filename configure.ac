@@ -661,13 +661,11 @@ AC_ARG_ENABLE(decklink,
 [  --disable-decklink      disable DeckLink (default is auto)]
 [                          Requires: DesktopVideo],
 	[decklink_req=$enableval])
-DECKLINK_INC=
+DECKLINK_INC=$srcdir/ext-deps/DeckLink
 
 case "$system" in
 	MacOSX)
-                if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=$srcdir/DeckLink/Mac
-                fi
+                DECKLINK_INC=$DECKLINK_INC/Mac
                 OLD_LIBS=$LIBS
                 LIBS="$LIBS -framework CoreFoundation"
                 AC_LANG_PUSH(C++)
@@ -681,9 +679,7 @@ case "$system" in
                 AC_LANG_POP(C++)
                 ;;
 	Windows)
-                if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=$srcdir/DeckLink/Windows
-                fi
+                DECKLINK_INC=$DECKLINK_INC/Windows
                 SAVED_LIBS=$LIBS
                 LIBS="$LIBS -lole32"
                 AC_LANG_PUSH(C++)
@@ -702,9 +698,7 @@ case "$system" in
                 AC_LANG_POP(C++)
                 ;;
         *)
-                if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=$srcdir/DeckLink/Linux
-                fi
+                DECKLINK_INC=$DECKLINK_INC/Linux
 
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK_SRC=yes, FOUND_DECKLINK_SRC=no)
