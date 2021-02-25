@@ -45,44 +45,79 @@ void AvailableSettings::queryAll(const std::string &executable){
 	queryVideoCompress(lines);
 }
 
+static void maybeWriteString (const QJsonObject& obj,
+		const char *key,
+		std::string& result)
+{
+		if(obj.contains(key) && obj[key].isString()){
+			result = obj[key].toString().toStdString();
+		}
+}
+
 void AvailableSettings::queryVideoCompress(const QStringList &lines){
-	const char * const devStr = "[capability][video_compress][v2]";
+	const char * const devStr = "[capability][video_compress][v3]";
 	size_t devStrLen = strlen(devStr);
 
 	videoCompressModules.clear();
 
-	videoCompressModules.push_back({
-			"libavcodec",
-			{
-				{"Bitrate", "Video Bitrate desc", "quality", ":bitrate=", false},
-				{"Crf", "Constant rate factor", "crf", ":crf=", false},
-			},
-			{
-				{
-					"H.264",
-					{
-						{"default", ":codec=H.264"},
-						{"libx264", ":encoder=libx264"}
-					}
-				}
-			}
-			});
+	foreach ( const QString &line, lines ) {
+		if(!line.startsWith(devStr))
+			continue;
 
-	videoCompressModules.push_back({
-			"cineform",
-			{
-				{"Quality", "Video quality desc", "quality", ":quality=", false},
-				{"Threads", "Number of threads to use", "threads", ":threads=", false},
-			},
-			{
-				{
-					"Cineform",
-					{
-						{"default", ""}
+		QJsonDocument doc = QJsonDocument::fromJson(line.mid(devStrLen).toUtf8());
+		if(!doc.isObject())
+			continue;
+
+		CompressModule compMod;
+		QJsonObject obj = doc.object();
+		maybeWriteString(obj, "name", compMod.name);
+
+		if(obj.contains("options") && obj["options"].isArray()){
+			for(const QJsonValue &val : obj["options"].toArray()){
+				QJsonObject optJson = val.toObject();
+
+				CapabOpt capabOpt;
+				maybeWriteString(optJson, "display_name", capabOpt.displayName);
+				maybeWriteString(optJson, "display_desc", capabOpt.displayDesc);
+				maybeWriteString(optJson, "key", capabOpt.key);
+				maybeWriteString(optJson, "opt_str", capabOpt.optStr);
+				if(optJson.contains("is_boolean") && optJson["is_boolean"].isString()){
+					capabOpt.booleanOpt = optJson["is_boolean"].toString() == "t";
+				}
+
+				compMod.opts.emplace_back(std::move(capabOpt));
+			}
+		}
+
+		if(obj.contains("codecs") && obj["codecs"].isArray()){
+			for(const QJsonValue &val : obj["codecs"].toArray()){
+				QJsonObject codecJson = val.toObject();
+
+				Codec codec;
+				maybeWriteString(codecJson, "name", codec.name);
+
+				if(codecJson.contains("encoders") && codecJson["encoders"].isArray()){
+					for(const QJsonValue &val : codecJson["encoders"].toArray()){
+						QJsonObject encoderJson = val.toObject();
+
+						Encoder encoder;
+						maybeWriteString(encoderJson, "name", encoder.name);
+						maybeWriteString(encoderJson, "opt_str", encoder.optStr);
+
+						codec.encoders.emplace_back(std::move(encoder));
 					}
 				}
+
+				if(codec.encoders.empty()){
+					codec.encoders.emplace_back(Encoder{"default", ""});
+				}
+
+				compMod.codecs.emplace_back(std::move(codec));
 			}
-			});
+		}
+
+		videoCompressModules.emplace_back(std::move(compMod));
+	}
 }
 
 void AvailableSettings::queryDevices(const QStringList &lines){
