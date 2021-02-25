@@ -223,6 +223,7 @@ const static struct{
 	{"spout.device", Option::StringOpt, ":", "", false, "video.source", "spout"},
 	{"syphon.device", Option::StringOpt, ":", "", false, "video.source", "syphon"},
 	{"ximea.device", Option::StringOpt, ":", "", false, "video.source", "ximea"},
+	{"encryption", Option::StringOpt, " --encryption ", "", false, "", ""},
 };
 
 const struct {
@@ -291,6 +292,7 @@ std::string Settings::getLaunchParams() const{
 	}
 	out += audioPlay;
 	out += getOption("network.fec").getLaunchOption();
+	out += getOption("encryption").getLaunchOption();
 	out += getOption("network.port").getLaunchOption();
 	out += getOption("network.control_port").getLaunchOption();
 	out += getOption("network.destination").getLaunchOption();
@@ -309,6 +311,7 @@ std::string Settings::getPreviewParams() const{
 	out += getOption("audio.source.channels").getLaunchOption();
 	out += " -r dummy";
 	out += getOption("network.control_port").getLaunchOption();
+	out += getOption("encryption").getLaunchOption();
 
 	return out;
 }
