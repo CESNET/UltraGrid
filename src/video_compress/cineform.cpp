@@ -119,12 +119,28 @@ static void cineform_compress_done(struct module *mod){
         delete s;
 }
 
+struct {
+        const char *label;
+        const char *key;
+        const char *description;
+        const char *opt_str;
+} usage_opts[] = {
+        {"Quality", "quality", "specifies encode quality, range 1-6 (default: 4)", ":quality="},
+        {"Threads", "num_threads", "specifies number of threads for encoding", ":num_threads="},
+        {"Pool size", "pool_size", "specifies the size of encoding pool", ":pool_size="},
+};
+
 static void usage() {
         printf("Cineform encoder usage:\n");
         printf("\t-c cineform[:quality=<quality>][:threads=<num_threads>][:pool_size=<pool_size>]\n");
+
         printf("\t\t<quality> specifies encode quality, range 1-6 (default: 4)\n");
         printf("\t\t<num_threads> specifies number of threads for encoding \n");
         printf("\t\t<pool_size> specifies the size of encoding pool \n");
+
+        for(const auto& opt : usage_opts){
+                printf("\t\t<%s> %s\n", opt.key, opt.description);
+        }
 }
 
 static int parse_fmt(struct state_video_compress_cineform *s, char *fmt) {
@@ -569,6 +585,24 @@ static std::list<compress_preset> get_cineform_presets() {
         return ret;
 }
 
+static compress_module_info get_cineform_module_info(){
+        compress_module_info module_info;
+        module_info.name = "cineform";
+
+        for(const auto& opt : usage_opts){
+                module_info.opts.emplace_back(module_option{opt.label,
+                                opt.description, opt.key, opt.opt_str, false});
+        }
+
+        codec codec_info;
+        codec_info.name = "Cineform";
+        codec_info.encoders.emplace_back(encoder{"default", ""});
+
+        module_info.codecs.emplace_back(std::move(codec_info));
+
+        return module_info;
+}
+
 const struct video_compress_info cineform_info = {
         "cineform",
         cineform_compress_init,
@@ -579,6 +613,7 @@ const struct video_compress_info cineform_info = {
         cineform_compress_push,
         cineform_compress_pop,
         get_cineform_presets,
+        get_cineform_module_info,
 };
 
 REGISTER_MODULE(cineform, &cineform_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
