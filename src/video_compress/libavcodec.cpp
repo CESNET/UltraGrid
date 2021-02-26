@@ -501,10 +501,19 @@ static list<compress_preset> get_libavcodec_presets() {
 }
 
 static compress_module_info get_libavcodec_module_info(){
-	compress_module_info module_info;
-	module_info.name = "libavcodec";
-	module_info.opts.emplace_back(module_option{"Bitrate", "Bitrate", "quality", "bitrate=", false});
-	module_info.opts.emplace_back(module_option{"Crf", "Crf", "crf", "crf=", false});
+        compress_module_info module_info;
+        module_info.name = "libavcodec";
+        module_info.opts.emplace_back(module_option{"Bitrate", "Bitrate", "quality", ":bitrate=", false});
+        module_info.opts.emplace_back(module_option{"Crf", "specifies CRF factor (only for libx264/libx265)", "crf", ":crf=", false});
+        module_info.opts.emplace_back(module_option{"Disable intra refresh",
+                        "Do not use Periodic Intra Refresh (H.264/H.265)",
+                        "disable_intra_refresh", ":disable_intra_refresh", true});
+        module_info.opts.emplace_back(module_option{"Subsampling",
+                        "may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced",
+                        "subsampling", ":subsampling=", false});
+        module_info.opts.emplace_back(module_option{"Lavc opt",
+                        "arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)",
+                        "lavc_opt", ":", false});
 
         for (const auto& param : codec_params) {
                 enum AVCodecID avID = get_ug_to_av_codec(param.first);
@@ -530,7 +539,7 @@ static compress_module_info get_libavcodec_module_info(){
                 module_info.codecs.emplace_back(std::move(codec_info));
         }
 
-	return module_info;
+        return module_info;
 }
 
 struct module * libavcodec_compress_init(struct module *parent, const char *opts)
