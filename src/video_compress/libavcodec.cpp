@@ -118,6 +118,7 @@ typedef struct {
         double avg_bpp;
         string (*get_preset)(string const & enc_name, int width, int height, double fps);
         void (*set_param)(AVCodecContext *, struct setparam_param *);
+        int capabilities_priority;
 } codec_params_t;
 
 static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps);
@@ -144,55 +145,64 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
                 get_h264_h265_preset,
-                setparam_h264_h265_av1
+                setparam_h264_h265_av1,
+                100
         }},
         { H265, codec_params_t{
                 [](bool) { return "libx265"; },
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
                 get_h264_h265_preset,
-                setparam_h264_h265_av1
+                setparam_h264_h265_av1,
+                101
         }},
         { MJPG, codec_params_t{
                 nullptr,
                 1.2,
                 nullptr,
-                setparam_jpeg
+                setparam_jpeg,
+                102
         }},
         { J2K, codec_params_t{
                 nullptr,
                 1.0,
                 nullptr,
-                setparam_default
+                setparam_default,
+                500
         }},
         { VP8, codec_params_t{
                 nullptr,
                 0.4,
                 nullptr,
-                setparam_vp8_vp9
+                setparam_vp8_vp9,
+                103
         }},
         { VP9, codec_params_t{
                 nullptr,
                 0.4,
                 nullptr,
                 setparam_vp8_vp9,
+                104
         }},
         { HFYU, codec_params_t{
                 nullptr,
                 0,
                 nullptr,
-                setparam_default
+                setparam_default,
+                501
         }},
         { FFV1, codec_params_t{
                 nullptr,
                 0,
                 nullptr,
-                setparam_default
+                setparam_default,
+                502
         }},
         { AV1, codec_params_t{
                 nullptr,
                 0,
                 nullptr,
-                setparam_h264_h265_av1
+                setparam_h264_h265_av1,
+                600
         }},
 };
 
@@ -527,6 +537,7 @@ static compress_module_info get_libavcodec_module_info(){
 
                 codec codec_info;
                 codec_info.name = get_codec_name(param.first);
+                codec_info.priority = param.second.capabilities_priority;
                 codec_info.encoders.emplace_back(
                                 encoder{"default", ":codec=" + codec_info.name});
 

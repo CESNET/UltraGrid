@@ -343,6 +343,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                         cout << ", ";
 
                                 cout << "{\"name\":\"" << c.name << "\", "
+                                        "\"priority\": " << c.priority << ", "
                                         "\"encoders\":[";
 
                                 int z = 0;
