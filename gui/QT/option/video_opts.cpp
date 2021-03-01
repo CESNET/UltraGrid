@@ -110,21 +110,16 @@ std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
 {
     std::vector<SettingItem> res;
 
-	for(const auto& compMod : availSettings->getVideoCompressModules()){
-		if(compMod.name != mod)
+	for(const auto& i : availSettings->getVideoCompressCodecs()){
+		if(i.name != codec || i.module_name != mod)
 			continue;
 
-		for(const auto& modCodec : compMod.codecs){
-			if(modCodec.name != codec)
-				continue;
+		for(const auto& encoder: i.encoders){
+			SettingItem item;
+			item.name = encoder.name;
+			item.opts.push_back({"video.compress." + mod + ".codec." + codec + ".encoder", encoder.optStr});
 
-			for(const auto& encoder: modCodec.encoders){
-				SettingItem item;
-				item.name = encoder.name;
-				item.opts.push_back({"video.compress." + mod + ".codec." + codec + ".encoder", encoder.optStr});
-
-				res.emplace_back(std::move(item));
-			}
+			res.emplace_back(std::move(item));
 		}
 	}
 
@@ -155,7 +150,7 @@ void populateVideoCompressSettings(AvailableSettings *availSettings,
 		settings->addOption(codecOptKey,
 				Option::SilentOpt,
 				"",
-				mod.codecs[0].name,
+				"",
 				false,
 				"video.compress",
 				mod.name);
@@ -170,20 +165,20 @@ void populateVideoCompressSettings(AvailableSettings *availSettings,
 					mod.name
 					);
 		}
+	}
 
-		for(const auto& codec : mod.codecs){
-			std::string optName = "video.compress.";
-			optName += mod.name;
-			optName += ".codec";
+	for(const auto& codec : availSettings->getVideoCompressCodecs()){
+		std::string optName = "video.compress.";
+		optName += codec.module_name;
+		optName += ".codec";
 
-			settings->addOption(codec.name + ".encoder",
-					Option::StringOpt,
-					"",
-					codec.encoders[0].optStr,
-					true,
-					optName,
-					codec.name);
-		}
+		settings->addOption(codec.name + ".encoder",
+				Option::StringOpt,
+				"",
+				codec.encoders[0].optStr,
+				true,
+				optName,
+				codec.name);
 	}
 }
 
@@ -192,15 +187,13 @@ std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings){
 
     const std::string optStr = "video.compress";
 
-	for(const auto& mod : availSettings->getVideoCompressModules()){
-		for(const auto& codec : mod.codecs){
-			SettingItem item;
-			item.name = codec.name;
-			item.opts.push_back({"video.compress", mod.name});
-			item.opts.push_back({"video.compress." + mod.name + ".codec", codec.name});
+	for(const auto& codec : availSettings->getVideoCompressCodecs()){
+		SettingItem item;
+		item.name = codec.name;
+		item.opts.push_back({"video.compress", codec.module_name});
+		item.opts.push_back({"video.compress." + codec.module_name + ".codec", codec.name});
 
-			res.push_back(std::move(item));
-		}
+		res.push_back(std::move(item));
 	}
 
     return res;

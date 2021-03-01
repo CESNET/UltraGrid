@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <map>
+#include <algorithm>
 
 static bool vectorContains(const std::vector<std::string> &v, const std::string & s){
 	for(unsigned i = 0; i < v.size(); i++){
@@ -60,7 +61,8 @@ void AvailableSettings::queryVideoCompress(const QStringList &lines){
 
 	videoCompressModules.clear();
 
-	videoCompressModules.emplace_back(CompressModule{"", {}, {Codec{"None", {Encoder{"default", ""}}}}});
+	videoCompressModules.emplace_back(CompressModule{"", {}, });
+	videoCompressCodecs.emplace_back(Codec{"None", "", {Encoder{"default", ""}}, 0});
 
 	foreach ( const QString &line, lines ) {
 		if(!line.startsWith(devStr))
@@ -97,6 +99,10 @@ void AvailableSettings::queryVideoCompress(const QStringList &lines){
 
 				Codec codec;
 				maybeWriteString(codecJson, "name", codec.name);
+				codec.module_name = compMod.name;
+				if(codecJson.contains("priority") && codecJson["priority"].isDouble()){
+					codec.priority = codecJson["priority"].toInt();
+				}
 
 				if(codecJson.contains("encoders") && codecJson["encoders"].isArray()){
 					for(const QJsonValue &val : codecJson["encoders"].toArray()){
@@ -114,12 +120,18 @@ void AvailableSettings::queryVideoCompress(const QStringList &lines){
 					codec.encoders.emplace_back(Encoder{"default", ""});
 				}
 
-				compMod.codecs.emplace_back(std::move(codec));
+				videoCompressCodecs.emplace_back(std::move(codec));
 			}
 		}
 
 		videoCompressModules.emplace_back(std::move(compMod));
 	}
+
+	std::sort(videoCompressCodecs.begin(), videoCompressCodecs.end(),
+			[](const Codec& a, const Codec& b){
+				return a.priority < b.priority;
+			});
+
 }
 
 void AvailableSettings::queryDevices(const QStringList &lines){

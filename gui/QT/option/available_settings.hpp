@@ -56,13 +56,14 @@ struct Encoder{
 
 struct Codec{
 	std::string name;
+	std::string module_name;
 	std::vector<Encoder> encoders;
+	int priority;
 };
 
 struct CompressModule{
 	std::string name;
 	std::vector<CapabOpt> opts;
-	std::vector<Codec> codecs;
 };
 
 class AvailableSettings{
@@ -82,10 +83,15 @@ public:
 		return videoCompressModules;
 	}
 
+	const std::vector<Codec>& getVideoCompressCodecs() const {
+		return videoCompressCodecs;
+	}
+
 private:
 	std::vector<std::string> available[SETTING_TYPE_COUNT];
 	std::vector<Device> devices[SETTING_TYPE_COUNT];
 	std::vector<CompressModule> videoCompressModules;
+	std::vector<Codec> videoCompressCodecs;
 
 };
 
