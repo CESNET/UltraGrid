@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2021 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -146,6 +146,7 @@
 
 using rang::style;
 using namespace std;
+using namespace std::string_literals;
 
 struct state_video_decoder;
 
@@ -604,12 +605,31 @@ static void *decompress_worker(void *data)
         return d;
 }
 
+ADD_TO_PARAM("decoder-drop-policy",
+                "* decoder-drop-policy=blocking|nonblock\n"
+                "  Force specified blocking policy (default nonblock).\n");
 static void *decompress_thread(void *args) {
         set_thread_name(__func__);
         struct state_video_decoder *decoder =
                 (struct state_video_decoder *) args;
         int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
         int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
+
+        int force_putf_flag = []() {
+                auto drop_policy = commandline_params.find("decoder-drop-policy"s);
+                if (drop_policy == commandline_params.end()) {
+                        return -1;
+                }
+                if (drop_policy->second == "nonblock") {
+                        return static_cast<int>(PUTF_NONBLOCK);
+                }
+                if (drop_policy->second == "blocking") {
+                        return static_cast<int>(PUTF_BLOCKING);
+                }
+                LOG(LOG_LEVEL_WARNING) << "Wrong drop policy "
+                        << drop_policy->second << "!\n";
+                return -1;
+        }();
 
         while(1) {
                 unique_ptr<frame_msg> msg = decoder->decompress_queue.pop();
@@ -692,23 +712,7 @@ static void *decompress_thread(void *args) {
                 }
 
                 {
-                        int putf_flags = PUTF_NONBLOCK;
-
-                        if (is_codec_interframe(decoder->received_vid_desc.color_spec)) {
-                                putf_flags = PUTF_NONBLOCK;
-                        }
-
-                        auto drop_policy = commandline_params.find("drop-policy");
-                        if (drop_policy != commandline_params.end()) {
-                                if (drop_policy->second == "nonblock") {
-                                        putf_flags = PUTF_NONBLOCK;
-                                } else if (drop_policy->second == "blocking") {
-                                        putf_flags = PUTF_BLOCKING;
-                                } else {
-                                        LOG(LOG_LEVEL_WARNING) << "Wrong drop policy "
-                                                << drop_policy->second << "!\n";
-                                }
-                        }
+                        int putf_flags = force_putf_flag != -1 ? force_putf_flag : PUTF_NONBLOCK; // originally was BLOCKING when !is_codec_interframe(decoder->received_vid_desc.color_spec)
 
                         decoder->frame->ssrc = msg->nofec_frame->ssrc;
                         int ret = display_put_frame(decoder->display,
