@@ -1,4 +1,10 @@
 #!/bin/sh -eux
+##
+## Creates UltraGrid AppImage
+##
+## @param $1          (optional) zsync URL - location used for AppImage updater
+## @env $appimage_key (optional) signing key
+## @returns           name of created AppImage
 
 APPDIR=UltraGrid.AppDir
 ARCH=`uname -m`
@@ -14,6 +20,7 @@ mkdir tmpinstall
 make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local $APPDIR
 
+# add packet reflector
 make -C hd-rum-multi
 cp hd-rum-multi/hd-rum $APPDIR/bin
 
@@ -21,8 +28,12 @@ cp hd-rum-multi/hd-rum $APPDIR/bin
 # @todo copy only needed ones
 # @todo use https://github.com/probonopd/linuxdeployqt
 PLUGIN_LIBS=
-QT_DIR=$(dirname $(ldd $APPDIR/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }'))
-if [ -f $APPDIR/bin/uv-qt -a -n $QT_DIR ]; then
+if [ -f $APPDIR/bin/uv-qt ]; then
+        QT_DIR=$(dirname $(ldd $APPDIR/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }'))
+else
+        QT_DIR=
+fi
+if [ -n "$QT_DIR" ]; then
         SRC_PLUGIN_DIR=$QT_DIR/qt5/plugins
         DST_PLUGIN_DIR=$APPDIR/lib/qt5/plugins
         mkdir -p $DST_PLUGIN_DIR
@@ -30,12 +41,15 @@ if [ -f $APPDIR/bin/uv-qt -a -n $QT_DIR ]; then
         PLUGIN_LIBS=$(find $DST_PLUGIN_DIR -type f)
 fi
 
+# copy dependencies
+mkdir -p $APPDIR/lib
 for n in $APPDIR/bin/* $APPDIR/lib/ultragrid/* $PLUGIN_LIBS; do
         for lib in `ldd $n | awk '{ print $3 }'`; do
                 [ ! -f $lib ] || cp $lib $APPDIR/lib
         done
 done
 
+# add DejaVu font
 mkdir $APPDIR/lib/fonts
 cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPDIR/lib/fonts
 
@@ -59,12 +73,13 @@ done
 
 cp data/scripts/Linux-AppImage/AppRun data/scripts/Linux-AppImage/uv-wrapper.sh data/ultragrid.png $APPDIR
 cp data/uv-qt.desktop $APPDIR/ultragrid.desktop
-wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/AppImageUpdate-x86_64.AppImage -O $APPDIR/appimageupdatetool
+wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool # use AppImageUpdate for GUI updater
 chmod ugo+x $APPDIR/appimageupdatetool
 
-if [ -n "$appimage_key" ]; then
+if [ -n "${appimage_key-}" ]; then
         echo "$appimage_key" >> key
         gpg --import key
+        SIGN=--sign
 fi
 
 wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
@@ -72,7 +87,7 @@ UPDATE_INFORMATION=
 if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
-./appimagetool --sign --comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
+./appimagetool ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
 )
 
 echo $APPNAME

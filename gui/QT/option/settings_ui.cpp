@@ -192,4 +192,5 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new RadioButtonUi(ui->ldgmGpuRadio, "GPU", settings, "network.fec.ldgm.device"));
 	addControl(new CheckboxUi(ui->decodeAccelCheck, settings, "decode.hwaccel"));
 	addControl(new CheckboxUi(ui->errorsFatalBox, settings, "errors_fatal"));
+	addControl(new LineEditUi(ui->encryptionLineEdit, settings, "encryption"));
 }

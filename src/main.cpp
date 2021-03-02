@@ -14,7 +14,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2019 CESNET z.s.p.o.
+ * Copyright (c) 2005-2021 CESNET z.s.p.o.
  * Copyright (c) 2005-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -247,15 +247,29 @@ static void write_all(size_t len, const char *msg) {
         } while (len > 0);
 }
 
+/**
+ * Copies string at src to pointer *ptr and increases the pointner.
+ * @todo
+ * Functions defined in string.h should signal safe in POSIX.1-2008 - check if in glibc, if so, use strcat.
+ * @note
+ * Strings are not NULL-terminated.
+ */
+static void append(char **ptr, const char *ptr_end, const char *src) {
+        while (*src != '\0') {
+                if (*ptr == ptr_end) {
+                        return;
+                }
+                *(*ptr)++ = *src++;
+        }
+}
+
 static void signal_handler(int signal)
 {
         if (log_level >= LOG_LEVEL_DEBUG) {
-                char msg[] = "Caught signal ";
                 char buf[128];
                 char *ptr = buf;
-                for (size_t i = 0; i < sizeof msg - 1; ++i) {
-                        *ptr++ = msg[i];
-                }
+                char *ptr_end = buf + sizeof buf;
+                append(&ptr, ptr_end, "Caught signal ");
                 if (signal / 10) {
                         *ptr++ = '0' + signal/10;
                 }
@@ -270,14 +284,8 @@ static void crash_signal_handler(int sig)
 {
         char buf[1024];
         char *ptr = buf;
-        *ptr++ = '\n';
-        const char message1[] = " has crashed";
-        for (size_t i = 0; i < sizeof PACKAGE_NAME - 1; ++i) {
-                *ptr++ = PACKAGE_NAME[i];
-        }
-        for (size_t i = 0; i < sizeof message1 - 1; ++i) {
-                *ptr++ = message1[i];
-        }
+        char *ptr_end = buf + sizeof buf;
+        append(&ptr, ptr_end, "\n" PACKAGE_NAME " has crashed");
 #ifndef WIN32
         char backtrace_msg[] = "Backtrace:\n";
         write(2, backtrace_msg, sizeof backtrace_msg);
@@ -291,29 +299,14 @@ static void crash_signal_handler(int sig)
         const char *sig_desc = sys_siglist[sig];
 #endif
         if (sig_desc != NULL) {
-                *ptr++ = ' '; *ptr++ = '(';
-                for (size_t i = 0; sig_desc[i] != '\0'; ++i) {
-                        *ptr++ = sig_desc[i];
-                }
-                *ptr++ = ')';
+                append(&ptr, ptr_end, " (");
+                append(&ptr, ptr_end, sig_desc);
+                append(&ptr, ptr_end, ")");
         }
 #endif
-        const char message2[] = ".\n\nPlease send a bug report to address ";
-        for (size_t i = 0; i < sizeof message2 - 1; ++i) {
-                *ptr++ = message2[i];
-        }
-        for (size_t i = 0; i < sizeof PACKAGE_BUGREPORT - 1; ++i) {
-                *ptr++ = PACKAGE_BUGREPORT[i];
-        }
-        *ptr++ = '.'; *ptr++ = '\n';
-        const char message3[] = "You may find some tips how to report bugs in file doc/REPORTING_BUGS.md distributed with ";
-        for (size_t i = 0; i < sizeof message3 - 1; ++i) {
-                *ptr++ = message3[i];
-        }
-        for (size_t i = 0; i < sizeof PACKAGE_NAME - 1; ++i) {
-                *ptr++ = PACKAGE_NAME[i];
-        }
-        *ptr++ = '.'; *ptr++ = '\n';
+        append(&ptr, ptr_end, ".\n\nPlease send a bug report to address " PACKAGE_BUGREPORT ".\n");
+        append(&ptr, ptr_end, "You may find some tips how to report bugs in file doc/REPORTING_BUGS.md distributed with " PACKAGE_NAME "\n");
+        append(&ptr, ptr_end, "(or available online at https://github.com/CESNET/UltraGrid/blob/master/doc/REPORTING-BUGS.md).\n");
 
         write_all(ptr - buf, buf);
 

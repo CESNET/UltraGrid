@@ -101,7 +101,7 @@ void UltragridWindow::refresh(){
 
 void UltragridWindow::setupPreviewCallbacks(){
 	const char * const opts[] = {
-		"video.source", "audio.source", "audio.source.channels"
+		"video.source", "audio.source", "audio.source.channels", "encryption"
 	};
 
 	for(const auto &i : opts){

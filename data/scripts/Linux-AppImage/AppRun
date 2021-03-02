@@ -20,8 +20,8 @@ usage() {
         printf "\tUltraGrid --appimage-help\n"
         printf "\t\tprints AppImage related options\n"
         printf "\n"
-        printf "\tUltraGrid --update\n"
-        printf "\t\tupdates AppImage\n"
+        printf "\tUltraGrid --update [args]\n"
+        printf "\t\tupdates AppImage (args will be passed to appimageupdatetool)\n"
         printf "\n"
         printf "\tUltraGrid --tool uv --help\n"
         printf "\t\tprints command-line UltraGrid help\n"
@@ -37,7 +37,9 @@ usage() {
 
 if [ $# -eq 0 ]; then
         usage
-        $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh
+        if [ -f $DIR/bin/uv-qt ]; then
+                $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh
+        fi
 elif [ x"$1" = x"--tool" ]; then
         TOOL=$2
         shift 2
@@ -49,7 +51,9 @@ elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
         usage
         exit 0
 elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
-        $DIR/appimageupdatetool $APPIMAGE
+        shift
+        unset LD_LIBRARY_PATH
+        $DIR/appimageupdatetool ${1+"$@" }$APPIMAGE
         exit 0
 else
         $DIR/uv-wrapper.sh "$@"

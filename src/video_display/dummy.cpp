@@ -157,17 +157,17 @@ static void dump_buf(unsigned char *buf, size_t len) {
 
 static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
 {
-        if (flags == PUTF_DISCARD) {
+        if (flags == PUTF_DISCARD || frame == nullptr) {
                 return 0;
         }
         auto s = (dummy_display_state *) state;
-        if (frame != nullptr && s->dump_bytes > 0) {
+        if (s->dump_bytes > 0) {
                 dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes));
-                if (s->dump_to_file) {
-                        std::ofstream out(DUMP_FILE, std::ifstream::out | std::ifstream::binary);
-                        out.write(frame->tiles[0].data, frame->tiles[0].data_len);
-                        s->dump_to_file = false;
-                }
+        }
+        if (s->dump_to_file) {
+                std::ofstream out(DUMP_FILE, std::ifstream::out | std::ifstream::binary);
+                out.write(frame->tiles[0].data, frame->tiles[0].data_len);
+                s->dump_to_file = false;
         }
         auto curr_time = steady_clock::now();
         s->frames += 1;
