@@ -446,6 +446,37 @@ state_video_compress_gpujpeg *state_video_compress_gpujpeg::create(struct module
         return ret;
 }
 
+struct {
+        const char *label;
+        const char *key;
+        const char *help_name;
+        const char *description;
+        const char *opt_str;
+        bool is_boolean;
+} usage_opts[] = {
+        {"Quality", "quality", "quality",
+                "\t\tJPEG quality coefficient [0..100] - more is better\n", ":q=", false},
+        {"Restart interval", "restart_interval", "restart_interval",
+                "\t\tInterval between independently entropy encoded block of MCUs,\n"
+                        "\t\t0 to disable. Using large intervals or disable (0) slightly\n"
+                        "\t\treduces bandwidth at the expense of worse parallelization (if\n"
+                        "\t\treset intervals disabled, Huffman encoding is run on CPU). Leave\n"
+                        "\t\tuntouched if unsure.\n",
+                ":restart=", false},
+        {"Interleaved", "interleaved", "interleaved",
+                "\t\tForce interleaved encoding (default for YCbCr input formats).\n"
+                        "\t\tNon-interleaved has slightly better performance for RGB at the\n"
+                        "\t\texpense of worse compatibility. Therefore this option may be\n"
+                        "\t\tenabled safely.\n",
+                ":interleaved", true},
+        {"Color space", "color_space", "RGB|Y601|Y601full|Y709",
+                "\t\tforce internal JPEG color space (otherwise source color space is kept).\n",
+                ":", false},
+        {"Subsampling", "subsampling", "sub",
+                "\t\tUse specified JPEG subsampling (444, 422 or 420).\n",
+                ":sub=", false},
+};
+
 struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 {
         if (gpujpeg_version() >> 8 != GPUJPEG_VERSION_INT >> 8) {
@@ -459,23 +490,11 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                 cout << "GPUJPEG comperssion usage:\n";
                 cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|Y601|Y601full|Y709]][:subsampling=<sub>]\n");
                 cout << "where\n";
-                cout << BOLD("\tquality\n") <<
-                        "\t\tJPEG quality coefficient [0..100] - more is better\n";
-                cout << BOLD("\trestart_interval\n") <<
-                        "\t\tInterval between independently entropy encoded block of MCUs,\n"
-                        "\t\t0 to disable. Using large intervals or disable (0) slightly\n"
-                        "\t\treduces bandwidth at the expense of worse parallelization (if\n"
-                        "\t\treset intervals disabled, Huffman encoding is run on CPU). Leave\n"
-                        "\t\tuntouched if unsure.\n";
-                cout << BOLD("\tinterleaved\n") <<
-                        "\t\tForce interleaved encoding (default for YCbCr input formats).\n"
-                        "\t\tNon-interleaved has slightly better performance for RGB at the\n"
-                        "\t\texpense of worse compatibility. Therefore this option may be\n"
-                        "\t\tenabled safely.\n";
-                cout << BOLD("\tRGB|Y601|Y601full|Y709\n") <<
-                        "\t\tforce internal JPEG color space (otherwise source color space is kept).\n";
-                cout << BOLD("\t<sub>\n") <<
-                        "\t\tUse specified JPEG subsampling (444, 422 or 420).\n";
+
+                for(const auto& i : usage_opts){
+                    cout << "\t" <<BOLD(i.help_name) << "\n" << i.description;
+                }
+
                 cout << "\n";
                 cout << BOLD("Note:") << " instead of positional parameters for "
                         "quality and restart intervals " << BOLD("\"q=\"") << " and " << BOLD("\"restart=\"") << " can be used.\n";
@@ -663,6 +682,27 @@ start:
         }
 }
 
+static compress_module_info get_gpujpeg_module_info(){
+        compress_module_info module_info;
+        module_info.name = "gpujpeg";
+
+        for(const auto& opt : usage_opts){
+                std::string desc = opt.description;
+                desc.erase(std::remove(desc.begin(), desc.end(), '\t'), desc.end());
+                std::replace(desc.begin(), desc.end(), '\n', ' ');
+                module_info.opts.emplace_back(module_option{opt.label, desc, opt.key, opt.opt_str, opt.is_boolean});
+        }
+
+        codec codec_info;
+        codec_info.name = "Jpeg";
+        codec_info.priority = 300;
+        codec_info.encoders.emplace_back(encoder{"default", ""});
+
+        module_info.codecs.emplace_back(std::move(codec_info));
+
+        return module_info;
+}
+
 const struct video_compress_info gpujpeg_info = {
         "GPUJPEG",
         gpujpeg_compress_init,
@@ -685,7 +725,8 @@ const struct video_compress_info gpujpeg_info = {
                         { "90", 80, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);},
                                 {15, 0.6, 100}, {20, 0.6, 150} },
                 } : list<compress_preset>{};
-        }
+        },
+        get_gpujpeg_module_info
 };
 
 const struct video_compress_info deprecated_jpeg_info = {
@@ -706,7 +747,8 @@ const struct video_compress_info deprecated_jpeg_info = {
         NULL,
         [] {
                 return list<compress_preset>{};
-        }
+        },
+        NULL
 };
 
 
