@@ -37,7 +37,9 @@ usage() {
 
 if [ $# -eq 0 ]; then
         usage
-        $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh
+        if [ -f $DIR/bin/uv-qt ]; then
+                $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh
+        fi
 elif [ x"$1" = x"--tool" ]; then
         TOOL=$2
         shift 2
