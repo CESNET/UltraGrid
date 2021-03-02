@@ -52,7 +52,8 @@ elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
         exit 0
 elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
         shift
-        $DIR/appimageupdatetool ${1+$@ }$APPIMAGE
+        unset LD_LIBRARY_PATH
+        $DIR/appimageupdatetool ${1+"$@" }$APPIMAGE
         exit 0
 else
         $DIR/uv-wrapper.sh "$@"
