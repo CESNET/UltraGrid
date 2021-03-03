@@ -50,7 +50,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
 #include <speex/speex_resampler.h> 
 #endif
 
@@ -75,7 +75,7 @@ struct state_ca_capture {
                         auHALComponentInstance;
         struct audio_frame frame;
         char *tmp;
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
         char *resampled;
 #endif
         struct ring_buffer *buffer;
@@ -87,7 +87,7 @@ struct state_ca_capture {
         volatile int boss_waiting;
         volatile int data_ready;
         int nominal_sample_rate;
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
         SpeexResamplerState *resampler; 
 #endif
 };
@@ -160,7 +160,7 @@ static OSStatus InputProc(void *inRefCon,
                 for(i = 0; i < s->frame.ch_count; ++i)
                         mux_channel(s->tmp, s->theBufferList->mBuffers[i].mData, s->frame.bps, len, s->frame.ch_count, i, 1.0);
                 uint32_t write_bytes = len * s->frame.ch_count;
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
                 if(s->nominal_sample_rate != s->frame.sample_rate) {
                         int err;
                         uint32_t in_frames = inNumberFrames;
@@ -175,7 +175,7 @@ static OSStatus InputProc(void *inRefCon,
 #endif
 
                 pthread_mutex_lock(&s->lock);
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
                 if(s->nominal_sample_rate != s->frame.sample_rate) 
                         ring_buffer_write(s->buffer, s->resampled, write_bytes);
                 else
@@ -284,9 +284,9 @@ static void * audio_cap_ca_init(const char *cfg)
         s->nominal_sample_rate = rate;
         s->frame.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
                 rate;
-#if !defined HAVE_SPEEX || defined DISABLE_SPPEX_RESAMPLER
+#if !defined HAVE_SPEEXDSP || defined DISABLE_SPPEX_RESAMPLER
         s->frame.sample_rate = rate;
-#if !defined HAVE_SPEEX
+#if !defined HAVE_SPEEXDSP
         fprintf(stderr, "[CoreAudio] Libspeex support not compiled in, resampling won't work (check manual or wiki how to enable it)!\n");
 #endif
 #else
@@ -308,7 +308,7 @@ static void * audio_cap_ca_init(const char *cfg)
 
         s->buffer = ring_buffer_init(s->frame.max_size);
         s->frame.data = (char *) malloc(s->frame.max_size);
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
         s->resampled = (char *) malloc(s->frame.max_size);
 #endif
 
@@ -511,12 +511,12 @@ static void audio_cap_ca_done(void *state)
         ring_buffer_destroy(s->buffer);
         free(s->tmp);
 
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
         if(s->resampler) {
                 speex_resampler_destroy(s->resampler);
         }
         free(s->resampled);
-#endif // HAVE_SPEEX
+#endif // HAVE_SPEEXDSP
 
         free(s);
 }

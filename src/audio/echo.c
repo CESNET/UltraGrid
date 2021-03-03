@@ -45,9 +45,7 @@
 #include "debug.h"
 #include "echo.h"
 
-#ifdef HAVE_SPEEX
-#include "speex/speex_echo.h"
-#endif /* HAVE_SPEEX */
+#include <speex/speex_echo.h>
 
 #include <stdlib.h>
 #include <pthread.h>

@@ -2487,28 +2487,28 @@ if test $portaudio_req = yes -a $portaudio = no; then
         AC_MSG_ERROR([PortAudio not found]);
 fi
 
-# -------------------------------------------------------------------------------------------------
-# SPEEX
-
-speex=yes
+# ---------------------------------------------------------------------------
+# SpeexDSP
+# ---------------------------------------------------------------------------
+speexdsp=yes
 SPEEXDSP_PATH=ext-deps/speexdsp
-SPEEX_INC=
-SPEEX_OBJ=src/audio/echo.o
-AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
+SPEEXDSP_INC=
+SPEEXDSP_OBJ=src/audio/echo.o
+AC_DEFINE([HAVE_SPEEXDSP], [1], [Build with SpeexDSP support])
 
 PKG_CHECK_MODULES([LIBSPEEXDSP], [speexdsp], [found_speexdsp=yes], [found_speexdsp=no])
 
 if test "$found_speexdsp" = yes; then
         LIBS="$LIBS $LIBSPEEXDSP_LIBS"
 else
-        SPEEX_INC="$SPEEX_INC -I$srcdir/${SPEEXDSP_PATH}/include"
-        SPEEX_OBJ="$SPEEX_OBJ src/audio/fftwrap.o src/audio/filterbank.o src/audio/mdf.o src/audio/preprocess.o src/audio/resample.o src/audio/smallft.o"
+        SPEEXDSP_INC="$SPEEXDSP_INC -I$srcdir/${SPEEXDSP_PATH}/include"
+        SPEEXDSP_OBJ="$SPEEXDSP_OBJ src/audio/fftwrap.o src/audio/filterbank.o src/audio/mdf.o src/audio/preprocess.o src/audio/resample.o src/audio/smallft.o"
 fi
 
 SAVED_CFLAGS=$CFLAGS
 SAVED_CPPFLAGS=$CPPFLAGS
-CFLAGS="$CFLAGS $SPEEX_INC"
-CPPFLAGS="$CPPFLAGS $SPEEX_INC"
+CFLAGS="$CFLAGS $SPEEXDSP_INC"
+CPPFLAGS="$CPPFLAGS $SPEEXDSP_INC"
 AC_CHECK_HEADER([speex/speex_resampler.h])
 CFLAGS=$SAVED_CFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
@@ -2518,10 +2518,9 @@ if test "$ac_cv_header_speex_speex_resampler_h" != yes; then
 [This should be usually automatic - please report to $PACKAGE_BUGREPORT if not sure why getting this.]);
 fi
 
+INC="$INC${SPEEXDSP_INC:+${INC:+ }}$SPEEXDSP_INC"
 
-AC_SUBST(SPEEX_INC)
-AC_SUBST(SPEEX_OBJ)
-AC_SUBST(SPEEX_PATH)
+AC_SUBST(SPEEXDSP_OBJ)
 AC_SUBST(SPEEXDSP_PATH)
 
 # -------------------------------------------------------------------------------------------------
@@ -2567,10 +2566,10 @@ then
     ADD_MODULE("aplay_jack", "$JACK_PLAY_OBJ", "")
 fi
 
-if test $jack = yes -a $speex = no
+if test $jack = yes -a $speexdsp = no
 then
-        AC_MSG_WARN([*** You are going to compile JACK but you do not have SPEEX compiled in.
-                     It is recommended to compile also SPEEX library and rerun this script in
+        AC_MSG_WARN([*** You are going to compile JACK but you do not have SpeexDSP compiled in.
+                     It is recommended to compile also SpeexDSP library and rerun this script in
                      order to enable resampling (if needed).])
 fi
 
@@ -2635,10 +2634,10 @@ case $host_os in
     ;;
 esac
 
-if test $coreaudio = yes -a $speex = no
+if test $coreaudio = yes -a $speexdsp = no
 then
-        AC_MSG_WARN([*** You are going to compile CoreAudio but you do not have SPEEX compiled in.
-                     It is recommended to compile also SPEEX library and rerun this script in
+        AC_MSG_WARN([*** You are going to compile CoreAudio but you do not have SpeexDSP compiled in.
+                     It is recommended to compile also SpeexDSP library and rerun this script in
                      order to enable resampling (if needed).])
 fi
 

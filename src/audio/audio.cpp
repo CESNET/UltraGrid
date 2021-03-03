@@ -280,7 +280,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->exporter = exporter;
 
         if(echo_cancellation) {
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
                 //s->echo_state = echo_cancellation_init();
                 fprintf(stderr, "Echo cancellation is currently broken "
                                 "in UltraGrid.\nPlease write to %s "
@@ -291,7 +291,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 fprintf(stderr, "Speex not compiled in. Could not enable echo cancellation.\n");
                 delete s;
                 goto error;
-#endif /* HAVE_SPEEX */
+#endif /* HAVE_SPEEXDSP */
         } else {
                 s->echo_state = NULL;
         }
@@ -723,7 +723,7 @@ static void *audio_receiver_thread(void *arg)
                 if (decoded) {
                         bool failed = false;
                         if(s->echo_state) {
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
                                 echo_play(s->echo_state, &current_pbuf->buffer);
 #endif
                         }
@@ -981,7 +981,7 @@ static void *audio_sender_thread(void *arg)
                         }
                         export_audio(s->exporter, buffer);
                         if(s->echo_state) {
-#ifdef HAVE_SPEEX
+#ifdef HAVE_SPEEXDSP
                                 buffer = echo_cancel(s->echo_state, buffer);
                                 if(!buffer)
                                         continue;

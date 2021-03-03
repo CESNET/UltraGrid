@@ -15,7 +15,7 @@ CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
 INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
-                @SPEEX_INC@ @CUDA_INC@ @INC@
+                @CUDA_INC@ @INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 DYLIBBUNDLER  = @DYLIBBUNDLER@
 DYLIBBUNDLER_FLAGS += @DYLIBBUNDLER_FLAGS@
@@ -27,7 +27,6 @@ GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 CUDA_COMPILER = @CUDA_COMPILER@
 SYSTEM	      = @system@
-SPEEX_PATH    = @SPEEX_PATH@
 SPEEXDSP_PATH = @SPEEXDSP_PATH@
 
 GUI_EXE       = @GUI_EXE@
@@ -100,7 +99,7 @@ COMMON_OBJS     = \
 		src/audio/utils.o \
 		src/audio/wav_reader.o \
 		@JACK_TRANS_OBJ@ \
-		@SPEEX_OBJ@ \
+		@SPEEXDSP_OBJ@ \
 		src/capture_filter.o \
 		src/capture_filter/change_pixfmt.o \
 		src/capture_filter/every.o \
@@ -300,11 +299,11 @@ src/audio/filterbank.o:
 
 src/audio/fftwrap.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEX_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/fftwrap.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/fftwrap.c  -fPIC -DPIC -o $@
 
 src/audio/smallft.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEX_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/smallft.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/smallft.c  -fPIC -DPIC -o $@
 
 src/audio/mdf.o:
 	$(MKDIR_P) $(dir $@)
