@@ -14,6 +14,7 @@ echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/
 echo "/usr/local/opt/qt/bin" >> $GITHUB_PATH
 
 brew install autoconf automake cppunit libtool pkg-config
+brew install speexdsp
 brew install ffmpeg portaudio sdl2
 brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
