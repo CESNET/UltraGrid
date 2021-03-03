@@ -2491,7 +2491,6 @@ fi
 # SPEEX
 
 speex=yes
-SPEEX_PATH=ext-deps/speex
 SPEEXDSP_PATH=ext-deps/speexdsp
 SPEEX_INC=
 SPEEX_OBJ=src/audio/echo.o
@@ -2502,29 +2501,20 @@ PKG_CHECK_MODULES([LIBSPEEXDSP], [speexdsp], [found_speexdsp=yes], [found_speexd
 if test "$found_speexdsp" = yes; then
         LIBS="$LIBS $LIBSPEEXDSP_LIBS"
 else
-        PKG_CHECK_MODULES([LIBSPEEX], [speex], [found_speex=yes], [found_speex=no])
-        if test "$found_speex" = yes; then
-                LIBS="$LIBS $LIBSPEEX_LIBS"
-        else
-                SPEEX_INC="-I$srcdir/${SPEEX_PATH}/include"
-                SPEEX_OBJ="$SPEEX_OBJ src/audio/fftwrap.o src/audio/smallft.o"
-        fi
-
         SPEEX_INC="$SPEEX_INC -I$srcdir/${SPEEXDSP_PATH}/include"
-        SPEEX_OBJ="$SPEEX_OBJ src/audio/filterbank.o src/audio/mdf.o src/audio/preprocess.o src/audio/resample.o"
+        SPEEX_OBJ="$SPEEX_OBJ src/audio/fftwrap.o src/audio/filterbank.o src/audio/mdf.o src/audio/preprocess.o src/audio/resample.o src/audio/smallft.o"
 fi
 
 SAVED_CFLAGS=$CFLAGS
 SAVED_CPPFLAGS=$CPPFLAGS
 CFLAGS="$CFLAGS $SPEEX_INC"
 CPPFLAGS="$CPPFLAGS $SPEEX_INC"
-AC_CHECK_HEADER([speex/speex.h])
 AC_CHECK_HEADER([speex/speex_resampler.h])
 CFLAGS=$SAVED_CFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
 
-if test "$ac_cv_header_speex_speex_h" != yes -o "$ac_cv_header_speex_speex_resampler_h" != yes; then
-        AC_MSG_ERROR([Speex/SpeexDSP is a hard dependency, download it into $SPEEX_PATH and $SPEEXDSP_PATH]
+if test "$ac_cv_header_speex_speex_resampler_h" != yes; then
+        AC_MSG_ERROR([SpeexDSP is a hard dependency, download it into $SPEEXDSP_PATH]
 [This should be usually automatic - please report to $PACKAGE_BUGREPORT if not sure why getting this.]);
 fi
 

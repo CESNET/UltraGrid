@@ -300,11 +300,11 @@ src/audio/filterbank.o:
 
 src/audio/fftwrap.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEX_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEX_PATH)/libspeex/fftwrap.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEX_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/fftwrap.c  -fPIC -DPIC -o $@
 
 src/audio/smallft.o:
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEX_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEX_PATH)/libspeex/smallft.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEX_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/smallft.c  -fPIC -DPIC -o $@
 
 src/audio/mdf.o:
 	$(MKDIR_P) $(dir $@)
