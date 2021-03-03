@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QMessageBox>
 #include <cstring>
 #include "available_settings.hpp"
 
@@ -44,7 +45,7 @@ struct {
 	{AUDIO_COMPRESS, "[cap][audio_compress] "},
 };
 
-void AvailableSettings::queryProcessLine(const QString& line){
+void AvailableSettings::queryProcessLine(const QString& line, bool *endMarker){
 	for(const auto& i : modulesQueryInfo){
 		if(line.startsWith(i.capStr)){
 			available[i.type].push_back(line.mid(strlen(i.capStr)).toStdString());
@@ -52,13 +53,16 @@ void AvailableSettings::queryProcessLine(const QString& line){
 		}
 	}
 
-	const char * const devStr = "[capability][device][v2]";
-	const char * const codecStr = "[capability][video_compress][v3]";
+	const char * const devStr = "[capability][device]";
+	const char * const codecStr = "[capability][video_compress]";
+	const char * const endMarkerStr = "[capability][end]";
 
 	if(line.startsWith(devStr)){
 		queryDevice(line, strlen(devStr));
 	} else if(line.startsWith(codecStr)){
 		queryVideoCompress(line, strlen(codecStr));
+	} else if(line.startsWith(endMarkerStr)){
+		*endMarker = true;
 	}
 }
 
@@ -76,8 +80,43 @@ void AvailableSettings::queryAll(const std::string &executable){
 	videoCompressModules.emplace_back(CompressModule{"", {}, });
 	videoCompressCodecs.emplace_back(Codec{"None", "", {Encoder{"default", ""}}, 0});
 
-	for(const QString &line : lines) {
-		queryProcessLine(line);
+	int i;
+	int ver = 0;
+	const char *verStr = "[capability][start] version ";
+	for(i = 0; i < lines.size(); i++){
+		if(lines[i].startsWith(verStr)){
+			ver = lines[i].mid(strlen(verStr)).toInt();
+			break;
+		}
+	}
+
+	const int expectedVersion = 3;
+	if(ver != expectedVersion){
+		QMessageBox msgBox;
+		QString msg = "Capabilities start marker with expected version not found"
+				" in ug output.";
+		if(ver != 0)
+			msg += " Version found: " + QString::number(ver);
+		msgBox.setText(msg);
+		msgBox.setIcon(QMessageBox::Critical);
+		msgBox.exec();
+		return;
+	}
+
+	bool endMarkerFound = false;
+	for(; i < lines.size(); i++) {
+		queryProcessLine(lines[i], &endMarkerFound);
+
+		if(endMarkerFound)
+			break;
+	}
+
+	if(!endMarkerFound){
+		QMessageBox msgBox;
+		msgBox.setText("Capabilities end marker not found in ug output."
+				" Some options may be missing as result.");
+		msgBox.setIcon(QMessageBox::Critical);
+		msgBox.exec();
 	}
 
 	std::sort(videoCompressCodecs.begin(), videoCompressCodecs.end(),

@@ -117,7 +117,7 @@ void print_available_capturers()
                 }
                 printf("[cap][capture] %s\n", item.first.c_str());
                 for (int i = 0; i < vt->card_count; ++i) {
-                        printf("[capability][device][v2] {"
+                        printf("[capability][device] {"
                                         "\"purpose\":\"video_cap\", "
                                         "\"type\":\"%s\", "
                                         "\"device\":\"%s\", "

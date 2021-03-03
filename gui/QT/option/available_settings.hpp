@@ -88,7 +88,7 @@ public:
 
 private:
 
-	void queryProcessLine(const QString& line);
+	void queryProcessLine(const QString& line, bool *endMarker = nullptr);
 
 	std::vector<std::string> available[SETTING_TYPE_COUNT];
 	std::vector<Device> devices[SETTING_TYPE_COUNT];

@@ -298,7 +298,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                         usleep(max<int>(100,query_lasted.count())*1000);
                 }
         }
-
+        cout << "[capability][start] version 3" << endl;
         // compressions
         cout << "[cap] Compressions:" << endl;
         auto compressions = get_libraries_for_class(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
@@ -317,7 +317,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
 
                 if(vci->get_module_info){
                         auto module_info = vci->get_module_info();
-                        cout << "[capability][video_compress][v3] {"
+                        cout << "[capability][video_compress] {"
                                 "\"name\":\"" << it.first << "\", "
                                 "\"options\": [";
 
@@ -386,7 +386,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 vdi->probe(&devices, &count, &deleter);
                 cout << "[cap][display] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device][v2] {"
+                        cout << "[capability][device] {"
                                 "\"purpose\":\"video_disp\", "
                                 "\"type\":" << std::quoted(devices[i].id) << ", "
                                 "\"name\":" << std::quoted(devices[i].name) << ", "
@@ -405,7 +405,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 aci->probe(&devices, &count);
                 cout << "[cap][audio_cap] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device][v2] {"
+                        cout << "[capability][device] {"
                                 "\"purpose\":\"audio_cap\", "
                                 "\"type\":" << std::quoted(devices[i].id) << ", "
                                 "\"name\":" << std::quoted(devices[i].name) << "}\n";
@@ -423,7 +423,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 api->probe(&devices, &count);
                 cout << "[cap][audio_play] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device][v2] {"
+                        cout << "[capability][device] {"
                                 "\"purpose\":\"audio_play\", "
                                 "\"type\":" << std::quoted(devices[i].id) << ", "
                                 "\"name\":" << std::quoted(devices[i].name) << "}\n";
@@ -436,6 +436,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
         for(const auto& codec : codecs){
                 cout << "[cap][audio_compress] " << codec.first << std::endl;
         }
+
+        cout << "[capability][end]" << endl;
 
         cout.flags(flags);
         cout.precision(precision);
