@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,10 +50,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef HAVE_SPEEXDSP
-#include <speex/speex_resampler.h> 
-#endif
-
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/playback/coreaudio.h"
@@ -63,7 +59,6 @@
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
 
-#define DISABLE_SPPEX_RESAMPLER 1
 #define MODULE_NAME "[CoreAudio] "
 
 struct state_ca_capture {
@@ -75,9 +70,6 @@ struct state_ca_capture {
                         auHALComponentInstance;
         struct audio_frame frame;
         char *tmp;
-#ifdef HAVE_SPEEXDSP
-        char *resampled;
-#endif
         struct ring_buffer *buffer;
         int audio_packet_size;
         AudioBufferList *theBufferList;
@@ -86,10 +78,6 @@ struct state_ca_capture {
         pthread_cond_t cv;
         volatile int boss_waiting;
         volatile int data_ready;
-        int nominal_sample_rate;
-#ifdef HAVE_SPEEXDSP
-        SpeexResamplerState *resampler; 
-#endif
 };
 
 static OSStatus InputProc(void *inRefCon,
@@ -160,27 +148,9 @@ static OSStatus InputProc(void *inRefCon,
                 for(i = 0; i < s->frame.ch_count; ++i)
                         mux_channel(s->tmp, s->theBufferList->mBuffers[i].mData, s->frame.bps, len, s->frame.ch_count, i, 1.0);
                 uint32_t write_bytes = len * s->frame.ch_count;
-#ifdef HAVE_SPEEXDSP
-                if(s->nominal_sample_rate != s->frame.sample_rate) {
-                        int err;
-                        uint32_t in_frames = inNumberFrames;
-                        err = speex_resampler_process_interleaved_int(s->resampler, (spx_int16_t *) s->tmp, &in_frames, (spx_int16_t *) s->resampled, &write_bytes);
-                        //speex_resampler_process_int(resampler, channelID, in, &in_length, out, &out_length); 
-                        write_bytes *= s->frame.bps * s->frame.ch_count;
-                        if(err) {
-                                fprintf(stderr, "Resampling data error.\n");
-                                return err;
-                        }
-                }
-#endif
 
                 pthread_mutex_lock(&s->lock);
-#ifdef HAVE_SPEEXDSP
-                if(s->nominal_sample_rate != s->frame.sample_rate) 
-                        ring_buffer_write(s->buffer, s->resampled, write_bytes);
-                else
-#endif
-                        ring_buffer_write(s->buffer, s->tmp, write_bytes);
+                ring_buffer_write(s->buffer, s->tmp, write_bytes);
                 s->data_ready = TRUE;
                 if(s->boss_waiting)
                         pthread_cond_signal(&s->cv);
@@ -281,36 +251,19 @@ static void * audio_cap_ca_init(const char *cfg)
         double rate;
         size = sizeof(double);
         ret = AudioDeviceGetProperty(device, 0, 0, kAudioDevicePropertyNominalSampleRate, &size, &rate);
-        s->nominal_sample_rate = rate;
-        s->frame.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
-                rate;
-#if !defined HAVE_SPEEXDSP || defined DISABLE_SPPEX_RESAMPLER
         s->frame.sample_rate = rate;
-#if !defined HAVE_SPEEXDSP
-        fprintf(stderr, "[CoreAudio] Libspeex support not compiled in, resampling won't work (check manual or wiki how to enable it)!\n");
-#endif
-#else
-        s->resampler = NULL;
-        if(s->frame.sample_rate != s->nominal_sample_rate) {
-                int err;
-                s->resampler = speex_resampler_init(s->frame.ch_count, s->nominal_sample_rate, s->frame.sample_rate, 10, &err); 
-                if(err) {
-                        s->frame.sample_rate = s->nominal_sample_rate;
-                }
+        if (audio_capture_sample_rate != 0 && audio_capture_sample_rate != rate) {
+                log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Requested sample rate %u, got %lf!\n", audio_capture_sample_rate, rate);
         }
-#endif
 
         s->frame.max_size = s->frame.bps * s->frame.ch_count * s->frame.sample_rate;
-        int nonres_channel_size = s->frame.bps * s->nominal_sample_rate;
+        int nonres_channel_size = s->frame.bps * s->frame.sample_rate;
 
         s->theBufferList = AllocateAudioBufferList(s->frame.ch_count, nonres_channel_size);
         s->tmp = (char *) malloc(nonres_channel_size * s->frame.ch_count);
 
         s->buffer = ring_buffer_init(s->frame.max_size);
         s->frame.data = (char *) malloc(s->frame.max_size);
-#ifdef HAVE_SPEEXDSP
-        s->resampled = (char *) malloc(s->frame.max_size);
-#endif
 
         //There are several different types of Audio Units.
         //Some audio units serve as Outputs, Mixers, or DSP
@@ -409,7 +362,7 @@ static void * audio_cap_ca_init(const char *cfg)
                 }
 
                 desc.mChannelsPerFrame = s->frame.ch_count;
-                desc.mSampleRate = (double) s->nominal_sample_rate;
+                desc.mSampleRate = (double) s->frame.sample_rate;
                 desc.mFormatID = kAudioFormatLinearPCM;
                 desc.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked | kAudioFormatFlagIsNonInterleaved;
                 if (desc.mFormatID == kAudioFormatLinearPCM && s->frame.ch_count == 1)
@@ -510,13 +463,6 @@ static void audio_cap_ca_done(void *state)
         free(s->frame.data);
         ring_buffer_destroy(s->buffer);
         free(s->tmp);
-
-#ifdef HAVE_SPEEXDSP
-        if(s->resampler) {
-                speex_resampler_destroy(s->resampler);
-        }
-        free(s->resampled);
-#endif // HAVE_SPEEXDSP
 
         free(s);
 }

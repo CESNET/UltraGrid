@@ -2566,13 +2566,6 @@ then
     ADD_MODULE("aplay_jack", "$JACK_PLAY_OBJ", "")
 fi
 
-if test $jack = yes -a $speexdsp = no
-then
-        AC_MSG_WARN([*** You are going to compile JACK but you do not have SpeexDSP compiled in.
-                     It is recommended to compile also SpeexDSP library and rerun this script in
-                     order to enable resampling (if needed).])
-fi
-
 if test $jack_req = yes -a $jack = no; then
         AC_MSG_ERROR([JACK not found]);
 fi
@@ -2633,13 +2626,6 @@ case $host_os in
 		fi
     ;;
 esac
-
-if test $coreaudio = yes -a $speexdsp = no
-then
-        AC_MSG_WARN([*** You are going to compile CoreAudio but you do not have SpeexDSP compiled in.
-                     It is recommended to compile also SpeexDSP library and rerun this script in
-                     order to enable resampling (if needed).])
-fi
 
 if test $coreaudio_req = yes -a $coreaudio = no; then
         AC_MSG_ERROR([Core Audio not found]);
