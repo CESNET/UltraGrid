@@ -68,9 +68,8 @@ struct CompressModule{
 
 class AvailableSettings{
 public:
-	void queryCap(const QStringList &lines, SettingType type, const char *capStr);
-	void queryDevices(const QStringList &lines);
-	void queryVideoCompress(const QStringList &lines);
+	void queryDevice(const QString &line, size_t offset);
+	void queryVideoCompress(const QString &line, size_t offset);
 
 	void queryAll(const std::string &executable);
 
@@ -88,6 +87,9 @@ public:
 	}
 
 private:
+
+	void queryProcessLine(const QString& line);
+
 	std::vector<std::string> available[SETTING_TYPE_COUNT];
 	std::vector<Device> devices[SETTING_TYPE_COUNT];
 	std::vector<CompressModule> videoCompressModules;
