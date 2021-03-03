@@ -169,15 +169,9 @@ void AvailableSettings::queryDevice(const QString &line, size_t offset){
 
 	Device dev;
 	QJsonObject obj = doc.object();
-	if(obj.contains("name") && obj["name"].isString()){
-		dev.name = obj["name"].toString().toStdString();
-	}
-	if(obj.contains("type") && obj["type"].isString()){
-		dev.type = obj["type"].toString().toStdString();
-	}
-	if(obj.contains("device") && obj["device"].isString()){
-		dev.deviceOpt = obj["device"].toString().toStdString();
-	}
+	maybeWriteString(obj, "name", dev.name);
+	maybeWriteString(obj, "type", dev.type);
+	maybeWriteString(obj, "device", dev.deviceOpt);
 
 	if(obj.contains("modes") && obj["modes"].isArray()){
 		for(const QJsonValue &val : obj["modes"].toArray()){
@@ -186,9 +180,7 @@ void AvailableSettings::queryDevice(const QString &line, size_t offset){
 
 				DeviceMode mode;
 
-				if(modeJson.contains("name") && modeJson["name"].isString()){
-					mode.name = modeJson["name"].toString().toStdString();
-				}
+				maybeWriteString(modeJson, "name", mode.name);
 
 				if(modeJson.contains("opts") && modeJson["opts"].isObject()){
 					QJsonObject modeOpts = modeJson["opts"].toObject();
