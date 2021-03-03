@@ -17,6 +17,7 @@ fetch_submodule() {
                         echo "git not found - trying to download a release"
                         mkdir -p ext-deps/tmp
                         curl -L $FALLBACK_URL | tar -C ext-deps/tmp -xz
+                        [ -d ext-deps/$MODULE ] && rmdir ext-deps/$MODULE
                         mv ext-deps/tmp/* ext-deps/$MODULE
                         rmdir ext-deps/tmp
                 else
@@ -31,7 +32,7 @@ fetch_submodule() {
                         echo "skipped (ext-deps/$MODULE is already present)"
                 fi
         else
-                SUBMODULE_UPDATED=`git submodule update --init ext-deps/$module`
+                SUBMODULE_UPDATED=`git submodule update --init ext-deps/$MODULE`
                 if [ -z "$SUBMODULE_UPDATED" ]; then
                         echo "not needed"
                         return 0
