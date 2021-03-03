@@ -2493,10 +2493,26 @@ fi
 speex=yes
 SPEEX_PATH=ext-deps/speex
 SPEEXDSP_PATH=ext-deps/speexdsp
-SPEEX_INC="-I$srcdir/${SPEEX_PATH}/include -I$srcdir/${SPEEXDSP_PATH}/include"
-SPEEX_OBJ="src/audio/echo.o src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
-SPEEX_LIB=
+SPEEX_INC=
+SPEEX_OBJ=src/audio/echo.o
 AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
+
+PKG_CHECK_MODULES([LIBSPEEXDSP], [speexdsp], [found_speexdsp=yes], [found_speexdsp=no])
+
+if test "$found_speexdsp" = yes; then
+        LIBS="$LIBS $LIBSPEEXDSP_LIBS"
+else
+        PKG_CHECK_MODULES([LIBSPEEX], [speex], [found_speex=yes], [found_speex=no])
+        if test "$found_speex" = yes; then
+                LIBS="$LIBS $LIBSPEEX_LIBS"
+        else
+                SPEEX_INC="-I$srcdir/${SPEEX_PATH}/include"
+                SPEEX_OBJ="$SPEEX_OBJ src/audio/fftwrap.o src/audio/smallft.o"
+        fi
+
+        SPEEX_INC="$SPEEX_INC -I$srcdir/${SPEEXDSP_PATH}/include"
+        SPEEX_OBJ="$SPEEX_OBJ src/audio/filterbank.o src/audio/mdf.o src/audio/preprocess.o src/audio/resample.o"
+fi
 
 SAVED_CFLAGS=$CFLAGS
 SAVED_CPPFLAGS=$CPPFLAGS
@@ -2514,7 +2530,6 @@ fi
 
 
 AC_SUBST(SPEEX_INC)
-AC_SUBST(SPEEX_LIB)
 AC_SUBST(SPEEX_OBJ)
 AC_SUBST(SPEEX_PATH)
 AC_SUBST(SPEEXDSP_PATH)
