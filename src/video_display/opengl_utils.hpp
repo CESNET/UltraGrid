@@ -489,14 +489,14 @@ struct Sdl_window{
         Sdl_window& operator=(const Sdl_window&) = delete;
         Sdl_window& operator=(Sdl_window&& o) { swap(o); return *this; }
 
-#ifdef HAVE_LIBX11
+#ifdef HAVE_LINUX
         /**
          * Used to obtain Xlib window handles
          */
         void getXlibHandles(Display  **xDisplay,
                         GLXContext *glxContext,
                         GLXDrawable *glxDrawable);
-#endif //HAVE_LIBX11
+#endif //HAVE_LINUX
 
         /**
          * Sets window title
