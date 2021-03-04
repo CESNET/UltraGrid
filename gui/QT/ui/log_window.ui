@@ -86,11 +86,6 @@
        </disabled>
       </palette>
      </property>
-     <property name="font">
-      <font>
-       <family>Monospace</family>
-      </font>
-     </property>
      <property name="placeholderText">
       <string/>
      </property>
