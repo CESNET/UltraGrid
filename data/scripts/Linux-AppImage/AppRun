@@ -47,7 +47,7 @@ handle_updates() {
         if expr $APPIMAGE : '.*continuous' > /dev/null; then
                 update_notify_days=7
         fi
-        UV_BIN_TIMESTAMP=$(stat --format=%W $DIR/bin/uv)
+        UV_BIN_TIMESTAMP=$(stat --format=%Y $DIR/bin/uv)
         CURR_TIMESTAMP=$(date +%s)
         if [ $CURR_TIMESTAMP -lt $(($UV_BIN_TIMESTAMP + $update_notify_days * 24 * 60 * 60)) ]; then
                 return
