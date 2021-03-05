@@ -717,7 +717,9 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
                                         av_codec), av_codec);
                 return FALSE;
         }
-        lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame);
+        if(!lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame))
+                return FALSE;
+
         convert((char *) dst, sws->frame, width, height, pitch, rgb_shift);
         return TRUE;
 #else
