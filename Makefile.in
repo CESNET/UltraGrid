@@ -619,7 +619,7 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2
 	# then fix links also for other binaries than uv-qt, namely uv itself
 	for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
-		for m in $$(otool -L $$n | tail -n +2 | sed -n '/^[^@]*Qt[a-zA-Z]*\.framework/s/[^/]*\([^ ]*\).*/\1/p'); do \
+		for m in $$(otool -L $$n | tail -n +2 | grep -v '^\ *@' | grep 'Qt[a-zA-Z]*\.framework' | sed -n 's/[^/]*\([^ ]*\).*/\1/p'); do \
 			FRAMEWORK_D=$$(echo $$m | sed 's/\(.*\.framework\).*/\1/'); \
 			FRAMEWORK_N=$$(basename $$FRAMEWORK_D); \
 			SUFFIX=$$(echo $$m | sed 's/.*\/\([^/]*\.framework.*\)/\1/'); \
