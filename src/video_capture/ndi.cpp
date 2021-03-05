@@ -70,8 +70,12 @@
 #include "video.h"
 #include "video_capture.h"
 
+static constexpr const char *MOD_NAME = "[NDI] ";
+
 using std::array;
 using std::cout;
+using std::max;
+using std::min;
 using std::string;
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;
@@ -226,7 +230,7 @@ static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *fr
                                 LOG(LOG_LEVEL_WARNING) << "[NDI] Audio frame too small!\n";
                                 return;
                         }
-                        *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in / s->audio_divisor * INT32_MAX));
+                        *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in * INT32_MAX));
                         in += frame->channel_stride_in_bytes / sizeof(float);
                         s->audio[s->audio_buf_idx].data_len += sizeof(int32_t);
                 }
