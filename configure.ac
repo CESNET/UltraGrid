@@ -3297,19 +3297,19 @@ RESULT="Target: $target\n"
 
 # features
 RESULT=`start_section "$RESULT" "Features"`
-RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
-RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
-RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
-RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
-RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
-RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
-RESULT=`add_column "$RESULT" "OpenSSL-libcrypto" $crypto $?`
-RESULT=`add_column "$RESULT" "CUDA support$HOST_CC_REPORT" $FOUND_CUDA $?`
-RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
-RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
-RESULT=`add_column "$RESULT" "OpenCV$opencv_version" $opencv $?`
 RESULT=`add_column "$RESULT" "CppUnit tests" $cppunit $?`
+RESULT=`add_column "$RESULT" "CUDA support$HOST_CC_REPORT" $FOUND_CUDA $?`
+RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
+RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
+RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
+RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
+RESULT=`add_column "$RESULT" "OpenCV$opencv_version" $opencv $?`
+RESULT=`add_column "$RESULT" "OpenSSL-libcrypto" $crypto $?`
+RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
+RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
+RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
 RESULT=`add_column "$RESULT" "SpeexDSP" $speexdsp $?`
+RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
 RESULT=`end_section "$RESULT"`
 
 # audio
