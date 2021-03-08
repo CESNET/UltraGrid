@@ -318,7 +318,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 if(vci->get_module_info){
                         auto module_info = vci->get_module_info();
                         cout << "[capability][video_compress] {"
-                                "\"name\":\"" << it.first << "\", "
+                                "\"name\":" << std::quoted(it.first) << ", "
                                 "\"options\": [";
 
                         int i = 0;
@@ -327,10 +327,10 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                         cout << ", ";
 
                                 cout << "{"
-                                        "\"display_name\":\"" << opt.display_name << "\", "
-                                        "\"display_desc\":\"" << opt.display_desc << "\", "
-                                        "\"key\":\"" << opt.key << "\", "
-                                        "\"opt_str\":\"" << opt.opt_str << "\", "
+                                        "\"display_name\":" << std::quoted(opt.display_name) << ", "
+                                        "\"display_desc\":" << std::quoted(opt.display_desc) << ", "
+                                        "\"key\":" << std::quoted(opt.key) << ", "
+                                        "\"opt_str\":" << std::quoted(opt.opt_str) << ", "
                                         "\"is_boolean\":\"" << (opt.is_boolean ? "t" : "f") << "\"}";
                         }
 
@@ -342,7 +342,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 if(j++ > 0)
                                         cout << ", ";
 
-                                cout << "{\"name\":\"" << c.name << "\", "
+                                cout << "{\"name\":" << std::quoted(c.name) << ", "
                                         "\"priority\": " << c.priority << ", "
                                         "\"encoders\":[";
 
@@ -351,8 +351,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                         if(z++ > 0)
                                                 cout << ", ";
 
-                                        cout << "{\"name\":\"" << e.name << "\", "
-                                                "\"opt_str\":\"" << e.opt_str << "\"}";
+                                        cout << "{\"name\":" << std::quoted(e.name) << ", "
+                                                "\"opt_str\":" << std::quoted(e.opt_str) << "}";
                                 }
                                 cout << "]}";
                         }
