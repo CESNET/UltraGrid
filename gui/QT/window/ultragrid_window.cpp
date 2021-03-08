@@ -19,20 +19,36 @@ QString argListToString(const QStringList& argList){
 }
 
 QStringList argStringToList(const QString& argString){
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-	return argString.split(" ", QString::SkipEmptyParts);
-#else
-	return argString.split(" ", Qt::SkipEmptyParts);
-#endif
+	QStringList res;
+
+	QString arg;
+	bool escaped = false;
+	for(int i = 0; i < argString.size(); i++){
+		if(argString[i] == '"'){
+			escaped = !escaped;
+			continue;
+		}
+		if(argString[i] == ' ' && !escaped){
+			if(!arg.isEmpty()){
+				res.append(std::move(arg));
+				arg = "";
+			}
+		} else {
+			arg.append(argString[i]);
+		}
+	}
+
+	if(!arg.isEmpty()){
+		res.append(std::move(arg));
+	}
+
+	return res;
 }
 
 QStringList argStringToList(const std::string& argString){
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-	return QString::fromStdString(argString).split(" ", QString::SkipEmptyParts);
-#else
-	return QString::fromStdString(argString).split(" ", Qt::SkipEmptyParts);
-#endif
+	return argStringToList(QString::fromStdString(argString));
 }
+
 } //anonymous namespace
 
 UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
