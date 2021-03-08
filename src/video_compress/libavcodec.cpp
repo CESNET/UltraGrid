@@ -1611,6 +1611,12 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param *para
         }
 }
 
+static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
+        if (int ret = av_opt_set(codec_ctx->priv_data, "header_insertion_mode", "gop", 0)) {
+                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to header_insertion_mode for AMF", ret);
+        }
+}
+
 ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
                  "  Use interlaced DCT for H.264\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
@@ -1775,7 +1781,9 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* 
 
 static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        if (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 || // libx264 and libx264rgb
+        if (regex_match(codec_ctx->codec->name, regex(".*_amf"))) {
+                configure_amf(codec_ctx, param);
+        } else if (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 || // libx264 and libx264rgb
                         strcmp(codec_ctx->codec->name, "libx265") == 0) {
                 configure_x264_x265(codec_ctx, param);
         } else if (regex_match(codec_ctx->codec->name, regex(".*nvenc.*"))) {

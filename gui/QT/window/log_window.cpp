@@ -1,6 +1,8 @@
 #include <QClipboard>
 #include <QFileDialog>
 #include <QFile>
+#include <QFont>
+#include <QFontDatabase>
 #include <QTextStream>
 #include <QtGlobal>
 #include "log_window.hpp"
@@ -17,6 +19,9 @@ LogWindow::LogWindow(QWidget *parent): QDialog(parent){
 #else
 	ui.terminal->setTabStopDistance(40);
 #endif
+	const QFont fixedFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+	ui.terminal->setFont(fixedFont);
+
 
 	connect(ui.copyBtn, SIGNAL(clicked()), this, SLOT(copyToClipboard()));
 	connect(ui.saveBtn, SIGNAL(clicked()), this, SLOT(saveToFile()));

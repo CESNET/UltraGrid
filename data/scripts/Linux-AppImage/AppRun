@@ -11,42 +11,74 @@ export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
 
 usage() {
         printf "usage:\n"
-        printf "\tUltraGrid [--gui [args]]\n"
+        printf "\t$ARGV0 [--gui [args]]\n"
         printf "\t\tinvokes GUI\n"
         printf "\n"
-        printf "\tUltraGrid --help\n"
+        printf "\t$ARGV0 -h|--help\n"
         printf "\t\tprints this help\n"
         printf "\n"
-        printf "\tUltraGrid --appimage-help\n"
+        printf "\t$ARGV0 --appimage-help\n"
         printf "\t\tprints AppImage related options\n"
         printf "\n"
-        printf "\tUltraGrid --update [args]\n"
+        printf "\t$ARGV0 -u|--update [args]\n"
         printf "\t\tupdates AppImage (args will be passed to appimageupdatetool)\n"
         printf "\n"
-        printf "\tUltraGrid --tool uv --help\n"
+        printf "\t$ARGV0 --tool uv --help\n"
         printf "\t\tprints command-line UltraGrid help\n"
         printf "\n"
-        printf "\tUltraGrid --tool <t> [args]\n"
+        printf "\t$ARGV0 --tool <t> [args]\n"
         printf "\t\tinvokes specified tool\n"
         printf "\t\ttool may be: $(ls $DIR/bin | tr '\n' ' ')\n"
         printf "\n"
-        printf "\tUltraGrid args\n"
+        printf "\t$ARGV0 args\n"
         printf "\t\tinvokes command-line UltraGrid\n"
         printf "\n"
 }
 
-if [ $# -eq 0 ]; then
-        usage
-        if [ -f $DIR/bin/uv-qt ]; then
-                $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh
+update_notify_days=35
+## Print update hint if UG binary is older than $update_notify_days days, if $ULTRAGRID_AUTOUPDATE=1 triggers update.
+handle_updates() {
+        if [ -n ${ULTRAGRID_AUTOUPDATE-""} ]; then
+                if [ $ULTRAGRID_AUTOUPDATE -eq 1 ]; then
+                        $DIR/appimageupdatetool $APPIMAGE
+                fi
+                return
+        fi
+        if expr $APPIMAGE : '.*continuous' > /dev/null; then
+                update_notify_days=7
+        fi
+        UV_BIN_TIMESTAMP=$(stat --format=%Y $DIR/bin/uv)
+        CURR_TIMESTAMP=$(date +%s)
+        if [ $CURR_TIMESTAMP -lt $(($UV_BIN_TIMESTAMP + $update_notify_days * 24 * 60 * 60)) ]; then
+                return
+        fi
+        printf "UltraGrid binary older than $update_notify_days days, consider checking updates:\n"
+        printf "\n"
+        printf "$ARGV0 -u\n"
+        printf "\t- updates AppImage\n"
+        printf "$ARGV0 -u -j; $? -eq 1 && echo Update available || echo No update available\n"
+        printf "\t- check for update without actually updating\n"
+        printf "$ARGV0 -u -h\n"
+        printf "\t- prints update options\n"
+        printf "\n"
+        printf "Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for automatic update or 0 to suppress the above message.\n"
+        printf "\n"
+}
+
+if [ $# -eq 0 -o x"${1-}" = x"--gui" ]; then
+        handle_updates
+        [ $# -eq 0 ] && usage || shift
+        if [ -x $DIR/bin/uv-qt ]; then
+                $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh "$@"
+        else
+                echo "GUI was not compiled in!" >&2
+                exit 1
         fi
 elif [ x"$1" = x"--tool" ]; then
+        handle_updates
         TOOL=$2
         shift 2
         $DIR/bin/$TOOL "$@"
-elif [ x"$1" = x"--gui" ]; then
-        shift
-        $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh "$@"
 elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
         usage
         exit 0
@@ -54,8 +86,8 @@ elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
         shift
         unset LD_LIBRARY_PATH
         $DIR/appimageupdatetool ${1+"$@" }$APPIMAGE
-        exit 0
 else
+        handle_updates
         $DIR/uv-wrapper.sh "$@"
 fi
 

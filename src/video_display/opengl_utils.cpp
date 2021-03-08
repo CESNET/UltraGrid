@@ -614,7 +614,7 @@ Sdl_window::~Sdl_window(){
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
-#ifdef HAVE_LIBX11
+#ifdef HAVE_LINUX
 void Sdl_window::getXlibHandles(Display  **xDisplay,
                 GLXContext *glxContext,
                 GLXDrawable *glxDrawable)
@@ -624,7 +624,7 @@ void Sdl_window::getXlibHandles(Display  **xDisplay,
         *glxContext = glXGetCurrentContext();
         *glxDrawable = glXGetCurrentDrawable();
 }
-#endif //HAVE_LIBX11
+#endif //HAVE_LINUX
 
 void Sdl_window::make_render_context_current(){
         SDL_GL_MakeCurrent(sdl_window, sdl_gl_context);

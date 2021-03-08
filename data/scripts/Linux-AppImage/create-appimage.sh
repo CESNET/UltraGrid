@@ -88,6 +88,8 @@ if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
 ./appimagetool ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
+
+rm -rf $APPDIR tmpinstall
 )
 
 echo $APPNAME
