@@ -70,8 +70,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-      with:
-        submodules: true
     - name: bootstrap
       run: |
            . .github/scripts/environment.sh
@@ -133,8 +131,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-      with:
-        submodules: true
     - name: Cache SDKs
       id: cache-macos-sdks
       uses: actions/cache@v1
@@ -209,8 +205,6 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
-      with:
-        submodules: false
     - name: Set environment
       run: .github/scripts/environment.sh
       shell: bash
