@@ -180,8 +180,9 @@ public:
          *                        to use it only in a stream that may change sometimes but
          *                        do not eg. share it between two streams that has different
          *                        properties.
+         * @retval false          if SpeexDSP was not compiled in
          */
-        void resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
+        bool resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
 private:
         struct channel {
                 std::unique_ptr<char []> data;

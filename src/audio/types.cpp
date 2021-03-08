@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,9 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "debug.h"
+#ifdef HAVE_SPEEXDSP
 #include <speex/speex_resampler.h>
+#endif
 
 #include <sstream>
 #include <stdexcept>
@@ -80,7 +82,9 @@ audio_frame2_resampler::audio_frame2_resampler() : resampler(nullptr), resample_
 
 audio_frame2_resampler::~audio_frame2_resampler() {
         if (resampler) {
+#ifdef HAVE_SPEEXDSP
                 speex_resampler_destroy((SpeexResamplerState *) resampler);
+#endif
         }
 }
 
@@ -319,12 +323,13 @@ void  audio_frame2::change_bps(int new_bps)
         channels = move(new_channels);
 }
 
-void audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sample_rate)
+bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate)
 {
         if (new_sample_rate == sample_rate) {
-                return;
+                return true;
         }
 
+#ifdef HAVE_SPEEXDSP
         /// @todo
         /// speex supports also floats so there could be possibility also to add support for more bps
         if (bps != 2) {
@@ -381,5 +386,10 @@ void audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sa
 
         sample_rate = new_sample_rate;
         channels = move(new_channels);
+        return true;
+#else
+        LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
+        return false;
+#endif
 }
 

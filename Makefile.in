@@ -27,7 +27,6 @@ GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 CUDA_COMPILER = @CUDA_COMPILER@
 SYSTEM	      = @system@
-SPEEXDSP_PATH = @SPEEXDSP_PATH@
 
 GUI_EXE       = @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
@@ -99,7 +98,6 @@ COMMON_OBJS     = \
 		src/audio/utils.o \
 		src/audio/wav_reader.o \
 		@JACK_TRANS_OBJ@ \
-		@SPEEXDSP_OBJ@ \
 		src/capture_filter.o \
 		src/capture_filter/change_pixfmt.o \
 		src/capture_filter/every.o \
@@ -283,31 +281,6 @@ ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp $(ALL_INCLUDES)
 ext-deps/zfec/zfec/fec.o: ext-deps/zfec/zfec/fec.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Wno-old-style-declaration -Wno-missing-declarations -Wno-missing-prototypes -Wno-sign-compare $(INC) -c $< -o $@
-
-SPEEX_FLAGS=-Wno-sign-compare -Wno-unused-parameter -Wno-bad-function-cast -Wno-missing-prototypes -Wno-missing-declarations -O3
-src/audio/resample.o:
-	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/resample.c  -fPIC -DPIC -o $@
-
-src/audio/preprocess.o:
-	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/preprocess.c  -fPIC -DPIC -o $@
-
-src/audio/filterbank.o:
-	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -I/include -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/filterbank.c  -fPIC -DPIC -o $@
-
-src/audio/fftwrap.o:
-	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/fftwrap.c  -fPIC -DPIC -o $@
-
-src/audio/smallft.o:
-	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/smallft.c  -fPIC -DPIC -o $@
-
-src/audio/mdf.o:
-	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) $(SPEEX_FLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFIXED_POINT -DDISABLE_WARNINGS -I. -I $(srcdir)/$(SPEEXDSP_PATH)/include/speex -Iinclude -fvisibility=hidden  -c $(srcdir)/$(SPEEXDSP_PATH)/libspeexdsp/mdf.c  -fPIC -DPIC -o $@
 
 src/audio/capture/coreaudio.o: src/audio/capture/coreaudio.m $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
