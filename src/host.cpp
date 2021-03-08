@@ -342,8 +342,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 for (int i = 0; i < count; ++i) {
                         cout << "[capability][device][v2] {"
                                 "\"purpose\":\"video_disp\", "
-                                "\"type\":\"" << devices[i].id << "\", "
-                                "\"name\":\"" << devices[i].name << "\", "
+                                "\"type\":" << std::quoted(devices[i].id) << ", "
+                                "\"name\":" << std::quoted(devices[i].name) << ", "
                                 "\"repeatable\":\"" << devices[i].repeatable << "\"}\n";
                 }
                 deleter ? deleter(devices) : free(devices);
@@ -361,8 +361,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 for (int i = 0; i < count; ++i) {
                         cout << "[capability][device][v2] {"
                                 "\"purpose\":\"audio_cap\", "
-                                "\"type\":\"" << devices[i].id << "\", "
-                                "\"name\":\"" << devices[i].name << "\"}\n";
+                                "\"type\":" << std::quoted(devices[i].id) << ", "
+                                "\"name\":" << std::quoted(devices[i].name) << "}\n";
                 }
                 free(devices);
         }
@@ -379,8 +379,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 for (int i = 0; i < count; ++i) {
                         cout << "[capability][device][v2] {"
                                 "\"purpose\":\"audio_play\", "
-                                "\"type\":\"" << devices[i].id << "\", "
-                                "\"name\":\"" << devices[i].name << "\"}\n";
+                                "\"type\":" << std::quoted(devices[i].id) << ", "
+                                "\"name\":" << std::quoted(devices[i].name) << "}\n";
                 }
                 free(devices);
         }
