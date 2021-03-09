@@ -84,6 +84,7 @@
 #include "video_codec.h"
 
 #include <algorithm>
+#include <iostream>
 
 #define TRANSMIT_MAGIC	0xe80ab15f
 
@@ -291,6 +292,10 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                                         fec_cfg ? fec_cfg : "");
                         tx->fec_scheme = FEC_RS;
                 }
+        } else if(strcasecmp(fec, "help") == 0) {
+                std::cout << "Usage:\n"
+                        "\t-f [A:|V:]{ mult:count | ldgm[:params] | rs[:params] }\n";
+                ret = false;
         } else {
                 fprintf(stderr, "Unknown FEC: %s\n", fec);
                 ret = false;
