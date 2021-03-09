@@ -56,7 +56,6 @@ GENERATED_HEADERS              = @GENERATED_HEADERS@
 ALL_INCLUDES	= $(wildcard $(srcdir)/src/*.h $(srcdir)/src/*/*.h $(srcdir)/src/*/*/*.h $(srcdir)/src/*.hpp $(srcdir)/src/*/*.hpp) $(wildcard $(srcdir)/unittest/*.h)
 
 COMMON_OBJS     = \
-		ext-deps/zfec/zfec/fec.o \
 	        src/bitstream.o \
 		src/control_socket.o \
 		src/debug.o \

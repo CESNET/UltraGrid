@@ -2504,10 +2504,28 @@ if test "$found_speexdsp" = yes -a "$speexdsp_req" != no; then
         COMMON_FLAGS="$COMMON_FLAGS${SPEEXDSP_COMMON_FLAGS:+${COMMON_FLAGS:+ }}$SPEEXDSP_COMMON_FLAGS"
         AC_DEFINE([HAVE_SPEEXDSP], [1], [Build with SpeexDSP support])
         speexdsp=yes
-elif test "speexdsp_req" = yes; then
+elif test "$speexdsp_req" = yes; then
         AC_MSG_ERROR([SpeexDSP not found]);
 elif test "$found_speexdsp" = no -a "$speexdsp_req" != no; then
         AC_MSG_WARN([SpeexDSP was not found. Strongly recommending installing that, otherwise audio part of UG will be crippled.])
+fi
+
+# ---------------------------------------------------------------------------
+# Zfec
+# ---------------------------------------------------------------------------
+zfec=no
+AC_ARG_ENABLE(zfec,
+              AS_HELP_STRING([--disable-zfec], [disable zfec (default is auto)]),
+              [zfec_req=$enableval],
+              [zfec_req=$build_default])
+AC_CHECK_FILES([$srcdir/ext-deps/zfec/zfec/fec.c $srcdir/ext-deps/zfec/zfec/fec.h], [found_zfec=yes], [found_zfec=no])
+
+if test "$found_zfec" = yes -a "$zfec_req" != no; then
+        OBJS="$OBJS ext-deps/zfec/zfec/fec.o"
+        AC_DEFINE([HAVE_ZFEC], [1], [Build with zfec support])
+        zfec=yes
+elif test "$zfec_req" = yes; then
+        AC_MSG_ERROR([Zfec not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -3310,6 +3328,7 @@ RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
 RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
 RESULT=`add_column "$RESULT" "SpeexDSP" $speexdsp $?`
 RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
+RESULT=`add_column "$RESULT" "zfec" $zfec $?`
 RESULT=`end_section "$RESULT"`
 
 # audio

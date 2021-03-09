@@ -12,8 +12,6 @@ ORIGDIR=`pwd`
 cd $srcdir
 
 . ./data/scripts/add_cl_if_not_present.sh # add --with-cuda-host-compiler=<cl> to current params (Win)
-. ./data/scripts/fetch_submodule.sh
-fetch_submodule zfec https://files.pythonhosted.org/packages/1c/bf/b87a31205fcd2e0e4b4c9a3f7bf6f5a231e199bec5f654d7c5ac6fcec349/zfec-1.5.5.tar.gz https://github.com/tahoe-lafs/zfec
 
 # install config.guess config.sub install-sh missing
 echo "Running automake..."
