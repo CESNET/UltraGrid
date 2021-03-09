@@ -682,23 +682,6 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 return AJA_STATUS_NOINPUT;
         }
 
-        interlacing_t interlacing;
-        if (NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat)) {
-                interlacing = PROGRESSIVE;
-        } else {
-                interlacing = INTERLACED_MERGED;
-        }
-
-        video_desc desc{GetDisplayWidth(mVideoFormat), GetDisplayHeight(mVideoFormat),
-                aja::codec_map.at(mPixelFormat),
-                GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
-                interlacing,
-                1};
-#ifndef _MSC_VER
-        cout << MOD_NAME "Detected input video mode: " << desc << endl;
-#endif
-        mPool.reconfigure(desc, vc_get_linesize(desc.width, desc.color_spec) * desc.height);
-
         return AJA_STATUS_SUCCESS;
 }
 
@@ -767,6 +750,18 @@ void vidcap_state_aja::SetupHostBuffers (void)
         CHECK(mDevice.GetVANCMode (mVancMode));
         mVideoBufferSize = GetVideoWriteSize (mVideoFormat, mPixelFormat, mVancMode);
         mAudioBufferSize = NTV2_AUDIOSIZE_MAX;
+
+        interlacing_t interlacing = NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat) ? PROGRESSIVE : INTERLACED_MERGED;
+        video_desc desc{GetDisplayWidth(mVideoFormat), GetDisplayHeight(mVideoFormat),
+                aja::codec_map.at(mPixelFormat),
+                GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
+                interlacing,
+                1};
+        mPool.reconfigure(desc, mVideoBufferSize);
+
+#ifndef _MSC_VER
+        cout << MOD_NAME "Detected input video mode: " << desc << endl;
+#endif
 }       //      SetupHostBuffers
 
 AJAStatus vidcap_state_aja::Run()
