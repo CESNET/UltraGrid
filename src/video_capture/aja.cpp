@@ -127,12 +127,15 @@ volatile bool *aja_should_exit = &should_exit;
 
 using namespace std;
 
-struct aligned_data_allocator {
-        void *allocate(size_t size) {
+struct aligned_data_allocator : public video_frame_pool_allocator {
+        void *allocate(size_t size) override {
                 return aligned_malloc(size, AJA_PAGE_SIZE);
         }
-        void deallocate(void *ptr) {
+        void deallocate(void *ptr) override {
                 aligned_free(ptr);
+        }
+        video_frame_pool_allocator *clone() const override {
+                return new aligned_data_allocator(*this);
         }
 };
 
@@ -161,7 +164,7 @@ class vidcap_state_aja {
                 uint32_t               mVideoBufferSize{};            ///     My video buffer size, in bytes
                 uint32_t               mAudioBufferSize{};            ///     My audio buffer size, in bytes
                 thread                 mProducerThread;               ///     My producer thread object -- does the frame capturing
-                video_frame_pool       mPool;
+                video_frame_pool       mPool{0, aligned_data_allocator()};
                 shared_ptr<video_frame> mOutputFrame;
                 shared_ptr<uint32_t>   mOutputAudioFrame;
                 size_t                 mOutputAudioFrameSize{};
