@@ -153,20 +153,13 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                 if (strcmp(msg->fec_cfg, "flush") == 0) {
                                         delete old_fec_state;
                                 } else {
-                                        int ret = -1;
-                                        try {
-                                                m_fec_state = fec::create_from_config(msg->fec_cfg);
-                                        } catch (int i) {
-                                                ret = i;
-                                        } catch (...) {
-                                        }
+                                        m_fec_state = fec::create_from_config(msg->fec_cfg);
                                         if (!m_fec_state) {
-                                                if (ret != 0) {
-                                                        log_msg(LOG_LEVEL_ERROR, "[control] Unable to initalize FEC!\n");
-                                                }
                                                 m_fec_state = old_fec_state;
-                                                if (ret == 0 || m_frames_sent == 0ull) { // -f LDGM:help or so + init
+                                                if (strstr(msg->fec_cfg, "help") != nullptr || m_frames_sent == 0ULL) { // -f LDGM:help or so + init
                                                         exit_uv(0);
+                                                } else {
+                                                        LOG(LOG_LEVEL_ERROR) << "[control] Unable to initalize FEC!\n";
                                                 }
                                                 return new_response(RESPONSE_INT_SERV_ERR, NULL);
                                         } else {

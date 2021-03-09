@@ -5,7 +5,7 @@
  * Common ancesor of FEC modules.
  */
 /*
- * Copyright (c) 2014-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,56 +45,83 @@
 
 #include <string>
 
+#include "debug.h"
 #include "rtp/fec.h"
 #include "rtp/ldgm.h"
 #include "rtp/rs.h"
 #include "rtp/rtp_callback.h"
+#include "ug_runtime_error.hpp"
 
 using namespace std;
 
-fec *fec::create_from_config(const char *c_str)
+fec *fec::create_from_config(const char *c_str) noexcept
 {
-        if (strncmp(c_str, "LDGM percents ", strlen("LDGM percents ")) == 0) {
-                char *str = strdup(c_str);
-                int mtu_len, data_len;
-                double loss_pct;
-                char *ptr = str + strlen("LDGM percents ");
-                char *save_ptr, *item;
-                item = strtok_r(ptr, " ", &save_ptr);
-                assert (item != NULL);
-                mtu_len = atoi(item);
-                assert(mtu_len > 0);
-                item = strtok_r(NULL, " ", &save_ptr);
-                assert (item != NULL);
-                data_len = atoi(item);
-                assert(data_len > 0);
-                item = strtok_r(NULL, " ", &save_ptr);
-                assert (item != NULL);
-                loss_pct = atof(item);
-                assert(loss_pct > 0.0);
-                fec *ret = new ldgm(mtu_len, data_len, loss_pct);
-                free(str);
-                return ret;
-        } else if (strncmp(c_str, "LDGM cfg ", strlen("LDGM cfg ")) == 0) {
-                return new ldgm(c_str + strlen("LDGM cfg "));
-        } else if (strncmp(c_str, "RS cfg ", strlen("RS cfg ")) == 0) {
-                return new rs(c_str + strlen("rs cfg "));
-        } else {
-                throw string("Unrecognized FEC configuration!");
+        try {
+                if (strncmp(c_str, "LDGM percents ", strlen("LDGM percents ")) == 0) {
+                        char *str = strdup(c_str);
+                        char *ptr = str + strlen("LDGM percents ");
+                        char *save_ptr = nullptr;
+                        char *item = nullptr;
+                        item = strtok_r(ptr, " ", &save_ptr);
+                        assert (item != nullptr);
+                        int mtu_len = stoi(item);
+                        assert(mtu_len > 0);
+                        item = strtok_r(nullptr, " ", &save_ptr);
+                        assert (item != nullptr);
+                        int data_len = stoi(item);
+                        assert(data_len > 0);
+                        item = strtok_r(nullptr, " ", &save_ptr);
+                        assert (item != nullptr);
+                        double loss_pct = stof(item);
+                        assert(loss_pct > 0.0);
+                        fec *ret = new ldgm(mtu_len, data_len, loss_pct);
+                        free(str);
+                        return ret;
+                }
+                if (strncmp(c_str, "LDGM cfg ", strlen("LDGM cfg ")) == 0) {
+                        return new ldgm(c_str + strlen("LDGM cfg "));
+                }
+                if (strncmp(c_str, "RS cfg ", strlen("RS cfg ")) == 0) {
+                        return new rs(c_str + strlen("rs cfg "));
+                }
+                throw ug_runtime_error("Unrecognized FEC configuration!");
+        } catch (string const &s) {
+                LOG(LOG_LEVEL_ERROR) << s << "\n";
+        } catch (exception const &e) {
+                LOG(LOG_LEVEL_ERROR) << e.what() << "\n";
+        } catch (int i) {
+                if (i != 0) {
+                        LOG(LOG_LEVEL_ERROR) << "FEC initialization returned " << i << "\n";
+                }
+        } catch (...) {
+                LOG(LOG_LEVEL_ERROR) << "Unknown FEC error!\n";
         }
-        return NULL;
+        return nullptr;
 }
 
-fec *fec::create_from_desc(struct fec_desc desc)
+fec *fec::create_from_desc(struct fec_desc desc) noexcept
 {
-        switch (desc.type) {
-        case FEC_LDGM:
-                return new ldgm(desc.k, desc.m, desc.c, desc.seed);
-        case FEC_RS:
-                return new rs(desc.k, desc.k + desc.m);
-        default:
-                abort();
+        try {
+                switch (desc.type) {
+                        case FEC_LDGM:
+                                return new ldgm(desc.k, desc.m, desc.c, desc.seed);
+                        case FEC_RS:
+                                return new rs(desc.k, desc.k + desc.m);
+                        default:
+                                abort();
+                }
+        } catch (string const &s) {
+                LOG(LOG_LEVEL_ERROR) << s << "\n";
+        } catch (exception const &e) {
+                LOG(LOG_LEVEL_ERROR) << e.what() << "\n";
+        } catch (int i) {
+                if (i != 0) {
+                        LOG(LOG_LEVEL_ERROR) << "FEC initialization returned " << i << "\n";
+                }
+        } catch (...) {
+                LOG(LOG_LEVEL_ERROR) << "Unknown FEC error!\n";
         }
+        return nullptr;
 
 }
 
