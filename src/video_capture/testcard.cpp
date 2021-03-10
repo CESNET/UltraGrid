@@ -608,6 +608,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\ti|sf") << " - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
                 cout << BOLD("\tstill") << " - send still image\n";
                 cout << BOLD("\tpattern") << " - pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>\n");
+                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns for RG48 and R12L\n";
                 cout << BOLD("\tapattern") << " - audio pattern to use - \"sine\" or an included \"midi\"\n";
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
@@ -700,8 +701,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 codec_t codec_intermediate = s->frame->color_spec;
 
                 /// first step - conversion from RGBA
-                if (s->frame->color_spec == RG48) {
+                if (s->frame->color_spec == RG48 || s->frame->color_spec == R12L) {
                         data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height, 16);
+                        if (s->frame->color_spec == R12L) {
+                                codec_intermediate = RG48;
+                        }
                 } else if (s->frame->color_spec != RGBA) {
                         // these codecs do not have direct conversion from RGBA - use @ref second_conversion_step
                         if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == YUYV || s->frame->color_spec == Y216) {
