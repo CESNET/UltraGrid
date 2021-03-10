@@ -139,10 +139,13 @@ static struct video_frame *display_dummy_getf(void *state)
         return ((dummy_display_state *) state)->f;
 }
 
-static void dump_buf(unsigned char *buf, size_t len) {
+static void dump_buf(unsigned char *buf, size_t len, int block_size) {
         printf("Frame content: ");
         for (size_t i = 0; i < len; ++i) {
                 printf("%02hhx ", *buf++);
+                if (block_size > 0 && (i + 1) % block_size == 0) {
+                        printf(" ");
+                }
         }
         printf("\n");
 }
@@ -154,7 +157,7 @@ static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
         }
         auto s = (dummy_display_state *) state;
         if (s->dump_bytes > 0) {
-                dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes));
+                dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes), get_pf_block_size(frame->color_spec));
         }
         if (s->dump_to_file) {
                 using namespace std::string_literals;
