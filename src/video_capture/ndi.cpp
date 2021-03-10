@@ -54,6 +54,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <type_traits> // static_assert
 
 #ifdef _WIN32
 #ifdef _WIN64
@@ -83,6 +84,7 @@ using std::chrono::duration_cast;
 using std::chrono::steady_clock;
 
 struct vidcap_state_ndi {
+        static_assert(NDILIB_CPP_DEFAULT_CONSTRUCTORS == 1, "Use default C++ NDI constructors");
         NDIlib_recv_instance_t pNDI_recv = nullptr;
         NDIlib_find_instance_t pNDI_find = nullptr;
         array<struct audio_frame, 2> audio;
@@ -94,6 +96,7 @@ struct vidcap_state_ndi {
 
         string requested_name; // if not empty recv from requested NDI name
         string requested_url; // if not empty recv from requested URL (either addr or addr:port)
+        NDIlib_find_create_t find_create_settings{true, nullptr, nullptr};
         NDIlib_recv_create_v3_t create_settings{};
 
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
@@ -112,12 +115,15 @@ struct vidcap_state_ndi {
                         t0 = now;
                 }
         }
+        ~vidcap_state_ndi() {
+                free(const_cast<char *>(find_create_settings.p_extra_ips));
+        }
 };
 
-static void show_help() {
+static void show_help(const NDIlib_find_create_t *find_create_settings) {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-t ndi" << rang::fg::reset <<
-                "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:color=<c>][:progressive]\n" << rang::style::reset <<
+                "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:color=<c>][:extra_ips=<ip>][:progressive]\n" << rang::style::reset <<
                 "\twhere\n"
                 << rang::style::bold << "\t\tname\n" << rang::style::reset <<
                 "\t\t\tname of the NDI source in form "
@@ -129,12 +135,14 @@ static void show_help() {
                 << rang::style::bold << "\t\tcolor\n" << rang::style::reset <<
                 "\t\t\tcolor format, 0 - BGRX/BGRA, 1 - UYVY/BGRA, 2 - RGBX/RGBA, 3 - UYVY/RGBA, 100 - fastest (UYVY), 101 - best (default, P216/UYVY)\n"
                 "\t\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n"
+                << rang::style::bold << "\t\textra_ips\n" << rang::style::reset <<
+                "\t\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\"\n"
                 << rang::style::bold << "\t\tprogressive\n" << rang::style::reset <<
                 "\t\t\tprefer progressive capture for interlaced input\n"
                 "\n";
 
         cout << "\tavailable sources (tentative, format: name - url):\n";
-        auto pNDI_find = NDIlib_find_create_v2();
+        auto *pNDI_find = NDIlib_find_create_v2(find_create_settings);
         if (pNDI_find == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot create finder object!\n";
                 return;
@@ -174,11 +182,13 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
         strcpy(tmp, fmt);
         char *item, *save_ptr;
+        bool req_show_help = false;
         while ((item = strtok_r(tmp, ":", &save_ptr)) != nullptr) {
+                tmp = nullptr;
+
                 if (strcmp(item, "help") == 0) {
-                        show_help();
-                        delete s;
-                        return VIDCAP_INIT_NOERR;
+                        req_show_help = true; // defer execution to honor extra_ips option (if present);
+                        continue;
                 }
                 if (strncmp(item, "name=", strlen("name=")) == 0) {
                         s->requested_name = item + strlen("name=");
@@ -205,6 +215,8 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                                 }
                         }
                         s->audio_divisor = pow(10.0, ref_level / 20.0); // NOLINT
+                } else if (strstr(item, "extra_ips=") == item) {
+                        s->find_create_settings.p_extra_ips = strdup(item + "extra_ips="s.length());
                 } else if (strstr(item, "color=") == item) {
                         s->create_settings.color_format = static_cast<NDIlib_recv_color_format_e>(stoi(item + "color="s.length()));
                 } else if (strstr(item, "progressive") == item) {
@@ -214,10 +226,13 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                         delete s;
                         return VIDCAP_INIT_NOERR;
                 }
-
-                tmp = nullptr;
         }
 
+        if (req_show_help) {
+                show_help(&s->find_create_settings);
+                delete s;
+                return VIDCAP_INIT_NOERR;
+        }
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -364,7 +379,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
 
         if (s->pNDI_find == nullptr) {
                 // Create a finder
-                s->pNDI_find = NDIlib_find_create_v2();
+                s->pNDI_find = NDIlib_find_create_v2(&s->find_create_settings);
                 if (s->pNDI_find == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot create object!\n";
                         return nullptr;
