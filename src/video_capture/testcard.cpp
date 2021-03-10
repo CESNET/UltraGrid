@@ -113,11 +113,19 @@ static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r
 class image_pattern {
         public:
                 static unique_ptr<image_pattern> create(const char *pattern) noexcept;
-                auto init(int width, int height) {
+                auto init(int width, int height, int out_bit_depth) {
+                        assert(out_bit_depth == 8 || out_bit_depth == 16);
                         auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
-                        size_t data_len = width * height * 4 + headroom;
+                        size_t data_len = width * height * 6 + headroom;
                         auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
-                        fill(width, height, out.get());
+                        int actual_bit_depth = fill(width, height, out.get());
+                        assert(actual_bit_depth == 8 || actual_bit_depth == 16);
+                        if (out_bit_depth == 8 && actual_bit_depth == 16) {
+                                convert_rg48_to_rgba(width, height, out.get());
+                        }
+                        if (out_bit_depth == 16 && actual_bit_depth == 8) {
+                                convert_rgba_to_rg48(width, height, out.get());
+                        }
                         return out;
                 }
                 virtual ~image_pattern() = default;
@@ -127,11 +135,41 @@ class image_pattern {
                 image_pattern(image_pattern &&) = delete;
                 image_pattern && operator=(image_pattern &&) = delete;
         private:
-                virtual void fill(int width, int height, unsigned char *data) = 0;
+                /// @retval bit depth used by the generator (either 8 or 16)
+                virtual int fill(int width, int height, unsigned char *data) = 0;
+
+                /// @note in-place
+                virtual void convert_rgba_to_rg48(int width, int height, unsigned char *data) {
+                        for (int y = height - 1; y >= 0; --y) {
+                                for (int x = width - 1; x >= 0; --x) {
+                                        unsigned char *in_pix = data + 4 * (y * width + x);
+                                        unsigned char *out_pix = data + 6 * (y * width + x);
+                                        *out_pix++ = 0;
+                                        *out_pix++ = *in_pix++;
+                                        *out_pix++ = 0;
+                                        *out_pix++ = *in_pix++;
+                                        *out_pix++ = 0;
+                                        *out_pix++ = *in_pix++;
+                                }
+                        }
+                }
+                /// @note in-place
+                virtual void convert_rg48_to_rgba(int width, int height, unsigned char *data) {
+                        for (int y = 0; y < height; ++y) {
+                                for (int x = 0; x < width; ++x) {
+                                        unsigned char *in_pix = data + 6 * (y * width + x);
+                                        unsigned char *out_pix = data + 4 * (y * width + x);
+                                        *out_pix++ = in_pix[1];
+                                        *out_pix++ = in_pix[3];
+                                        *out_pix++ = in_pix[5];
+                                        *out_pix++ = 0xFFU;
+                                }
+                        }
+                }
 };
 
 class image_pattern_bars : public image_pattern {
-        void fill(int width, int height, unsigned char *data) override {
+        int fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
                 int rect_size = COL_NUM;
                 struct testcard_rect r{};
@@ -170,6 +208,7 @@ class image_pattern_bars : public image_pattern {
                                 }
                         }
                 }
+                return 8;
         }
 };
 
@@ -178,10 +217,11 @@ class image_pattern_blank : public image_pattern {
                 explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
 
         private:
-                void fill(int width, int height, unsigned char *data) override {
+                int fill(int width, int height, unsigned char *data) override {
                         for (int i = 0; i < width * height; ++i) {
                                 (reinterpret_cast<uint32_t *>(data))[i] = color;
                         }
+                        return 8;
                 }
                 uint32_t color;
 };
@@ -191,7 +231,7 @@ class image_pattern_gradient : public image_pattern {
                 explicit image_pattern_gradient(uint32_t c) : color(c) {}
                 static constexpr uint32_t red = 0xFFU;
         private:
-                void fill(int width, int height, unsigned char *data) override {
+                int fill(int width, int height, unsigned char *data) override {
                         auto *ptr = reinterpret_cast<uint32_t *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 uint8_t r = sin(static_cast<double>(j) / height * M_PI) * (color & 0xFFU);
@@ -202,6 +242,7 @@ class image_pattern_gradient : public image_pattern {
                                         *ptr++ = val;
                                 }
                         }
+                        return 8;
                 }
                 uint32_t color;
 };
@@ -214,7 +255,7 @@ class image_pattern_gradient2 : public image_pattern {
                 static constexpr unsigned int gshift{8U};
                 static constexpr unsigned int bshift{16U};
                 static constexpr unsigned int ashift{24U};
-                void fill(int width, int height, unsigned char *data) override {
+                int fill(int width, int height, unsigned char *data) override {
                         auto *ptr = reinterpret_cast<unsigned int *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 for (int i = 0; i < width; i += 1) {
@@ -223,13 +264,15 @@ class image_pattern_gradient2 : public image_pattern {
                                         *ptr++ = val;
                                 }
                         }
+                        return 8;
                 }
 };
 
 class image_pattern_noise : public image_pattern {
         default_random_engine rand_gen;
-        void fill(int width, int height, unsigned char *data) override {
+        int fill(int width, int height, unsigned char *data) override {
                 for_each(data, data + 4 * width * height, [&](unsigned char & c) { c = rand_gen() % 0xff; });
+                return 8;
         }
 };
 
@@ -654,14 +697,16 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if (!filename) {
-                auto data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height);
+                auto data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height, 8);
                 auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
 
                 codec_t codec_intermediate = s->frame->color_spec;
 
                 /// first step - conversion from RGBA
-                if (s->frame->color_spec != RGBA) {
+                if (s->frame->color_spec == RG48) {
+                        data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height, 16);
+                } else if (s->frame->color_spec != RGBA) {
                         // these codecs do not have direct conversion from RGBA - use @ref second_conversion_step
                         if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == YUYV || s->frame->color_spec == Y216) {
                                 codec_intermediate = UYVY;
