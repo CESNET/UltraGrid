@@ -159,6 +159,9 @@ static void show_help(const NDIlib_find_create_t *find_create_settings) {
         for (int i = 0; i < static_cast<int>(nr_sources); ++i) {
                 cout << "\t\t" << p_sources[i].p_ndi_name << " - " << p_sources[i].p_url_address << "\n";
         }
+        if (nr_sources == 0) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "No sources found!\n";
+        }
         cout << "\n";
         NDIlib_find_destroy(pNDI_find);
 }
