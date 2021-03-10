@@ -48,9 +48,9 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 
-const constexpr char *DUMP_FILE = "dummy.dump";
 const size_t DEFAULT_DUMP_LEN = 32;
 const constexpr char *MOD_NAME = "[dummy] ";
 
@@ -80,7 +80,7 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                 cout << "\t" << style::bold << "<codec>" << style::reset << "   - force the use of a codec instead of default set\n";
                 cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (0, 8, 16)\n";
                 cout << "\t" << style::bold << "hexdump[=<n>]" << style::reset << " - dump first n (default " << DEFAULT_DUMP_LEN << ") bytes of every frame in hexadecimal format\n";
-                cout << "\t" << style::bold << "dump_to_file" << style::reset << " - dump first frame to file \"" << DUMP_FILE << "\"\n";
+                cout << "\t" << style::bold << "dump_to_file" << style::reset << " - dump first frame to file dummy.<ext>\n";
                 return static_cast<void *>(&display_init_noerr);
         }
         auto s = make_unique<dummy_display_state>();
@@ -157,8 +157,11 @@ static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
                 dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes));
         }
         if (s->dump_to_file) {
-                std::ofstream out(DUMP_FILE, std::ifstream::out | std::ifstream::binary);
+                using namespace std::string_literals;
+                std::string filename = "dummy."s + get_codec_file_extension(frame->color_spec);
+                std::ofstream out(filename, std::ifstream::out | std::ifstream::binary);
                 out.write(frame->tiles[0].data, frame->tiles[0].data_len);
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Written dump to file " << filename << "\n";
                 s->dump_to_file = false;
         }
         auto curr_time = steady_clock::now();
