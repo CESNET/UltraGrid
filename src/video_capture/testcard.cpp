@@ -249,30 +249,26 @@ class image_pattern_gradient : public image_pattern {
 
 class image_pattern_gradient2 : public image_pattern {
         private:
-                static constexpr unsigned int alpha{0xFFU};
-                static constexpr unsigned int black{0xFFU};
-                static constexpr unsigned int rshift{0U};
-                static constexpr unsigned int gshift{8U};
-                static constexpr unsigned int bshift{16U};
-                static constexpr unsigned int ashift{24U};
+                static constexpr unsigned int VAL_MAX{0xFFFFU};
                 int fill(int width, int height, unsigned char *data) override {
-                        auto *ptr = reinterpret_cast<unsigned int *>(data);
+                        auto *ptr = reinterpret_cast<uint16_t *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 for (int i = 0; i < width; i += 1) {
-                                        unsigned int gray = i * black / width;
-                                        uint32_t val = (alpha << ashift) | (gray << bshift) | (gray << gshift) | (gray << rshift);
-                                        *ptr++ = val;
+                                        unsigned int gray = i * VAL_MAX / width;
+                                        *ptr++ = gray;
+                                        *ptr++ = gray;
+                                        *ptr++ = gray;
                                 }
                         }
-                        return 8;
+                        return 16;
                 }
 };
 
 class image_pattern_noise : public image_pattern {
         default_random_engine rand_gen;
         int fill(int width, int height, unsigned char *data) override {
-                for_each(data, data + 4 * width * height, [&](unsigned char & c) { c = rand_gen() % 0xff; });
-                return 8;
+                for_each(reinterpret_cast<uint16_t *>(data), reinterpret_cast<uint16_t *>(data) + 3 * width * height, [&](uint16_t & c) { c = rand_gen() % 0xFFFFU; });
+                return 16;
         }
 };
 
