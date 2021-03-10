@@ -142,7 +142,7 @@ static struct video_frame *display_dummy_getf(void *state)
 static void dump_buf(unsigned char *buf, size_t len) {
         printf("Frame content: ");
         for (size_t i = 0; i < len; ++i) {
-                printf("%02hhx", *buf++);
+                printf("%02hhx ", *buf++);
         }
         printf("\n");
 }
