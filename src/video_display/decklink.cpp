@@ -894,7 +894,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
                 *available_cards = (struct device_info *)
                         realloc(*available_cards, *count * sizeof(struct device_info));
                 memset(*available_cards + *count - 1, 0, sizeof(struct device_info));
-                sprintf((*available_cards)[*count - 1].id, "decklink:device=%d", *count - 1);
+                sprintf((*available_cards)[*count - 1].dev, ":device=%d", *count - 1);
                 (*available_cards)[*count - 1].repeatable = false;
 
 		strncpy((*available_cards)[*count - 1].name, deviceName.c_str(),

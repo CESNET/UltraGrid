@@ -1128,8 +1128,8 @@ LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool verbose, void (**deleter)(vo
                 vt->cards = (struct device_info *)
                         realloc(vt->cards, vt->card_count * sizeof(struct device_info));
                 memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                "device=%d", i);
+                snprintf(vt->cards[vt->card_count - 1].dev, sizeof vt->cards[vt->card_count - 1].dev,
+                                ":device=%d", i);
                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
                                 "AJA %s", info.deviceIdentifier.c_str());
         }

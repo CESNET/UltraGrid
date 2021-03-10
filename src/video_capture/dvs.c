@@ -669,7 +669,8 @@ static struct vidcap_type *vidcap_dvs_probe(bool verbose, void (**deleter)(void 
                 vt->card_count = card_idx + 1;
                 vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
                 memset(&vt->cards[card_idx], 0, sizeof(struct device_info));
-                strncpy(vt->cards[card_idx].id, name, sizeof vt->cards[card_idx].id - 1);
+                snprintf(vt->cards[card_idx].dev, sizeof vt->cards[card_idx].dev,
+                                ":device=%d", card_idx);
                 snprintf(vt->cards[card_idx].name, sizeof vt->cards[card_idx].name,
                                 "DVS card #%d", card_idx);
 

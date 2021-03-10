@@ -60,27 +60,27 @@ struct state_sdi_playback {
 };
 
 static void audio_play_sdi_probe_common(struct device_info **available_devices, int *count, 
-                const char *id, const char *name)
+                const char *dev, const char *name)
 {
         *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
-        strncpy((*available_devices)[0].id, id, sizeof (*available_devices)[0].id - 1);
+        strncpy((*available_devices)[0].dev, dev, sizeof (*available_devices)[0].dev - 1);
         strncpy((*available_devices)[0].name, name, sizeof (*available_devices)[0].name - 1);
         *count = 1;
 }
 
 static void audio_play_sdi_probe_embedded(struct device_info **available_devices, int *count)
 {
-        audio_play_sdi_probe_common(available_devices, count, "embedded", "Embedded SDI/HDMI audio");
+        audio_play_sdi_probe_common(available_devices, count, "", "Embedded SDI/HDMI audio");
 }
 
 static void audio_play_sdi_probe_aesebu(struct device_info **available_devices, int *count)
 {
-        audio_play_sdi_probe_common(available_devices, count, "AESEBU", "Digital AES/EBU audio");
+        audio_play_sdi_probe_common(available_devices, count, "", "Digital AES/EBU audio");
 }
 
 static void audio_play_sdi_probe_analog(struct device_info **available_devices, int *count)
 {
-        audio_play_sdi_probe_common(available_devices, count, "analog", "Analog audio through capture card");
+        audio_play_sdi_probe_common(available_devices, count, "", "Analog audio through capture card");
 }
 
 static void audio_play_sdi_help(const char *driver_name)

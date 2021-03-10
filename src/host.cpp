@@ -298,7 +298,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                         usleep(max<int>(100,query_lasted.count())*1000);
                 }
         }
-        cout << "[capability][start] version 3" << endl;
+        cout << "[capability][start] version 4" << endl;
         // compressions
         cout << "[cap] Compressions:" << endl;
         auto compressions = get_libraries_for_class(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
@@ -388,7 +388,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 for (int i = 0; i < count; ++i) {
                         cout << "[capability][device] {"
                                 "\"purpose\":\"video_disp\", "
-                                "\"type\":" << std::quoted(devices[i].id) << ", "
+                                "\"module\":" << std::quoted(it.first) << ", "
+                                "\"device\":" << std::quoted(devices[i].dev) << ", "
                                 "\"name\":" << std::quoted(devices[i].name) << ", "
                                 "\"repeatable\":\"" << devices[i].repeatable << "\"}\n";
                 }
@@ -407,7 +408,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 for (int i = 0; i < count; ++i) {
                         cout << "[capability][device] {"
                                 "\"purpose\":\"audio_cap\", "
-                                "\"type\":" << std::quoted(devices[i].id) << ", "
+                                "\"module\":" << std::quoted(it.first) << ", "
+                                "\"device\":" << std::quoted(devices[i].dev) << ", "
                                 "\"name\":" << std::quoted(devices[i].name) << "}\n";
                 }
                 free(devices);
@@ -425,7 +427,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 for (int i = 0; i < count; ++i) {
                         cout << "[capability][device] {"
                                 "\"purpose\":\"audio_play\", "
-                                "\"type\":" << std::quoted(devices[i].id) << ", "
+                                "\"module\":" << std::quoted(it.first) << ", "
+                                "\"device\":" << std::quoted(devices[i].dev) << ", "
                                 "\"name\":" << std::quoted(devices[i].name) << "}\n";
                 }
                 free(devices);

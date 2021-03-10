@@ -175,7 +175,7 @@ static void audio_cap_ca_help(const char *driver_name)
         audio_cap_ca_probe(&available_devices, &count);
 
         for (int i = 0; i < count; ++i) {
-                printf("\t%-13s: %s\n", available_devices[i].id, available_devices[i].name);
+                printf("\tcoreaudio%-4s: %s\n", available_devices[i].dev, available_devices[i].name);
         }
         free(available_devices);
 }

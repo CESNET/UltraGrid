@@ -591,7 +591,7 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
         }
         vt->card_count = nr_sources;
         for (int i = 0; i < static_cast<int>(nr_sources); ++i) {
-                snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "url=%s", p_sources[i].p_url_address);
+                snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":url=%s", p_sources[i].p_url_address);
                 snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "%s", p_sources[i].p_ndi_name);
                 vt->cards[i].repeatable = true;
         }
