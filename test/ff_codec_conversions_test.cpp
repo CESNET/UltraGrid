@@ -203,4 +203,80 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
         }
 }
 
+void
+ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
+{
+        using namespace std::string_literals;
+
+        constexpr int width = 2048;
+        constexpr int height = 1;
+        vector <uint16_t> rg48_buf(width * height * 3);
+        vector <uint16_t> rg48_buf_res(width * height * 3);
+
+        for (int i = 0; i < 16; i += 1) {
+                rg48_buf[3 * i] =
+                        rg48_buf[3 * i + 1] =
+                        rg48_buf[3 * i + 2] = 16 << 4;
+        }
+        for (int i = 16; i < 2040; i += 1) {
+                rg48_buf[3 * i] =
+                        rg48_buf[3 * i + 1] =
+                        rg48_buf[3 * i + 2] = (i * 2) << 4;
+        }
+        for (int i = 2040; i < 2048; i += 1) {
+                rg48_buf[3 * i] =
+                        rg48_buf[3 * i + 1] =
+                        rg48_buf[3 * i + 2] = 4079 << 4;
+        }
+
+        AVFrame frame{};
+        frame.format = AV_PIX_FMT_YUV444P16LE;
+        frame.width = width;
+        frame.height = height;
+
+        /* the image can be allocated by any means and av_image_alloc() is
+         * just the most convenient way if av_malloc() is to be used */
+        if (av_image_alloc(frame.data, frame.linesize,
+                                width, height, (AVPixelFormat) frame.format, 32) < 0) {
+                abort();
+        }
+
+        auto from_conv = get_uv_to_av_conversion(RG48, frame.format);
+        auto to_conv = get_av_to_uv_conversion(frame.format, RG48);
+        assert(to_conv != nullptr && from_conv != nullptr);
+
+        TIMER(t0);
+        from_conv(&frame, reinterpret_cast<unsigned char *>(rg48_buf.data()), width, height);
+        TIMER(t1);
+        to_conv(reinterpret_cast<char*>(rg48_buf_res.data()), &frame, width, height, vc_get_linesize(width, RG48), nullptr);
+        TIMER(t2);
+
+        if (getenv("PERF") != nullptr) {
+                cout << "test_yuv444p16le_from_to_rg48: duration - enc " << tv_diff(t1, t0) << ", dec " <<tv_diff(t2, t1) << "\n";
+        }
+
+        av_freep(frame.data);
+
+        int max_diff = 0;
+        for (size_t i = 0; i < width * height; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                        int diff = abs(static_cast<int>(rg48_buf[3 * i + j]) - static_cast<int>(rg48_buf_res[3 * i + j]));
+                        if (diff >= 1 && getenv("DEBUG") != nullptr) {
+                                cout << "pos: " << i << "," << j << " diff: " << diff << "\n";
+                        }
+                        max_diff = max<int>(max_diff, diff);
+                }
+        }
+
+        if (getenv("DEBUG_DUMP") != nullptr) {
+                std::ofstream in("in.rg48", std::ifstream::out | std::ifstream::binary);
+                in.write(reinterpret_cast<char *>(rg48_buf.data()), rg48_buf.size() * sizeof(decltype(rg48_buf)::value_type));
+                std::ofstream out("out.rg48", std::ifstream::out | std::ifstream::binary);
+                out.write(reinterpret_cast<char *>(rg48_buf_res.data()), rg48_buf_res.size() * sizeof(decltype(rg48_buf_res)::value_type));
+        }
+
+        /// @todo look at the conversions to yield better precision
+        CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 8);
+}
+
 #endif // defined HAVE_CPPUNIT && HAVE_LAVC
