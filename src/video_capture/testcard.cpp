@@ -248,13 +248,15 @@ class image_pattern_gradient : public image_pattern {
 };
 
 class image_pattern_gradient2 : public image_pattern {
+        public:
+                explicit image_pattern_gradient2(long maxval = 0XFFFFU) : val_max(maxval) {}
         private:
-                static constexpr unsigned int VAL_MAX{0xFFFFU};
+                const unsigned int val_max;
                 int fill(int width, int height, unsigned char *data) override {
                         auto *ptr = reinterpret_cast<uint16_t *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 for (int i = 0; i < width; i += 1) {
-                                        unsigned int gray = i * VAL_MAX / width;
+                                        unsigned int gray = i * val_max / (width - 1);
                                         *ptr++ = gray;
                                         *ptr++ = gray;
                                         *ptr++ = gray;
@@ -277,7 +279,15 @@ unique_ptr<image_pattern> image_pattern::create(const char *pattern) noexcept {
                 return make_unique<image_pattern_bars>();
         } else if (strcmp(pattern, "blank") == 0) {
                 return make_unique<image_pattern_blank>();
-        } else if (strcmp(pattern, "gradient2") == 0) {
+        } else if (strstr(pattern, "gradient2") != nullptr) {
+                if (strstr(pattern, "gradient2=") != nullptr) {
+                        auto val = string(pattern).substr("gradient2="s.length());
+                        if (val == "help"s) {
+                                cout << "Testcard gradient2 usage:\n\t-t testcard:gradient2[=maxval] - maxval is 16-bit resolution\n";
+                                return {};
+                        }
+                        return make_unique<image_pattern_gradient2>(stol(val, nullptr, 0));
+                }
                 return make_unique<image_pattern_gradient2>();
         } else if (strstr(pattern, "gradient") != nullptr) {
                 uint32_t color = image_pattern_gradient::red;
