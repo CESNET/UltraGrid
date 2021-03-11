@@ -92,8 +92,14 @@ void Option::setEnabled(bool enable, bool suppressCallback){
 }
 
 void Option::addSuboption(Option *sub, const std::string &limit){
+	auto pair = std::make_pair(limit, sub);
+	auto it = std::find(suboptions.begin(), suboptions.end(), pair);
+
+	if(it != suboptions.end())
+		return;
+
 	sub->addOnChangeCallback(Callback(&Option::suboptionChanged, this));
-	suboptions.push_back(std::make_pair(limit, sub));
+	suboptions.push_back(pair);
 }
 
 void Option::addOnChangeCallback(Callback callback){
