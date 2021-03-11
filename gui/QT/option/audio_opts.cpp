@@ -65,6 +65,7 @@ std::vector<SettingItem> getAudioPlayback(AvailableSettings *availSettings){
         SettingItem item;
         item.name = i.name;
         item.opts.push_back({optStr, i.type});
+        item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
         for(const auto &sdi : sdiAudio){
             if(std::strcmp(sdi, i.type.c_str()) == 0){
                 item.conditions = getSdiCond("video.display");
@@ -90,6 +91,7 @@ std::vector<SettingItem> getAudioSrc(AvailableSettings *availSettings){
         SettingItem item;
         item.name = i.name;
         item.opts.push_back({optStr, i.type});
+        item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
         for(const auto &sdi : sdiAudio){
             if(std::strcmp(sdi, i.type.c_str()) == 0){
                 item.conditions = getSdiCond("video.source");
@@ -128,5 +130,26 @@ void audioCompressionCallback(Option &opt, bool suboption, void *opaque){
 	opt.getSettings()->getOption("audio.compress.bitrate").setEnabled(enableBitrate);
 	win->audioBitrateEdit->setEnabled(enableBitrate);
 	win->audioBitrateLabel->setEnabled(enableBitrate);
+}
+
+static void addDevOpt(Settings* settings, const Device& dev, const char *parent){
+		settings->addOption(dev.type + ".device",
+				Option::StringOpt,
+				"",
+				"",
+				false,
+				parent,
+				dev.type);
+}
+
+void populateAudioDeviceSettings(AvailableSettings *availSettings,
+		Settings* settings)
+{
+	for(const auto& dev : availSettings->getDevices(AUDIO_SRC)){
+		addDevOpt(settings, dev, "audio.source");
+	}
+	for(const auto& dev : availSettings->getDevices(AUDIO_PLAYBACK)){
+		addDevOpt(settings, dev, "audio.playback");
+	}
 }
 

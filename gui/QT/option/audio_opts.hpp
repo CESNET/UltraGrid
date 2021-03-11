@@ -17,4 +17,7 @@ std::vector<SettingItem> getAudioCompress(AvailableSettings *availSettings);
 
 void audioCompressionCallback(Option &opt, bool suboption, void *);
 
+void populateAudioDeviceSettings(AvailableSettings *availSettings,
+		Settings* settings);
+
 #endif

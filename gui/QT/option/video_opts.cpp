@@ -143,6 +143,27 @@ static const VideoCompressItem videoCodecs[] = {
 	{"Cineform", "cineform", false},
 };
 
+static void addDevOpt(Settings* settings, const Device& dev, const char *parent){
+		settings->addOption(dev.type + ".device",
+				Option::StringOpt,
+				"",
+				"",
+				false,
+				parent,
+				dev.type);
+}
+
+void populateVideoDeviceSettings(AvailableSettings *availSettings,
+		Settings* settings)
+{
+	for(const auto& dev : availSettings->getDevices(VIDEO_SRC)){
+		addDevOpt(settings, dev, "video.source");
+	}
+	for(const auto& dev : availSettings->getDevices(VIDEO_DISPLAY)){
+		addDevOpt(settings, dev, "video.display");
+	}
+}
+
 void populateVideoCompressSettings(AvailableSettings *availSettings,
 		Settings* settings)
 {

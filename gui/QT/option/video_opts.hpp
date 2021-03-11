@@ -28,6 +28,8 @@ std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
 
 void populateVideoCompressSettings(AvailableSettings *availSettings,
 		Settings* settings);
+void populateVideoDeviceSettings(AvailableSettings *availSettings,
+		Settings* settings);
 
 void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque);
 

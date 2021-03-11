@@ -74,6 +74,8 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	availableSettings.queryAll(ultragridExecutable.toStdString());
 	populateVideoCompressSettings(&availableSettings, &settings);
+	populateVideoDeviceSettings(&availableSettings, &settings);
+	populateAudioDeviceSettings(&availableSettings, &settings);
 
 	settingsUi.init(&settings, &availableSettings);
 	settingsUi.initMainWin(&ui);
