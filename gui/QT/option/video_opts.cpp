@@ -53,6 +53,7 @@ std::vector<SettingItem> getVideoModes(AvailableSettings *availSettings){
             SettingItem item;
             item.name = mode.name;
             item.conditions.push_back({{{"video.source", cap.type}, false}});
+            item.conditions.push_back({{{"video.source." + cap.type + ".device", cap.deviceOpt}, false}});
             for(const auto &opt : mode.opts){
                 item.opts.push_back(
                         {"video.source." + cap.type + "." + opt.opt, opt.val});

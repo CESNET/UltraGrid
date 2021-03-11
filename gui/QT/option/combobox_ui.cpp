@@ -27,6 +27,11 @@ void ComboBoxUi::refresh(){
         for(const auto &opt : item.opts){
             registerCallback(opt.opt);
         }
+		for(const auto &condClause : item.conditions){
+			for(const auto &condItem : condClause){
+				registerCallback(condItem.value.opt);
+			}
+		}
     }
 
     updateUiItems();
