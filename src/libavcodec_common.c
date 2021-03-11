@@ -1063,6 +1063,23 @@ static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __r
                 }
         }
 }
+
+static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        int src_linesize = vc_get_linesize(width, RG48);
+        for (int y = 0; y < height; ++y) {
+                uint16_t *src = (uint16_t *) (in_data + y * src_linesize);
+                uint16_t *dst_g = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_b = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_r = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        *dst_r++ = *src++ >> 4U;
+                        *dst_g++ = *src++ >> 4U;
+                        *dst_b++ = *src++ >> 4U;
+                }
+        }
+}
 #endif
 
 //
@@ -2526,6 +2543,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
                 { R12L, AV_PIX_FMT_GBRP12LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r12l_to_gbrp12le },
+                { RG48, AV_PIX_FMT_GBRP12LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rg48_to_gbrp12le },
 #endif
                 { 0, 0, 0, 0, 0 }
         };
