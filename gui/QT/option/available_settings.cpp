@@ -90,7 +90,7 @@ void AvailableSettings::queryAll(const std::string &executable){
 		}
 	}
 
-	const int expectedVersion = 3;
+	const int expectedVersion = 4;
 	if(ver != expectedVersion){
 		QMessageBox msgBox;
 		QString msg = "Capabilities start marker with expected version not found"
@@ -209,7 +209,7 @@ void AvailableSettings::queryDevice(const QString &line, size_t offset){
 	Device dev;
 	QJsonObject obj = doc.object();
 	maybeWriteString(obj, "name", dev.name);
-	maybeWriteString(obj, "type", dev.type);
+	maybeWriteString(obj, "module", dev.type);
 	maybeWriteString(obj, "device", dev.deviceOpt);
 
 	if(obj.contains("modes") && obj["modes"].isArray()){
