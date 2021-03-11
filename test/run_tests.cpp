@@ -67,6 +67,7 @@ extern "C" {
 }
 
 using std::clog;
+using std::cout;
 
 #define TEST_AV_HW 1
 
@@ -143,6 +144,11 @@ static bool run_unit_tests()
 
 int main(int argc, char **argv)
 {
+        if (argc > 1 && (strcmp("-h", argv[1]) == 0 || strcmp("--help", argv[1]) == 0)) {
+                cout << "Usage:\n\t" << argv[0] << " [unit|standard|all|-h|--help]\n";
+                return 0;
+        }
+
         struct init_data *init = nullptr;
         if ((init = common_preinit(argc, argv, nullptr)) == nullptr) {
                 return 2;
