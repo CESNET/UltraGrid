@@ -260,11 +260,11 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
         int max_diff = 0;
         for (size_t i = 0; i < width * height; ++i) {
                 for (int j = 0; j < 3; ++j) {
-                        int diff = abs(static_cast<int>(rg48_buf[3 * i + j]) - static_cast<int>(rg48_buf_res[3 * i + j]));
+                        int diff = static_cast<int>(rg48_buf[3 * i + j]) - static_cast<int>(rg48_buf_res[3 * i + j]);
                         if (diff >= 1 && getenv("DEBUG") != nullptr) {
                                 cout << "pos: " << i << "," << j << " diff: " << diff << "\n";
                         }
-                        max_diff = max<int>(max_diff, diff);
+                        max_diff = max<int>(max_diff, abs(diff));
                 }
         }
 
