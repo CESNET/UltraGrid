@@ -127,22 +127,6 @@ std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
 	return res;
 }
 
-struct VideoCompressItem{
-	const char * displayName;
-	const char * value;
-	bool isLibav;
-};
-
-static const VideoCompressItem videoCodecs[] = {
-	{"None", "", false},
-	{"H.264", "H.264", true},
-	{"H.265", "H.265", true},
-	{"MJPEG", "MJPEG", true},
-	{"VP8", "VP8", true},
-	{"Jpeg", "jpeg", false},
-	{"Cineform", "cineform", false},
-};
-
 std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings){
     std::vector<SettingItem> res;
 
