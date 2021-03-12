@@ -210,14 +210,9 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
 
         constexpr int width = 2048;
         constexpr int height = 1;
-        vector <uint16_t> rg48_buf(width * height * 3);
+        vector <uint16_t> rg48_buf(width * height * 3, 16 << 4);
         vector <uint16_t> rg48_buf_res(width * height * 3);
 
-        for (int i = 0; i < 16; i += 1) {
-                rg48_buf[3 * i] =
-                        rg48_buf[3 * i + 1] =
-                        rg48_buf[3 * i + 2] = 16 << 4;
-        }
         for (int i = 16; i < 2040; i += 1) {
                 rg48_buf[3 * i] =
                         rg48_buf[3 * i + 1] =
@@ -261,8 +256,8 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
         for (size_t i = 0; i < width * height; ++i) {
                 for (int j = 0; j < 3; ++j) {
                         int diff = static_cast<int>(rg48_buf[3 * i + j]) - static_cast<int>(rg48_buf_res[3 * i + j]);
-                        if (diff >= 1 && getenv("DEBUG") != nullptr) {
-                                cout << "pos: " << i << "," << j << " diff: " << diff << "\n";
+                        if (abs(diff) >= 1 && getenv("DEBUG") != nullptr) {
+                                cout << "different value at pos: " << i << "," << j << " diff: " << diff << "\n";
                         }
                         max_diff = max<int>(max_diff, abs(diff));
                 }
