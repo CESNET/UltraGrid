@@ -1,6 +1,7 @@
 #include <iostream>
 #include <algorithm>
 #include "settings.hpp"
+#include "available_settings.hpp"
 
 Option::Callback::Callback(fcn_type func_ptr, void *opaque) :
 	func_ptr(func_ptr),
@@ -408,5 +409,79 @@ void Settings::changedAll(){
 		i.second->changed();
 	}
 }
+
+static void addDevOpt(Settings* settings, const Device& dev, const char *parent){
+		settings->addOption(dev.type + ".device",
+				Option::StringOpt,
+				"",
+				"",
+				false,
+				parent,
+				dev.type);
+}
+
+void Settings::populateVideoDeviceSettings(AvailableSettings *availSettings){
+	for(const auto& dev : availSettings->getDevices(VIDEO_SRC)){
+		addDevOpt(this, dev, "video.source");
+	}
+	for(const auto& dev : availSettings->getDevices(VIDEO_DISPLAY)){
+		addDevOpt(this, dev, "video.display");
+	}
+}
+
+void Settings::populateVideoCompressSettings(AvailableSettings *availSettings){
+	for(const auto& mod : availSettings->getVideoCompressModules()){
+		std::string codecOptKey = mod.name + ".codec";
+		addOption(codecOptKey,
+				Option::SilentOpt,
+				"",
+				"",
+				false,
+				"video.compress",
+				mod.name);
+
+		for(const auto& modOption: mod.opts){
+			addOption(mod.name + "." + modOption.key,
+					modOption.booleanOpt ? Option::BoolOpt : Option::StringOpt,
+					modOption.optStr,
+					"",
+					false,
+					"video.compress",
+					mod.name
+					);
+		}
+	}
+
+	for(const auto& codec : availSettings->getVideoCompressCodecs()){
+		std::string optName = "video.compress.";
+		optName += codec.module_name;
+		optName += ".codec";
+
+		addOption(codec.name + ".encoder",
+				Option::StringOpt,
+				"",
+				codec.encoders[0].optStr,
+				true,
+				optName,
+				codec.name);
+	}
+}
+
+void Settings::populateAudioDeviceSettings(AvailableSettings *availSettings){
+	for(const auto& dev : availSettings->getDevices(AUDIO_SRC)){
+		addDevOpt(this, dev, "audio.source");
+	}
+	for(const auto& dev : availSettings->getDevices(AUDIO_PLAYBACK)){
+		addDevOpt(this, dev, "audio.playback");
+	}
+}
+
+void Settings::populateSettingsFromCapabilities(AvailableSettings *availSettings){
+	populateVideoDeviceSettings(availSettings);
+	populateVideoCompressSettings(availSettings);
+	populateAudioDeviceSettings(availSettings);
+}
+
+
 
 /* vim: set noexpandtab: */

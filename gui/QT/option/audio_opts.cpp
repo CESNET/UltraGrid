@@ -132,24 +132,3 @@ void audioCompressionCallback(Option &opt, bool suboption, void *opaque){
 	win->audioBitrateLabel->setEnabled(enableBitrate);
 }
 
-static void addDevOpt(Settings* settings, const Device& dev, const char *parent){
-		settings->addOption(dev.type + ".device",
-				Option::StringOpt,
-				"",
-				"",
-				false,
-				parent,
-				dev.type);
-}
-
-void populateAudioDeviceSettings(AvailableSettings *availSettings,
-		Settings* settings)
-{
-	for(const auto& dev : availSettings->getDevices(AUDIO_SRC)){
-		addDevOpt(settings, dev, "audio.source");
-	}
-	for(const auto& dev : availSettings->getDevices(AUDIO_PLAYBACK)){
-		addDevOpt(settings, dev, "audio.playback");
-	}
-}
-

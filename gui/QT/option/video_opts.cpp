@@ -143,67 +143,6 @@ static const VideoCompressItem videoCodecs[] = {
 	{"Cineform", "cineform", false},
 };
 
-static void addDevOpt(Settings* settings, const Device& dev, const char *parent){
-		settings->addOption(dev.type + ".device",
-				Option::StringOpt,
-				"",
-				"",
-				false,
-				parent,
-				dev.type);
-}
-
-void populateVideoDeviceSettings(AvailableSettings *availSettings,
-		Settings* settings)
-{
-	for(const auto& dev : availSettings->getDevices(VIDEO_SRC)){
-		addDevOpt(settings, dev, "video.source");
-	}
-	for(const auto& dev : availSettings->getDevices(VIDEO_DISPLAY)){
-		addDevOpt(settings, dev, "video.display");
-	}
-}
-
-void populateVideoCompressSettings(AvailableSettings *availSettings,
-		Settings* settings)
-{
-	for(const auto& mod : availSettings->getVideoCompressModules()){
-		std::string codecOptKey = mod.name + ".codec";
-		settings->addOption(codecOptKey,
-				Option::SilentOpt,
-				"",
-				"",
-				false,
-				"video.compress",
-				mod.name);
-
-		for(const auto& modOption: mod.opts){
-			settings->addOption(mod.name + "." + modOption.key,
-					modOption.booleanOpt ? Option::BoolOpt : Option::StringOpt,
-					modOption.optStr,
-					"",
-					false,
-					"video.compress",
-					mod.name
-					);
-		}
-	}
-
-	for(const auto& codec : availSettings->getVideoCompressCodecs()){
-		std::string optName = "video.compress.";
-		optName += codec.module_name;
-		optName += ".codec";
-
-		settings->addOption(codec.name + ".encoder",
-				Option::StringOpt,
-				"",
-				codec.encoders[0].optStr,
-				true,
-				optName,
-				codec.name);
-	}
-}
-
 std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings){
     std::vector<SettingItem> res;
 

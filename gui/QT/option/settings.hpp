@@ -7,6 +7,7 @@
 #include <memory>
 
 class Settings;
+class AvailableSettings;
 
 class Option{
 public:
@@ -111,7 +112,12 @@ public:
 
 	void changedAll();
 
+	void populateSettingsFromCapabilities(AvailableSettings *availSettings);
+
 private:
+	void populateVideoCompressSettings(AvailableSettings *availSettings);
+	void populateVideoDeviceSettings(AvailableSettings *availSettings);
+	void populateAudioDeviceSettings(AvailableSettings *availSettings);
 
 	std::map<std::string, std::unique_ptr<Option>> options;
 

@@ -26,11 +26,6 @@ std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings);
 std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
 		const std::string& mod, const std::string& codec);
 
-void populateVideoCompressSettings(AvailableSettings *availSettings,
-		Settings* settings);
-void populateVideoDeviceSettings(AvailableSettings *availSettings,
-		Settings* settings);
-
 void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque);
 
 
