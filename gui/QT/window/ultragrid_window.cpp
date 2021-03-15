@@ -306,7 +306,6 @@ void UltragridWindow::connectSignals(){
 	connect(ui.arguments, SIGNAL(textChanged(const QString &)), this, SLOT(editArgs(const QString &)));
 	connect(ui.editCheckBox, SIGNAL(toggled(bool)), this, SLOT(setArgs()));
 	//connect(ui.actionRefresh, SIGNAL(triggered()), this, SLOT(queryOpts()));
-	//connect(ui.actionAdvanced, SIGNAL(toggled(bool)), this, SLOT(setAdvanced(bool)));
 	connect(ui.actionShow_Terminal, SIGNAL(triggered()), this, SLOT(showLog()));
 	connect(ui.actionSettings, SIGNAL(triggered()), this, SLOT(showSettings()));
 	connect(ui.previewCheckBox, SIGNAL(toggled(bool)), this, SLOT(enablePreview(bool)));

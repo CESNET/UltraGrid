@@ -37,7 +37,6 @@ void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 	addControl(
 			new LineEditUi(ui->networkDestinationEdit, settings, "network.destination")
 			);
-	addControl(new ActionCheckableUi(ui->actionAdvanced, settings, "advanced"));
 	addControl(new ActionCheckableUi(ui->actionVuMeter, settings, "vuMeter"));
 	addControl(new ActionCheckableUi(ui->actionUse_hw_acceleration,
 				settings,
@@ -180,6 +179,7 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new CheckboxUi(ui->decodeAccelCheck, settings, "decode.hwaccel"));
 	addControl(new CheckboxUi(ui->errorsFatalBox, settings, "errors_fatal"));
 	addControl(new LineEditUi(ui->encryptionLineEdit, settings, "encryption"));
+	addControl(new CheckboxUi(ui->advModeCheck, settings, "advanced"));
 
 	buildSettingsCodecList();
 	connect(settingsWin->codecList, &QListWidget::currentItemChanged,
