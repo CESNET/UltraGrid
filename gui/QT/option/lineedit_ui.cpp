@@ -1,11 +1,11 @@
 #include "lineedit_ui.hpp"
 
 LineEditUi::LineEditUi(QLineEdit *line, Settings *settings, const std::string &opt) : 
-    TextOptUi(settings, opt),
-    line(line)
+	TextOptUi(settings, opt),
+	line(line)
 {
-    updateUiState();
-    connectSignals();
+	updateUiState();
+	connectSignals();
 }
 
 void LineEditUi::connectSignals(){
@@ -13,11 +13,11 @@ void LineEditUi::connectSignals(){
 }
 
 void LineEditUi::updateUiState(const std::string &text){
-    line->setText(QString::fromStdString(text));
+	line->setText(QString::fromStdString(text));
 }
 
 void LineEditUi::updateUiState(){
-    updateUiState(getOptValue());
+	updateUiState(getOptValue());
 }
 
 void LineEditUi::setEnabled(bool enabled){

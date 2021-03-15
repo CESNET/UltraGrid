@@ -8,7 +8,7 @@
 struct SettingItem;
 
 namespace Ui{
-    class UltragridWindow;
+	class UltragridWindow;
 };
 
 std::vector<SettingItem> getAudioSrc(AvailableSettings *availSettings);

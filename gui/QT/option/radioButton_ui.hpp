@@ -11,22 +11,22 @@ class RadioButtonUi : public WidgetUi{
 Q_OBJECT
 
 public:
-    RadioButtonUi(QAbstractButton *btn,
-            const std::string &selectedVal,
-            Settings *settings,
-            const std::string &opt);
+	RadioButtonUi(QAbstractButton *btn,
+			const std::string &selectedVal,
+			Settings *settings,
+			const std::string &opt);
 
 private:
-    QAbstractButton *btn;
-    std::string selectedVal;
+	QAbstractButton *btn;
+	std::string selectedVal;
 
-    void connectSignals() override;
-    void updateUiState() override;
-    void updateUiState(bool checked);
+	void connectSignals() override;
+	void updateUiState() override;
+	void updateUiState(bool checked);
 	void optChangeCallback(Option &opt, bool suboption) override;
 
 private slots:
-    void btnClicked();
+	void btnClicked();
 
 };
 

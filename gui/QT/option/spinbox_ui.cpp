@@ -3,11 +3,11 @@
 #include "overload.hpp"
 
 SpinBoxUi::SpinBoxUi(QSpinBox *spinbox, Settings *settings, const std::string &opt) : 
-    TextOptUi(settings, opt),
-    spinbox(spinbox)
+	TextOptUi(settings, opt),
+	spinbox(spinbox)
 {
-    updateUiState();
-    connectSignals();
+	updateUiState();
+	connectSignals();
 }
 
 void SpinBoxUi::connectSignals(){
@@ -16,17 +16,17 @@ void SpinBoxUi::connectSignals(){
 			this, &SpinBoxUi::textEdited);
 #else
 	connect(spinbox, &QSpinBox::textChanged,
-            this, &SpinBoxUi::textEdited);
+			this, &SpinBoxUi::textEdited);
 #endif
 }
 
 void SpinBoxUi::updateUiState(const std::string &text){
-    if(!text.empty())
-        spinbox->setValue(std::stoi(text));
-    else
-        spinbox->clear();
+	if(!text.empty())
+		spinbox->setValue(std::stoi(text));
+	else
+		spinbox->clear();
 }
 
 void SpinBoxUi::updateUiState(){
-    updateUiState(getOptValue());
+	updateUiState(getOptValue());
 }

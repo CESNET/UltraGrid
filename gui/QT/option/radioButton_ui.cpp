@@ -1,16 +1,16 @@
 #include "radioButton_ui.hpp"
 
 RadioButtonUi::RadioButtonUi(QAbstractButton *btn,
-        const std::string &selectedVal,
-        Settings *settings,
-        const std::string &opt) : 
-    WidgetUi(settings, opt),
-    btn(btn),
-    selectedVal(selectedVal)
+		const std::string &selectedVal,
+		Settings *settings,
+		const std::string &opt) : 
+	WidgetUi(settings, opt),
+	btn(btn),
+	selectedVal(selectedVal)
 {
-    updateUiState();
-    connectSignals();
-    registerCallback();
+	updateUiState();
+	connectSignals();
+	registerCallback();
 }
 
 void RadioButtonUi::connectSignals(){
@@ -18,17 +18,17 @@ void RadioButtonUi::connectSignals(){
 }
 
 void RadioButtonUi::updateUiState(bool checked){
-    btn->setChecked(checked);
+	btn->setChecked(checked);
 }
 
 void RadioButtonUi::updateUiState(){
-    updateUiState(settings->getOption(opt).getValue() == selectedVal);
+	updateUiState(settings->getOption(opt).getValue() == selectedVal);
 }
 
 void RadioButtonUi::optChangeCallback(Option &changedOpt, bool /*suboption*/){
-    if(changedOpt.getName() == opt){
-        updateUiState(settings->getOption(opt).getValue() == selectedVal);
-    }
+	if(changedOpt.getName() == opt){
+		updateUiState(settings->getOption(opt).getValue() == selectedVal);
+	}
 }
 
 void RadioButtonUi::btnClicked(){

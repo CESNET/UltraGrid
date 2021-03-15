@@ -9,66 +9,67 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
 	const char * const whiteList[] = {
 		"bitflow",
 	};
-    const std::string optStr = "video.source";
+	const std::string optStr = "video.source";
 
-    std::vector<SettingItem> res;
+	std::vector<SettingItem> res;
 
-    SettingItem defaultItem;
-    defaultItem.name = "None";
-    defaultItem.opts.push_back({optStr, ""});
+	SettingItem defaultItem;
+	defaultItem.name = "None";
+	defaultItem.opts.push_back({optStr, ""});
 	defaultItem.opts.push_back({"video.source.embeddedAudioAvailable", "f"});
-    res.push_back(std::move(defaultItem));
+	res.push_back(std::move(defaultItem));
 
-    for(const auto &i : availSettings->getDevices(VIDEO_SRC)){
-        SettingItem item;
-        item.name = i.name;
-        item.opts.push_back({optStr, i.type});
-        item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
+	for(const auto &i : availSettings->getDevices(VIDEO_SRC)){
+		SettingItem item;
+		item.name = i.name;
+		item.opts.push_back({optStr, i.type});
+		item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
 		auto embedAudioIt = i.extra.find("embeddedAudioAvailable");
 		bool enableAudio = embedAudioIt != i.extra.end()
 			&& embedAudioIt->second == "t";
 		item.opts.push_back({"video.source.embeddedAudioAvailable",
 				enableAudio ? "t" : "f"});
-        res.push_back(std::move(item));
-    }
+		res.push_back(std::move(item));
+	}
 
-    for(const auto &i : availSettings->getAvailableSettings(VIDEO_SRC)){
-        SettingItem item;
-        item.name = i;
-        item.opts.push_back({optStr, i});
-        bool whiteListed = false;
-        for(const auto &white : whiteList){
-            if(std::strcmp(white, i.c_str()) == 0){
-                whiteListed = true;
-            }
-        }
-        if(!whiteListed){
-            item.conditions.push_back({{{"advanced", "t"}, false}});
-        }
-        res.push_back(std::move(item));
-    }
+	for(const auto &i : availSettings->getAvailableSettings(VIDEO_SRC)){
+		SettingItem item;
+		item.name = i;
+		item.opts.push_back({optStr, i});
+		bool whiteListed = false;
+		for(const auto &white : whiteList){
+			if(std::strcmp(white, i.c_str()) == 0){
+				whiteListed = true;
+			}
+		}
+		if(!whiteListed){
+			item.conditions.push_back({{{"advanced", "t"}, false}});
+		}
+		res.push_back(std::move(item));
+	}
 
-    return res;
+	return res;
 }
 
 std::vector<SettingItem> getVideoModes(AvailableSettings *availSettings){
-    std::vector<SettingItem> res;
+	std::vector<SettingItem> res;
 
-    for(const auto &cap : availSettings->getDevices(VIDEO_SRC)){
-        for(const auto &mode : cap.modes){
-            SettingItem item;
-            item.name = mode.name;
-            item.conditions.push_back({{{"video.source", cap.type}, false}});
-            item.conditions.push_back({{{"video.source." + cap.type + ".device", cap.deviceOpt}, false}});
-            for(const auto &opt : mode.opts){
-                item.opts.push_back(
-                        {"video.source." + cap.type + "." + opt.opt, opt.val});
-            }
-            res.push_back(std::move(item));
-        } 
-    }
+	for(const auto &cap : availSettings->getDevices(VIDEO_SRC)){
+		for(const auto &mode : cap.modes){
+			SettingItem item;
+			item.name = mode.name;
+			item.conditions.push_back({{{"video.source", cap.type}, false}});
+			item.conditions.push_back({
+					{{"video.source." + cap.type + ".device", cap.deviceOpt}, false}});
+			for(const auto &opt : mode.opts){
+				item.opts.push_back(
+						{"video.source." + cap.type + "." + opt.opt, opt.val});
+			}
+			res.push_back(std::move(item));
+		} 
+	}
 
-    return res;
+	return res;
 }
 
 std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings){
@@ -77,51 +78,51 @@ std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings){
 		"quicktime"
 	};
 
-    const std::string optStr = "video.display";
+	const std::string optStr = "video.display";
 
-    std::vector<SettingItem> res;
+	std::vector<SettingItem> res;
 
-    SettingItem defaultItem;
-    defaultItem.name = "None";
-    defaultItem.opts.push_back({optStr, ""});
+	SettingItem defaultItem;
+	defaultItem.name = "None";
+	defaultItem.opts.push_back({optStr, ""});
 	defaultItem.opts.push_back({"video.display.embeddedAudioAvailable", "f"});
-    res.push_back(std::move(defaultItem));
+	res.push_back(std::move(defaultItem));
 
-    for(const auto &i : availSettings->getDevices(VIDEO_DISPLAY)){
-        SettingItem item;
-        item.name = i.name;
-        item.opts.push_back({optStr, i.type});
+	for(const auto &i : availSettings->getDevices(VIDEO_DISPLAY)){
+		SettingItem item;
+		item.name = i.name;
+		item.opts.push_back({optStr, i.type});
 		auto embedAudioIt = i.extra.find("embeddedAudioAvailable");
 		bool enableAudio = embedAudioIt != i.extra.end()
 			&& embedAudioIt->second == "t";
 		item.opts.push_back({"video.display.embeddedAudioAvailable",
 				enableAudio ? "t" : "f"});
-        res.push_back(std::move(item));
-    }
+		res.push_back(std::move(item));
+	}
 
-    for(const auto &i : availSettings->getAvailableSettings(VIDEO_DISPLAY)){
-        SettingItem item;
-        item.name = i;
-        item.opts.push_back({optStr, i});
-        bool whiteListed = false;
-        for(const auto &white : whiteList){
-            if(std::strcmp(white, i.c_str()) == 0){
-                whiteListed = true;
-            }
-        }
-        if(!whiteListed){
-            item.conditions.push_back({{{"advanced", "t"}, false}});
-        }
-        res.push_back(std::move(item));
-    }
+	for(const auto &i : availSettings->getAvailableSettings(VIDEO_DISPLAY)){
+		SettingItem item;
+		item.name = i;
+		item.opts.push_back({optStr, i});
+		bool whiteListed = false;
+		for(const auto &white : whiteList){
+			if(std::strcmp(white, i.c_str()) == 0){
+				whiteListed = true;
+			}
+		}
+		if(!whiteListed){
+			item.conditions.push_back({{{"advanced", "t"}, false}});
+		}
+		res.push_back(std::move(item));
+	}
 
-    return res;
+	return res;
 }
 
 std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
 		const std::string& mod, const std::string& codec)
 {
-    std::vector<SettingItem> res;
+	std::vector<SettingItem> res;
 
 	for(const auto& i : availSettings->getVideoCompressCodecs()){
 		if(i.name != codec || i.module_name != mod)
@@ -140,9 +141,9 @@ std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
 }
 
 std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings){
-    std::vector<SettingItem> res;
+	std::vector<SettingItem> res;
 
-    const std::string optStr = "video.compress";
+	const std::string optStr = "video.compress";
 
 	for(const auto& codec : availSettings->getVideoCompressCodecs()){
 		SettingItem item;
@@ -153,7 +154,7 @@ std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings){
 		res.push_back(std::move(item));
 	}
 
-    return res;
+	return res;
 }
 
 void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque){
@@ -182,7 +183,7 @@ void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque){
 		}
 	}
 
-    data->lineEditUi->setOpt("video.compress." + mod + ".quality");
+	data->lineEditUi->setOpt("video.compress." + mod + ".quality");
 	data->lineEditUi->setEnabled(enableEdit);
 	data->lineEditUi->setToolTip(toolTip);
 	if(data->label){

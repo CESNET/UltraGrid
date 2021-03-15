@@ -42,7 +42,7 @@ void LogWindow::copyToClipboard(){
 }
 
 void LogWindow::saveToFile(){
-    QString fileName = QFileDialog::getSaveFileName(this,
+	QString fileName = QFileDialog::getSaveFileName(this,
 			tr("Save log"), "",
 			tr("Text File (*.txt);;All Files (*)"));	
 

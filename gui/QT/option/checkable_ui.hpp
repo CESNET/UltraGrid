@@ -7,23 +7,23 @@
 #include "settings.hpp"
 
 class CheckableUi : public WidgetUi{
-    Q_OBJECT
+Q_OBJECT
 
 public:
-    CheckableUi(Settings *settings, const std::string &opt);
+	CheckableUi(Settings *settings, const std::string &opt);
 
-    virtual ~CheckableUi() {  }
+	virtual ~CheckableUi() {  }
 
 protected:
-    virtual void connectSignals() override = 0;
-    bool getOptValue();
-    void updateUiState() override = 0;
-    virtual void updateUiState(bool checked) = 0;
+	virtual void connectSignals() override = 0;
+	bool getOptValue();
+	void updateUiState() override = 0;
+	virtual void updateUiState(bool checked) = 0;
 
 	void optChangeCallback(Option &opt, bool suboption) override;
 
 protected slots:
-    void boxClicked(bool checked);
+	void boxClicked(bool checked);
 };
 
 #endif

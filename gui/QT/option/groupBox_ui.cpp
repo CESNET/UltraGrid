@@ -1,11 +1,11 @@
 #include "groupBox_ui.hpp"
 
 GroupBoxUi::GroupBoxUi(QGroupBox *groupBox, Settings *settings, const std::string &opt) :
-    CheckableUi(settings, opt),
-    groupBox(groupBox)
+	CheckableUi(settings, opt),
+	groupBox(groupBox)
 {
-    updateUiState();
-    connectSignals();
+	updateUiState();
+	connectSignals();
 }
 
 void GroupBoxUi::connectSignals(){
@@ -13,10 +13,10 @@ void GroupBoxUi::connectSignals(){
 }
 
 void GroupBoxUi::updateUiState(bool checked){
-    groupBox->setChecked(checked);
+	groupBox->setChecked(checked);
 }
 
 void GroupBoxUi::updateUiState(){
-    updateUiState(getOptValue());
+	updateUiState(getOptValue());
 }
 
