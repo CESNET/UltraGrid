@@ -593,6 +593,7 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
         for (int i = 0; i < static_cast<int>(nr_sources); ++i) {
                 snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":url=%s", p_sources[i].p_url_address);
                 snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "%s", p_sources[i].p_ndi_name);
+                snprintf(vt->cards[i].extra, sizeof vt->cards[i].extra, "\"embeddedAudioAvailable\":\"t\"");
                 vt->cards[i].repeatable = true;
         }
 

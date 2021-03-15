@@ -815,6 +815,8 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
                                 ":device=%d", numDevices);
                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
                                 "%s #%d", deviceName.c_str(), numDevices);
+                snprintf(vt->cards[vt->card_count - 1].extra, sizeof vt->cards[vt->card_count - 1].extra,
+                                "\"embeddedAudioAvailable\":\"t\"");
 
 
                 list<string> connections;

@@ -81,6 +81,7 @@ static void display_ndi_probe(struct device_info **available_cards, int *count, 
         *available_cards = calloc(1, sizeof(struct device_info));
         strncpy((*available_cards)[0].dev, "", sizeof (*available_cards)[0].dev - 1);
         strncpy((*available_cards)[0].name, "NDI", sizeof (*available_cards)[0].name - 1);
+        strncpy((*available_cards)[0].extra, "\"embeddedAudioAvailable\":\"t\"", sizeof (*available_cards)[0].extra - 1);
         (*available_cards)[0].repeatable = true;
         *deleter = free;
 }

@@ -673,6 +673,8 @@ static struct vidcap_type *vidcap_dvs_probe(bool verbose, void (**deleter)(void 
                                 ":device=%d", card_idx);
                 snprintf(vt->cards[card_idx].name, sizeof vt->cards[card_idx].name,
                                 "DVS card #%d", card_idx);
+                snprintf(vt->cards[card_idx].extra, sizeof vt->cards[card_idx].extra,
+                                "\"embeddedAudioAvailable\":\"t\"", card_idx);
 
                 sv_close(sv);
                 card_idx++;

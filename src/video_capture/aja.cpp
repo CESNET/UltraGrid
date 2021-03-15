@@ -1132,6 +1132,8 @@ LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool verbose, void (**deleter)(vo
                                 ":device=%d", i);
                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
                                 "AJA %s", info.deviceIdentifier.c_str());
+                snprintf(vt->cards[vt->card_count - 1].extra, sizeof vt->cards[vt->card_count - 1].extra,
+                                "\"embeddedAudioAvailable\":\"t\"");
         }
 
         return vt;

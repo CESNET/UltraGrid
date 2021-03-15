@@ -65,6 +65,7 @@ static void audio_play_sdi_probe_common(struct device_info **available_devices, 
         *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
         strncpy((*available_devices)[0].dev, dev, sizeof (*available_devices)[0].dev - 1);
         strncpy((*available_devices)[0].name, name, sizeof (*available_devices)[0].name - 1);
+        snprintf((*available_devices)[0].extra, sizeof (*available_devices)[0].extra, "\"isEmbeddedAudio\":\"t\"");
         *count = 1;
 }
 

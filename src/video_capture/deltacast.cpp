@@ -141,6 +141,7 @@ vidcap_deltacast_probe(bool verbose, void (**deleter)(void *))
                 for (ULONG i = 0; i < NbBoards; ++i) {
                         snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%" PRIu32, i);
                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %" PRIu32, i);
+                        snprintf(vt->cards[i].extra, sizeof vt->cards[i].extra, "\"embeddedAudioAvailable\":\"t\"");
                 }
 	}
 	return vt;

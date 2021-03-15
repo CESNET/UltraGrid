@@ -648,8 +648,11 @@ static int display_dvs_reconfigure(void *state,
 static void display_dvs_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
         UNUSED(deleter);
-        *available_cards = NULL;
-        *count = 0;
+        *count = 1;
+        *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+        strcpy((*available_cards)[0].dev, "");
+        strcpy((*available_cards)[0].name, "Dvs");
+        strcpy((*available_cards)[0].extra, "\"embeddedAudioAvailable\":\"t\"");
 }
 
 
