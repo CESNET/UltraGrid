@@ -24,34 +24,6 @@ std::vector<SettingItem> getAudioCompress(AvailableSettings *availSettings){
     return res;
 }
 
-const char * const sdiAudioCards[] = {
-    "decklink",
-    "aja",
-    "dvs",
-    "deltacast",
-    "ndi",
-};
-
-const char * const sdiAudio[] = {
-    "analog",
-    "AESEBU",
-    "embedded",
-};
-
-static std::vector<std::vector<ConditionItem>> getSdiCond(const std::string &opt){
-    std::vector<std::vector<ConditionItem>> res;
-
-    std::vector<ConditionItem> clause;
-
-    for(const auto &i : sdiAudioCards){
-        clause.push_back({{opt, i}, false});
-    }
-
-    res.push_back(std::move(clause));
-
-    return res;
-}
-
 std::vector<SettingItem> getAudioPlayback(AvailableSettings *availSettings){
     const std::string optStr = "audio.playback";
     std::vector<SettingItem> res;
@@ -66,12 +38,10 @@ std::vector<SettingItem> getAudioPlayback(AvailableSettings *availSettings){
         item.name = i.name;
         item.opts.push_back({optStr, i.type});
         item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
-        for(const auto &sdi : sdiAudio){
-            if(std::strcmp(sdi, i.type.c_str()) == 0){
-                item.conditions = getSdiCond("video.display");
-                break;
-            }
-        }
+		auto embedAudioIt = i.extra.find("isEmbeddedAudio");
+		if(embedAudioIt != i.extra.end() && embedAudioIt->second == "t"){
+			item.conditions.push_back({{{"video.display.embeddedAudioAvailable", "t"}, false}});
+		}
         res.push_back(std::move(item));
     }
 
@@ -92,12 +62,10 @@ std::vector<SettingItem> getAudioSrc(AvailableSettings *availSettings){
         item.name = i.name;
         item.opts.push_back({optStr, i.type});
         item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
-        for(const auto &sdi : sdiAudio){
-            if(std::strcmp(sdi, i.type.c_str()) == 0){
-                item.conditions = getSdiCond("video.source");
-                break;
-            }
-        }
+		auto embedAudioIt = i.extra.find("isEmbeddedAudio");
+		if(embedAudioIt != i.extra.end() && embedAudioIt->second == "t"){
+			item.conditions.push_back({{{"video.source.embeddedAudioAvailable", "t"}, false}});
+		}
         res.push_back(std::move(item));
     }
 

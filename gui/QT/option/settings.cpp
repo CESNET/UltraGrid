@@ -198,6 +198,7 @@ const static struct{
 	const char *limit;
 } optionList[] = {
 	{"video.source", Option::StringOpt, " -t ", "", false, "", ""},
+	{"video.source.embeddedAudioAvailable", Option::SilentOpt, "", "", false, "", ""},
 	{"testcard.width", Option::StringOpt, ":", "", false, "video.source", "testcard"},
 	{"testcard.height", Option::StringOpt, ":", "", false, "video.source", "testcard"},
 	{"testcard.fps", Option::StringOpt, ":", "", false, "video.source", "testcard"},
@@ -213,6 +214,7 @@ const static struct{
 	{"avfoundation.fps", Option::StringOpt, ":fps=", "", false, "video.source", "avfoundation"},
 	{"decklink.modeOpt", Option::StringOpt, ":", "", false, "video.source", "decklink"},
 	{"video.display", Option::StringOpt, " -d ", "", false, "", ""},
+	{"video.display.embeddedAudioAvailable", Option::SilentOpt, "", "", false, "", ""},
 	{"gl.novsync", Option::BoolOpt, ":novsync", "f", false, "video.display", "gl"},
 	{"gl.deinterlace", Option::BoolOpt, ":d", "f", false, "video.display", "gl"},
 	{"gl.fullscreen", Option::BoolOpt, ":fs", "f", false, "video.display", "gl"},
@@ -268,7 +270,7 @@ Settings::Settings() : dummy(this){
 				i.limit);
 #ifdef DEBUG
 		if(!i.parent[0])
-			opt.addOnChangeCallback(test_callback);
+			opt.addOnChangeCallback(Option::Callback(test_callback, nullptr));
 #endif
 		(void) opt; //suppress unused warning
 	}

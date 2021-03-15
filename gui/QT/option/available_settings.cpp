@@ -212,6 +212,15 @@ void AvailableSettings::queryDevice(const QString &line, size_t offset){
 	maybeWriteString(obj, "module", dev.type);
 	maybeWriteString(obj, "device", dev.deviceOpt);
 
+	if(obj.contains("extra") && obj["extra"].isObject()){
+		const auto& extraObj = obj["extra"].toObject();
+		for(auto it = extraObj.constBegin(); it != extraObj.constEnd(); it++){
+			if(it.value().isString()){
+				dev.extra[it.key().toStdString()] = it.value().toString().toStdString();
+			}
+		}
+	}
+
 	if(obj.contains("modes") && obj["modes"].isArray()){
 		for(const QJsonValue &val : obj["modes"].toArray()){
 			if(val.isObject()){

@@ -16,6 +16,7 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
     SettingItem defaultItem;
     defaultItem.name = "None";
     defaultItem.opts.push_back({optStr, ""});
+	defaultItem.opts.push_back({"video.source.embeddedAudioAvailable", "f"});
     res.push_back(std::move(defaultItem));
 
     for(const auto &i : availSettings->getDevices(VIDEO_SRC)){
@@ -23,6 +24,11 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings){
         item.name = i.name;
         item.opts.push_back({optStr, i.type});
         item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
+		auto embedAudioIt = i.extra.find("embeddedAudioAvailable");
+		bool enableAudio = embedAudioIt != i.extra.end()
+			&& embedAudioIt->second == "t";
+		item.opts.push_back({"video.source.embeddedAudioAvailable",
+				enableAudio ? "t" : "f"});
         res.push_back(std::move(item));
     }
 
@@ -78,12 +84,18 @@ std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings){
     SettingItem defaultItem;
     defaultItem.name = "None";
     defaultItem.opts.push_back({optStr, ""});
+	defaultItem.opts.push_back({"video.display.embeddedAudioAvailable", "f"});
     res.push_back(std::move(defaultItem));
 
     for(const auto &i : availSettings->getDevices(VIDEO_DISPLAY)){
         SettingItem item;
         item.name = i.name;
         item.opts.push_back({optStr, i.type});
+		auto embedAudioIt = i.extra.find("embeddedAudioAvailable");
+		bool enableAudio = embedAudioIt != i.extra.end()
+			&& embedAudioIt->second == "t";
+		item.opts.push_back({"video.display.embeddedAudioAvailable",
+				enableAudio ? "t" : "f"});
         res.push_back(std::move(item));
     }
 

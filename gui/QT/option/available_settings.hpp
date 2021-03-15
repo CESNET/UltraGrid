@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <QStringList>
 
 enum SettingType{
@@ -31,6 +32,8 @@ struct Device{
 	std::string name;
 	std::string type;
 	std::string deviceOpt;
+
+	std::map<std::string, std::string> extra;
 
 	std::vector<DeviceMode> modes;
 };
