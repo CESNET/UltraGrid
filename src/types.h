@@ -317,6 +317,8 @@ struct device_info {
         bool repeatable; ///< Whether can be card used multiple times (eg. GL) or it
                          ///< can output simoultaneously only one output (DeckLink).
                          ///< Used for video display only.
+        char extra[1024];///< Json object containing extra data reported with capabilities
+                         ///< currently used to report embedded audio availability
         struct mode {    ///< optional zero-terminated array of available modes
                 char id[1024];   ///< options to be passed to UltraGrid to initialize the device
                                  ///< with the appropriate mode (eg. "mode=Hi50" for DeckLink 0).

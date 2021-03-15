@@ -123,6 +123,7 @@ void print_available_capturers()
                                 "\"module\":" << std::quoted(vt->name) << ", "
                                 "\"device\":" << std::quoted(vt->cards[i].dev) << ", "
                                 "\"name\":" << std::quoted(vt->cards[i].name) << ", "
+                                "\"extra\": {" << vt->cards[i].extra << "}, "
                                 "\"modes\": [";
                         for (unsigned int j = 0; j < sizeof vt->cards[i].modes
                                         / sizeof vt->cards[i].modes[0]; j++) {

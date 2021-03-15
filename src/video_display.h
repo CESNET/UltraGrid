@@ -140,7 +140,7 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 11
+#define VIDEO_DISPLAY_ABI_VERSION 12
 
 typedef bool (*display_needs_mainloop_t)(void *);
 #define DISPLAY_DOESNT_NEED_MAINLOOP ((display_needs_mainloop_t) 0x00)

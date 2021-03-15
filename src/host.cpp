@@ -391,6 +391,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 "\"module\":" << std::quoted(it.first) << ", "
                                 "\"device\":" << std::quoted(devices[i].dev) << ", "
                                 "\"name\":" << std::quoted(devices[i].name) << ", "
+                                "\"extra\": {" << devices[i].extra << "}, "
                                 "\"repeatable\":\"" << devices[i].repeatable << "\"}\n";
                 }
                 deleter ? deleter(devices) : free(devices);
@@ -410,6 +411,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 "\"purpose\":\"audio_cap\", "
                                 "\"module\":" << std::quoted(it.first) << ", "
                                 "\"device\":" << std::quoted(devices[i].dev) << ", "
+                                "\"extra\": {" << devices[i].extra << "}, "
                                 "\"name\":" << std::quoted(devices[i].name) << "}\n";
                 }
                 free(devices);
@@ -429,6 +431,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 "\"purpose\":\"audio_play\", "
                                 "\"module\":" << std::quoted(it.first) << ", "
                                 "\"device\":" << std::quoted(devices[i].dev) << ", "
+                                "\"extra\": {" << devices[i].extra << "}, "
                                 "\"name\":" << std::quoted(devices[i].name) << "}\n";
                 }
                 free(devices);
