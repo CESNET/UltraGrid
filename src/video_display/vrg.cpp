@@ -220,6 +220,7 @@ static int display_vrg_ctl_property(void *state, int property, void *val, size_t
         struct state_vrg *s = (struct state_vrg *) state;
         codec_t codecs[] = {
 #ifdef HAVE_CUDA
+                CUDA_I420,
                 CUDA_RGBA,
 #endif
                 I420,
@@ -282,10 +283,10 @@ static int display_vrg_reconfigure(void *state, struct video_desc desc)
 {
         struct state_vrg *s = (struct state_vrg *) state;
         assert(s->magic == MAGIC_VRG);
-        assert(desc.color_spec == CUDA_RGBA || desc.color_spec == RGBA || desc.color_spec == I420);
+        assert(desc.color_spec == CUDA_I420 || desc.color_spec == CUDA_RGBA || desc.color_spec == RGBA || desc.color_spec == I420);
 
         s->saved_desc = desc;
-        if (desc.color_spec == CUDA_RGBA) {
+        if (desc.color_spec == CUDA_I420 || desc.color_spec == CUDA_RGBA) {
                 s->pool.replace_allocator(vrg_cuda_allocator());
         } else {
                 s->pool.replace_allocator(default_data_allocator());
