@@ -239,7 +239,7 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
         const char *display_cfg = "";
 
         if (init_params->display != nullptr) {
-                strncpy(display, init_params->display, sizeof display);
+                strncpy(display, init_params->display, sizeof display - 1);
                 if (strchr(display, ':') != nullptr) {
                         display_cfg = strchr(display, ':') + 1;
                         *strchr(display, ':') = '\0';
