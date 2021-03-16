@@ -95,6 +95,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
         assert(rc == 0);
 
         switch (s->out_codec) {
+        case CUDA_I420:
         case I420:
                 gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_BT709,
                                 GPUJPEG_420_U8_P0P1P2);
@@ -162,7 +163,7 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
         
         assert(out_codec == I420 || out_codec == RGB || out_codec == RGBA
                         || out_codec == UYVY || out_codec == VIDEO_CODEC_NONE
-                        || out_codec == CUDA_RGBA);
+                        || out_codec == CUDA_I420 || out_codec == CUDA_RGBA);
 
         if(s->out_codec == out_codec &&
                         s->pitch == pitch &&
@@ -241,7 +242,7 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
                 return DECODER_NO_FRAME;
         }
 
-        if (s->out_codec == CUDA_RGBA) {
+        if (s->out_codec == CUDA_I420 || s->out_codec == CUDA_RGBA) {
                 if (s->unstripe) {
                         assert(s->cuda_tmp_buf != NULL);
                         gpujpeg_decoder_output_set_custom_cuda (&decoder_output, s->cuda_tmp_buf);
@@ -366,6 +367,8 @@ static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
 		{ MJPG, VIDEO_CODEC_NONE, I420, 920 },
 #endif
                 // for VRG
+		{ JPEG, VIDEO_CODEC_NONE, CUDA_I420, 200 },
+		{ MJPG, VIDEO_CODEC_NONE, CUDA_I420, 200 },
 		{ JPEG, VIDEO_CODEC_NONE, CUDA_RGBA, 200 },
 		{ MJPG, VIDEO_CODEC_NONE, CUDA_RGBA, 200 },
 
