@@ -78,10 +78,36 @@ using std::mutex;
 using std::queue;
 using std::unique_lock;
 
+struct vrg_cuda_um_allocator : public video_frame_pool_allocator {
+        void *allocate(size_t size) override {
+                void *ptr = nullptr;
+#ifdef HAVE_CUDA
+                if (cudaMallocManaged(&ptr, size) != cudaSuccess) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot alloc CUDA buffer!\n";
+                        return nullptr;
+                }
+#else
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "CUDA not compiled in, falling back to plain malloc!\n";
+                return malloc(size);
+#endif
+                return ptr;
+        }
+        void deallocate(void *ptr) override {
+#ifdef HAVE_CUDA
+                cudaFree(ptr);
+#else
+                free(ptr);
+#endif
+        }
+        video_frame_pool_allocator *clone() const override {
+                return new vrg_cuda_um_allocator(*this);
+        }
+};
+
 struct state_vrg {
         uint32_t magic;
         struct video_desc saved_desc;
-        video_frame_pool pool;
+        video_frame_pool pool{0, vrg_cuda_um_allocator()};
 
         high_resolution_clock::time_point t0 = high_resolution_clock::now();
         long long int frames;
@@ -256,29 +282,6 @@ static int display_vrg_ctl_property(void *state, int property, void *val, size_t
         return TRUE;
 }
 
-struct vrg_cuda_allocator : public video_frame_pool_allocator {
-        void *allocate(size_t size) override {
-                void *ptr = nullptr;
-#ifdef HAVE_CUDA
-                if (cudaMallocManaged(&ptr, size) != cudaSuccess) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot alloc CUDA buffer!\n";
-                        return nullptr;
-                }
-#endif
-                return ptr;
-        }
-        void deallocate(void *ptr) override {
-#ifdef HAVE_CUDA
-                cudaFree(ptr);
-#else
-                UNUSED(ptr);
-#endif
-        }
-        video_frame_pool_allocator *clone() const override {
-                return new vrg_cuda_allocator(*this);
-        }
-};
-
 static int display_vrg_reconfigure(void *state, struct video_desc desc)
 {
         struct state_vrg *s = (struct state_vrg *) state;
@@ -286,11 +289,13 @@ static int display_vrg_reconfigure(void *state, struct video_desc desc)
         assert(desc.color_spec == CUDA_I420 || desc.color_spec == CUDA_RGBA || desc.color_spec == RGBA || desc.color_spec == I420);
 
         s->saved_desc = desc;
+#if 0
         if (desc.color_spec == CUDA_I420 || desc.color_spec == CUDA_RGBA) {
                 s->pool.replace_allocator(vrg_cuda_allocator());
         } else {
                 s->pool.replace_allocator(default_data_allocator());
         }
+#endif
         s->pool.reconfigure(desc);
 
         return TRUE;
