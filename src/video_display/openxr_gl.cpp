@@ -1088,18 +1088,12 @@ static void display_xrgl_probe(struct device_info **available_cards, int *count,
         *count = 0;
         *available_cards = nullptr;
 
-        Openxr_instance instance;
-
         XrSystemGetInfo systemGetInfo;
         systemGetInfo.type = XR_TYPE_SYSTEM_GET_INFO;
         systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
         systemGetInfo.next = NULL;
 
         XrSystemId systemId;
-        XrResult result = xrGetSystem(instance.get(), &systemGetInfo, &systemId);
-        if(!XR_SUCCEEDED(result)){
-                return;
-        }
 
         XrSystemProperties systemProperties;
         systemProperties.type = XR_TYPE_SYSTEM_PROPERTIES;
@@ -1107,8 +1101,20 @@ static void display_xrgl_probe(struct device_info **available_cards, int *count,
         systemProperties.graphicsProperties = {};
         systemProperties.trackingProperties = {};
 
-        result = xrGetSystemProperties(instance.get(), systemId, &systemProperties);
-        if(!XR_SUCCEEDED(result)){
+        try{
+                Openxr_instance instance;
+
+                XrResult result = xrGetSystem(instance.get(), &systemGetInfo, &systemId);
+                if(!XR_SUCCEEDED(result)){
+                        return;
+                }
+
+                result = xrGetSystemProperties(instance.get(), systemId, &systemProperties);
+                if(!XR_SUCCEEDED(result)){
+                        return;
+                }
+        } catch(const std::exception& e){
+                std::cout << e.what() << std::endl;
                 return;
         }
 
