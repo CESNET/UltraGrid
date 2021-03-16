@@ -120,7 +120,7 @@ __device__ static vec2 abs(const vec2 & v) {
 }
 
 __device__ static vec3 round(const vec3 & v) {
-    return vec3(round(v.r), round(v.g), round(v.b));
+    return vec3(roundf(v.r), roundf(v.g), roundf(v.b));
 }
 
 __device__ static vec3 lerp(const vec3 & a, const vec3 & b, const float q) {
