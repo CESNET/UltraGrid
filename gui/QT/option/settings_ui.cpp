@@ -1,7 +1,13 @@
 #include <stdio.h>
 #include <iostream>
 #include <QMetaType>
+#include <QLabel>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QCheckBox>
+#include <functional>
 #include "settings_ui.hpp"
+#include "video_opts.hpp"
 
 void SettingsUi::init(Settings *settings, AvailableSettings *availableSettings){
 	this->settings = settings;
@@ -13,6 +19,8 @@ void SettingsUi::addControl(WidgetUi *widget){
 
 	connect(widget, &WidgetUi::changed, this, &SettingsUi::changed);
 }
+
+
 
 void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 	mainWin = ui;
@@ -29,7 +37,6 @@ void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 	addControl(
 			new LineEditUi(ui->networkDestinationEdit, settings, "network.destination")
 			);
-	addControl(new ActionCheckableUi(ui->actionAdvanced, settings, "advanced"));
 	addControl(new ActionCheckableUi(ui->actionVuMeter, settings, "vuMeter"));
 	addControl(new ActionCheckableUi(ui->actionUse_hw_acceleration,
 				settings,
@@ -46,10 +53,18 @@ void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 			settings,
 			"");
 	addControl(videoBitrate);
-	using namespace std::placeholders;
-	settings->getOption("video.compress").addOnChangeCallback(
-			std::bind(videoCompressBitrateCallback, videoBitrate, _1, _2)
-			);
+
+	std::unique_ptr<VideoBitrateCallbackData> vidBitrateCallData(new VideoBitrateCallbackData());
+
+	vidBitrateCallData->availSettings = availableSettings;
+	vidBitrateCallData->lineEditUi = videoBitrate;
+	vidBitrateCallData->label = mainWin->videoBitrateLabel;
+
+	auto extraPtr = vidBitrateCallData.get();
+	videoBitrate->registerCustomCallback("video.compress",
+			Option::Callback(videoCompressBitrateCallback, extraPtr),
+			std::move(vidBitrateCallData));
+
 
 	addControl(
 			new ComboBoxUi(ui->videoCompressionComboBox,
@@ -110,56 +125,27 @@ void SettingsUi::refreshAll(){
 	}
 }
 
-void vuMeterCallback(Ui::UltragridWindow *win, Option &opt, bool /*suboption*/){
-	win->vuMeter->setVisible(opt.isEnabled());
+void SettingsUi::refreshAllCallback(Option&, bool, void *opaque){
+	static_cast<SettingsUi *>(opaque)->refreshAll();
+}
+
+void vuMeterCallback(Option &opt, bool /*suboption*/, void *opaque){
+	static_cast<Ui::UltragridWindow *>(opaque)->vuMeter->setVisible(opt.isEnabled());
 }
 
 void SettingsUi::addCallbacks(){
-	using namespace std::placeholders;
+	settings->getOption("audio.compress").addOnChangeCallback(
+			Option::Callback(&audioCompressionCallback, mainWin));
 
-#define OPTION_CALLBACK(opt, fun) { opt, std::bind(fun, this, _1, _2) }
-	const static struct{
-		const char *opt;
-		std::function<void(Option &, bool)> callback;
-	} callbacks[] = {
-		OPTION_CALLBACK("video.compress", &SettingsUi::jpegLabelCallback),
-		{"audio.compress", std::bind(audioCompressionCallback, mainWin, _1, _2)},
-		{"advanced", std::bind(&SettingsUi::refreshAll, this)},
-		{"vuMeter", std::bind(vuMeterCallback, mainWin, _1, _2)},
-	};
-#undef OPTION_CALLBACK
+	settings->getOption("advanced").addOnChangeCallback(
+			Option::Callback(&SettingsUi::refreshAllCallback, this));
 
-	for(const auto & call : callbacks){
-		settings->getOption(call.opt).addOnChangeCallback(call.callback);
-	}
+	settings->getOption("vuMeter").addOnChangeCallback(
+			Option::Callback(&vuMeterCallback, mainWin));
 }
 
 void SettingsUi::test(){
 	printf("%s\n", settings->getLaunchParams().c_str());
-}
-
-void SettingsUi::jpegLabelCallback(Option &opt, bool suboption){
-	if(suboption)
-		return;
-
-	mainWin->videoBitrateLabel->setEnabled(true);
-	mainWin->videoBitrateEdit->setEnabled(true);
-
-	const std::string &val = opt.getValue();
-	if(val == "jpeg"){
-		mainWin->videoBitrateLabel->setText(QString("Jpeg quality"));
-	} else {
-		mainWin->videoBitrateLabel->setText(QString("Bitrate"));
-		if(val == ""){
-			mainWin->videoBitrateLabel->setEnabled(false);
-			mainWin->videoBitrateEdit->setEnabled(false);
-		}
-	}
-}
-
-void SettingsUi::fecCallback(Option &opt, bool){
-	mainWin->fECCheckBox->setChecked(opt.isEnabled());
-	settingsWin->fecGroupBox->setChecked(opt.isEnabled());
 }
 
 void SettingsUi::initSettingsWin(Ui::Settings *ui){
@@ -193,4 +179,102 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new CheckboxUi(ui->decodeAccelCheck, settings, "decode.hwaccel"));
 	addControl(new CheckboxUi(ui->errorsFatalBox, settings, "errors_fatal"));
 	addControl(new LineEditUi(ui->encryptionLineEdit, settings, "encryption"));
+	addControl(new CheckboxUi(ui->advModeCheck, settings, "advanced"));
+
+	buildSettingsCodecList();
+	connect(settingsWin->codecList, &QListWidget::currentItemChanged,
+			this, &SettingsUi::settingsCodecSelected);
+}
+
+void SettingsUi::buildSettingsCodecList(){
+	QListWidget *list = settingsWin->codecList;
+	list->clear();
+
+	auto codecs = getVideoCompress(availableSettings);
+
+	for(const auto& codec : codecs){
+		QListWidgetItem *item = new QListWidgetItem(list);
+		item->setText(QString::fromStdString(codec.name));
+		item->setData(Qt::UserRole, QVariant::fromValue(codec));
+
+		list->addItem(item);
+	}
+}
+
+void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *){
+	const SettingItem &settingItem = curr->data(Qt::UserRole).value<SettingItem>();
+
+	auto modIt = std::find_if(settingItem.opts.begin(), settingItem.opts.end(),
+			[](const SettingValue& si){ return si.opt == "video.compress"; });
+
+	if(modIt == settingItem.opts.end())
+		return;
+
+	const std::string& modName = modIt->val;
+
+	auto codecIt = std::find_if(settingItem.opts.begin(), settingItem.opts.end(),
+			[modName](const SettingValue& si){
+				return si.opt == "video.compress." + modName + ".codec"; });
+
+	if(codecIt == settingItem.opts.end())
+		return;
+
+	buildCodecOptControls(modName, codecIt->val);
+}
+
+void SettingsUi::buildCodecOptControls(const std::string& mod, const std::string& codec){
+	codecControls.clear();
+
+	QWidget *container = new QWidget();
+	QFormLayout *formLayout = new QFormLayout(container);
+
+	QComboBox *encoderCombo = new QComboBox();
+	formLayout->addRow("Encoder", encoderCombo);
+
+	WidgetUi *encoderComboUi = new ComboBoxUi(encoderCombo,
+			settings,
+			"video.compress." + mod + ".codec." + codec + ".encoder",
+			std::bind(getCodecEncoders, availableSettings,  mod, codec));
+
+	codecControls.emplace_back(encoderComboUi);
+	connect(encoderComboUi, &WidgetUi::changed, this, &SettingsUi::changed);
+
+	for(const auto& compMod : availableSettings->getVideoCompressModules()){
+		if(compMod.name == mod){
+			for(const auto& modOpt : compMod.opts){
+				QLabel *label = new QLabel(QString::fromStdString(modOpt.displayName));
+				QWidget *field = nullptr;
+				WidgetUi *widgetUi = nullptr;
+				std::string optKey = "video.compress." + mod + "." + modOpt.key;
+				if(modOpt.booleanOpt){
+					QCheckBox *checkBox = new QCheckBox();
+					field = checkBox;
+
+					widgetUi = new CheckboxUi(checkBox,
+							settings,
+							optKey);
+				} else {
+					QLineEdit *lineEdit = new QLineEdit();
+					field = lineEdit;
+
+					widgetUi = new LineEditUi(lineEdit,
+							settings,
+							optKey);
+				}
+				label->setToolTip(QString::fromStdString(modOpt.displayDesc));
+				field->setToolTip(QString::fromStdString(modOpt.displayDesc));
+
+				formLayout->addRow(label, field);
+
+				codecControls.emplace_back(widgetUi);
+				connect(widgetUi, &WidgetUi::changed, this, &SettingsUi::changed);
+			}
+		}
+	}
+
+	container->setLayout(formLayout);
+
+	delete settingsWin->scrollContents;
+	settingsWin->scrollContents = container;
+	settingsWin->codecOptScroll->setWidget(container);
 }

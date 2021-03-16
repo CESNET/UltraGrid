@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <QStringList>
 
 enum SettingType{
@@ -32,13 +33,46 @@ struct Device{
 	std::string type;
 	std::string deviceOpt;
 
+	std::map<std::string, std::string> extra;
+
 	std::vector<DeviceMode> modes;
+};
+
+struct CapabOpt{
+	std::string displayName; //Name displayed to user
+	std::string displayDesc; //Description displayed to user
+
+	/* internal name of option, options that are used in the same way should
+	 * have the same key (e.g. both bitrate for libavcodec and quality for jpeg
+	 * should have the same key). This allows using different labels displayed
+	 * to user */
+	std::string key;
+	std::string optStr; //Option string to pass to ug (e.g. ":bitrate=")
+
+	bool booleanOpt; //If true, GUI shows a checkbox instead of text edit
+};
+
+struct Encoder{
+	std::string name;
+	std::string optStr;
+};
+
+struct Codec{
+	std::string name;
+	std::string module_name;
+	std::vector<Encoder> encoders;
+	int priority;
+};
+
+struct CompressModule{
+	std::string name;
+	std::vector<CapabOpt> opts;
 };
 
 class AvailableSettings{
 public:
-	void queryCap(const QStringList &lines, SettingType type, const char *capStr);
-	void queryDevices(const QStringList &lines);
+	void queryDevice(const QString &line, size_t offset);
+	void queryVideoCompress(const QString &line, size_t offset);
 
 	void queryAll(const std::string &executable);
 
@@ -47,9 +81,22 @@ public:
 
 	const std::vector<Device>& getDevices(SettingType type) const;
 
+	const std::vector<CompressModule>& getVideoCompressModules() const {
+		return videoCompressModules;
+	}
+
+	const std::vector<Codec>& getVideoCompressCodecs() const {
+		return videoCompressCodecs;
+	}
+
 private:
+
+	void queryProcessLine(const QString& line, bool *endMarker = nullptr);
+
 	std::vector<std::string> available[SETTING_TYPE_COUNT];
 	std::vector<Device> devices[SETTING_TYPE_COUNT];
+	std::vector<CompressModule> videoCompressModules;
+	std::vector<Codec> videoCompressCodecs;
 
 };
 

@@ -31,6 +31,8 @@ private:
 
 	void loadSettingsFile(const QString &filename);
 
+	static void schedulePreview(Option&, bool, void *);
+
 	Ui::UltragridWindow ui;
 
 	QString ultragridExecutable;
@@ -79,7 +81,6 @@ private slots:
 	void previewFinished(int, QProcess::ExitStatus);
 	void enablePreview(bool);
 
-	void schedulePreview();
 	void refresh();
 };
 

@@ -355,7 +355,7 @@ static const struct video_display_info display_panogl_info = {
                 UNUSED(deleter);
                 *count = 1;
                 *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
-                strcpy((*available_cards)[0].id, "pano_gl");
+                strcpy((*available_cards)[0].dev, "");
                 strcpy((*available_cards)[0].name, "Panorama Gl SW display");
                 (*available_cards)[0].repeatable = true;
         },

@@ -1,5 +1,22 @@
 #include <iostream>
+#include <algorithm>
 #include "settings.hpp"
+#include "available_settings.hpp"
+
+Option::Callback::Callback(fcn_type func_ptr, void *opaque) :
+	func_ptr(func_ptr),
+	opaque(opaque)
+{
+
+}
+
+void Option::Callback::operator()(Option& opt, bool suboption) const{
+	func_ptr(opt, suboption, opaque);
+}
+
+bool Option::Callback::operator==(const Callback& o) const{
+	return func_ptr == o.func_ptr && opaque == o.opaque;
+}
 
 std::string Option::getName() const{
 	return name;
@@ -30,10 +47,10 @@ std::string Option::getLaunchOption() const{
 		return enabled ? param : "";
 	}
 
-	if(!enabled || value.empty() || type == OptType::SilentOpt)
-		return "";
+	std::string out = "";
+	if(enabled && !value.empty() && type != OptType::SilentOpt)
+		out = param + value;
 
-	std::string out = param + value;
 	out += getSubVals();
 
 	return out;
@@ -45,8 +62,9 @@ void Option::changed(){
 	}
 }
 
-void Option::suboptionChanged(Option &opt, bool){
-	for(const auto &callback : onChangeCallbacks){
+void Option::suboptionChanged(Option &opt, bool, void *opaque){
+	Option *obj = static_cast<Option *>(opaque);
+	for(const auto &callback : obj->onChangeCallbacks){
 		callback(opt, true);
 	}
 }
@@ -75,13 +93,36 @@ void Option::setEnabled(bool enable, bool suppressCallback){
 }
 
 void Option::addSuboption(Option *sub, const std::string &limit){
-	using namespace std::placeholders;
-	sub->addOnChangeCallback(std::bind(&Option::suboptionChanged, this, _1, _2));
-	suboptions.push_back(std::make_pair(limit, sub));
+	auto pair = std::make_pair(limit, sub);
+	auto it = std::find(suboptions.begin(), suboptions.end(), pair);
+
+	if(it != suboptions.end())
+		return;
+
+	sub->addOnChangeCallback(Callback(&Option::suboptionChanged, this));
+	suboptions.push_back(pair);
 }
 
 void Option::addOnChangeCallback(Callback callback){
 	onChangeCallbacks.push_back(callback);
+}
+
+void Option::removeOnChangeCallback(const Callback& callback){
+	auto it = std::find(onChangeCallbacks.begin(), onChangeCallbacks.end(), callback);
+
+	if(it == onChangeCallbacks.end()){
+		std::cout << "Attempted to remove non-existent callback "
+			<< name
+			<< std::endl;
+		return;
+	}
+
+#ifdef DEBUG
+	std::cout << "Removing callback "
+		<< name
+		<< std::endl;
+#endif
+	onChangeCallbacks.erase(it);
 }
 
 Settings *Option::getSettings(){
@@ -89,14 +130,14 @@ Settings *Option::getSettings(){
 }
 
 #ifdef DEBUG
-static void test_callback(Option &opt, bool){
+static void test_callback(Option &opt, bool, void *){
 	std::cout << "Callback: " << opt.getName()
 		<< ": " << opt.getValue()
 		<< " (" << opt.isEnabled() << ")" << std::endl;
 }
 #endif
 
-static void fec_builder_callback(Option &opt, bool subopt){
+static void fec_builder_callback(Option &opt, bool subopt, void *){
 	if(!subopt)
 		return;
 
@@ -126,7 +167,7 @@ static void fec_builder_callback(Option &opt, bool subopt){
 
 }
 
-static void fec_auto_callback(Option &opt, bool /*subopt*/){
+static void fec_auto_callback(Option &opt, bool /*subopt*/, void *){
 	Settings *settings = opt.getSettings();
 
 	if(!settings->getOption("network.fec.auto").isEnabled())
@@ -157,25 +198,23 @@ const static struct{
 	const char *limit;
 } optionList[] = {
 	{"video.source", Option::StringOpt, " -t ", "", false, "", ""},
+	{"video.source.embeddedAudioAvailable", Option::SilentOpt, "", "", false, "", ""},
 	{"testcard.width", Option::StringOpt, ":", "", false, "video.source", "testcard"},
 	{"testcard.height", Option::StringOpt, ":", "", false, "video.source", "testcard"},
 	{"testcard.fps", Option::StringOpt, ":", "", false, "video.source", "testcard"},
 	{"testcard.format", Option::StringOpt, ":", "", false, "video.source", "testcard"},
 	{"screen.fps", Option::StringOpt, ":fps=", "", false, "video.source", "screen"},
-	{"v4l2.device", Option::StringOpt, ":device=", "", false, "video.source", "v4l2"},
 	{"v4l2.codec", Option::StringOpt, ":codec=", "", false, "video.source", "v4l2"},
 	{"v4l2.size", Option::StringOpt, ":size=", "", false, "video.source", "v4l2"},
 	{"v4l2.tpf", Option::StringOpt, ":tpf=", "", false, "video.source", "v4l2"},
 	{"v4l2.force_rgb", Option::BoolOpt, ":RGB", "t", true, "video.source", "v4l2"},
-	{"dshow.device", Option::StringOpt, ":device=", "", false, "video.source", "dshow"},
 	{"dshow.mode", Option::StringOpt, ":mode=", "", false, "video.source", "dshow"},
 	{"dshow.force_rgb", Option::BoolOpt, ":RGB", "t", true, "video.source", "dshow"},
-	{"avfoundation.device", Option::StringOpt, ":device=", "", false, "video.source", "avfoundation"},
 	{"avfoundation.mode", Option::StringOpt, ":mode=", "", false, "video.source", "avfoundation"},
 	{"avfoundation.fps", Option::StringOpt, ":fps=", "", false, "video.source", "avfoundation"},
 	{"decklink.modeOpt", Option::StringOpt, ":", "", false, "video.source", "decklink"},
-	{"decklink.device", Option::StringOpt, ":device=", "", false, "video.source", "decklink"},
 	{"video.display", Option::StringOpt, " -d ", "", false, "", ""},
+	{"video.display.embeddedAudioAvailable", Option::SilentOpt, "", "", false, "", ""},
 	{"gl.novsync", Option::BoolOpt, ":novsync", "f", false, "video.display", "gl"},
 	{"gl.deinterlace", Option::BoolOpt, ":d", "f", false, "video.display", "gl"},
 	{"gl.fullscreen", Option::BoolOpt, ":fs", "f", false, "video.display", "gl"},
@@ -184,12 +223,6 @@ const static struct{
 	{"sdl.deinterlace", Option::BoolOpt, ":d", "f", false, "video.display", "sdl"},
 	{"sdl.fullscreen", Option::BoolOpt, ":fs", "f", false, "video.display", "sdl"},
 	{"video.compress", Option::StringOpt, " -c ", "", false, "", ""},
-	{"libavcodec.codec", Option::StringOpt, ":codec=", "", false, "video.compress", "libavcodec"},
-	{"H.264.bitrate", Option::StringOpt, ":bitrate=", "", false, "video.compress.libavcodec.codec", "H.264"},
-	{"H.265.bitrate", Option::StringOpt, ":bitrate=", "", false, "video.compress.libavcodec.codec", "H.265"},
-	{"MJPEG.bitrate", Option::StringOpt, ":bitrate=", "", false, "video.compress.libavcodec.codec", "MJPEG"},
-	{"VP8.bitrate", Option::StringOpt, ":bitrate=", "", false, "video.compress.libavcodec.codec", "VP8"},
-	{"jpeg.quality", Option::StringOpt, ":", "", false, "video.compress", "jpeg"},
 	{"audio.source", Option::StringOpt, " -s ", "", false, "", ""},
 	{"audio.source.channels", Option::StringOpt, " --audio-capture-format channels=", "", false, "", ""},
 	{"audio.playback", Option::StringOpt, " -r ", "", false, "", ""},
@@ -214,21 +247,12 @@ const static struct{
 	{"preview", Option::BoolOpt, "", "t", true, "", ""},
 	{"vuMeter", Option::BoolOpt, "", "t", true, "", ""},
 	{"errors_fatal", Option::BoolOpt, " --param errors-fatal", "t", true, "", ""},
-	{"aja.device", Option::StringOpt, ":", "", false, "video.source", "aja"},
-	{"bluefish444.device", Option::StringOpt, ":", "", false, "video.source", "bluefish444"},
-	{"deltacast.device", Option::StringOpt, ":", "", false, "video.source", "deltacast"},
-	{"deltacast-dv.device", Option::StringOpt, ":", "", false, "video.source", "deltacast-dv"},
-	{"dvs.device", Option::StringOpt, ":", "", false, "video.source", "dvs"},
-	{"ndi.device", Option::StringOpt, ":", "", false, "video.source", "ndi"},
-	{"spout.device", Option::StringOpt, ":", "", false, "video.source", "spout"},
-	{"syphon.device", Option::StringOpt, ":", "", false, "video.source", "syphon"},
-	{"ximea.device", Option::StringOpt, ":", "", false, "video.source", "ximea"},
 	{"encryption", Option::StringOpt, " --encryption ", "", false, "", ""},
 };
 
 const struct {
 	const char *name;
-	Option::Callback callback;
+	Option::Callback::fcn_type callback;
 } optionCallbacks[] = {
 	{"network.fec", fec_builder_callback},
 	{"video.compress", fec_auto_callback},
@@ -246,13 +270,13 @@ Settings::Settings() : dummy(this){
 				i.limit);
 #ifdef DEBUG
 		if(!i.parent[0])
-			opt.addOnChangeCallback(test_callback);
+			opt.addOnChangeCallback(Option::Callback(test_callback, nullptr));
 #endif
 		(void) opt; //suppress unused warning
 	}
 
 	for(const auto &i : optionCallbacks){
-		getOption(i.name).addOnChangeCallback(i.callback);
+		getOption(i.name).addOnChangeCallback(Option::Callback(i.callback, nullptr));
 	}
 
 	std::cout << getLaunchParams() << std::endl;
@@ -387,5 +411,79 @@ void Settings::changedAll(){
 		i.second->changed();
 	}
 }
+
+static void addDevOpt(Settings* settings, const Device& dev, const char *parent){
+		settings->addOption(dev.type + ".device",
+				Option::StringOpt,
+				"",
+				"",
+				false,
+				parent,
+				dev.type);
+}
+
+void Settings::populateVideoDeviceSettings(AvailableSettings *availSettings){
+	for(const auto& dev : availSettings->getDevices(VIDEO_SRC)){
+		addDevOpt(this, dev, "video.source");
+	}
+	for(const auto& dev : availSettings->getDevices(VIDEO_DISPLAY)){
+		addDevOpt(this, dev, "video.display");
+	}
+}
+
+void Settings::populateVideoCompressSettings(AvailableSettings *availSettings){
+	for(const auto& mod : availSettings->getVideoCompressModules()){
+		std::string codecOptKey = mod.name + ".codec";
+		addOption(codecOptKey,
+				Option::SilentOpt,
+				"",
+				"",
+				false,
+				"video.compress",
+				mod.name);
+
+		for(const auto& modOption: mod.opts){
+			addOption(mod.name + "." + modOption.key,
+					modOption.booleanOpt ? Option::BoolOpt : Option::StringOpt,
+					modOption.optStr,
+					"",
+					false,
+					"video.compress",
+					mod.name
+					);
+		}
+	}
+
+	for(const auto& codec : availSettings->getVideoCompressCodecs()){
+		std::string optName = "video.compress.";
+		optName += codec.module_name;
+		optName += ".codec";
+
+		addOption(codec.name + ".encoder",
+				Option::StringOpt,
+				"",
+				codec.encoders[0].optStr,
+				true,
+				optName,
+				codec.name);
+	}
+}
+
+void Settings::populateAudioDeviceSettings(AvailableSettings *availSettings){
+	for(const auto& dev : availSettings->getDevices(AUDIO_SRC)){
+		addDevOpt(this, dev, "audio.source");
+	}
+	for(const auto& dev : availSettings->getDevices(AUDIO_PLAYBACK)){
+		addDevOpt(this, dev, "audio.playback");
+	}
+}
+
+void Settings::populateSettingsFromCapabilities(AvailableSettings *availSettings){
+	populateVideoDeviceSettings(availSettings);
+	populateVideoCompressSettings(availSettings);
+	populateAudioDeviceSettings(availSettings);
+}
+
+
 
 /* vim: set noexpandtab: */

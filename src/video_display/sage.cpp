@@ -552,7 +552,7 @@ static const struct video_display_info display_sage_info = {
                 UNUSED(deleter);
                 *count = 1;
                 *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
-                strcpy((*available_cards)[0].id, "SAGE");
+                strcpy((*available_cards)[0].dev, "");
                 strcpy((*available_cards)[0].name, "SAGE display wall");
                 (*available_cards)[0].repeatable = true;
         },

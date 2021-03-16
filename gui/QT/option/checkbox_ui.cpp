@@ -1,11 +1,11 @@
 #include "checkbox_ui.hpp"
 
 CheckboxUi::CheckboxUi(QAbstractButton *box, Settings *settings, const std::string &opt) :
-    CheckableUi(settings, opt),
-    checkbox(box)
+	CheckableUi(settings, opt),
+	checkbox(box)
 {
-    updateUiState();
-    connectSignals();
+	updateUiState();
+	connectSignals();
 }
 
 void CheckboxUi::connectSignals(){
@@ -13,10 +13,10 @@ void CheckboxUi::connectSignals(){
 }
 
 void CheckboxUi::updateUiState(bool checked){
-    checkbox->setChecked(checked);
+	checkbox->setChecked(checked);
 }
 
 void CheckboxUi::updateUiState(){
-    updateUiState(getOptValue());
+	updateUiState(getOptValue());
 }
 

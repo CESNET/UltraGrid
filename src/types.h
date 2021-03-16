@@ -315,12 +315,14 @@ enum tx_media_type {
 };
 
 struct device_info {
-        char id[1024];   ///< device options to be passed to UltraGrid to initialize
-                         ///<  (eg.r "device=0" for DeckLink). May be empty ("").
+        char dev[1024];  ///< device options to be passed to UltraGrid to initialize
+                         ///<  (eg.r ":device=0" for DeckLink). May be empty ("").
         char name[1024]; ///< human readable name of the device
         bool repeatable; ///< Whether can be card used multiple times (eg. GL) or it
                          ///< can output simoultaneously only one output (DeckLink).
                          ///< Used for video display only.
+        char extra[1024];///< Json object containing extra data reported with capabilities
+                         ///< currently used to report embedded audio availability
         struct mode {    ///< optional zero-terminated array of available modes
                 char id[1024];   ///< options to be passed to UltraGrid to initialize the device
                                  ///< with the appropriate mode (eg. "mode=Hi50" for DeckLink 0).

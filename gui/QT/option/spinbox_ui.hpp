@@ -8,14 +8,14 @@ class SpinBoxUi : public TextOptUi{
 Q_OBJECT
 
 public:
-    SpinBoxUi(QSpinBox *line, Settings *settings, const std::string &opt);
+	SpinBoxUi(QSpinBox *line, Settings *settings, const std::string &opt);
 
 private:
-    QSpinBox *spinbox;
+	QSpinBox *spinbox;
 
-    void connectSignals() override;
-    void updateUiState() override;
-    void updateUiState(const std::string &text);
+	void connectSignals() override;
+	void updateUiState() override;
+	void updateUiState(const std::string &text);
 };
 
 #endif

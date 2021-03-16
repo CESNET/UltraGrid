@@ -11,15 +11,15 @@ struct SettingValue{
 };
 
 struct ConditionItem{
-    SettingValue value;
-    bool negation;
+	SettingValue value;
+	bool negation;
 };
 
 struct SettingItem{
 	std::string name;
 	std::vector<SettingValue> opts;
 
-    //conditions in conjunctive normal form
+	//conditions in conjunctive normal form
 	std::vector<std::vector<ConditionItem>> conditions;
 };
 
@@ -29,31 +29,31 @@ class ComboBoxUi : public WidgetUi{
 Q_OBJECT
 
 public:
-    ComboBoxUi(QComboBox *box,
-            Settings *settings,
-            const std::string &opt,
-            std::function<std::vector<SettingItem>()> itemBuilder);
+	ComboBoxUi(QComboBox *box,
+			Settings *settings,
+			const std::string &opt,
+			std::function<std::vector<SettingItem>()> itemBuilder);
 
-    void refresh() override;
+	void refresh() override;
 
 private:
-    QComboBox *box;
-    std::function<std::vector<SettingItem>()> itemBuilder;
-    bool ignoreCallback;
+	QComboBox *box;
+	std::function<std::vector<SettingItem>()> itemBuilder;
+	bool ignoreCallback;
 
-    std::vector<SettingItem> items;
+	std::vector<SettingItem> items;
 
-    void connectSignals() override;
-    void updateUiState() override;
+	void connectSignals() override;
+	void updateUiState() override;
 
-    void updateUiItems();
+	void updateUiItems();
 
 	void optChangeCallback(Option &opt, bool suboption) override;
 
-    void selectOption();
+	void selectOption();
 
 private slots:
-    void itemSelected(int index);
+	void itemSelected(int index);
 };
 
 

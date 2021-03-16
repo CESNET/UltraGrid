@@ -317,12 +317,12 @@ static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(voi
                 array<char, 256> name{};
                 if (!receiver->GetSenderName(i, name.data(), name.size())) {
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Cannot get name for server #" << i << "\n";
-                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%d", i);
+                        snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%d", i);
                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT #%d", i);
                 } else {
-                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "name=urlencoded=");
-                        urlencode(vt->cards[i].id + strlen(vt->cards[i].id),
-                                        sizeof vt->cards[i].id - strlen(vt->cards[i].id),
+                        snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":name=urlencoded=");
+                        urlencode(vt->cards[i].dev + strlen(vt->cards[i].dev),
+                                        sizeof vt->cards[i].dev - strlen(vt->cards[i].dev),
                                         name.data(), urlencode_rfc3986_eval, false);
                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT %s", name.data());
                 }

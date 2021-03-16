@@ -59,8 +59,8 @@ struct fec {
                         const std::map<int, int> &) = 0;
         virtual ~fec() {}
 
-        static fec *create_from_config(const char *str);
-        static fec *create_from_desc(struct fec_desc);
+        static fec *create_from_config(const char *str) noexcept;
+        static fec *create_from_desc(struct fec_desc) noexcept;
         static int pt_from_fec_type(enum fec_type type, bool encrypted) throw();
         static enum fec_type fec_type_from_pt(int pt) throw();
 };

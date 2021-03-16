@@ -291,7 +291,7 @@ static bool is_requested_direction(AudioObjectPropertyAddress propertyAddress, A
 void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 {
         *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
-        snprintf((*available_devices)[0].id, sizeof (*available_devices)[0].id, "coreaudio");
+        snprintf((*available_devices)[0].dev, sizeof (*available_devices)[0].dev, "");
         snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name,
                         "Default CoreAudio %s", dir == -1 ? "capture" : "playback");
         *count = 1;
@@ -332,8 +332,8 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
                 ret = AudioObjectGetPropertyData(dev_ids[i], &propertyAddress, 0, NULL, &size, &deviceName);
                 CFStringGetCString(deviceName, (char *) (*available_devices)[*count - 1].name,
                                 sizeof (*available_devices)[*count - 1].name, kCFStringEncodingMacRoman);
-                snprintf((*available_devices)[*count - 1].id, sizeof (*available_devices)[*count - 1].id,
-                                "coreaudio:%" PRIu32, dev_ids[i]);
+                snprintf((*available_devices)[*count - 1].dev, sizeof (*available_devices)[*count - 1].dev,
+                                ":%" PRIu32, dev_ids[i]);
                 CFRelease(deviceName);
         }
         free(dev_ids);
@@ -357,7 +357,7 @@ static void audio_play_ca_help(const char *driver_name)
         audio_play_ca_probe(&available_devices, &count);
 
         for (int i = 0; i < count; ++i) {
-                printf("\t%-13s: %s\n", available_devices[i].id, available_devices[i].name);
+                printf("\tcoreaudio%-4s: %s\n", available_devices[i].dev, available_devices[i].name);
         }
         free(available_devices);
 }

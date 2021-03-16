@@ -127,12 +127,15 @@ volatile bool *aja_should_exit = &should_exit;
 
 using namespace std;
 
-struct aligned_data_allocator {
-        void *allocate(size_t size) {
+struct aligned_data_allocator : public video_frame_pool_allocator {
+        void *allocate(size_t size) override {
                 return aligned_malloc(size, AJA_PAGE_SIZE);
         }
-        void deallocate(void *ptr) {
+        void deallocate(void *ptr) override {
                 aligned_free(ptr);
+        }
+        video_frame_pool_allocator *clone() const override {
+                return new aligned_data_allocator(*this);
         }
 };
 
@@ -161,7 +164,7 @@ class vidcap_state_aja {
                 uint32_t               mVideoBufferSize{};            ///     My video buffer size, in bytes
                 uint32_t               mAudioBufferSize{};            ///     My audio buffer size, in bytes
                 thread                 mProducerThread;               ///     My producer thread object -- does the frame capturing
-                video_frame_pool       mPool;
+                video_frame_pool       mPool{0, aligned_data_allocator()};
                 shared_ptr<video_frame> mOutputFrame;
                 shared_ptr<uint32_t>   mOutputAudioFrame;
                 size_t                 mOutputAudioFrameSize{};
@@ -679,23 +682,6 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 return AJA_STATUS_NOINPUT;
         }
 
-        interlacing_t interlacing;
-        if (NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat)) {
-                interlacing = PROGRESSIVE;
-        } else {
-                interlacing = INTERLACED_MERGED;
-        }
-
-        video_desc desc{GetDisplayWidth(mVideoFormat), GetDisplayHeight(mVideoFormat),
-                aja::codec_map.at(mPixelFormat),
-                GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
-                interlacing,
-                1};
-#ifndef _MSC_VER
-        cout << MOD_NAME "Detected input video mode: " << desc << endl;
-#endif
-        mPool.reconfigure(desc, vc_get_linesize(desc.width, desc.color_spec) * desc.height);
-
         return AJA_STATUS_SUCCESS;
 }
 
@@ -764,6 +750,18 @@ void vidcap_state_aja::SetupHostBuffers (void)
         CHECK(mDevice.GetVANCMode (mVancMode));
         mVideoBufferSize = GetVideoWriteSize (mVideoFormat, mPixelFormat, mVancMode);
         mAudioBufferSize = NTV2_AUDIOSIZE_MAX;
+
+        interlacing_t interlacing = NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat) ? PROGRESSIVE : INTERLACED_MERGED;
+        video_desc desc{GetDisplayWidth(mVideoFormat), GetDisplayHeight(mVideoFormat),
+                aja::codec_map.at(mPixelFormat),
+                GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
+                interlacing,
+                1};
+        mPool.reconfigure(desc, mVideoBufferSize);
+
+#ifndef _MSC_VER
+        cout << MOD_NAME "Detected input video mode: " << desc << endl;
+#endif
 }       //      SetupHostBuffers
 
 AJAStatus vidcap_state_aja::Run()
@@ -1130,10 +1128,12 @@ LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool verbose, void (**deleter)(vo
                 vt->cards = (struct device_info *)
                         realloc(vt->cards, vt->card_count * sizeof(struct device_info));
                 memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                "device=%d", i);
+                snprintf(vt->cards[vt->card_count - 1].dev, sizeof vt->cards[vt->card_count - 1].dev,
+                                ":device=%d", i);
                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
                                 "AJA %s", info.deviceIdentifier.c_str());
+                snprintf(vt->cards[vt->card_count - 1].extra, sizeof vt->cards[vt->card_count - 1].extra,
+                                "\"embeddedAudioAvailable\":\"t\"");
         }
 
         return vt;

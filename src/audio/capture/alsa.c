@@ -87,7 +87,7 @@ static void audio_cap_alsa_probe(struct device_info **available_devices, int *co
 {
         const char *whitelist[] = {"pulse", "dsnoop"};
         audio_alsa_probe(available_devices, count, whitelist, sizeof(whitelist) / sizeof(*whitelist));
-        strcpy((*available_devices)[0].id, "alsa");
+        strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Default Linux audio input");
 }
 

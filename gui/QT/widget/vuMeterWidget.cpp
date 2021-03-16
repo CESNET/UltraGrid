@@ -5,6 +5,7 @@
 #include <QLinearGradient>
 #include <QRect>
 #include <QString>
+#include <QStyle>
 #include "vuMeterWidget.hpp"
 
 constexpr double VuMeterWidget::zeroLevel;
@@ -43,6 +44,9 @@ void VuMeterWidget::updateVolumes(){
 	int count; 
 	bool ret = ug_control_get_volumes(ug_c, peak, rms, &count);
 
+	connected = ret;
+	setToolTip(connected ? "" : "Unable to read volume info from UG");
+
 	if(!ret){
 		last_connect = std::chrono::system_clock::now();
 		connect_ug();
@@ -70,11 +74,13 @@ void VuMeterWidget::paintMeter(QPainter& painter,
 	gradient.setColorAt(1, Qt::green);
 	QBrush brush(gradient);
 
-	painter.fillRect(x, y, width, height, Qt::black);
-	painter.fillRect(x + meterBarPad,
-			y + meterBarPad + (in_full_height - barHeight),
-			in_width, barHeight,
-			brush);
+	painter.fillRect(x, y, width, height, connected ? Qt::black : Qt::gray);
+	if(connected){
+		painter.fillRect(x + meterBarPad,
+				y + meterBarPad + (in_full_height - barHeight),
+				in_width, barHeight,
+				brush);
+	}
 
 
 	int pos = y + meterBarPad + (in_full_height - rmsHeight);
@@ -92,7 +98,7 @@ void VuMeterWidget::paintScale(QPainter& painter,
 	const int barStart = y + meterVerticalPad + meterBarPad;
 	const float stepPx = (float) barHeight / std::fabs(zeroLevel);
 
-	painter.setPen(Qt::black);
+	painter.setPen(connected ? Qt::black : Qt::gray);
 	int i = 0;
 	for(float y = barStart; y <= barStart + barHeight + 0.1; y += stepPx){
 		static const int lineLenghtSmall = 2;
@@ -112,6 +118,19 @@ void VuMeterWidget::paintScale(QPainter& painter,
 		}
 
 		i++;
+	}
+
+	if(!connected){
+		int iconDim = 32;
+		QIcon icon = style()->standardIcon(QStyle::SP_MessageBoxWarning);
+		QPixmap pixmap = icon.pixmap(iconDim,iconDim);
+		painter.eraseRect(x+width/2 - (iconDim+4)/2, y + height / 2 - (iconDim+4)/2,
+				iconDim+4, iconDim+4);
+		painter.drawPixmap(x+width/2 - iconDim/2, y + height / 2 - iconDim/2,
+				iconDim, iconDim,
+				pixmap,
+				0, 0,
+				iconDim, iconDim);
 	}
 }
 

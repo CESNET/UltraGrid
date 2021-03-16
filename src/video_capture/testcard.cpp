@@ -113,11 +113,19 @@ static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r
 class image_pattern {
         public:
                 static unique_ptr<image_pattern> create(const char *pattern) noexcept;
-                auto init(int width, int height) {
+                auto init(int width, int height, int out_bit_depth) {
+                        assert(out_bit_depth == 8 || out_bit_depth == 16);
                         auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
-                        size_t data_len = width * height * 4 + headroom;
+                        size_t data_len = width * height * 6 + headroom;
                         auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
-                        fill(width, height, out.get());
+                        int actual_bit_depth = fill(width, height, out.get());
+                        assert(actual_bit_depth == 8 || actual_bit_depth == 16);
+                        if (out_bit_depth == 8 && actual_bit_depth == 16) {
+                                convert_rg48_to_rgba(width, height, out.get());
+                        }
+                        if (out_bit_depth == 16 && actual_bit_depth == 8) {
+                                convert_rgba_to_rg48(width, height, out.get());
+                        }
                         return out;
                 }
                 virtual ~image_pattern() = default;
@@ -127,11 +135,41 @@ class image_pattern {
                 image_pattern(image_pattern &&) = delete;
                 image_pattern && operator=(image_pattern &&) = delete;
         private:
-                virtual void fill(int width, int height, unsigned char *data) = 0;
+                /// @retval bit depth used by the generator (either 8 or 16)
+                virtual int fill(int width, int height, unsigned char *data) = 0;
+
+                /// @note in-place
+                virtual void convert_rgba_to_rg48(int width, int height, unsigned char *data) {
+                        for (int y = height - 1; y >= 0; --y) {
+                                for (int x = width - 1; x >= 0; --x) {
+                                        unsigned char *in_pix = data + 4 * (y * width + x);
+                                        unsigned char *out_pix = data + 6 * (y * width + x);
+                                        *out_pix++ = 0;
+                                        *out_pix++ = *in_pix++;
+                                        *out_pix++ = 0;
+                                        *out_pix++ = *in_pix++;
+                                        *out_pix++ = 0;
+                                        *out_pix++ = *in_pix++;
+                                }
+                        }
+                }
+                /// @note in-place
+                virtual void convert_rg48_to_rgba(int width, int height, unsigned char *data) {
+                        for (int y = 0; y < height; ++y) {
+                                for (int x = 0; x < width; ++x) {
+                                        unsigned char *in_pix = data + 6 * (y * width + x);
+                                        unsigned char *out_pix = data + 4 * (y * width + x);
+                                        *out_pix++ = in_pix[1];
+                                        *out_pix++ = in_pix[3];
+                                        *out_pix++ = in_pix[5];
+                                        *out_pix++ = 0xFFU;
+                                }
+                        }
+                }
 };
 
 class image_pattern_bars : public image_pattern {
-        void fill(int width, int height, unsigned char *data) override {
+        int fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
                 int rect_size = COL_NUM;
                 struct testcard_rect r{};
@@ -170,6 +208,7 @@ class image_pattern_bars : public image_pattern {
                                 }
                         }
                 }
+                return 8;
         }
 };
 
@@ -178,10 +217,11 @@ class image_pattern_blank : public image_pattern {
                 explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
 
         private:
-                void fill(int width, int height, unsigned char *data) override {
+                int fill(int width, int height, unsigned char *data) override {
                         for (int i = 0; i < width * height; ++i) {
                                 (reinterpret_cast<uint32_t *>(data))[i] = color;
                         }
+                        return 8;
                 }
                 uint32_t color;
 };
@@ -191,7 +231,7 @@ class image_pattern_gradient : public image_pattern {
                 explicit image_pattern_gradient(uint32_t c) : color(c) {}
                 static constexpr uint32_t red = 0xFFU;
         private:
-                void fill(int width, int height, unsigned char *data) override {
+                int fill(int width, int height, unsigned char *data) override {
                         auto *ptr = reinterpret_cast<uint32_t *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 uint8_t r = sin(static_cast<double>(j) / height * M_PI) * (color & 0xFFU);
@@ -202,34 +242,35 @@ class image_pattern_gradient : public image_pattern {
                                         *ptr++ = val;
                                 }
                         }
+                        return 8;
                 }
                 uint32_t color;
 };
 
 class image_pattern_gradient2 : public image_pattern {
+        public:
+                explicit image_pattern_gradient2(long maxval = 0XFFFFU) : val_max(maxval) {}
         private:
-                static constexpr unsigned int alpha{0xFFU};
-                static constexpr unsigned int black{0xFFU};
-                static constexpr unsigned int rshift{0U};
-                static constexpr unsigned int gshift{8U};
-                static constexpr unsigned int bshift{16U};
-                static constexpr unsigned int ashift{24U};
-                void fill(int width, int height, unsigned char *data) override {
-                        auto *ptr = reinterpret_cast<unsigned int *>(data);
+                const unsigned int val_max;
+                int fill(int width, int height, unsigned char *data) override {
+                        auto *ptr = reinterpret_cast<uint16_t *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 for (int i = 0; i < width; i += 1) {
-                                        unsigned int gray = i * black / width;
-                                        uint32_t val = (alpha << ashift) | (gray << bshift) | (gray << gshift) | (gray << rshift);
-                                        *ptr++ = val;
+                                        unsigned int gray = i * val_max / (width - 1);
+                                        *ptr++ = gray;
+                                        *ptr++ = gray;
+                                        *ptr++ = gray;
                                 }
                         }
+                        return 16;
                 }
 };
 
 class image_pattern_noise : public image_pattern {
         default_random_engine rand_gen;
-        void fill(int width, int height, unsigned char *data) override {
-                for_each(data, data + 4 * width * height, [&](unsigned char & c) { c = rand_gen() % 0xff; });
+        int fill(int width, int height, unsigned char *data) override {
+                for_each(reinterpret_cast<uint16_t *>(data), reinterpret_cast<uint16_t *>(data) + 3 * width * height, [&](uint16_t & c) { c = rand_gen() % 0xFFFFU; });
+                return 16;
         }
 };
 
@@ -238,7 +279,15 @@ unique_ptr<image_pattern> image_pattern::create(const char *pattern) noexcept {
                 return make_unique<image_pattern_bars>();
         } else if (strcmp(pattern, "blank") == 0) {
                 return make_unique<image_pattern_blank>();
-        } else if (strcmp(pattern, "gradient2") == 0) {
+        } else if (strstr(pattern, "gradient2") != nullptr) {
+                if (strstr(pattern, "gradient2=") != nullptr) {
+                        auto val = string(pattern).substr("gradient2="s.length());
+                        if (val == "help"s) {
+                                cout << "Testcard gradient2 usage:\n\t-t testcard:gradient2[=maxval] - maxval is 16-bit resolution\n";
+                                return {};
+                        }
+                        return make_unique<image_pattern_gradient2>(stol(val, nullptr, 0));
+                }
                 return make_unique<image_pattern_gradient2>();
         } else if (strstr(pattern, "gradient") != nullptr) {
                 uint32_t color = image_pattern_gradient::red;
@@ -569,6 +618,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\ti|sf") << " - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
                 cout << BOLD("\tstill") << " - send still image\n";
                 cout << BOLD("\tpattern") << " - pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>\n");
+                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns for RG48 and R12L\n";
                 cout << BOLD("\tapattern") << " - audio pattern to use - \"sine\" or an included \"midi\"\n";
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
@@ -654,14 +704,19 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if (!filename) {
-                auto data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height);
+                auto data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height, 8);
                 auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
                 auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
 
                 codec_t codec_intermediate = s->frame->color_spec;
 
                 /// first step - conversion from RGBA
-                if (s->frame->color_spec != RGBA) {
+                if (s->frame->color_spec == RG48 || s->frame->color_spec == R12L) {
+                        data = s->pattern->init(s->frame->tiles[0].width, s->frame->tiles[0].height, 16);
+                        if (s->frame->color_spec == R12L) {
+                                codec_intermediate = RG48;
+                        }
+                } else if (s->frame->color_spec != RGBA) {
                         // these codecs do not have direct conversion from RGBA - use @ref second_conversion_step
                         if (s->frame->color_spec == I420 || s->frame->color_spec == v210 || s->frame->color_spec == YUYV || s->frame->color_spec == Y216) {
                                 codec_intermediate = UYVY;
@@ -873,9 +928,9 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose, void (**deleter)(
         const char * const pix_fmts[] = {"UYVY", "RGB"};
 
         snprintf(vt->cards[0].modes[0].name,
-                        sizeof vt->cards[0].name, "Default");
+                        sizeof vt->cards[0].modes[0].name, "Default");
         snprintf(vt->cards[0].modes[0].id,
-                        sizeof vt->cards[0].id,
+                        sizeof vt->cards[0].modes[0].id,
                         "{\"width\":\"\", "
                         "\"height\":\"\", "
                         "\"format\":\"\", "
@@ -891,7 +946,7 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose, void (**deleter)(
                                                 size.width, size.height,
                                                 fps, pix_fmt);
                                 snprintf(vt->cards[0].modes[i].id,
-                                                sizeof vt->cards[0].id,
+                                                sizeof vt->cards[0].modes[0].id,
                                                 "{\"width\":\"%d\", "
                                                 "\"height\":\"%d\", "
                                                 "\"format\":\"%s\", "

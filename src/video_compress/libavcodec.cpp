@@ -118,6 +118,7 @@ typedef struct {
         double avg_bpp;
         string (*get_preset)(string const & enc_name, int width, int height, double fps);
         void (*set_param)(AVCodecContext *, struct setparam_param *);
+        int capabilities_priority;
 } codec_params_t;
 
 static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps);
@@ -144,55 +145,64 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                      // note - not used for libx264, which uses CRF by default
                 get_h264_h265_preset,
-                setparam_h264_h265_av1
+                setparam_h264_h265_av1,
+                100
         }},
         { H265, codec_params_t{
                 [](bool) { return "libx265"; },
                 0.04 * 2 * 2, // note - not used for libx265, which uses CRF by default
                 get_h264_h265_preset,
-                setparam_h264_h265_av1
+                setparam_h264_h265_av1,
+                101
         }},
         { MJPG, codec_params_t{
                 nullptr,
                 1.2,
                 nullptr,
-                setparam_jpeg
+                setparam_jpeg,
+                102
         }},
         { J2K, codec_params_t{
                 nullptr,
                 1.0,
                 nullptr,
-                setparam_default
+                setparam_default,
+                500
         }},
         { VP8, codec_params_t{
                 nullptr,
                 0.4,
                 nullptr,
-                setparam_vp8_vp9
+                setparam_vp8_vp9,
+                103
         }},
         { VP9, codec_params_t{
                 nullptr,
                 0.4,
                 nullptr,
                 setparam_vp8_vp9,
+                104
         }},
         { HFYU, codec_params_t{
                 nullptr,
                 0,
                 nullptr,
-                setparam_default
+                setparam_default,
+                501
         }},
         { FFV1, codec_params_t{
                 nullptr,
                 0,
                 nullptr,
-                setparam_default
+                setparam_default,
+                502
         }},
         { AV1, codec_params_t{
                 nullptr,
                 0,
                 nullptr,
-                setparam_h264_h265_av1
+                setparam_h264_h265_av1,
+                600
         }},
 };
 
@@ -244,76 +254,76 @@ struct state_video_compress_libav {
 #endif
 };
 
-static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
-{
+struct codec_encoders_decoders{
+        std::vector<std::string> encoders;
+        std::vector<std::string> decoders;
+};
+
+static codec_encoders_decoders get_codec_encoders_decoders(AVCodecID id){
+        codec_encoders_decoders res;
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(58, 9, 100)
-        assert(buflen > 0);
-        buf[0] = '\0';
         const AVCodec *codec = nullptr;
         void *i = 0;
-        char *enc = (char *) alloca(buflen);
-        char *dec = (char *) alloca(buflen);
-        dec[0] = enc[0] = '\0';
         while ((codec = av_codec_iterate(&i))) {
                 if (av_codec_is_encoder(codec) && codec->id == id) {
-                        strncat(enc, " ", buflen - strlen(enc) - 1);
-                        strncat(enc, codec->name, buflen - strlen(enc) - 1);
+                        res.encoders.emplace_back(codec->name);
                 }
                 if (av_codec_is_decoder(codec) && codec->id == id) {
-                        strncat(dec, " ", buflen - strlen(dec) - 1);
-                        strncat(dec, codec->name, buflen - strlen(dec) - 1);
+                        res.decoders.emplace_back(codec->name);
                 }
-        }
-        if (strlen(enc) || strlen(dec)) {
-                strncat(buf, " (", buflen - strlen(buf) - 1);
-                if (strlen(enc)) {
-                        strncat(buf, "encoders:", buflen - strlen(buf) - 1);
-                        strncat(buf, enc, buflen - strlen(buf) - 1);
-                }
-                if (strlen(dec)) {
-                        if (strlen(enc)) {
-                                strncat(buf, ", ", buflen - strlen(buf) - 1);
-                        }
-                        strncat(buf, "decoders:", buflen - strlen(buf) - 1);
-                        strncat(buf, dec, buflen - strlen(buf) - 1);
-                }
-                strncat(buf, ")", buflen - strlen(buf) - 1);
         }
 #elif LIBAVCODEC_VERSION_MAJOR >= 54
-        const AVCodec *codec;
+        const AVCodec *codec = nullptr;
         if ((codec = avcodec_find_encoder(id))) {
-                strncpy(buf, " (encoders:", buflen - 1);
-                buf[buflen - 1] = '\0';
                 do {
                         if (av_codec_is_encoder(codec) && codec->id == id) {
-                                strncat(buf, " ", buflen - strlen(buf) - 1);
-                                strncat(buf, codec->name, buflen - strlen(buf) - 1);
+                                res.encoders.emplace_back(codec->name);
                         }
                 } while ((codec = av_codec_next(codec)));
         }
 
         if ((codec = avcodec_find_decoder(id))) {
-                if (avcodec_find_encoder(id)) {
-                        strncat(buf, ", ", buflen - strlen(buf) - 1);
-                } else {
-                        strncat(buf, " (", buflen - strlen(buf) - 1);
-                }
-                strncat(buf, "decoders:", buflen - strlen(buf) - 1);
                 do {
                         if (av_codec_is_decoder(codec) && codec->id == id) {
-                                strncat(buf, " ", buflen - strlen(buf) - 1);
-                                strncat(buf, codec->name, buflen - strlen(buf) - 1);
+                                res.decoders.emplace_back(codec->name);
                         }
                 } while ((codec = av_codec_next(codec)));
         }
-        if (avcodec_find_encoder(id) || avcodec_find_decoder(id)) {
-                strncat(buf, ")", buflen - strlen(buf) - 1);
-        }
 #else
         UNUSED(id);
-        UNUSED(buf);
-        UNUSED(buflen);
 #endif
+
+        return res;
+}
+
+static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
+{
+        auto info = get_codec_encoders_decoders(id);
+        assert(buflen > 0);
+        buf[0] = '\0';
+        if(info.encoders.empty() && info.decoders.empty())
+                return;
+
+        strncat(buf, " (", buflen - strlen(buf) - 1);
+        if (!info.encoders.empty()) {
+                strncat(buf, "encoders:", buflen - strlen(buf) - 1);
+                for(const auto& enc : info.encoders){
+                        strncat(buf, " ", buflen - strlen(buf) - 1);
+                        strncat(buf, enc.c_str(), buflen - strlen(buf) - 1);
+                }
+        }
+        if (!info.decoders.empty()) {
+                if (!info.encoders.empty()) {
+                        strncat(buf, ", ", buflen - strlen(buf) - 1);
+                }
+                strncat(buf, "decoders:", buflen - strlen(buf) - 1);
+
+                for(const auto& dec : info.decoders){
+                        strncat(buf, " ", buflen - strlen(buf) - 1);
+                        strncat(buf, dec.c_str(), buflen - strlen(buf) - 1);
+                }
+        }
+        strncat(buf, ")", buflen - strlen(buf) - 1);
 }
 
 static void usage() {
@@ -498,6 +508,49 @@ static list<compress_preset> get_libavcodec_presets() {
         rm_release_shared_lock(LAVCD_LOCK_NAME);
 
         return ret;
+}
+
+static compress_module_info get_libavcodec_module_info(){
+        compress_module_info module_info;
+        module_info.name = "libavcodec";
+        module_info.opts.emplace_back(module_option{"Bitrate", "Bitrate", "quality", ":bitrate=", false});
+        module_info.opts.emplace_back(module_option{"Crf", "specifies CRF factor (only for libx264/libx265)", "crf", ":crf=", false});
+        module_info.opts.emplace_back(module_option{"Disable intra refresh",
+                        "Do not use Periodic Intra Refresh (H.264/H.265)",
+                        "disable_intra_refresh", ":disable_intra_refresh", true});
+        module_info.opts.emplace_back(module_option{"Subsampling",
+                        "may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced",
+                        "subsampling", ":subsampling=", false});
+        module_info.opts.emplace_back(module_option{"Lavc opt",
+                        "arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)",
+                        "lavc_opt", ":", false});
+
+        for (const auto& param : codec_params) {
+                enum AVCodecID avID = get_ug_to_av_codec(param.first);
+                if (avID == AV_CODEC_ID_NONE) { // old FFMPEG -> codec id is flushed to 0 in compat
+                        continue;
+                }
+                const AVCodec *i;
+                if (!(i = avcodec_find_encoder(avID))) {
+                        continue;
+                }
+
+                codec codec_info;
+                codec_info.name = get_codec_name(param.first);
+                codec_info.priority = param.second.capabilities_priority;
+                codec_info.encoders.emplace_back(
+                                encoder{"default", ":codec=" + codec_info.name});
+
+                auto coders = get_codec_encoders_decoders(avID);
+                for(const auto& enc : coders.encoders){
+                        codec_info.encoders.emplace_back(
+                                        encoder{enc, ":encoder=" + enc});
+                }
+
+                module_info.codecs.emplace_back(std::move(codec_info));
+        }
+
+        return module_info;
 }
 
 struct module * libavcodec_compress_init(struct module *parent, const char *opts)
@@ -1880,6 +1933,7 @@ const struct video_compress_info libavcodec_info = {
         NULL,
         NULL,
         get_libavcodec_presets,
+        get_libavcodec_module_info,
 };
 
 REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);

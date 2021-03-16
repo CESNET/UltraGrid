@@ -1,11 +1,11 @@
 #include "actionCheckable_ui.hpp"
 
 ActionCheckableUi::ActionCheckableUi(QAction *action, Settings *settings, const std::string &opt) :
-    CheckableUi(settings, opt),
-    action(action)
+	CheckableUi(settings, opt),
+	action(action)
 {
-    updateUiState();
-    connectSignals();
+	updateUiState();
+	connectSignals();
 }
 
 void ActionCheckableUi::connectSignals(){
@@ -13,10 +13,10 @@ void ActionCheckableUi::connectSignals(){
 }
 
 void ActionCheckableUi::updateUiState(bool checked){
-    action->setChecked(checked);
+	action->setChecked(checked);
 }
 
 void ActionCheckableUi::updateUiState(){
-    updateUiState(getOptValue());
+	updateUiState(getOptValue());
 }
 

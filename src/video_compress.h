@@ -68,7 +68,7 @@
 
 #include "types.h"
 
-#define VIDEO_COMPRESS_ABI_VERSION 7
+#define VIDEO_COMPRESS_ABI_VERSION 8
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,6 +101,7 @@ const char *get_compress_name(struct compress_state *);
 #include <list>
 #include <memory>
 #include <string>
+#include <vector>
 
 /**
  * @brief Compresses video frame
@@ -174,6 +175,37 @@ struct compress_preset {
         compress_prop dec_prop;
 };
 
+struct module_option{
+        std::string display_name; //Name displayed to user
+        std::string display_desc; //Description displayed to user
+
+        /* internal name of option, options that are used in the same way should
+         * have the same key (e.g. both bitrate for libavcodec and quality for jpeg
+         * should have the same key). This allows using different labels displayed
+         * to user */
+        std::string key;
+        std::string opt_str; //Option string to pass to ug (e.g. ":bitrate=")
+
+        bool is_boolean; //If true, GUI shows a checkbox instead of text edit
+};
+
+struct encoder{
+        std::string name;
+        std::string opt_str;
+};
+
+struct codec{
+        std::string name;
+        std::vector<encoder> encoders;
+        int priority;
+};
+
+struct compress_module_info{
+        std::string name;
+        std::vector<module_option> opts;
+        std::vector<codec> codecs;
+};
+
 /**
  * There are 4 possible APIs for video compress modules. Each module may choose
  * which one to implement, however, only one should be implemented (there is no
@@ -203,6 +235,8 @@ struct video_compress_info {
          * Optional - currently not used
          */
         std::list<compress_preset> (*get_presets)();
+
+        compress_module_info (*get_module_info)();
 };
 
 std::shared_ptr<video_frame> compress_pop(struct compress_state *);

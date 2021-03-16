@@ -518,8 +518,8 @@ static struct vidcap_type *vidcap_avfoundation_probe(bool verbose, void (**delet
                 vt->card_count += 1;
                 vt->cards = (struct device_info *) realloc(vt->cards, vt->card_count * sizeof(struct device_info));
                 memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                snprintf(vt->cards[vt->card_count - 1].id, sizeof vt->cards[vt->card_count - 1].id,
-                                "%d", i);
+                snprintf(vt->cards[vt->card_count - 1].dev, sizeof vt->cards[vt->card_count - 1].dev,
+                                ":device=%d", i);
                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
                                 "AV Foundation %s", [[device localizedName] UTF8String]);
 

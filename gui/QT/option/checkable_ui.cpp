@@ -1,11 +1,9 @@
-#include <functional>
-
 #include "checkable_ui.hpp"
 
 CheckableUi::CheckableUi(Settings *settings, const std::string &opt) :
-    WidgetUi(settings, opt)
+	WidgetUi(settings, opt)
 {
-    registerCallback();
+	registerCallback();
 }
 
 void CheckableUi::boxClicked(bool checked){
@@ -15,11 +13,11 @@ void CheckableUi::boxClicked(bool checked){
 }
 
 void CheckableUi::optChangeCallback(Option &changedOpt, bool /*suboption*/){
-    if(changedOpt.getName() == opt){
-        updateUiState(changedOpt.isEnabled());
-    }
+	if(changedOpt.getName() == opt){
+		updateUiState(changedOpt.isEnabled());
+	}
 }
 
 bool CheckableUi::getOptValue(){
-    return settings->getOption(opt).isEnabled();
+	return settings->getOption(opt).isEnabled();
 }

@@ -19,20 +19,36 @@ QString argListToString(const QStringList& argList){
 }
 
 QStringList argStringToList(const QString& argString){
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-	return argString.split(" ", QString::SkipEmptyParts);
-#else
-	return argString.split(" ", Qt::SkipEmptyParts);
-#endif
+	QStringList res;
+
+	QString arg;
+	bool escaped = false;
+	for(int i = 0; i < argString.size(); i++){
+		if(argString[i] == '"'){
+			escaped = !escaped;
+			continue;
+		}
+		if(argString[i] == ' ' && !escaped){
+			if(!arg.isEmpty()){
+				res.append(std::move(arg));
+				arg = "";
+			}
+		} else {
+			arg.append(argString[i]);
+		}
+	}
+
+	if(!arg.isEmpty()){
+		res.append(std::move(arg));
+	}
+
+	return res;
 }
 
 QStringList argStringToList(const std::string& argString){
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-	return QString::fromStdString(argString).split(" ", QString::SkipEmptyParts);
-#else
-	return QString::fromStdString(argString).split(" ", Qt::SkipEmptyParts);
-#endif
+	return argStringToList(QString::fromStdString(argString));
 }
+
 } //anonymous namespace
 
 UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
@@ -57,6 +73,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	setupPreviewCallbacks();
 
 	availableSettings.queryAll(ultragridExecutable.toStdString());
+	settings.populateSettingsFromCapabilities(&availableSettings);
 
 	settingsUi.init(&settings, &availableSettings);
 	settingsUi.initMainWin(&ui);
@@ -106,7 +123,7 @@ void UltragridWindow::setupPreviewCallbacks(){
 
 	for(const auto &i : opts){
 		settings.getOption(i).addOnChangeCallback(
-				std::bind(&UltragridWindow::schedulePreview, this));
+				Option::Callback(&UltragridWindow::schedulePreview, this));
 	}
 }
 
@@ -191,8 +208,9 @@ void UltragridWindow::start(){
 	process.start(ultragridExecutable, launchArgs);
 }
 
-void UltragridWindow::schedulePreview(){
-	previewTimer.start(1000);
+void UltragridWindow::schedulePreview(Option&, bool, void *opaque){
+	UltragridWindow *obj = static_cast<UltragridWindow *>(opaque);
+	obj->previewTimer.start(1000);
 }
 
 void UltragridWindow::startPreview(){
@@ -288,7 +306,6 @@ void UltragridWindow::connectSignals(){
 	connect(ui.arguments, SIGNAL(textChanged(const QString &)), this, SLOT(editArgs(const QString &)));
 	connect(ui.editCheckBox, SIGNAL(toggled(bool)), this, SLOT(setArgs()));
 	//connect(ui.actionRefresh, SIGNAL(triggered()), this, SLOT(queryOpts()));
-	//connect(ui.actionAdvanced, SIGNAL(toggled(bool)), this, SLOT(setAdvanced(bool)));
 	connect(ui.actionShow_Terminal, SIGNAL(triggered()), this, SLOT(showLog()));
 	connect(ui.actionSettings, SIGNAL(triggered()), this, SLOT(showSettings()));
 	connect(ui.previewCheckBox, SIGNAL(toggled(bool)), this, SLOT(enablePreview(bool)));

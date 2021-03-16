@@ -8,17 +8,17 @@
 #include "settings.hpp"
 
 class CheckboxUi : public CheckableUi{
-    Q_OBJECT
+Q_OBJECT
 
 public:
-    CheckboxUi(QAbstractButton *box, Settings *settings, const std::string &opt);
+	CheckboxUi(QAbstractButton *box, Settings *settings, const std::string &opt);
 
 protected:
-    QAbstractButton *checkbox;
+	QAbstractButton *checkbox;
 
-    void connectSignals() override;
-    void updateUiState(bool checked) override;
-    void updateUiState() override;
+	void connectSignals() override;
+	void updateUiState(bool checked) override;
+	void updateUiState() override;
 };
 
 #endif

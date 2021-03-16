@@ -8,23 +8,23 @@
 #include "settings.hpp"
 
 class TextOptUi : public WidgetUi{
-    Q_OBJECT
+Q_OBJECT
 
 public:
-    TextOptUi(Settings *settings, const std::string &opt);
+	TextOptUi(Settings *settings, const std::string &opt);
 
-    virtual ~TextOptUi() {  }
+	virtual ~TextOptUi() {  }
 
 protected:
-    virtual void connectSignals() override = 0;
-    std::string getOptValue();
-    void updateUiState() override = 0;
-    virtual void updateUiState(const std::string &str) = 0;
+	virtual void connectSignals() override = 0;
+	std::string getOptValue();
+	void updateUiState() override = 0;
+	virtual void updateUiState(const std::string &str) = 0;
 
 	void optChangeCallback(Option &opt, bool suboption) override;
 
 protected slots:
-    void textEdited(const QString &str);
+	void textEdited(const QString &str);
 };
 
 #endif

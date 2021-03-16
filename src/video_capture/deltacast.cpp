@@ -139,8 +139,9 @@ vidcap_deltacast_probe(bool verbose, void (**deleter)(void *))
                 vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
                 vt->card_count = NbBoards;
                 for (ULONG i = 0; i < NbBoards; ++i) {
-                        snprintf(vt->cards[i].id, sizeof vt->cards[i].id, "device=%" PRIu32, i);
+                        snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%" PRIu32, i);
                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %" PRIu32, i);
+                        snprintf(vt->cards[i].extra, sizeof vt->cards[i].extra, "\"embeddedAudioAvailable\":\"t\"");
                 }
 	}
 	return vt;

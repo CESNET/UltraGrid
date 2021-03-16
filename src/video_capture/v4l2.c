@@ -362,7 +362,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
                 vt->card_count += 1;
                 vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
                 memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                strncpy(vt->cards[vt->card_count - 1].id, name, sizeof vt->cards[vt->card_count - 1].id - 1);
+                snprintf(vt->cards[vt->card_count - 1].dev, sizeof vt->cards[vt->card_count - 1].dev, ":device=%s", name);
                 snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name, "V4L2 %s", capab.card);
 
                 struct v4l2_fmtdesc format;

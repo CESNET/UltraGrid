@@ -2,17 +2,17 @@
 #include "overload.hpp"
 
 ComboBoxUi::ComboBoxUi(QComboBox *box,
-        Settings *settings,
-        const std::string &opt,
-        std::function<std::vector<SettingItem>()> itemBuilder) :
-    WidgetUi(settings, opt),
-    box(box),
-    itemBuilder(itemBuilder),
-    ignoreCallback(false)
+		Settings *settings,
+		const std::string &opt,
+		std::function<std::vector<SettingItem>()> itemBuilder) :
+	WidgetUi(settings, opt),
+	box(box),
+	itemBuilder(itemBuilder),
+	ignoreCallback(false)
 {
-    refresh();
-    registerCallback();
-    connectSignals();
+	refresh();
+	registerCallback();
+	connectSignals();
 }
 
 void ComboBoxUi::connectSignals(){
@@ -21,103 +21,107 @@ void ComboBoxUi::connectSignals(){
 }
 
 void ComboBoxUi::refresh(){
-    items = itemBuilder();
+	items = itemBuilder();
 
-    for(const auto &item : items){
-        for(const auto &opt : item.opts){
-            registerCallback(opt.opt);
-        }
-    }
+	for(const auto &item : items){
+		for(const auto &opt : item.opts){
+			registerCallback(opt.opt);
+		}
+		for(const auto &condClause : item.conditions){
+			for(const auto &condItem : condClause){
+				registerCallback(condItem.value.opt);
+			}
+		}
+	}
 
-    updateUiItems();
-    selectOption();
+	updateUiItems();
+	selectOption();
 }
 
 static bool conditionsSatisfied(
-        const std::vector<std::vector<ConditionItem>> &conds,
-        Settings *settings)
+		const std::vector<std::vector<ConditionItem>> &conds,
+		Settings *settings)
 {
-    for(const auto &condClause : conds){
-        bool orRes = false;
-        for(const auto &condItem : condClause){
-            //Check if condItem.value.val is the prefix of the currently set value
-            bool val = settings->getOption(condItem.value.opt).getValue().rfind(condItem.value.val, 0) == 0;
+	for(const auto &condClause : conds){
+		bool orRes = false;
+		for(const auto &condItem : condClause){
+			bool val = condItem.value.val == settings->getOption(condItem.value.opt).getValue();
 
-            //negate result if negation is true
-            val = val != condItem.negation;
+			//negate result if negation is true
+			val = val != condItem.negation;
 
-            if(val){
-                orRes = true;
-                break;
-            }
-        }
-        if(!orRes){
-            return false;
-        }
-    }
+			if(val){
+				orRes = true;
+				break;
+			}
+		}
+		if(!orRes){
+			return false;
+		}
+	}
 
-    return true;
+	return true;
 }
 
 void ComboBoxUi::selectOption(){
-    int i;
-    bool found = false;
-    for(i = 0; i < box->count(); i++){
-        const SettingItem &item = box->itemData(i).value<SettingItem>();
+	int i;
+	bool found = false;
+	for(i = 0; i < box->count(); i++){
+		const SettingItem &item = box->itemData(i).value<SettingItem>();
 
-        found = true;
-        for(const auto &itemOpt : item.opts){
-            if(itemOpt.val != settings->getOption(itemOpt.opt).getValue()){
-                found = false;
-                break;
-            }
-        }
-        
-        if(found)
-            break;
-    }
+		found = true;
+		for(const auto &itemOpt : item.opts){
+			if(itemOpt.val != settings->getOption(itemOpt.opt).getValue()){
+				found = false;
+				break;
+			}
+		}
 
-    if(found){
-        box->setCurrentIndex(i);
-    } else {
-        itemSelected(0);
-    }
+		if(found)
+			break;
+	}
+
+	if(found){
+		box->setCurrentIndex(i);
+	} else {
+		itemSelected(0);
+	}
 }
 
 void ComboBoxUi::optChangeCallback(Option &opt, bool suboption){
-    if(suboption || ignoreCallback)
-        return;
+	if(suboption || ignoreCallback)
+		return;
 
-    if(opt.getName() != this->opt)
-        updateUiItems();
+	if(opt.getName() != this->opt)
+		updateUiItems();
 
-    selectOption();
+	selectOption();
 }
 
 void ComboBoxUi::updateUiState(){
-    selectOption();
+	selectOption();
 }
 
 void ComboBoxUi::updateUiItems(){
-    box->clear();
+	box->clear();
 
-    for(const auto &i : items){
-        if(conditionsSatisfied(i.conditions, settings)){
-            box->addItem(QString::fromStdString(i.name),
-                    QVariant::fromValue(i));
-        }
-    }
+	for(const auto &i : items){
+		if(conditionsSatisfied(i.conditions, settings)){
+			box->addItem(QString::fromStdString(i.name),
+					QVariant::fromValue(i));
+		}
+	}
 }
 
 void ComboBoxUi::itemSelected(int index){
 	const SettingItem &item = box->itemData(index).value<SettingItem>();
 
-    ignoreCallback = true;
+	ignoreCallback = true;
 	for(const auto &option : item.opts){
 		settings->getOption(option.opt).setValue(option.val);
 	}
-    ignoreCallback = false;
+	ignoreCallback = false;
 
-    emit changed();
+	emit changed();
 }
 

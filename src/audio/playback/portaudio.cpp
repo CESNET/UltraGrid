@@ -127,7 +127,7 @@ static bool portaudio_start_stream(PaStream *stream)
 static void audio_play_portaudio_probe(struct device_info **available_devices, int *count)
 {
         *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "portaudio");
+        strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Portaudio audio output");
         *count = 1;
 }

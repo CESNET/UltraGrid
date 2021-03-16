@@ -22,5 +22,10 @@ install_pcp() {
         rm -rf pcp
 }
 
+install_zfec() {
+        ( cd $GITHUB_WORKSPACE && git submodule update --init ext-deps/zfec || exit 1 )
+}
+
 install_pcp
+install_zfec
 

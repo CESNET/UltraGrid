@@ -303,7 +303,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
                         usleep(max<int>(100,query_lasted.count())*1000);
                 }
         }
-
+        cout << "[capability][start] version 4" << endl;
         // compressions
         cout << "[cap] Compressions:" << endl;
         auto compressions = get_libraries_for_class(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
@@ -318,6 +318,52 @@ void print_capabilities(struct module *root, bool use_vidcap)
                                 it.enc_prop.latency << ";" << it.enc_prop.cpu_cores << ";" << it.enc_prop.gpu_gflops << ";" <<
                                 it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
                                 ")\n";
+                }
+
+                if(vci->get_module_info){
+                        auto module_info = vci->get_module_info();
+                        cout << "[capability][video_compress] {"
+                                "\"name\":" << std::quoted(it.first) << ", "
+                                "\"options\": [";
+
+                        int i = 0;
+                        for(const auto& opt : module_info.opts){
+                                if(i++ > 0)
+                                        cout << ", ";
+
+                                cout << "{"
+                                        "\"display_name\":" << std::quoted(opt.display_name) << ", "
+                                        "\"display_desc\":" << std::quoted(opt.display_desc) << ", "
+                                        "\"key\":" << std::quoted(opt.key) << ", "
+                                        "\"opt_str\":" << std::quoted(opt.opt_str) << ", "
+                                        "\"is_boolean\":\"" << (opt.is_boolean ? "t" : "f") << "\"}";
+                        }
+
+                        cout << "], "
+                                "\"codecs\": [";
+
+                        int j = 0;
+                        for(const auto& c : module_info.codecs){
+                                if(j++ > 0)
+                                        cout << ", ";
+
+                                cout << "{\"name\":" << std::quoted(c.name) << ", "
+                                        "\"priority\": " << c.priority << ", "
+                                        "\"encoders\":[";
+
+                                int z = 0;
+                                for(const auto& e : c.encoders){
+                                        if(z++ > 0)
+                                                cout << ", ";
+
+                                        cout << "{\"name\":" << std::quoted(e.name) << ", "
+                                                "\"opt_str\":" << std::quoted(e.opt_str) << "}";
+                                }
+                                cout << "]}";
+                        }
+
+                        cout << "]}" << std::endl;
+
                 }
         }
 
@@ -345,10 +391,12 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 vdi->probe(&devices, &count, &deleter);
                 cout << "[cap][display] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device][v2] {"
+                        cout << "[capability][device] {"
                                 "\"purpose\":\"video_disp\", "
-                                "\"type\":\"" << devices[i].id << "\", "
-                                "\"name\":\"" << devices[i].name << "\", "
+                                "\"module\":" << std::quoted(it.first) << ", "
+                                "\"device\":" << std::quoted(devices[i].dev) << ", "
+                                "\"name\":" << std::quoted(devices[i].name) << ", "
+                                "\"extra\": {" << devices[i].extra << "}, "
                                 "\"repeatable\":\"" << devices[i].repeatable << "\"}\n";
                 }
                 deleter ? deleter(devices) : free(devices);
@@ -364,10 +412,12 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 aci->probe(&devices, &count);
                 cout << "[cap][audio_cap] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device][v2] {"
+                        cout << "[capability][device] {"
                                 "\"purpose\":\"audio_cap\", "
-                                "\"type\":\"" << devices[i].id << "\", "
-                                "\"name\":\"" << devices[i].name << "\"}\n";
+                                "\"module\":" << std::quoted(it.first) << ", "
+                                "\"device\":" << std::quoted(devices[i].dev) << ", "
+                                "\"extra\": {" << devices[i].extra << "}, "
+                                "\"name\":" << std::quoted(devices[i].name) << "}\n";
                 }
                 free(devices);
         }
@@ -382,10 +432,12 @@ void print_capabilities(struct module *root, bool use_vidcap)
                 api->probe(&devices, &count);
                 cout << "[cap][audio_play] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device][v2] {"
+                        cout << "[capability][device] {"
                                 "\"purpose\":\"audio_play\", "
-                                "\"type\":\"" << devices[i].id << "\", "
-                                "\"name\":\"" << devices[i].name << "\"}\n";
+                                "\"module\":" << std::quoted(it.first) << ", "
+                                "\"device\":" << std::quoted(devices[i].dev) << ", "
+                                "\"extra\": {" << devices[i].extra << "}, "
+                                "\"name\":" << std::quoted(devices[i].name) << "}\n";
                 }
                 free(devices);
         }
@@ -395,6 +447,8 @@ void print_capabilities(struct module *root, bool use_vidcap)
         for(const auto& codec : codecs){
                 cout << "[cap][audio_compress] " << codec.first << std::endl;
         }
+
+        cout << "[capability][end]" << endl;
 
         cout.flags(flags);
         cout.precision(precision);

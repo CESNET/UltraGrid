@@ -536,8 +536,8 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 			continue;
 		}
 
-		snprintf(vt->cards[n-1].id, sizeof vt->cards[n-1].id - 1, "%d", n);
-		wcstombs(vt->cards[n-1].name, var.bstrVal, sizeof vt->cards[n-1].id - 1);
+		snprintf(vt->cards[n-1].dev, sizeof vt->cards[n-1].dev - 1, ":device=%d", n);
+		wcstombs(vt->cards[n-1].name, var.bstrVal, sizeof vt->cards[n-1].name - 1);
 
 		// clean up structures
 		VariantClear(&var);

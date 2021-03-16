@@ -93,7 +93,7 @@ struct state_audio_capture_testcard {
 static void audio_cap_testcard_probe(struct device_info **available_devices, int *count)
 {
         *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "testcard");
+        strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Testing EBU signal");
         *count = 1;
 }

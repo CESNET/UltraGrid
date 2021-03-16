@@ -451,7 +451,8 @@ static struct video_compress_info j2k_compress_info = {
         NULL,
         j2k_compress_push,
         j2k_compress_pop,
-        [] { return list<compress_preset>{}; }
+        [] { return list<compress_preset>{}; },
+        NULL
 };
 
 REGISTER_MODULE(cmpto_j2k, &j2k_compress_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);

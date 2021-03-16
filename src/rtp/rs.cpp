@@ -46,6 +46,7 @@
 #include "rtp/rs.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
+#include "ug_runtime_error.hpp"
 #include "video.h"
 
 #define DEFAULT_K 200
@@ -54,12 +55,14 @@
 #define MAX_K 255
 #define MAX_N 255
 
+#ifdef HAVE_ZFEC
 extern "C" {
 #ifndef _MSC_VER
 #define restrict __restrict
 #endif
 #include "ext-deps/zfec/zfec/fec.h"
 }
+#endif
 
 static void usage();
 
@@ -71,8 +74,12 @@ rs::rs(unsigned int k, unsigned int n)
         assert (k <= MAX_K);
         assert (n <= MAX_N);
         assert (m_k <= m_n);
+#ifdef HAVE_ZFEC
         state = fec_new(m_k, m_n);
         assert(state != NULL);
+#else
+        throw ug_runtime_error("zfec support is not compiled in");
+#endif
 }
 
 rs::rs(const char *c_cfg)
@@ -99,17 +106,24 @@ rs::rs(const char *c_cfg)
                 throw 1;
         }
 
+#ifdef HAVE_ZFEC
         state = fec_new(m_k, m_n);
         assert(state != NULL);
+#else
+        throw ug_runtime_error("zfec support is not compiled in");
+#endif
 }
 
 rs::~rs()
 {
+#ifdef HAVE_ZFEC
         fec_free((fec_t *) state);
+#endif
 }
 
 shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
 {
+#ifdef HAVE_ZFEC
         video_payload_hdr_t hdr;
         format_video_header(in.get(), 0, 0, hdr);
         size_t hdr_len = sizeof(hdr);
@@ -163,6 +177,10 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
                         vf_free(frame);
                 }
         };
+#else
+        (void) in;
+        return {};
+#endif // defined HAVE_ZFEC
 }
 
 int rs::get_ss(int hdr_len, int len) {
@@ -172,6 +190,7 @@ int rs::get_ss(int hdr_len, int len) {
 bool rs::decode(char *in, int in_len, char **out, int *len,
                 std::map<int, int> const & c_m)
 {
+#ifdef HAVE_ZFEC
         std::map<int, int> m = c_m; // make private copy
         unsigned int ss = in_len / m_n;
         void *pkt[m_n];
@@ -307,6 +326,13 @@ bool rs::decode(char *in, int in_len, char **out, int *len,
         *len = out_sz;
         *out = (char *) in + sizeof(uint32_t);
 #endif 
+#else // !defined HAVE_ZFEC
+        (void) in;
+        (void) in_len;
+        (void) out;
+        (void) len;
+        (void) c_m;
+#endif // defined HAVE_ZFEC
 
         return true;
 }

@@ -1114,7 +1114,7 @@ static void display_xrgl_probe(struct device_info **available_cards, int *count,
 
         *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
         *count = 1;
-        snprintf((*available_cards)[0].id, sizeof((*available_cards)[0].id), "openxr_gl:system=%lu", systemId);
+        snprintf((*available_cards)[0].dev, sizeof((*available_cards)[0].dev), ":system=%lu", systemId);
         snprintf((*available_cards)[0].name, sizeof((*available_cards)[0].name), "OpenXr: %s", systemProperties.systemName);
         (*available_cards)[0].repeatable = false;
 }

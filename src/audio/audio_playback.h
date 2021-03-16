@@ -42,7 +42,7 @@
 extern "C" {
 #endif
 
-#define AUDIO_PLAYBACK_ABI_VERSION 4
+#define AUDIO_PLAYBACK_ABI_VERSION 5
 
 /** @anchor audio_playback_ctl_reqs
  * @name Audio playback control requests

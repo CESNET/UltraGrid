@@ -842,7 +842,7 @@ static void display_bluefish444_probe(struct device_info **available_cards, int 
         *available_cards = (struct device_info *) calloc(iDevices, sizeof(struct device_info));
         *count = iDevices;
         for (int i = 0; i < iDevices; i++) {
-                sprintf((*available_cards)[i].id, "bluefish444:device=%d", iDevices);
+                sprintf((*available_cards)[i].dev, ":device=%d", iDevices);
                 sprintf((*available_cards)[i].name, "Bluefish444 card #%d", iDevices);
         }
 }

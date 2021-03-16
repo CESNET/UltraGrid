@@ -1,9 +1,9 @@
 #include "textOpt_ui.hpp"
 
 TextOptUi::TextOptUi(Settings *settings, const std::string &opt) :
-    WidgetUi(settings, opt)
+	WidgetUi(settings, opt)
 {
-    registerCallback();
+	registerCallback();
 }
 
 void TextOptUi::textEdited(const QString &str){
@@ -12,9 +12,9 @@ void TextOptUi::textEdited(const QString &str){
 }
 
 void TextOptUi::optChangeCallback(Option &changedOpt, bool /*suboption*/){
-    if(changedOpt.getName() == opt){
-        updateUiState(changedOpt.getValue());
-    }
+	if(changedOpt.getName() == opt){
+		updateUiState(changedOpt.getValue());
+	}
 }
 
 std::string TextOptUi::getOptValue(){
@@ -22,5 +22,5 @@ std::string TextOptUi::getOptValue(){
 		return "";
 	}
 
-    return settings->getOption(opt).getValue();
+	return settings->getOption(opt).getValue();
 }

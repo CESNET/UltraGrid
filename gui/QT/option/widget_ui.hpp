@@ -2,36 +2,49 @@
 #define WIDGET_UI
 
 #include <QObject>
-#include <set>
+#include <vector>
+#include <utility>
 #include "settings.hpp"
+#include "extra_callback_data.hpp"
 
 class WidgetUi : public QObject{
 Q_OBJECT
 
 public:
-    WidgetUi(Settings *settings, const std::string &opt);
+	WidgetUi(Settings *settings, const std::string &opt);
+	WidgetUi(const WidgetUi&) = delete;
+	WidgetUi(WidgetUi&&) = delete;
 
-    virtual ~WidgetUi() {  }
+	WidgetUi& operator=(const WidgetUi&) = delete;
+	WidgetUi& operator=(WidgetUi&&) = delete;
 
-    void setOpt(const std::string &opt);
+	virtual ~WidgetUi();
 
-    virtual void refresh() {  }
+	void setOpt(const std::string &opt);
 
-    void registerCallback(const std::string &option);
+	virtual void refresh() {  }
+
+	void registerCallback(const std::string &option);
+	void registerCustomCallback(const std::string &option,
+			Option::Callback callback,
+			std::unique_ptr<ExtraCallbackData>&& extraDataPtr = nullptr);
 
 protected:
-    Settings *settings;
-    std::string opt;
-    std::set<std::string> registeredCallbacks;
+	Settings *settings;
+	std::string opt;
+	std::vector<std::pair<std::string, Option::Callback>> registeredCallbacks;
+	std::vector<std::unique_ptr<ExtraCallbackData>> extraData;
 
-    void registerCallback();
+	void registerCallback();
 
-    virtual void connectSignals() = 0;
-    virtual void updateUiState() = 0;
+	static void optChangeCallbackStatic(Option&, bool, void *);
+
+	virtual void connectSignals() = 0;
+	virtual void updateUiState() = 0;
 	virtual void optChangeCallback(Option &opt, bool suboption) = 0;
 
 signals:
-    void changed();
+	void changed();
 };
 
 #endif

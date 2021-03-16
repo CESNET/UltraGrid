@@ -59,7 +59,7 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
         for (void **it = hints; *it != NULL; it++) device_count++;
 
         *available_devices = calloc(device_count + 1 , sizeof(struct device_info));
-        strcpy((*available_devices)[0].id, "alsa");
+        strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Default Linux audio");
         *count = 1;
 
@@ -78,10 +78,10 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
                         continue;
                 }
 
-                strcpy((*available_devices)[*count].id, "alsa:");
-                strncat((*available_devices)[*count].id, id,
-                                sizeof (*available_devices)[*count].id -
-                                strlen((*available_devices)[*count].id) - 1);
+                strcpy((*available_devices)[*count].dev, ":");
+                strncat((*available_devices)[*count].dev, id,
+                                sizeof (*available_devices)[*count].dev -
+                                strlen((*available_devices)[*count].dev) - 1);
                 free(id);
 
                 char *name = snd_device_name_get_hint(*it, "DESC");
@@ -116,11 +116,11 @@ static inline void audio_alsa_help(void)
         struct device_info *available_devices;
         int count;
         audio_alsa_probe(&available_devices, &count, NULL, 0);
-        strcpy(available_devices[0].id, "alsa");
+        strcpy(available_devices[0].dev, "");
         strcpy(available_devices[0].name, "default ALSA device (same as \"alsa:default\")");
         for(int i = 0; i < count; i++){
-                const char * const id = available_devices[i].id;
-                color_out(COLOR_OUT_BOLD, "\t%s", id);
+                const char * const id = available_devices[i].dev;
+                color_out(COLOR_OUT_BOLD, "\talsa%s", id);
                 for (int j = 0; j < 30 - (int) strlen(id); ++j) putchar(' ');
                 printf(": %s\n", available_devices[i].name);
         }

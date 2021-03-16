@@ -41,7 +41,7 @@
 extern "C" {
 #endif
 
-#define AUDIO_CAPTURE_ABI_VERSION 2
+#define AUDIO_CAPTURE_ABI_VERSION 3
 
 struct audio_capture_info {
         void (*probe)(struct device_info **available_devices, int *count);

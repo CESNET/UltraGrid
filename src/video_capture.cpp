@@ -65,6 +65,7 @@
 #include "video_capture.h"
 
 #include <string>
+#include <iomanip>
 
 using namespace std;
 
@@ -115,15 +116,15 @@ void print_available_capturers()
                 if (vt == nullptr) {
                         continue;
                 }
-                printf("[cap][capture] %s\n", item.first.c_str());
+                std::cout << "[cap][capture] " << item.first << "\n";
                 for (int i = 0; i < vt->card_count; ++i) {
-                        printf("[capability][device][v2] {"
-                                        "\"purpose\":\"video_cap\", "
-                                        "\"type\":\"%s\", "
-                                        "\"device\":\"%s\", "
-                                        "\"name\":\"%s\", "
-                                        "\"modes\": [",
-                                        vt->name, vt->cards[i].id, vt->cards[i].name);
+                        std::cout << "[capability][device] {"
+                                "\"purpose\":\"video_cap\", "
+                                "\"module\":" << std::quoted(vt->name) << ", "
+                                "\"device\":" << std::quoted(vt->cards[i].dev) << ", "
+                                "\"name\":" << std::quoted(vt->cards[i].name) << ", "
+                                "\"extra\": {" << vt->cards[i].extra << "}, "
+                                "\"modes\": [";
                         for (unsigned int j = 0; j < sizeof vt->cards[i].modes
                                         / sizeof vt->cards[i].modes[0]; j++) {
                                 if (vt->cards[i].modes[j].id[0] == '\0') { // last item
@@ -132,11 +133,11 @@ void print_available_capturers()
                                 if (j > 0) {
                                         printf(", ");
                                 }
-                                printf("{\"name\":\"%s\", \"opts\":%s}", vt->cards[i].modes[j].name,
-                                                vt->cards[i].modes[j].id);
+                                std::cout << "{\"name\":" << std::quoted(vt->cards[i].modes[j].name) << ", "
+                                        "\"opts\":" << vt->cards[i].modes[j].id << "}";
                         }
 
-                        printf("]}\n");
+                        std::cout << "]}\n";
                 }
                 if(!deleter)
                         deleter = free;

@@ -1,0 +1,4 @@
+# inspired by https://github.com/aferrero2707/appimage-testsuite
+# installing libraries included in https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+FROM ubuntu:16.04
+RUN apt-get update && apt-get install -y libasound2 libegl1-mesa libfontconfig1 libgl1-mesa-glx libglib2.0-0 libgmp10 libharfbuzz0b libjack0 libp11-kit0 libx11-6

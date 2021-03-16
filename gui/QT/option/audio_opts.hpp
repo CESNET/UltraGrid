@@ -8,13 +8,13 @@
 struct SettingItem;
 
 namespace Ui{
-    class UltragridWindow;
+	class UltragridWindow;
 };
 
 std::vector<SettingItem> getAudioSrc(AvailableSettings *availSettings);
 std::vector<SettingItem> getAudioPlayback(AvailableSettings *availSettings);
 std::vector<SettingItem> getAudioCompress(AvailableSettings *availSettings);
 
-void audioCompressionCallback(Ui::UltragridWindow *win, Option &opt, bool suboption);
+void audioCompressionCallback(Option &opt, bool suboption, void *);
 
 #endif

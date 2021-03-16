@@ -564,7 +564,10 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 if (decompressed.get_bps() != 2) {
                         decompressed.change_bps(2);
                 }
-                decompressed.resample(decoder->resampler, s->buffer.sample_rate);
+                if (!decompressed.resample(decoder->resampler, s->buffer.sample_rate)) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
+                        return FALSE;
+                }
         }
 
         if (decompressed.get_bps() != s->buffer.bps) {

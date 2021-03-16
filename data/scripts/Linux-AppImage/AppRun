@@ -1,5 +1,9 @@
 #!/bin/sh -eu
 
+# if not run from AppImage (eg. extracted), use default values
+APPIMAGE=${APPIMAGE-none}
+ARGV0=${ARGV0-$0}
+
 DIR=`dirname $0`
 export LD_LIBRARY_PATH=$DIR/lib${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 # there is an issue with running_from_path() which evaluates this executable
@@ -38,6 +42,9 @@ usage() {
 update_notify_days=35
 ## Print update hint if UG binary is older than $update_notify_days days, if $ULTRAGRID_AUTOUPDATE=1 triggers update.
 handle_updates() {
+        if [ $APPIMAGE = none ]; then
+                return
+        fi
         if [ -n ${ULTRAGRID_AUTOUPDATE-""} ]; then
                 if [ $ULTRAGRID_AUTOUPDATE -eq 1 ]; then
                         $DIR/appimageupdatetool $APPIMAGE

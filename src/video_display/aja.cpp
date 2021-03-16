@@ -813,7 +813,8 @@ LINK_SPEC void display_aja_probe(struct device_info **available_cards, int *coun
         *count = deviceScanner.GetNumDevices();
         *available_cards = static_cast<struct device_info *>(calloc(deviceScanner.GetNumDevices(), sizeof(struct device_info)));
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
-                snprintf((*available_cards)[i].id, sizeof (*available_cards)[i].id, "aja:device=%d", i);
+                snprintf((*available_cards)[i].dev, sizeof (*available_cards)[i].dev, ":device=%d", i);
+                snprintf((*available_cards)[i].extra, sizeof (*available_cards)[i].extra, "\"embeddedAudioAvailable\":\"t\"");
                 NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
                 strncpy((*available_cards)[i].name, info.deviceIdentifier.c_str(), sizeof (*available_cards)[0].name - 1);
                 (*available_cards)[i].repeatable = false;

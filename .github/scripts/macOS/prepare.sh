@@ -18,7 +18,7 @@ brew install speexdsp
 brew install ffmpeg portaudio sdl2
 brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
-( cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
+( git submodule update --init cineform-sdk && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
 brew install qt@5
 
 sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt

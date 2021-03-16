@@ -10,14 +10,14 @@
 class GroupBoxUi : public CheckableUi{
 Q_OBJECT
 public:
-    GroupBoxUi(QGroupBox *groupBox, Settings *settings, const std::string &opt);
+	GroupBoxUi(QGroupBox *groupBox, Settings *settings, const std::string &opt);
 
 protected:
-    QGroupBox *groupBox;
+	QGroupBox *groupBox;
 
-    void connectSignals() override;
-    void updateUiState(bool checked) override;
-    void updateUiState() override;
+	void connectSignals() override;
+	void updateUiState(bool checked) override;
+	void updateUiState() override;
 
 };
 

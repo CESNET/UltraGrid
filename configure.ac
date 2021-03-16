@@ -2516,38 +2516,43 @@ fi
 # ---------------------------------------------------------------------------
 # SpeexDSP
 # ---------------------------------------------------------------------------
-speexdsp=yes
-SPEEXDSP_PATH=ext-deps/speexdsp
-SPEEXDSP_INC=
-SPEEXDSP_OBJ=src/audio/echo.o
-AC_DEFINE([HAVE_SPEEXDSP], [1], [Build with SpeexDSP support])
+speexdsp=no
 
+AC_ARG_ENABLE(speexdsp,
+              AS_HELP_STRING([--disable-speexdsp], [disable SpeexDSP (default is auto)]),
+              [speexdsp_req=$enableval],
+              [speexdsp_req=$build_default])
 PKG_CHECK_MODULES([LIBSPEEXDSP], [speexdsp], [found_speexdsp=yes], [found_speexdsp=no])
 
-if test "$found_speexdsp" = yes; then
+if test "$found_speexdsp" = yes -a "$speexdsp_req" != no; then
+        OBJS="$OBJS src/audio/echo.o"
         LIBS="$LIBS $LIBSPEEXDSP_LIBS"
-else
-        SPEEXDSP_INC="$SPEEXDSP_INC -I$srcdir/${SPEEXDSP_PATH}/include"
-        SPEEXDSP_OBJ="$SPEEXDSP_OBJ src/audio/fftwrap.o src/audio/filterbank.o src/audio/mdf.o src/audio/preprocess.o src/audio/resample.o src/audio/smallft.o"
+        COMMON_FLAGS="$COMMON_FLAGS${SPEEXDSP_COMMON_FLAGS:+${COMMON_FLAGS:+ }}$SPEEXDSP_COMMON_FLAGS"
+        AC_DEFINE([HAVE_SPEEXDSP], [1], [Build with SpeexDSP support])
+        speexdsp=yes
+elif test "$speexdsp_req" = yes; then
+        AC_MSG_ERROR([SpeexDSP not found]);
+elif test "$found_speexdsp" = no -a "$speexdsp_req" != no; then
+        AC_MSG_WARN([SpeexDSP was not found. Strongly recommending installing that, otherwise audio part of UG will be crippled.])
 fi
 
-SAVED_CFLAGS=$CFLAGS
-SAVED_CPPFLAGS=$CPPFLAGS
-CFLAGS="$CFLAGS $SPEEXDSP_INC"
-CPPFLAGS="$CPPFLAGS $SPEEXDSP_INC"
-AC_CHECK_HEADER([speex/speex_resampler.h])
-CFLAGS=$SAVED_CFLAGS
-CPPFLAGS=$SAVED_CPPFLAGS
+# ---------------------------------------------------------------------------
+# Zfec
+# ---------------------------------------------------------------------------
+zfec=no
+AC_ARG_ENABLE(zfec,
+              AS_HELP_STRING([--disable-zfec], [disable zfec (default is auto)]),
+              [zfec_req=$enableval],
+              [zfec_req=$build_default])
+AC_CHECK_FILES([$srcdir/ext-deps/zfec/zfec/fec.c $srcdir/ext-deps/zfec/zfec/fec.h], [found_zfec=yes], [found_zfec=no])
 
-if test "$ac_cv_header_speex_speex_resampler_h" != yes; then
-        AC_MSG_ERROR([SpeexDSP is a hard dependency, download it into $SPEEXDSP_PATH]
-[This should be usually automatic - please report to $PACKAGE_BUGREPORT if not sure why getting this.]);
+if test "$found_zfec" = yes -a "$zfec_req" != no; then
+        OBJS="$OBJS ext-deps/zfec/zfec/fec.o"
+        AC_DEFINE([HAVE_ZFEC], [1], [Build with zfec support])
+        zfec=yes
+elif test "$zfec_req" = yes; then
+        AC_MSG_ERROR([Zfec not found]);
 fi
-
-INC="$INC${SPEEXDSP_INC:+${INC:+ }}$SPEEXDSP_INC"
-
-AC_SUBST(SPEEXDSP_OBJ)
-AC_SUBST(SPEEXDSP_PATH)
 
 # -------------------------------------------------------------------------------------------------
 #
@@ -3365,18 +3370,20 @@ RESULT="Target: $target\n"
 
 # features
 RESULT=`start_section "$RESULT" "Features"`
-RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
-RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
-RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
-RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
-RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
-RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
-RESULT=`add_column "$RESULT" "OpenSSL-libcrypto" $crypto $?`
-RESULT=`add_column "$RESULT" "CUDA support$HOST_CC_REPORT" $FOUND_CUDA $?`
-RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
-RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
-RESULT=`add_column "$RESULT" "OpenCV$opencv_version" $opencv $?`
 RESULT=`add_column "$RESULT" "CppUnit tests" $cppunit $?`
+RESULT=`add_column "$RESULT" "CUDA support$HOST_CC_REPORT" $FOUND_CUDA $?`
+RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
+RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
+RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
+RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
+RESULT=`add_column "$RESULT" "OpenCV$opencv_version" $opencv $?`
+RESULT=`add_column "$RESULT" "OpenSSL-libcrypto" $crypto $?`
+RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
+RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
+RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
+RESULT=`add_column "$RESULT" "SpeexDSP" $speexdsp $?`
+RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
+RESULT=`add_column "$RESULT" "zfec" $zfec $?`
 RESULT=`end_section "$RESULT"`
 
 # audio

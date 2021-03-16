@@ -48,6 +48,7 @@
 #include <cppunit/ui/text/TestRunner.h>
 #endif
 #include <iostream>
+#include <string>
 
 #include "debug.h"
 #include "host.h"
@@ -67,6 +68,8 @@ extern "C" {
 }
 
 using std::clog;
+using std::cout;
+using std::string;
 
 #define TEST_AV_HW 1
 
@@ -120,7 +123,7 @@ static bool run_standard_tests()
         return success;
 }
 
-static bool run_unit_tests()
+static bool run_unit_tests([[maybe_unused]] string const &test)
 {
 #ifdef HAVE_CPPUNIT
         std::clog << "Running CppUnit tests:\n";
@@ -134,8 +137,8 @@ static bool run_unit_tests()
         // Change the default outputter to a compiler error format outputter
         runner.setOutputter( new CPPUNIT_NS::CompilerOutputter( &runner.result(),
                                 CPPUNIT_NS::stdCOut() ) );
-        // Run the test.
-        return runner.run();
+        // Run the test. Runs all tests if test==""s.
+        return runner.run(test);
 #endif
         std::clog << "CppUnit was not found, skipping CppUnit tests!\n";
         return true;
@@ -143,6 +146,12 @@ static bool run_unit_tests()
 
 int main(int argc, char **argv)
 {
+        if (argc > 1 && (strcmp("-h", argv[1]) == 0 || strcmp("--help", argv[1]) == 0)) {
+                cout << "Usage:\n\t" << argv[0] << " [ unit | standard | all | <test_name> | -h | --help ]\n";
+                cout << "where\n\t<test_name> - run only unit test of given name\n";
+                return 0;
+        }
+
         struct init_data *init = nullptr;
         if ((init = common_preinit(argc, argv, nullptr)) == nullptr) {
                 return 2;
@@ -150,21 +159,23 @@ int main(int argc, char **argv)
 
         bool run_standard = true;
         bool run_unit = true;
+        string run_unit_test_name{};
         if (argc == 2) {
                 run_standard = run_unit = false;
                 if (strcmp("unit", argv[1]) == 0) {
                         run_unit = true;
-                }
-                if (strcmp("standard", argv[1]) == 0) {
+                } else if (strcmp("standard", argv[1]) == 0) {
                         run_standard = true;
-                }
-                if (strcmp("all", argv[1]) == 0) {
+                } else if (strcmp("all", argv[1]) == 0) {
                         run_standard = run_unit = true;
+                } else {
+                        run_unit_test_name = argv[1];
+                        run_unit = true;
                 }
         }
 
         bool success = (run_standard ? run_standard_tests() : true);
-        success = (run_unit ? run_unit_tests() : true) && success;
+        success = (run_unit ? run_unit_tests(run_unit_test_name) : true) && success;
 
         common_cleanup(init);
 

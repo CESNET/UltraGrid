@@ -299,7 +299,8 @@ const struct video_compress_info cuda_dxt_info = {
         NULL,
         NULL,
         NULL,
-        [] { return list<compress_preset>{}; }
+        [] { return list<compress_preset>{}; },
+        NULL
 };
 
 REGISTER_MODULE(cuda_dxt, &cuda_dxt_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);

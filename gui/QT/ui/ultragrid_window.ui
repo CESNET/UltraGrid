@@ -557,7 +557,6 @@
      <string>&amp;Tools</string>
     </property>
     <addaction name="actionShow_Terminal"/>
-    <addaction name="actionAdvanced"/>
     <addaction name="actionVuMeter"/>
     <addaction name="separator"/>
     <addaction name="actionRefresh"/>
