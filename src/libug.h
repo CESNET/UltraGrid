@@ -29,6 +29,7 @@ typedef void (*render_packet_received_callback_t)(void *udata, struct RenderPack
 typedef enum {
         UG_RGBA = 1,     ///< RGBA 8-bit
         UG_I420 = 29,    ///< planar YUV 4:2:0 in one buffer
+        UG_CUDA_I420 = 31, ///< I420 in CUDA buffer (Unified Memory pointer also possible)
         UG_CUDA_RGBA = 32, ///< RGBA 8-bit in CUDA buffer (Unified Memory pointer also possible)
 } libug_pixfmt_t;
 

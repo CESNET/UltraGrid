@@ -36,6 +36,7 @@ void exit_uv(int status) {
 static_assert(static_cast<int>(UG_RGBA) == static_cast<int>(RGBA));
 static_assert(static_cast<int>(UG_I420) == static_cast<int>(I420));
 static_assert(static_cast<int>(UG_CUDA_RGBA) == static_cast<int>(CUDA_RGBA));
+static_assert(static_cast<int>(UG_CUDA_I420) == static_cast<int>(CUDA_I420));
 
 ////////////////////////////////////
 //             SENDER
