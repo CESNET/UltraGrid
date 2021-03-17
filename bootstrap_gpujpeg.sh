@@ -1,5 +1,6 @@
 #!/bin/sh -e
 
+UG_SRC_PATH=$(dirname $0)
 SRC_DIR=ext-deps/gpujpeg
 BUILD_DIR=$SRC_DIR/build
 INSTALL_DIR=$SRC_DIR/install
@@ -54,8 +55,13 @@ else
 	git clone --depth 1 https://github.com/CESNET/GPUJPEG.git $SRC_DIR
 fi
 [ $DOWNLOAD_ONLY = yes ] && exit 0
-cmake $CMAKE_ARGUMENTS $SRC_DIR -B $BUILD_DIR
-cmake --build $BUILD_DIR --parallel
+cmake $CMAKE_ARGUMENTS $SRC_DIR -B$BUILD_DIR
+CMAKE_COMPILE_FLAGS=
+CMAKE_VER=`cmake --version | head -n 1 | cut -f 3 -d\ `
+if [ "$($UG_SRC_PATH/.github/scripts/Linux/utils/semver.sh $CMAKE_VER 3.12)" -ge 0 ]; then
+	CMAKE_COMPILE_FLAGS=--parallel
+fi
+cmake --build $BUILD_DIR $CMAKE_COMPILE_FLAGS
 ${SUDO}cmake --install $BUILD_DIR
 
 # vim: set noexpandtab:
