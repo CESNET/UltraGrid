@@ -32,7 +32,7 @@ static void usage(const char *progname) {
         printf("options:\n");
         printf("\t-h - show this help\n");
         printf("\t-d - display (default vrg)\n");
-        printf("\t-c I420|RGBA - force decompress to codec\n");
+        printf("\t-c I420|RGBA|CUDA_I420|CUDA_RGBA - force decompress to codec\n");
         printf("\t-n - disable strips\n");
         printf("\t-v - increase verbosity (use twice for debug)\n");
 }
@@ -44,8 +44,17 @@ int main(int argc, char *argv[]) {
         while ((ch = getopt(argc, argv, "c:d:hnv")) != -1) {
                 switch (ch) {
                 case 'c':
-                        assert(strcmp(optarg, "RGBA") == 0 || strcmp(optarg, "I420") == 0);
-                        init_params.decompress_to = strcmp(optarg, "RGBA") == 0 ? UG_RGBA : UG_I420;
+                        assert(strcmp(optarg, "RGBA") == 0 || strcmp(optarg, "I420") == 0
+                                        || strcmp(optarg, "CUDA_RGBA") == 0 || strcmp(optarg, "CUDA_I420") == 0);
+                        if (strcmp(optarg, "RGBA") == 0) {
+                                init_params.decompress_to = UG_RGBA;
+                        } else if (strcmp(optarg, "I420") == 0) {
+                                init_params.decompress_to =  UG_I420;
+                        } else if (strcmp(optarg, "CUDA_RGBA") == 0) {
+                                init_params.decompress_to =  UG_CUDA_RGBA;
+                        } else if (strcmp(optarg, "CUDA_I420") == 0) {
+                                init_params.decompress_to =  UG_CUDA_I420;
+                        }
                         break;
                 case 'd':
                         init_params.display = optarg;
