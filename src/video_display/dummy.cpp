@@ -68,6 +68,7 @@ struct dummy_display_state {
         dummy_display_state() : f(nullptr), t0(steady_clock::now()), frames(0) {
 #ifdef HAVE_CUDA
                 codecs.push_back(CUDA_RGBA);
+                codecs.push_back(CUDA_I420);
 #endif
         }
         struct video_frame *f;
@@ -231,7 +232,7 @@ static int display_dummy_reconfigure(void *state, struct video_desc desc)
         dummy_display_state *s = (dummy_display_state *) state;
         vf_free(s->f);
 
-        if (desc.color_spec == CUDA_RGBA) {
+        if (desc.color_spec == CUDA_RGBA || desc.color_spec == CUDA_I420) {
 #ifdef HAVE_CUDA
                 s->f = vf_alloc_desc(desc);
                 if (cudaMallocManaged(&s->f->tiles[0].data, s->f->tiles[0].data_len) != cudaSuccess) {
