@@ -5,7 +5,6 @@
 #include "fec.h"
 
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -88,7 +87,6 @@ _init_mul_table(void) {
 
 #define NEW_GF_MATRIX(rows, cols) \
     (gf*)malloc(rows * cols)
-#define FREE_GF_MATRIX(m) free(m)
 
 /*
  * initialize the data structures used for computations in GF.
@@ -170,7 +168,7 @@ generate_gf (void) {
 
 #define UNROLL 16               /* 1, 4, 8, 16 */
 static void
-_addmul1(gf*restrict dst, const gf*restrict src, gf c, size_t sz) {
+_addmul1(register gf*restrict dst, const register gf*restrict src, gf c, size_t sz) {
     USE_GF_MULC;
     const gf* lim = &dst[sz - UNROLL + 1];
 
@@ -231,11 +229,11 @@ _matmul(gf * a, gf * b, gf * c, unsigned n, unsigned k, unsigned m) {
  * Return non-zero if singular.
  */
 static void
-_invert_mat(gf* src, unsigned k) {
-    gf c, *p;
-    unsigned irow = 0;
-    unsigned icol = 0;
-    unsigned row, col, i, ix;
+_invert_mat(gf* src, size_t k) {
+    gf c;
+    size_t irow = 0;
+    size_t icol = 0;
+    size_t row, col, i, ix;
 
     unsigned* indxc = (unsigned*) malloc (k * sizeof(unsigned));
     unsigned* indxr = (unsigned*) malloc (k * sizeof(unsigned));
@@ -308,7 +306,8 @@ _invert_mat(gf* src, unsigned k) {
          */
         id_row[icol] = 1;
         if (memcmp (pivot_row, id_row, k * sizeof (gf)) != 0) {
-            for (p = src, ix = 0; ix < k; ix++, p += k) {
+            gf *p = src;
+            for (ix = 0; ix < k; ix++, p += k) {
                 if (ix != icol) {
                     c = p[icol];
                     p[icol] = 0;
@@ -322,11 +321,10 @@ _invert_mat(gf* src, unsigned k) {
         if (indxr[col-1] != indxc[col-1])
             for (row = 0; row < k; row++)
                 SWAP (src[row * k + indxr[col-1]], src[row * k + indxc[col-1]], gf);
-
     free(indxc);
     free(indxr);
     free(ipiv);
-    FREE_GF_MATRIX(id_row);
+    free(id_row);
 }
 
 /*
@@ -340,7 +338,7 @@ _invert_mat(gf* src, unsigned k) {
  * p = coefficients of the matrix (p_i)
  * q = values of the polynomial (known)
  */
-static void
+void
 _invert_vdm (gf* src, unsigned k) {
     unsigned i, j, row, col;
     gf *b, *c, *p;
@@ -413,7 +411,7 @@ init_fec (void) {
 
 void
 fec_free (fec_t *p) {
-    assert (p != NULL && p->magic == (((FEC_MAGIC ^ p->k) ^ p->n) ^ (uintptr_t) (p->enc_matrix)));
+    assert (p != NULL && p->magic == (((FEC_MAGIC ^ p->k) ^ p->n) ^ (unsigned long) (p->enc_matrix)));
     free (p->enc_matrix);
     free (p);
 }
@@ -425,6 +423,11 @@ fec_new(unsigned short k, unsigned short n) {
 
     fec_t *retval;
 
+    assert(k >= 1);
+    assert(n >= 1);
+    assert(n <= 256);
+    assert(k <= n);
+
     if (fec_initialized == 0)
         init_fec ();
 
@@ -432,7 +435,7 @@ fec_new(unsigned short k, unsigned short n) {
     retval->k = k;
     retval->n = n;
     retval->enc_matrix = NEW_GF_MATRIX (n, k);
-    retval->magic = ((FEC_MAGIC ^ k) ^ n) ^ (uintptr_t) (retval->enc_matrix);
+    retval->magic = ((FEC_MAGIC ^ k) ^ n) ^ (unsigned long) (retval->enc_matrix);
     tmp_m = NEW_GF_MATRIX (n, k);
     /*
      * fill the matrix with powers of field elements, starting from 0.
@@ -441,7 +444,7 @@ fec_new(unsigned short k, unsigned short n) {
     tmp_m[0] = 1;
     for (col = 1; col < k; col++)
         tmp_m[col] = 0;
-    for (p = tmp_m + k, row = 0; row < (unsigned) n - 1; row++, p += k)
+    for (p = tmp_m + k, row = 0; row < n - 1; row++, p += k)
         for (col = 0; col < k; col++)
             p[col] = gf_exp[modnn (row * col)];
 
@@ -494,7 +497,7 @@ fec_encode(const fec_t* code, const gf*restrict const*restrict const src, gf*res
  *
  * @param matrix a space allocated for a k by k matrix
  */
-static void
+void
 build_decode_matrix_into_space(const fec_t*restrict const code, const unsigned*const restrict index, const unsigned k, gf*restrict const matrix) {
     unsigned char i;
     gf* p;
