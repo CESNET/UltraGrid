@@ -80,18 +80,20 @@ struct dummy_display_state {
         size_t dump_bytes = 0;
         bool dump_to_file = false;
         int dump_to_file_skip_frames = 0;
+        bool cuda_managed = false;
 };
 
 static auto display_dummy_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */) -> void *
 {
         if ("help"s == cfg) {
                 cout << "Usage:\n";
-                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][:hexdump[=<n>]][:dump_to_file[=skip=<n>]]\n" << style::reset;
+                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][:hexdump[=<n>]][:dump_to_file[=skip=<n>]][:managed]\n" << style::reset;
                 cout << "where\n";
                 cout << "\t" << style::bold << "<codec>" << style::reset << "   - force the use of a codec instead of default set\n";
                 cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (0, 8, 16)\n";
                 cout << "\t" << style::bold << "hexdump[=<n>]" << style::reset << " - dump first n (default " << DEFAULT_DUMP_LEN << ") bytes of every frame in hexadecimal format\n";
                 cout << "\t" << style::bold << "dump_to_file" << style::reset << " - dump first frame to file dummy.<ext> (optionally skip <n> first frames)\n";
+                cout << "\t" << style::bold << "managed" << style::reset << " - use managed memory for CUDA codecs instead of \n";
                 return static_cast<void *>(&display_init_noerr);
         }
         auto s = make_unique<dummy_display_state>();
@@ -107,6 +109,8 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong codec spec!\n";
                                 return nullptr;
                         }
+                } else if (strstr(item, "managed") != nullptr) {
+                        s->cuda_managed = true;
                 } else if (strstr(item, "dump_to_file") != nullptr) {
                         s->dump_to_file = true;
                         if (strstr(item, "dump_to_file=skip=") != nullptr) {
@@ -235,7 +239,10 @@ static int display_dummy_reconfigure(void *state, struct video_desc desc)
         if (desc.color_spec == CUDA_RGBA || desc.color_spec == CUDA_I420) {
 #ifdef HAVE_CUDA
                 s->f = vf_alloc_desc(desc);
-                if (cudaMallocManaged(&s->f->tiles[0].data, s->f->tiles[0].data_len) != cudaSuccess) {
+                cudaError_t ret = s->cuda_managed
+                        ? cudaMallocManaged(&s->f->tiles[0].data, s->f->tiles[0].data_len)
+                        : cudaMallocHost(&s->f->tiles[0].data, s->f->tiles[0].data_len);
+                if (ret != cudaSuccess) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot alloc CUDA buffer!\n";
                         return FALSE;
                 }
