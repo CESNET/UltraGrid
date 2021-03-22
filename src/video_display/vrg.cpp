@@ -184,7 +184,21 @@ static void display_vrg_run(void *state)
                 }
 
                 if (configured_codec != f->color_spec) {
-                        enum VrgStreamApiError ret = vrgStreamInit(f->color_spec == I420 ? YUV420 : VR_RGBA);
+                        enum VrgInputFormat vrg_format{};
+                        switch (f->color_spec) {
+                                case CUDA_I420:
+                                case I420:
+                                        vrg_format = YUV420;
+                                        break;
+                                case CUDA_RGBA:
+                                case RGBA:
+                                        vrg_format = VR_RGBA;
+                                        break;
+                                default:
+                                        abort();
+
+                        }
+                        enum VrgStreamApiError ret = vrgStreamInit(vrg_format);
                         if (ret != Ok) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Initialization failed: " << ret << "\n";
                                 vf_free(f);
