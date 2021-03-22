@@ -22,6 +22,7 @@ static void usage(const char *progname) {
         printf("options:\n");
         printf("\t-h - show this help\n");
         printf("\t-j - use JPEG\n");
+        printf("\t-m - use specified MTU\n");
         printf("\t-n - disable strips\n");
         printf("\t-s - size (WxH)\n");
         printf("\t-v - increase verbosity (use twice for debug)\n");
@@ -53,13 +54,16 @@ int main(int argc, char *argv[]) {
         int height = DEFAULT_HEIGHT;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "hjns:v")) != -1) {
+        while ((ch = getopt(argc, argv, "hjm:ns:v")) != -1) {
                 switch (ch) {
                 case 'h':
                         usage(argv[0]);
                         return 0;
                 case 'j':
                         init_params.compression = UG_JPEG;
+                        break;
+                case 'm':
+                        init_params.mtu = atoi(optarg);
                         break;
                 case 'n':
                         init_params.disable_strips = 1;
