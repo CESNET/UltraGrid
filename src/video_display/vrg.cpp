@@ -42,9 +42,11 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <iostream>
 #include <mutex>
 #include <rtp/rtp.h>
 #include <queue>
+#include <string>
 
 // VrgInputFormat::RGBA conflicts with codec_t::RGBA
 #define RGBA VR_RGBA
@@ -74,15 +76,30 @@ using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
 using std::condition_variable;
+using std::cout;
 using std::mutex;
 using std::queue;
 using std::unique_lock;
+using namespace std::string_literals;
 
-struct vrg_cuda_um_allocator : public video_frame_pool_allocator {
+struct cuda_malloc_host_allocate {
+        cudaError_t operator()(void **ptr, size_t size) {
+                return cudaMallocHost(ptr, size);
+        }
+};
+
+struct cuda_malloc_managed_allocate {
+        cudaError_t operator()(void **ptr, size_t size) {
+                return cudaMallocManaged(ptr, size);
+        }
+};
+
+template<typename cuda_allocator>
+struct vrg_cuda_allocator : public video_frame_pool_allocator {
         void *allocate(size_t size) override {
                 void *ptr = nullptr;
 #ifdef HAVE_CUDA
-                if (cudaMallocManaged(&ptr, size) != cudaSuccess) {
+                if (cuda_allocator()(&ptr, size) != cudaSuccess) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot alloc CUDA buffer!\n";
                         return nullptr;
                 }
@@ -100,14 +117,14 @@ struct vrg_cuda_um_allocator : public video_frame_pool_allocator {
 #endif
         }
         video_frame_pool_allocator *clone() const override {
-                return new vrg_cuda_um_allocator(*this);
+                return new vrg_cuda_allocator(*this);
         }
 };
 
 struct state_vrg {
         uint32_t magic;
         struct video_desc saved_desc;
-        video_frame_pool pool{0, vrg_cuda_um_allocator()};
+        video_frame_pool pool{0, vrg_cuda_allocator<cuda_malloc_host_allocate>()};
 
         high_resolution_clock::time_point t0 = high_resolution_clock::now();
         long long int frames;
@@ -129,16 +146,23 @@ static void display_vrg_probe(struct device_info **available_cards, int *count, 
 
 static void *display_vrg_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        UNUSED(fmt);
         UNUSED(flags);
         UNUSED(parent);
-        struct state_vrg *s;
+        if ("help"s == fmt) {
+                cout << "Usage:\n\t-d vrg[:managed]\n";
+                cout << "where\n\tmanaged - use managed memory\n";
+                return NULL;
+        }
 
-        s = new state_vrg();
+        struct state_vrg *s = new state_vrg();
         if (s == NULL) {
                 return NULL;
         }
         s->magic = MAGIC_VRG;
+
+        if ("managed"s == fmt) {
+                s->pool.replace_allocator(vrg_cuda_allocator<cuda_malloc_managed_allocate>());
+        }
 
         return s;
 }
