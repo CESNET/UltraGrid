@@ -3,7 +3,7 @@
 ##  sign.sh <app_bundle_directory>
 ##
 ## Environment variables:
-## - **apple_key_p12_b64** - tar.bz2 with $KEY_FILE (with empty password) and $CERT_FILE
+## - **apple_key_p12_b64**  - base64-encoded $KEY_FILE (using password $KEY_FILE_PASS)
 ## - **altool_credentials** - developer credentials to be used with altool (in format user:password)
 
 APP=${1?Appname must be passed as a first argument}
@@ -21,16 +21,13 @@ fi
 # Inspired by https://www.update.rocks/blog/osx-signing-with-travis/
 KEY_CHAIN=build.keychain
 KEY_CHAIN_PASS=build
-KEY_FILE='CESNET, z. s. p. o..p12'
-KEY_FILE_PASS=''
-CERT_FILE='developerID_application.cer'
-echo "$apple_key_p12_b64" | base64 -d > /tmp/cert.tar.bz2
-tar -C /tmp -xJf /tmp/cert.tar.bz2
+KEY_FILE=/tmp/signing_key.p12
+KEY_FILE_PASS=dummy
+echo "$apple_key_p12_b64" | base64 -d > $KEY_FILE
 security create-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN
 security default-keychain -s $KEY_CHAIN
 security unlock-keychain -p $KEY_CHAIN_PASS $KEY_CHAIN
-security import "/tmp/$CERT_FILE"
-security import "/tmp/$KEY_FILE" -A -P "$KEY_FILE_PASS"
+security import "$KEY_FILE" -A -P "$KEY_FILE_PASS"
 security set-key-partition-list -S apple-tool:,apple: -s -k $KEY_CHAIN_PASS $KEY_CHAIN
 
 # Sign the application
@@ -45,8 +42,8 @@ ZIP_FILE=uv-qt.zip
 UPLOAD_INFO_PLIST=/tmp/uplinfo.plist
 REQUEST_INFO_PLIST=/tmp/reqinfo.plist
 ditto -c -k --keepParent $APP $ZIP_FILE
-DEVELOPER_USERNAME=$(echo "altool_pass" | cut -d: -f1)
-DEVELOPER_PASSWORD=$(echo "altool_pass" | cut -d: -f2)
+DEVELOPER_USERNAME=$(echo "$altool_credentials" | cut -d: -f1)
+DEVELOPER_PASSWORD=$(echo "$altool_credentials" | cut -d: -f2)
 xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt --username $DEVELOPER_USERNAME --password "$DEVELOPER_PASSWORD" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
 
 # Wait for notarization status
@@ -54,7 +51,7 @@ xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt --user
 SLEPT=0
 TIMEOUT=7200
 while true; do
-        /usr/bin/xcrun altool --notarization-info `/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" $UPLOAD_INFO_PLIST` -u $DEVELOPER_USERNAME -p $altool_pass --output-format xml | tee $REQUEST_INFO_PLIST
+        /usr/bin/xcrun altool --notarization-info `/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" $UPLOAD_INFO_PLIST` -u $DEVELOPER_USERNAME -p "$DEVELOPER_PASSWORD" --output-format xml | tee $REQUEST_INFO_PLIST
         STATUS=`/usr/libexec/PlistBuddy -c "Print :notarization-info:Status" $REQUEST_INFO_PLIST`
         if [ "$STATUS" != "in progress" -o $SLEPT -ge $TIMEOUT ]; then
                 break
@@ -64,7 +61,7 @@ while true; do
 done
 if [ $STATUS != success ]; then
         UUID=`/usr/libexec/PlistBuddy -c "Print :notarization-info:RequestUUID" $REQUEST_INFO_PLIST`
-        xcrun altool --notarization-info $UUID -u $DEVELOPER_USERNAME -p $altool_pass
+        xcrun altool --notarization-info $UUID -u $DEVELOPER_USERNAME -p "$DEVELOPER_PASSWORD"
         echo "Could not notarize" 2>&1
         exit 1
 fi

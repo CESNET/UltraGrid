@@ -132,7 +132,7 @@ jobs:
     needs: prepare
     runs-on: macos-latest
     env:
-      altool_pass: ${{ secrets.altool_pass }}
+      altool_credentials: ${{ secrets.altool_credentials }}
       apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
       SDK_URL: ${{ secrets.SDK_URL }}
 
