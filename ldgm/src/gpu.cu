@@ -185,7 +185,12 @@ CUDA_DLL_API void gpu_encode_upgrade (char * source_data,int *OUTBUF, int * PCM,
     return;
 }
 
-
+#define CHECK_CUDA(cmd) do { \
+        cudaError_t err = cmd; \
+        if (err != cudaSuccess) {\
+                fprintf(stderr, "[LDGM GPU] %s: %s\n", #cmd, cudaGetErrorString(err)); \
+        } \
+} while(0)
 
 CUDA_DLL_API void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ERROR_VEC, int not_done, int *frame_size,int * error_vec,int * sync_vec,int M,int K,int w_f,int buf_size,int packet_size)
 {
@@ -254,8 +259,8 @@ CUDA_DLL_API void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ER
     unsigned int count_host = 0;
     unsigned int count_host_M = 0;
 
-    error = cudaMemcpyToSymbol  ( count, (void *)(&count_host), sizeof(unsigned int), 0, cudaMemcpyHostToDevice);
-    error = cudaMemcpyToSymbol  ( count_M, (void *)(&count_host_M), sizeof(unsigned int), 0, cudaMemcpyHostToDevice);
+    CHECK_CUDA(cudaMemcpyToSymbol  ( count, (void *)(&count_host), sizeof(unsigned int), 0, cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpyToSymbol  ( count_M, (void *)(&count_host_M), sizeof(unsigned int), 0, cudaMemcpyHostToDevice));
 
 
     int i = 0;
@@ -279,7 +284,7 @@ CUDA_DLL_API void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ER
         }
 
 
-        error = cudaMemcpyFromSymbol((void*)(&count_host_M), count_M, sizeof(unsigned int), 0, cudaMemcpyDeviceToHost);
+        CHECK_CUDA(cudaMemcpyFromSymbol((void*)(&count_host_M), count_M, sizeof(unsigned int), 0, cudaMemcpyDeviceToHost));
         // printf("count host_M %d\n",count_host_M );
         if (count_host_M == M)
         {
@@ -287,7 +292,7 @@ CUDA_DLL_API void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ER
         }
 
         count_host_M = 0;
-        error = cudaMemcpyToSymbol  ( count_M, (void *)(&count_host_M), sizeof(unsigned int), 0, cudaMemcpyHostToDevice);
+        CHECK_CUDA(cudaMemcpyToSymbol  ( count_M, (void *)(&count_host_M), sizeof(unsigned int), 0, cudaMemcpyHostToDevice));
 
 
     }
@@ -297,7 +302,7 @@ CUDA_DLL_API void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ER
     // cudaDeviceSynchronize();
     //cudaThreadSynchronize();
 
-    error = cudaMemcpy(error_vec, ERROR_VEC, (K + M) * sizeof(int), cudaMemcpyDeviceToHost);
+    CHECK_CUDA(cudaMemcpy(error_vec, ERROR_VEC, (K + M) * sizeof(int), cudaMemcpyDeviceToHost));
 
 
     int a = 0;
@@ -321,7 +326,7 @@ CUDA_DLL_API void gpu_decode_upgrade(char *data, int * PCM,int* SYNC_VEC,int* ER
     }
     // printf("undecoded: %d, frame_size: %d, undecoded subtract: %d\n",a,fs,not_done-a );
 
-    cudaHostUnregister(received);
+    CHECK_CUDA(cudaHostUnregister(received));
     // cudaFree(received_d);
     // cudaFree(pcm_d);
     // cudaFree(error_vec_d);

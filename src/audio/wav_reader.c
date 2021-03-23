@@ -44,6 +44,9 @@
 #include "audio/wav_reader.h"
 #include "debug.h"
 
+#define WAV_MAX_BIT_DEPTH 64
+#define WAV_MAX_CHANNELS 128
+
 #define READ_N(buf, len) \
         if (fread(buf, len, 1, wav_file) != 1) {\
                 log_msg(LOG_LEVEL_ERROR, "[WAV] Read error: %s.\n", strerror(errno));\
@@ -61,7 +64,7 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
 
         uint16_t ch_count;
         READ_N(&ch_count, 2);
-        if (ch_count > 128) {
+        if (ch_count == 0 || ch_count > WAV_MAX_CHANNELS) {
                 return WAV_HDR_PARSE_INVALID_PARAM;
         }
         metadata->ch_count = ch_count;
@@ -81,7 +84,7 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
 
         uint16_t bits_per_sample;
         READ_N(&bits_per_sample, sizeof(bits_per_sample));
-        if (bits_per_sample > 64) {
+        if (bits_per_sample == 0 || bits_per_sample > WAV_MAX_BIT_DEPTH) {
                 return WAV_HDR_PARSE_INVALID_PARAM;
         }
         metadata->bits_per_sample = bits_per_sample;
@@ -117,9 +120,22 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                 READ_N(&chunk_size, 4);
                 if (strncmp(buffer, "data", 4) == 0) {
                         found_data_chunk = true;
-                        metadata->data_size = chunk_size;
-                        metadata->data_offset = ftell(wav_file);
-                        CHECK(fseek(wav_file, chunk_size, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
+                        uint32_t data_len = chunk_size;
+                        long data_start = ftell(wav_file);
+                        CHECK(data_start, WAV_HDR_PARSE_READ_ERROR);
+
+                        metadata->data_offset = data_start;
+                        CHECK(fseek(wav_file, data_len, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
+                        long data_end = ftell(wav_file);
+                        CHECK(data_end, WAV_HDR_PARSE_READ_ERROR);
+
+                        long actual_data_size = data_end - data_start;
+                        if (actual_data_size != (long) data_len) {
+                                log_msg(LOG_LEVEL_ERROR, "[WAV] Premature end of file, read %ld of audio data, expected %ld.\n",
+                                                actual_data_size, (long) data_len);
+                                return WAV_HDR_PARSE_READ_ERROR;
+                        }
+                        metadata->data_size = data_len;
                 } else if (strncmp(buffer, "fmt ", 4) == 0) {
                         found_fmt_chunk = true;
                         if (chunk_size != 16) {

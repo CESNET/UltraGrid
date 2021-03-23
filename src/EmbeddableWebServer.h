@@ -806,6 +806,7 @@ void heapStringAppendFormatV(struct HeapString* string, const char* format, va_l
     assert(actualAppendLength == appendLength && "We called vsnprintf twice with the same format and value arguments and got different string lengths");
     /* explicitly null terminate in case I messed up the vsnprinf logic */
     string->contents[string->length] = '\0';
+    va_end(apCopy);
 }
 
 void heapStringInit(struct HeapString* string) {

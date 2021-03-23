@@ -109,6 +109,7 @@ h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 {
 #ifdef HAVE_RTSP_SERVER
         c_stop_server(m_rtsp_server);
+        free(m_rtsp_server);
 #endif
 }
 
