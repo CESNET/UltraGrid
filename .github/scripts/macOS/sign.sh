@@ -4,12 +4,11 @@
 ##
 ## Environment variables:
 ## - **apple_key_p12_b64** - tar.bz2 with $KEY_FILE (with empty password) and $CERT_FILE
-## - **$altool_pass**      - developer (see $DEVELOPER_USERNAME) app password
+## - **altool_credentials** - developer credentials to be used with altool (in format user:password)
 
 APP=${1?Appname must be passed as a first argument}
-DEVELOPER_USERNAME=martin.pulec@cesnet.cz
 
-if [ -z "$apple_key_p12_b64" -o -z "$altool_pass" ]; then
+if [ -z "$apple_key_p12_b64" -o -z "$altool_credentials" ]; then
         echo "Could not find key to sign the application" 2>&1
         if [ "$GITHUB_WORKFLOW" = nightly ]; then
                 exit 1
@@ -46,7 +45,9 @@ ZIP_FILE=uv-qt.zip
 UPLOAD_INFO_PLIST=/tmp/uplinfo.plist
 REQUEST_INFO_PLIST=/tmp/reqinfo.plist
 ditto -c -k --keepParent $APP $ZIP_FILE
-xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt --username $DEVELOPER_USERNAME --password "$altool_pass" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
+DEVELOPER_USERNAME=$(echo "altool_pass" | cut -d: -f1)
+DEVELOPER_PASSWORD=$(echo "altool_pass" | cut -d: -f2)
+xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt --username $DEVELOPER_USERNAME --password "$DEVELOPER_PASSWORD" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
 
 # Wait for notarization status
 # Waiting inspired by https://nativeconnect.app/blog/mac-app-notarization-from-the-command-line/
