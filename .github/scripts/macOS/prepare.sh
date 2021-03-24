@@ -47,8 +47,19 @@ if [ -f /var/tmp/sdks/ntv2sdkmac.zip ]; then
 fi
 
 # DELTACAST
-if [ -f /var/tmp/sdks/VideoMasterHD_mac.tar.xz ]; then
-        sudo tar xJf /var/tmp/sdks/VideoMasterHD_mac.tar.xz -C $(xcrun --show-sdk-path)/System/Library/Frameworks
+if [ -f /var/tmp/sdks/VideoMaster_SDK_MacOSX.zip ]; then
+        unzip /var/tmp/sdks/VideoMaster_SDK_MacOSX.zip
+        sudo installer -pkg VideoMaster_SDK.pkg -target /
+        cd /Library/Frameworks
+        sudo install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
+        sudo install_name_tool -id @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
+        sudo install_name_tool -change /Library/Frameworks/libVideoMasterHD_SP.dylib @executable_path/../Frameworks/libVideoMasterHD_SP.dylib /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
+        sudo install_name_tool -id @executable_path/../Frameworks/libVideoMasterHD_SP.dylib /Library/Frameworks/libVideoMasterHD_SP.dylib
+        sudo install_name_tool -id @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio
+        sudo install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio
+        sudo cp -a VideoMasterHD.framework VideoMasterHD_Audio.framework libVideoMasterHD_SP.dylib $(xcrun --show-sdk-path)/System/Library/Frameworks
+        cd -
+        sudo rm -rf /Library/Frameworks/VideoMasterHD* # ensure that only the copy above is used
 fi
 
 # Install NDI

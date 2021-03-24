@@ -143,12 +143,12 @@ jobs:
       uses: actions/cache@v1
       with:
         path: '/var/tmp/sdks'
-        key: cache-macos-sdks
+        key: cache-macos-sdks-2
     - name: Download SDKs
       if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
         mkdir /var/tmp/sdks && cd /var/tmp/sdks
-        curl -S -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMasterHD_mac.tar.xz -O $SDK_URL/NDISDK_Apple.pkg
+        curl -S -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMaster_SDK_MacOSX.zip -O $SDK_URL/NDISDK_Apple.pkg
     - name: Cache Free SDKs
       id: cache-macos-free-sdks
       uses: actions/cache@v1
