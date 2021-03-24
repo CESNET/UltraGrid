@@ -13,11 +13,9 @@ if (!${env:no_cuda}) {
 }
 
 # Install XIMEA
-if (${env:SDK_URL}) {
-  Invoke-WebRequest ${env:SDK_URL}/ximea.zip -OutFile ximea.zip
-  Expand-Archive -LiteralPath 'ximea.zip' -DestinationPath 'C:\'
-  Remove-Item ximea.zip
-}
+Invoke-WebRequest https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe -OutFile XIMEA_API_Installer.exe
+Start-Process -FilePath .\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON" -Wait
+Remove-Item XIMEA_API_Installer.exe
 
 # Install NDI
 if (${env:SDK_URL} -and ${env:GITHUB_REF} -eq "refs/heads/ndi-build") {
