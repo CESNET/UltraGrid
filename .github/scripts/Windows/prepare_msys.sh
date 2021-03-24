@@ -54,9 +54,15 @@ fi
 
 # DELTACAST
 if [ -n "$SDK_URL" ]; then
-        curl -S $SDK_URL/VideoMasterHD_Win.tar.xz -O
-        tar xJf VideoMasterHD_Win.tar.xz -C /usr/local
-        rm VideoMasterHD_Win.tar.xz
+        mkdir VideoMaster
+        cd VideoMaster
+        curl -S $SDK_URL/VideoMaster_SDK_Windows.zip -O
+        unzip VideoMaster_SDK_Windows.zip
+        cp Binaries/Lib64/*dll /usr/local/bin
+        cp -r Include/* /usr/local/include
+        cp Library/x64/* /usr/local/lib
+        cd ..
+        rm -rf VideoMaster
 fi
 
 # Install live555
