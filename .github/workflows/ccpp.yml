@@ -106,9 +106,9 @@ jobs:
         docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu-16.04 /AppImage/AppRun --list-modules
     - name: Upload NDI Build
       id: upload-ndi
-      if: github.ref == 'refs/heads/ndi-build'
       env:
         SSH_KEY: ${{ secrets.SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.SSH_KEY != null
       run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload Release Asset
       id: upload-release
@@ -183,9 +183,9 @@ jobs:
         for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
     - name: Upload NDI Build
       id: upload-ndi
-      if: github.ref == 'refs/heads/ndi-build'
       env:
         SSH_KEY: ${{ secrets.SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.SSH_KEY != null
       run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION.dmg
     - name: Upload Release Asset
       id: upload-release
@@ -272,9 +272,9 @@ jobs:
         /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe'
     - name: Upload NDI Build
       id: upload-ndi
-      if: github.ref == 'refs/heads/ndi-build'
       env:
         SSH_KEY: ${{ secrets.SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.SSH_KEY != null
       run: |
         C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
           $GITHUB_WORKSPACE/.github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-win64.zip'
