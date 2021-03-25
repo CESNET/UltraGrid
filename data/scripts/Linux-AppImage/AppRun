@@ -54,9 +54,9 @@ handle_updates() {
         if expr $APPIMAGE : '.*continuous' > /dev/null; then
                 update_notify_days=7
         fi
-        UV_BIN_TIMESTAMP=$(stat --format=%Y $DIR/bin/uv)
+        APPIMAGE_MTIME=$(stat --format=%Y $APPIMAGE)
         CURR_TIMESTAMP=$(date +%s)
-        if [ $CURR_TIMESTAMP -lt $(($UV_BIN_TIMESTAMP + $update_notify_days * 24 * 60 * 60)) ]; then
+        if [ $CURR_TIMESTAMP -lt $(($APPIMAGE_MTIME + $update_notify_days * 24 * 60 * 60)) ]; then
                 return
         fi
         printf "UltraGrid binary older than $update_notify_days days, consider checking updates:\n"
@@ -92,6 +92,7 @@ elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
 elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
         shift
         unset LD_LIBRARY_PATH
+        touch $APPIMAGE # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
         $DIR/appimageupdatetool ${1+"$@" }$APPIMAGE
 else
         handle_updates
