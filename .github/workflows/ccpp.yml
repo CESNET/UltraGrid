@@ -107,8 +107,8 @@ jobs:
     - name: Upload NDI Build
       id: upload-ndi
       env:
-        SSH_KEY: ${{ secrets.SSH_KEY }}
-      if: github.ref == 'refs/heads/ndi-build' && env.SSH_KEY != null
+        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
       run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload Release Asset
       id: upload-release
@@ -184,8 +184,8 @@ jobs:
     - name: Upload NDI Build
       id: upload-ndi
       env:
-        SSH_KEY: ${{ secrets.SSH_KEY }}
-      if: github.ref == 'refs/heads/ndi-build' && env.SSH_KEY != null
+        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
       run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION.dmg
     - name: Upload Release Asset
       id: upload-release
@@ -273,8 +273,8 @@ jobs:
     - name: Upload NDI Build
       id: upload-ndi
       env:
-        SSH_KEY: ${{ secrets.SSH_KEY }}
-      if: github.ref == 'refs/heads/ndi-build' && env.SSH_KEY != null
+        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
       run: |
         C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
           $GITHUB_WORKSPACE/.github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-win64.zip'
