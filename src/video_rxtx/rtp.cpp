@@ -286,6 +286,9 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 
 }
 
+ADD_TO_PARAM("rtp-multithreaded", "* rtp-multithreaded\n"
+                "  Enforce multi-threaded RTP received (in Windows disabled)\n");
+
 struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port_base,
                 int send_port_base, void *udata, int force_ip_version,
                 const char *mcast_if)
@@ -327,11 +330,13 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                 if (send_port == send_port_base + 2)
                         send_port += 2;
 
-#if !defined WIN32
-                const bool multithreaded = true;
+                const bool multithreaded = []() {
+#if defined _WIN32
+                        return get_commandline_param("rtp-multithreaded") == nullptr ? false : true;
 #else
-                const bool multithreaded = false;
+                        return true;
 #endif
+                }();
 
                 devices[index] = rtp_init_if(addr, mcast_if, recv_port,
                                 send_port, ttl, rtcp_bw, FALSE,
