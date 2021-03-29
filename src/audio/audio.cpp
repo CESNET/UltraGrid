@@ -504,8 +504,17 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         struct rtp *r;
         double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc
 
+        int ttl = 255;
+        if (commandline_params.find("ttl") != commandline_params.end()) {
+                ttl = stoi(commandline_params.at("ttl"));
+                if (ttl < -1 || ttl > 255) {
+                        log_msg(LOG_LEVEL_ERROR, "TTL must be in range 0..255 or -1!");
+                        return nullptr;
+                }
+        }
+
         r = rtp_init_if(params->addr, params->mcast_if, params->recv_port,
-                        params->send_port, 255, rtcp_bw,
+                        params->send_port, ttl, rtcp_bw,
                         FALSE, rtp_recv_callback,
                         (uint8_t *) params->participants,
                         params->force_ip_version, false);
