@@ -1450,6 +1450,9 @@ int main(int argc, char *argv[])
         } catch (runtime_error const &e) {
                 cerr << e.what() << endl;
                 exit_uv(EXIT_FAILURE);
+        } catch (exception const &e) {
+                cerr << e.what() << endl;
+                exit_uv(EXIT_FAILURE);
         } catch (string const &str) {
                 cerr << str << endl;
                 exit_uv(EXIT_FAILURE);
