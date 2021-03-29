@@ -694,7 +694,8 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
         return udp_init_if(addr, NULL, rx_port, tx_port, ttl, force_ip_version, multithreaded);
 }
 
-static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port) {
+/// @param ipv6   socket is IPv6 (including v4-mapped)
+static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl) {
         struct sockaddr_storage s_in{};
         socklen_t sin_len;
         int reuse = 1;
@@ -706,6 +707,22 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port) {
                         socket_error("setsockopt IPV6_V6ONLY");
                         return false;
                 }
+                if (ttl > 0 && SETSOCKOPT(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *)&ttl,
+                                        sizeof(ttl)) != 0) {
+                        socket_error("setsockopt IPV6_UNICAST_HOPS");
+                        return false;
+                }
+        }
+        // For macs, this is set only for IPv4 socket (not IPv4-mapped IPv6), on the other
+        // hand, Linux+Win requires this setting for IPv4-mapped IPv6 sockets for the TTL work.
+        if (ttl > 0 &&
+#ifdef __APPLE__
+                        !ipv6 &&
+#endif
+                        SETSOCKOPT(fd, IPPROTO_IP, IP_TTL, (char *)&ttl,
+                                sizeof(ttl)) != 0) {
+                socket_error("setsockopt IP_TTL");
+                return false;
         }
 #ifdef SO_REUSEPORT
         if (SETSOCKOPT
@@ -832,8 +849,8 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         // The order here is important if using separate socket for RX and TX - in
         // MSW, first bound socket receives data, in Linux (with Wine) the
         // second.
-        if (!set_sock_opts_and_bind(s->local->rx_fd, s->local->mode == IPv6, rx_port) ||
-                        (s->local->rx_fd != s->local->tx_fd && !set_sock_opts_and_bind(s->local->tx_fd, s->local->mode == IPv6, rx_port))) {
+        if (!set_sock_opts_and_bind(s->local->rx_fd, s->local->mode == IPv6, rx_port, ttl) ||
+                        (s->local->rx_fd != s->local->tx_fd && !set_sock_opts_and_bind(s->local->tx_fd, s->local->mode == IPv6, rx_port, ttl))) {
                 goto error;
         }
         if (is_wine()) {
