@@ -407,11 +407,15 @@ static int udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl
                         return FALSE;
                 }
 #endif
-                if (ttl > -1 && SETSOCKOPT
-                    (tx_fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
-                     sizeof(ttl)) != 0) {
-                        socket_error("setsockopt IP_MULTICAST_TTL");
-                        return FALSE;
+                if (ttl > -1) {
+                        if (SETSOCKOPT
+                            (tx_fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
+                             sizeof(ttl)) != 0) {
+                                socket_error("setsockopt IP_MULTICAST_TTL");
+                                return FALSE;
+                        }
+                } else {
+                        LOG(LOG_LEVEL_WARNING) << "Using IPv4 multicast but not setting TTL.\n";
                 }
                 if (SETSOCKOPT
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_IF,
@@ -511,11 +515,15 @@ static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, 
                         socket_error("setsockopt IPV6_MULTICAST_LOOP");
                         return FALSE;
                 }
-                if (ttl > -1 && SETSOCKOPT
-                    (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
-                     sizeof(ttl)) != 0) {
-                        socket_error("setsockopt IPV6_MULTICAST_HOPS");
-                        return FALSE;
+                if (ttl > -1) {
+                        if (SETSOCKOPT
+                            (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
+                             sizeof(ttl)) != 0) {
+                                socket_error("setsockopt IPV6_MULTICAST_HOPS");
+                                return FALSE;
+                        } else {
+                                LOG(LOG_LEVEL_WARNING) << "Using IPv6 multicast but not setting TTL.\n";
+                        }
                 }
                 if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
                                         (char *)&ifindex, sizeof(ifindex)) != 0) {
