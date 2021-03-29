@@ -407,7 +407,7 @@ static int udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl
                         return FALSE;
                 }
 #endif
-                if (SETSOCKOPT
+                if (ttl > -1 && SETSOCKOPT
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
                      sizeof(ttl)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_TTL");
@@ -511,7 +511,7 @@ static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, 
                         socket_error("setsockopt IPV6_MULTICAST_LOOP");
                         return FALSE;
                 }
-                if (SETSOCKOPT
+                if (ttl > -1 && SETSOCKOPT
                     (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
                      sizeof(ttl)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_HOPS");

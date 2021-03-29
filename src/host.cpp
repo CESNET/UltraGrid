@@ -652,7 +652,7 @@ ADD_TO_PARAM("low-latency-audio", "* low-latency-audio[=ultra]\n"
                 "  Try to reduce audio latency at the expense of worse reliability\n"
                 "  Add ultra for even more aggressive setting.\n");
 ADD_TO_PARAM("ttl", "* ttl=<ttl>\n"
-                "  TTL to be used for transmission in range 0-255.\n");
+                "  TTL to be used for transmission in range 0-255 or -1 to use default values.\n");
 ADD_TO_PARAM("window-title", "* window-title=<title>\n"
                 "  Use alternative window title (SDL/GL only)\n");
 

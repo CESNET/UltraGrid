@@ -301,8 +301,8 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
 
         if (commandline_params.find("ttl") != commandline_params.end()) {
                 ttl = stoi(commandline_params.at("ttl"));
-                if (ttl < 0 || ttl > 255) {
-                        throw ug_runtime_error("TTL must be in range 0..255!");
+                if (ttl < -1 || ttl > 255) {
+                        throw ug_runtime_error("TTL must be in range 0..255 or -1!");
                 }
         }
 
