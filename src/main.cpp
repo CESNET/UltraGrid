@@ -380,8 +380,9 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-m <mtu>", {"set path MTU assumption towards receiver"});
                 print_help_item("-M <video_mode>", {"received video mode (eg tiled-4K, 3D,",
                                 "dual-link)"});
-                print_help_item("-p <postprocess> | help", {"postprocess module"});
                 print_help_item("-N|--nat-traverse"s, {"try to deploy NAT traversal techniques"s});
+                print_help_item("-p <postprocess> | help", {"postprocess module"});
+                print_help_item("-T/--ttl <num>", {"Use specified TTL for multicast/unicast (0..255, -1 for default)"});
         }
         print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
                         "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%%\" or", "\"ldgm:<k>:<m>:<c>\"",
@@ -624,6 +625,7 @@ int main(int argc, char *argv[])
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
         int port_base = PORT_BASE;
+        int requested_ttl = 255;
         int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
 
         bool echo_cancellation = false;
@@ -711,9 +713,10 @@ int main(int argc, char *argv[])
                 {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
                 {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
                 {"nat-traverse", optional_argument, nullptr, 'N'},
+                {"ttl", required_argument, nullptr, 'T'},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "d:t:m:r:s:v46c:hM:N::p:f:P:l:A:V";
+        const char *optstring = "d:t:m:r:s:v46c:hM:N::p:f:P:l:A:VT:";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -1076,6 +1079,13 @@ int main(int argc, char *argv[])
                 case 'N':
                         nat_traverse_config = optarg == nullptr ? "" : optarg;
                         break;
+                case 'T':
+                        requested_ttl = stoi(optarg);
+                        if (requested_ttl < -1 || requested_ttl >= 255) {
+                                LOG(LOG_LEVEL_ERROR) << "TTL must be in range [0..255] or -1!\n";
+                                EXIT(EXIT_FAIL_USAGE);
+                        }
+                        break;
                 case '?':
                 default:
                         usage(uv_argv[0]);
@@ -1237,7 +1247,7 @@ int main(int argc, char *argv[])
                         audio_channel_map,
                         audio_scale, echo_cancellation, force_ip_version, requested_mcast_if,
                         audio_codec, bitrate, &audio_offset, &start_time,
-                        requested_mtu, exporter);
+                        requested_mtu, requested_ttl, exporter);
         if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;
@@ -1335,6 +1345,7 @@ int main(int argc, char *argv[])
 
                 //RTP
                 params["mtu"].i = requested_mtu;
+                params["ttl"].i = requested_ttl;
                 params["receiver"].str = requested_receiver;
                 params["rx_port"].i = video_rx_port;
                 params["tx_port"].i = video_tx_port;

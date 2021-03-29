@@ -63,7 +63,7 @@ public:
 
         static struct rtp **initialize_network(const char *addrs, int recv_port_base,
                         int send_port_base, struct pdb *participants, int force_ip_version,
-                        const char *mcast_if);
+                        const char *mcast_if, int ttl);
         void destroy_rtp_devices(struct rtp ** network_devices);
         static void display_buf_increase_warning(int size);
 
@@ -78,6 +78,7 @@ protected:
         int              m_send_port_number;
         int              m_force_ip_version;
         const char      *m_requested_mcast_if;
+        int              m_requested_ttl;
         fec             *m_fec_state;
         const std::chrono::steady_clock::time_point m_start_time;
         video_desc       m_video_desc;

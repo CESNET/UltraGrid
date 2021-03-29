@@ -246,7 +246,7 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                                 m_network_devices = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
                                                 m_send_port_number, m_participants, m_force_ip_version,
-                                                m_requested_mcast_if);
+                                                m_requested_mcast_if, m_requested_ttl);
                                 if (!m_network_devices) {
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed to change RX port to %d\n", msg->new_rx_port);
                                         r = new_response(RESPONSE_INT_SERV_ERR, "Changing RX port failed!");

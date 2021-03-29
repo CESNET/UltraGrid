@@ -108,6 +108,7 @@ struct audio_network_parameters {
         struct pdb *participants = 0;
         int force_ip_version = 0;
         char *mcast_if = nullptr;
+        int ttl = -1;
 };
 
 struct state_audio {
@@ -238,7 +239,8 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, int force_ip_version, const char *mcast_if,
                 const char *audio_codec_cfg,
-                long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time, int mtu, struct exporter *exporter)
+                long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time,
+                int mtu, int ttl, struct exporter *exporter)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -313,6 +315,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->audio_network_parameters.force_ip_version = force_ip_version;
         s->audio_network_parameters.mcast_if = mcast_if
                 ? strdup(mcast_if) : NULL;
+        s->audio_network_parameters.ttl = ttl;
 
         if ((s->audio_network_device = initialize_audio_network(
                                         &s->audio_network_parameters))
@@ -504,17 +507,8 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
         struct rtp *r;
         double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc
 
-        int ttl = 255;
-        if (commandline_params.find("ttl") != commandline_params.end()) {
-                ttl = stoi(commandline_params.at("ttl"));
-                if (ttl < -1 || ttl > 255) {
-                        log_msg(LOG_LEVEL_ERROR, "TTL must be in range 0..255 or -1!");
-                        return nullptr;
-                }
-        }
-
         r = rtp_init_if(params->addr, params->mcast_if, params->recv_port,
-                        params->send_port, ttl, rtcp_bw,
+                        params->send_port, params->ttl, rtcp_bw,
                         FALSE, rtp_recv_callback,
                         (uint8_t *) params->participants,
                         params->force_ip_version, false);

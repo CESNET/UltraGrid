@@ -88,7 +88,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                 m_network_devices = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
                                                 m_send_port_number, m_participants, m_force_ip_version,
-                                                m_requested_mcast_if);
+                                                m_requested_mcast_if, m_requested_ttl);
                                 if (!m_network_devices) {
                                         m_network_devices = old_devices;
                                         m_requested_receiver = old_receiver;
@@ -115,7 +115,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                 }
                                 m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number,
                                                 m_send_port_number, m_participants, m_force_ip_version,
-                                                m_requested_mcast_if);
+                                                m_requested_mcast_if, m_requested_ttl);
 
                                 if (!m_network_devices) {
                                         m_network_devices = old_devices;
@@ -186,7 +186,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                 m_network_devices = initialize_network(m_requested_receiver.c_str(),
                                                 m_recv_port_number,
                                                 m_send_port_number, m_participants, m_force_ip_version,
-                                                m_requested_mcast_if);
+                                                m_requested_mcast_if, m_requested_ttl);
                                 if (!m_network_devices) {
                                         m_network_devices = old_devices;
                                         log_msg(LOG_LEVEL_ERROR, "[control] Unable to change SSRC!\n");
@@ -216,9 +216,10 @@ rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
         m_send_port_number = params.at("tx_port").i;
         m_force_ip_version = params.at("force_ip_version").i;
         m_requested_mcast_if = params.at("mcast_if").str;
+        m_requested_ttl = params.find("ttl") != params.end() ? params.at("ttl").i : -1;
 
         if ((m_network_devices = initialize_network(m_requested_receiver.c_str(), m_recv_port_number, m_send_port_number,
-                                        m_participants, m_force_ip_version, m_requested_mcast_if))
+                                        m_participants, m_force_ip_version, m_requested_mcast_if, m_requested_ttl))
                         == NULL) {
                 throw ug_runtime_error("Unable to open network", EXIT_FAIL_NETWORK);
         } else {
@@ -287,24 +288,16 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 
 struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port_base,
                 int send_port_base, struct pdb *participants, int force_ip_version,
-                const char *mcast_if)
+                const char *mcast_if, int ttl)
 {
         struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
-        int ttl = 255;
         char *saveptr = NULL;
         char *addr;
         char *tmp;
         int required_connections, index;
         int recv_port = recv_port_base;
         int send_port = send_port_base;
-
-        if (commandline_params.find("ttl") != commandline_params.end()) {
-                ttl = stoi(commandline_params.at("ttl"));
-                if (ttl < -1 || ttl > 255) {
-                        throw ug_runtime_error("TTL must be in range 0..255 or -1!");
-                }
-        }
 
         tmp = strdup(addrs);
         if(strtok_r(tmp, ",", &saveptr) == NULL) {
