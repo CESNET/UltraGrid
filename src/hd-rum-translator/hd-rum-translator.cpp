@@ -568,7 +568,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             parsed->out_conf.arg = item;
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
             parsed->capture_filter = argv[++start_index];
-        } else if(strcmp(argv[start_index], "--help") == 0) {
+        } else if(strcmp(argv[start_index], "-h") == 0 || strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);
             return false;
         } else if(strcmp(argv[start_index], "-v") == 0) {
