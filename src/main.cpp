@@ -625,7 +625,7 @@ int main(int argc, char *argv[])
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
         int port_base = PORT_BASE;
-        int requested_ttl = 255;
+        int requested_ttl = -1;
         int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
 
         bool echo_cancellation = false;
