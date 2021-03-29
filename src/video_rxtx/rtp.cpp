@@ -299,6 +299,13 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
         int recv_port = recv_port_base;
         int send_port = send_port_base;
 
+        if (commandline_params.find("ttl") != commandline_params.end()) {
+                ttl = stoi(commandline_params.at("ttl"));
+                if (ttl < 0 || ttl > 255) {
+                        throw ug_runtime_error("TTL must be in range 0..255!");
+                }
+        }
+
         tmp = strdup(addrs);
         if(strtok_r(tmp, ",", &saveptr) == NULL) {
                 free(tmp);
