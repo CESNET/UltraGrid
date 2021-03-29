@@ -1,6 +1,8 @@
 UltraGrid - VR branch
 =====================
 
+See also [DEVELOPMENT.md](DEVELOPMENT.md).
+
 UltraGrid as a library
 ----------------------
 Library is compiled automatically to `lib/` as _libug_. Accompanying
