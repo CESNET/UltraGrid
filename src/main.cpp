@@ -652,7 +652,6 @@ int main(int argc, char *argv[])
              capture_thread_started = false;
         unsigned display_flags = 0;
         int ret;
-        struct vidcap_params *audio_cap_dev;
         const char *requested_mcast_if = NULL;
 
         unsigned requested_mtu = 0;
@@ -1274,16 +1273,19 @@ int main(int argc, char *argv[])
         /* Pass embedded/analog/AESEBU flags to selected vidcap
          * device. */
         if (audio_capture_get_vidcap_flags(audio_send)) {
-                audio_cap_dev = vidcap_params_get_nth(
-                                vidcap_params_head,
-                                audio_capture_get_vidcap_index(audio_send));
-                if (audio_cap_dev != NULL) {
-                        unsigned int orig_flags =
-                                vidcap_params_get_flags(audio_cap_dev);
-                        vidcap_params_set_flags(audio_cap_dev, orig_flags
-                                        | audio_capture_get_vidcap_flags(audio_send));
-                } else {
-                        fprintf(stderr, "Entered index for non-existing vidcap (audio).\n");
+                int index = audio_capture_get_vidcap_index(audio_send);
+                int i = 0;
+                for (auto *vidcap_params_it = vidcap_params_head; vidcap_params_it != vidcap_params_tail; vidcap_params_it = vidcap_params_get_next(vidcap_params_it)) {
+                        if (index == i || index == -1) {
+                                unsigned int orig_flags =
+                                        vidcap_params_get_flags(vidcap_params_it);
+                                vidcap_params_set_flags(vidcap_params_it, orig_flags
+                                                | audio_capture_get_vidcap_flags(audio_send));
+                        }
+                        i++;
+                }
+                if (index >= i) {
+                        LOG(LOG_LEVEL_ERROR) << "Entered index for non-existing vidcap (audio).\n";
                         exit_uv(EXIT_FAIL_CAPTURE);
                         goto cleanup;
                 }

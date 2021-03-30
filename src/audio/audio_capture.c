@@ -163,7 +163,7 @@ unsigned int audio_capture_get_vidcap_flags(const char *const_device_name)
  * should be audio flags passed.
  * @see audio_capture_get_vidcap_flags
  */
-unsigned int audio_capture_get_vidcap_index(const char *const_device_name)
+int audio_capture_get_vidcap_index(const char *const_device_name)
 {
         char *tmp = strdup(const_device_name);
         assert(tmp != NULL);
@@ -174,7 +174,7 @@ unsigned int audio_capture_get_vidcap_index(const char *const_device_name)
         char *vidcap_index_str = strtok_r(NULL, ":", &save_ptr);
 
         if (vidcap_index_str == NULL) {
-                ret = 0;
+                ret = -1;
         } else {
                 ret = atoi(vidcap_index_str);
         }
