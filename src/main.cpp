@@ -310,8 +310,7 @@ static void crash_signal_handler(int sig)
 
         write_all(ptr - buf, buf);
 
-        signal(SIGABRT, SIG_DFL);
-        signal(SIGSEGV, SIG_DFL);
+        signal(sig, SIG_DFL);
         raise(sig);
 }
 
@@ -1307,8 +1306,11 @@ int main(int argc, char *argv[])
         signal(SIGTERM, signal_handler);
 #ifndef WIN32
         signal(SIGHUP, signal_handler);
+        signal(SIGQUIT, crash_signal_handler);
 #endif
         signal(SIGABRT, crash_signal_handler);
+        signal(SIGFPE, crash_signal_handler);
+        signal(SIGILL, crash_signal_handler);
         signal(SIGSEGV, crash_signal_handler);
 
 #ifdef USE_RT
