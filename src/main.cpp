@@ -1493,8 +1493,6 @@ cleanup:
 
         signal(SIGINT, SIG_DFL);
         signal(SIGTERM, SIG_DFL);
-        signal(SIGABRT, SIG_DFL);
-        signal(SIGSEGV, SIG_DFL);
 #ifndef WIN32
         signal(SIGHUP, SIG_DFL);
         signal(SIGALRM, hang_signal_handler);
