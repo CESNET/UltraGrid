@@ -38,11 +38,7 @@
 #ifndef BLACKMAGIC_COMMON_H
 #define BLACKMAGIC_COMMON_H
 
-#ifdef WIN32
-#include "DeckLinkAPI_h.h" /*  From DeckLink SDK */
-#else
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
-#endif
 
 #include <cstdbool>
 #include <cstdint>

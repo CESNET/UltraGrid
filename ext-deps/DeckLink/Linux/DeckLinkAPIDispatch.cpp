@@ -98,8 +98,7 @@ static void	InitDeckLinkPreviewAPI (void)
 		fprintf(stderr, "%s\n", dlerror());
 }
 
-static bool IsDeckLinkAPIPresent (void) __attribute__((unused));
-static bool IsDeckLinkAPIPresent (void)
+static bool		IsDeckLinkAPIPresent (void)
 {
 	// If the DeckLink API dynamic library was successfully loaded, return this knowledge to the caller
 	return gLoadedDeckLinkAPI;
