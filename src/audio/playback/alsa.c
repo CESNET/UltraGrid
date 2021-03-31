@@ -318,33 +318,29 @@ static bool audio_play_alsa_query_format(struct state_alsa_playback *s, void *da
                 return false;
         }
 
-        int channels = desc.ch_count;
         unsigned int max_channels;
         rc = snd_pcm_hw_params_get_channels_max(params, &max_channels);
         if (rc < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to get max number of channels!\n");
                 return false;
         }
-        for ( ; ; ) {
+        int channels = desc.ch_count;
+        // We try to find nearest higher
+        for ( ; channels <= (int) max_channels; ++channels) {
                 if (!snd_pcm_hw_params_test_channels(s->handle, params, channels)) {
                         break;
                 }
-                // We try to find nearest higher
-                if (channels >= desc.ch_count) {
-                        channels++;
-                } else { // or nearest lower
-                        channels--;
-                }
-                if (channels > (int) max_channels) {
-                        channels = desc.ch_count - 1;
-                }
-                if (channels == 0) {
-                        break;
+        }
+        if (channels > (int) max_channels) { // or nearest lower
+                for (channels = desc.ch_count - 1; channels > 0; --channels) {
+                        if (!snd_pcm_hw_params_test_channels(s->handle, params, channels)) {
+                                break;
+                        }
                 }
         }
 
         if (channels == 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to get usable channe countl!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unable to get usable channel configuration (max channels: %u)!\n", max_channels);
                 return false;
         }
 
