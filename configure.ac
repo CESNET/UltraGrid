@@ -669,7 +669,7 @@ case "$system" in
                 OLD_LIBS=$LIBS
                 LIBS="$LIBS -framework CoreFoundation"
                 AC_LANG_PUSH(C++)
-		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/Mac/DeckLinkAPI.h"
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "$DECKLINK_INC/DeckLinkAPI.h"
                                    ]],
 		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                 LIBS=$OLD_LIBS
@@ -685,8 +685,8 @@ case "$system" in
                 AC_LANG_PUSH(C++)
 		AC_MSG_CHECKING([DeckLink usability])
 		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include "DeckLink/Windows/DeckLinkAPI_h.h"
-#include "DeckLink/Windows/DeckLinkAPIVersion.h"
+#include "$DECKLINK_INC/DeckLinkAPI_h.h"
+#include "$DECKLINK_INC/DeckLinkAPIVersion.h"
 #include <objbase.h>
                                    ]],
 		[[IDeckLinkIterator *deckLinkIter; CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void **) deckLinkIter);]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
