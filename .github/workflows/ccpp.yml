@@ -6,6 +6,7 @@ on:
       - master
       - ndi-build
       - 'release/*'
+      - wip-decklink-sdk-12
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ccpp.yml'
