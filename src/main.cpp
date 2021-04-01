@@ -1119,9 +1119,6 @@ int main(int argc, char *argv[])
 
         // default values for different RXTX protocols
         if (strcasecmp(video_protocol, "rtsp") == 0 || strcasecmp(video_protocol, "sdp") == 0) {
-                if (audio_codec == nullptr) {
-                        audio_codec = "OPUS:sample_rate=48000";
-                }
                 if (requested_compression == nullptr) {
                         requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
                 }
@@ -1132,7 +1129,12 @@ int main(int argc, char *argv[])
                 if (requested_compression == nullptr) {
                         requested_compression = DEFAULT_VIDEO_COMPRESSION;
                 }
-                if (audio_codec == nullptr) {
+        }
+
+        if (audio_codec == nullptr) {
+                if (strcasecmp(audio_protocol, "rtsp") == 0 || strcasecmp(audio_protocol, "sdp") == 0) {
+                        audio_codec = "OPUS:sample_rate=48000";
+                } else {
                         audio_codec = DEFAULT_AUDIO_CODEC;
                 }
         }
