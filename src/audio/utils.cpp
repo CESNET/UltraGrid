@@ -321,7 +321,10 @@ void float2int(char *out, const char *in, int len)
         int items = len / sizeof(int32_t);
 
         while(items-- > 0) {
-                *outi++ = *inf++ * INT_MAX;
+                float sample = *inf++;
+                if(sample > 1.0) sample = 1.0;
+                if(sample < -1.0) sample = -1.0;
+                *outi++ = sample * INT_MAX;
         }
 }
 
