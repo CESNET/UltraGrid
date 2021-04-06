@@ -1,5 +1,9 @@
 name: C/C++ CI
 
+env:
+  FEATURES: '--enable-option-checking=fatal --with-live555=/usr/local --enable-aja --enable-blank --enable-cineform --enable-decklink --enable-file --enable-gl --enable-jack --enable-jack-transport --enable-libavcodec --enable-natpmp --enable-openssl --enable-pcp --enable-portaudio --enable-qt --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-sdl2 --enable-sdp-http --enable-speexdsp --enable-swmix --enable-libswscale --enable-text --enable-video-mixer --enable-ximea --enable-zfec'
+  CUDA_FEATURES: '--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy'
+
 on:
   push:
     branches:
@@ -86,7 +90,7 @@ jobs:
     - name: Install FFmpeg
       run: .github/scripts/Linux/install_ffmpeg.sh
     - name: configure
-      run: "[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local $NDI"
+      run: "./autogen.sh --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa $NDI --enable-v4l2"
     - name: make
       run: make -j4
     - name: make check
@@ -165,7 +169,7 @@ jobs:
         . .github/scripts/environment.sh
         .github/scripts/macOS/prepare.sh
     - name: configure
-      run: "export ARCH=-msse4.2; [ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-live555=/usr/local $NDI"
+      run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio $NDI --enable-syphon"
     - name: make bundle
       run: make -j4 gui-bundle
     - name: sign+notarize
@@ -252,7 +256,7 @@ jobs:
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel '[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --prefix=/ --bindir=/ --docdir=/doc --enable-qt $NDI --with-live555=/usr/local'
+      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-dshow $NDI --enable-spout --enable-wasapi'
     - name: make
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
