@@ -1,12 +1,12 @@
+#include "config_unix.h"
+#include "config_win32.h"
+
 #include <cassert>
 #include <chrono>
 #include <exception>
 #include <iostream>
 #include <map>
 #include <memory>
-
-#include "config_unix.h"
-#include "config_win32.h"
 
 #include "libug.h"
 
