@@ -838,11 +838,11 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 s->local->is_wsa_overlapped = true;
         }
 
-        s->local->rx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
+        s->local->rx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
         if (get_commandline_param("udp-disable-multi-socket")) {
                 s->local->tx_fd = s->local->rx_fd;
         } else {
-                s->local->tx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
+                s->local->tx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
         }
 #else
         s->local->rx_fd =
@@ -1112,11 +1112,73 @@ static void *udp_reader(void *arg)
                 }
                 uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+                int size = 0;
 
-                int size = recvfrom(s->local->rx_fd, (char *) buffer,
+                auto add_to_queue = [](socket_udp *s, uint8_t *packet, int size) {
+                        unique_lock<mutex> lk(s->local->lock);
+                        s->local->reader_cv.wait(lk, [s]{return s->local->packets.size() < s->local->max_packets || s->local->should_exit;});
+                        if (s->local->should_exit) {
+                                free(packet);
+                                return false;
+                        }
+
+                        s->local->packets.emplace(packet, size);
+
+                        lk.unlock();
+                        s->local->boss_cv.notify_one();
+                        return true;
+                };
+
+#ifdef _WIN32
+                struct data {
+                        WSAOVERLAPPED overlapped;
+                        socket_udp *s;
+                        uint8_t *packet;
+                        bool (*add_to_queue_p)(socket_udp *s, uint8_t *packet, int size);
+                };
+
+                auto completion_routine = [](
+                                DWORD dwError,
+                                DWORD cbTransferred,
+                                LPWSAOVERLAPPED lpOverlapped,
+                                DWORD dwFlags
+                                ) {
+                        auto *d = static_cast<struct data *>(lpOverlapped->hEvent);
+                        //std::cerr << lpOverlapped->hEvent;
+                        if (dwError == 0)  {
+                                d->add_to_queue_p(d->s, d->packet, cbTransferred);
+                        } else {
+                                socket_error("WSARecvFrom - completion routine");
+                                free(d->packet);
+                        }
+                        delete d;
+                };
+
+                auto *d = new data{};
+                d->s = s;
+                d->packet = packet;
+                d->add_to_queue_p = add_to_queue;
+                d->overlapped.hEvent = d;
+                WSABUF vector;
+                DWORD Flags = 0;
+                DWORD Received = 0;
+                vector.buf = reinterpret_cast<char *>(buffer);
+                vector.len = RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE;
+                int ret = WSARecvFrom(s->local->rx_fd, &vector, 1,
+                                &Received, &Flags,
+                                NULL, 0,
+                                &d->overlapped, completion_routine);
+                if (ret == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING) { // see https://docs.microsoft.com/en-us/windows/win32/api/Winsock2/nf-winsock2-wsarecvfrom#overlapped-socket-i-o
+                        socket_error("WSARecvFrom");
+                        free(packet);
+                        delete d;
+                }
+
+                SleepEx(0, TRUE); // allow system to call our completion routines in APC
+#else
+                size = recvfrom(s->local->rx_fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                 0, 0, 0);
-
                 if (size <= 0) {
                         /// @todo
                         /// In MSW, this block is called as often as packet is sent if
@@ -1126,17 +1188,10 @@ static void *udp_reader(void *arg)
                         continue;
                 }
 
-                unique_lock<mutex> lk(s->local->lock);
-                s->local->reader_cv.wait(lk, [s]{return s->local->packets.size() < s->local->max_packets || s->local->should_exit;});
-                if (s->local->should_exit) {
-                        free(packet);
+                if (!add_to_queue(s, packet, size)) {
                         break;
                 }
-
-                s->local->packets.emplace(packet, size);
-
-                lk.unlock();
-                s->local->boss_cv.notify_one();
+#endif
         }
 
         platform_pipe_close(s->local->should_exit_fd[0]);
