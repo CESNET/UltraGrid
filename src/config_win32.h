@@ -52,6 +52,16 @@
 #define __MSVCRT_VERSION__ 0x700
 #endif
 
+// 0x0501 is Win XP, 0x0502 2003 Server, 0x0600 Win Vista and Win 7 is 0x0601
+#ifndef WINVER
+#define WINVER _WIN32_WINNT_WIN7
+#endif /* WINVER */
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT _WIN32_WINNT_WIN7
+#endif /* _WIN32_WINNT */
+
+#define WIN32_LEAN_AND_MEAN
+
 #include "config_common.h"
 
 #include <assert.h>
@@ -63,16 +73,6 @@
 #include <math.h>
 #include <stdlib.h>   /* abs() */
 #include <string.h>
-
-// 0x0501 is Win XP, 0x0502 2003 Server, 0x0600 Win Vista and Win 7 is 0x0601
-#ifndef WINVER
-#define WINVER 0x0601
-#endif /* WINVER */
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0601
-#endif /* _WIN32_WINNT */
-
-#define WIN32_LEAN_AND_MEAN
 
 #include <crtdefs.h>
 
