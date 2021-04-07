@@ -82,6 +82,7 @@ using std::queue;
 using std::unique_lock;
 using namespace std::string_literals;
 
+#ifdef HAVE_CUDA
 struct cuda_malloc_host_allocate {
         cudaError_t operator()(void **ptr, size_t size) {
                 return cudaMallocHost(ptr, size);
@@ -93,6 +94,7 @@ struct cuda_malloc_managed_allocate {
                 return cudaMallocManaged(ptr, size);
         }
 };
+#endif
 
 template<typename cuda_allocator>
 struct vrg_cuda_allocator : public video_frame_pool_allocator {
@@ -124,7 +126,11 @@ struct vrg_cuda_allocator : public video_frame_pool_allocator {
 struct state_vrg {
         uint32_t magic;
         struct video_desc saved_desc;
+#ifdef HAVE_CUDA
         video_frame_pool pool{0, vrg_cuda_allocator<cuda_malloc_host_allocate>()};
+#else
+        video_frame_pool pool{0, vrg_cuda_allocator<default_data_allocator>()};
+#endif
 
         high_resolution_clock::time_point t0 = high_resolution_clock::now();
         long long int frames;
@@ -161,7 +167,9 @@ static void *display_vrg_init(struct module *parent, const char *fmt, unsigned i
         s->magic = MAGIC_VRG;
 
         if ("managed"s == fmt) {
+#ifdef HAVE_CUDA
                 s->pool.replace_allocator(vrg_cuda_allocator<cuda_malloc_managed_allocate>());
+#endif
         }
 
         return s;
