@@ -34,13 +34,10 @@ brew install libsoxr speexdsp
 brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
 brew install imagemagick libcaca libnatpmp jack opencv wolfssl
 brew install ossp-uuid # for cineform
-brew install qt@5
+brew install qt
 brew install glm
 sudo curl -L https://raw.githubusercontent.com/miniupnp/libnatpmp/master/\
 natpmp_declspec.h -o /usr/local/include/natpmp_declspec.h
-
-rm -f /usr/local/opt/qt
-cp -af /usr/local/opt/qt@5 /usr/local/opt/qt
 
 .github/scripts/macOS/install_dylibbundler_v2.sh
 
