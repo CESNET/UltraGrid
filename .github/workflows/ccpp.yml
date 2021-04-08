@@ -169,7 +169,7 @@ jobs:
         . .github/scripts/environment.sh
         .github/scripts/macOS/prepare.sh
     - name: configure
-      run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio $NDI --enable-syphon"
+      run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio --enable-deltacast $NDI --enable-syphon"
     - name: make bundle
       run: make -j4 gui-bundle
     - name: sign+notarize
@@ -256,7 +256,7 @@ jobs:
     - name: bootsrap MSYS2
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-dshow $NDI --enable-spout --enable-wasapi'
+      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-deltacast --enable-dshow $NDI --enable-spout --enable-wasapi'
     - name: make
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
