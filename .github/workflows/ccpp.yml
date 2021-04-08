@@ -149,7 +149,7 @@ jobs:
         path: '/var/tmp/sdks'
         key: cache-macos-sdks-2
     - name: Download SDKs
-      if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
+      if: steps.cache-macos-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
         mkdir /var/tmp/sdks && cd /var/tmp/sdks
         curl -S -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMaster_SDK_MacOSX.zip -O $SDK_URL/NDISDK_Apple.pkg
@@ -160,7 +160,7 @@ jobs:
         path: '/var/tmp/free-sdks'
         key: cache-macos-free-sdks
     - name: Download Free SDKs
-      if: steps.cache-macos-free-sdk.outputs.cache-hit != 'true'
+      if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
       run: |
         mkdir /var/tmp/sdks-free && cd /var/tmp/sdks-free
         curl -S -LO https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg
