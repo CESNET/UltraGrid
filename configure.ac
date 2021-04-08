@@ -2762,10 +2762,6 @@ fi
 
 if test $qt_req != no -a $FOUND_QT_DEP = yes
 then
-	# Retrieve Qt compilation flags
-	CXXFLAGS="$QT_CFLAGS $CXXFLAGS"
-	CFLAGS="$QT_CFLAGS $CFLAGS"
-
 	ADD_MODULE("display_preview", "src/video_display/preview.o src/shared_mem_frame.o", "$QT_LIBS")
 	ADD_MODULE("capture_filter_preview", "src/capture_filter/preview.o src/shared_mem_frame.o", "$QT_LIBS $GL_LIB")
 
@@ -2786,6 +2782,7 @@ fi
 AC_SUBST(GUI_EXE)
 AC_SUBST(GUI_TARGET)
 AC_SUBST(QMAKE)
+AC_SUBST(QT_CFLAGS)
 
 if test $qt_req = yes -a $qt_gui = no; then
 		AC_MSG_ERROR([Qt libraries are required.])

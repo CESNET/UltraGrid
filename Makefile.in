@@ -30,6 +30,7 @@ SYSTEM	      = @system@
 
 GUI_EXE       = @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
+QT_CFLAGS     = @QT_CFLAGS@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
 TEST_TARGET  = bin/run_tests$(EXEEXT)
 
@@ -438,6 +439,20 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#echo "static const char vp_display_rgba_to_yuv422[] = " >> $@
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
+
+# QT-dependent objects
+src/shared_mem_frame.o: src/shared_mem_frame.cpp $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -c $< -o $@
+
+src/video_display/preview.o: src/video_display/preview.cpp $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -c $< -o $@
+
+src/capture_filter/preview.o: src/capture_filter/preview.cpp $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -c $< -o $@
+
 
 $(GUI_TARGET): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	$(MKDIR_P) $(dir $@)
