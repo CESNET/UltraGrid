@@ -502,6 +502,7 @@ distcheck:
 	$(TARGET)
 	$(TARGET) --capabilities
 	$(TARGET) --list-modules
+	$(REFLECTOR_TARGET) -h
 	[ -z "$(GUI_EXE)" ] || $(GUI_EXE) -h
 
 # -------------------------------------------------------------------------------------------------
