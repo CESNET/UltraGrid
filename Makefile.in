@@ -51,6 +51,9 @@ SYSTEM	      = @system@
 
 GUI_EXE      ?= @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
+QT_PATH       = $(shell [ -n "$(QMAKE)" ] && python3 -c "import os; print(\
+os.path.realpath(os.path.dirname(os.path.realpath(\"$$(command -v \
+$(QMAKE))\")) + \"/..\"))")# realpath cmd is present in macOS 13
 ifeq (@REFLECTOR_REQ@,yes)
 REFLECTOR_TARGET ?= bin/hd-rum-transcode$(EXEEXT)
 endif
@@ -608,6 +611,25 @@ $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 			mv -f $$n $$n-real; cp -f $(srcdir)/data/scripts/macos-wrapper $$n; \
 		done; \
 	fi
+
+	# TODO TOREMOVE: currently Qt6 (Homebrew) macdeployqt doesn't deploy QtDbus,
+	# possibly because @rpath is used in QtDBus ref in QtGui
+	if [ -d $(QT_PATH)/lib/QtDBus.framework ] && \
+		[ ! -d $(GUI_BUNDLE)/Contents/Frameworks/QtDBus.framework ] && \
+		`otool -L $(GUI_BUNDLE)/Contents/Frameworks/QtGui.framework/Versions/A/QtGui \
+			| grep -q '@rpath/QtDBus'`; \
+	then \
+		cp -R $(QT_PATH)/lib/QtDBus.framework $(GUI_BUNDLE)/Contents/Frameworks; \
+		chmod -R +w $(GUI_BUNDLE)/Contents/Frameworks/QtDBus.framework; \
+		install_name_tool -change \
+			'@loader_path/../../../../../../../opt/dbus/lib/libdbus-1.3.dylib' \
+			/usr/local/opt/dbus/lib/libdbus-1.3.dylib \
+			$(GUI_BUNDLE)/Contents/Frameworks/QtDBus.framework/QtDBus; \
+		while :; do echo quit; done \
+			| $(DYLIBBUNDLER) -of -cd -b -d $(GUI_BUNDLE)/Contents/libs \
+				-x $(GUI_BUNDLE)/Contents/Frameworks/QtDBus.framework/QtDBus;\
+	fi
+
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSCameraUsageDescription \
 		'Allow camera for video capture'
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSMicrophoneUsageDescription \
