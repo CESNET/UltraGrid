@@ -94,7 +94,7 @@ static void audio_cap_testcard_probe(struct device_info **available_devices, int
 {
         *available_devices = static_cast<struct device_info *>(calloc(1, sizeof(struct device_info)));
         strcpy((*available_devices)[0].dev, "");
-        strcpy((*available_devices)[0].name, "Testing EBU signal");
+        strcpy((*available_devices)[0].name, "Testing 1 kHZ signal");
         *count = 1;
 }
 
