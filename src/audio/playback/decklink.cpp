@@ -117,7 +117,7 @@ public:
 
 static void audio_play_decklink_probe(struct device_info **available_devices, int *count)
 {
-        *available_devices = (struct device_info *) malloc(sizeof(struct device_info));
+        *available_devices = static_cast<struct device_info *>(calloc(1, sizeof(struct device_info)));
         strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Audio-only output through DeckLink device");
         *count = 1;
