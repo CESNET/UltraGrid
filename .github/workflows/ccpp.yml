@@ -157,7 +157,7 @@ jobs:
       id: cache-macos-free-sdks
       uses: actions/cache@v1
       with:
-        path: '/var/tmp/free-sdks'
+        path: '/var/tmp/sdks-free'
         key: cache-macos-free-sdks
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
