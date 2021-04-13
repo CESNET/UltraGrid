@@ -30,7 +30,7 @@ sudo apt install libasound-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev porta
 
 # for FFmpeg
 sudo apt build-dep ffmpeg
-sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' 'libx264*' nasm
+sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' 'libvpx*' 'libx264*' nasm
 sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install libopencv-dev
