@@ -265,7 +265,7 @@ static void append(char **ptr, const char *ptr_end, const char *src) {
 
 static void signal_handler(int signal)
 {
-        if (log_level >= LOG_LEVEL_DEBUG) {
+        if (log_level >= LOG_LEVEL_VERBOSE) {
                 char buf[128];
                 char *ptr = buf;
                 char *ptr_end = buf + sizeof buf;
