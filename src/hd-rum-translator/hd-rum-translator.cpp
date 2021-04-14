@@ -290,10 +290,10 @@ static struct response *change_replica_type(struct hd_rum_translator_state *s,
 static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
         DWORD /* dwNumberOfBytesTransfered */,
         LPOVERLAPPED lpOverlapped, long unsigned int) {
-    struct wsa_aux_storage *aux = (struct wsa_aux_storage *) ((char *) lpOverlapped->Pointer + OFFSET);
+    struct wsa_aux_storage *aux = (struct wsa_aux_storage *) ((char *) lpOverlapped->hEvent + OFFSET);
     if (--aux->ref == 0) {
         free(aux->overlapped);
-        free(lpOverlapped->Pointer);
+        free(lpOverlapped->hEvent);
     }
 }
 #endif
@@ -453,7 +453,7 @@ static void *writer(void *arg)
             int overlapped_idx = 0;
             for (unsigned int i = 0; i < s->replicas.size(); i++) {
                 if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
-                    aux->overlapped[overlapped_idx].Pointer = s->qhead->buf;
+                    aux->overlapped[overlapped_idx].hEvent = s->qhead->buf;
                     ssize_t ret = udp_send_wsa_async(s->replicas[i]->sock, s->qhead->buf, s->qhead->size, wsa_deleter, &aux->overlapped[overlapped_idx]);
                     if (ret < 0) {
                         perror("Hd-rum-translator send");
