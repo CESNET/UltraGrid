@@ -83,7 +83,7 @@ jobs:
       uses: actions/cache@v1
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-11
+        key: cache-ffmpeg-12
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
