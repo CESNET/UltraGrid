@@ -39,9 +39,9 @@ while read n; do
 		addr=$(($FUNC_OFFSET + $OFFSET))
 		addr=$(printf 0x%x $addr) # addr2line requires hex
 	fi
-	[ -z $SILENT ] && printf "Decoding $n\n"
+	[ -z $SILENT ] && printf -- "- decoding $n:\n"
 	ARGS=
-	[ -z $SILENT ] && ARGS=-f
+	[ -z $SILENT ] && ARGS='-f -i -p'
 	addr2line -e $EXE $ARGS -C $addr
 done <$IN
 
