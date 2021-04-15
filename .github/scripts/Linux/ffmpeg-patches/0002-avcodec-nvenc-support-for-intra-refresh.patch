@@ -1,8 +1,20 @@
+From 50dccf1951ca04f756a06e2e5d606ed494d78ea8 Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Fri, 16 Apr 2021 08:44:24 +0200
+Subject: [PATCH 2/3] avcodec/nvenc: support for intra refresh
+
+---
+ libavcodec/nvenc.c      | 24 +++++++++++++++++++++---
+ libavcodec/nvenc.h      |  1 +
+ libavcodec/nvenc_h264.c |  1 +
+ libavcodec/nvenc_hevc.c |  1 +
+ 4 files changed, 24 insertions(+), 3 deletions(-)
+
 diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
-index 0830db714c..6d32bb046a 100644
+index ea8257aca9..beb28431ea 100644
 --- a/libavcodec/nvenc.c
 +++ b/libavcodec/nvenc.c
-@@ -452,6 +452,12 @@ static int nvenc_check_capabilities(AVCodecContext *avctx)
+@@ -460,6 +460,12 @@ static int nvenc_check_capabilities(AVCodecContext *avctx)
      }
  #endif
  
@@ -15,9 +27,9 @@ index 0830db714c..6d32bb046a 100644
      ctx->support_dyn_bitrate = nvenc_check_cap(avctx, NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE);
  
      return 0;
-@@ -1045,6 +1051,12 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
+@@ -1053,6 +1059,12 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
      h264->sliceMode = 3;
-     h264->sliceModeData = 1;
+     h264->sliceModeData = 8;
  
 +    if (ctx->intra_refresh) {
 +            h264->enableIntraRefresh = 1;
@@ -28,7 +40,7 @@ index 0830db714c..6d32bb046a 100644
      h264->disableSPSPPS = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 1 : 0;
      h264->repeatSPSPPS  = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 0 : 1;
      h264->outputAUD     = ctx->aud;
-@@ -1054,7 +1066,7 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
+@@ -1062,7 +1074,7 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
          h264->maxNumRefFrames = ctx->dpb_size;
      }
      if (avctx->gop_size >= 0) {
@@ -37,7 +49,7 @@ index 0830db714c..6d32bb046a 100644
      }
  
      if (IS_CBR(cc->rcParams.rateControlMode)) {
-@@ -1142,6 +1154,12 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
+@@ -1150,6 +1162,12 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
      hevc->sliceMode = 3;
      hevc->sliceModeData = 1;
  
@@ -50,7 +62,7 @@ index 0830db714c..6d32bb046a 100644
      hevc->disableSPSPPS = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 1 : 0;
      hevc->repeatSPSPPS  = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 0 : 1;
      hevc->outputAUD     = ctx->aud;
-@@ -1151,7 +1169,7 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
+@@ -1159,7 +1177,7 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
          hevc->maxNumRefFramesInDPB = ctx->dpb_size;
      }
      if (avctx->gop_size >= 0) {
@@ -59,7 +71,7 @@ index 0830db714c..6d32bb046a 100644
      }
  
      if (IS_CBR(cc->rcParams.rateControlMode)) {
-@@ -1336,7 +1354,7 @@ static av_cold int nvenc_setup_encoder(AVCodecContext *avctx)
+@@ -1344,7 +1362,7 @@ static av_cold int nvenc_setup_encoder(AVCodecContext *avctx)
              ctx->encode_config.frameIntervalP = avctx->max_b_frames + 1;
          }
  
@@ -81,7 +93,7 @@ index fefc5f7f0b..6109ee1ac9 100644
  
  int ff_nvenc_encode_init(AVCodecContext *avctx);
 diff --git a/libavcodec/nvenc_h264.c b/libavcodec/nvenc_h264.c
-index 750ff33c2e..3f8580f785 100644
+index 4c2585876e..2255855c99 100644
 --- a/libavcodec/nvenc_h264.c
 +++ b/libavcodec/nvenc_h264.c
 @@ -182,6 +182,7 @@ static const AVOption options[] = {
@@ -93,7 +105,7 @@ index 750ff33c2e..3f8580f785 100644
  };
  
 diff --git a/libavcodec/nvenc_hevc.c b/libavcodec/nvenc_hevc.c
-index 37c2ebe388..aa077bc24e 100644
+index 441e7871d2..5a6e9ab722 100644
 --- a/libavcodec/nvenc_hevc.c
 +++ b/libavcodec/nvenc_hevc.c
 @@ -163,6 +163,7 @@ static const AVOption options[] = {
@@ -104,3 +116,6 @@ index 37c2ebe388..aa077bc24e 100644
      { NULL }
  };
  
+-- 
+2.27.0
+
