@@ -374,6 +374,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                         out->callbacks.dispose = [](struct video_frame *f) { auto du = static_cast<dispose_udata_t *>(f->callbacks.dispose_udata);
                                 NDIlib_recv_free_video_v2(du->pNDI_recv, &du->video_frame);
                                 delete du;
+                                free(f);
                         };
                 }
                 s->frames += 1;
