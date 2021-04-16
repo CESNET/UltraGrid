@@ -73,7 +73,7 @@
 #include "video_capture.h"
 
 static constexpr double DEFAULT_AUDIO_DIVISOR = 1;
-static constexpr const char *MOD_NAME = "[NDI] ";
+static constexpr const char *MOD_NAME = "[NDI cap.] ";
 
 using std::array;
 using std::cout;
@@ -109,7 +109,7 @@ struct vidcap_state_ndi {
                 auto now = steady_clock::now();
                 double seconds = duration_cast<std::chrono::microseconds>(now - t0).count() / 1000000.0;
                 if (seconds > 5) {
-                        LOG(LOG_LEVEL_INFO) << "[NDI] " << frames << " frames in "
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << frames << " frames in "
                                 << seconds << " seconds = " <<  frames / seconds << " FPS\n";
                         frames = 0;
                         t0 = now;
@@ -144,7 +144,7 @@ static void show_help(const NDIlib_find_create_t *find_create_settings) {
         cout << "\tavailable sources (tentative, format: name - url):\n";
         auto *pNDI_find = NDIlib_find_create_v2(find_create_settings);
         if (pNDI_find == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot create finder object!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot create finder object!\n";
                 return;
         }
 
@@ -172,7 +172,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
         using std::stoi;
         // Not required, but "correct" (see the SDK documentation)
         if (!NDIlib_initialize()) {
-                LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot initialize NDI!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize NDI!\n";
                 return VIDCAP_INIT_FAIL;
         }
         auto s = new vidcap_state_ndi();
@@ -225,7 +225,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                 } else if (strstr(item, "progressive") == item) {
                         s->create_settings.allow_video_fields = false;
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << "[NDI] Unknown option: " << item << "\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown option: " << item << "\n";
                         delete s;
                         return VIDCAP_INIT_NOERR;
                 }
@@ -290,7 +290,7 @@ static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *fr
                 int j = 0;
                 for (; j < min(d.ch_count, frame->no_channels); ++j) {
                         if (s->audio[s->audio_buf_idx].data_len >= s->audio[s->audio_buf_idx].max_size) {
-                                LOG(LOG_LEVEL_WARNING) << "[NDI] Audio frame too small!\n";
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Audio frame too small!\n";
                                 return;
                         }
                         *out++ = max<double>(INT32_MIN, min<double>(INT32_MAX, *in / s->audio_divisor * INT32_MAX));
@@ -384,7 +384,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 // Create a finder
                 s->pNDI_find = NDIlib_find_create_v2(&s->find_create_settings);
                 if (s->pNDI_find == nullptr) {
-                        LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot create object!\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot create object!\n";
                         return nullptr;
                 }
         }
@@ -394,11 +394,11 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 uint32_t nr_sources = 0;
                 const NDIlib_source_t* p_sources = nullptr;
                 // Wait until the sources on the nwtork have changed
-                LOG(LOG_LEVEL_INFO) << "[NDI] Looking for source(s)...\n";
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << "Looking for source(s)...\n";
                 NDIlib_find_wait_for_sources(s->pNDI_find, 100 /* 100 ms */);
                 p_sources = NDIlib_find_get_current_sources(s->pNDI_find, &nr_sources);
                 if (nr_sources == 0) {
-                        LOG(LOG_LEVEL_WARNING) << "[NDI] No sources.\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "No sources.\n";
                         return nullptr;
                 }
 
@@ -410,13 +410,13 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 // We now have at least one source, so we create a receiver to look at it.
                 s->pNDI_recv = NDIlib_recv_create_v3(&s->create_settings);
                 if (s->pNDI_recv == nullptr) {
-                        LOG(LOG_LEVEL_ERROR) << "[NDI] Unable to create receiver!\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to create receiver!\n";
                         return nullptr;
                 }
                 // Connect to our sources
                 NDIlib_recv_connect(s->pNDI_recv, source);
 
-                LOG(LOG_LEVEL_NOTICE) << "[NDI] Receiving from source: " << source->p_ndi_name << ", URL: " << source->p_url_address << "\n";
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Receiving from source: " << source->p_ndi_name << ", URL: " << source->p_url_address << "\n";
         }
 
         NDIlib_video_frame_v2_t video_frame;
@@ -466,12 +466,12 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                         {
                                 array<char, sizeof(uint32_t) + 1> fcc_s{};
                                 memcpy(fcc_s.data(), &video_frame.FourCC, sizeof(uint32_t));
-                                LOG(LOG_LEVEL_ERROR) << "[NDI] Unsupported codec '" << fcc_s.data() << "', please report to " PACKAGE_BUGREPORT "!\n";
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec '" << fcc_s.data() << "', please report to " PACKAGE_BUGREPORT "!\n";
                                 return {};
                         }
                 }
                 if (s->last_desc != out_desc) {
-                        LOG(LOG_LEVEL_NOTICE) << "[NDI] Received video changed: " << out_desc << "\n";
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Received video changed: " << out_desc << "\n";
                         s->last_desc = out_desc;
                         if (s->field_0.p_data != nullptr) {
                                 NDIlib_recv_free_video_v2(s->pNDI_recv, &s->field_0);
@@ -543,11 +543,11 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 break;
 
         case NDIlib_frame_type_error:
-                LOG(LOG_LEVEL_ERROR) << "[NDI] Error occured!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Error occured!\n";
                 break;
 
         case NDIlib_frame_type_status_change:
-                LOG(LOG_LEVEL_NOTICE) << "[NDI] Status changed!\n";
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Status changed!\n";
                 break;
         case NDIlib_frame_type_max:
                 assert(0 && "NDIlib_frame_type_max is invalid!");
@@ -572,7 +572,7 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
 
         auto pNDI_find = NDIlib_find_create_v2();
         if (pNDI_find == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << "[NDI] Cannot create finder object!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot create finder object!\n";
                 return vt;
         }
 
