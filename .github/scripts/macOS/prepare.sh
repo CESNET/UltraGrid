@@ -66,6 +66,7 @@ fi
 if [ -f /var/tmp/sdks/NDISDK_Apple.pkg  ]; then
         sudo installer -pkg /var/tmp/sdks/NDISDK_Apple.pkg -target /
         sudo mv "/Library/NDI SDK for Apple/" /Library/NDI
+        cat /Library/NDI/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
         cd /Library/NDI/lib/x64
         sudo ln -s libndi.?.dylib libndi.dylib
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include

@@ -63,6 +63,7 @@ if [ -n "$SDK_URL" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
         tar -C /var/tmp -xzf NDISDK_Linux.tar.gz
         yes | PAGER=cat /var/tmp/InstallNDI*sh
 	sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
+	cat NDI\ SDK\ for\ Linux/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
 	sudo cp -r NDI\ SDK\ for\ Linux/lib/x86_64-linux-gnu/* /usr/local/lib
 	sudo ldconfig
 fi

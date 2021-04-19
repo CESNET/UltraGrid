@@ -72,6 +72,10 @@
 #include "video.h"
 #include "video_capture.h"
 
+#if __has_include(<ndi_version.h>)
+#include <ndi_version.h>
+#endif
+
 static constexpr double DEFAULT_AUDIO_DIVISOR = 1;
 static constexpr const char *MOD_NAME = "[NDI cap.] ";
 
@@ -164,6 +168,9 @@ static void show_help(const NDIlib_find_create_t *find_create_settings) {
         }
         cout << "\n";
         NDIlib_find_destroy(pNDI_find);
+#ifdef NDI_VERSION
+        cout << NDI_VERSION "\n";
+#endif
 }
 
 static int vidcap_ndi_init(struct vidcap_params *params, void **state)
