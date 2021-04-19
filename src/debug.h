@@ -115,8 +115,10 @@ public:
                                 std::clog << "    Last message repeated " << count << " times\r";
                                 return;
                         }
-                        if (last != nullptr && last->count > 0) {
-                                std::clog << "\n";
+                        if (last != nullptr) {
+                                if (last->count > 0) {
+                                        std::clog << "\n";
+                                }
                                 delete last;
                         }
                 }
