@@ -2747,11 +2747,16 @@ if test "x$QMAKE" = "x"; then
         AC_PATH_PROGS(QMAKE, [qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
 fi
 
+if test "$QMAKE" -a "$QMAKE" != ":"
+then
+        QMAKE_VERSION=`$QMAKE -v | sed -n 's/.*Qt version \([^ ]*\).*/\1/p'`
+fi
+
 # Qt deps not found with pkg-config but qmake found (eg. in Qt 6)
-if test $FOUND_QT_DEP = no -a -n "$QMAKE"
+if test $FOUND_QT_DEP = no -a -n "$QMAKE_VERSION" && expr "$QMAKE_VER" \> 6 >/dev/null
 then
         touch qt.pro
-        qmake qt.pro -o Make.qt
+        $QMAKE qt.pro -o Make.qt
         printf 'print-libs:\n\t@echo $(LIBS)\n\n' >> Make.qt
         printf 'print-cflags:\n\t@echo $(INCPATH) $(CFLAGS)\n\n' >> Make.qt
         QT_CFLAGS=$(make -f Make.qt print-cflags)
