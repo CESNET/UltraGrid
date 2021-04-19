@@ -21,10 +21,10 @@ if test -d /c/Program\ Files/NewTek; then
         cat $NDI_D/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | tee /usr/local/include/ndi_version.h
 fi
 
-JACK_D=/c/Program\ Files\ \(x86\)/Jack
+JACK_D=/c/Program\ Files/JACK2
 if test -d "$JACK_D"; then
         export PATH=$PATH:$JACK_D/bin
-        export CPATH=$CPATH:$JACK_D/includes
+        export CPATH=$CPATH:$JACK_D/include
         export LIBRARY_PATH=$LIBRARY_PATH:$JACK_D/lib
 fi
 

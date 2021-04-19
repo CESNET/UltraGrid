@@ -236,8 +236,8 @@ jobs:
       id: cache-jack
       uses: actions/cache@v1
       with:
-        path: 'C:\Program Files (x86)\Jack'
-        key: cache-jack-2
+        path: 'C:\Program Files\JACK2'
+        key: cache-jack-3
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
