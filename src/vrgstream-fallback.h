@@ -46,6 +46,8 @@ struct RenderPacket {
 	int pix_height_eye;
 	unsigned long long timepoint;
 	unsigned int frame;
+	unsigned int dx_row_pitch;
+	unsigned int dx_row_pitch_uv;
 };
 
 enum VrgStreamApiError {
