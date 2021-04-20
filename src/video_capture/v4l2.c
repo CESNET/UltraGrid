@@ -208,7 +208,11 @@ static void show_help()
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
         printf("\t\t<tpf> or <fps> should be given as a single integer or a fraction\n");
         printf("\t\t<conv> - forces conversion, eg. to RGB (may be useful eg. to convert captured MJPG from USB 2.0 webcam to HEVC)\n");
-        printf("\n");
+        printf("\t\t         mapping available for codecs:");
+        for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
+                printf(" %s", get_codec_name(v4l2_ug_map[i].ug_codec));
+        }
+        printf("\n\n");
 
         for (int i = 0; i < 64; ++i) {
                 char name[32];
