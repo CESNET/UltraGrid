@@ -103,6 +103,18 @@ struct v4l2_dispose_deq_buffer_data {
         struct v4l2_buffer buf;
 };
 
+static struct {
+        uint32_t v4l2_fcc;
+        codec_t ug_codec;
+} v4l2_ug_map[] = {
+        {V4L2_PIX_FMT_YUYV, YUYV},
+        {V4L2_PIX_FMT_UYVY, UYVY},
+        {V4L2_PIX_FMT_RGB24, RGB},
+        {V4L2_PIX_FMT_RGB32, RGBA},
+        {V4L2_PIX_FMT_MJPEG, MJPG},
+        {V4L2_PIX_FMT_H264, H264},
+};
+
 static void enqueue_all_finished_frames(struct vidcap_v4l2_state *s) {
         struct v4l2_dispose_deq_buffer_data *dequeue_data;
         while ((dequeue_data = simple_linked_list_pop(s->buffers_to_enqueue)) != NULL) {
@@ -190,12 +202,12 @@ static void show_help()
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
-        printf("\t-t v4l2[:device=<dev>][:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:RGB]\n");
+        printf("\t-t v4l2[:device=<dev>][:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:convert=<conv>]\n");
         printf("\t\tuse device <dev> for grab (default: %s)\n", DEFAULT_DEVICE);
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
         printf("\t\t<tpf> or <fps> should be given as a single integer or a fraction\n");
-        printf("\t\tRGB - forces conversion to RGB (may be useful eg. to convert captured MJPG from USB 2.0 webcam to HEVC)\n");
+        printf("\t\t<conv> - forces conversion, eg. to RGB (may be useful eg. to convert captured MJPG from USB 2.0 webcam to HEVC)\n");
         printf("\n");
 
         for (int i = 0; i < 64; ++i) {
@@ -432,6 +444,24 @@ next_device:
         return vt;
 }
 
+static uint32_t get_ug_to_v4l2(codec_t ug_codec) {
+        for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
+                if (v4l2_ug_map[i].ug_codec == ug_codec) {
+                        return v4l2_ug_map[i].v4l2_fcc;
+                }
+        }
+        return 0;
+}
+
+static codec_t get_v4l2_to_ug(uint32_t fcc) {
+        for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
+                if (v4l2_ug_map[i].v4l2_fcc == fcc) {
+                        return v4l2_ug_map[i].ug_codec;
+                }
+        }
+        return VIDEO_CODEC_NONE;
+}
+
 static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 {
         struct vidcap_v4l2_state *s;
@@ -441,8 +471,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                  height = 0;
         uint32_t numerator = 0,
                  denominator = 0;
-        bool conversion_needed = false;
-        bool force_convert = false;
+        codec_t v4l2_convert_to = VIDEO_CODEC_NONE;
 
         printf("vidcap_v4l2_init\n");
 
@@ -516,7 +545,15 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                                 s->buffer_count = atoi(item + strlen("buffers="));
                                 assert (s->buffer_count <= MAX_BUF_COUNT);
                         } else if (strcasecmp(item, "RGB") == 0) {
-                                force_convert = true;
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Deprecated, use: ':convert=RGB' instead");
+                                v4l2_convert_to = RGB;
+                        } else if (strstr(item, "convert=") == item) {
+                                const char *codec = item + strlen("convert=");
+                                v4l2_convert_to = get_codec_from_name(codec);
+                                if (v4l2_convert_to == VIDEO_CODEC_NONE) {
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown codec: %s\n", codec);
+                                        goto error;
+                                }
                         } else {
                                 fprintf(stderr, "[V4L2] Invalid configuration argument: %s\n",
                                                 item);
@@ -622,36 +659,23 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 
         s->desc.tile_count = 1;
 
-        switch(fmt.fmt.pix.pixelformat) {
-                case V4L2_PIX_FMT_YUYV:
-                        s->desc.color_spec = YUYV;
-                        break;
-                case V4L2_PIX_FMT_UYVY:
-                        s->desc.color_spec = UYVY;
-                        break;
-                case V4L2_PIX_FMT_RGB24:
-                        s->desc.color_spec = RGB;
-                        break;
-                case V4L2_PIX_FMT_RGB32:
-                        s->desc.color_spec = RGBA;
-                        break;
-                case V4L2_PIX_FMT_MJPEG:
-                        s->desc.color_spec = MJPG;
-                        break;
-                case V4L2_PIX_FMT_H264:
-                        s->desc.color_spec = H264;
-                        break;
-                default:
-                        conversion_needed = true;
-                        s->dst_fmt.fmt.pix.pixelformat =  V4L2_PIX_FMT_RGB24;
-                        s->desc.color_spec = RGB;
-                        break;
+        if (v4l2_convert_to == VIDEO_CODEC_NONE) {
+                s->desc.color_spec = get_v4l2_to_ug(fmt.fmt.pix.pixelformat);
+                if (s->desc.color_spec == VIDEO_CODEC_NONE) {
+                        char fcc[5];
+                        memcpy(fcc, &fmt.fmt.pix.pixelformat, 4);
+                        fcc[4] = '\0';
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "No mapping for FCC '%s', converting to RGB!\n", fcc);
+                        v4l2_convert_to = s->dst_fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
+                }
         }
-
-        if (force_convert) {
-                conversion_needed = true;
-                s->dst_fmt.fmt.pix.pixelformat =  V4L2_PIX_FMT_RGB24;
-                s->desc.color_spec = RGB;
+        if (v4l2_convert_to != VIDEO_CODEC_NONE) {
+                s->dst_fmt.fmt.pix.pixelformat = get_ug_to_v4l2(v4l2_convert_to);
+                if (s->dst_fmt.fmt.pix.pixelformat == 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find %s to V4L2 mapping!\n", get_codec_name(v4l2_convert_to));
+                        goto error;
+                }
+                s->desc.color_spec = v4l2_convert_to;
         }
 
         switch(fmt.fmt.pix.field) {
@@ -681,7 +705,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         s->desc.width = fmt.fmt.pix.width;
         s->desc.height = fmt.fmt.pix.height;
 
-        if (conversion_needed) {
+        if (v4l2_convert_to != VIDEO_CODEC_NONE) {
                 s->convert = v4lconvert_create(s->fd);
         } else {
                 s->convert = NULL;
