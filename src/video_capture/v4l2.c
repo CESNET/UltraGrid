@@ -72,6 +72,7 @@ static void print_fps(int fd, struct v4l2_frmivalenum *param);
 
 #define DEFAULT_BUF_COUNT 2
 #define MAX_BUF_COUNT 30
+#define MOD_NAME "[V4L cap.] "
 
 struct vidcap_v4l2_state {
         struct video_desc desc;
@@ -845,7 +846,7 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
                 }
 
                 if(ret == -1) {
-                        fprintf(stderr, "Error converting video.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error converting video: %s\n", v4lconvert_get_error_message(s->convert));
                         VIDEO_FRAME_DISPOSE(out);
                         return NULL;
                 }
