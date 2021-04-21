@@ -626,6 +626,11 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         if (ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set video format");
                 goto error;
+        } else {
+                char fourcc[5];
+                memcpy(fourcc, &fmt.fmt.pix.pixelformat, sizeof(uint32_t));
+                fourcc[4] = '\0';
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Capturing %dx%d %s\n", fmt.fmt.pix.width, fmt.fmt.pix.height, fourcc);
         }
 
         if(numerator != 0 && denominator != 0) {
