@@ -45,7 +45,8 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#include <stdint.h>
+#include <array>
+#include <cstdint>
 
 #include "compat/platform_time.h"
 #include "debug.h"
@@ -113,6 +114,25 @@ void log_msg(int level, const char *format, ...)
         va_end(ap);
 
         LOG(level) << buffer;
+}
+
+/**
+ * This function is analogous to perror(). The message is printed using the logger.
+ */
+void log_perror(int level, const char *msg)
+{
+        std::array<char, 1024> strerror_buf;
+        const char *errstring;
+#ifdef _WIN32
+        strerror_s(strerror_buf.data(), strerror_buf.size(), errno); // C11 Annex K (bounds-checking interfaces)
+        errstring = strerror_buf.data();
+#elif ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
+        strerror_r(errno, strerror_buf.data(), strerror_buf.size()); // XSI version
+        errstring = strerror_buf.data();
+#else // GNU strerror_r version
+        errstring = strerror_r(errno, strerror_buf.data(), strerror_buf.size());
+#endif
+        log_msg(level, "%s: %s\n", msg, errstring);
 }
 
 /**

@@ -77,6 +77,7 @@ void debug_dump(void*lp, int len);
 ///#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, "[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 #define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
+void log_perror(int log_level, const char *msg);
 
 bool set_log_level(const char *optarg, bool *logger_repeat_msgs);
 
