@@ -63,6 +63,9 @@
 #include "utils/list.h"
 #include "video.h"
 
+#ifndef _GNU_SOURCE
+#error "GNU variant of strerror_r is used below!"
+#endif
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
@@ -219,7 +222,14 @@ static void show_help()
 
                 snprintf(name, 32, "/dev/video%d", i);
                 int fd = open(name, O_RDWR);
-                if(fd == -1) continue;
+                if (fd == -1) {
+                        if (errno != ENOENT) {
+                                char errbuf[1024];
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to open input device %s: %s\n",
+                                                name, strerror_r(errno, errbuf, sizeof errbuf));
+                        }
+                        continue;
+                }
 
                 struct v4l2_capability capab;
                 memset(&capab, 0, sizeof capab);
