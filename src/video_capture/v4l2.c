@@ -638,8 +638,11 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 }
         }
 
+        assert(fmt.type == V4L2_BUF_TYPE_VIDEO_CAPTURE);
         memcpy(&s->src_fmt, &fmt, sizeof(fmt));
         memcpy(&s->dst_fmt, &fmt, sizeof(fmt));
+        s->dst_fmt.fmt.pix.bytesperline = 0;
+        s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_DEFAULT;
 
         if(ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
                 perror("[V4L2] Unable to get video format");
