@@ -120,7 +120,7 @@ static void enqueue_all_finished_frames(struct vidcap_v4l2_state *s) {
         while ((dequeue_data = simple_linked_list_pop(s->buffers_to_enqueue)) != NULL) {
                 s->dequeued_buffers -= 1;
                 if (ioctl(s->fd, VIDIOC_QBUF, &dequeue_data->buf) != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Unable to enqueue buffer: %s", strerror(errno));
+                        log_perror(LOG_LEVEL_ERROR, "Unable to enqueue buffer");
                 }
                 free(dequeue_data);
         }
@@ -133,7 +133,7 @@ static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
 
         int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if(ioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Stream stopping error: %s\n", strerror(errno));
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Stream stopping error");
         };
 
         pthread_mutex_lock(&s->lock);
@@ -162,7 +162,7 @@ static void print_fps(int fd, struct v4l2_frmivalenum *param) {
         int res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, param);
 
         if(res == -1) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to get FPS: %s\n", strerror(errno));
+                log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to get FPS");
                 return;
         }
 
@@ -224,7 +224,7 @@ static void show_help()
                 struct v4l2_capability capab;
                 memset(&capab, 0, sizeof capab);
                 if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to query device capabilities: %s", strerror(errno));
+                        log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to query device capabilities");
                 }
 
                 log_msg(LOG_LEVEL_VERBOSE, "Device %s capabilities: %#x (CAP_VIDEO_CAPTURE = %#x)\n", name, capab.device_caps, V4L2_CAP_VIDEO_CAPTURE);
@@ -246,7 +246,7 @@ static void show_help()
                 memset(&fmt, 0, sizeof(fmt));
                 fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
                 if (ioctl(fd, VIDIOC_G_FMT, &fmt) != 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to get video format: %s", strerror(errno));
+                        log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to get video format");
                         goto next_device;
                 }
 
@@ -267,7 +267,7 @@ static void show_help()
                         size.pixel_format = format.pixelformat;
 
                         if (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == -1) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get frame size iterator: %s\n", strerror(errno));
+                                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get frame size iterator");
                                 goto next_device;
                         }
 
@@ -367,7 +367,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
                 struct v4l2_capability capab;
                 memset(&capab, 0, sizeof capab);
                 if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to query device capabilities: %s", strerror(errno));
+                        log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to query device capabilities");
                 }
 
                 if (!(capab.device_caps & V4L2_CAP_VIDEO_CAPTURE)){
@@ -392,7 +392,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
                         size.pixel_format = format.pixelformat;
 
                         if (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == -1) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to get frame size iterator: %s\n", strerror(errno));
+                                log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to get frame size iterator");
                                 goto next_device;
                         }
 
@@ -409,7 +409,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
                                                 frame_int.index = 0;
 
                                                 if (ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == -1) {
-                                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to get FPS: %s\n", strerror(errno));
+                                                        log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to get FPS");
                                                         goto next_device;
                                                 }
 
@@ -564,15 +564,16 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         s->fd = open(dev_name, O_RDWR);
 
         if(s->fd == -1) {
+                char errbuf[1024];
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to open input device %s: %s\n",
-                                dev_name, strerror(errno));
+                                dev_name, strerror_r(errno, errbuf, sizeof errbuf));
                 goto error;
         }
 
         struct v4l2_capability   capability;
         memset(&capability, 0, sizeof(capability));
         if (ioctl(s->fd,VIDIOC_QUERYCAP, &capability) != 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "ioctl VIDIOC_QUERYCAP: %s\n", strerror(errno));
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "ioctl VIDIOC_QUERYCAP");
                 goto error;
         }
 
@@ -589,7 +590,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         int index = 0;
 
         if (ioctl(s->fd, VIDIOC_S_INPUT, &index) != 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not enable input (VIDIOC_S_INPUT): %s\n", strerror(errno));
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Could not enable input (VIDIOC_S_INPUT)");
                 goto error;
         }
 
@@ -598,7 +599,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         memset(&fmt, 0, sizeof(fmt));
         fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get video format: %s\n", strerror(errno));
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get video format");
                 goto error;
         }
 
@@ -606,7 +607,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         memset(&stream_params, 0, sizeof(stream_params));
         stream_params.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get stream params: %s\n", strerror(errno));
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get stream params");
                 goto error;
         }
 
@@ -623,7 +624,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         fmt.fmt.pix.bytesperline = 0;
 
         if (ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set video format: %s\n", strerror(errno));
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set video format");
                 goto error;
         }
 
@@ -632,8 +633,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 stream_params.parm.capture.timeperframe.denominator = denominator;
 
                 if(ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
-                        perror("[V4L2] Unable to set stream params");
-
+                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set stream params");
                         goto error;
                 }
         }
@@ -645,14 +645,12 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_DEFAULT;
 
         if(ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
-                perror("[V4L2] Unable to get video format");
-
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get video format");
                 goto error;
         }
 
         if(ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
-                perror("[V4L2] Unable to get stream params");
-
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get stream params");
                 goto error;
         }
 
@@ -719,9 +717,9 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 
         if (ioctl (s->fd, VIDIOC_REQBUFS, &reqbuf) != 0) {
                 if (errno == EINVAL)
-                        log_msg(LOG_LEVEL_ERROR, "Video capturing or mmap-streaming is not supported\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Video capturing or mmap-streaming is not supported\n");
                 else
-                        perror("VIDIOC_REQBUFS");
+                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "VIDIOC_REQBUFS");
                 goto error;
 
         }
@@ -740,7 +738,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 buf.index = i;
 
                 if (-1 == ioctl (s->fd, VIDIOC_QUERYBUF, &buf)) {
-                        perror("VIDIOC_QUERYBUF");
+                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "VIDIOC_QUERYBUF");
                         goto error;
                 }
 
@@ -754,20 +752,20 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 if (MAP_FAILED == s->buffers[i].start) {
                         /* If you do not exit here you should unmap() and free()
                            the buffers mapped so far. */
-                        perror("mmap");
+                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "mmap");
                         goto error;
                 }
 
                 buf.flags = 0;
 
                 if(ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
-                        perror("Unable to enqueue buffer");
+                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to enqueue buffer");
                         goto error;
                 }
         }
 
         if(ioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
-                perror("Unable to start stream");
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to start stream");
                 goto error;
         };
 
@@ -833,7 +831,7 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
         buf.memory = V4L2_MEMORY_MMAP;
 
         if(ioctl(s->fd, VIDIOC_DQBUF, &buf) != 0) {
-                perror("Unable to dequeue buffer");
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to dequeue buffer");
                 return NULL;
         };
 
@@ -863,7 +861,7 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
 
                 // we do not need the driver buffer any more
                 if (ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "[V4L2 capture] Unable to enqueue buffer: %s\n", strerror(errno));
+                        log_perror(LOG_LEVEL_ERROR, "[V4L2 capture] Unable to enqueue buffer");
                 } else {
                         s->dequeued_buffers -= 1;
                 }
