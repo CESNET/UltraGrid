@@ -227,6 +227,7 @@ static void show_help()
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to query device capabilities: %s", strerror(errno));
                 }
 
+                log_msg(LOG_LEVEL_VERBOSE, "Device %s capabilities: %#x (CAP_VIDEO_CAPTURE = %#x)\n", name, capab.device_caps, V4L2_CAP_VIDEO_CAPTURE);
                 if (!(capab.device_caps & V4L2_CAP_VIDEO_CAPTURE)){
                         goto next_device;
                 }
