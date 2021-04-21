@@ -6,6 +6,9 @@
 #include <QJsonDocument>
 #include <QByteArray>
 #include <QtGlobal>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QOpenGLVersionFunctionsFactory>
+#endif
 
 #include "ultragrid_window.hpp"
 
@@ -148,7 +151,12 @@ void UltragridWindow::checkPreview(){
 	QOpenGLContext ctx;
 	ctx.create();
 	QOpenGLFunctions_3_3_Core* funcs =
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 		ctx.versionFunctions<QOpenGLFunctions_3_3_Core>();
+#else
+		QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_3_3_Core>(&ctx);
+#endif
+
 	if (!funcs) {
 		enable = false;
 

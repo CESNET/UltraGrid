@@ -58,7 +58,7 @@ jobs:
       if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/arm-build'
       run: |
         sudo apt install jq
-        sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.arm_build_token }} continuous chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
+        sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} continuous chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
 
 
 # vi: set expandtab sw=2:

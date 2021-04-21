@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <QMessageBox>
 #include <QOpenGLFunctions_3_3_Core>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QOpenGLVersionFunctionsFactory>
+#endif
 #include "previewWidget.hpp"
 #include "shared_mem_frame.hpp"
 
@@ -63,7 +66,11 @@ static unsigned char pixels[] = {
 };
 
 void PreviewWidget::initializeGL(){
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
+#else
+	QOpenGLFunctions_3_3_Core *f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_3_3_Core>(QOpenGLContext::currentContext());
+#endif
 
 	if(!f) {
 		QMessageBox warningBox(this);
@@ -151,7 +158,11 @@ void PreviewWidget::setVidSize(int w, int h){
 }
 
 void PreviewWidget::paintGL(){
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
+#else
+	QOpenGLFunctions_3_3_Core *f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_3_3_Core>(QOpenGLContext::currentContext());
+#endif
 
 	if(!f)
 		return;

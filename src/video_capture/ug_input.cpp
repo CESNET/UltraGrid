@@ -149,7 +149,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
                                 "none", "embedded",
                                 "ultragrid_rtp", "",
                                 "none", NULL, NULL, audio_scale, false, 0, NULL, "PCM", RATE_UNLIMITED, NULL,
-                                &start_time, 1500, NULL);
+                                &start_time, 1500, -1, NULL);
                 if (s->audio == nullptr) {
                         delete s;
                         return VIDCAP_INIT_FAIL;

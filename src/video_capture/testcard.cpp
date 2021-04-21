@@ -314,7 +314,7 @@ struct testcard_state {
         int pan;
         char *data {nullptr};
         std::chrono::steady_clock::time_point t0;
-        struct video_frame *frame;
+        struct video_frame *frame{nullptr};
         int frame_linesize;
         struct video_frame *tiled;
 

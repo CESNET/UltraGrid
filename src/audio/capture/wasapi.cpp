@@ -112,6 +112,7 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
                                 THROW_IF_FAILED(pEndpoints->Item(i, &pDevice));
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
                                 *available_devices = (struct device_info *) realloc(*available_devices, (*dev_count + 1) * sizeof(struct device_info));
+                                memset(&(*available_devices)[*dev_count], 0, sizeof(struct device_info));
                                 sprintf((*available_devices)[*dev_count].dev, ":%u", i); ///< @todo This may be rather id than index
                                 sprintf((*available_devices)[*dev_count].name, "WASAPI %s", get_name(pDevice).c_str());
                                 ++*dev_count;

@@ -265,7 +265,7 @@ static void append(char **ptr, const char *ptr_end, const char *src) {
 
 static void signal_handler(int signal)
 {
-        if (log_level >= LOG_LEVEL_DEBUG) {
+        if (log_level >= LOG_LEVEL_VERBOSE) {
                 char buf[128];
                 char *ptr = buf;
                 char *ptr_end = buf + sizeof buf;
@@ -310,8 +310,7 @@ static void crash_signal_handler(int sig)
 
         write_all(ptr - buf, buf);
 
-        signal(SIGABRT, SIG_DFL);
-        signal(SIGSEGV, SIG_DFL);
+        signal(sig, SIG_DFL);
         raise(sig);
 }
 
@@ -380,8 +379,9 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-m <mtu>", {"set path MTU assumption towards receiver"});
                 print_help_item("-M <video_mode>", {"received video mode (eg tiled-4K, 3D,",
                                 "dual-link)"});
-                print_help_item("-p <postprocess> | help", {"postprocess module"});
                 print_help_item("-N|--nat-traverse"s, {"try to deploy NAT traversal techniques"s});
+                print_help_item("-p <postprocess> | help", {"postprocess module"});
+                print_help_item("-T/--ttl <num>", {"Use specified TTL for multicast/unicast (0..255, -1 for default)"});
         }
         print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
                         "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%%\" or", "\"ldgm:<k>:<m>:<c>\"",
@@ -624,6 +624,7 @@ int main(int argc, char *argv[])
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
         int port_base = PORT_BASE;
+        int requested_ttl = -1;
         int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
 
         bool echo_cancellation = false;
@@ -650,7 +651,6 @@ int main(int argc, char *argv[])
              capture_thread_started = false;
         unsigned display_flags = 0;
         int ret;
-        struct vidcap_params *audio_cap_dev;
         const char *requested_mcast_if = NULL;
 
         unsigned requested_mtu = 0;
@@ -711,9 +711,10 @@ int main(int argc, char *argv[])
                 {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
                 {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
                 {"nat-traverse", optional_argument, nullptr, 'N'},
+                {"ttl", required_argument, nullptr, 'T'},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "d:t:m:r:s:v46c:hM:N::p:f:P:l:A:V";
+        const char *optstring = "d:t:m:r:s:v46c:hM:N::p:f:P:l:A:VT:";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -1076,6 +1077,13 @@ int main(int argc, char *argv[])
                 case 'N':
                         nat_traverse_config = optarg == nullptr ? "" : optarg;
                         break;
+                case 'T':
+                        requested_ttl = stoi(optarg);
+                        if (requested_ttl < -1 || requested_ttl >= 255) {
+                                LOG(LOG_LEVEL_ERROR) << "TTL must be in range [0..255] or -1!\n";
+                                EXIT(EXIT_FAIL_USAGE);
+                        }
+                        break;
                 case '?':
                 default:
                         usage(uv_argv[0]);
@@ -1111,9 +1119,6 @@ int main(int argc, char *argv[])
 
         // default values for different RXTX protocols
         if (strcasecmp(video_protocol, "rtsp") == 0 || strcasecmp(video_protocol, "sdp") == 0) {
-                if (audio_codec == nullptr) {
-                        audio_codec = "OPUS:sample_rate=48000";
-                }
                 if (requested_compression == nullptr) {
                         requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
                 }
@@ -1124,7 +1129,12 @@ int main(int argc, char *argv[])
                 if (requested_compression == nullptr) {
                         requested_compression = DEFAULT_VIDEO_COMPRESSION;
                 }
-                if (audio_codec == nullptr) {
+        }
+
+        if (audio_codec == nullptr) {
+                if (strcasecmp(audio_protocol, "rtsp") == 0 || strcasecmp(audio_protocol, "sdp") == 0) {
+                        audio_codec = "OPUS:sample_rate=48000";
+                } else {
                         audio_codec = DEFAULT_AUDIO_CODEC;
                 }
         }
@@ -1237,7 +1247,7 @@ int main(int argc, char *argv[])
                         audio_channel_map,
                         audio_scale, echo_cancellation, force_ip_version, requested_mcast_if,
                         audio_codec, bitrate, &audio_offset, &start_time,
-                        requested_mtu, exporter);
+                        requested_mtu, requested_ttl, exporter);
         if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;
@@ -1264,16 +1274,19 @@ int main(int argc, char *argv[])
         /* Pass embedded/analog/AESEBU flags to selected vidcap
          * device. */
         if (audio_capture_get_vidcap_flags(audio_send)) {
-                audio_cap_dev = vidcap_params_get_nth(
-                                vidcap_params_head,
-                                audio_capture_get_vidcap_index(audio_send));
-                if (audio_cap_dev != NULL) {
-                        unsigned int orig_flags =
-                                vidcap_params_get_flags(audio_cap_dev);
-                        vidcap_params_set_flags(audio_cap_dev, orig_flags
-                                        | audio_capture_get_vidcap_flags(audio_send));
-                } else {
-                        fprintf(stderr, "Entered index for non-existing vidcap (audio).\n");
+                int index = audio_capture_get_vidcap_index(audio_send);
+                int i = 0;
+                for (auto *vidcap_params_it = vidcap_params_head; vidcap_params_it != vidcap_params_tail; vidcap_params_it = vidcap_params_get_next(vidcap_params_it)) {
+                        if (index == i || index == -1) {
+                                unsigned int orig_flags =
+                                        vidcap_params_get_flags(vidcap_params_it);
+                                vidcap_params_set_flags(vidcap_params_it, orig_flags
+                                                | audio_capture_get_vidcap_flags(audio_send));
+                        }
+                        i++;
+                }
+                if (index >= i) {
+                        LOG(LOG_LEVEL_ERROR) << "Entered index for non-existing vidcap (audio).\n";
                         exit_uv(EXIT_FAIL_CAPTURE);
                         goto cleanup;
                 }
@@ -1295,8 +1308,11 @@ int main(int argc, char *argv[])
         signal(SIGTERM, signal_handler);
 #ifndef WIN32
         signal(SIGHUP, signal_handler);
+        signal(SIGQUIT, crash_signal_handler);
 #endif
         signal(SIGABRT, crash_signal_handler);
+        signal(SIGFPE, crash_signal_handler);
+        signal(SIGILL, crash_signal_handler);
         signal(SIGSEGV, crash_signal_handler);
 
 #ifdef USE_RT
@@ -1335,6 +1351,7 @@ int main(int argc, char *argv[])
 
                 //RTP
                 params["mtu"].i = requested_mtu;
+                params["ttl"].i = requested_ttl;
                 params["receiver"].str = requested_receiver;
                 params["rx_port"].i = video_rx_port;
                 params["tx_port"].i = video_tx_port;
@@ -1454,6 +1471,9 @@ int main(int argc, char *argv[])
         } catch (runtime_error const &e) {
                 cerr << e.what() << endl;
                 exit_uv(EXIT_FAILURE);
+        } catch (exception const &e) {
+                cerr << e.what() << endl;
+                exit_uv(EXIT_FAILURE);
         } catch (string const &str) {
                 cerr << str << endl;
                 exit_uv(EXIT_FAILURE);
@@ -1479,8 +1499,6 @@ cleanup:
 
         signal(SIGINT, SIG_DFL);
         signal(SIGTERM, SIG_DFL);
-        signal(SIGABRT, SIG_DFL);
-        signal(SIGSEGV, SIG_DFL);
 #ifndef WIN32
         signal(SIGHUP, SIG_DFL);
         signal(SIGALRM, hang_signal_handler);

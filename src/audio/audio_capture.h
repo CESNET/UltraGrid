@@ -68,7 +68,7 @@ struct audio_frame         *audio_capture_read(struct state_audio_capture * stat
 void                        audio_capture_done(struct state_audio_capture * state);
 
 unsigned int                audio_capture_get_vidcap_flags(const char *device_name);
-unsigned int                audio_capture_get_vidcap_index(const char *device_name);
+int                         audio_capture_get_vidcap_index(const char *device_name);
 const char                 *audio_capture_get_driver_name(struct state_audio_capture * state);
 /**
  * returns directly state of audio capture device. Little bit silly, but it is needed for

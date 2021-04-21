@@ -40,8 +40,14 @@
 #ifndef __RTP_H__
 #define __RTP_H__
 
+#ifdef __cplusplus
+#include <cstddef> // offsetof
+#include <cstdint>
+#else
 #include <stdbool.h>
 #include <stddef.h> // offsetof
+#include <stdint.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -106,7 +112,7 @@ typedef struct __attribute__((packed)) {
         uint32_t          rtt;
 } rtp_packet;
 
-#define RTP_PACKET_HEADER_SIZE ((int) (offsetof(rtp_packet, extn_type) - offsetof(rtp_packet, csrc) + sizeof(uint16_t)))
+#define RTP_PACKET_HEADER_SIZE ((int) (offsetof(rtp_packet, extn_type) - offsetof(rtp_packet, csrc) + sizeof ((rtp_packet *) 0)->extn_type))
 
 typedef struct {
 	uint32_t         ssrc;

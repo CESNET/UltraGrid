@@ -973,7 +973,10 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 
                 // interleave
                 if (buffer->get_codec() == AC_OPUS) {
-                        assert(buffer->get_channel_count() == 1); // we cannot interleave OPUS here
+                        if (buffer->get_channel_count() > 1) { // we cannot interleave OPUS here
+                                LOG(LOG_LEVEL_ERROR) << "Transmit: Only OPUS with 1 channel is supported in RFC-compliant mode! Discarding...\n";
+                                return;
+                        }
                         memcpy(tx->tmp_packet, buffer->get_data(0), pkt_len);
                 } else {
                         for (int ch = 0; ch < buffer->get_channel_count(); ch++) {

@@ -1752,6 +1752,17 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *para
         // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
 }
 
+void set_forced_idr(AVCodecContext *codec_ctx, int value)
+{
+        assert(value <= 9);
+        array<char, 2> force_idr_val{};
+        force_idr_val[0] = '0' + value;
+
+        if (int ret = av_opt_set(codec_ctx->priv_data, "forced-idr", force_idr_val.data(), 0)) {
+                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to set Forced IDR", ret);
+        }
+}
+
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         const char *preset = DEFAULT_NVENC_PRESET;
@@ -1770,6 +1781,13 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
                 LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC preset to: " << preset << " (" << errbuf.data() << ").\n";
         } else {
                 LOG(LOG_LEVEL_INFO) << "[lavc] Setting NVENC preset to " << preset << ".\n";
+        }
+
+        set_forced_idr(codec_ctx, 1);
+        if (!param->no_periodic_intra){
+                if (int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0) != 0) {
+                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
+                }
         }
 
         int ret = av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC, 0);
@@ -1801,15 +1819,8 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 
 static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
 {
-        char force_idr_val[2] = "";
-        int ret;
-
         // see FFMPEG modules' sources for semantics
-        force_idr_val[0] = strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? '0' : '1';
-        ret = av_opt_set(codec_ctx->priv_data, "forced-idr", force_idr_val, 0);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set IDR for SVT.\n");
-        }
+        set_forced_idr(codec_ctx, strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
 
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
                 if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", 4, 0)) {

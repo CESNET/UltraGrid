@@ -6,10 +6,13 @@ echo "LIBRARY_PATH=/usr/local/qt/lib" >> $GITHUB_ENV
 echo "PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig" >> $GITHUB_ENV
 echo "/usr/local/qt/bin" >> $GITHUB_PATH
 
+# TOREMOVE: needed only for older CUDA found in Ubuntu 16.04 and 18.04
 if command -v gcc-5; then
         CUDA_HOST_COMPILER=gcc-5
-else
+elif command -v gcc-6; then
         CUDA_HOST_COMPILER=gcc-6
+else
+        CUDA_HOST_COMPILER=
 fi
 echo "CUDA_HOST_COMPILER=$CUDA_HOST_COMPILER" >> $GITHUB_ENV
 
@@ -27,7 +30,7 @@ sudo apt install libasound-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev porta
 
 # for FFmpeg
 sudo apt build-dep ffmpeg
-sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' 'libx264*' nasm
+sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' 'libvpx*' 'libx264*' nasm
 sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install libopencv-dev
@@ -60,6 +63,7 @@ if [ -n "$SDK_URL" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
         tar -C /var/tmp -xzf NDISDK_Linux.tar.gz
         yes | PAGER=cat /var/tmp/InstallNDI*sh
 	sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
+	cat NDI\ SDK\ for\ Linux/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
 	sudo cp -r NDI\ SDK\ for\ Linux/lib/x86_64-linux-gnu/* /usr/local/lib
 	sudo ldconfig
 fi

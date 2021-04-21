@@ -673,7 +673,7 @@ case "$system" in
                 OLD_LIBS=$LIBS
                 LIBS="$LIBS -framework CoreFoundation"
                 AC_LANG_PUSH(C++)
-		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/Mac/DeckLinkAPI.h"
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "$DECKLINK_INC/DeckLinkAPI.h"
                                    ]],
 		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                 LIBS=$OLD_LIBS
@@ -689,8 +689,8 @@ case "$system" in
                 AC_LANG_PUSH(C++)
 		AC_MSG_CHECKING([DeckLink usability])
 		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include "DeckLink/Windows/DeckLinkAPI_h.h"
-#include "DeckLink/Windows/DeckLinkAPIVersion.h"
+#include "$DECKLINK_INC/DeckLinkAPI_h.h"
+#include "$DECKLINK_INC/DeckLinkAPIVersion.h"
 #include <objbase.h>
                                    ]],
 		[[IDeckLinkIterator *deckLinkIter; CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void **) deckLinkIter);]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
@@ -2740,11 +2740,13 @@ GUI_TARGET=
 QMAKE=
 #qmake # default for most distributions
 
+define(qt5_gui_dep, Qt5Core >= 5.4 Qt5Widgets Qt5Gui)
+
 AC_ARG_ENABLE(qt,
 [  --enable-qt             build Qt GUI (default is disabled)]
-[                          Requires: Qt5Core >= 5.4 Qt5Widgets Qt5Gui (for Linux also v4l2) ],
+[                          Requires: qt5_gui_dep | Qt6 ],
     [qt_req=$enableval],
-    [qt_req=$build_default]
+    [qt_req=no]
     )
 
 AC_ARG_ENABLE(static-qt,
@@ -2754,32 +2756,45 @@ AC_ARG_ENABLE(static-qt,
     )
 
 # Check for Qt libraries
-QT_GUI_DEP="Qt5Core >= 5.4 Qt5Widgets Qt5Gui"
-
 SAVED_PKG_CONFIG=$PKG_CONFIG
 if test $static_qt = yes; then
         PKG_CONFIG='pkg-config --static'
 fi
-PKG_CHECK_MODULES(QT, [$QT_GUI_DEP], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
+PKG_CHECK_MODULES(QT, [qt5_gui_dep], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
 PKG_CONFIG=$SAVED_PKG_CONFIG
 
-if test $qt_req = yes -a $FOUND_QT_DEP = yes
-then
-	# Retrieve Qt compilation flags
-	CXXFLAGS="$QT_CFLAGS $CXXFLAGS"
-	CFLAGS="$QT_CFLAGS $CFLAGS"
+# TODO: fix Qt 6 lookup (and precedence?)
+AC_PATH_PROGS_FEATURE_CHECK([QTCHOOSER], [qtchooser],
+        [AS_IF([$ac_path_QTCHOOSER --run-tool=qmake --qt=5 | grep QMake  > /dev/null],
+                [QMAKE="$ac_path_QTCHOOSER --run-tool=qmake --qt=5"])])
 
+#AC_MSG_NOTICE("Qmake: $QMAKE")
+if test "x$QMAKE" = "x"; then
+        AC_PATH_PROGS(QMAKE, [qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
+fi
+
+if test "$QMAKE" -a "$QMAKE" != ":"
+then
+        QMAKE_VERSION=`$QMAKE -v | sed -n 's/.*Qt version \([^ ]*\).*/\1/p'`
+fi
+
+# Qt deps not found with pkg-config but qmake found (eg. in Qt 6)
+if test $FOUND_QT_DEP = no -a -n "$QMAKE_VERSION" && expr "$QMAKE_VER" \> 6 >/dev/null
+then
+        touch qt.pro
+        $QMAKE qt.pro -o Make.qt
+        printf 'print-libs:\n\t@echo $(LIBS)\n\n' >> Make.qt
+        printf 'print-cflags:\n\t@echo $(INCPATH) $(CFLAGS)\n\n' >> Make.qt
+        QT_CFLAGS=$(make -f Make.qt print-cflags)
+        QT_LIBS=$(make -f Make.qt print-libs)
+        rm qt.pro Make.qt
+        FOUND_QT_DEP=yes
+fi
+
+if test $qt_req != no -a $FOUND_QT_DEP = yes
+then
 	ADD_MODULE("display_preview", "src/video_display/preview.o src/shared_mem_frame.o", "$QT_LIBS")
 	ADD_MODULE("capture_filter_preview", "src/capture_filter/preview.o src/shared_mem_frame.o", "$QT_LIBS $GL_LIB")
-
-	AC_PATH_PROGS_FEATURE_CHECK([QTCHOOSER], [qtchooser], 
-		[AS_IF([$ac_path_QTCHOOSER --run-tool=qmake --qt=5 | grep QMake  > /dev/null],
-			[QMAKE="$ac_path_QTCHOOSER --run-tool=qmake --qt=5"])])
-
-	#AC_MSG_NOTICE("Qmake: $QMAKE")
-	if test "x$QMAKE" = "x"; then
-		AC_PATH_PROGS(QMAKE, [qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
-	fi
 
 	#AC_MSG_NOTICE("Qmake: $QMAKE")
         GUI_TARGET=gui/QT/uv-qt$APPEXT
@@ -2798,6 +2813,7 @@ fi
 AC_SUBST(GUI_EXE)
 AC_SUBST(GUI_TARGET)
 AC_SUBST(QMAKE)
+AC_SUBST(QT_CFLAGS)
 
 if test $qt_req = yes -a $qt_gui = no; then
 		AC_MSG_ERROR([Qt libraries are required.])

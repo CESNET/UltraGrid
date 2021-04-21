@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: uv
-.\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 06/09/2020
+.\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 03/29/2021
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "UV" "1" "06/09/2020" "\ \&" "\ \&"
+.TH "UV" "1" "03/29/2021" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -183,6 +183,16 @@ uv \- UltraGrid command line interface
 .RS 4
 .\}
 .nf
+\-m <mtu>                        set path MTU assumption towards receiver
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
 \-M <video_mode>                 received video mode (eg tiled\-4K, 3D,
                                 dual\-link)
 .fi
@@ -194,7 +204,27 @@ uv \- UltraGrid command line interface
 .RS 4
 .\}
 .nf
+\-N|\-\-nat\-traverse               try to deploy NAT traversal techniques
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
 \-p <postprocess> | help         postprocess module
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-T/\-\-ttl <num>                  Use specified TTL for multicast/unicast (0\&.\&.255, \-1 for default)
 .fi
 .if n \{\
 .RE

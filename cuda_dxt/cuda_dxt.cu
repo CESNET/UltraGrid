@@ -349,7 +349,7 @@ __device__ static UINT EmitIndicesYCoCgDXT5(vec3 block[16], vec2 mincol, vec2 ma
 
 __device__ static UINT EmitAlphaEndPointsYCoCgDXT5(float mincol, float maxcol)
 {
-    uvec2 tmp = uvec2(round(mincol * 255.0), round(maxcol * 255.0));
+    uvec2 tmp = uvec2(roundf(mincol * 255.0), roundf(maxcol * 255.0));
     UINT c0 = tmp.r;
     UINT c1 = tmp.g;
 

@@ -25,6 +25,8 @@
 #include "ldgm-session.h"
 #include "timer-util.h"
 
+constexpr const int MAX_W = 128;
+
 using namespace std;
 
 /*
@@ -52,8 +54,8 @@ LDGM_session::set_pcMatrix ( char* fname)
     }
 //    printf ( "In matrix file: K %d M %d Columns %d\n", k_f, m_f, w_f );
 
-    if (w_f < 2) {
-        throw string("Invalid parameter in parity matrix!");
+    if (w_f < 2 || w_f > MAX_W) {
+        throw string("Invalid parameter in parity matrix (allowed range [2.." + to_string(MAX_W) + "])!");
     }
 
     if ( k_f != param_k || m_f != param_m)

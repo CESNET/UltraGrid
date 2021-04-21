@@ -18,12 +18,13 @@ if test -d /c/Program\ Files/NewTek; then
         NDI_D=$(ls -d /c/Program\ Files/NewTek/*SDK)
         export CPATH=$CPATH:$NDI_D/Include
         export LIBRARY_PATH=$LIBRARY_PATH:$NDI_D/Lib/x64
+        cat $NDI_D/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | tee /usr/local/include/ndi_version.h
 fi
 
-JACK_D=/c/Program\ Files\ \(x86\)/Jack
+JACK_D=/c/Program\ Files/JACK2
 if test -d "$JACK_D"; then
         export PATH=$PATH:$JACK_D/bin
-        export CPATH=$CPATH:$JACK_D/includes
+        export CPATH=$CPATH:$JACK_D/include
         export LIBRARY_PATH=$LIBRARY_PATH:$JACK_D/lib
 fi
 
@@ -56,9 +57,15 @@ fi
 
 # DELTACAST
 if [ -n "$SDK_URL" ]; then
-        curl -S $SDK_URL/VideoMasterHD_Win.tar.xz -O
-        tar xJf VideoMasterHD_Win.tar.xz -C /usr/local
-        rm VideoMasterHD_Win.tar.xz
+        mkdir VideoMaster
+        cd VideoMaster
+        curl -S $SDK_URL/VideoMaster_SDK_Windows.zip -O
+        unzip VideoMaster_SDK_Windows.zip
+        cp Binaries/Lib64/*dll /usr/local/bin
+        cp -r Include/* /usr/local/include
+        cp Library/x64/* /usr/local/lib
+        cd ..
+        rm -rf VideoMaster
 fi
 
 # Install live555

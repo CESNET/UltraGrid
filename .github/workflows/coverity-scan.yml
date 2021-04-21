@@ -32,7 +32,7 @@ jobs:
     - name: bootstrap
       run: .github/scripts/Linux/prepare.sh
     - name: configure
-      run: ./autogen.sh --enable-qt --with-cuda-host-compiler=gcc-6 --enable-plugins --with-live555=/usr/local
+      run: ./autogen.sh --enable-qt --enable-plugins --with-live555=/usr/local
     - name: Build with cov-build
       run: |
         /tmp/cov-analysis/bin/cov-build --dir cov-int make -j4

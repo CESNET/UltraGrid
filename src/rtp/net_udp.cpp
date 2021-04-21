@@ -407,11 +407,15 @@ static int udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl
                         return FALSE;
                 }
 #endif
-                if (SETSOCKOPT
-                    (tx_fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
-                     sizeof(ttl)) != 0) {
-                        socket_error("setsockopt IP_MULTICAST_TTL");
-                        return FALSE;
+                if (ttl > -1) {
+                        if (SETSOCKOPT
+                            (tx_fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
+                             sizeof(ttl)) != 0) {
+                                socket_error("setsockopt IP_MULTICAST_TTL");
+                                return FALSE;
+                        }
+                } else {
+                        LOG(LOG_LEVEL_WARNING) << "Using IPv4 multicast but not setting TTL.\n";
                 }
                 if (SETSOCKOPT
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_IF,
@@ -511,11 +515,15 @@ static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, 
                         socket_error("setsockopt IPV6_MULTICAST_LOOP");
                         return FALSE;
                 }
-                if (SETSOCKOPT
-                    (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
-                     sizeof(ttl)) != 0) {
-                        socket_error("setsockopt IPV6_MULTICAST_HOPS");
-                        return FALSE;
+                if (ttl > -1) {
+                        if (SETSOCKOPT
+                            (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
+                             sizeof(ttl)) != 0) {
+                                socket_error("setsockopt IPV6_MULTICAST_HOPS");
+                                return FALSE;
+                        } else {
+                                LOG(LOG_LEVEL_WARNING) << "Using IPv6 multicast but not setting TTL.\n";
+                        }
                 }
                 if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
                                         (char *)&ifindex, sizeof(ifindex)) != 0) {
@@ -694,7 +702,8 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
         return udp_init_if(addr, NULL, rx_port, tx_port, ttl, force_ip_version, multithreaded);
 }
 
-static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port) {
+/// @param ipv6   socket is IPv6 (including v4-mapped)
+static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl) {
         struct sockaddr_storage s_in{};
         socklen_t sin_len;
         int reuse = 1;
@@ -706,6 +715,22 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port) {
                         socket_error("setsockopt IPV6_V6ONLY");
                         return false;
                 }
+                if (ttl > 0 && SETSOCKOPT(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *)&ttl,
+                                        sizeof(ttl)) != 0) {
+                        socket_error("setsockopt IPV6_UNICAST_HOPS");
+                        return false;
+                }
+        }
+        // For macs, this is set only for IPv4 socket (not IPv4-mapped IPv6), on the other
+        // hand, Linux+Win requires this setting for IPv4-mapped IPv6 sockets for the TTL work.
+        if (ttl > 0 &&
+#ifdef __APPLE__
+                        !ipv6 &&
+#endif
+                        SETSOCKOPT(fd, IPPROTO_IP, IP_TTL, (char *)&ttl,
+                                sizeof(ttl)) != 0) {
+                socket_error("setsockopt IP_TTL");
+                return false;
         }
 #ifdef SO_REUSEPORT
         if (SETSOCKOPT
@@ -832,8 +857,8 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         // The order here is important if using separate socket for RX and TX - in
         // MSW, first bound socket receives data, in Linux (with Wine) the
         // second.
-        if (!set_sock_opts_and_bind(s->local->rx_fd, s->local->mode == IPv6, rx_port) ||
-                        (s->local->rx_fd != s->local->tx_fd && !set_sock_opts_and_bind(s->local->tx_fd, s->local->mode == IPv6, rx_port))) {
+        if (!set_sock_opts_and_bind(s->local->rx_fd, s->local->mode == IPv6, rx_port, ttl) ||
+                        (s->local->rx_fd != s->local->tx_fd && !set_sock_opts_and_bind(s->local->tx_fd, s->local->mode == IPv6, rx_port, ttl))) {
                 goto error;
         }
         if (is_wine()) {

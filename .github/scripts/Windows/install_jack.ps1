@@ -6,6 +6,6 @@ choco install -y --no-progress jack
 # 1. it will be cached here
 # 2. if it were in a Windows directory, it won't be bundled with UltraGrid
 #    (also make sure to remove from the Windows directory)
-New-Item -Type Directory 'C:\Program Files (x86)\Jack\bin'
-Move-Item 'C:\Windows\libjack64.dll' 'C:\Program Files (x86)\Jack\bin'
+New-Item -Type Directory 'C:\Program Files\JACK2\bin'
+Move-Item 'C:\Windows\libjack64.dll' 'C:\Program Files\JACK2\bin'
 

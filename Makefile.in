@@ -31,6 +31,7 @@ SYSTEM	      = @system@
 
 GUI_EXE       = @GUI_EXE@
 GUI_TARGET    = @GUI_TARGET@
+QT_CFLAGS     = @QT_CFLAGS@
 REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
 TEST_TARGET  = bin/run_tests$(EXEEXT)
 
@@ -446,6 +447,20 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
+# QT-dependent objects
+src/shared_mem_frame.o: src/shared_mem_frame.cpp $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -c $< -o $@
+
+src/video_display/preview.o: src/video_display/preview.cpp $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -c $< -o $@
+
+src/capture_filter/preview.o: src/capture_filter/preview.cpp $(ALL_INCLUDES)
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -c $< -o $@
+
+
 $(GUI_TARGET): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	$(MKDIR_P) $(dir $@)
 	if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
@@ -494,6 +509,7 @@ distcheck:
 	$(TARGET)
 	$(TARGET) --capabilities
 	$(TARGET) --list-modules
+	$(REFLECTOR_TARGET) -h
 	[ -z "$(GUI_EXE)" ] || $(GUI_EXE) -h
 
 # -------------------------------------------------------------------------------------------------
@@ -594,22 +610,7 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
 	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
 	# add Qt frameworks
-	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2
-	# then fix links also for other binaries than uv-qt, namely uv itself
-	for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
-		for m in $$(otool -L $$n | tail -n +2 | grep -v '^\ *@' | grep 'Qt[a-zA-Z]*\.framework' | sed -n 's/[^/]*\([^ ]*\).*/\1/p'); do \
-			FRAMEWORK_D=$$(echo $$m | sed 's/\(.*\.framework\).*/\1/'); \
-			FRAMEWORK_N=$$(basename $$FRAMEWORK_D); \
-			SUFFIX=$$(echo $$m | sed 's/.*\/\([^/]*\.framework.*\)/\1/'); \
-			install_name_tool -change $$m @executable_path/../Frameworks/$$SUFFIX $$n; \
-			[ -d $(GUI_BUNDLE)/Contents/Frameworks/$$FRAMEWORK_N ] && continue; \
-			cp -R $$FRAMEWORK_D $(GUI_BUNDLE)/Contents/Frameworks; \
-			install_name_tool -id @executable_path/../Frameworks/$$(echo $$m | sed 's/.*\(Qt[a-zA-Z]*\.framework\)/\1/') $(GUI_BUNDLE)/Contents/Frameworks/$$SUFFIX; \
-			for i in $$(otool -L $(GUI_BUNDLE)/Contents/Frameworks/$$SUFFIX | tail -n +2 | sed -n '/^[^@]*Qt[a-zA-Z]*\.framework/s/[^/]*\([^ ]*\).*/\1/p'); do \
-				install_name_tool -change $$i @executable_path/../Frameworks/$$(echo $$i | sed 's/.*\(Qt[a-zA-Z]*\.framework\)/\1/') $(GUI_BUNDLE)/Contents/Frameworks/$$SUFFIX; \
-			done ; \
-		done; \
-	done
+	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2 -executable=$(GUI_BUNDLE)/Contents/MacOS/uv -executable=$(GUI_BUNDLE)/Contents/MacOS/hd-rum-transcode
 	test -d $(GUI_BUNDLE)/Contents/Resources || mkdir $(GUI_BUNDLE)/Contents/Resources
 	cp data/icon.icns $(GUI_BUNDLE)/Contents/Resources
 	cp data/update.mac $(GUI_BUNDLE)/Contents/MacOS/update

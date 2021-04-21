@@ -1023,7 +1023,7 @@ static void init_rng(const char *s)
  * or may be an IPv4 dotted quad or IPv6 literal adddress.
  * @rx_port: The port to which to bind the UDP socket
  * @tx_port: The port to which to send UDP packets
- * @ttl: The TTL with which to send multicasts
+ * @ttl: The TTL for both multicast and unicast (-1 for default)
  * @rtcp_bw: The total bandwidth (in units of bytes per second) that is
  * allocated to RTCP.
  * @callback: See section on #rtp_callback.
@@ -1055,7 +1055,7 @@ struct rtp *rtp_init(const char *addr,
  * will be used.
  * @rx_port: The port to which to bind the UDP socket
  * @tx_port: The port to which to send UDP packets
- * @ttl: The TTL with which to send multicasts
+ * @ttl: The TTL for both multicast and unicast (-1 for default)
  * @rtcp_bw: The total bandwidth (in units of ___) that is
  * allocated to RTCP.
  * @callback: See section on #rtp_callback.
@@ -1090,8 +1090,8 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                 log_msg(LOG_LEVEL_ERROR, "IP version must be either 4 or 6 (or 0)\n");
                 return NULL;
         }
-        if (ttl < 0 || ttl > 255) {
-                log_msg(LOG_LEVEL_ERROR, "ttl must be in range [0..255]\n");
+        if (ttl < -1 || ttl > 255) {
+                log_msg(LOG_LEVEL_ERROR, "ttl must be in range [0..255] or -1\n");
                 return NULL;
         }
         if (rx_port % 2) {

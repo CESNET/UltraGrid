@@ -274,6 +274,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 			msgA1->tx_port = ntohs(Adestination->rtpPort.num());
 			msgA1->type = SENDER_MSG_CHANGE_PORT;
 			resp = send_message(fmod, pathA, (struct message *) msgA1);
+			free_response(resp);
 			resp = NULL;
 
 			//CHANGE DST ADDRESS
@@ -284,6 +285,7 @@ void BasicRTSPOnlySubsession::startStream(unsigned /* clientSessionId */,
 			msgA2->type = SENDER_MSG_CHANGE_RECEIVER;
 
 			resp = send_message(fmod, pathA, (struct message *) msgA2);
+			free_response(resp);
 			resp = NULL;
 		}
 	}

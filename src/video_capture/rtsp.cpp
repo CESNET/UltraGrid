@@ -122,8 +122,8 @@ static int
 rtsp_teardown(CURL *curl, const char *uri);
 
 /* convert url into an sdp filename */
-static void
-get_sdp_filename(const char *url, char *sdp_filename);
+static char *
+get_sdp_filename(const char *url);
 
 static int
 get_nals(const char *sdp_filename, char *nals, int *width, int *height);
@@ -676,7 +676,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     debug_msg("    Requires cURL V7.20 or greater\n\n");
     const char *url = rtsp_uri;
     s->uri = (char *) malloc(strlen(url) + 32);
-    char *sdp_filename = (char *) malloc(strlen(url) + 32);
+    char *sdp_filename = nullptr;
     char Atransport[256];
     char Vtransport[256];
     memset(Atransport, 0, 256);
@@ -684,7 +684,10 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     int port = rtsp_port;
     CURLcode res;
 
-    get_sdp_filename(url, sdp_filename);
+    if ((sdp_filename = get_sdp_filename(url)) == nullptr) {
+        LOG(LOG_LEVEL_ERROR) << "[RTSP] Cannot SDP file name from URL: " << url << "\n";
+        return -1;
+    }
 
     sprintf(Vtransport, "RTP/AVP;unicast;client_port=%d-%d", port, port + 1);
 
@@ -1058,18 +1061,21 @@ rtsp_teardown(CURL *curl, const char *uri) {
 /**
  * convert url into an sdp filename
  */
-static void
-get_sdp_filename(const char *url, char *sdp_filename) {
+static char *
+get_sdp_filename(const char *url) {
     const char *s = strrchr(url, '/');
 
     if (s == nullptr) {
-        return;
+        return nullptr;
     }
     s++;
+    char *sdp_filename = nullptr;
     if (strlen(s) > 0) {
+        sdp_filename = static_cast<char *>(malloc(strlen(s) + 4 + 1));
         sprintf(sdp_filename, "%s.sdp", s);
+        debug_msg("sdp_file get: %s\n", sdp_filename);
     }
-    debug_msg("sdp_file get: %s\n", sdp_filename);
+    return sdp_filename;
 }
 
 static struct vidcap_type *

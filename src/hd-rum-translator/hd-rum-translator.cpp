@@ -290,10 +290,10 @@ static struct response *change_replica_type(struct hd_rum_translator_state *s,
 static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
         DWORD /* dwNumberOfBytesTransfered */,
         LPOVERLAPPED lpOverlapped, long unsigned int) {
-    struct wsa_aux_storage *aux = (struct wsa_aux_storage *) ((char *) lpOverlapped->Pointer + OFFSET);
+    struct wsa_aux_storage *aux = (struct wsa_aux_storage *) ((char *) lpOverlapped->hEvent + OFFSET);
     if (--aux->ref == 0) {
         free(aux->overlapped);
-        free(lpOverlapped->Pointer);
+        free(lpOverlapped->hEvent);
     }
 }
 #endif
@@ -453,7 +453,7 @@ static void *writer(void *arg)
             int overlapped_idx = 0;
             for (unsigned int i = 0; i < s->replicas.size(); i++) {
                 if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
-                    aux->overlapped[overlapped_idx].Pointer = s->qhead->buf;
+                    aux->overlapped[overlapped_idx].hEvent = s->qhead->buf;
                     ssize_t ret = udp_send_wsa_async(s->replicas[i]->sock, s->qhead->buf, s->qhead->size, wsa_deleter, &aux->overlapped[overlapped_idx]);
                     if (ret < 0) {
                         perror("Hd-rum-translator send");
@@ -544,8 +544,11 @@ struct cmdline_parameters {
 /**
  * @todo
  * Use rather getopt() than manual parsing.
+ * @retval -1 failure
+ * @retval 0 success
+ * @retval 1 help shown
  */
-static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
+static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
 {
     int start_index = 1;
 
@@ -559,7 +562,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             }
         } else if(strcmp(argv[start_index], "--capabilities") == 0) {
             print_capabilities(NULL, false);
-            return false;
+            return 1;
         } else if(strcmp(argv[start_index], "--blend") == 0) {
             parsed->out_conf.mode = BLEND;
         } else if(strcmp(argv[start_index], "--conference") == 0) {
@@ -568,21 +571,21 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             parsed->out_conf.arg = item;
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
             parsed->capture_filter = argv[++start_index];
-        } else if(strcmp(argv[start_index], "--help") == 0) {
+        } else if(strcmp(argv[start_index], "-h") == 0 || strcmp(argv[start_index], "--help") == 0) {
             usage(argv[0]);
-            return false;
+            return 1;
         } else if(strcmp(argv[start_index], "-v") == 0) {
-            return false;
+            return 1;
         } else if(strcmp(argv[start_index], "--verbose") == 0) {
             parsed->verbose = true;
         } else if(strcmp(argv[start_index], "--param") == 0 && start_index < argc - 1) {
             if (!parse_params(argv[++start_index])) {
-                return false;
+                return -1;
             }
         } else {
             LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Unknown global parameter: " << argv[start_index] << "\n\n";
             usage(argv[0]);
-            return false;
+            return -1;
         }
         start_index++;
     }
@@ -590,7 +593,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     if (argc < start_index + 2) {
         LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Missing mandatory parameters!\n\n";
         usage(argv[0]);
-        return false;
+        return -1;
     }
 
     parsed->bufsize = argv[start_index];
@@ -612,7 +615,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
 
             if(i == argc - 1 || argv[i + 1][0] == '-') {
                 fprintf(stderr, "Error: option '-%c' requires an argument\n", argv[i][1]);
-                exit(EXIT_FAIL_USAGE);
+                return -1;
             }
 
             parsed->host_count -= 1; // because option argument (mandatory) will be counted as a host
@@ -675,7 +678,7 @@ static bool parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         }
     }
 
-    return true;
+    return 0;
 }
 
 static string format_port_list(struct hd_rum_translator_state *s)
@@ -747,10 +750,10 @@ int main(int argc, char **argv)
     signal(SIGABRT, signal_handler);
 #endif
 
-    bool ret = parse_fmt(argc, argv, &params);
+    int ret = parse_fmt(argc, argv, &params);
 
-    if (ret == false) {
-        EXIT(EXIT_SUCCESS);
+    if (ret != 0) {
+        EXIT(ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
     }
 
     if (params.verbose) {

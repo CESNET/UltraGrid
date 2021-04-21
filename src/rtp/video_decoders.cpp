@@ -457,7 +457,7 @@ static void *fec_thread(void *args) {
                                 int fec_out_len = 0;
 
                                 if (data->recv_frame->tiles[pos].data_len > (unsigned int) sum_map(data->pckt_list[pos])) {
-                                        verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
+                                        debug_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
                                                         (unsigned int) data->buffer_num[pos],
                                                         data->recv_frame->tiles[pos].data_len,
                                                         (unsigned int) sum_map(data->pckt_list[pos]));
@@ -540,7 +540,7 @@ static void *fec_thread(void *args) {
                                 data->nofec_frame->tiles[i].data = data->recv_frame->tiles[i].data;
 
                                 if (data->recv_frame->tiles[i].data_len > (unsigned int) sum_map(data->pckt_list[i])) {
-                                        verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.%s\n", i,
+                                        debug_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.%s\n", i,
                                                         (unsigned int) data->buffer_num[i],
                                                         data->recv_frame->tiles[i].data_len,
                                                         (unsigned int) sum_map(data->pckt_list[i]),

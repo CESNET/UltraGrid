@@ -18,6 +18,10 @@ DEFINES += GUI_BUILD
 
 QT += widgets
 
+greaterThan(QT_MAJOR_VERSION, 5) {
+    QT += opengl openglwidgets
+}
+
 CONFIG += c++11
 
 LIBS += $$PWD/../../tools/astat.a

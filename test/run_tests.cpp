@@ -144,11 +144,28 @@ static bool run_unit_tests([[maybe_unused]] string const &test)
         return true;
 }
 
+#ifdef HAVE_CPPUNIT
+static void print_test(CPPUNIT_NS::Test *test, int indention) {
+        for (int i = 0; i < test->getChildTestCount(); ++i) {
+                for (int j = 0; j < indention; ++j) {
+                        cout << " ";
+                }
+                cout << "- " << test->getChildTestAt(i)->getName() << "\n";
+                print_test(test->getChildTestAt(i), indention + 3);
+        }
+}
+#endif
+
 int main(int argc, char **argv)
 {
         if (argc > 1 && (strcmp("-h", argv[1]) == 0 || strcmp("--help", argv[1]) == 0)) {
                 cout << "Usage:\n\t" << argv[0] << " [ unit | standard | all | <test_name> | -h | --help ]\n";
                 cout << "where\n\t<test_name> - run only unit test of given name\n";
+#ifdef HAVE_CPPUNIT
+                cout << "\nAvailable unit tests:\n";
+                CPPUNIT_NS::Test *suite = CPPUNIT_NS::TestFactoryRegistry::getRegistry().makeTest();
+                print_test(suite, 0);
+#endif
                 return 0;
         }
 

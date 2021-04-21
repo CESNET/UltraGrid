@@ -4,10 +4,9 @@
 # original because it has far better execution time (and perhaps also other improvements)
 
 cd /tmp
-git clone https://github.com/SCG82/macdylibbundler.git
+git clone --depth 1 https://github.com/SCG82/macdylibbundler.git
 cd macdylibbundler
-cmake .
-make -j 3
+make -j $(sysctl -n hw.ncpu)
 sudo cp dylibbundler /usr/local/bin
 cd -
 rm -rf macdylibbundler
