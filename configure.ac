@@ -3256,7 +3256,7 @@ if test $FOUND_VRG_H = yes; then
         AC_DEFINE([HAVE_VRG_H], [1], [We can use vrgstream.h])
 fi
 
-if test $vrg_req != no -a $FOUND_VRG_H = yes -a $FOUND_VRG_L = yes
+if test $vrg_req != no -a $FOUND_VRG_L = yes
 then
         LIBS="$LIBS -lvrgstream"
         OBJS="$OBJS src/video_display/vrg.o"
@@ -3264,7 +3264,7 @@ then
 fi
 
 if test $vrg_req = yes -a $vrg = no; then
-        AC_MSG_ERROR([VRG headers or library not found]);
+        AC_MSG_ERROR([VRG library not found]);
 fi
 
 # ---------------------------------------------------------------------
