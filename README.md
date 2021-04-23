@@ -61,6 +61,10 @@ VR-specific changes
 Changes
 ---------
 
+### 2021-04-23
+- UltraGrid now honors `RenderPacket::dx_row_pitch` and `RenderPacket::dx_row_pitch_uv`
+  for uncompressed stream (not for JPEG yet)
+
 ### 2021-03-22
 - VRG now allocates buffers with cudaMallocHost, passed to library is with
   VrgMemory::CPU. Added option to use managed mem instead, aka `-d vrg:managed`
