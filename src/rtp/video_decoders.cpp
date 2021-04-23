@@ -188,6 +188,7 @@ constexpr int PADDING = 0;
 enum decoder_type_t {
         UNSET,
         LINE_DECODER,    ///< This is simple decoder, that decodes incoming data per line (pixelformats only).
+        PLANAR_MEMCPY,  ///< VRG specific
         EXTERNAL_DECODER /**< real decompress, received buffer is opaque and has to be decompressed as
                           * a whole. */
 };
@@ -1081,7 +1082,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                                 continue; /// DXT1 it is a exception, see @ref vdec_note1
 
                         *decode_line = vc_memcpy;
-                        decoder->decoder_type = LINE_DECODER;
+                        decoder->decoder_type = (desc.color_spec == I420 || desc.color_spec == CUDA_I420) ? PLANAR_MEMCPY : LINE_DECODER;
 
                         if(desc.color_spec == RGBA || /* another exception - we may change shifts */
                                         desc.color_spec == RGB) { // should RGB be also handled
@@ -1706,7 +1707,41 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         goto next_packet;
                 }
 
-                if ((pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) && decoder->decoder_type == LINE_DECODER) {
+                if ((pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) && decoder->decoder_type == PLANAR_MEMCPY) {
+                        if(!buffer_swapped) {
+                                wait_for_framebuffer_swap(decoder);
+                                buffer_swapped = true;
+                                unique_lock<mutex> lk(decoder->lock);
+                                decoder->buffer_swapped = false;
+                        }
+                        auto *tile = vf_get_tile(decoder->frame, 0);
+
+                        int pitch_y = max<int>(frame->render_packet.dx_row_pitch, tile->width);
+                        int pitch_uv = max<int>(frame->render_packet.dx_row_pitch_uv, tile->width / 2);
+                        source = (unsigned char*)(data);
+
+                        while (len > 0) {
+                                const unsigned int uv_offset = tile->width * tile->height;
+                                int l;
+                                if (data_pos < uv_offset) { // Y
+                                        int y = data_pos / tile->width;
+                                        int x = data_pos % tile->width;
+                                        l = min<int>(len, tile->width - x);
+                                        memcpy(tile->data + y * pitch_y + x, data, l);
+                                } else {
+                                        const int row_width = tile->width / 2;
+                                        int offset = data_pos - uv_offset;
+                                        int d_offset = tile->height * pitch_y;
+                                        int y = offset / row_width;
+                                        int x = data_pos % row_width;
+                                        l = min<int>(len, (row_width - x));
+                                        memcpy(tile->data + d_offset + y * pitch_uv + x, data, l);
+                                }
+                                len -= l;
+                                data += l;
+                                data_pos += l;
+                        }
+                } else if ((pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) && decoder->decoder_type == LINE_DECODER) {
                         struct tile *tile = NULL;
                         if(!buffer_swapped) {
                                 wait_for_framebuffer_swap(decoder);
@@ -1734,7 +1769,6 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                          * byte offset in the destination frame
                          */
                         int y = (data_pos / line_decoder->src_linesize) * line_decoder->dst_pitch;
-
                         /* compute X pos in source frame */
                         int s_x = data_pos % line_decoder->src_linesize;
 
@@ -1829,7 +1863,7 @@ next_packet:
         /// Zero missing parts of framebuffer - this may be useful for compressed video
         /// (which may be also with FEC - but we use systematic codes therefore it may
         /// benefit from that as well).
-        if (decoder->decoder_type != LINE_DECODER) {
+        if (decoder->decoder_type != LINE_DECODER && decoder->decoder_type != PLANAR_MEMCPY) {
                 for(int i = 0; i < max_substreams; ++i) {
                         unsigned int last_end = 0;
                         for (auto const & packets : pckt_list[i]) {
