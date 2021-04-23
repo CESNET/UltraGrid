@@ -1835,7 +1835,7 @@ next_packet:
                         for (auto const & packets : pckt_list[i]) {
                                 unsigned int start = packets.first;
                                 unsigned int len = packets.second;
-                                if (last_end < start) {
+                                if (last_end < start && start < frame->tiles[i].data_len) {
                                         memset(frame->tiles[i].data + last_end, 0, start - last_end);
                                 }
                                 last_end = start + len;
