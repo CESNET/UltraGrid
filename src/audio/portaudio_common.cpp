@@ -108,6 +108,11 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
 
         for(i = 0; i < numDevices; i++)
         {
+                const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
+                if (log_level < LOG_LEVEL_VERBOSE && ((device_info->maxInputChannels == 0 && kind == PORTAUDIO_IN) ||
+                                (device_info->maxOutputChannels == 0 && kind == PORTAUDIO_OUT))) {
+                        continue;
+                }
                 if((i == Pa_GetDefaultInputDevice() && kind == PORTAUDIO_IN) ||
                                 (i == Pa_GetDefaultOutputDevice() && kind == PORTAUDIO_OUT))
                         printf("(*) ");
