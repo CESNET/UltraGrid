@@ -1111,9 +1111,9 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->send_rtcp_to_origin = false; // VRG
 
         // VRG specific changes
-        assert((rx_port == 0 || tx_port == 0) && (rx_port != 0 || tx_port != 0));
+        assert((rx_port == 0 || tx_port == 0));
         session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, force_ip_version, multithreaded);
-        uint16_t rtcp_rx_port = rx_port == 0 ? tx_port + 1 : 0;
+        uint16_t rtcp_rx_port = rx_port != 0 ? 0 : tx_port != 0 ? tx_port + 1 : 0;
         uint16_t rtcp_tx_port = (rx_port == 0 ? tx_port : rx_port) + 1;
 
         session->rtcp_socket =
