@@ -344,7 +344,8 @@ static int display_vrg_reconfigure(void *state, struct video_desc desc)
                 s->pool.replace_allocator(default_data_allocator());
         }
 #endif
-        s->pool.reconfigure(desc);
+        // use headroom - VRG uses pitches
+        s->pool.reconfigure(desc, vc_get_linesize(desc.width + 128, desc.color_spec) * desc.height);
 
         return TRUE;
 }

@@ -95,7 +95,7 @@ std::shared_ptr<video_frame> video_frame_pool::get_frame() {
                                 if (ret->tiles[i].data == NULL) {
                                         throw std::runtime_error("Cannot allocate data");
                                 }
-                                ret->tiles[i].data_len = m_max_data_len;
+                                //ret->tiles[i].data_len = m_max_data_len;
                         }
                 } catch (std::exception &e) {
                         std::cerr << e.what() << std::endl;
