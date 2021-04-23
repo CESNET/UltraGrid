@@ -1091,14 +1091,14 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                 return NULL;
         }
         if (ttl < -1 || ttl > 255) {
-                log_msg(LOG_LEVEL_ERROR, "ttl must be in range [0..255] or -1\n");
+                log_msg(LOG_LEVEL_ERROR, "ttl must be in range [0..255] or -1, %d given\n", ttl);
                 return NULL;
         }
         if (rx_port % 2) {
-                log_msg(LOG_LEVEL_WARNING, "RTP: rx_port should be even.\n");
+                log_msg(LOG_LEVEL_WARNING, "RTP: rx_port should be even, using %d.\n", rx_port);
         }
         if (tx_port % 2) {
-                log_msg(LOG_LEVEL_WARNING, "RTP: tx_port should be even.\n");
+                log_msg(LOG_LEVEL_WARNING, "RTP: tx_port should be even, using %d.\n", tx_port);
         }
 
         session = (struct rtp *)malloc(sizeof(struct rtp));
