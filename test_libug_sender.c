@@ -8,6 +8,8 @@
 
 #include <libug.h>
 
+#include "src/vrgstream-fallback.h"
+
 #define DEFAULT_WIDTH 1920
 #define DEFAULT_HEIGHT 1080
 #define FPS 30.0
@@ -105,7 +107,8 @@ int main(int argc, char *argv[]) {
         uint32_t frames = 0;
         uint32_t frames_last = 0;
         while (1) {
-                ug_send_frame(s, (char *) test + width * 4 * (frames % 768), UG_RGBA, width, height, frames);
+                struct RenderPacket pkt = { .frame = frames };
+                ug_send_frame(s, (char *) test + width * 4 * (frames % 768), UG_RGBA, width, height, &pkt);
                 frames += 1;
                 time_t seconds = time(NULL) - t0;
                 if (seconds > 0) {

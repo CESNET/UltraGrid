@@ -64,7 +64,7 @@ LIBUG_DLL struct ug_sender *ug_sender_init(const struct ug_sender_parameters *in
  *
  * This function is blocking.
  */
-LIBUG_DLL void ug_send_frame(struct ug_sender *state, const char *data, libug_pixfmt_t pixel_format, int width, int height, uint32_t seq);
+LIBUG_DLL void ug_send_frame(struct ug_sender *state, const char *data, libug_pixfmt_t pixel_format, int width, int height, struct RenderPacket *pkt);
 LIBUG_DLL void ug_sender_done(struct ug_sender *state);
 
 struct ug_receiver;
