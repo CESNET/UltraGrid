@@ -1116,39 +1116,36 @@ if test $system = MacOSX; then
         XI_LIB_NAME="m3api"
 else
         if test $system = Linux; then
-                if test -z "$GENICAM_GENTL64_PATH"; then
-                        GENICAM_GENTL64_PATH="/opt/XIMEA/lib"
-                fi
+                XIAPI_PATH=${GENICAM_GENTL64_PATH:-/opt/XIMEA/lib}
                 XI_LIB_EXT=".so"
                 XI_LIB_NAME="m3api"
                 XI_LIB_PREF="lib"
-                XI_INC_SUFF="/include"
+                XIMEA_CFLAGS="-I$XIAPI_PATH/../include"
         else
                 if test -n "$GENICAM_GENTL64_PATH"; then
-                        # the env var contains actually something like "C:\XIMEA\GenTL Producer\x64"
-                        GENICAM_GENTL64_PATH=$(realpath "$GENICAM_GENTL64_PATH=C:/XIMEA/API/x64")
+                        # the env var contains actually something like "C:\XIMEA\GenTL Producer\64bit"
+                        XIAPI_PATH=$(realpath "$GENICAM_GENTL64_PATH/../../API/xiAPI")
                 else
-                        GENICAM_GENTL64_PATH="C:/XIMEA/API/x64"
+                        XIAPI_PATH="C:/XIMEA/API/xiAPI"
                 fi
                 XI_LIB_EXT=".dll"
                 XI_LIB_NAME="xiapi64"
-                XI_INC_SUFF=
+                XIMEA_CFLAGS="-I$XIAPI_PATH"
         fi
         SAVED_CFLAGS=$CFLAGS
         SAVED_CPPFLAGS=$CPPFLAGS
-        XIMEA_CFLAGS="-I$GENICAM_GENTL64_PATH/..${XI_INC_SUFF}"
         CFLAGS="$CFLAGS $XIMEA_CFLAGS"
         CPPFLAGS="$CPPFLAGS $XIMEA_CFLAGS"
         AC_CHECK_HEADERS([xiApi.h])
         CFLAGS=$SAVED_CFLAGS
 
         if test $ximea_link_runtime = no; then
-                XIMEA_LIBS="-L$GENICAM_GENTL64_PATH"
+                XIMEA_LIBS="-L$XIAPI_PATH"
                 SAVED_LIBS=$LIBS
                 LIBS="$LIBS $XIMEA_LIBS"
                 CPPFLAGS=$SAVED_CPPFLAGS
                 AC_CHECK_LIB($XI_LIB_NAME, xiGetImage, HAVE_XI_L=yes, HAVE_XI_L=no)
-                XIMEA_LIBS="-l$XI_LIB_NAME -L$GENICAM_GENTL64_PATH"
+                XIMEA_LIBS="-l$XI_LIB_NAME -L$XIAPI_PATH"
                 LIBS=$SAVED_LIBS
         else
                 HAVE_XI_L=yes
