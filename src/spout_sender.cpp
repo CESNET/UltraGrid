@@ -51,7 +51,8 @@ void spout_sender_sendframe(void *s, int width, int height, unsigned int id) {
 	}
 
 void spout_sender_unregister(void *s) {
-        ((SpoutSender *)s)->ReleaseSender();
-        delete s;
+        auto *sender = static_cast<SpoutSender *>(s);
+        sender->ReleaseSender();
+        delete sender;
 }
 
