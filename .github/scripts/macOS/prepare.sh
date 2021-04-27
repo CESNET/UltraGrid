@@ -16,7 +16,7 @@ brew install speexdsp
 brew install ffmpeg portaudio sdl2
 brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
-( git submodule update --init cineform-sdk && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
+( git submodule update --init cineform-sdk && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make -j $(sysctl -n hw.ncpu) CFHDCodecStatic || exit 1 )
 brew install qt@5
 
 sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt
@@ -75,7 +75,7 @@ git clone https://github.com/xanview/live555/
 cd live555
 git checkout 35c375
 ./genMakefiles macosx
-make install
+make -j $(sysctl -n hw.ncpu) install
 cd ..
 
 # Install Syphon
