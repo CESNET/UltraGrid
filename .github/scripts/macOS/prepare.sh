@@ -36,6 +36,8 @@ umount /Volumes/XIMEA
 AJA_DIRECTORY=$SDK_NONFREE_PATH/ntv2sdk
 if [ -d $AJA_DIRECTORY ]; then
         echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> $GITHUB_ENV
+        FEATURES="$FEATURES --enable-aja"
+        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         sudo rm -f /usr/local/lib/libajantv2.dylib
         sudo cp $AJA_DIRECTORY/bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
         sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
@@ -45,6 +47,8 @@ fi
 # DELTACAST
 DELTA_CACHE_INST=$SDK_NONFREE_PATH/VideoMasterHD_inst
 if [ -d $DELTA_CACHE_INST ]; then
+        FEATURES="$FEATURES --enable-deltacast"
+        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         sudo cp -a $DELTA_CACHE_INST/* $(xcrun --show-sdk-path)/System/Library/Frameworks
 fi
 
