@@ -352,8 +352,9 @@ static decompress_status probe_internal(struct state_cineform_decompress *s,
 
 static decompress_status cineform_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks,
-                codec_t *internal_codec)
+                codec_t *internal_codec, const int *pitches)
 {
+        assert(pitches == nullptr);
         UNUSED(frame_seq);
         UNUSED(callbacks);
         struct state_cineform_decompress *s = (struct state_cineform_decompress *) state;

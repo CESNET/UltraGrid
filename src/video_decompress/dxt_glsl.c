@@ -137,8 +137,10 @@ static int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
 }
 
 static decompress_status dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec,
+                const int *pitches)
 {
+        assert(pitches == NULL);
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         UNUSED(src_len);
         UNUSED(frame_seq);

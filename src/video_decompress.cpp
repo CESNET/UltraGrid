@@ -232,7 +232,8 @@ decompress_status decompress_frame(
                 unsigned int compressed_len,
                 int frame_seq,
                 struct video_frame_callbacks *callbacks,
-                codec_t *internal_codec)
+                codec_t *internal_codec,
+                const int *pitches)
 {
         assert(s->magic == DECOMPRESS_MAGIC);
 
@@ -242,7 +243,7 @@ decompress_status decompress_frame(
                         compressed_len,
                         frame_seq,
                         callbacks,
-                        internal_codec);
+                        internal_codec, pitches);
 }
 
 /** @copydoc decompress_get_property_t */

@@ -104,6 +104,9 @@ typedef enum {
  * @param[out] internal_codec internal codec pixel format that was probed (@see DECODER_GOT_CODEC).
  *                           May be ignored if decoder doesn't announce codec probing (see @ref
  *                           decode_from_to)
+ * @param pitches            pitch to decode to (for planar formats there
+ *                           will be more values). If NULL, original behavior
+ *                           applies.
  * @note
  * Frame_seq used perhaps only for VP8, H.264 uses Periodic Intra Refresh.
  * @retval    DECODER_GOT_FRAME        if decompressed successfully
@@ -118,7 +121,7 @@ typedef decompress_status (*decompress_decompress_t)(
                 unsigned int src_len,
                 int frame_seq,
                 struct video_frame_callbacks *callbacks,
-                codec_t *internal_codec);
+                codec_t *internal_codec, const int *pitches);
 
 /**
  * @param state decoder state
@@ -194,7 +197,7 @@ decompress_status decompress_frame(struct state_decompress *,
                 unsigned int src_len,
                 int frame_seq,
                 struct video_frame_callbacks *callbacks,
-                codec_t *internal_codec);
+                codec_t *internal_codec, const int *pitches);
 
 int decompress_get_property(struct state_decompress *state,
                 int property,

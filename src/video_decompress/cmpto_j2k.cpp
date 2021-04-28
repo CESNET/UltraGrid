@@ -389,8 +389,10 @@ static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned cha
  * it just returns false.
  */
 static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */, codec_t *internal_codec)
+                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */,
+                codec_t *internal_codec, const int *pitches)
 {
+        assert(pitches == nullptr);
         struct state_decompress_j2k *s =
                 (struct state_decompress_j2k *) state;
         struct cmpto_j2k_dec_img *img;
