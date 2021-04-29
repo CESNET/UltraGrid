@@ -589,6 +589,7 @@ struct decompress_data {
         decompress_status ret = DECODER_NO_FRAME;
         unsigned char *out;
         codec_t internal_codec; // set only if probing (ret == DECODER_GOT_CODEC)
+        const int *pitches;
 };
 static void *decompress_worker(void *data)
 {
@@ -605,6 +606,23 @@ static void *decompress_worker(void *data)
                         &decoder->frame->callbacks,
                         &d->internal_codec, nullptr);
         return d;
+}
+
+static int *get_pitches(struct video_frame *f, int *pitches) {
+        if (f->render_packet.dx_row_pitch == 0) {
+                return nullptr;
+        }
+        if (f->color_spec == I420 || f->color_spec == CUDA_I420) {
+                // pitches defined but default
+                if (f->render_packet.dx_row_pitch == f->tiles[0].width
+                                && f->render_packet.dx_row_pitch_uv == f->tiles[0].width / 2) {
+                        return nullptr;
+                }
+        }
+        pitches[0] = f->render_packet.dx_row_pitch;
+        pitches[1] =
+                pitches[2] = f->render_packet.dx_row_pitch_uv;
+        return pitches;
 }
 
 ADD_TO_PARAM("decoder-drop-policy",
@@ -647,6 +665,9 @@ static void *decompress_thread(void *args) {
                         tmp = unique_ptr<char[]>(new char[tile_height * (tile_width * MAX_BPS + MAX_PADDING)]);
                 }
 
+                int pitch_buf[4] = { };
+                int *pitches = get_pitches(msg->nofec_frame, pitch_buf);
+
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
                         int tile_count = get_video_mode_tiles_x(decoder->video_mode) *
                                         get_video_mode_tiles_y(decoder->video_mode);
@@ -654,6 +675,7 @@ static void *decompress_thread(void *args) {
                         vector<decompress_data> data(tile_count);
                         for (int pos = 0; pos < tile_count; ++pos) {
                                 data[pos].decoder = decoder;
+                                data[pos].pitches = pitches;
                                 data[pos].pos = pos;
                                 data[pos].compressed = msg->nofec_frame;
                                 data[pos].buffer_num = msg->buffer_num[pos];

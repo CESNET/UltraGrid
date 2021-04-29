@@ -120,7 +120,7 @@ static int configure_with(struct state_decompress_gpujpeg *s, struct video_desc 
                 assert("Invalid codec!" && 0);
         }
 
-        if (cudaMalloc(&s->cuda_tmp_buf, desc.width * desc.height * 4) != cudaSuccess) {
+        if (cudaMalloc((void **) &s->cuda_tmp_buf, desc.width * desc.height * 4) != cudaSuccess) {
                 log_msg(LOG_LEVEL_WARNING, "Cannot allocate CUDA buffer!\n");
         }
 
@@ -223,7 +223,6 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec,
                 const int *pitches)
 {
-        assert(pitches == NULL);
         UNUSED(frame_seq);
         UNUSED(callbacks);
         struct state_decompress_gpujpeg *s = (struct state_decompress_gpujpeg *) state;
@@ -256,6 +255,23 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
                         }
                 }
+        } else if (pitches != NULL) {
+                assert(s->out_codec == I420 || s->out_codec == CUDA_I420);
+                assert(s->cuda_tmp_buf != NULL);
+                gpujpeg_decoder_output_set_custom_cuda (&decoder_output, s->cuda_tmp_buf);
+                if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
+                        return DECODER_NO_FRAME;
+                }
+                if (cudaMemcpy2D(dst, pitches[0], s->cuda_tmp_buf, s->desc.width, s->desc.width, s->desc.height, cudaMemcpyDefault) != cudaSuccess) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Y failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                }
+                if (cudaMemcpy2D(dst + pitches[0] * s->desc.height, pitches[1], s->cuda_tmp_buf + s->desc.width * s->desc.height, s->desc.width / 2, s->desc.width / 2, s->desc.height / 2, cudaMemcpyDefault) != cudaSuccess) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Cb failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                }
+                if (cudaMemcpy2D(dst + pitches[0] * s->desc.height + pitches[1] * s->desc.height / 2, pitches[2], s->cuda_tmp_buf + s->desc.width * s->desc.height + s->desc.width / 2 + s->desc.height / 2, s->desc.width / 2, s->desc.width / 2, s->desc.height / 2, cudaMemcpyDefault) != cudaSuccess) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Cr failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                }
+
         } else if (s->out_codec == CUDA_I420 || s->out_codec == CUDA_RGBA) {
                 gpujpeg_decoder_output_set_custom_cuda (&decoder_output, dst);
                 if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
