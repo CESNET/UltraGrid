@@ -502,8 +502,12 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                 return &compress_init_noerr;
         } else if(opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 16, 0)
+                return gpujpeg_print_devices_info() == 0 ? &compress_init_noerr : nullptr;
+#else
                 gpujpeg_print_devices_info();
                 return &compress_init_noerr;
+#endif
         }
 
         try {
