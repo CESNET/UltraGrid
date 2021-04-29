@@ -503,7 +503,12 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                         "quality and restart intervals " << BOLD("\"q=\"") << " and " << BOLD("\"restart=\"") << " can be used.\n";
                 cout << "\n";
                 return &compress_init_noerr;
-        } else if(opts && strcmp(opts, "list_devices") == 0) {
+        }
+        if (opts && strcmp(opts, "check") == 0) {
+                auto device_info = gpujpeg_get_devices_info();
+                return device_info.device_count == 0 ? nullptr : &compress_init_noerr;
+        }
+        if (opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 16, 0)
                 return gpujpeg_print_devices_info() == 0 ? &compress_init_noerr : nullptr;
