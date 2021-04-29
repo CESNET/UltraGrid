@@ -103,6 +103,7 @@ struct compress_state {
         struct module mod;               ///< compress module data
         struct compress_state_real *ptr; ///< pointer to real compress state
         synchronized_queue<shared_ptr<video_frame>, 1> queue;
+        bool poisoned = false;
 };
 
 /**
@@ -342,6 +343,10 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
 
         struct compress_state_real *s = proxy->ptr;
 
+        if (!frame) {
+                proxy->poisoned = true;
+        }
+
         if (s->funcs->compress_frame_async_push_func) {
                 assert(s->funcs->compress_frame_async_pop_func);
                 if (frame) {
@@ -493,8 +498,11 @@ static void compress_done(struct module *mod)
 
         struct compress_state *proxy = (struct compress_state *) mod->priv_data;
         struct compress_state_real *s = proxy->ptr;
-        delete s;
+        if (!proxy->poisoned) { // pass poisoned pill if it wasn't
+                compress_frame(proxy, {});
+        }
 
+        delete s;
         delete proxy;
 }
 
