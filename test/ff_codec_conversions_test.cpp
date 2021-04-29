@@ -271,7 +271,7 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
         }
 
         /// @todo look at the conversions to yield better precision
-        CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 8);
+        CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference 8, found "s + to_string(max_diff), max_diff <= 8);
 }
 
 #endif // defined HAVE_CPPUNIT && HAVE_LAVC
