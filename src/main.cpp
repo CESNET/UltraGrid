@@ -97,6 +97,7 @@
 #include "utils/net.h"
 #include "utils/thread.h"
 #include "utils/wait_obj.h"
+#include "utils/udp_holepunch.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -554,6 +555,70 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         return true;
 }
 
+static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
+        char *token = strchr(conf, ':');
+        while(token){
+                token = token + 1;
+                char *next = strchr(token, ':');
+                if(next){
+                        *next = '\0';
+                }
+
+                if(strncmp(token, "coord_srv=", strlen("coord_srv=")) == 0){
+                        token += strlen("coord_srv=");
+                        punch_c->coord_srv_addr = token;
+
+                        if(!next){
+                                log_msg(LOG_LEVEL_ERROR, "Missing hole punching coord server port.\n");
+                                return false;
+                        }
+
+                        char *end;
+                        next++;
+                        punch_c->coord_srv_port = strtol(next, &end, 10);
+                        if(next == end){
+                                log_msg(LOG_LEVEL_ERROR, "Failed to parse hole punching coord server port.\n");
+                                return false;
+                        }
+                        next = strchr(next, ':');
+                } else if(strncmp(token, "stun_srv=", strlen("stun_srv=")) == 0){
+                        token += strlen("stun_srv=");
+                        punch_c->stun_srv_addr = token;
+
+                        if(!next){
+                                log_msg(LOG_LEVEL_ERROR, "Missing hole punching stun server port.\n");
+                                return false;
+                        }
+
+                        char *end;
+                        next++;
+                        punch_c->stun_srv_port = strtol(next, &end, 10);
+                        if(next == end){
+                                log_msg(LOG_LEVEL_ERROR, "Failed to parse hole punching stun server port.\n");
+                                return false;
+                        }
+                        next = strchr(next, ':');
+                } else if(strncmp(token, "room=", strlen("room=")) == 0){
+                        token += strlen("room=");
+                        punch_c->room_name = token;
+                } else if(strncmp(token, "client_name=", strlen("client_name=")) == 0){
+                        token += strlen("client_name=");
+                        punch_c->client_name = token;
+                }
+
+                token = next;
+        }
+
+        if(!punch_c->stun_srv_addr || !punch_c->coord_srv_addr ||
+                        !punch_c->room_name || !punch_c->client_name)
+        {
+                log_msg(LOG_LEVEL_ERROR, "Not all hole punch params provided.\n");
+                return false;
+        }
+
+        return true;
+}
+
 struct ug_options {
         ug_options() {
                 vidcap_params_set_device(vidcap_params_head, "none");
@@ -618,7 +683,7 @@ struct ug_options {
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
 
-        const char *nat_traverse_config = nullptr;
+        char *nat_traverse_config = nullptr;
 
         unsigned int video_rxtx_mode = 0;
 };
@@ -990,7 +1055,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         print_video_codecs();
                         return EXIT_SUCCESS;
                 case 'N':
-                        opt->nat_traverse_config = optarg == nullptr ? "" : optarg;
+                        opt->nat_traverse_config = optarg == nullptr ? const_cast<char *>("") : optarg;
                         break;
                 case 'C':
                         opt->is_client = true;
@@ -1171,6 +1236,38 @@ static int adjust_params(struct ug_options *opt) {
                 LOG(LOG_LEVEL_WARNING) << "Using RTSP for audio but not for video is not recommended and might not work.\n";
         }
 
+        char punched_host[1024];
+        if(opt->nat_traverse_config && strncmp(opt->nat_traverse_config, "holepunch", strlen("holepunch")) == 0){
+#ifndef HAVE_LIBJUICE
+                log_msg(LOG_LEVEL_ERROR, "Ultragrid was compiled without holepunch support\n");
+                return EXIT_FAILURE;
+#else
+                Holepunch_config punch_c = {};
+
+                if(!parse_holepunch_conf(opt->nat_traverse_config, &punch_c)){
+                        return EXIT_FAILURE;
+                }
+
+                punch_c.video_rx_port = &opt->video_rx_port;
+                punch_c.video_tx_port = &opt->video_tx_port;
+                //int *audio_rx_port;
+                //int *audio_tx_port;
+
+                punch_c.host_addr = punched_host;
+                punch_c.host_addr_len = sizeof(punched_host);
+
+                if(!punch_udp(&punch_c)){
+                        log_msg(LOG_LEVEL_ERROR, "Hole punching failed.\n");
+                        return EXIT_FAILURE;
+                }
+
+                log_msg(LOG_LEVEL_INFO, "remote: %s\n rx: %d\n tx: %d\n",
+						punched_host, opt->video_rx_port, opt->video_tx_port);
+                opt->requested_receiver = punched_host;
+                opt->audio.host = punched_host;
+#endif //HAVE_LIBJUICE
+        }
+
         return 0;
 }
 
@@ -1248,9 +1345,13 @@ int main(int argc, char *argv[])
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
 
-        if ((nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.requested_receiver, opt.video_rx_port, opt.audio.recv_port)) == nullptr) {
-                exit_uv(1);
-                goto cleanup;
+        if(!opt.nat_traverse_config
+                        || strncmp(opt.nat_traverse_config, "holepunch", strlen("holepunch")) != 0){
+                nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.requested_receiver, opt.video_rx_port, opt.audio.recv_port);
+                if(!nat_traverse){
+                        exit_uv(1);
+                        goto cleanup;
+                }
         }
 
         uv.audio = audio_cfg_init (&uv.root_module, &opt.audio,

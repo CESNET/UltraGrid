@@ -974,6 +974,35 @@ if test $aja_req = yes -a $aja = no; then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# holepunch stuff
+
+LIBJUICE_PATH=
+LIBJUICE_INC=
+LIBJUICE_LIB=
+libjuice=no
+
+AC_ARG_ENABLE(holepunch,
+[  --disable-holepunch           disable holepunch suppport (default is auto)]
+[                          Requires: libjuice],
+[libjuice_req=$enableval],
+[libjuice_req=$build_default])
+
+AC_CHECK_LIB(juice, juice_create, FOUND_LIBJUICE=yes, FOUND_LIBJUICE=no)
+LIBJUICE_LIB="-ljuice"
+
+if test "$libjuice_req" != no -a "$FOUND_LIBJUICE" = yes
+then
+        libjuice=yes
+        ADD_MODULE("holepunch", "src/utils/udp_holepunch.o", "$LIBJUICE_LIB")
+        INC="$INC $LIBJUICE_INC"
+        COMMON_FLAGS="$COMMON_FLAGS -DHAVE_LIBJUICE"
+fi
+
+if test $libjuice_req = yes -a $libjuice = no; then
+        AC_MSG_ERROR([LIBJUICE not found]);
+fi
+
+# -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
 
 DELTACAST_PATH=
@@ -3462,6 +3491,7 @@ RESULT=`end_section "$RESULT"`
 RESULT=`start_section "$RESULT" "Others"`
 RESULT=`add_column "$RESULT" "Blank capture filter" $blank $?`
 RESULT=`add_column "$RESULT" "GPU accelerated LDGM" $ldgm_gpu $?`
+RESULT=`add_column "$RESULT" "Hole punching" $libjuice $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
 RESULT=`add_column "$RESULT" "MCU-like video mixer" $video_mix $?`
 RESULT=`add_column "$RESULT" "NAT-PMP traversal" $natpmp $?`
