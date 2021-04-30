@@ -131,7 +131,7 @@ struct state_vrg {
 #ifdef HAVE_CUDA
         video_frame_pool pool{0, vrg_cuda_allocator<cuda_malloc_host_allocate>()};
 #else
-        video_frame_pool pool{0, default_data_allocator()};
+        video_frame_pool pool{0, vrg_cuda_allocator<default_data_allocator>()};
 #endif
 
         high_resolution_clock::time_point t0 = high_resolution_clock::now();
@@ -217,24 +217,26 @@ static void display_vrg_run(void *state)
                         configured_codec = f->color_spec;
                 }
 
-                enum VrgStreamApiError ret;
-                high_resolution_clock::time_point t_start = high_resolution_clock::now();
-                ret = vrgStreamSubmitFrame(&f->render_packet, f->tiles[0].data, CPU);
-                if (ret != Ok) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
-                }
-                high_resolution_clock::time_point t_end = high_resolution_clock::now();
-                LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
-                        duration_cast<microseconds>(t_end - t_start).count() / 1000000.0
-                        << " seconds\n";
-
                 struct RenderPacket render_packet{};
+                enum VrgStreamApiError ret;
                 ret = vrgStreamRenderFrame(&render_packet);
                 if (ret != Ok) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Render Frame failed: " << ret << "\n";
                 } else {
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Received RenderPacket for frame " << render_packet.frame << ": " << render_packet << ".\n";
                         rtp_send_rtcp_app(s->rtp, "VIEW", sizeof render_packet, (char *) &render_packet);
+                }
+
+                if (f->render_packet.pix_width_eye != 0 && f->render_packet.pix_height_eye != 0) {
+                    high_resolution_clock::time_point t_start = high_resolution_clock::now();
+                    ret = vrgStreamSubmitFrame(&f->render_packet, f->tiles[0].data, CPU);
+                    if (ret != Ok) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
+                    }
+                    high_resolution_clock::time_point t_end = high_resolution_clock::now();
+                    LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
+                                         duration_cast<microseconds>(t_end - t_start).count() / 1000000.0
+                                         << " seconds\n";
                 }
 
                 high_resolution_clock::time_point now = high_resolution_clock::now();
