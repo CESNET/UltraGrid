@@ -131,7 +131,7 @@ struct state_vrg {
 #ifdef HAVE_CUDA
         video_frame_pool pool{0, vrg_cuda_allocator<cuda_malloc_host_allocate>()};
 #else
-        video_frame_pool pool{0, vrg_cuda_allocator<default_data_allocator>()};
+        video_frame_pool pool{0, default_data_allocator()};
 #endif
 
         high_resolution_clock::time_point t0 = high_resolution_clock::now();
