@@ -148,6 +148,7 @@ COMMON_OBJS     = \
 		src/utils/time.o \
 		src/utils/vf_split.o \
 		src/utils/video_frame_pool.o \
+		src/utils/video_pattern_generator.o \
 		src/utils/wait_obj.o \
 		src/utils/worker.o \
 		src/utils/profile_timer.o \
@@ -160,6 +161,7 @@ COMMON_OBJS     = \
 		src/video_capture/import.o \
 		src/video_capture/null.o \
 		src/video_capture/switcher.o \
+		src/video_capture/testcard_common.o \
 		src/video_capture/ug_input.o \
 		src/video_compress.o \
 		src/video_compress/none.o \

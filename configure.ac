@@ -1579,8 +1579,6 @@ TESTCARD_LIB=
 TESTCARD2_OBJ=
 TESTCARD2_LIB=
 
-TESTCARD_COMMON="src/video_capture/testcard_common.o"
-
 if test $testcard_extras_req != no
 then
         if test $sdl_version -eq 1; then
@@ -1598,7 +1596,7 @@ then
         TESTCARD2_OBJ=
         if test $sdl = yes
         then
-                TESTCARD2_OBJ="$TESTCARD_COMMON src/video_capture/testcard2.o"
+                TESTCARD2_OBJ="src/video_capture/testcard2.o"
                 TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB"
                 if test $sdl_version -eq 1; then
                         PKG_CHECK_MODULES([SDL_TTF], [SDL_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
@@ -1618,7 +1616,7 @@ else
         testcard_extras=no
 fi
 
-TESTCARD_OBJ="$TESTCARD_COMMON src/video_capture/testcard.o"
+TESTCARD_OBJ="src/video_capture/testcard.o"
 ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
 
 if test $testcard_extras_req = yes -a $testcard_extras = no; then
