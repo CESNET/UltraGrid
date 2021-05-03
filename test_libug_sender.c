@@ -32,7 +32,7 @@ struct sender_data {
 
 static void render_packet_received_callback(void *udata, struct RenderPacket *pkt) {
         struct sender_data *s = udata;
-        printf("Received RenderPacket: %p (%dx%d)\n", pkt, pkt->pix_width_eye, pkt->pix_height_eye);
+        printf("Received RenderPacket: %p (eye: %dx%d)\n", pkt, pkt->pix_width_eye, pkt->pix_height_eye);
         mtx_lock(&s->lock);
         memcpy(&s->pkt, pkt, sizeof(struct RenderPacket));
         mtx_unlock(&s->lock);
@@ -77,7 +77,7 @@ static void fill(unsigned char **buf_p, int width, int height, libug_pixfmt_t pi
                         }
                 }
                 // UV
-                memset(data, 127, width * height / 2);
+                memset(data, 127, ((width + 1) / 2 * 2) * ((height + 1) / 2 * 2) / 2);
         }
 }
 
@@ -164,10 +164,10 @@ int main(int argc, char *argv[]) {
                 memcpy(&pkt, &data.pkt, sizeof pkt);
                 mtx_unlock(&data.lock);
                 if (pkt.pix_width_eye != 0 && pkt.pix_height_eye != 0 && width != pkt.pix_width_eye && height != pkt.pix_height_eye) {
-                        width = pkt.pix_width_eye;
+                        width = pkt.pix_width_eye * 2;
                         height = pkt.pix_height_eye;
                         fill(&test, width, height, codec);
-                        printf("Reconfigured to %dx%d\n", width, height);
+                        printf("Reconfigured to %dx%d (both eyes)\n", width, height);
                 }
 
                 char *buf = NULL;
