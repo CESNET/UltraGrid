@@ -32,7 +32,7 @@ struct sender_data {
 
 static void render_packet_received_callback(void *udata, struct RenderPacket *pkt) {
         struct sender_data *s = udata;
-        printf("Received RenderPacket: %p\n", pkt);
+        printf("Received RenderPacket: %p (%dx%d)\n", pkt, pkt->pix_width_eye, pkt->pix_height_eye);
         mtx_lock(&s->lock);
         memcpy(&s->pkt, pkt, sizeof(struct RenderPacket));
         mtx_unlock(&s->lock);

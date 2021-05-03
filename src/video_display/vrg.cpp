@@ -243,6 +243,8 @@ static void display_vrg_run(void *state)
                     LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
                                          duration_cast<microseconds>(t_end - t_start).count() / 1000000.0
                                          << " seconds\n";
+                } else {
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Dismissed frame with zero dimensions!\n";
                 }
 
                 high_resolution_clock::time_point now = high_resolution_clock::now();
