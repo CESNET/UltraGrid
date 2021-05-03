@@ -13,7 +13,7 @@ header is `libug.h` (in _src/_).
 
    ### Compile
 
-       cc -Isrc -o test_sender test_libug_sender.c -Llib -lug
+       cc -Isrc -o test_sender test_libug_sender.c -Llib -lug -pthread
 
    ### Run
 

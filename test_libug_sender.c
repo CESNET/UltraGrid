@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 #include <time.h>
 
 #include <libug.h>
@@ -14,9 +15,17 @@
 #define DEFAULT_HEIGHT 1080
 #define FPS 30.0
 
+struct sender_data {
+        struct RenderPacket pkt;
+        mtx_t lock;
+};
+
 static void render_packet_received_callback(void *udata, struct RenderPacket *pkt) {
-        (void) udata;
+        struct sender_data *s = udata;
         printf("Received RenderPacket: %p\n", pkt);
+        mtx_lock(&s->lock);
+        memcpy(&s->pkt, pkt, sizeof(struct RenderPacket));
+        mtx_unlock(&s->lock);
 }
 
 static void usage(const char *progname) {
@@ -33,7 +42,12 @@ static void usage(const char *progname) {
 #define MIN(a, b)      (((a) < (b))? (a): (b))
 #define MAX(a, b)      (((a) > (b))? (a): (b))
 
-static void fill(unsigned char *data, int width, int height, libug_pixfmt_t pixfmt) {
+static void fill(unsigned char **buf_p, int width, int height, libug_pixfmt_t pixfmt) {
+        assert(width > 0 && height > 0);
+        free(*buf_p);
+        size_t len = (width + 768) * height * 4;
+        char *data = malloc(len);
+        *buf_p = data;
         assert(pixfmt == UG_RGBA);
         for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
@@ -46,11 +60,12 @@ static void fill(unsigned char *data, int width, int height, libug_pixfmt_t pixf
 }
 
 int main(int argc, char *argv[]) {
+        struct sender_data data = { 0 };
         struct ug_sender_parameters init_params = { 0 };
         init_params.receiver = "localhost";
         init_params.compression = UG_UNCOMPRESSED;
         init_params.rprc = render_packet_received_callback;
-        init_params.rprc_udata = NULL; // not used by render_packet_received_callback()
+        init_params.rprc_udata = &data;
         bool disable_strips = false;
         int width = DEFAULT_WIDTH;
         int height = DEFAULT_HEIGHT;
@@ -96,18 +111,33 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+        int ret = mtx_init(&data.lock, mtx_plain);
+        if (ret != thrd_success) {
+                perror("mtx_init");
+                return 1;
+        }
         struct ug_sender *s = ug_sender_init(&init_params);
         if (!s) {
                 return 1;
         }
+
         time_t t0 = time(NULL);
         size_t len = width * height * 4;
         unsigned char *test = malloc(len + 768 * width * 4);
-        fill(test, width, height + 768, UG_RGBA);
+        fill(&test, width, height, UG_RGBA);
         uint32_t frames = 0;
         uint32_t frames_last = 0;
         while (1) {
-                struct RenderPacket pkt = { .frame = frames };
+                struct RenderPacket pkt;
+                mtx_lock(&data.lock);
+                memcpy(&pkt, &data.pkt, sizeof pkt);
+                mtx_unlock(&data.lock);
+                if (pkt.pix_width_eye != 0 && pkt.pix_height_eye != 0 && width != pkt.pix_width_eye && height != pkt.pix_height_eye) {
+                        width = pkt.pix_width_eye;
+                        height = pkt.pix_height_eye;
+                        fill(&test, width, height, UG_RGBA);
+                }
+
                 ug_send_frame(s, (char *) test + width * 4 * (frames % 768), UG_RGBA, width, height, &pkt);
                 frames += 1;
                 time_t seconds = time(NULL) - t0;
@@ -121,5 +151,6 @@ int main(int argc, char *argv[]) {
 
         free(test);
         ug_sender_done(s);
+        mtx_destroy(&data.lock);
 }
 
