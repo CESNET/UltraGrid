@@ -3,6 +3,12 @@
 
 #include <iostream>
 
+std::ostream &operator<<(std::ostream &output, const ProjectionFovTan &obj);
+std::ostream &operator<<(std::ostream &output, const Vector3 &obj);
+std::ostream &operator<<(std::ostream &output, const Quaternion &obj);
+std::ostream &operator<<(std::ostream &output, const Pose &obj);
+std::ostream &operator<<(std::ostream &output, const RenderPacket &obj);
+
 std::ostream &operator<<(std::ostream &output, const ProjectionFovTan &obj) {
         output << obj.left << "," << obj.right << "," << obj.top << "," << obj.bottom;
         return output;
