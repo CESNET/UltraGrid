@@ -17,7 +17,7 @@ header is `libug.h` (in _src/_).
 
    ### Run
 
-       ./test_sender [-n] [address]
+       LD_LIBRARY_PATH=lib ./test_sender [-n] [address]
 
    **-n** - disables stripping mode
 
@@ -29,7 +29,7 @@ header is `libug.h` (in _src/_).
 
    ### Run
 
-       test_sender [-n] [-d display]
+       LD_LIBRARY_PATH=lib ./test_sender [-n] [-d display]
 
    **-n** - disables stripping mode
 
@@ -60,6 +60,10 @@ VR-specific changes
 
 Changes
 ---------
+
+### 2021-05-03
+- test sender now processes received RenderPacket and sends it back + option to generate
+  YUV 4:2:0 instead of RGBA
 
 ### 2021-04-23
 - UltraGrid now honors `RenderPacket::dx_row_pitch` and `RenderPacket::dx_row_pitch_uv`
