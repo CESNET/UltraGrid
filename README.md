@@ -64,6 +64,8 @@ Changes
 ### 2021-05-03
 - test sender now processes received RenderPacket and sends it back + option to generate
   YUV 4:2:0 instead of RGBA
+- option ":malloc" for VRG display using malloc allocator instead of CUDA-allocated (either
+  managed or host)
 
 ### 2021-04-23
 - UltraGrid now honors `RenderPacket::dx_row_pitch` and `RenderPacket::dx_row_pitch_uv`

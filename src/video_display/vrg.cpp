@@ -157,7 +157,7 @@ static void *display_vrg_init(struct module *parent, const char *fmt, unsigned i
         UNUSED(flags);
         UNUSED(parent);
         if ("help"s == fmt) {
-                cout << "Usage:\n\t-d vrg[:managed]\n";
+                cout << "Usage:\n\t-d vrg[:managed|:malloc]\n";
                 cout << "where\n\tmanaged - use managed memory\n";
                 return NULL;
         }
@@ -172,6 +172,12 @@ static void *display_vrg_init(struct module *parent, const char *fmt, unsigned i
 #ifdef HAVE_CUDA
                 s->pool.replace_allocator(vrg_cuda_allocator<cuda_malloc_managed_allocate>());
 #endif
+        } else if ("malloc"s == fmt) {
+                s->pool.replace_allocator(default_data_allocator());
+        } else if (fmt && strlen(fmt) > 0) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong option: " << fmt << "\n";
+                delete s;
+                return nullptr;
         }
 
         return s;
