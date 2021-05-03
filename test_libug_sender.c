@@ -1,11 +1,21 @@
 #include <unistd.h>
 
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <threads.h>
 #include <time.h>
+
+#ifdef USE_C11_THREADS
+#include <threads.h>
+#else
+#include <pthread.h>
+#define mtx_t pthread_mutex_t
+#define mtx_lock pthread_mutex_lock
+#define mtx_unlock pthread_mutex_unlock
+#define mtx_destroy pthread_mutex_destroy
+#endif
 
 #include <libug.h>
 
@@ -111,9 +121,14 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+#ifdef USE_C11_THREADS
         int ret = mtx_init(&data.lock, mtx_plain);
         if (ret != thrd_success) {
-                perror("mtx_init");
+#else
+        int ret = pthread_mutex_init(&data.lock, NULL);
+        if (ret != 0) {
+#endif
+                perror("Mutex init failed");
                 return 1;
         }
         struct ug_sender *s = ug_sender_init(&init_params);
