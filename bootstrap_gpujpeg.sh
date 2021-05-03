@@ -45,8 +45,34 @@ while getopts 'dfhsu' opt; do
 	esac
 done
 
+download_win_gpujpeg_from_github() {
+	INSTALL_DIR=/mingw64
+	echo "MSYS2 detected - downloading prebuilt GPUJPEG instead"
+	if [ $UPDATE = no -a -d $SRC_DIR ]; then
+		echo "$SRC_DIR already exists and is a not empty directory!" >&2
+		echo "Use -u (or -f) to update"
+		exit 1
+	fi
+	mkdir -p ext-deps
+	rm -f GPUJPEG.zip
+	wget https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip
+	[ $UPDATE = yes ] && rm -rf $SRC_DIR
+	unzip -d ext-deps GPUJPEG
+	rm GPUJPEG.zip
+	[ $DOWNLOAD_ONLY = yes ] && exit 0
+	cp -r $SRC_DIR/* $INSTALL_DIR
+	echo "Installed to $INSTALL_DIR"
+	mkdir -p bin
+	cp $SRC_DIR/bin/*dll bin
+	exit 0
+}
+
 if [ $OPTIND -eq 1 ]; then
 	echo "See also '$0 -h' for available options."
+fi
+
+if [ "${MSYSTEM:-}" = MSYS ]; then
+	download_win_gpujpeg_from_github
 fi
 
 if [ $UPDATE = yes ]; then
