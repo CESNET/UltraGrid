@@ -1,10 +1,10 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([UltraGrid], [1.6], [ultragrid-dev@cesnet.cz])
+AC_INIT([UltraGrid],[1.6],[ultragrid-dev@cesnet.cz])
 configure_flags="$*"
-AC_CANONICAL_SYSTEM
+AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([1.10])
-AC_PREREQ(2.61)
+AC_PREREQ([2.61])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -14,12 +14,11 @@ AC_DEFINE_UNQUOTED([CONFIG_FLAGS], ["$configure_flags"], [Flags passed to config
 
 AC_CANONICAL_HOST
 AC_PROG_CC
-AC_PROG_CC_C99
 AC_PROG_CPP
 AC_PROG_CXX
 AC_PROG_CXXCPP
+AC_PROG_EGREP
 AC_PROG_INSTALL
-AC_HEADER_STDC
 AC_C_CONST
 AC_TYPE_SIZE_T
 AC_C_BIGENDIAN
@@ -2207,7 +2206,7 @@ HOST_CC_REPORT="$HOST_CC_REPORT"$(basename "$CUDA_COMPILER")
 
 # CUDA host compiler
 AC_ARG_WITH(cuda-host-compiler,
-	AC_HELP_STRING([--with-cuda-host-compiler=BINARY], [specify compiler used for building cuda host code]))
+	AS_HELP_STRING([--with-cuda-host-compiler=BINARY],[specify compiler used for building cuda host code]))
 if test "x${with_cuda_host_compiler}" != "x" ; then
 	AC_CHECK_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[yes])
         # note AC_CHECK_PROG always fails on path with spaces in MSW
@@ -3418,7 +3417,7 @@ RES_STR=`printf "$RESULT" | sed 's/$/\\\\n/' | tr -d '\n'`
 
 AC_DEFINE_UNQUOTED([AUTOCONF_RESULT], "$RES_STR", [Autoconf result])
 
-AC_CONFIG_HEADER(src/config.h)
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
