@@ -47,6 +47,7 @@ static void usage(const char *progname) {
         printf("\t-n - disable strips\n");
         printf("\t-s - size (WxH)\n");
         printf("\t-v - increase verbosity (use twice for debug)\n");
+        printf("\t-y - use YUV 4:2:0 instead of default RGBA\n");
 }
 
 #define MIN(a, b)      (((a) < (b))? (a): (b))
@@ -58,14 +59,25 @@ static void fill(unsigned char **buf_p, int width, int height, libug_pixfmt_t pi
         size_t len = (width + 768) * height * 4;
         char *data = malloc(len);
         *buf_p = data;
-        assert(pixfmt == UG_RGBA);
-        for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; ++x) {
-                        *data++ = MIN(256, y % (3 * 256)) % 256;
-                        *data++ = MIN(256, MAX(0, y - 256) % (3 * 256)) % 256;
-                        *data++ = MIN(256, MAX(0, y - 512) % (3 * 256)) % 256;
-                        *data++ = 255;
+        if (pixfmt == UG_RGBA) {
+                for (int y = 0; y < height; ++y) {
+                        for (int x = 0; x < width; ++x) {
+                                *data++ = MIN(256, y % (3 * 256)) % 256;
+                                *data++ = MIN(256, MAX(0, y - 256) % (3 * 256)) % 256;
+                                *data++ = MIN(256, MAX(0, y - 512) % (3 * 256)) % 256;
+                                *data++ = 255;
+                        }
                 }
+        } else {
+                assert(pixfmt == UG_I420);
+                // Y
+                for (int y = 0; y < height; ++y) {
+                        for (int x = 0; x < width; ++x) {
+                                *data++ = y % 256;
+                        }
+                }
+                // UV
+                memset(data, 127, width * height / 2);
         }
 }
 
@@ -79,9 +91,10 @@ int main(int argc, char *argv[]) {
         bool disable_strips = false;
         int width = DEFAULT_WIDTH;
         int height = DEFAULT_HEIGHT;
+        libug_pixfmt_t codec = UG_RGBA;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "hjm:ns:v")) != -1) {
+        while ((ch = getopt(argc, argv, "hjm:ns:vy")) != -1) {
                 switch (ch) {
                 case 'h':
                         usage(argv[0]);
@@ -102,6 +115,9 @@ int main(int argc, char *argv[]) {
                         break;
                 case 'v':
                         init_params.verbose += 1;
+                        break;
+                case 'y':
+                        codec = UG_I420;
                         break;
                 default:
                         usage(argv[0]);
@@ -139,7 +155,7 @@ int main(int argc, char *argv[]) {
         time_t t0 = time(NULL);
         size_t len = width * height * 4;
         unsigned char *test = malloc(len + 768 * width * 4);
-        fill(&test, width, height, UG_RGBA);
+        fill(&test, width, height, codec);
         uint32_t frames = 0;
         uint32_t frames_last = 0;
         while (1) {
@@ -150,10 +166,17 @@ int main(int argc, char *argv[]) {
                 if (pkt.pix_width_eye != 0 && pkt.pix_height_eye != 0 && width != pkt.pix_width_eye && height != pkt.pix_height_eye) {
                         width = pkt.pix_width_eye;
                         height = pkt.pix_height_eye;
-                        fill(&test, width, height, UG_RGBA);
+                        fill(&test, width, height, codec);
+                        printf("Reconfigured to %dx%d\n", width, height);
                 }
 
-                ug_send_frame(s, (char *) test + width * 4 * (frames % 768), UG_RGBA, width, height, &pkt);
+                char *buf = NULL;
+                if (codec == UG_RGBA) {
+                        buf = (char *) test + width * 4 * (frames % 768);
+                } else {
+                        buf = test;
+                }
+                ug_send_frame(s, buf, codec, width, height, &pkt);
                 frames += 1;
                 time_t seconds = time(NULL) - t0;
                 if (seconds > 0) {
