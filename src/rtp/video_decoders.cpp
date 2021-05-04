@@ -604,7 +604,7 @@ static void *decompress_worker(void *data)
                         d->compressed->tiles[d->pos].data_len,
                         d->buffer_num,
                         &decoder->frame->callbacks,
-                        &d->internal_codec, nullptr);
+                        &d->internal_codec, d->pitches);
         return d;
 }
 
