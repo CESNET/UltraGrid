@@ -23,7 +23,7 @@
 
 #define DEFAULT_WIDTH 1920
 #define DEFAULT_HEIGHT 1080
-#define FPS 30.0
+#define DEFAULT_FPS 30.0
 
 struct sender_data {
         struct RenderPacket pkt;
@@ -41,6 +41,7 @@ static void render_packet_received_callback(void *udata, struct RenderPacket *pk
 static void usage(const char *progname) {
         printf("%s [options] [receiver[:port]]\n", progname);
         printf("options:\n");
+        printf("\t-f - FPS to use (default %f)\n", DEFAULT_FPS);
         printf("\t-h - show this help\n");
         printf("\t-j - use JPEG\n");
         printf("\t-m - use specified MTU\n");
@@ -92,10 +93,14 @@ int main(int argc, char *argv[]) {
         int width = DEFAULT_WIDTH;
         int height = DEFAULT_HEIGHT;
         libug_pixfmt_t codec = UG_RGBA;
+        double fps = DEFAULT_FPS;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "hjm:ns:vy")) != -1) {
+        while ((ch = getopt(argc, argv, "f:hjm:ns:vy")) != -1) {
                 switch (ch) {
+                case 'f':
+                        fps = atof(optarg);
+                        break;
                 case 'h':
                         usage(argv[0]);
                         return 0;
@@ -184,7 +189,7 @@ int main(int argc, char *argv[]) {
                         t0 += seconds;
                         frames_last = frames;
                 }
-                usleep(1000 * 1000 / FPS);
+                usleep(1000 * 1000 / fps);
         }
 
         free(test);
