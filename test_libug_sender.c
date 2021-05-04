@@ -74,11 +74,25 @@ static void fill(unsigned char **buf_p, int width, int height, libug_pixfmt_t pi
                 // Y
                 for (int y = 0; y < height; ++y) {
                         for (int x = 0; x < width; ++x) {
+#ifdef ALT_PATTERN
                                 *data++ = y % 256;
+#else
+                                *data++ = x * 255 / (width - 1);
+#endif
                         }
                 }
                 // UV
+#ifdef ALT_PATTERN
                 memset(data, 127, ((width + 1) / 2 * 2) * ((height + 1) / 2 * 2) / 2);
+#else
+                for (int i = 0; i < 2; ++i) {
+                        for (int y = 0; y < (height + 1) / 2; ++y) {
+                                for (int x = 0; x < (width + 1) / 2; ++x) {
+                                        *data++ = x * 255 / ((width + 1) / 2 - 1);
+                                }
+                        }
+                }
+#endif
         }
 }
 
