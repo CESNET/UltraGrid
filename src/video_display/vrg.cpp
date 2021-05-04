@@ -360,7 +360,7 @@ static int display_vrg_reconfigure(void *state, struct video_desc desc)
         }
 #endif
         // use headroom - VRG uses pitches
-        s->pool.reconfigure(desc, vc_get_linesize(desc.width + 128, desc.color_spec) * desc.height);
+        s->pool.reconfigure(desc, vc_get_datalen(desc.width + 2048, desc.height, desc.color_spec));
 
         return TRUE;
 }
