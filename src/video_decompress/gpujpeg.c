@@ -262,13 +262,22 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
                 if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
                         return DECODER_NO_FRAME;
                 }
-                if (cudaMemcpy2D(dst, pitches[0], s->cuda_tmp_buf, s->desc.width, s->desc.width, s->desc.height, cudaMemcpyDefault) != cudaSuccess) {
+                if (cudaMemcpy2D(dst, pitches[0],
+                                        s->cuda_tmp_buf, s->desc.width,
+                                        s->desc.width, s->desc.height,
+                                        cudaMemcpyDefault) != cudaSuccess) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Y failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
                 }
-                if (cudaMemcpy2D(dst + pitches[0] * s->desc.height, pitches[1], s->cuda_tmp_buf + s->desc.width * s->desc.height, s->desc.width / 2, s->desc.width / 2, s->desc.height / 2, cudaMemcpyDefault) != cudaSuccess) {
+                if (cudaMemcpy2D(dst + pitches[0] * s->desc.height, pitches[1],
+                                        s->cuda_tmp_buf + s->desc.width * s->desc.height, (s->desc.width + 1) / 2,
+                                        (s->desc.width + 1) / 2, (s->desc.height + 1) / 2,
+                                        cudaMemcpyDefault) != cudaSuccess) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Cb failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
                 }
-                if (cudaMemcpy2D(dst + pitches[0] * s->desc.height + pitches[1] * s->desc.height / 2, pitches[2], s->cuda_tmp_buf + s->desc.width * s->desc.height + s->desc.width / 2 + s->desc.height / 2, s->desc.width / 2, s->desc.width / 2, s->desc.height / 2, cudaMemcpyDefault) != cudaSuccess) {
+                if (cudaMemcpy2D(dst + pitches[0] * s->desc.height + pitches[1] * ((s->desc.height + 1) / 2), pitches[2],
+                                        s->cuda_tmp_buf + s->desc.width * s->desc.height + ((s->desc.width + 1) / 2) * ((s->desc.height + 1) / 2), (s->desc.width + 1) / 2,
+                                        (s->desc.width + 1) / 2, (s->desc.height + 1) / 2,
+                                        cudaMemcpyDefault) != cudaSuccess) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Cr failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
                 }
 
