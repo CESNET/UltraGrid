@@ -75,9 +75,9 @@ static void fill(unsigned char **buf_p, int width, int height, libug_pixfmt_t pi
                 for (int y = 0; y < height; ++y) {
                         for (int x = 0; x < width; ++x) {
 #ifdef ALT_PATTERN
-                                *data++ = y % 256;
+                                *data++ = 16 + (y % 220);
 #else
-                                *data++ = x * 255 / (width - 1);
+                                *data++ = 16 + (y * 219) / (width - 1);
 #endif
                         }
                 }
@@ -88,7 +88,7 @@ static void fill(unsigned char **buf_p, int width, int height, libug_pixfmt_t pi
                 for (int i = 0; i < 2; ++i) {
                         for (int y = 0; y < (height + 1) / 2; ++y) {
                                 for (int x = 0; x < (width + 1) / 2; ++x) {
-                                        *data++ = x * 255 / ((width + 1) / 2 - 1);
+                                        *data++ = 16 + x * 224 / ((width + 1) / 2 - 1);
                                 }
                         }
                 }
