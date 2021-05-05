@@ -46,7 +46,6 @@ while getopts 'dfhsu' opt; do
 done
 
 download_win_gpujpeg_from_github() {
-	INSTALL_DIR=/mingw64
 	echo "MSYS2 detected - downloading prebuilt GPUJPEG instead"
 	if [ $UPDATE = no -a -d $SRC_DIR ]; then
 		echo "$SRC_DIR already exists and is a not empty directory!" >&2
@@ -60,8 +59,8 @@ download_win_gpujpeg_from_github() {
 	unzip -d ext-deps GPUJPEG
 	rm GPUJPEG.zip
 	[ $DOWNLOAD_ONLY = yes ] && exit 0
-	cp -r $SRC_DIR/* $INSTALL_DIR
-	echo "Installed to $INSTALL_DIR"
+	cp -r $SRC_DIR/bin $SRC_DIR/include $SRC_DIR/lib $MSYSTEM_PREFIX
+	echo "Installed to $MSYSTEM_PREFIX"
 	mkdir -p bin
 	cp $SRC_DIR/bin/*dll bin
 	exit 0
