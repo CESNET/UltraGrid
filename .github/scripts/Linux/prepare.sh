@@ -57,7 +57,7 @@ if [ -n "$SDK_URL" ]; then
                 mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
                 cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
                 export CXX='g++ -std=gnu++11'
-                make
+                make -j $(nproc)
         fi
 fi
 
@@ -77,7 +77,8 @@ git clone https://github.com/xanview/live555/
 cd live555
 git checkout 35c375
 ./genMakefiles linux-64bit
-sudo make install CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
+make -j $(nproc) CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
+sudo make install
 cd ..
 
 # Install cross-platform deps
