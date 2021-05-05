@@ -1,5 +1,8 @@
 #!/bin/bash -ex
 
+export CC=gcc
+export CXX=g++
+
 cd /c
 git clone https://github.com/xanview/live555/
 cd live555

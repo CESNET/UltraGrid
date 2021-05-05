@@ -4,9 +4,10 @@ set -ex
 
 mkdir -p /usr/local/lib /usr/local/bin /usr/local/include
 cat >> ~/.bash_profile <<'EOF'
-export PATH=/mingw64/bin:/usr/local/bin:$PATH
+export MSYSTEM_PREFIX=/ucrt64
+export PATH=$MSYSTEM_PREFIX/bin:/usr/local/bin:$PATH
 export CPATH=/usr/local/include:/usr/include
-export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:/mingw64/lib/pkgconfig
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:$MSYSTEM_PREFIX/lib/pkgconfig
 export LIBRARY_PATH=/usr/local/lib
 
 CUDA_D=$(ls -d /c/Program\ Files/NVIDIA\ GPU\ Computing\ Toolkit/CUDA/*)
@@ -38,14 +39,15 @@ EOF
 
 PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
-$PACMAN_INSTALL automake autoconf git make pkgconf mingw-w64-x86_64-toolchain mingw-w64-x86_64-cppunit unzip zip
-$PACMAN_INSTALL mingw-w64-x86_64-speexdsp
-$PACMAN_INSTALL mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-freeglut
-$PACMAN_INSTALL mingw-w64-x86_64-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
-$PACMAN_INSTALL mingw-w64-x86_64-glib2 mingw-w64-x86_64-curl # RTSP capture
+MSYS_REPO=mingw-w64-ucrt-x86_64
+$PACMAN_INSTALL automake autoconf git make pkgconf ${MSYS_REPO}-toolchain ${MSYS_REPO}-cppunit unzip zip
+$PACMAN_INSTALL ${MSYS_REPO}-speexdsp
+$PACMAN_INSTALL ${MSYS_REPO}-glew ${MSYS_REPO}-SDL2 ${MSYS_REPO}-freeglut
+$PACMAN_INSTALL ${MSYS_REPO}-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
+$PACMAN_INSTALL ${MSYS_REPO}-glib2 ${MSYS_REPO}-curl # RTSP capture
 pacman -Scc --noconfirm # make some free space
-$PACMAN_INSTALL mingw-w64-x86_64-qt5
-$PACMAN_INSTALL mingw-w64-x86_64-imagemagick mingw-w64-x86_64-opencv
+$PACMAN_INSTALL ${MSYS_REPO}-qt5
+$PACMAN_INSTALL ${MSYS_REPO}-imagemagick ${MSYS_REPO}-opencv
 $PACMAN_INSTALL p7zip
 $PACMAN_INSTALL libtool # PCP
 pacman -Scc --noconfirm
@@ -82,11 +84,6 @@ build_cineform() {
         cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig
         )
 }
-
-# Install live555
-cd /c/live555
-make install
-cd -
 
 $GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh
 $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
