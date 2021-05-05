@@ -45,7 +45,7 @@ static void usage(const char *progname) {
         printf("\t-h - show this help\n");
         printf("\t-j - use JPEG\n");
         printf("\t-m - use specified MTU\n");
-        printf("\t-n - disable strips\n");
+        printf("\t-S - enable strips\n");
         printf("\t-s - size (WxH)\n");
         printf("\t-v - increase verbosity (use twice for debug)\n");
         printf("\t-y - use YUV 4:2:0 instead of default RGBA\n");
@@ -103,14 +103,13 @@ int main(int argc, char *argv[]) {
         init_params.compression = UG_UNCOMPRESSED;
         init_params.rprc = render_packet_received_callback;
         init_params.rprc_udata = &data;
-        bool disable_strips = false;
         int width = DEFAULT_WIDTH;
         int height = DEFAULT_HEIGHT;
         libug_pixfmt_t codec = UG_RGBA;
         double fps = DEFAULT_FPS;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "f:hjm:ns:vy")) != -1) {
+        while ((ch = getopt(argc, argv, "f:hjm:Ss:vy")) != -1) {
                 switch (ch) {
                 case 'f':
                         fps = atof(optarg);
@@ -124,8 +123,8 @@ int main(int argc, char *argv[]) {
                 case 'm':
                         init_params.mtu = atoi(optarg);
                         break;
-                case 'n':
-                        init_params.disable_strips = 1;
+                case 'S':
+                        init_params.enable_strips = 1;
                         break;
                 case 's':
                         width = atoi(optarg);

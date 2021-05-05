@@ -61,6 +61,10 @@ VR-specific changes
 Changes
 ---------
 
+### 2021-05-05
+- `ug_receiver_parameters`/`ug_sender_parameters` - `disable_strips` -> `enable_strips`
+  rename (+ default is now disable - not sure if yet compatible with the pitches)
+
 ### 2021-05-03
 - test sender now processes received RenderPacket and sends it back + option to generate
   YUV 4:2:0 instead of RGBA

@@ -120,7 +120,7 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
                 return nullptr;
         }
 
-        if (init_params->disable_strips == 0) {
+        if (init_params->enable_strips == 1) {
                 if (capture_filter_init(nullptr, "stripe", &s->stripe) != 0) {
                         abort();
                 }
@@ -244,7 +244,7 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
                 }
         }
 
-        if (init_params->disable_strips == 0) {
+        if (init_params->enable_strips == 1) {
                 commandline_params["unstripe"] = string();
         }
 
