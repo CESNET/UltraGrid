@@ -1,9 +1,9 @@
 /**
- * @file   spout_sender.cpp
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   utils/video_pattern_generator.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017 CESNET, z. s. p. o.
+ * Copyright (c) 2020-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,25 +34,17 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <SpoutSDK/Spout.h>
 
-#include "spout_sender.h"
+#ifndef VIDEO_PATTERN_GENERATOR_H_411E8141_A7AE_4FCD_8464_41CE032CF81B
+#define VIDEO_PATTERN_GENERATOR_H_411E8141_A7AE_4FCD_8464_41CE032CF81B
 
-void *spout_sender_register(const char *name, int width, int height) {
+#include <memory>
+#include <string>
 
-	SpoutSender *sender = new SpoutSender;
-	sender->CreateSender(name, width, height);
+#include "video.h"
 
-	return sender;
-}
+std::unique_ptr<unsigned char [],void (*)(unsigned char*)>
+video_pattern_generate(std::string const & config, int width, int height, codec_t color_spec);
 
-void spout_sender_sendframe(void *s, int width, int height, unsigned int id) {
-	((SpoutSender *)s)->SendTexture(id, GL_TEXTURE_2D, width, height, false); // default is flip
-	}
 
-void spout_sender_unregister(void *s) {
-        auto *sender = static_cast<SpoutSender *>(s);
-        sender->ReleaseSender();
-        delete sender;
-}
-
+#endif // defined VIDEO_PATTERN_GENERATOR_H_411E8141_A7AE_4FCD_8464_41CE032CF81B

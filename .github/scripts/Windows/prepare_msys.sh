@@ -52,6 +52,8 @@ pacman -Scc --noconfirm
 
 # Build AJA wrapper if we have SDK
 if test -d /c/AJA; then
+        FEATURES="$FEATURES --enable-aja"
+        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         data/scripts/build_aja_lib_win64.sh
 fi
 
@@ -59,11 +61,14 @@ fi
 if [ -n "$SDK_URL" ]; then
         mkdir VideoMaster
         cd VideoMaster
-        curl -S $SDK_URL/VideoMaster_SDK_Windows.zip -O
-        unzip VideoMaster_SDK_Windows.zip
-        cp Binaries/Lib64/*dll /usr/local/bin
-        cp -r Include/* /usr/local/include
-        cp Library/x64/* /usr/local/lib
+        if curl -f -S $SDK_URL/VideoMaster_SDK_Windows.zip -O; then
+                FEATURES="$FEATURES --enable-deltacast"
+                echo "FEATURES=$FEATURES" >> $GITHUB_ENV
+                unzip VideoMaster_SDK_Windows.zip
+                cp Binaries/Lib64/*dll /usr/local/bin
+                cp -r Include/* /usr/local/include
+                cp Library/x64/* /usr/local/lib
+        fi
         cd ..
         rm -rf VideoMaster
 fi

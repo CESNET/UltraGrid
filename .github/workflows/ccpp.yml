@@ -1,7 +1,7 @@
 name: C/C++ CI
 
 env:
-  FEATURES: '--enable-option-checking=fatal --with-live555=/usr/local --enable-aja --enable-blank --enable-cineform --enable-decklink --enable-file --enable-gl --enable-jack --enable-jack-transport --enable-libavcodec --enable-natpmp --enable-openssl --enable-pcp --enable-portaudio --enable-qt --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-sdl2 --enable-sdp-http --enable-speexdsp --enable-swmix --enable-libswscale --enable-text --enable-video-mixer --enable-ximea --enable-zfec'
+  FEATURES: '--enable-option-checking=fatal --with-live555=/usr/local --enable-blank --enable-cineform --enable-decklink --enable-file --enable-gl --enable-jack --enable-jack-transport --enable-libavcodec --enable-natpmp --enable-openssl --enable-pcp --enable-portaudio --enable-qt --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-sdl2 --enable-sdp-http --enable-speexdsp --enable-swmix --enable-libswscale --enable-text --enable-video-mixer --enable-ximea --enable-zfec'
   CUDA_FEATURES: '--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy'
 
 on:
@@ -136,23 +136,25 @@ jobs:
     needs: prepare
     runs-on: macos-latest
     env:
+      SDK_NONFREE_PATH: /var/tmp/sdks-nonfree
       altool_credentials: ${{ secrets.altool_credentials }}
       apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
     - uses: actions/checkout@v1
-    - name: Cache SDKs
-      id: cache-macos-sdks
+    - name: Cache Non-Free SDKs
+      id: cache-macos-nonfree-sdks
       uses: actions/cache@v1
       with:
-        path: '/var/tmp/sdks'
-        key: cache-macos-sdks-2
-    - name: Download SDKs
-      if: steps.cache-macos-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
+        path: ${{ env.SDK_NONFREE_PATH }}
+        key: cache-macos-nonfree-sdks-1
+    - name: Download Non-Free SDKs
+      if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
-        mkdir /var/tmp/sdks && cd /var/tmp/sdks
-        curl -S -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMaster_SDK_MacOSX.zip -O $SDK_URL/NDISDK_Apple.pkg
+        mkdir ${{ env.SDK_NONFREE_PATH }} && cd ${{ env.SDK_NONFREE_PATH }}
+        curl -S -f -O $SDK_URL/ntv2sdkmac.zip --next -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip --next -f -O $SDK_URL/NDISDK_Apple.pkg || true
+        $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache Free SDKs
       id: cache-macos-free-sdks
       uses: actions/cache@v1

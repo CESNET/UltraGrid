@@ -44,7 +44,7 @@ REQUEST_INFO_PLIST=/tmp/reqinfo.plist
 ditto -c -k --keepParent $APP $ZIP_FILE
 DEVELOPER_USERNAME=$(echo "$altool_credentials" | cut -d: -f1)
 DEVELOPER_PASSWORD=$(echo "$altool_credentials" | cut -d: -f2)
-xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt --username $DEVELOPER_USERNAME --password "$DEVELOPER_PASSWORD" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
+xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt-$(uuidgen | tr A-Z a-z) --username $DEVELOPER_USERNAME --password "$DEVELOPER_PASSWORD" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
 
 # Wait for notarization status
 # Waiting inspired by https://nativeconnect.app/blog/mac-app-notarization-from-the-command-line/

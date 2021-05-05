@@ -47,6 +47,7 @@
 #include "debug.h"
 #include "portaudio_common.h"
 #include "rang.hpp"
+#include "types.h"
 
 using std::cout;
 
@@ -108,6 +109,11 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
 
         for(i = 0; i < numDevices; i++)
         {
+                const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
+                if (log_level < LOG_LEVEL_VERBOSE && ((device_info->maxInputChannels == 0 && kind == PORTAUDIO_IN) ||
+                                (device_info->maxOutputChannels == 0 && kind == PORTAUDIO_OUT))) {
+                        continue;
+                }
                 if((i == Pa_GetDefaultInputDevice() && kind == PORTAUDIO_IN) ||
                                 (i == Pa_GetDefaultOutputDevice() && kind == PORTAUDIO_OUT))
                         printf("(*) ");
@@ -119,6 +125,44 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
 
 error:
         Pa_Terminate();
+}
+
+void audio_portaudio_probe(struct device_info **available_devices, int *count, enum portaudio_device_direction dir)
+{
+        int numDevices = 0;
+        bool initialized = false;
+        const char *notice = ""; // we'll always include default device, but with a notice if something wrong
+
+        if (auto error = Pa_Initialize()) {
+                LOG(LOG_LEVEL_ERROR) << "\tPortAudio error: " << Pa_GetErrorText(error) << "\n";
+                notice = " (init error)";
+        } else {
+                initialized = true;
+        }
+
+        if (initialized && (numDevices = Pa_GetDeviceCount()) <= 0) {
+                notice = " (no device)";
+                numDevices = 0;
+        }
+        *available_devices = static_cast<device_info *>(calloc(1 + numDevices, sizeof(struct device_info)));
+        strcpy((*available_devices)[0].dev, "");
+        sprintf((*available_devices)[0].name, "Portaudio default %s%s", dir == PORTAUDIO_IN ? "input" : "output", notice);
+        *count = 1;
+
+        for(int i = 0; i < numDevices; i++) {
+                const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
+                if (((device_info->maxInputChannels == 0 && dir == PORTAUDIO_IN) ||
+                                (device_info->maxOutputChannels == 0 && dir == PORTAUDIO_OUT))) {
+                        continue;
+                }
+                snprintf((*available_devices)[*count].name, sizeof (*available_devices)[0].name, "%s", device_info->name);
+                snprintf((*available_devices)[*count].dev, sizeof (*available_devices)[0].dev, ":%d", i);
+                *count += 1;
+        }
+
+        if (initialized) {
+                Pa_Terminate();
+        }
 }
 
 void portaudio_print_version() {

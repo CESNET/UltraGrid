@@ -49,17 +49,20 @@ sudo ./install
 
 # Install AJA
 if [ -n "$SDK_URL" ]; then
-        curl -S $SDK_URL/ntv2sdklinux.zip -O
-        unzip ntv2sdklinux.zip -d /var/tmp
-        mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
-        cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
-        export CXX='g++ -std=gnu++11'
-        make
+        if curl -f -S $SDK_URL/ntv2sdklinux.zip -O; then
+                FEATURES="$FEATURES --enable-aja"
+                echo "FEATURES=$FEATURES" >> $GITHUB_ENV
+                unzip ntv2sdklinux.zip -d /var/tmp
+                mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
+                cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
+                export CXX='g++ -std=gnu++11'
+                make
+        fi
 fi
 
 # Install NDI
 if [ -n "$SDK_URL" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
-        curl -S $SDK_URL/NDISDK_Linux.tar.gz -O
+        curl -f -S $SDK_URL/NDISDK_Linux.tar.gz -O
         tar -C /var/tmp -xzf NDISDK_Linux.tar.gz
         yes | PAGER=cat /var/tmp/InstallNDI*sh
 	sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include

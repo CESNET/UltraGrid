@@ -1,10 +1,10 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([UltraGrid], [1.6], [ultragrid-dev@cesnet.cz])
+AC_INIT([UltraGrid],[1.6],[ultragrid-dev@cesnet.cz])
 configure_flags="$*"
-AC_CANONICAL_SYSTEM
+AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([1.10])
-AC_PREREQ(2.61)
+AC_PREREQ([2.61])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -14,12 +14,11 @@ AC_DEFINE_UNQUOTED([CONFIG_FLAGS], ["$configure_flags"], [Flags passed to config
 
 AC_CANONICAL_HOST
 AC_PROG_CC
-AC_PROG_CC_C99
 AC_PROG_CPP
 AC_PROG_CXX
 AC_PROG_CXXCPP
+AC_PROG_EGREP
 AC_PROG_INSTALL
-AC_HEADER_STDC
 AC_C_CONST
 AC_TYPE_SIZE_T
 AC_C_BIGENDIAN
@@ -1120,39 +1119,36 @@ if test $system = MacOSX; then
         XI_LIB_NAME="m3api"
 else
         if test $system = Linux; then
-                if test -z "$GENICAM_GENTL64_PATH"; then
-                        GENICAM_GENTL64_PATH="/opt/XIMEA/lib"
-                fi
+                XIAPI_PATH=${GENICAM_GENTL64_PATH:-/opt/XIMEA/lib}
                 XI_LIB_EXT=".so"
                 XI_LIB_NAME="m3api"
                 XI_LIB_PREF="lib"
-                XI_INC_SUFF="/include"
+                XIMEA_CFLAGS="-I$XIAPI_PATH/../include"
         else
                 if test -n "$GENICAM_GENTL64_PATH"; then
-                        # the env var contains actually something like "C:\XIMEA\GenTL Producer\x64"
-                        GENICAM_GENTL64_PATH=$(realpath "$GENICAM_GENTL64_PATH=C:/XIMEA/API/x64")
+                        # the env var contains actually something like "C:\XIMEA\GenTL Producer\64bit"
+                        XIAPI_PATH=$(realpath "$GENICAM_GENTL64_PATH/../../API/xiAPI")
                 else
-                        GENICAM_GENTL64_PATH="C:/XIMEA/API/x64"
+                        XIAPI_PATH="C:/XIMEA/API/xiAPI"
                 fi
                 XI_LIB_EXT=".dll"
                 XI_LIB_NAME="xiapi64"
-                XI_INC_SUFF=
+                XIMEA_CFLAGS="-I$XIAPI_PATH"
         fi
         SAVED_CFLAGS=$CFLAGS
         SAVED_CPPFLAGS=$CPPFLAGS
-        XIMEA_CFLAGS="-I$GENICAM_GENTL64_PATH/..${XI_INC_SUFF}"
         CFLAGS="$CFLAGS $XIMEA_CFLAGS"
         CPPFLAGS="$CPPFLAGS $XIMEA_CFLAGS"
         AC_CHECK_HEADERS([xiApi.h])
         CFLAGS=$SAVED_CFLAGS
 
         if test $ximea_link_runtime = no; then
-                XIMEA_LIBS="-L$GENICAM_GENTL64_PATH"
+                XIMEA_LIBS="-L$XIAPI_PATH"
                 SAVED_LIBS=$LIBS
                 LIBS="$LIBS $XIMEA_LIBS"
                 CPPFLAGS=$SAVED_CPPFLAGS
                 AC_CHECK_LIB($XI_LIB_NAME, xiGetImage, HAVE_XI_L=yes, HAVE_XI_L=no)
-                XIMEA_LIBS="-l$XI_LIB_NAME -L$GENICAM_GENTL64_PATH"
+                XIMEA_LIBS="-l$XI_LIB_NAME -L$XIAPI_PATH"
                 LIBS=$SAVED_LIBS
         else
                 HAVE_XI_L=yes
@@ -1586,8 +1582,6 @@ TESTCARD_LIB=
 TESTCARD2_OBJ=
 TESTCARD2_LIB=
 
-TESTCARD_COMMON="src/video_capture/testcard_common.o"
-
 if test $testcard_extras_req != no
 then
         if test $sdl_version -eq 1; then
@@ -1605,7 +1599,7 @@ then
         TESTCARD2_OBJ=
         if test $sdl = yes
         then
-                TESTCARD2_OBJ="$TESTCARD_COMMON src/video_capture/testcard2.o"
+                TESTCARD2_OBJ="src/video_capture/testcard2.o"
                 TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB"
                 if test $sdl_version -eq 1; then
                         PKG_CHECK_MODULES([SDL_TTF], [SDL_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
@@ -1625,7 +1619,7 @@ else
         testcard_extras=no
 fi
 
-TESTCARD_OBJ="$TESTCARD_COMMON src/video_capture/testcard.o"
+TESTCARD_OBJ="src/video_capture/testcard.o"
 ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
 
 if test $testcard_extras_req = yes -a $testcard_extras = no; then
@@ -2216,7 +2210,7 @@ HOST_CC_REPORT="$HOST_CC_REPORT"$(basename "$CUDA_COMPILER")
 
 # CUDA host compiler
 AC_ARG_WITH(cuda-host-compiler,
-	AC_HELP_STRING([--with-cuda-host-compiler=BINARY], [specify compiler used for building cuda host code]))
+	AS_HELP_STRING([--with-cuda-host-compiler=BINARY],[specify compiler used for building cuda host code]))
 if test "x${with_cuda_host_compiler}" != "x" ; then
 	AC_CHECK_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[yes])
         # note AC_CHECK_PROG always fails on path with spaces in MSW
@@ -3480,7 +3474,7 @@ RES_STR=`printf "$RESULT" | sed 's/$/\\\\n/' | tr -d '\n'`
 
 AC_DEFINE_UNQUOTED([AUTOCONF_RESULT], "$RES_STR", [Autoconf result])
 
-AC_CONFIG_HEADER(src/config.h)
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
