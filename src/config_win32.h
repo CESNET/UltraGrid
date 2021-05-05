@@ -47,10 +47,10 @@
 #ifndef _CONFIG_WIN32_H
 #define _CONFIG_WIN32_H
 
-// define compatibility version
-#ifndef __MSVCRT_VERSION__
-#define __MSVCRT_VERSION__ 0x700
-#endif
+//// define compatibility version - rather do not define it (if really needed, check if it works for both MSCVRT and UCRT)
+//#ifndef __MSVCRT_VERSION__
+//#define __MSVCRT_VERSION__ 0x700
+//#endif
 
 // 0x0501 is Win XP, 0x0502 2003 Server, 0x0600 Win Vista and Win 7 is 0x0601
 #ifndef WINVER
