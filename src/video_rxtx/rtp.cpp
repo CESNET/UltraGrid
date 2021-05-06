@@ -287,8 +287,9 @@ void rtp_video_rxtx::display_buf_increase_warning(int size)
 
 }
 
-ADD_TO_PARAM("rtp-multithreaded", "* rtp-multithreaded[=async]\n"
-                "  Enforce multi-threaded RTP received (in Windows disabled; async - use overlapped recv)\n");
+ADD_TO_PARAM("rtp-multithreaded", "* rtp-multithreaded[=<count>[:async]]\n"
+                "  Enforce multi-threaded RTP received (in Windows disabled; async - use overlapped recv)\n"
+                "  <count> - number threads (default 1)\n");
 
 struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port_base,
                 int send_port_base, void *udata, int force_ip_version,

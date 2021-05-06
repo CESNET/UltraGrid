@@ -83,6 +83,7 @@ using std::to_string;
 using std::unique_lock;
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
+#define MAX_UDP_READER_THREADS 16
 
 static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port);
 static void *udp_reader(void *arg);
@@ -160,7 +161,8 @@ struct socket_udp_local {
 
 
         // for multithreaded receiving
-        pthread_t thread_id;
+        int thread_count;
+        pthread_t thread_id[MAX_UDP_READER_THREADS];
         queue<struct item> packets;
         unsigned int max_packets;
         mutex lock;
@@ -168,7 +170,7 @@ struct socket_udp_local {
         condition_variable reader_cv;
 
         bool should_exit;
-        fd_t should_exit_fd[2];
+        fd_t should_exit_fd[MAX_UDP_READER_THREADS][2];
 };
 
 /*
@@ -190,6 +192,11 @@ struct _socket_udp {
         int overlapped_max;
         int overlapped_count;
 #endif
+};
+
+struct udp_reader_data {
+        socket_udp *s;
+        int thread_idx;
 };
 
 static void udp_clean_async_state(socket_udp *s);
@@ -909,8 +916,22 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 } else {
                         s->local->max_packets = atoi(get_commandline_param("udp-queue-len"));
                 }
-                platform_pipe_init(s->local->should_exit_fd);
-                pthread_create(&s->local->thread_id, NULL, udp_reader, s);
+
+                s->local->thread_count = 1;
+                const char *count_s = get_commandline_param("rtp-multithreaded");
+                if (count_s != nullptr) {
+                        if (isdigit(count_s[0])) {
+                                s->local->thread_count = atoi(count_s);
+                        }
+                }
+                assert(s->local->thread_count > 0 && s->local->thread_count <= MAX_UDP_READER_THREADS);
+                for (int i = 0; i < s->local->thread_count; ++i) {
+                        platform_pipe_init(s->local->should_exit_fd[i]);
+                        auto *data = new udp_reader_data{};
+                        data->s = s;
+                        data->thread_idx = i;
+                        pthread_create(&s->local->thread_id[i], NULL, udp_reader, data);
+                }
         }
 
         return s;
@@ -992,17 +1013,21 @@ void udp_exit(socket_udp * s)
         if (!s->local_is_slave) {
                 if (s->local->multithreaded) {
                         char c = 0;
-                        int ret = PLATFORM_PIPE_WRITE(s->local->should_exit_fd[1], &c, 1);
-                        assert (ret == 1);
+                        for (int i = 0; i < s->local->thread_count; ++i) {
+                                int ret = PLATFORM_PIPE_WRITE(s->local->should_exit_fd[i][1], &c, 1);
+                                assert (ret == 1);
+                        }
                         s->local->should_exit = true;
-                        s->local->reader_cv.notify_one();
-                        pthread_join(s->local->thread_id, NULL);
+                        s->local->reader_cv.notify_all();
+                        for (int i = 0; i < s->local->thread_count; ++i) {
+                                pthread_join(s->local->thread_id[i], NULL);
+                                platform_pipe_close(s->local->should_exit_fd[i][1]);
+                        }
                         while (!s->local->packets.empty()) {
                                 auto it = s->local->packets.front();
                                 free(it.buf);
                                 s->local->packets.pop();
                         }
-                        platform_pipe_close(s->local->should_exit_fd[1]);
                 }
                 CLOSESOCKET(s->local->rx_fd);
                 if (s->local->tx_fd != s->local->rx_fd) {
@@ -1093,22 +1118,23 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
 static void *udp_reader(void *arg)
 {
         set_thread_name(__func__);
-        socket_udp *s = (socket_udp *) arg;
-        bool async = get_commandline_param("rtp-multithreaded") != nullptr && strcmp(get_commandline_param("rtp-multithreaded"), "async") == 0;
+        auto *data = static_cast<udp_reader_data *>(arg);
+        auto *s = data->s;
+        bool async = get_commandline_param("rtp-multithreaded") != nullptr && strstr(get_commandline_param("rtp-multithreaded"), "async") != nullptr;
 
         while (1) {
                 fd_set fds;
                 FD_ZERO(&fds);
                 FD_SET(s->local->rx_fd, &fds);
-                FD_SET(s->local->should_exit_fd[0], &fds);
-                int nfds = max(s->local->rx_fd, s->local->should_exit_fd[0]) + 1;
+                FD_SET(s->local->should_exit_fd[data->thread_idx][0], &fds);
+                int nfds = max(s->local->rx_fd, s->local->should_exit_fd[data->thread_idx][0]) + 1;
 
                 int rc = select(nfds, &fds, NULL, NULL, NULL);
                 if (rc <= 0) {
                         socket_error("select");
                         continue;
                 }
-                if (FD_ISSET(s->local->should_exit_fd[0], &fds)) {
+                if (FD_ISSET(s->local->should_exit_fd[data->thread_idx][0], &fds)) {
                         break;
                 }
                 uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
@@ -1197,7 +1223,8 @@ static void *udp_reader(void *arg)
                 }
         }
 
-        platform_pipe_close(s->local->should_exit_fd[0]);
+        platform_pipe_close(s->local->should_exit_fd[data->thread_idx][0]);
+        delete data;
 
         return NULL;
 }
