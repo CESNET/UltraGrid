@@ -6,7 +6,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -78,11 +78,7 @@
 
 #include <algorithm>
 #include <condition_variable>
-#ifdef WIN32
-#include <setjmpex.h>
-#else
 #include <csetjmp>
-#endif
 #include <fstream>
 #include <iostream>
 #include <list>
