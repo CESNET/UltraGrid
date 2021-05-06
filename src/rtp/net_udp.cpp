@@ -1094,6 +1094,7 @@ static void *udp_reader(void *arg)
 {
         set_thread_name(__func__);
         socket_udp *s = (socket_udp *) arg;
+        bool async = get_commandline_param("rtp-multithreaded") != nullptr && strcmp(get_commandline_param("rtp-multithreaded"), "async") == 0;
 
         while (1) {
                 fd_set fds;
@@ -1129,69 +1130,71 @@ static void *udp_reader(void *arg)
                         return true;
                 };
 
+                if (async) {
 #ifdef _WIN32
-                struct data {
-                        WSAOVERLAPPED overlapped;
-                        socket_udp *s;
-                        uint8_t *packet;
-                        bool (*add_to_queue_p)(socket_udp *s, uint8_t *packet, int size);
-                };
+                        struct data {
+                                WSAOVERLAPPED overlapped;
+                                socket_udp *s;
+                                uint8_t *packet;
+                                bool (*add_to_queue_p)(socket_udp *s, uint8_t *packet, int size);
+                        };
 
-                auto completion_routine = [](
-                                DWORD dwError,
-                                DWORD cbTransferred,
-                                LPWSAOVERLAPPED lpOverlapped,
-                                DWORD dwFlags
-                                ) {
-                        auto *d = static_cast<struct data *>(lpOverlapped->hEvent);
-                        //std::cerr << lpOverlapped->hEvent;
-                        if (dwError == 0)  {
-                                d->add_to_queue_p(d->s, d->packet, cbTransferred);
-                        } else {
-                                socket_error("WSARecvFrom - completion routine");
-                                free(d->packet);
+                        auto completion_routine = [](
+                                        DWORD dwError,
+                                        DWORD cbTransferred,
+                                        LPWSAOVERLAPPED lpOverlapped,
+                                        DWORD dwFlags
+                                        ) {
+                                auto *d = static_cast<struct data *>(lpOverlapped->hEvent);
+                                //std::cerr << lpOverlapped->hEvent;
+                                if (dwError == 0)  {
+                                        d->add_to_queue_p(d->s, d->packet, cbTransferred);
+                                } else {
+                                        socket_error("WSARecvFrom - completion routine");
+                                        free(d->packet);
+                                }
+                                delete d;
+                        };
+
+                        auto *d = new data{};
+                        d->s = s;
+                        d->packet = packet;
+                        d->add_to_queue_p = add_to_queue;
+                        d->overlapped.hEvent = d;
+                        WSABUF vector;
+                        DWORD Flags = 0;
+                        DWORD Received = 0;
+                        vector.buf = reinterpret_cast<char *>(buffer);
+                        vector.len = RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE;
+                        int ret = WSARecvFrom(s->local->rx_fd, &vector, 1,
+                                        &Received, &Flags,
+                                        NULL, 0,
+                                        &d->overlapped, completion_routine);
+                        if (ret == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING) { // see https://docs.microsoft.com/en-us/windows/win32/api/Winsock2/nf-winsock2-wsarecvfrom#overlapped-socket-i-o
+                                socket_error("WSARecvFrom");
+                                free(packet);
+                                delete d;
                         }
-                        delete d;
-                };
 
-                auto *d = new data{};
-                d->s = s;
-                d->packet = packet;
-                d->add_to_queue_p = add_to_queue;
-                d->overlapped.hEvent = d;
-                WSABUF vector;
-                DWORD Flags = 0;
-                DWORD Received = 0;
-                vector.buf = reinterpret_cast<char *>(buffer);
-                vector.len = RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE;
-                int ret = WSARecvFrom(s->local->rx_fd, &vector, 1,
-                                &Received, &Flags,
-                                NULL, 0,
-                                &d->overlapped, completion_routine);
-                if (ret == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING) { // see https://docs.microsoft.com/en-us/windows/win32/api/Winsock2/nf-winsock2-wsarecvfrom#overlapped-socket-i-o
-                        socket_error("WSARecvFrom");
-                        free(packet);
-                        delete d;
-                }
-
-                SleepEx(0, TRUE); // allow system to call our completion routines in APC
-#else
-                size = recvfrom(s->local->rx_fd, (char *) buffer,
-                                RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
-                                0, 0, 0);
-                if (size <= 0) {
-                        /// @todo
-                        /// In MSW, this block is called as often as packet is sent if
-                        /// we got WSAECONNRESET error (noone is listening). This can have
-                        /// negative performance impact.
-                        socket_error("recvfrom");
-                        continue;
-                }
-
-                if (!add_to_queue(s, packet, size)) {
-                        break;
-                }
+                        SleepEx(0, TRUE); // allow system to call our completion routines in APC
 #endif
+                } else {
+                        size = recvfrom(s->local->rx_fd, (char *) buffer,
+                                        RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
+                                        0, 0, 0);
+                        if (size <= 0) {
+                                /// @todo
+                                /// In MSW, this block is called as often as packet is sent if
+                                /// we got WSAECONNRESET error (noone is listening). This can have
+                                /// negative performance impact.
+                                socket_error("recvfrom");
+                                continue;
+                        }
+
+                        if (!add_to_queue(s, packet, size)) {
+                                break;
+                        }
+                }
         }
 
         platform_pipe_close(s->local->should_exit_fd[0]);
