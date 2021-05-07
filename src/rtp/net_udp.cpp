@@ -162,7 +162,7 @@ struct socket_udp_local {
 
         // for multithreaded receiving
         int thread_count;
-        pthread_t thread_id[MAX_UDP_READER_THREADS];
+        pthread_t thread_id[MAX_SOCKETS];
         queue<struct item> packets;
         unsigned int max_packets;
         mutex lock;
@@ -819,9 +819,12 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         s->local->rx_fd =
                 s->local->tx_fd = INVALID_SOCKET;
 
-        if (get_commandline_param("udp-multisocket") != nullptr) {
-                s->sock_cnt = atoi(get_commandline_param("udp-multisocket"));
-                assert (s->sock_cnt > 0 && s->sock_cnt < MAX_SOCKETS);
+        const char *count_s = get_commandline_param("rtp-multithreaded");
+        if (count_s != nullptr) {
+                if (isdigit(count_s[0])) {
+                        s->sock_cnt = atoi(count_s);
+                        assert (s->sock_cnt > 0 && s->sock_cnt < MAX_SOCKETS);
+                }
         }
 
         assert(force_ip_version == 0 || force_ip_version == 4 || force_ip_version == 6);
@@ -924,15 +927,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         s->local->max_packets = atoi(get_commandline_param("udp-queue-len"));
                 }
 
-                s->local->thread_count = 1;
-                const char *count_s = get_commandline_param("rtp-multithreaded");
-                if (count_s != nullptr) {
-                        if (isdigit(count_s[0])) {
-                                s->local->thread_count = atoi(count_s);
-                        }
-                }
-                assert(s->local->thread_count > 0 && s->local->thread_count <= MAX_UDP_READER_THREADS);
-                for (int i = 0; i < s->local->thread_count; ++i) {
+                for (size_t i = 0; i < s->sock_cnt; ++i) {
                         platform_pipe_init(s->local->should_exit_fd[i]);
                         auto *data = new udp_reader_data{};
                         data->s = s;
@@ -1801,7 +1796,4 @@ struct socket_udp_local *udp_get_local(socket_udp *s)
 {
         return s->local;
 }
-
-ADD_TO_PARAM("udp-multisocket", "* udp-multisocket=<num>\n"
-                "  Enforce multi-socket UDP transmission\n");
 
