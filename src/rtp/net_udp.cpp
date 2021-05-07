@@ -152,16 +152,14 @@ struct item {
  */
 struct socket_udp_local {
         int mode;               /* IPv4 or IPv6 */
-        fd_t rx_fd;
+        fd_t rx_fd[MAX_SOCKETS];
         fd_t tx_fd;
         bool multithreaded;
 #ifdef WIN32
         bool is_wsa_overlapped;
 #endif
 
-
         // for multithreaded receiving
-        int thread_count;
         pthread_t thread_id[MAX_SOCKETS];
         queue<struct item> packets;
         unsigned int max_packets;
@@ -603,7 +601,7 @@ static char *udp_host_addr6(socket_udp * s)
         }
         addr6.sin6_addr = ((struct sockaddr_in6 *)&s->sock[0])->sin6_addr;
 	len = sizeof bound;
-	if (getsockname(s->local->rx_fd, (struct sockaddr *)&bound, &len) == -1) {
+	if (getsockname(s->local->rx_fd[0], (struct sockaddr *)&bound, &len) == -1) {
 		socket_error("getsockname");
 		addr6.sin6_port = 0;
 	} else {
@@ -816,11 +814,11 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         int ret;
         socket_udp *s = new socket_udp();
         s->local = new socket_udp_local();
-        s->local->rx_fd =
-                s->local->tx_fd = INVALID_SOCKET;
+        std::for_each(s->local->rx_fd, std::end(s->local->rx_fd), [](fd_t &i) { i = INVALID_SOCKET; });
+        s->local->tx_fd = INVALID_SOCKET;
 
         const char *count_s = get_commandline_param("rtp-multithreaded");
-        if (count_s != nullptr) {
+        if (multithreaded && count_s != nullptr) {
                 if (isdigit(count_s[0])) {
                         s->sock_cnt = atoi(count_s);
                         assert (s->sock_cnt > 0 && s->sock_cnt < MAX_SOCKETS);
@@ -855,17 +853,21 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 s->local->is_wsa_overlapped = true;
         }
 
-        s->local->rx_fd = WSASocket(s->sock[0].ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+        for (size_t i = 0; i < s->sock_cnt; ++i) {
+                s->local->rx_fd[i] = WSASocket(s->sock[0].ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
+        }
         if (get_commandline_param("udp-disable-multi-socket")) {
-                s->local->tx_fd = s->local->rx_fd;
+                s->local->tx_fd = s->local->rx_fd[0];
         } else {
                 s->local->tx_fd = WSASocket(s->sock[0].ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, WSA_FLAG_OVERLAPPED);
         }
 #else
-        s->local->rx_fd =
-                s->local->tx_fd = socket(s->sock[0].ss_family, SOCK_DGRAM, 0);
+        for (size_t i = 0; i < s->sock_cnt; ++i) {
+                s->local->rx_fd[i] = socket(s->sock[0].ss_family, SOCK_DGRAM, 0);
+        }
+        s->local->tx_fd = s->local->rx_fd[0];
 #endif
-        if (s->local->rx_fd == INVALID_SOCKET ||
+        if (s->local->rx_fd[0] == INVALID_SOCKET ||
                         s->local->tx_fd == INVALID_SOCKET) {
                 socket_error("Unable to initialize socket");
                 goto error;
@@ -874,19 +876,23 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         // The order here is important if using separate socket for RX and TX - in
         // MSW, first bound socket receives data, in Linux (with Wine) the
         // second.
-        if (!set_sock_opts_and_bind(s->local->rx_fd, s->local->mode == IPv6, rx_port, ttl) ||
-                        (s->local->rx_fd != s->local->tx_fd && !set_sock_opts_and_bind(s->local->tx_fd, s->local->mode == IPv6, rx_port, ttl))) {
+        for (size_t i = 0; i < s->sock_cnt; ++i) {
+                if (!set_sock_opts_and_bind(s->local->rx_fd[i], s->local->mode == IPv6, rx_port + (rx_port == 0 ? 0 : i), ttl)) {
+                        goto error;
+                }
+        }
+        if (s->local->rx_fd[0] != s->local->tx_fd && !set_sock_opts_and_bind(s->local->tx_fd, s->local->mode == IPv6, rx_port, ttl)) {
                 goto error;
         }
         if (is_wine()) {
-                swap(s->local->rx_fd, s->local->tx_fd);
+                swap(s->local->rx_fd[0], s->local->tx_fd);
         }
 
         // if we do not set tx port, fake that is the same as we are bound to
         if (tx_port == 0) {
                 struct sockaddr_storage sin;
                 socklen_t addrlen = sizeof(sin);
-                if (getsockname(s->local->rx_fd, (struct sockaddr *)&sin, &addrlen) == 0 &&
+                if (getsockname(s->local->rx_fd[0], (struct sockaddr *)&sin, &addrlen) == 0 &&
                                 sin.ss_family == s->sock[0].ss_family) {
                         if (s->local->mode == IPv4) {
                                 struct sockaddr_in *s_in4 = (struct sockaddr_in *) &sin;
@@ -906,12 +912,12 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         switch (s->local->mode) {
         case IPv4:
-                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock[0])->sin_addr.s_addr, s->local->rx_fd, s->local->tx_fd, ttl, s->ifindex)) {
+                if (!udp_join_mcast_grp4(((struct sockaddr_in *)&s->sock[0])->sin_addr.s_addr, s->local->rx_fd[0], s->local->tx_fd, ttl, s->ifindex)) {
                         goto error;
                 }
                 break;
         case IPv6:
-                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock[0])->sin6_addr, s->local->rx_fd, s->local->tx_fd, ttl, s->ifindex)) {
+                if (!udp_join_mcast_grp6(((struct sockaddr_in6 *)&s->sock[0])->sin6_addr, s->local->rx_fd[0], s->local->tx_fd, ttl, s->ifindex)) {
                         goto error;
                 }
                 break;
@@ -939,10 +945,12 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         return s;
 
 error:
-        if (s->local->rx_fd != INVALID_SOCKET) {
-                CLOSESOCKET(s->local->rx_fd);
+        for (size_t i = 0; i < s->sock_cnt; ++i) {
+                if (s->local->rx_fd[i] != INVALID_SOCKET) {
+                        CLOSESOCKET(s->local->rx_fd[i]);
+                }
         }
-        if (s->local->tx_fd != s->local->rx_fd ||
+        if (s->local->tx_fd != s->local->rx_fd[0] ||
                         s->local->tx_fd != INVALID_SOCKET) {
                 CLOSESOCKET(s->local->tx_fd);
         }
@@ -1003,10 +1011,10 @@ void udp_exit(socket_udp * s)
 {
         switch (s->local->mode) {
         case IPv4:
-                udp_leave_mcast_grp4(((struct sockaddr_in *)&s->sock[0])->sin_addr.s_addr, s->local->rx_fd);
+                udp_leave_mcast_grp4(((struct sockaddr_in *)&s->sock[0])->sin_addr.s_addr, s->local->rx_fd[0]);
                 break;
         case IPv6:
-                udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock[0])->sin6_addr, s->local->rx_fd, s->ifindex);
+                udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock[0])->sin6_addr, s->local->rx_fd[0], s->ifindex);
                 break;
         default:
                 abort();
@@ -1015,13 +1023,13 @@ void udp_exit(socket_udp * s)
         if (!s->local_is_slave) {
                 if (s->local->multithreaded) {
                         char c = 0;
-                        for (int i = 0; i < s->local->thread_count; ++i) {
+                        for (size_t i = 0; i < s->sock_cnt; ++i) {
                                 int ret = PLATFORM_PIPE_WRITE(s->local->should_exit_fd[i][1], &c, 1);
                                 assert (ret == 1);
                         }
                         s->local->should_exit = true;
                         s->local->reader_cv.notify_all();
-                        for (int i = 0; i < s->local->thread_count; ++i) {
+                        for (size_t i = 0; i < s->sock_cnt; ++i) {
                                 pthread_join(s->local->thread_id[i], NULL);
                                 platform_pipe_close(s->local->should_exit_fd[i][1]);
                         }
@@ -1031,8 +1039,10 @@ void udp_exit(socket_udp * s)
                                 s->local->packets.pop();
                         }
                 }
-                CLOSESOCKET(s->local->rx_fd);
-                if (s->local->tx_fd != s->local->rx_fd) {
+                for (size_t i = 0; i < s->sock_cnt; ++i) {
+                        CLOSESOCKET(s->local->rx_fd[i]);
+                }
+                if (s->local->tx_fd != s->local->rx_fd[0]) {
                         CLOSESOCKET(s->local->tx_fd);
                 }
                 delete s->local;
@@ -1128,9 +1138,9 @@ static void *udp_reader(void *arg)
         while (1) {
                 fd_set fds;
                 FD_ZERO(&fds);
-                FD_SET(s->local->rx_fd, &fds);
+                FD_SET(s->local->rx_fd[data->thread_idx], &fds);
                 FD_SET(s->local->should_exit_fd[data->thread_idx][0], &fds);
-                int nfds = max(s->local->rx_fd, s->local->should_exit_fd[data->thread_idx][0]) + 1;
+                int nfds = max(s->local->rx_fd[data->thread_idx], s->local->should_exit_fd[data->thread_idx][0]) + 1;
 
                 int rc = select(nfds, &fds, NULL, NULL, NULL);
                 if (rc <= 0) {
@@ -1161,7 +1171,7 @@ static void *udp_reader(void *arg)
 
                 if (async) {
 #ifdef _WIN32
-                        struct data {
+                        struct recv_overlapped_data {
                                 WSAOVERLAPPED overlapped;
                                 socket_udp *s;
                                 uint8_t *packet;
@@ -1174,7 +1184,7 @@ static void *udp_reader(void *arg)
                                         LPWSAOVERLAPPED lpOverlapped,
                                         DWORD dwFlags
                                         ) {
-                                auto *d = static_cast<struct data *>(lpOverlapped->hEvent);
+                                auto *d = static_cast<recv_overlapped_data *>(lpOverlapped->hEvent);
                                 //std::cerr << lpOverlapped->hEvent;
                                 if (dwError == 0)  {
                                         d->add_to_queue_p(d->s, d->packet, cbTransferred);
@@ -1185,7 +1195,7 @@ static void *udp_reader(void *arg)
                                 delete d;
                         };
 
-                        auto *d = new data{};
+                        auto *d = new recv_overlapped_data{};
                         d->s = s;
                         d->packet = packet;
                         d->add_to_queue_p = add_to_queue;
@@ -1195,7 +1205,7 @@ static void *udp_reader(void *arg)
                         DWORD Received = 0;
                         vector.buf = reinterpret_cast<char *>(buffer);
                         vector.len = RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE;
-                        int ret = WSARecvFrom(s->local->rx_fd, &vector, 1,
+                        int ret = WSARecvFrom(s->local->rx_fd[data->thread_idx], &vector, 1,
                                         &Received, &Flags,
                                         NULL, 0,
                                         &d->overlapped, completion_routine);
@@ -1208,7 +1218,7 @@ static void *udp_reader(void *arg)
                         SleepEx(0, TRUE); // allow system to call our completion routines in APC
 #endif
                 } else {
-                        size = recvfrom(s->local->rx_fd, (char *) buffer,
+                        size = recvfrom(s->local->rx_fd[data->thread_idx], (char *) buffer,
                                         RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                         0, 0, 0);
                         if (size <= 0) {
@@ -1243,7 +1253,7 @@ static int udp_do_recv(socket_udp * s, char *buffer, int buflen, int flags, stru
         assert(buffer != NULL);
         assert(buflen > 0);
 
-        len = recvfrom(s->local->rx_fd, buffer, buflen, flags, src_addr, addrlen);
+        len = recvfrom(s->local->rx_fd[0], buffer, buflen, flags, src_addr, addrlen);
         if (len > 0) {
                 return len;
         }
@@ -1334,7 +1344,7 @@ int udp_recv_data(socket_udp * s, char **buffer)
         s->local->packets.pop();
 
         lk.unlock();
-        s->local->reader_cv.notify_one();
+        s->local->reader_cv.notify_all();
 
         return ret;
 }
@@ -1342,7 +1352,7 @@ int udp_recv_data(socket_udp * s, char **buffer)
 #ifndef WIN32
 int udp_recvv(socket_udp * s, struct msghdr *m)
 {
-        if (recvmsg(s->local->rx_fd, m, 0) == -1) {
+        if (recvmsg(s->local->rx_fd[0], m, 0) == -1) {
                 perror("recvmsg");
                 return 1;
         }
@@ -1360,17 +1370,17 @@ int udp_recvv(socket_udp * s, struct msghdr *m)
  **/
 void udp_fd_set(socket_udp * s)
 {
-        FD_SET(s->local->rx_fd, &rfd);
-        if (s->local->rx_fd > (fd_t) max_fd) {
-                max_fd = s->local->rx_fd;
+        FD_SET(s->local->rx_fd[0], &rfd);
+        if (s->local->rx_fd[0] > (fd_t) max_fd) {
+                max_fd = s->local->rx_fd[0];
         }
 }
 
 void udp_fd_set_r(socket_udp *s, struct udp_fd_r *fd_struct)
 {
-        FD_SET(s->local->rx_fd, &fd_struct->rfd);
-        if (s->local->rx_fd > (fd_t) fd_struct->max_fd) {
-                fd_struct->max_fd = s->local->rx_fd;
+        FD_SET(s->local->rx_fd[0], &fd_struct->rfd);
+        if (s->local->rx_fd[0] > (fd_t) fd_struct->max_fd) {
+                fd_struct->max_fd = s->local->rx_fd[0];
         }
 }
 
@@ -1387,12 +1397,12 @@ void udp_fd_set_r(socket_udp *s, struct udp_fd_r *fd_struct)
  **/
 int udp_fd_isset(socket_udp * s)
 {
-        return FD_ISSET(s->local->rx_fd, &rfd);
+        return FD_ISSET(s->local->rx_fd[0], &rfd);
 }
 
 int udp_fd_isset_r(socket_udp *s, struct udp_fd_r *fd_struct)
 {
-        return FD_ISSET(s->local->rx_fd, &fd_struct->rfd);
+        return FD_ISSET(s->local->rx_fd[0], &fd_struct->rfd);
 }
 
 
@@ -1445,8 +1455,8 @@ char *udp_host_addr(socket_udp * s)
  **/
 int udp_fd(socket_udp * s)
 {
-        if (s && s->local->rx_fd > 0) {
-                return s->local->rx_fd;
+        if (s && s->local->rx_fd[0] > 0) {
+                return s->local->rx_fd[0];
         }
         return 0;
 }
@@ -1501,26 +1511,28 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
 
 int udp_set_recv_buf(socket_udp *s, int size)
 {
-        int opt = 0;
-        socklen_t opt_size;
-        if (SETSOCKOPT(s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t) &size,
-                        sizeof(size)) != 0) {
-                socket_error("Unable to set socket buffer size");
-                return FALSE;
-        }
+        for (size_t i = 0; i < s->sock_cnt; ++i) {
+                int opt = 0;
+                socklen_t opt_size;
+                if (SETSOCKOPT(s->local->rx_fd[i], SOL_SOCKET, SO_RCVBUF, (sockopt_t) &size,
+                                        sizeof(size)) != 0) {
+                        socket_error("Unable to set socket buffer size");
+                        return FALSE;
+                }
 
-        opt_size = sizeof(opt);
-        if(GETSOCKOPT (s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
-                        &opt_size) != 0) {
-                socket_error("Unable to get socket buffer size");
-                return FALSE;
-        }
+                opt_size = sizeof(opt);
+                if(GETSOCKOPT (s->local->rx_fd[i], SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
+                                        &opt_size) != 0) {
+                        socket_error("Unable to get socket buffer size");
+                        return FALSE;
+                }
 
-        if(opt < size) {
-                return FALSE;
-        }
+                if(opt < size) {
+                        return FALSE;
+                }
 
-        verbose_msg("Socket recv buffer size set to %d B.\n", opt);
+                verbose_msg("Socket recv buffer size set to %d B.\n", opt);
+        }
 
         return TRUE;
 }
@@ -1568,10 +1580,10 @@ void udp_flush_recv_buf(socket_udp *s)
         timeout.tv_usec = 0;
 
         FD_ZERO(&select_fd);
-        FD_SET(s->local->rx_fd, &select_fd);
+        FD_SET(s->local->rx_fd[0], &select_fd);
 
-        while(select(s->local->rx_fd + 1, &select_fd, NULL, NULL, &timeout) > 0) {
-                ssize_t bytes = recv(s->local->rx_fd, buf, len, 0);
+        while(select(s->local->rx_fd[0] + 1, &select_fd, NULL, NULL, &timeout) > 0) {
+                ssize_t bytes = recv(s->local->rx_fd[0], buf, len, 0);
                 if(bytes <= 0)
                         break;
         }
