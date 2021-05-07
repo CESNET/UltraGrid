@@ -1083,6 +1083,7 @@ static void *udp_reader(void *arg)
                         /// we got WSAECONNRESET error (noone is listening). This can have
                         /// negative performance impact.
                         socket_error("recvfrom");
+                        free(packet);
                         continue;
                 }
 
