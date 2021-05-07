@@ -28,8 +28,9 @@ sudo apt install libspeexdsp-dev
 sudo apt install libssl-dev
 sudo apt install libasound-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev portaudio19-dev
 
-# for FFmpeg
-sudo apt build-dep ffmpeg
+# for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
+FFMPEG_BUILD_DEP=`apt-cache showsrc ffmpeg | grep Build-Depends: | sed 's/Build-Depends://' | tr ',' '\n' |cut -f 2 -d\  | grep -v libzmq3-dev`
+sudo apt install $FFMPEG_BUILD_DEP
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' 'libvpx*' 'libx264*' nasm
 sudo apt --no-install-recommends install asciidoc xmlto
 
