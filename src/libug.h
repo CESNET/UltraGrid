@@ -52,6 +52,7 @@ struct ug_sender_parameters {
         int port;                                ///< port (optional, default 5004)
         int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
         int enable_strips;                       ///< enable 8x1 strips (to improve compression), default 0 (disable)
+        int connections;                         ///< number of connections (default 1), must match with receiver
 };
 
 /**
@@ -78,6 +79,7 @@ struct ug_receiver_parameters {
         bool force_gpu_decoding;                 ///< force GPU decoding (decode with GPUJPEG)
         int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
         int enable_strips;                       ///< enable 8x1 strips (to improve compression), default 0 (disable)
+        int connections;                         ///< number of connections (default 1), must match with sender
 };
 LIBUG_DLL struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params);
 LIBUG_DLL void ug_receiver_done(struct ug_receiver *state);

@@ -61,6 +61,9 @@ VR-specific changes
 Changes
 ---------
 
+### 2021-05-07
+- added multisocket connection option
+
 ### 2021-05-05
 - `ug_receiver_parameters`/`ug_sender_parameters` - `disable_strips` -> `enable_strips`
   rename (+ default is now disable - not sure if yet compatible with the pitches)

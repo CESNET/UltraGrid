@@ -41,6 +41,7 @@ static void render_packet_received_callback(void *udata, struct RenderPacket *pk
 static void usage(const char *progname) {
         printf("%s [options] [receiver[:port]]\n", progname);
         printf("options:\n");
+        printf("\t-C - connection count\n");
         printf("\t-f - FPS to use (default %f)\n", DEFAULT_FPS);
         printf("\t-h - show this help\n");
         printf("\t-j - use JPEG\n");
@@ -109,8 +110,11 @@ int main(int argc, char *argv[]) {
         double fps = DEFAULT_FPS;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "f:hjm:Ss:vy")) != -1) {
+        while ((ch = getopt(argc, argv, "C:f:hjm:Ss:vy")) != -1) {
                 switch (ch) {
+                case 'C':
+                        init_params.connections = atoi(optarg);
+                        break;
                 case 'f':
                         fps = atof(optarg);
                         break;

@@ -1,6 +1,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <exception>
@@ -73,6 +74,10 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
         if (init_params->receiver == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << "Receiver must be set!\n";
                 return nullptr;
+        }
+        int connections = max<int>(init_params->connections, 1);
+        if (connections > 1) {
+                commandline_params["rtp-multithreaded"] = to_string(connections);
         }
 
         log_level += init_params->verbose;
@@ -235,6 +240,11 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
 
         char display[128] = "vrg";
         const char *display_cfg = "";
+
+        init_params->connections = max<int>(init_params->connections, 1);
+        if (init_params->connections > 1) {
+                commandline_params["rtp-multithreaded"] = to_string(init_params->connections);
+        }
 
         if (init_params->display != nullptr) {
                 strncpy(display, init_params->display, sizeof display - 1);
