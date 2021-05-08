@@ -32,8 +32,9 @@ static void usage(const char *progname) {
         printf("options:\n");
         printf("\t-c I420|RGBA|CUDA_I420|CUDA_RGBA - force decompress to codec\n");
         printf("\t-C - connection count\n");
-        printf("\t-h - show this help\n");
         printf("\t-d - display (default vrg)\n");
+        printf("\t-h - show this help\n");
+        printf("\t-p - port\n");
         printf("\t-S - enable strips\n");
         printf("\t-v - increase verbosity (use twice for debug)\n");
 }
@@ -42,7 +43,7 @@ int main(int argc, char *argv[]) {
         struct ug_receiver_parameters init_params = { 0 };
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "c:C:d:hSv")) != -1) {
+        while ((ch = getopt(argc, argv, "c:C:hd:p:Sv")) != -1) {
                 switch (ch) {
                 case 'c':
                         assert(strcmp(optarg, "RGBA") == 0 || strcmp(optarg, "I420") == 0
@@ -66,7 +67,10 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         usage(argv[0]);
                         return 0;
-                case 's':
+                case 'p':
+                        init_params.port = atoi(optarg);
+                        break;
+                case 'S':
                         init_params.enable_strips = 1;
                         break;
                 case 'v':

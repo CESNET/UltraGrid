@@ -46,6 +46,7 @@ static void usage(const char *progname) {
         printf("\t-h - show this help\n");
         printf("\t-j - use JPEG\n");
         printf("\t-m - use specified MTU\n");
+        printf("\t-p - port number\n");
         printf("\t-S - enable strips\n");
         printf("\t-s - size (WxH)\n");
         printf("\t-v - increase verbosity (use twice for debug)\n");
@@ -58,11 +59,11 @@ static void usage(const char *progname) {
 static void fill(unsigned char **buf_p, int width, int height, libug_pixfmt_t pixfmt) {
         assert(width > 0 && height > 0);
         free(*buf_p);
-        size_t len = (width + 768) * height * 4;
+        size_t len = width * (height + 768) * 4;
         char *data = malloc(len);
         *buf_p = data;
         if (pixfmt == UG_RGBA) {
-                for (int y = 0; y < height; ++y) {
+                for (int y = 0; y < height + 768; ++y) {
                         for (int x = 0; x < width; ++x) {
                                 *data++ = MIN(256, y % (3 * 256)) % 256;
                                 *data++ = MIN(256, MAX(0, y - 256) % (3 * 256)) % 256;
@@ -110,7 +111,7 @@ int main(int argc, char *argv[]) {
         double fps = DEFAULT_FPS;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "C:f:hjm:Ss:vy")) != -1) {
+        while ((ch = getopt(argc, argv, "C:f:hjm:p:Ss:vy")) != -1) {
                 switch (ch) {
                 case 'C':
                         init_params.connections = atoi(optarg);
@@ -126,6 +127,9 @@ int main(int argc, char *argv[]) {
                         break;
                 case 'm':
                         init_params.mtu = atoi(optarg);
+                        break;
+                case 'p':
+                        init_params.port = atoi(optarg);
                         break;
                 case 'S':
                         init_params.enable_strips = 1;
@@ -176,7 +180,7 @@ int main(int argc, char *argv[]) {
 
         time_t t0 = time(NULL);
         size_t len = width * height * 4;
-        unsigned char *test = malloc(len + 768 * width * 4);
+        unsigned char *test = NULL;
         fill(&test, width, height, codec);
         uint32_t frames = 0;
         uint32_t frames_last = 0;
