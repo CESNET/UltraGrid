@@ -148,11 +148,12 @@ jobs:
       uses: actions/cache@v1
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
-        key: cache-macos-nonfree-sdks-1
+        key: cache-macos-nonfree-sdks-2
     - name: Download Non-Free SDKs
       if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
-        mkdir ${{ env.SDK_NONFREE_PATH }} && cd ${{ env.SDK_NONFREE_PATH }}
+        mkdir -p ${{ env.SDK_NONFREE_PATH }}
+        cd ${{ env.SDK_NONFREE_PATH }}
         curl -S -f -O $SDK_URL/ntv2sdkmac.zip --next -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip --next -f -O $SDK_URL/NDISDK_Apple.pkg || true
         $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache Free SDKs
@@ -164,7 +165,8 @@ jobs:
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
       run: |
-        mkdir /var/tmp/sdks-free && cd /var/tmp/sdks-free
+        mkdir -p /var/tmp/sdks-free
+        cd /var/tmp/sdks-free
         curl -S -LO https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg
     - name: bootstrap
       run: |
