@@ -83,6 +83,7 @@ using std::max;
 using std::setfill;
 using std::setprecision;
 using std::setw;
+using std::to_string;
 
 struct pbuf_node {
         struct pbuf_node *nxt;
@@ -104,14 +105,15 @@ struct pbuf {
         volatile int *offset_ms;
 
         // for statistics
-        /// @todo figure out packet duplication
         unsigned long long packets[(1<<16) / sizeof(unsigned long long) / 8];
         int last_report_seq;
+        uint16_t last_seq;
         int received_pkts, expected_pkts; // currently computed values
         long long int received_pkts_cum, expected_pkts_cum; // cumulative values
         uint32_t last_display_ts;
         int longest_gap; // longest loss
         int out_of_order_pkts;
+        int max_out_of_order_dist;
         int dups; // duplicite packets
 };
 
@@ -343,6 +345,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         constexpr size_t number_word_bytes = sizeof(unsigned long long);
         constexpr size_t number_word_bits = number_word_bytes * CHAR_BIT;
         if (playout_buf->last_report_seq == -1) { // init
+                playout_buf->last_seq = pkt->seq - 1;
                 playout_buf->last_report_seq = pkt->seq / STATS_INTERVAL * STATS_INTERVAL;
                 for (uint16_t i = playout_buf->last_report_seq; i != pkt->seq; ++i) {
                         unsigned long long current_bit = 1ull << (i % number_word_bits);
@@ -352,7 +355,10 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         unsigned long long current_bit = 1ull << (pkt->seq % number_word_bits);
         if ((playout_buf->packets[pkt->seq / number_word_bits] & ~current_bit) > current_bit) {
                 playout_buf->out_of_order_pkts += 1;
+                int dist = ((pkt->seq + (1<<16U)) - playout_buf->last_seq) % (1<<16U);
+                playout_buf->max_out_of_order_dist = max<int>(playout_buf->max_out_of_order_dist, dist < 1<<15U ? dist : abs(dist - (1<<16U)));
         }
+        playout_buf->last_seq = pkt->seq;
         if (playout_buf->packets[pkt->seq / number_word_bits] & current_bit) {
                 playout_buf->dups += 1;
         }
@@ -388,13 +394,14 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                         << setprecision(4) << loss_pct << "%" << fg::reset
                         << "), " << playout_buf->expected_pkts - playout_buf->received_pkts
                         << " lost, max loss " << playout_buf->longest_gap
-                        << (playout_buf->out_of_order_pkts > 0 ? ", "s + std::to_string(playout_buf->out_of_order_pkts) + " reordered pkts"s : ""s)
+                        << (playout_buf->out_of_order_pkts > 0 ? ", "s + to_string(playout_buf->out_of_order_pkts) + " reordered pkts (max dist "s + to_string(playout_buf->max_out_of_order_dist) + ")"s : ""s)
                         << (playout_buf->dups > 0 ? ", "s + std::to_string(playout_buf->dups) + " dups"s : ""s)
                         << ".\n";
                 playout_buf->expected_pkts = playout_buf->received_pkts = 0;
                 playout_buf->last_display_ts = pkt->ts;
                 playout_buf->longest_gap = 0;
                 playout_buf->out_of_order_pkts = 0;
+                playout_buf->max_out_of_order_dist = 0;
                 playout_buf->dups = 0;
         }
 
