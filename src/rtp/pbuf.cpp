@@ -71,9 +71,11 @@
 
 #define PBUF_MAGIC	0xcafebabe
 
-#define STATS_INTERVAL 128
-static_assert(STATS_INTERVAL % (sizeof(unsigned long long) * CHAR_BIT) == 0,
+constexpr int DEFAULT_STATS_INTERVAL = 128;
+constexpr size_t STAT_INT_MIN_DIVISOR = (sizeof(unsigned long long) * CHAR_BIT);
+static_assert(DEFAULT_STATS_INTERVAL % STAT_INT_MIN_DIVISOR == 0,
                 "STATS_INTERVAL must be divisible by (sizeof(ull) * CHAR_BIT)");
+constexpr const char *MOD_NAME = "[Pbuf] ";
 
 using namespace std::string_literals;
 using rang::fg;
@@ -105,6 +107,7 @@ struct pbuf {
         volatile int *offset_ms;
 
         // for statistics
+        int stats_interval;
         unsigned long long packets[(1<<16) / sizeof(unsigned long long) / 8];
         int last_report_seq;
         uint16_t last_seq;
@@ -189,6 +192,7 @@ struct pbuf *pbuf_init(volatile int *delay_ms)
                 playout_buf->offset_ms = delay_ms;
                 playout_buf->playout_delay_us = 0.032 * 1000 * 1000;
                 playout_buf->last_report_seq = -1;
+                playout_buf->stats_interval = DEFAULT_STATS_INTERVAL;
         } else {
                 debug_msg("Failed to allocate memory for playout buffer\n");
         }
@@ -342,7 +346,7 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
         constexpr size_t number_word_bits = number_word_bytes * CHAR_BIT;
         if (playout_buf->last_report_seq == -1) { // init
                 playout_buf->last_seq = pkt->seq - 1;
-                playout_buf->last_report_seq = pkt->seq / STATS_INTERVAL * STATS_INTERVAL;
+                playout_buf->last_report_seq = pkt->seq / playout_buf->stats_interval * playout_buf->stats_interval;
                 for (uint16_t i = playout_buf->last_report_seq; i != pkt->seq; ++i) {
                         unsigned long long current_bit = 1ull << (i % number_word_bits);
                         playout_buf->packets[i / number_word_bits] |= current_bit;
@@ -360,8 +364,8 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
         }
         playout_buf->packets[pkt->seq / number_word_bits] |= current_bit;
         uint16_t dist = (uint16_t) (pkt->seq - playout_buf->last_report_seq);
-        if (dist >= STATS_INTERVAL * 2 && dist < 1U<<15U) {
-                uint16_t report_seq_until = (uint16_t) ((pkt->seq / STATS_INTERVAL * STATS_INTERVAL) - STATS_INTERVAL); // sum up only up to current-STATS_INTERVAL to be able to catch out-of-order packets
+        if (dist >= playout_buf->stats_interval * 2 && dist < 1U<<15U) {
+                uint16_t report_seq_until = (uint16_t) ((pkt->seq / playout_buf->stats_interval * playout_buf->stats_interval) - playout_buf->stats_interval); // sum up only up to current-playout_buf->stats_interval to be able to catch out-of-order packets
                 for (uint16_t i = playout_buf->last_report_seq;
                                 i != report_seq_until; i += number_word_bits) {
                         playout_buf->expected_pkts += number_word_bits;
@@ -393,6 +397,13 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
                         << (playout_buf->out_of_order_pkts > 0 ? ", "s + to_string(playout_buf->out_of_order_pkts) + " reordered pkts (max dist "s + to_string(playout_buf->max_out_of_order_dist) + ")"s : ""s)
                         << (playout_buf->dups > 0 ? ", "s + std::to_string(playout_buf->dups) + " dups"s : ""s)
                         << ".\n";
+                if (playout_buf->max_out_of_order_dist >= playout_buf->stats_interval) {
+                        size_t new_val = (playout_buf->max_out_of_order_dist + STAT_INT_MIN_DIVISOR - 1) / STAT_INT_MIN_DIVISOR * STAT_INT_MIN_DIVISOR;
+                        if (new_val < 1U<<14U) {
+                                playout_buf->stats_interval = new_val;
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Adjusting stats interval to " << new_val << "\n";
+                        }
+                }
                 playout_buf->expected_pkts = playout_buf->received_pkts = 0;
                 playout_buf->last_display_ts = pkt->ts;
                 playout_buf->longest_gap = 0;
