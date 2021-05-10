@@ -335,12 +335,8 @@ static void compute_longest_gap(int *longest_gap, unsigned long long int packets
         }
 }
 
-void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
+static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt)
 {
-        struct pbuf_node *tmp;
-
-        pbuf_validate(playout_buf);
-
         // collect statistics
         constexpr size_t number_word_bytes = sizeof(unsigned long long);
         constexpr size_t number_word_bits = number_word_bytes * CHAR_BIT;
@@ -404,6 +400,14 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                 playout_buf->max_out_of_order_dist = 0;
                 playout_buf->dups = 0;
         }
+}
+
+void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
+{
+        struct pbuf_node *tmp;
+
+        pbuf_validate(playout_buf);
+        pbuf_process_stats(playout_buf, pkt);
 
         if (playout_buf->frst == NULL && playout_buf->last == NULL) {
                 /* playout buffer is empty - add new frame */
