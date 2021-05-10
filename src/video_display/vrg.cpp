@@ -248,6 +248,7 @@ static void display_vrg_run(void *state)
                     LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
                                          duration_cast<microseconds>(t_end - t_start).count() / 1000000.0
                                          << " seconds\n";
+                    s->frames += 1;
                 } else {
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Dismissed frame with zero dimensions!\n";
                 }
@@ -262,7 +263,6 @@ static void display_vrg_run(void *state)
                         s->frames_last = s->frames;
                 }
 
-                s->frames += 1;
                 vf_free(f);
         }
 }
