@@ -40,6 +40,7 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "rtp/rtp.h"
 #include "rang.hpp"
 #include "video.h"
 #include "video_display.h"
@@ -65,7 +66,7 @@ using rang::fg;
 using rang::style;
 
 struct dummy_display_state {
-        dummy_display_state() : f(nullptr), t0(steady_clock::now()), frames(0) {
+        dummy_display_state() : f(nullptr), t0(steady_clock::now()) {
 #ifdef HAVE_CUDA
                 codecs.push_back(CUDA_RGBA);
                 codecs.push_back(CUDA_I420);
@@ -75,12 +76,15 @@ struct dummy_display_state {
         steady_clock::time_point t0;
         vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R12L, RGBA, RGB, BGR, RG48};
         vector<int> rgb_shift = {0, 8, 16};
-        int frames = 0;
+        uint32_t frames = 0;
+        uint32_t frames_last = 0;
 
         size_t dump_bytes = 0;
         bool dump_to_file = false;
         int dump_to_file_skip_frames = 0;
         bool cuda_managed = false;
+
+        struct rtp *rtp;
 };
 
 static auto display_dummy_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */) -> void *
@@ -189,12 +193,20 @@ static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
         auto curr_time = steady_clock::now();
         s->frames += 1;
         LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "Received frame with RenderPacket ID: " << frame->render_packet.frame << "\n";
+
+        struct RenderPacket render_packet{};
+        render_packet.frame = s->frames;
+        render_packet.pix_width_eye = 1920;
+        render_packet.pix_height_eye = 1920;
+        rtp_send_rtcp_app(s->rtp, "VIEW", sizeof render_packet, (char *) &render_packet);
+
         double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
         if (seconds >= 5.0) {
-                double fps = s->frames / seconds;
-                LOG(LOG_LEVEL_INFO) << MOD_NAME << s->frames << " frames in " << seconds << " seconds = " << fps << " FPS\n",
+                uint32_t frames = s->frames - s->frames_last;
+                double fps = frames / seconds;
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << frames << " frames in " << seconds << " seconds = " << fps << " FPS\n",
                 s->t0 = curr_time;
-                s->frames = 0;
+                s->frames_last = s->frames;
         }
 
         return 0;
@@ -218,6 +230,9 @@ static auto display_dummy_get_property(void *state, int property, void *val, siz
                         }
                         *len = s->rgb_shift.size() * sizeof(s->rgb_shift[0]);
                         memcpy(val, s->rgb_shift.data(), *len);
+                        break;
+                case DISPLAY_PROPERTY_S_RTP:
+                        s->rtp = *(struct rtp **) val;
                         break;
                 default:
                         return FALSE;
