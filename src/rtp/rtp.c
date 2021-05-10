@@ -4143,7 +4143,7 @@ void rtp_send_rtcp_app(struct rtp *session, const char *name, int length, char *
         /* Loop the data back to ourselves so local participant can */
         /* query own stats when using unicast or multicast with no  */
         /* loopback.                                                */
-        rtp_process_ctrl(session, buffer, ptr - buffer);
+        //rtp_process_ctrl(session, buffer, ptr - buffer);
         check_database(session);
 }
 
