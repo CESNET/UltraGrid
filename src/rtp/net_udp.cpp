@@ -877,7 +877,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         // MSW, first bound socket receives data, in Linux (with Wine) the
         // second.
         for (size_t i = 0; i < s->sock_cnt; ++i) {
-                if (!set_sock_opts_and_bind(s->local->rx_fd[i], s->local->mode == IPv6, rx_port + (rx_port == 0 ? 0 : i), ttl)) {
+                if (!set_sock_opts_and_bind(s->local->rx_fd[i], s->local->mode == IPv6, rx_port + (rx_port == 0 ? 0 : i + (i == 0 ? 0 : 1)), ttl)) {
                         goto error;
                 }
         }
@@ -1500,9 +1500,9 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
         for (size_t i = 1; i < s->sock_cnt; ++i) {
                 memcpy(&s->sock[i], &s->sock[0], sizeof s->sock[0]);
                 if (hints.ai_family == AF_INET) {
-                        ((struct sockaddr_in *) &s->sock[i])->sin_port = htons(tx_port + i);
+                        ((struct sockaddr_in *) &s->sock[i])->sin_port = htons(tx_port + i + 1);
                 } else {
-                        ((struct sockaddr_in6 *) &s->sock[i])->sin6_port = htons(tx_port + i);
+                        ((struct sockaddr_in6 *) &s->sock[i])->sin6_port = htons(tx_port + i + 1);
                 }
         }
 
