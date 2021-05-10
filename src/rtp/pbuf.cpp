@@ -357,7 +357,8 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                 playout_buf->dups += 1;
         }
         playout_buf->packets[pkt->seq / number_word_bits] |= current_bit;
-        if ((uint16_t) (pkt->seq - playout_buf->last_report_seq) >= STATS_INTERVAL * 2) {
+        uint16_t dist = (uint16_t) (pkt->seq - playout_buf->last_report_seq);
+        if (dist >= STATS_INTERVAL * 2 && dist < 1U<<15U) {
                 uint16_t report_seq_until = (uint16_t) ((pkt->seq / STATS_INTERVAL * STATS_INTERVAL) - STATS_INTERVAL); // sum up only up to current-STATS_INTERVAL to be able to catch out-of-order packets
                 for (uint16_t i = playout_buf->last_report_seq;
                                 i != report_seq_until; i += number_word_bits) {
