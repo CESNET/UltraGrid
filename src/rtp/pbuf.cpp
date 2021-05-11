@@ -93,6 +93,7 @@ struct pbuf_node {
         uint32_t rtp_timestamp; /* RTP timestamp for the frame           */
         std::chrono::high_resolution_clock::time_point arrival_time;    /* Arrival time of first packet in frame */
         std::chrono::high_resolution_clock::time_point playout_time;    /* Playout time for the frame            */
+        std::chrono::high_resolution_clock::time_point deletion_time;   /* Deletion time for the frame            */
         struct coded_data *cdata;       /*                                       */
         int decoded;            /* Non-zero if we've decoded this frame  */
         int mbit;               /* determines if mbit of frame had been seen */
@@ -299,6 +300,7 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, long long playout_de
                 tmp->playout_time =
                         tmp->arrival_time = std::chrono::high_resolution_clock::now();
                 tmp->playout_time += std::chrono::microseconds(playout_delay_us);
+                tmp->deletion_time = tmp->playout_time + std::chrono::microseconds(playout_delay_us);
 
                 tmp->cdata = (struct coded_data *) malloc(sizeof(struct coded_data));
                 if (tmp->cdata != NULL) {
@@ -428,6 +430,9 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         }
 
         if (playout_buf->last->rtp_timestamp == pkt->ts) {
+                if (playout_buf->last->decoded) {
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Late data for already decoded frame!\n";
+                }
                 /* Packet belongs to last frame in playout_buf this is the */
                 /* most likely scenario - although...                      */
                 add_coded_unit(playout_buf->last, pkt);
@@ -497,7 +502,7 @@ void pbuf_remove(struct pbuf *playout_buf, std::chrono::high_resolution_clock::t
         curr = playout_buf->frst;
         while (curr != NULL) {
                 temp = curr->nxt;
-                if (curr_time > curr->playout_time && frame_complete(curr)) {
+                if (curr_time > curr->deletion_time && frame_complete(curr)) {
                         if (curr == playout_buf->frst) {
                                 playout_buf->frst = curr->nxt;
                         }
