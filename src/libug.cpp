@@ -26,6 +26,7 @@ using namespace std;
 static char app_name[] = "(undefined)";
 static char *argv[] = { app_name , nullptr };
 static int argc = 1;
+static constexpr int FPS = 30; // affects also receiver's playout delay
 
 extern "C" void exit_uv(int status);
 
@@ -143,7 +144,7 @@ void ug_send_frame(struct ug_sender *s, const char *data, libug_pixfmt_t pixel_f
         f->color_spec = (codec_t) pixel_format;
         f->tiles[0].width = width;
         f->tiles[0].height = height;
-        f->fps = 120;
+        f->fps = FPS;
         f->interlacing = PROGRESSIVE;
         f->render_packet = *pkt;
 
