@@ -435,7 +435,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         assert(filesize >= 0);
                         fseek(in, 0L, SEEK_SET);
 
-                        if (s->frame->tiles[0].data_len != filesize) {
+                        if (s->frame->tiles[0].data_len != static_cast<unsigned>(filesize)) {
                                 int level = s->frame->tiles[0].data_len < filesize ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR;
                                 LOG(level) << MOD_NAME  << "Wrong file size for selected "
                                         "resolution and codec. File size " << filesize << ", "
