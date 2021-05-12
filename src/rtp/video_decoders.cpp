@@ -1650,7 +1650,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                 log_msg(LOG_LEVEL_NOTICE, "%s. Check if it is correct.\n", get_video_mode_description(decoder->video_mode));
                         } else {
                                 log_msg(LOG_LEVEL_FATAL, "[decoder] Unknown video mode!\n");
-                                error(1);
+                                handle_error(1);
                         }
                         // we need skip this frame (variables are illegal in this iteration
                         // and in case that we got unrecognized number of substreams - exit

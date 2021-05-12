@@ -79,7 +79,7 @@ extern char **uv_argv;
 
 extern volatile bool should_exit;
 
-void error(int status);
+void handle_error(int status);
 void exit_uv(int status);
 
 #define DEFAULT_AUDIO_CAPTURE_CHANNELS 1

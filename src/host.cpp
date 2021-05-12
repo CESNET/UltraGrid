@@ -635,7 +635,7 @@ ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"
  * Caller code normally continues after this function so the error must not
  * have been fatal and UltraGrid must remain in a consistent state.
  */
-void error(int status) {
+void handle_error(int status) {
         if (get_commandline_param("errors-fatal")) {
                 exit_uv(status);
         }
