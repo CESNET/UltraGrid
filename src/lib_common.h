@@ -41,7 +41,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#include "host.h" // UNIQUE_NAME
+#include "host.h" // UNIQUE_LABEL
 
 #ifdef _WIN32
 #define LIB_HANDLE HMODULE
@@ -157,13 +157,13 @@ struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
  * multiple modules (eg. audio playback SDI) and without that, function would
  * be defined multiple times under the same name.
  */
-#define REGISTER_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_NAME, 0)
+#define REGISTER_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL, 0)
 
 /**
  * Similar to @ref REGISTER_MODULE but do not show the module under help
  * of correcponding class (usable for technical or deprecated modules).
  */
-#define REGISTER_HIDDEN_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_NAME, 1)
+#define REGISTER_HIDDEN_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL, 1)
 
 #endif // defined LIB_COMMON_H
 

@@ -54,7 +54,7 @@ void vf_split(struct video_frame *out, struct video_frame *src,
         unsigned int        tile_idx, line_idx;
         struct tile        *cur_tiles;
         unsigned int        tile_line = 0;
-        int                 out_linesize;
+        int                 out_linesize = 0;
         int                 src_linesize;
 
         out->color_spec = src->color_spec;

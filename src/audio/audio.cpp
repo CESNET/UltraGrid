@@ -614,7 +614,7 @@ static void audio_update_recv_buf(struct state_audio *s, size_t curr_frame_len)
 
         if (new_size > s->recv_buf_size) {
                 s->recv_buf_size = new_size;
-                debug_msg("[Audio receiver] Recv buffer adjusted to %zu\n", new_size);
+                LOG(LOG_LEVEL_DEBUG) << "[Audio receiver] Recv buffer adjusted to " << new_size << "\n";
                 rtp_set_recv_buf(s->audio_network_device, s->recv_buf_size);
         }
 }

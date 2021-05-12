@@ -155,7 +155,7 @@ extern std::unordered_map<std::string, std::string> commandline_params;
 
 #define MERGE_(a,b)  a##b
 #define LABEL_(a) MERGE_(unique_name_, a)
-#define UNIQUE_NAME LABEL_(__COUNTER__)
+#define UNIQUE_LABEL LABEL_(__COUNTER__)
 
 /**
  * Introduces new parameter. Without calling that, parameter from command-line
@@ -164,7 +164,7 @@ extern std::unordered_map<std::string, std::string> commandline_params;
  * @param param parameter name
  * @param doc   documentation - string
  */
-#define ADD_TO_PARAM(param, doc) ADD_TO_PARAM_SALT(UNIQUE_NAME, param, doc)
+#define ADD_TO_PARAM(param, doc) ADD_TO_PARAM_SALT(UNIQUE_LABEL, param, doc)
 #define ADD_TO_PARAM_SALT(salt, param, doc) static void MERGE_(add_to_param_doc_, salt)(void)  __attribute__((constructor));\
 \
 static void MERGE_(add_to_param_doc_, salt)(void) \
