@@ -13,7 +13,7 @@
  * This file contains video codecs' metadata and helper
  * functions as well as pixelformat converting functions.
  */
-/* Copyright (c) 2005-2020 CESNET z.s.p.o.
+/* Copyright (c) 2005-2021 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -63,8 +63,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if !defined _WIN32 && !defined __STDC_LIB_EXT1__
-#define qsort_s qsort_r
+#if !defined __STDC_LIB_EXT1__
+# if defined _WIN32
+#  define QSORT_S_COMP_FIRST 1 // MS version of qsort_s with comparator as first arg
+# else
+#  define qsort_s qsort_r
+# endif
 #endif
 
 #include "debug.h"
@@ -2524,7 +2528,11 @@ decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
 }
 
 // less is better
+#ifdef QSORT_S_COMP_FIRST
+static int best_decoder_cmp(void *orig_c, const void *a, const void *b) {
+#else
 static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
+#endif
         codec_t codec_a = *(const codec_t *) a;
         codec_t codec_b = *(const codec_t *) b;
         codec_t orig_codec = *(codec_t *) orig_c;
