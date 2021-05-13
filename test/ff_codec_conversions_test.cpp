@@ -28,6 +28,9 @@ using std::max;
 using std::to_string;
 using std::vector;
 
+constexpr int MIN_12B = 16;
+constexpr int MAX_12B = 4079;
+
 // Registers the fixture into the 'registry'
 CPPUNIT_TEST_SUITE_REGISTRATION( ff_codec_conversions_test );
 
@@ -203,14 +206,17 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
         }
 }
 
-void
-ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
+/**
+ * Tests RG48<->YUV444P16LE conversions with 12-bit RGB input values
+ * (full-range with the SDI small headroom)
+ */
+void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
 {
         using namespace std::string_literals;
 
         constexpr int width = 2048;
         constexpr int height = 1;
-        vector <uint16_t> rg48_buf(width * height * 3, 16 << 4);
+        vector <uint16_t> rg48_buf(width * height * 3, MIN_12B << 4); // SDI minimal value
         vector <uint16_t> rg48_buf_res(width * height * 3);
 
         for (int i = 16; i < 2040; i += 1) {
@@ -221,7 +227,7 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
         for (int i = 2040; i < 2048; i += 1) {
                 rg48_buf[3 * i] =
                         rg48_buf[3 * i + 1] =
-                        rg48_buf[3 * i + 2] = 4079 << 4;
+                        rg48_buf[3 * i + 2] = MAX_12B << 4;
         }
 
         AVFrame frame{};
@@ -255,11 +261,15 @@ ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
         int max_diff = 0;
         for (size_t i = 0; i < width * height; ++i) {
                 for (int j = 0; j < 3; ++j) {
-                        int diff = static_cast<int>(rg48_buf[3 * i + j]) - static_cast<int>(rg48_buf_res[3 * i + j]);
+                        int in = rg48_buf[3 * i + j];
+                        int out = rg48_buf_res[3 * i + j];
+                        int diff = in - out;
                         if (abs(diff) >= 1 && getenv("DEBUG") != nullptr) {
                                 cout << "different value at pos: " << i << "," << j << " diff: " << diff << "\n";
                         }
                         max_diff = max<int>(max_diff, abs(diff));
+                        out >>= 4;
+                        CPPUNIT_ASSERT_MESSAGE("Value "s + to_string(out) + " out of range "s + to_string(MIN_12B) + "-"s + to_string(MAX_12B), out >= MIN_12B && out <= MAX_12B);
                 }
         }
 
