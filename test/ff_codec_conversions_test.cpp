@@ -24,6 +24,7 @@ using std::array;
 using std::copy;
 using std::cout;
 using std::default_random_engine;
+using std::ifstream;
 using std::min;
 using std::max;
 using std::to_string;
@@ -305,9 +306,10 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48_out_of_range()
 void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
 {
         using namespace std::string_literals;
+        constexpr int MAX_DIFF = 8;
 
-        constexpr int width = 2048;
-        constexpr int height = 1;
+        int width = 2048;
+        int height = 1;
         vector <uint16_t> rg48_buf(width * height * 3, MIN_12B << 4); // SDI minimal value
         vector <uint16_t> rg48_buf_res(width * height * 3);
 
@@ -322,17 +324,28 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
                         rg48_buf[3 * i + 2] = MAX_12B << 4;
         }
 
+        if (getenv("UG_TEST_RG48_INPUT") != nullptr) {
+                char *cpy = strdup(getenv("UG_TEST_RG48_INPUT"));
+                char *filename = strtok(cpy, ":");
+                width = atoi(strtok(nullptr, ":"));
+                height = atoi(strtok(nullptr, ":"));
+                rg48_buf.resize(width * height * 3);
+                rg48_buf_res.resize(width * height * 3);
+                ifstream in(filename, std::ifstream::in | std::ifstream::binary);
+                in.read(reinterpret_cast<char *>(rg48_buf.data()), rg48_buf.size() * sizeof(decltype(rg48_buf)::value_type));
+        }
+
         yuv444p16le_rg48_encode_decode(width, height, reinterpret_cast<char *>(rg48_buf.data()),
                         reinterpret_cast<char *>(rg48_buf_res.data()));
 
         int max_diff = 0;
-        for (size_t i = 0; i < width * height; ++i) {
+        for (int i = 0; i < width * height; ++i) {
                 for (int j = 0; j < 3; ++j) {
                         int in = rg48_buf[3 * i + j];
                         int out = rg48_buf_res[3 * i + j];
                         int diff = in - out;
-                        if (abs(diff) >= 1 && getenv("DEBUG") != nullptr) {
-                                cout << "different value at pos: " << i << "," << j << " diff: " << diff << "\n";
+                        if (abs(diff) >= MAX_DIFF && getenv("DEBUG") != nullptr) {
+                                cout << "different value at pos: " << i << "," << j << " diff: " << diff << " in: " << in << " out: " << out << "\n";
                         }
                         max_diff = max<int>(max_diff, abs(diff));
                         out >>= 4;
@@ -348,7 +361,7 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
         }
 
         /// @todo look at the conversions to yield better precision
-        CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 8);
+        CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference "s + to_string (MAX_DIFF) + "/65535, found "s + to_string(max_diff), max_diff <= MAX_DIFF);
 }
 
 #endif // defined HAVE_CPPUNIT && HAVE_LAVC
