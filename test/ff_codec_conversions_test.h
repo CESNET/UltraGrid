@@ -13,6 +13,7 @@ class ff_codec_conversions_test : public CPPUNIT_NS::TestFixture
   CPPUNIT_TEST( test_yuv444pXXle_from_to_r10k );
   CPPUNIT_TEST( test_yuv444pXXle_from_to_r12l );
   CPPUNIT_TEST( test_yuv444p16le_from_to_rg48 );
+  CPPUNIT_TEST( test_yuv444p16le_from_to_rg48_out_of_range );
   CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -24,6 +25,7 @@ public:
   void test_yuv444pXXle_from_to_r10k();
   void test_yuv444pXXle_from_to_r12l();
   void test_yuv444p16le_from_to_rg48();
+  void test_yuv444p16le_from_to_rg48_out_of_range();
 };
 
 #endif // defined HAVE_LAVC
