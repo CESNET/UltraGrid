@@ -63,7 +63,7 @@ handle_updates() {
         printf "\n"
         printf "$ARGV0 -u\n"
         printf "\t- updates AppImage\n"
-        printf "$ARGV0 -u -j; $? -eq 1 && echo Update available || echo No update available\n"
+        printf "$ARGV0 -u -j; [ \$? -eq 1 ] && echo Update available || echo No update available\n"
         printf "\t- check for update without actually updating\n"
         printf "$ARGV0 -u -h\n"
         printf "\t- prints update options\n"
