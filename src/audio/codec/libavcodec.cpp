@@ -117,7 +117,7 @@ struct libavcodec_codec_state {
         uint32_t magic = MAGIC;
         pthread_mutex_t    *libav_global_lock;
         AVCodecContext     *codec_ctx;
-        AVCodec            *codec;
+        const AVCodec      *codec;
 
         AVFrame            *av_frame;
 
@@ -240,7 +240,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
 }
 
 /* check that a given sample format is supported by the encoder */
-static int check_sample_fmt(AVCodec *codec, enum AVSampleFormat sample_fmt)
+static int check_sample_fmt(const AVCodec *codec, enum AVSampleFormat sample_fmt)
 {
     const enum AVSampleFormat *p = codec->sample_fmts;
 
