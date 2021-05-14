@@ -806,8 +806,17 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
  * be feasible to convert in to out and then convert out to av (last step may
  * be omitted if the format is native for both indicated in
  * ug_to_av_pixfmt_map).
+ * @todo
+ * Currently first av_to_ug conversion to which there exists conversion is picked.
+ * This may not be, however, the best.
  */
 decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) {
+        // direct AV->UV conversion
+        if (get_uv_to_av_conversion(in, av) != nullptr) {
+                *out = in;
+                return vc_memcpy;
+        }
+
         bool slow[] = {false, true};
         for (auto use_slow : slow) {
                 for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
