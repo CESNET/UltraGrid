@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, 2019 Forrest Heller, and CONTRIBUTORS (see the end of this file) - All rights reserved.
+/* EmbeddableWebServer Copyright (c) 2016, 2019, 2020 Forrest Heller, and CONTRIBUTORS (see the end of this file) - All rights reserved.
 Released under the BSD 2-clause license:
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
@@ -71,7 +71,10 @@ int main() {
 #include <stdbool.h>
 
 /* History:
- 2019-01: Version 1.1.0 released
+ 2020-05: Version 1.1.3 released
+ 2019-09: Version 1.1.2 released
+ 2019-08: Version 1.1.1 released
+ 2019-07: Version 1.1.0 released
  2016-11: Version 1.0 released */
 
 /* Quick nifty options */
@@ -93,8 +96,8 @@ static bool OptionPrintResponse = false;
 /* contains the Response HTTP status and headers */
 #define RESPONSE_HEADER_SIZE 1024
 
-#define EMBEDDABLE_WEB_SERVER_VERSION_STRING "1.1.0"
-#define EMBEDDABLE_WEB_SERVER_VERSION 0x00010100 // major = [31:16] minor = [15:8] build = [7:0]
+#define EMBEDDABLE_WEB_SERVER_VERSION_STRING "1.1.3"
+#define EMBEDDABLE_WEB_SERVER_VERSION 0x00010103 // major = [31:16] minor = [15:8] build = [7:0]
 
 /* has someone already enabled _CRT_SECURE_NO_WARNINGS? If so, don't enable it again. If not, disable it for us. */
 #ifdef _CRT_SECURE_NO_WARNINGS
@@ -136,6 +139,9 @@ typedef SOCKET sockettype;
 #include <dirent.h>
 #include <strings.h>
 typedef int sockettype;
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET (-1)
+#endif
 #define STDCALL_ON_WIN32
 #define THREAD_RETURN_TYPE void*
 #endif
@@ -184,7 +190,8 @@ struct Request {
     /* null-terminated HTTP path/URI ( /index.html?name=Forrest%20Heller ) */
     char path[1024];
     size_t pathLength;
-    /* null-terminated HTTP path/URI that has been %-unescaped. Used for a file serving */
+    /* null-terminated HTTP path/URI that has been %-unescaped. Used for a file serving.
+     path=/index.html?%20var=s%20p pathDecoded=/index.html? var=s p */
     char pathDecoded[1024];
     size_t pathDecodedLength;
     /* null-terminated string containing the request body. Used for POST forms and JSON blobs */
@@ -423,9 +430,7 @@ static int snprintfResponseHeader(char* destination, size_t destinationCapacity,
 #if EWS_IMPLEMENT_SPRINTF
     static int snprintf(char* destination, size_t length, const char* format, ...);
 #endif
-#if defined(_MSC_VER)
     static int strcasecmp(const char* utf8String1, const char* utf8String2);
-#endif
     static wchar_t* strdupWideFromUTF8(const char* utf8String, size_t extraBytes);
     /* windows function aliases */
     #define strdup(string) _strdup(string)
@@ -444,13 +449,14 @@ static int snprintfResponseHeader(char* destination, size_t destinationCapacity,
 #endif
 
 static THREAD_RETURN_TYPE STDCALL_ON_WIN32 connectionHandlerThread(void* connectionPointer);
+static struct Response* createResponseForRequestAutoreleased(const struct Request* request, struct Connection* connection);
 
 typedef enum {
     URLDecodeTypeWholeURL,
     URLDecodeTypeParameter
 } URLDecodeType;
 
-static void URLDecode(const char* encoded, char* decoded, size_t decodedCapacity, URLDecodeType type);
+static bool URLDecode(const char* encoded, char* decoded, size_t decodedCapacity, size_t* decodedLength, URLDecodeType type);
 
 const struct Header* headerInRequest(const char* headerName, const struct Request* request) {
     for (size_t i = 0; i < request->headersCount; i++) {
@@ -502,7 +508,10 @@ char* strdupDecodeGETorPOSTParam(const char* paramNameIncludingEquals, const cha
     }
     size_t maximumPossibleLength = strlen(paramStart);
     char* decoded = (char*) malloc(maximumPossibleLength + 1);
-    URLDecode(paramStart, decoded, maximumPossibleLength + 1, URLDecodeTypeParameter);
+    bool decodeSuccess = URLDecode(paramStart, decoded, maximumPossibleLength + 1, NULL, URLDecodeTypeParameter);
+    if (!decodeSuccess) {
+        ews_printf("Failed to decode URL parameter %s due to lack of space. This is strange because we asked for %zu capacity for the decoded string", paramNameIncludingEquals, maximumPossibleLength);
+    }
     return decoded;
 }
 
@@ -627,25 +636,31 @@ static bool pathEscapesDocumentRoot(const char* path) {
     return false;
 }
 
-static void URLDecode(const char* encoded, char* decoded, size_t decodedCapacity, URLDecodeType type) {
+static bool URLDecode(const char* encoded, char* decoded, size_t decodedCapacity, size_t* decodedLength, URLDecodeType type) {
+    /* A URL encoded string of length N should always be able to fit into a decoded string <= N */
     /* We found a value. Unescape the URL. This is probably filled with bugs */
     size_t deci = 0;
     /* these three vars unescape % escaped things */
     URLDecodeState state = URLDecodeStateNormal;
     char firstDigit = '\0';
     char secondDigit;
+    bool capacityExhausted = false;
+    size_t encodedLength = 0;
     while (1) {
         /* break out the exit conditions */
-        /* need to store a null char in decoded[decodedCapacity - 1] */
-        if (deci >= decodedCapacity - 1) {
-            break;
-        }
-        /* no encoding string left to process */
+        /* nothing left in the encoding string to process */
         if (*encoded == '\0') {
             break;
         }
         /* If we are decoding only a parameter then stop at & */
         if (*encoded == '&' && URLDecodeTypeParameter == type) {
+            break;
+        }
+        /* need to store a null char in decoded[decodedCapacity - 1] */
+        if (deci >= decodedCapacity - 1) {
+            /* Note that the capacity is only exhausted if we have more to process.
+             Thus it is the last check before '\0' and '&'. */
+            capacityExhausted = true;
             break;
         }
         switch (state) {
@@ -682,8 +697,17 @@ static void URLDecode(const char* encoded, char* decoded, size_t decodedCapacity
                 break;
         }
         encoded++;
+        encodedLength++;
     }
     decoded[deci] = '\0';
+    if (NULL != decodedLength) {
+        *decodedLength = deci;
+    }
+    if (capacityExhausted) {
+        ews_printf_debug("URLDecode: A string of length %zu could not be decoded into a string of capacity %zu\n", encodedLength, decodedCapacity);
+        return false;
+    }
+    return true;
 }
 
 static void heapStringReallocIfNeeded(struct HeapString* string, size_t minimumCapacity) {
@@ -1294,7 +1318,8 @@ static void requestParse(struct Request* request, const char* requestFragment, s
             case RequestParseStatePath:
                 if (c == ' ') {
                     /* we are done parsing the path, decode it */
-                    URLDecode(request->path, request->pathDecoded, sizeof(request->pathDecoded), URLDecodeTypeWholeURL);
+                    bool success = URLDecode(request->path, request->pathDecoded, sizeof(request->pathDecoded), &request->pathDecodedLength, URLDecodeTypeWholeURL);
+                    assert(success && "Somehow unable to decode the path--this should always work with ->pathDecoded has the same capacity as ->path");
                     request->state = RequestParseStateVersion;
                 } else if (request->pathLength < sizeof(request->path) - 1) {
                     request->path[request->pathLength] = c;
@@ -1456,11 +1481,13 @@ static void connectionFree(struct Connection* connection) {
     free(connection);
 }
 
+#if !defined(WIN32)
 static void SIGPIPEHandler(int signal) {
     (void) signal;
     /* SIGPIPE happens any time we try to send() and the connection is closed. So we just ignore it and check the return code of send...*/
     ews_printf_debug("Ignoring SIGPIPE\n");
 }
+#endif
 
 void serverInit(struct Server* server) {
     if (server->initialized) {
@@ -1490,7 +1517,7 @@ void serverStop(struct Server* server) {
         return;
     }
     server->shouldRun = false;
-    if (server->listenerfd >= 0) {
+    if (server->listenerfd != INVALID_SOCKET) {
         close(server->listenerfd);
     }
     serverMutexUnlock(server);
@@ -1599,7 +1626,7 @@ static int acceptConnectionsUntilStoppedInternal(struct Server* server, const st
     while (server->shouldRun) {
         nextConnection->remoteAddrLength = sizeof(nextConnection->remoteAddr);
         nextConnection->socketfd = accept(server->listenerfd , (struct sockaddr*) &nextConnection->remoteAddr, &nextConnection->remoteAddrLength);
-        if (-1 == nextConnection->socketfd) {
+        if (INVALID_SOCKET == nextConnection->socketfd) {
             if (errno == EINTR) {
                 ews_printf("accept was interrupted, continuing if server.shouldRun is true...\n");
                 continue;
@@ -1800,6 +1827,23 @@ exit:
     return result;
 }
 
+static struct Response* createResponseForRequestAutoreleased(const struct Request* request, struct Connection* connection) {
+    /* Objective-C users of this library have a high probability of creating Objective-C objects.
+     Some Objective-C objects are autoreleased. Objective-C relies on reference counting for
+     object memory management. Each object has a reference count. An object can be added to an
+     autoreleasepool to be released when the pool is drained/dealloc'd. Since most users of 
+     Objective-C will probably want to create autoreleased objects (many constructors 
+     create them by default), we automatically add an autoreleasepool around every call to 
+     createResponseForRequest. If Objective-C is not in use, then autorelease is not in use */
+#ifdef __OBJC__
+    @autoreleasepool {
+#endif
+        return createResponseForRequest(request, connection);
+#ifdef __OBJC__
+    }
+#endif
+}
+
 static THREAD_RETURN_TYPE STDCALL_ON_WIN32 connectionHandlerThread(void* connectionPointer) {
     struct Connection* connection = (struct Connection*) connectionPointer;
     getnameinfo((struct sockaddr*) &connection->remoteAddr, connection->remoteAddrLength,
@@ -1844,7 +1888,7 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 connectionHandlerThread(void* connect
     requestPrintWarnings(&connection->request, connection->remoteHost, connection->remotePort);
     ssize_t bytesSent = 0;
     if (foundRequest) {
-        struct Response* response = createResponseForRequest(&connection->request, connection);
+        struct Response* response = createResponseForRequestAutoreleased(&connection->request, connection);
         if (NULL != response) {
             int result = sendResponse(connection, response, &bytesSent);
             if (0 == result) {
@@ -1876,7 +1920,7 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 connectionHandlerThread(void* connect
     pthread_cond_signal(&connection->server->connectionFinishedCond);
     pthread_mutex_unlock(&connection->server->connectionFinishedLock);
     connectionFree(connection);
-    return (THREAD_RETURN_TYPE) NULL;
+    return (THREAD_RETURN_TYPE) 0;
 }
 
 int serverMutexLock(struct Server* server) {
@@ -2093,12 +2137,34 @@ static void testPathMatching() {
     assert(!requestMatchesPathPrefix("/releases/curren", "/releases/current", &matchLength));
 }
 
+static void assertURLDecodeEquals(const char *input, const char *expectedOutput, URLDecodeType type) {
+    char *actualOutput = (char*)malloc(strlen(expectedOutput) + 1);
+    size_t actualOutputLength;
+    bool success = URLDecode(input, actualOutput, strlen(expectedOutput) + 1, &actualOutputLength, type);
+    assert(success);
+    assert(strcmp(actualOutput, expectedOutput) == 0);
+    assert(actualOutputLength == strlen(expectedOutput));
+}
+
+static void testURLDecode() {
+    assertURLDecodeEquals("%20", " ", URLDecodeTypeParameter);
+    assertURLDecodeEquals("%40%40%40%40", "@@@@", URLDecodeTypeParameter);
+    assertURLDecodeEquals("%25", "%", URLDecodeTypeParameter);
+    assertURLDecodeEquals("%40aaa%40", "@aaa@", URLDecodeTypeParameter);
+    assertURLDecodeEquals("%40abc", "@abc", URLDecodeTypeParameter);
+    assertURLDecodeEquals("abc%40", "abc@", URLDecodeTypeParameter);
+    assertURLDecodeEquals("abc%40", "abc@", URLDecodeTypeParameter);
+    assertURLDecodeEquals("abc%40&abc", "abc@", URLDecodeTypeParameter);
+    assertURLDecodeEquals("&abc%40&abc", "", URLDecodeTypeParameter);
+}
+
 void EWSUnitTestsRun() {
     testHeapString();
     teststrdupHTMLEscape();
     teststrdupEscape();
     testPathEscapesRoot();
     testPathMatching();
+    testURLDecode();
     /* reset counters from tests */
     memset(&counters, 0, sizeof(counters));
 }
@@ -2130,7 +2196,7 @@ static DIR* opendir(const char* path) {
     wcscat(widePath, L"\\*");
     dirHandle->findFiles = FindFirstFileW(widePath, &dirHandle->findData);
     if (INVALID_HANDLE_VALUE == dirHandle->findFiles) {
-        ews_printf("Could not open path '%s' (wide path '%S'). GetLastError is %d\n", path, widePath, GetLastError());
+        ews_printf("Could not open path '%s' (wide path '%S'). GetLastError is %lu\n", path, widePath, GetLastError());
         free(widePath);
         free(dirHandle);
         return NULL;
@@ -2167,7 +2233,7 @@ static wchar_t* strdupWideFromUTF8(const char* utf8String, size_t extraBytes) {
     assert(utf8StringLength < INT_MAX && "No strings over 2GB please because MultiByteToWideChar does not allow that");
     int wideStringRequiredChars = MultiByteToWideChar(CP_UTF8, 0, utf8String, (int) utf8StringLength, NULL, 0);
     wchar_t* wideString = (wchar_t*)calloc(1, sizeof(wchar_t) * (wideStringRequiredChars + 1 + extraBytes));
-    int result = MultiByteToWideChar(CP_UTF8, 0, utf8String, utf8StringLength, wideString, wideStringRequiredChars + 1);
+    MultiByteToWideChar(CP_UTF8, 0, utf8String, utf8StringLength, wideString, wideStringRequiredChars + 1);
     return wideString; 
 }
 
@@ -2210,14 +2276,13 @@ static void ignoreSIGPIPE() {
     /* not needed on Windows */
 }
 
-#if defined(_MSC_VER)
 static int strcasecmp(const char* str1, const char* str2) {
     /* lstrcmpI seems like the closest analog */
     return lstrcmpiA(str1, str2);
 }
-#endif
 
 static int pthread_create(HANDLE* threadHandle, const void* attributes, LPTHREAD_START_ROUTINE threadRoutine, void* params) {
+    (void) attributes;
     *threadHandle = CreateThread(NULL, 0, threadRoutine, params, 0, NULL);
     if (INVALID_HANDLE_VALUE == *threadHandle) {
         ews_printf("Whoa! Failed to create a thread for routine %p\n", threadRoutine);
@@ -2227,6 +2292,7 @@ static int pthread_create(HANDLE* threadHandle, const void* attributes, LPTHREAD
 }
 
 static int pthread_cond_init(pthread_cond_t* cond, const void* attributes) {
+    (void) attributes;
     InitializeConditionVariable(cond);
     return 0;
 }
@@ -2244,10 +2310,12 @@ static int pthread_cond_signal(pthread_cond_t* cond) {
 }
 
 static int pthread_cond_destroy(pthread_cond_t* cond) {
+    (void) cond;
     return 0;
 }
 
 static int pthread_mutex_init(pthread_mutex_t* mutex, const void* attributes) {
+    (void) attributes;
     InitializeCriticalSection(mutex);
     return 0;
 }
@@ -2271,11 +2339,11 @@ static void callWSAStartupIfNecessary() {
     // nifty trick from http://stackoverflow.com/questions/1869689/is-it-possible-to-tell-if-wsastartup-has-been-called-in-a-process
     // try to create a socket, and if that fails because of uninitialized winsock, then initialize winsock
     SOCKET testsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (SOCKET_ERROR == testsocket && WSANOTINITIALISED == WSAGetLastError()) {
+    if (INVALID_SOCKET == testsocket && WSANOTINITIALISED == WSAGetLastError()) {
         WSADATA data = { 0 };
         int result = WSAStartup(MAKEWORD(2, 2), &data);
         if (0 != result) {
-            ews_printf("Calling WSAStartup failed! It returned %d with GetLastError() = %d\n", result, GetLastError());
+            ews_printf("Calling WSAStartup failed! It returned %d with GetLastError() = %lu\n", result, GetLastError());
             abort();
         }
     } else {
@@ -2354,6 +2422,6 @@ static FILE* fopen_utf8_path(const char* utf8Path, const char* mode) {
 #endif // WIN32 or Linux/Mac OS X
 
 #endif // EWS_HEADER_ONLY
-/* Contributors:
+/* CONTRIBUTORS:
 Martin Pulec - bug fixes, warning fixes, IPv6 support
 Daniel Barry - bug fix (ifa_addr != NULL) */

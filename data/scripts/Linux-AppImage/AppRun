@@ -39,7 +39,7 @@ usage() {
         printf "\n"
 }
 
-update_notify_days=35
+update_notify_days=90
 ## Print update hint if UG binary is older than $update_notify_days days, if $ULTRAGRID_AUTOUPDATE=1 triggers update.
 handle_updates() {
         if [ $APPIMAGE = none ]; then
@@ -52,7 +52,7 @@ handle_updates() {
                 return
         fi
         if expr $APPIMAGE : '.*continuous' > /dev/null; then
-                update_notify_days=7
+                update_notify_days=30
         fi
         APPIMAGE_MTIME=$(stat --format=%Y $APPIMAGE)
         CURR_TIMESTAMP=$(date +%s)
@@ -63,7 +63,7 @@ handle_updates() {
         printf "\n"
         printf "$ARGV0 -u\n"
         printf "\t- updates AppImage\n"
-        printf "$ARGV0 -u -j; $? -eq 1 && echo Update available || echo No update available\n"
+        printf "$ARGV0 -u -j; [ \$? -eq 1 ] && echo Update available || echo No update available\n"
         printf "\t- check for update without actually updating\n"
         printf "$ARGV0 -u -h\n"
         printf "\t- prints update options\n"

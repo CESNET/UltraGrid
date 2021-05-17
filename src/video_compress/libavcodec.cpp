@@ -806,8 +806,17 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
  * be feasible to convert in to out and then convert out to av (last step may
  * be omitted if the format is native for both indicated in
  * ug_to_av_pixfmt_map).
+ * @todo
+ * Currently first av_to_ug conversion to which there exists conversion is picked.
+ * This may not be, however, the best.
  */
 decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) {
+        // direct AV->UV conversion
+        if (get_uv_to_av_conversion(in, av) != nullptr) {
+                *out = in;
+                return vc_memcpy;
+        }
+
         bool slow[] = {false, true};
         for (auto use_slow : slow) {
                 for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
@@ -849,7 +858,7 @@ static int get_subsampling(enum AVPixelFormat fmt) {
  * The list is ordered according to input description and requested subsampling.
  */
 static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc,
-                AVCodec *codec, int requested_subsampling, codec_t force_conv_to)
+                const AVCodec *codec, int requested_subsampling, codec_t force_conv_to)
 {
         list<enum AVPixelFormat> fmts;
 
@@ -905,12 +914,12 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         sort(available_formats.begin(), available_formats.end(), [bits_per_comp, is_rgb, preferred_subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
                 const struct AVPixFmtDescriptor *pda = av_pix_fmt_desc_get(a);
                 const struct AVPixFmtDescriptor *pdb = av_pix_fmt_desc_get(b);
-#if defined(FF_API_PLUS1_MINUS1)
+#if LIBAVUTIL_VERSION_MAJOR >= 56
                 int deptha = pda->comp[0].depth;
                 int depthb = pdb->comp[0].depth;
 #else
-                int deptha = pda->comp[0].depth_minus1;
-                int depthb = pdb->comp[0].depth_minus1;
+                int deptha = pda->comp[0].depth_minus1 + 1;
+                int depthb = pdb->comp[0].depth_minus1 + 1;
 #endif
 #if defined(AV_PIX_FMT_FLAG_RGB)
                 bool rgba = pda->flags & AV_PIX_FMT_FLAG_RGB;
@@ -966,7 +975,7 @@ ADD_TO_PARAM("lavc-use-codec",
  * requested_subsampling.
  */
 list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
-                AVCodec *codec, int requested_subsampling) {
+                const AVCodec *codec, int requested_subsampling) {
         codec_t force_conv_to = VIDEO_CODEC_NONE; // if non-zero, use only this codec as a target
                                                   // of UG conversions (before FFMPEG conversion)
                                                   // or (likely) no conversion at all
@@ -1083,7 +1092,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         int ret;
         codec_t ug_codec = VIDEO_CODEC_NONE;
         AVPixelFormat pix_fmt;
-        AVCodec *codec = nullptr;
+        const AVCodec *codec = nullptr;
 #ifdef HAVE_SWSCALE
         sws_freeContext(s->sws_ctx);
         s->sws_ctx = nullptr;

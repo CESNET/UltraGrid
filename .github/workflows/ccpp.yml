@@ -148,11 +148,13 @@ jobs:
       uses: actions/cache@v1
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
-        key: cache-macos-nonfree-sdks-1
+        key: cache-macos-nonfree-sdks-2
     - name: Download Non-Free SDKs
       if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
-        mkdir ${{ env.SDK_NONFREE_PATH }} && cd ${{ env.SDK_NONFREE_PATH }}
+        rm -rf ${{ env.SDK_NONFREE_PATH }}
+        mkdir -p ${{ env.SDK_NONFREE_PATH }}
+        cd ${{ env.SDK_NONFREE_PATH }}
         curl -S -f -O $SDK_URL/ntv2sdkmac.zip --next -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip --next -f -O $SDK_URL/NDISDK_Apple.pkg || true
         $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache Free SDKs
@@ -164,7 +166,8 @@ jobs:
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
       run: |
-        mkdir /var/tmp/sdks-free && cd /var/tmp/sdks-free
+        mkdir -p /var/tmp/sdks-free
+        cd /var/tmp/sdks-free
         curl -S -LO https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg
     - name: bootstrap
       run: |
@@ -243,20 +246,19 @@ jobs:
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
+    - name: bootsrap MSYS2
+      run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: Cache live555
       id: cache-live555
       uses: actions/cache@v1
       with:
         path: 'C:\live555'
-        key: cache-live555
+        key: cache-live555-3
     - name: Build live555
-      env:
-        CC: gcc
-        CXX: g++
       if: steps.cache-live555.outputs.cache-hit != 'true'
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/build_live555.sh'
-    - name: bootsrap MSYS2
-      run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
+    - name: Install live555
+      run: C:\msys64\usr\bin\bash -cel 'make -C /c/live555 install'
     - name: configure
       run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-deltacast --enable-dshow $NDI --enable-spout --enable-wasapi'
     - name: make

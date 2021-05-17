@@ -210,8 +210,8 @@ bool libav_codec_has_extradata(codec_t codec) {
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
 #define CLAMP_FULL(val, depth) MIN(FULL_HEAD(depth), MAX((val), FULL_FOOT(depth)))
 typedef int32_t comp_type_t; // int32_t provides much better performance than int_fast32_t
-#define COMP_BASE (sizeof(comp_type_t) == 4 ? 15 : 18) // computation will be less precise when comp_type_t is 32 bit
-static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 17, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
+#define COMP_BASE (sizeof(comp_type_t) == 4 ? 14 : 18) // computation will be less precise when comp_type_t is 32 bit
+static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
 static const comp_type_t y_r = (0.2126*219/255) * (1<<COMP_BASE);
 static const comp_type_t y_g = (0.7152*219/255) * (1<<COMP_BASE);
 static const comp_type_t y_b = (0.0722*219/255) * (1<<COMP_BASE);

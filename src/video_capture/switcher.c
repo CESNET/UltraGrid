@@ -49,6 +49,7 @@
 #include "audio/audio.h"
 #include "module.h"
 
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,7 +144,7 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                                 char *endptr = NULL;;
                                 errno = 0;
                                 long val = strtol(val_s, &endptr, 0);
-                                if (errno != 0 || *val_s == '\0' || *endptr != '\0' || val < 0 || val > UINT_MAX) {
+                                if (errno != 0 || *val_s == '\0' || *endptr != '\0' || val < 0 || (uintmax_t) val > UINT_MAX) {
                                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong value: %s\n", val_s);
                                         free(tmp);
                                         goto error;
@@ -250,7 +251,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                 char *endptr = NULL;
                 errno = 0;
                 long val = strtol(msg_univ->text, &endptr, 0);
-                if (errno != 0 || val < 0 || val > UINT_MAX || msg_univ->text[0] == '\0' || *endptr != '\0') {
+                if (errno != 0 || val < 0 || (uintmax_t) val > UINT_MAX || msg_univ->text[0] == '\0' || *endptr != '\0') {
                         log_msg(LOG_LEVEL_ERROR, "[switcher] Cannot switch to device %s. Wrong value.\n", msg_univ->text);
                         free_message(msg, new_response(RESPONSE_BAD_REQUEST, NULL));
                         continue;

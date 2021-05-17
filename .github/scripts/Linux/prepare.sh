@@ -18,7 +18,7 @@ echo "CUDA_HOST_COMPILER=$CUDA_HOST_COMPILER" >> $GITHUB_ENV
 
 sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
 sudo apt update
-sudo apt -y update
+sudo apt -y upgrade
 sudo apt install libcppunit-dev
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
 sudo apt install libglew-dev freeglut3-dev libgl1-mesa-dev
@@ -28,9 +28,10 @@ sudo apt install libspeexdsp-dev
 sudo apt install libssl-dev
 sudo apt install libasound-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev portaudio19-dev
 
-# for FFmpeg
-sudo apt build-dep ffmpeg
-sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' 'libvpx*' 'libx264*' nasm
+# for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
+FFMPEG_BUILD_DEP=`apt-cache showsrc ffmpeg | grep Build-Depends: | sed 's/Build-Depends://' | tr ',' '\n' |cut -f 2 -d\  | grep -v libzmq3-dev`
+sudo apt install $FFMPEG_BUILD_DEP
+sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nasm nginx
 sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install libopencv-dev
@@ -56,7 +57,7 @@ if [ -n "$SDK_URL" ]; then
                 mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
                 cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
                 export CXX='g++ -std=gnu++11'
-                make
+                make -j $(nproc)
         fi
 fi
 
@@ -76,7 +77,8 @@ git clone https://github.com/xanview/live555/
 cd live555
 git checkout 35c375
 ./genMakefiles linux-64bit
-sudo make install CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
+make -j $(nproc) CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
+sudo make install
 cd ..
 
 # Install cross-platform deps

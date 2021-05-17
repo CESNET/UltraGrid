@@ -213,18 +213,6 @@ void keyboard_control::stop()
 #define GETCH getch
 #endif
 
-/*
- * Input must be 0x80-0xff
- */
-static int count_utf8_bytes(unsigned int i) {
-        int count = 0;
-        while ((i & 0x80) != 0u) {
-                count++;
-                i <<= 1;
-        }
-        return count;
-}
-
 #define CHECK_EOF(x) do { if (x == EOF) { LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unexpected EOF detected!\n"; return EOF; } } while(0)
 
 /**
@@ -273,6 +261,18 @@ static int64_t get_ansi_code() {
 }
 
 #ifndef WIN32
+/*
+ * Input must be 0x80-0xff
+ */
+static int count_utf8_bytes(unsigned int i) {
+        int count = 0;
+        while ((i & 0x80) != 0u) {
+                count++;
+                i <<= 1;
+        }
+        return count;
+}
+
 static int64_t get_utf8_code(int c) {
         if (c < 0xc0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong UTF sequence!\n";

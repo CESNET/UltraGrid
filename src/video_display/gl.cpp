@@ -693,7 +693,7 @@ static void screenshot(struct video_frame *frame)
         time_ptr = &time_tmp;
 #endif
 
-        strftime(name, sizeof(name), "screenshot-%a, %d %b %Y %T %z.pnm",
+        strftime(name, sizeof(name), "screenshot-%a, %d %b %Y %H:%M:%S %z.pnm",
                                                time_ptr);
         if (save_video_frame_as_pnm(frame, name)) {
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Generated screenshot \"%s\".\n", name);

@@ -60,7 +60,7 @@
 
 #define DEFAULT_ALLOCATION_TIMEOUT_S 1800
 #define MOD_NAME "[NAT] "
-#define PREALLOCATE_S 5 ///< number of seconds that repeated allocation is performed before timeout
+#define PREALLOCATE_S 30 ///< number of seconds that repeated allocation is performed before timeout
 
 struct ug_nat_traverse {
         enum traverse_t {

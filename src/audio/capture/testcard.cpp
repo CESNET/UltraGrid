@@ -189,8 +189,9 @@ static void * audio_cap_testcard_init(const char *cfg)
                 char *tmp, *fmt;
                 tmp = fmt = strdup(cfg);
                 while((item = strtok_r(fmt, ":", &save_ptr))) {
-                        if(strncasecmp(item, "vol=", strlen("vol=")) == 0) {
-                                volume = atof(item + strlen("vol="));
+                        if(strncasecmp(item, "vol=", strlen("vol=")) == 0 ||
+                                        strncasecmp(item, "volume=", strlen("volume=")) == 0) {
+                                volume = atof(strchr(item, '=') + 1);
                         } else if(strncasecmp(item, "file=", strlen("file=")) == 0) {
                                 wav_file = item + strlen("file=");
                                 pattern = WAV;
