@@ -464,23 +464,22 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         //while(offset + chunk_size <= s->tmp.data_len) {
         while(offset + chunk_size <= s->tmp.data_len) {
 		memcpy(s->av_frame->data[0], s->tmp.data + offset, chunk_size);
-                AVPacket pkt;
-                av_init_packet(&pkt);
+                auto pkt = shared_ptr<AVPacket>(av_packet_alloc(), [](AVPacket *pkt) { av_packet_free(&pkt); });
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
 		int ret = avcodec_send_frame(s->codec_ctx, s->av_frame);
 		if (ret == 0) {
-			ret = avcodec_receive_packet(s->codec_ctx, &pkt);
+                        ret = avcodec_receive_packet(s->codec_ctx, pkt.get());
 			while (ret == 0) {
 				//assert(pkt.size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
-                                if (s->output_channel.data_len + pkt.size > TMP_DATA_LEN) {
+                                if (s->output_channel.data_len + pkt->size > TMP_DATA_LEN) {
                                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Output buffer overflow!\n";
                                         return {};
                                 }
 				memcpy(s->output_channel_data.data() + s->output_channel.data_len,
-						pkt.data, pkt.size);
-				s->output_channel.data_len += pkt.size;
-				av_packet_unref(&pkt);
-				ret = avcodec_receive_packet(s->codec_ctx, &pkt);
+                                                pkt->data, pkt->size);
+                                s->output_channel.data_len += pkt->size;
+                                av_packet_unref(pkt.get());
+                                ret = avcodec_receive_packet(s->codec_ctx, pkt.get());
                                 s->output_channel.duration += s->codec_ctx->frame_size / (double) s->output_channel.sample_rate;
 			}
 			if (ret != AVERROR(EAGAIN) && ret != 0) {
@@ -491,16 +490,16 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 			return {};
 		}
 #else
-                pkt.data = (unsigned char *) s->output_channel.data + s->output_channel.data_len;
-                pkt.size = 1024*1024 - s->output_channel.data_len;
+                pkt->data = (unsigned char *) s->output_channel.data + s->output_channel.data_len;
+                pkt->size = 1024*1024 - s->output_channel.data_len;
                 int got_packet = 0;
-                int ret = avcodec_encode_audio2(s->codec_ctx, &pkt, s->av_frame,
+                int ret = avcodec_encode_audio2(s->codec_ctx, pkt.get(), s->av_frame,
                                 &got_packet);
                 if(ret) {
-                        print_libav_audio_error(LOG_MSG_WARNING, MOD_NAME "Warning: unable to compress audio", ret);
+                        print_libav_audio_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: unable to compress audio", ret);
                 }
                 if(got_packet) {
-                        s->output_channel.data_len += pkt.size;
+                        s->output_channel.data_len += pkt->size;
                         s->output_channel.duration += s->codec_ctx->frame_size / (double) s->output_channel.sample_rate;
                 }
 #endif
@@ -537,22 +536,21 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         unique_ptr<unsigned char []> tmp_buffer(new unsigned char[channel->data_len + AV_INPUT_BUFFER_PADDING_SIZE]);
         memcpy(tmp_buffer.get(), channel->data, channel->data_len);
 
-        AVPacket pkt;
-        av_init_packet(&pkt);
-        pkt.data = tmp_buffer.get();
-        pkt.size = channel->data_len;
+        AVPacket *pkt = av_packet_alloc();
+        pkt->data = tmp_buffer.get();
+        pkt->size = channel->data_len;
         s->output_channel.data_len = 0;
-        while (pkt.size > 0) {
+        while (pkt->size > 0) {
                 int got_frame = 0;
 
                 av_frame_unref(s->av_frame);
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
                 int len = avcodec_decode_audio4(s->codec_ctx, s->av_frame, &got_frame,
-                                &pkt);
+                                pkt);
 #else
                 got_frame = 0;
-                int ret = avcodec_send_packet(s->codec_ctx, &pkt);
+                int ret = avcodec_send_packet(s->codec_ctx, pkt);
 
                 if (ret == 0) {
                         ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
@@ -563,7 +561,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                 if (ret != 0) {
                         print_decoder_error(MOD_NAME, ret);
                 }
-                int len = pkt.size;
+                int len = pkt->size;
 #endif
 
                 if (len <= 0) {
@@ -581,9 +579,9 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                         offset += len;
                         s->output_channel.data_len += data_size;
                 }
-                pkt.size -= len;
-                pkt.data += len;
-                pkt.dts = pkt.pts = AV_NOPTS_VALUE;
+                pkt->size -= len;
+                pkt->data += len;
+                pkt->dts = pkt->pts = AV_NOPTS_VALUE;
 #if 0
                 if (pkt.size < AUDIO_REFILL_THRESH) {
                         /* Refill the input buffer, to avoid trying to decode
@@ -599,6 +597,8 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                 }
 #endif
         }
+
+        av_packet_free(&pkt);
 
         //
         // perform needed conversions (float->int32, int32->dest_bps)
@@ -658,10 +658,10 @@ static void cleanup_common(struct libavcodec_codec_state *s)
                                                 ret);
                         }
                         do {
-                                AVPacket pkt;
-                                av_init_packet(&pkt);
-                                ret = avcodec_receive_packet(s->codec_ctx, &pkt);
-                                av_packet_unref(&pkt);
+                                AVPacket *pkt = av_packet_alloc();
+                                ret = avcodec_receive_packet(s->codec_ctx, pkt);
+                                av_packet_unref(pkt);
+                                av_packet_free(&pkt);
                                 if (ret != 0 && ret != AVERROR_EOF) {
                                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
                                                         ret);

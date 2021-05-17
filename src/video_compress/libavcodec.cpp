@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1373,7 +1373,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 #if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
                 AVPacket *pkt = (AVPacket *) frame->callbacks.dispose_udata;
                 av_packet_unref(pkt);
-                free(pkt);
+                av_packet_free(&pkt);
 #else
                 free(frame->tiles[0].data);
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
@@ -1383,9 +1383,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         vf_copy_metadata(out.get(), tx.get());
 #if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
         int got_output;
-        AVPacket *pkt;
-        pkt = (AVPacket *) malloc(sizeof(AVPacket));
-        av_init_packet(pkt);
+        AVPacket *pkt = av_packet_alloc();
         pkt->data = NULL;
         pkt->size = 0;
         out->callbacks.dispose_udata = pkt;
@@ -1506,20 +1504,20 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         ret = avcodec_send_frame(s->codec_ctx, frame);
         if (ret == 0) {
-                AVPacket pkt;
-                av_init_packet(&pkt);
-                ret = avcodec_receive_packet(s->codec_ctx, &pkt);
+                AVPacket *pkt = av_packet_alloc();
+                ret = avcodec_receive_packet(s->codec_ctx, pkt);
                 while (ret == 0) {
-                        assert(pkt.size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
+                        assert(pkt->size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
                         memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
-                                        pkt.data, pkt.size);
-                        out->tiles[0].data_len += pkt.size;
-                        av_packet_unref(&pkt);
-                        ret = avcodec_receive_packet(s->codec_ctx, &pkt);
+                                        pkt->data, pkt->size);
+                        out->tiles[0].data_len += pkt->size;
+                        av_packet_unref(pkt);
+                        ret = avcodec_receive_packet(s->codec_ctx, pkt);
                 }
                 if (ret != AVERROR(EAGAIN) && ret != 0) {
                         print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
                 }
+                av_packet_free(&pkt);
         } else {
 		print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
                 return {};
@@ -1574,10 +1572,10 @@ static void cleanup(struct state_video_compress_libav *s)
 					ret);
 		}
 		do {
-			AVPacket pkt;
-			av_init_packet(&pkt);
-			ret = avcodec_receive_packet(s->codec_ctx, &pkt);
-			av_packet_unref(&pkt);
+			AVPacket *pkt = av_packet_alloc();
+			ret = avcodec_receive_packet(s->codec_ctx, pkt);
+			av_packet_unref(pkt);
+			av_packet_free(&pkt);
 			if (ret != 0 && ret != AVERROR_EOF) {
 				log_msg(LOG_LEVEL_WARNING, "[lavc] Unexpected return value %d\n",
 						ret);

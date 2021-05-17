@@ -145,6 +145,21 @@ extern "C" {
 #define AV_PIX_FMT_GBRP12LE PIX_FMT_GBRP12LE
 #endif
 
+#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 78, 100)
+static struct AVPacket *av_packet_alloc(void) ATTRIBUTE(unused);
+static struct AVPacket *av_packet_alloc() {
+        struct AVPacket *pkt = (struct AVPacket *) calloc(1, sizeof *pkt);
+        av_init_packet(pkt);
+        return pkt;
+}
+
+static void av_packet_free(struct AVPacket **pkt) ATTRIBUTE(unused);
+static void av_packet_free(struct AVPacket **pkt) {
+        free(*pkt);
+        pkt = NULL;
+}
+#endif
+
 /**
  * @todo
  * Is this stuff still needed?
