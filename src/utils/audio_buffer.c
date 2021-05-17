@@ -98,9 +98,11 @@ struct audio_buffer *audio_buffer_init(int sample_rate, int bps, int ch_count, i
 
 void audio_buffer_destroy(struct audio_buffer *buf)
 {
-        if (buf) {
-                ring_buffer_destroy(buf->ring);
+        if (!buf) {
+                return;
         }
+        ring_buffer_destroy(buf->ring);
+        free(buf);
 }
 
 int audio_buffer_read(struct audio_buffer *buf, char *out, int max_len)
