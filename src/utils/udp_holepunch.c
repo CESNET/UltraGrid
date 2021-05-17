@@ -110,6 +110,7 @@ static void send_msg(int sock, const char *msg){
 }
 
 static void on_candidate(juice_agent_t *agent, const char *sdp, void *user_ptr) {
+        UNUSED(agent);
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Received candidate: %s\n", sdp);
         struct Punch_ctx *ctx = (struct Punch_ctx *) user_ptr;
         send_msg(ctx->coord_sock, sdp);
@@ -121,7 +122,7 @@ static void on_candidate(juice_agent_t *agent, const char *sdp, void *user_ptr) 
          * candidate (of type "host").
          */
 
-        char *c = sdp;
+        const char *c = sdp;
         //port is located after 5 space characters
         for(int i = 0; i < 5; i++){
                 c = strchr(c, ' ') + 1;
@@ -208,7 +209,7 @@ static bool connect_to_coordinator(const char *coord_srv_addr,
         return true;
 }
 
-static bool exchange_coord_desc(juice_agent_t *agent, int coord_sock){
+static void exchange_coord_desc(juice_agent_t *agent, int coord_sock){
         char sdp[JUICE_MAX_SDP_STRING_LEN];
         juice_get_local_description(agent, sdp, JUICE_MAX_SDP_STRING_LEN);
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Local description:\n%s\n", sdp);
@@ -224,9 +225,7 @@ static bool exchange_coord_desc(juice_agent_t *agent, int coord_sock){
         juice_set_remote_description(agent, msg_buf);
 }
 
-static bool discover_and_xchg_candidates(juice_agent_t *agent, int coord_sock,
-                char *local, char *remote)
-{
+static void discover_and_xchg_candidates(juice_agent_t *agent, int coord_sock) {
         juice_gather_candidates(agent);
 
         struct pollfd fds;
@@ -245,24 +244,27 @@ static bool discover_and_xchg_candidates(juice_agent_t *agent, int coord_sock,
                 if(state == JUICE_STATE_COMPLETED)
                         break;
         }
-
-        if ((juice_get_selected_addresses(agent,
-                                        local,
-                                        JUICE_MAX_CANDIDATE_SDP_STRING_LEN,
-                                        remote,
-                                        JUICE_MAX_CANDIDATE_SDP_STRING_LEN) == 0)) {
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Local candidate  : %s\n", local);
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Remote candidate : %s\n", remote);
-        }
 }
 
-static bool initialize_punch(struct Punch_ctx *ctx, const struct Holepunch_config *c){
+static bool initialize_punch(struct Punch_ctx *ctx,
+                const struct Holepunch_config *c,
+                const char *room_suffix)
+{
+        char room_name[512] = "";
+        size_t room_len = strlen(c->room_name);
+        if(room_len + strlen(room_suffix) + 1 > sizeof(room_name)){
+                error_msg(MOD_NAME "Room name too long\n");
+                return false;
+        }
+        strncat(room_name, c->room_name, sizeof(room_name) - 1);
+        strncat(room_name, room_suffix, sizeof(room_name) - room_len - 1);
+
         if(!connect_to_coordinator(c->coord_srv_addr, c->coord_srv_port, &ctx->coord_sock)){
                 return false;
         }
 
         send_msg(ctx->coord_sock, c->client_name);
-        send_msg(ctx->coord_sock, c->room_name);
+        send_msg(ctx->coord_sock, room_name);
 
         ctx->juice_agent = create_agent(c, ctx);
 
@@ -288,32 +290,83 @@ static bool split_host_port(char *pair, int *port){
 }
 
 static void juice_log_handler(juice_log_level_t level, const char *message){
+        UNUSED(level);
         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "libjuice: %s\n", message);
+}
+
+static bool run_punch(struct Punch_ctx *ctx, char *local, char *remote){
+        discover_and_xchg_candidates(ctx->juice_agent, ctx->coord_sock);
+
+        enum juice_state state = juice_get_state(ctx->juice_agent);
+        if(state != JUICE_STATE_COMPLETED){
+                error_msg(MOD_NAME "Punching finished unsuccessfuly (state %d)\n", state);
+                return false;
+        }
+
+        if ((juice_get_selected_addresses(ctx->juice_agent,
+                                        local,
+                                        JUICE_MAX_CANDIDATE_SDP_STRING_LEN,
+                                        remote,
+                                        JUICE_MAX_CANDIDATE_SDP_STRING_LEN) != 0))
+        {
+                error_msg(MOD_NAME, "Failed to read selected addresses\n");
+                return false;
+        }
+
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Local candidate  : %s\n", local);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Remote candidate : %s\n", remote);
+
+        return true;
+}
+
+static void cleanup_punch(struct Punch_ctx *ctx){
+        juice_destroy(ctx->juice_agent);
+        close(ctx->coord_sock);
+
 }
 
 bool punch_udp(const struct Holepunch_config *c){
         struct Punch_ctx video_ctx = {0};
+        struct Punch_ctx audio_ctx = {0};
 
         juice_set_log_level(JUICE_LOG_LEVEL_DEBUG);
         juice_set_log_handler(juice_log_handler);
 
-        if(!initialize_punch(&video_ctx, c)){
+        char local[JUICE_MAX_CANDIDATE_SDP_STRING_LEN];
+        char remote[JUICE_MAX_CANDIDATE_SDP_STRING_LEN];
+
+        if(!initialize_punch(&video_ctx, c, "_video")){
                 return false;
         }
 
-        char local[JUICE_MAX_CANDIDATE_SDP_STRING_LEN];
-        char remote[JUICE_MAX_CANDIDATE_SDP_STRING_LEN];
-        discover_and_xchg_candidates(video_ctx.juice_agent,
-                        video_ctx.coord_sock,
-                        local, remote);
-
-        juice_destroy(video_ctx.juice_agent);
-        close(video_ctx.coord_sock);
+        if(!run_punch(&video_ctx, local, remote))
+                return false;
 
         *c->video_rx_port = video_ctx.local_candidate_port;
         assert(split_host_port(remote, c->video_tx_port));
 
         strncpy(c->host_addr, remote, c->host_addr_len);
+
+        if(!initialize_punch(&audio_ctx, c, "_audio")){
+                cleanup_punch(&video_ctx);
+                return false;
+        }
+
+        cleanup_punch(&video_ctx);
+
+        if(!run_punch(&audio_ctx, local, remote))
+                return false;
+
+        *c->audio_rx_port = audio_ctx.local_candidate_port;
+        assert(split_host_port(remote, c->audio_tx_port));
+
+        assert(strcmp(c->host_addr, remote) == 0);
+
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Cleaning up\n");
+        cleanup_punch(&audio_ctx);
+
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Cleanup done\n");
+
 
         return true;
 }

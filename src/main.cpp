@@ -1250,8 +1250,8 @@ static int adjust_params(struct ug_options *opt) {
 
                 punch_c.video_rx_port = &opt->video_rx_port;
                 punch_c.video_tx_port = &opt->video_tx_port;
-                //int *audio_rx_port;
-                //int *audio_tx_port;
+                punch_c.audio_rx_port = &opt->audio.recv_port;
+                punch_c.audio_tx_port = &opt->audio.send_port;
 
                 punch_c.host_addr = punched_host;
                 punch_c.host_addr_len = sizeof(punched_host);
