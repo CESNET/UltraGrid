@@ -178,7 +178,7 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
                 vf_free(split_frames);
         }
 
-        if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
+        if (0) { // otherwise receiver thread does the stuff... in VRG mode, receiver thread is normally run
                 struct timeval curr_time;
                 uint32_t ts;
                 gettimeofday(&curr_time, NULL);
@@ -372,6 +372,13 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
+
+                // VRG specific - receive only RTCP and skip rest of the loop
+                if ((m_rxtx_mode & MODE_RECEIVER) == 0) {
+                        struct timeval timeout = { 0, 100'000 };
+                        rtcp_recv_r(m_network_devices[0], &timeout, ts);
+                        continue;
+                }
 
                 /* Receive packets from the network... The timeout is adjusted */
                 /* to match the video capture rate, so the transmitter works.  */

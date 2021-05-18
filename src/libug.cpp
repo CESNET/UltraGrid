@@ -66,6 +66,7 @@ struct ug_sender {
                 }
                 common_cleanup(common);
         }
+        pthread_t receiver_thread;
 };
 
 struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
@@ -135,6 +136,12 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
         render_packet_received_callback = init_params->rprc;
         render_packet_received_callback_udata = init_params->rprc_udata;
 
+        if (pthread_create(&s->receiver_thread, nullptr, video_rxtx::receiver_thread,
+                                         s->video_rxtx) != 0) {
+                perror("pthread_create");
+                delete s;
+                return nullptr;
+        }
         return s;
 }
 
@@ -175,6 +182,9 @@ void ug_sender_done(struct ug_sender *s)
         if (s->stripe) {
                 capture_filter_destroy(s->stripe);
         }
+        exit_uv(0);
+        pthread_join(s->receiver_thread, NULL);
+
         delete s;
 }
 
