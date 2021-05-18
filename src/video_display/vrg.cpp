@@ -321,6 +321,7 @@ static int display_vrg_putf(void *state, struct video_frame *frame, int flags)
 
         unique_lock<mutex> lk(s->lock);
         if ((flags & PUTF_NONBLOCK) != 0u && s->queue.size() >= MAX_QUEUE_SIZE) {
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Dropping frame - queue full!\n";
                 vf_free(frame);
                 return 1;
         }
