@@ -182,10 +182,11 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 
                 // receive RTCP
-                struct timeval timeout;
-                timeout.tv_sec = 0;
-                timeout.tv_usec = 0;
-                rtcp_recv_r(m_network_devices[0], &timeout, ts);
+                int rc = TRUE;
+                do {
+                        struct timeval timeout { 0, 0 };
+                        rc = rtcp_recv_r(m_network_devices[0], &timeout, ts);
+                } while (!should_exit && rc == TRUE);
         }
 
 after_send:
