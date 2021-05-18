@@ -598,6 +598,13 @@ static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
                                 return false;
                         }
                         next = strchr(next, ':');
+                } else if(strncmp(token, "server=", strlen("server=")) == 0){
+                        token += strlen("server=");
+                        punch_c->stun_srv_addr = token;
+                        punch_c->coord_srv_addr = token;
+
+                        punch_c->stun_srv_port = 3478;
+                        punch_c->coord_srv_port = 12558;
                 } else if(strncmp(token, "room=", strlen("room=")) == 0){
                         token += strlen("room=");
                         punch_c->room_name = token;
