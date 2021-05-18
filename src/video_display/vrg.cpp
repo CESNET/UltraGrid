@@ -47,6 +47,7 @@
 #include <rtp/rtp.h>
 #include <queue>
 #include <string>
+#include <unordered_map>
 
 // VrgInputFormat::RGBA conflicts with codec_t::RGBA
 #define RGBA VR_RGBA
@@ -77,11 +78,13 @@
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
+using std::chrono::seconds;
 using std::condition_variable;
 using std::cout;
 using std::mutex;
 using std::queue;
 using std::unique_lock;
+using std::unordered_map;
 using namespace std::string_literals;
 
 #ifdef HAVE_CUDA
@@ -143,6 +146,8 @@ struct state_vrg {
         queue<struct video_frame *> queue;
         mutex lock;
         condition_variable cv;
+
+        unordered_map<uint32_t, high_resolution_clock::time_point> render_packet_ts;
 };
 
 static void display_vrg_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -181,6 +186,18 @@ static void *display_vrg_init(struct module *parent, const char *fmt, unsigned i
         }
 
         return s;
+}
+
+static void render_packet_ts_gc(struct state_vrg *s)
+{
+        auto now = high_resolution_clock::now();
+        for (auto it = s->render_packet_ts.begin(); it != s->render_packet_ts.end(); ) {
+                if (duration_cast<seconds>(now - it->second).count() > 60) {
+                        it = s->render_packet_ts.erase(it);
+                } else {
+                        ++it;
+                }
+        }
 }
 
 static void display_vrg_run(void *state)
@@ -232,6 +249,7 @@ static void display_vrg_run(void *state)
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Received RenderPacket for frame " << render_packet.frame << ": " << render_packet << ".\n";
                         if (render_packet.pix_width_eye > 0 && render_packet.pix_height_eye > 0 &&
                                         render_packet.pix_width_eye <= 7680 && render_packet.pix_height_eye <= 4320) {
+                                s->render_packet_ts.emplace(render_packet.frame, high_resolution_clock::now());
                                 rtp_send_rtcp_app(s->rtp, "VIEW", sizeof render_packet, (char *) &render_packet);
                         } else {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong RenderPacket dimensions: " << render_packet << "\n";
@@ -244,10 +262,15 @@ static void display_vrg_run(void *state)
                     if (ret != Ok) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
                     }
-                    high_resolution_clock::time_point t_end = high_resolution_clock::now();
+                    high_resolution_clock::time_point now = high_resolution_clock::now();
+
+                    high_resolution_clock::time_point render_packet_start = s->render_packet_ts.find(f->render_packet.frame) != s->render_packet_ts.end()
+                            ? s->render_packet_ts.at(f->render_packet.frame).second : high_resolution_clock::time_point();
+                    double render_packet_rtt = duration_cast<microseconds>(now - render_packet_start).count() / 1000000.0;
+
                     LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
-                                         duration_cast<microseconds>(t_end - t_start).count() / 1000000.0
-                                         << " seconds\n";
+                                         duration_cast<microseconds>(now - t_start).count() / 1000000.0
+                                         << " seconds, RTT: " << render_packet_rtt << "s\n";
                     s->frames += 1;
                 } else {
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Dismissed frame with zero dimensions!\n";
@@ -259,6 +282,7 @@ static void display_vrg_run(void *state)
                         long long frames = s->frames - s->frames_last;
                         LOG(LOG_LEVEL_INFO) << "[VRG] " << frames << " frames in "
                                 << seconds << " seconds = " <<  frames / seconds << " FPS\n";
+                        render_packet_ts_gc(s);
                         s->t0 = now;
                         s->frames_last = s->frames;
                 }
