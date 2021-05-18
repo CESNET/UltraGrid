@@ -242,11 +242,14 @@ static void display_vrg_run(void *state)
 
                 struct RenderPacket render_packet{};
                 enum VrgStreamApiError ret;
+                high_resolution_clock::time_point render_frame_start = high_resolution_clock::now();
                 ret = vrgStreamRenderFrame(&render_packet);
+                high_resolution_clock::time_point render_frame_end = high_resolution_clock::now();
                 if (ret != Ok) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Render Frame failed: " << ret << "\n";
                 } else {
-                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Received RenderPacket for frame " << render_packet.frame << ": " << render_packet << ".\n";
+                        double seconds = duration_cast<microseconds>(render_frame_end - render_frame_start).count() / 1000000.0;
+                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Received RenderPacket for frame " << render_packet.frame << ": " << render_packet << ", dur: " << seconds << " s.\n";
                         if (render_packet.pix_width_eye > 0 && render_packet.pix_height_eye > 0 &&
                                         render_packet.pix_width_eye <= 7680 && render_packet.pix_height_eye <= 4320) {
                                 s->render_packet_ts.emplace(render_packet.frame, high_resolution_clock::now());
@@ -265,7 +268,7 @@ static void display_vrg_run(void *state)
                     high_resolution_clock::time_point now = high_resolution_clock::now();
 
                     high_resolution_clock::time_point render_packet_start = s->render_packet_ts.find(f->render_packet.frame) != s->render_packet_ts.end()
-                            ? s->render_packet_ts.at(f->render_packet.frame).second : high_resolution_clock::time_point();
+                            ? s->render_packet_ts.at(f->render_packet.frame) : high_resolution_clock::time_point();
                     double render_packet_rtt = duration_cast<microseconds>(now - render_packet_start).count() / 1000000.0;
 
                     LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
