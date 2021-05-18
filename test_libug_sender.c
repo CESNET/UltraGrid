@@ -49,6 +49,7 @@ static void usage(const char *progname) {
         printf("\t-p - port number\n");
         printf("\t-S - enable strips\n");
         printf("\t-s - size (WxH)\n");
+        printf("\t-t - traffic shape to N (bps)\n");
         printf("\t-v - increase verbosity (use twice for debug)\n");
         printf("\t-y - use YUV 4:2:0 instead of default RGBA\n");
 }
@@ -111,7 +112,7 @@ int main(int argc, char *argv[]) {
         double fps = DEFAULT_FPS;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "C:f:hjm:p:Ss:vy")) != -1) {
+        while ((ch = getopt(argc, argv, "C:f:hjm:p:Ss:t:vy")) != -1) {
                 switch (ch) {
                 case 'C':
                         init_params.connections = atoi(optarg);
@@ -138,6 +139,9 @@ int main(int argc, char *argv[]) {
                         width = atoi(optarg);
                         assert(strchr(optarg, 'x') != NULL);
                         height = atoi(strchr(optarg, 'x') + 1);
+                        break;
+                case 't':
+                        init_params.traffic_shapper_bw = strtoll(optarg, NULL, 0);
                         break;
                 case 'v':
                         init_params.verbose += 1;

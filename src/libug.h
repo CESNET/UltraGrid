@@ -53,6 +53,7 @@ struct ug_sender_parameters {
         int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
         int enable_strips;                       ///< enable 8x1 strips (to improve compression), default 0 (disable)
         int connections;                         ///< number of connections (default 1), must match with receiver
+        long long int traffic_shapper_bw;        ///< use specified bitrate for traffic shaper in bps (default 0 - unlimited)
 };
 
 /**

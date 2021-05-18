@@ -105,7 +105,7 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
         params["mcast_if"].str = NULL;
         params["fec"].str = "none";
         params["encryption"].str = NULL;
-        params["bitrate"].ll = RATE_UNLIMITED;
+        params["bitrate"].ll = init_params->traffic_shapper_bw == 0 ? RATE_UNLIMITED : init_params->traffic_shapper_bw ;
         params["start_time"].cptr = (const void *) &start_time;
         params["video_delay"].vptr = 0;
 
