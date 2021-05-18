@@ -50,9 +50,10 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <winsock.h>
 static void sleep(unsigned int secs) { Sleep(secs * 1000); }
 #else
-#include <unistd.h> // for sleep
+#include <unistd.h>
 #endif
 
 #define MAX_MSG_LEN 2048
@@ -325,7 +326,7 @@ static void cleanup_punch(struct Punch_ctx *ctx){
 
 }
 
-bool punch_udp(const struct Holepunch_config *c){
+bool punch_udp(struct Holepunch_config c){
         struct Punch_ctx video_ctx = {0};
         struct Punch_ctx audio_ctx = {0};
 
@@ -335,19 +336,25 @@ bool punch_udp(const struct Holepunch_config *c){
         char local[JUICE_MAX_CANDIDATE_SDP_STRING_LEN];
         char remote[JUICE_MAX_CANDIDATE_SDP_STRING_LEN];
 
-        if(!initialize_punch(&video_ctx, c, "_video")){
+        char name[512] = {};
+        if(!c.client_name){
+                gethostname(name, sizeof(name) - 1);
+                c.client_name = name;
+        }
+
+        if(!initialize_punch(&video_ctx, &c, "_video")){
                 return false;
         }
 
         if(!run_punch(&video_ctx, local, remote))
                 return false;
 
-        *c->video_rx_port = video_ctx.local_candidate_port;
-        assert(split_host_port(remote, c->video_tx_port));
+        *c.video_rx_port = video_ctx.local_candidate_port;
+        assert(split_host_port(remote, c.video_tx_port));
 
-        strncpy(c->host_addr, remote, c->host_addr_len);
+        strncpy(c.host_addr, remote, c.host_addr_len);
 
-        if(!initialize_punch(&audio_ctx, c, "_audio")){
+        if(!initialize_punch(&audio_ctx, &c, "_audio")){
                 cleanup_punch(&video_ctx);
                 return false;
         }
@@ -357,10 +364,10 @@ bool punch_udp(const struct Holepunch_config *c){
         if(!run_punch(&audio_ctx, local, remote))
                 return false;
 
-        *c->audio_rx_port = audio_ctx.local_candidate_port;
-        assert(split_host_port(remote, c->audio_tx_port));
+        *c.audio_rx_port = audio_ctx.local_candidate_port;
+        assert(split_host_port(remote, c.audio_tx_port));
 
-        assert(strcmp(c->host_addr, remote) == 0);
+        assert(strcmp(c.host_addr, remote) == 0);
 
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Cleaning up\n");
         cleanup_punch(&audio_ctx);
