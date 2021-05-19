@@ -5,12 +5,12 @@ APPIMAGE=${APPIMAGE-none}
 ARGV0=${ARGV0-$0}
 
 DIR=`dirname $0`
-export LD_LIBRARY_PATH=$DIR/lib${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
+export LD_LIBRARY_PATH=$DIR/usr/lib${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 # there is an issue with running_from_path() which evaluates this executable
 # as being system-installed
-#export PATH=$DIR/bin:$PATH
-export QT_QPA_FONTDIR=$DIR/lib/fonts
-export QT_PLUGIN_PATH=$DIR/lib/qt5/plugins
+#export PATH=$DIR/usr/bin:$PATH
+export QT_QPA_FONTDIR=$DIR/usr/lib/fonts
+export QT_PLUGIN_PATH=$DIR/usr/lib/qt5/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
 
 usage() {
@@ -32,7 +32,7 @@ usage() {
         printf "\n"
         printf "\t$ARGV0 --tool <t> [args]\n"
         printf "\t\tinvokes specified tool\n"
-        printf "\t\ttool may be: $(ls $DIR/bin | tr '\n' ' ')\n"
+        printf "\t\ttool may be: $(ls $DIR/usr/bin | tr '\n' ' ')\n"
         printf "\n"
         printf "\t$ARGV0 args\n"
         printf "\t\tinvokes command-line UltraGrid\n"
@@ -75,8 +75,8 @@ handle_updates() {
 if [ $# -eq 0 -o x"${1-}" = x"--gui" ]; then
         handle_updates
         [ $# -eq 0 ] && usage || shift
-        if [ -x $DIR/bin/uv-qt ]; then
-                $DIR/bin/uv-qt --with-uv $DIR/uv-wrapper.sh "$@"
+        if [ -x $DIR/usr/bin/uv-qt ]; then
+                $DIR/usr/bin/uv-qt --with-uv $DIR/uv-wrapper.sh "$@"
         else
                 echo "GUI was not compiled in!" >&2
                 exit 1
@@ -85,7 +85,7 @@ elif [ x"$1" = x"--tool" ]; then
         handle_updates
         TOOL=$2
         shift 2
-        $DIR/bin/$TOOL "$@"
+        $DIR/usr/bin/$TOOL "$@"
 elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
         usage
         exit 0
