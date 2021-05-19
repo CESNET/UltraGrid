@@ -639,6 +639,8 @@ install: all
 		$(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)$(bindir);\
 		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/applications;\
 		$(INSTALL) -m 644 $(srcdir)/data/uv-qt.desktop $(DESTDIR)$(datadir)/applications;\
+		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/metainfo;\
+		$(INSTALL) -m 644 $(srcdir)/data/cz.cesnet.ultragrid.appdata.xml $(DESTDIR)$(datadir)/metainfo;\
 		$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/pixmaps;\
 		$(INSTALL) -m 644 $(srcdir)/data/ultragrid.png $(DESTDIR)$(datadir)/pixmaps;\
 	fi
@@ -664,6 +666,7 @@ uninstall:
 	if [ -f "$(GUI_TARGET)" ]; then \
 		$(RM) $(DESTDIR)$(bindir)/`basename $(GUI_TARGET)`;\
 		$(RM) $(DESTDIR)$(datadir)/applications/uv-qt.desktop;\
+		$(RM) $(DESTDIR)$(datadir)/metainfo/cz.cesnet.ultragrid.appdata.xml;\
 		$(RM) $(DESTDIR)$(datadir)/pixmaps/ultragrid.png;\
 	fi
 
