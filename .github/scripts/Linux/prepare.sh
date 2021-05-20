@@ -51,7 +51,7 @@ sudo ./install
 # Install AJA
 if [ -n "$SDK_URL" ]; then
         if curl -f -S $SDK_URL/ntv2sdklinux.zip -O; then
-                FEATURES="$FEATURES --enable-aja"
+                FEATURES="${FEATURES:+$FEATURES }--enable-aja"
                 echo "FEATURES=$FEATURES" >> $GITHUB_ENV
                 unzip ntv2sdklinux.zip -d /var/tmp
                 mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
