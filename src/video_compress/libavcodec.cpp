@@ -928,7 +928,7 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                            AVPixelFormat &pix_fmt,
                            struct video_desc desc,
                            codec_t ug_codec,
-                           AVCodec *codec)
+                           const AVCodec *codec)
 {
         // avcodec_alloc_context3 allocates context and sets default value
         s->codec_ctx = avcodec_alloc_context3(codec);

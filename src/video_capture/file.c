@@ -371,7 +371,7 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
         return true;
 }
 
-static AVCodecContext *vidcap_file_open_dec_ctx(AVCodec *dec, AVStream *st) {
+static AVCodecContext *vidcap_file_open_dec_ctx(const AVCodec *dec, AVStream *st) {
         AVCodecContext *dec_ctx = avcodec_alloc_context3(dec);
         if (!dec_ctx) {
                 return NULL;
@@ -466,9 +466,9 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 return VIDCAP_INIT_FAIL;
         }
 
-        AVCodec *dec;
+        const AVCodec *dec = NULL;
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                s->audio_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
+                s->audio_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, (void *) &dec, 0);
                 if (s->audio_stream_idx < 0 && !opportunistic_audio) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find audio stream!\n");
                         vidcap_file_common_cleanup(s);
@@ -493,7 +493,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 }
         }
 
-        s->video_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &dec, 0);
+        s->video_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, (void *) &dec, 0);
         if (s->video_stream_idx < 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "No video stream found!\n");
                 vidcap_file_common_cleanup(s);

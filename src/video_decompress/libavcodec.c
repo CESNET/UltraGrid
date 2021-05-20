@@ -262,7 +262,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
 
         // construct priority list of decoders that can be used for the codec
-        AVCodec *codecs_available[13]; // max num of preferred decoders (10) + user supplied + default one + NULL
+        const AVCodec *codecs_available[13]; // max num of preferred decoders (10) + user supplied + default one + NULL
         memset(codecs_available, 0, sizeof codecs_available);
         unsigned int codec_index = 0;
         // first try codec specified from cmdline if any
@@ -273,7 +273,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 char *item, *save_ptr;
                 while ((item = strtok_r(val, ":", &save_ptr))) {
                         val = NULL;
-                        AVCodec *codec = avcodec_find_decoder_by_name(item);
+                        const AVCodec *codec = avcodec_find_decoder_by_name(item);
                         if (codec == NULL) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", item);
                         } else {
@@ -290,7 +290,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         // then try preferred codecs
         const char * const *preferred_decoders_it = dec->preferred_decoders;
         while (*preferred_decoders_it) {
-                AVCodec *codec = avcodec_find_decoder_by_name(*preferred_decoders_it);
+                const AVCodec *codec = avcodec_find_decoder_by_name(*preferred_decoders_it);
                 if (codec == NULL) {
                         log_msg(LOG_LEVEL_VERBOSE, "[lavd] Decoder not available: %s\n", *preferred_decoders_it);
                         preferred_decoders_it++;
@@ -304,7 +304,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
         // finally, add a default one if there are no preferred encoders or all fail
         if (codec_index < (sizeof codecs_available / sizeof codecs_available[0]) - 1) {
-                AVCodec *default_decoder = avcodec_find_decoder(dec->avcodec_id);
+                const AVCodec *default_decoder = avcodec_find_decoder(dec->avcodec_id);
                 if (default_decoder == NULL) {
                         log_msg(LOG_LEVEL_WARNING, "[lavd] No decoder found for the input codec (libavcodec perhaps compiled without any)!\n"
                                                 "Use \"--param decompress=<d> to select a different decoder than libavcodec if there is any eligibe.\n");
@@ -314,7 +314,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
 
         // initialize the codec - use the first decoder initialization of which succeeds
-        AVCodec **codec_it = codecs_available;
+        const AVCodec **codec_it = codecs_available;
         while (*codec_it) {
                 log_msg(LOG_LEVEL_VERBOSE, "[lavd] Trying decoder: %s\n", (*codec_it)->name);
                 s->codec_ctx = avcodec_alloc_context3(*codec_it);
