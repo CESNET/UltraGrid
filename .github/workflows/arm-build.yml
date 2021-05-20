@@ -30,7 +30,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'chroot.tar'
-        key: cache-bootstrap-${{ matrix.arch }}-5
+        key: cache-bootstrap-${{ matrix.arch }}-6
     - name: Debootstrap
       if: steps.cache-bootstrap.outputs.cache-hit != 'true'
       run: |
@@ -38,8 +38,8 @@ jobs:
         sudo mkdir chroot
         wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
         sudo qemu-debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} buster chroot ${{ matrix.repo }}
-        sudo cp $GITHUB_WORKSPACE/.github/scripts/Linux/arm/mksquashfs-compilation-fix.patch chroot
-        sudo .github/scripts/Linux/arm/bootstrap.sh ${{ matrix.arch }} chroot
+        sudo cp $GITHUB_WORKSPACE/.github/scripts/Linux/arm/{bootstrap.sh,mksquashfs-compilation-fix.patch} chroot
+        sudo chroot chroot /bootstrap.sh ${{ matrix.arch }}
         sudo tar cf chroot.tar chroot # Create archive for caching. Needs to be created as root, therefore created manually.
     - name: Extract Cached Environment
       if: steps.cache-bootstrap.outputs.cache-hit == 'true'
