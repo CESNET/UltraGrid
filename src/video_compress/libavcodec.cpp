@@ -74,7 +74,6 @@ extern "C"
 {
 #include <libavutil/hwcontext.h>
 #include <libavutil/hwcontext_vaapi.h>
-#include <libavcodec/vaapi.h>
 }
 #include "hwaccel_libav_common.h"
 #endif

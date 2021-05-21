@@ -29,36 +29,38 @@ jobs:
       id: cache-bootstrap
       uses: actions/cache@v2
       with:
-        path: 'chroot.tar'
+        path: '~/chroot.tar'
         key: cache-bootstrap-${{ matrix.arch }}-6
     - name: Debootstrap
       if: steps.cache-bootstrap.outputs.cache-hit != 'true'
       run: |
         sudo apt install debootstrap debian-archive-keyring
-        sudo mkdir chroot
+        sudo mkdir ~/chroot
         wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
-        sudo qemu-debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} buster chroot ${{ matrix.repo }}
-        sudo cp $GITHUB_WORKSPACE/.github/scripts/Linux/arm/{bootstrap.sh,mksquashfs-compilation-fix.patch} chroot
-        sudo chroot chroot /bootstrap.sh ${{ matrix.arch }}
-        sudo tar cf chroot.tar chroot # Create archive for caching. Needs to be created as root, therefore created manually.
+        sudo qemu-debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} buster ~/chroot ${{ matrix.repo }}
+        sudo cp $GITHUB_WORKSPACE/.github/scripts/Linux/arm/{bootstrap.sh,mksquashfs-compilation-fix.patch} ~/chroot
+        sudo chroot ~/chroot /bootstrap.sh ${{ matrix.arch }}
+        cd ~ && sudo tar cf chroot.tar chroot # Create archive for caching. Needs to be created as root, therefore created manually.
     - name: Extract Cached Environment
       if: steps.cache-bootstrap.outputs.cache-hit == 'true'
-      run: sudo tar xf chroot.tar
+      run: |
+        cd ~
+        sudo tar xf chroot.tar
     - name: Build
       run: |
-        sudo cp .github/scripts/Linux/arm/build.sh chroot
-        sudo chroot chroot /build.sh
+        sudo cp -ar $GITHUB_WORKSPACE ~/chroot/UltraGrid
+        sudo chroot ~/chroot /bin/sh -ec "cd UltraGrid; .github/scripts/Linux/arm/build.sh"
     - name: Upload Build
       if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/arm-build'
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v2
       with:
         name: UltraGrid CI ${{ matrix.arch }} build
-        path: chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage
+        path: '~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage'
     - name: Upload Release Asset
       if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/arm-build'
       run: |
         sudo apt install jq
-        sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} continuous chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
+        sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} continuous ~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
 
 
 # vi: set expandtab sw=2:
