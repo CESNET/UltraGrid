@@ -799,43 +799,82 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         return true;
 }
 
+auto get_intermediate_codecs_from_uv_to_av(codec_t in, AVPixelFormat av) {
+        vector<codec_t> intermediate_codecs;
+        for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed - direct mapping
+                auto decoder = get_decoder_from_to(in, i->uv_codec, true);
+                if (decoder != nullptr && i->av_pixfmt == av) {
+                        intermediate_codecs.push_back(i->uv_codec);
+                }
+        }
+        for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; ++c) { // AV conversion needed
+                auto decoder = get_decoder_from_to(in, c->src, true);
+                if (decoder != nullptr && c->dst == av) {
+                        intermediate_codecs.push_back(c->src);
+                }
+        }
+
+        return intermediate_codecs;
+}
+
 /**
  * Returns a UltraGrid decoder needed to decode from the UltraGrid codec in
  * to out with respect to conversions in @ref conversions. Therefore it should
  * be feasible to convert in to out and then convert out to av (last step may
  * be omitted if the format is native for both indicated in
  * ug_to_av_pixfmt_map).
- * @todo
- * Currently first av_to_ug conversion to which there exists conversion is picked.
- * This may not be, however, the best.
  */
 decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) {
-        // direct AV->UV conversion
-        if (get_uv_to_av_conversion(in, av) != nullptr) {
-                *out = in;
-                return vc_memcpy;
+        vector<codec_t> intermediate_codecs = get_intermediate_codecs_from_uv_to_av(in, av);
+        if (intermediate_codecs.empty()) {
+                return nullptr;
         }
 
-        bool slow[] = {false, true};
-        for (auto use_slow : slow) {
-                for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
-                        auto decoder = get_decoder_from_to(in, i->uv_codec, use_slow);
-                        if (decoder && i->av_pixfmt == av) {
-                                *out = i->uv_codec;
-                                return decoder;
-                        }
-                }
-                for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
-                        auto decoder = get_decoder_from_to(in, c->src, use_slow);
-                        if (decoder && c->dst == av) {
-                                *out = c->src;
-                                return decoder;
-                        }
-                }
-        }
+        // select intermediate UG codec same or better in following order of
+        // importance: 1) depth, 2) subsampling, 3) color space
+        sort(intermediate_codecs.begin(), intermediate_codecs.end(), [&](codec_t a, codec_t b) {
+                int depth_in = get_bits_per_component(in);
+                int depth_a = get_bits_per_component(a);
+                int depth_b = get_bits_per_component(b);
+                bool rgb_in = codec_is_a_rgb(in);
+                bool rgb_a = codec_is_a_rgb(a);
+                bool rgb_b = codec_is_a_rgb(b);
+                int subs_in = get_subsampling(in);
+                int subs_a = get_subsampling(a);
+                int subs_b = get_subsampling(b);
 
-        *out = VIDEO_CODEC_NONE;
-        return nullptr;
+                // check identity first
+                if (a == in || b == in) {
+                        return a == in;
+                }
+                // either a or b is narrower than depth_in - sort higher bit depth first
+                if (depth_a != depth_b &&
+                                (depth_a < depth_in || depth_b < depth_in)) {
+                        return depth_a > depth_b;
+                }
+                if (subs_a != subs_b &&
+                                (subs_a < subs_in || subs_b < subs_in)) {
+                        return subs_a > subs_b;
+                }
+                if (rgb_a != rgb_b) {
+                        return rgb_a == rgb_in;
+                }
+
+                assert(depth_a >= depth_in && depth_b >= depth_in && subs_a >= subs_in && subs_b >= subs_in);
+                if (depth_a != depth_b) {
+                        return depth_a < depth_b;
+                }
+                if (subs_a != subs_b) {
+                        return subs_a < subs_b;
+                }
+                if (static_cast<bool>(get_decoder_from_to(in, a, false)) != static_cast<bool>(get_decoder_from_to(in, b, false))) { // one is slow, the other not
+                        return get_decoder_from_to(in, a, false) != nullptr;
+                }
+                return a < b;
+        });
+
+        *out = intermediate_codecs[0];
+        return get_decoder_from_to(in, *out, true);
 }
 
 static int get_subsampling(enum AVPixelFormat fmt) {

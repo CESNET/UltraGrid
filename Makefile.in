@@ -468,6 +468,7 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/ff_codec_conversions_test.o \
 	    test/get_framerate_test.o \
 	    test/gpujpeg_test.o \
+	    test/libavcodec_test.o \
 	    test/video_desc_test.o \
 	    test/test_bitstream.o \
 	    test/test_aes.o \
