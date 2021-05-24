@@ -55,6 +55,7 @@
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
 #include "rtp.h"
+#include "tv.h"
 #include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/thread.h"
@@ -1124,6 +1125,35 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
 }
 #endif // WIN32
 
+#ifdef DEBUG
+#define DEBUG_TIMER(t) struct timeval t; gettimeofday(&t, nullptr);
+#else
+#define DEBUG_TIMER(t)
+#endif
+
+#ifdef DEBUG
+#define DEBUG_INIT \
+        int pckt_count = 0;\
+        double t_diff_1 = 0;\
+        double t_diff_1_max = 0;\
+        double t_diff_3 = 0;\
+        double t_diff_3_max = 0;
+#define DEBUG_PRINT \
+        t_diff_1 += tv_diff(t1, t0);\
+        t_diff_1_max = max(tv_diff(t1, t0), t_diff_1_max);\
+        t_diff_3 += tv_diff(t3, t2);\
+        t_diff_3_max = max(tv_diff(t3, t2), t_diff_3_max);\
+        if (++pckt_count == 1000) {\
+                LOG(LOG_LEVEL_DEBUG) << "malloc = " << t_diff_1 * 1'000 << " us (max: " <<\
+                        t_diff_1_max * 1'000'000 << "), recv = " << t_diff_3 * 1'000 << " us (max: " <<\
+                        t_diff_3_max * 1'000'000 << ")\n";\
+                t_diff_1 = t_diff_1_max = t_diff_3 = t_diff_3_max = pckt_count = 0;\
+        }
+#else
+#define DEBUG_INIT
+#define DEBUG_PRINT
+#endif
+
 /**
  * When receiving data in separate thread, this function fetches data
  * from socket and puts it in queue.
@@ -1134,6 +1164,8 @@ static void *udp_reader(void *arg)
         auto *data = static_cast<udp_reader_data *>(arg);
         auto *s = data->s;
         bool async = get_commandline_param("rtp-multithreaded") != nullptr && strstr(get_commandline_param("rtp-multithreaded"), "async") != nullptr;
+
+        DEBUG_INIT
 
         while (1) {
                 fd_set fds;
@@ -1150,9 +1182,11 @@ static void *udp_reader(void *arg)
                 if (FD_ISSET(s->local->should_exit_fd[data->thread_idx][0], &fds)) {
                         break;
                 }
+                DEBUG_TIMER(t0);
                 uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
                 int size = 0;
+                DEBUG_TIMER(t1);
 
                 auto add_to_queue = [](socket_udp *s, uint8_t *packet, int size) {
                         unique_lock<mutex> lk(s->local->lock);
@@ -1218,9 +1252,11 @@ static void *udp_reader(void *arg)
                         SleepEx(0, TRUE); // allow system to call our completion routines in APC
 #endif
                 } else {
+                        DEBUG_TIMER(t2);
                         size = recvfrom(s->local->rx_fd[data->thread_idx], (char *) buffer,
                                         RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                         0, 0, 0);
+                        DEBUG_TIMER(t3);
                         if (size <= 0) {
                                 /// @todo
                                 /// In MSW, this block is called as often as packet is sent if
@@ -1230,6 +1266,8 @@ static void *udp_reader(void *arg)
                                 free(packet);
                                 continue;
                         }
+
+                        DEBUG_PRINT
 
                         if (!add_to_queue(s, packet, size)) {
                                 break;
