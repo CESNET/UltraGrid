@@ -705,7 +705,7 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, int nonbloc
         if (s->buffered_frames_count >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK
                         && frame != NULL) {
                 s->free_frame_queue.push(frame);
-                printf("1 frame(s) dropped!\n");
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << "1 frame(s) dropped!\n";
                 return 1;
         }
         s->frame_consumed_cv.wait(lk, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
