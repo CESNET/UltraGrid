@@ -68,6 +68,7 @@
 #include <array>
 #include <condition_variable>
 #include <chrono>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -78,6 +79,7 @@ using std::condition_variable;
 using std::max;
 using std::mutex;
 using std::queue;
+using std::shared_ptr;
 using std::string;
 using std::swap;
 using std::to_string;
@@ -786,6 +788,9 @@ static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl
         return true;
 }
 
+ADD_TO_PARAM("udp-packet-pool",
+                "* udp-packet-pool[=<size>]\n"
+                "  Use packet pool for incoming packets (optional number of items)\n");
 ADD_TO_PARAM("udp-queue-len",
                 "* udp-queue-len=<l>\n"
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
@@ -941,6 +946,11 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         data->thread_idx = i;
                         pthread_create(&s->local->thread_id[i], NULL, udp_reader, data);
                 }
+        } else {
+                if (get_commandline_param("udp-packet-pool") != nullptr && get_commandline_param("rtp-multithreaded") == nullptr) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Param \"udp-packet-tool\" can be used only with \"rtp-multithreaded\"!\n";
+                        goto error;
+                }
         }
 
         return s;
@@ -1036,7 +1046,9 @@ void udp_exit(socket_udp * s)
                         }
                         while (!s->local->packets.empty()) {
                                 auto it = s->local->packets.front();
-                                free(it.buf);
+                                if (get_commandline_param("udp-packet-pool") == nullptr) {
+                                        free(it.buf);
+                                }
                                 s->local->packets.pop();
                         }
                 }
@@ -1131,6 +1143,50 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
 #define DEBUG_TIMER(t)
 #endif
 
+struct udp_packet_pool {
+        char *start = nullptr;
+        char *end = nullptr;
+        char *cur = nullptr;
+        int items = 45000;
+        int item_len = (RTP_MAX_PACKET_LEN + 1 + 63) / 64 * 64;
+
+        udp_packet_pool(udp_packet_pool &) = delete;
+        ~udp_packet_pool() {
+                free(start);
+        }
+
+        static auto init() {
+                if (get_commandline_param("udp-packet-pool") == nullptr) {
+                        return shared_ptr<udp_packet_pool>();
+                }
+                auto *s = new udp_packet_pool{};
+                const char *val = get_commandline_param("udp-packet-pool");
+                if (isdigit(val[0])) {
+                        s->items = atoi(val);
+                }
+                s->start = s->cur = (char *) calloc(s->items, s->item_len);
+                s->end = s->start + s->items * s->item_len;
+                return shared_ptr<udp_packet_pool>(s);
+        }
+        void *alloc() {
+                auto *packet = (uint8_t *) cur;
+                if (packet[RTP_MAX_PACKET_LEN] == 1) {
+                        LOG(LOG_LEVEL_VERBOSE) << "Packet not freed!\n";
+                }
+                packet[RTP_MAX_PACKET_LEN] = 1;
+                cur += item_len;
+                if (cur == end) {
+                        cur = start;
+                }
+                return packet;
+        }
+};
+
+extern void packet_pool_free(void *pkt) {
+        auto *buf = static_cast<char *>(pkt);
+        buf[RTP_MAX_PACKET_LEN] = 0;
+}
+
 #ifdef DEBUG
 #define DEBUG_INIT \
         int pckt_count = 0;\
@@ -1165,6 +1221,9 @@ static void *udp_reader(void *arg)
         auto *s = data->s;
         bool async = get_commandline_param("rtp-multithreaded") != nullptr && strstr(get_commandline_param("rtp-multithreaded"), "async") != nullptr;
 
+        auto packet_pool = udp_packet_pool::init();
+        void (*free_packet)(void *) = packet_pool ? &packet_pool_free : &free;
+
         DEBUG_INIT
 
         while (1) {
@@ -1183,7 +1242,12 @@ static void *udp_reader(void *arg)
                         break;
                 }
                 DEBUG_TIMER(t0);
-                uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
+                uint8_t *packet = nullptr;
+                if (packet_pool) {
+                        packet = (uint8_t *) packet_pool->alloc();
+                } else {
+                        packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
+                }
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
                 int size = 0;
                 DEBUG_TIMER(t1);
@@ -1192,7 +1256,11 @@ static void *udp_reader(void *arg)
                         unique_lock<mutex> lk(s->local->lock);
                         s->local->reader_cv.wait(lk, [s]{return s->local->packets.size() < s->local->max_packets || s->local->should_exit;});
                         if (s->local->should_exit) {
-                                free(packet);
+                                if (get_commandline_param("udp-packet-pool") == nullptr) {
+                                        free(packet);
+                                } else {
+                                        packet_pool_free(packet);
+                                }
                                 return false;
                         }
 
@@ -1224,7 +1292,11 @@ static void *udp_reader(void *arg)
                                         d->add_to_queue_p(d->s, d->packet, cbTransferred);
                                 } else {
                                         socket_error("WSARecvFrom - completion routine");
-                                        free(d->packet);
+                                        if (get_commandline_param("udp-packet-pool") == nullptr) {
+                                                free(d->packet);
+                                        } else {
+                                                packet_pool_free(d->packet);
+                                        }
                                 }
                                 delete d;
                         };
@@ -1245,7 +1317,7 @@ static void *udp_reader(void *arg)
                                         &d->overlapped, completion_routine);
                         if (ret == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING) { // see https://docs.microsoft.com/en-us/windows/win32/api/Winsock2/nf-winsock2-wsarecvfrom#overlapped-socket-i-o
                                 socket_error("WSARecvFrom");
-                                free(packet);
+                                free_packet(packet);
                                 delete d;
                         }
 
@@ -1263,7 +1335,7 @@ static void *udp_reader(void *arg)
                                 /// we got WSAECONNRESET error (noone is listening). This can have
                                 /// negative performance impact.
                                 socket_error("recvfrom");
-                                free(packet);
+                                free_packet(packet);
                                 continue;
                         }
 

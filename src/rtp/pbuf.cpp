@@ -57,8 +57,10 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "host.h"
 #include "perf.h"
 #include "rang.hpp"
+#include "rtp/net_udp.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/ptime.h"
@@ -119,9 +121,11 @@ struct pbuf {
         int out_of_order_pkts;
         int max_out_of_order_dist;
         int dups; // duplicite packets
+
+        void (*free_packet)(void *pkt);
 };
 
-static void free_cdata(struct coded_data *head);
+static void free_cdata(struct coded_data *head, void (*free_packet)(void *));
 static int frame_complete(struct pbuf_node *frame);
 
 /*********************************************************************************/
@@ -184,19 +188,20 @@ struct pbuf *pbuf_init(volatile int *delay_ms)
         struct pbuf *playout_buf = NULL;
 
         playout_buf = (struct pbuf *) calloc(1, sizeof(struct pbuf));
-        if (playout_buf != NULL) {
-                playout_buf->frst = NULL;
-                playout_buf->last = NULL;
-                /* Playout delay... should really be adaptive, based on the */
-                /* jitter, but we use a (conservative) fixed 32ms delay for */
-                /* now (2 video frames at 60fps).                           */
-                playout_buf->offset_ms = delay_ms;
-                playout_buf->playout_delay_us = 0.032 * 1000 * 1000;
-                playout_buf->last_report_seq = -1;
-                playout_buf->stats_interval = DEFAULT_STATS_INTERVAL;
-        } else {
+        if (playout_buf == NULL) {
                 debug_msg("Failed to allocate memory for playout buffer\n");
+                return NULL;
         }
+        playout_buf->free_packet = get_commandline_param("udp-packet-pool") == nullptr ? free : packet_pool_free;
+        playout_buf->frst = NULL;
+        playout_buf->last = NULL;
+        /* Playout delay... should really be adaptive, based on the */
+        /* jitter, but we use a (conservative) fixed 32ms delay for */
+        /* now (2 video frames at 60fps).                           */
+        playout_buf->offset_ms = delay_ms;
+        playout_buf->playout_delay_us = 0.032 * 1000 * 1000;
+        playout_buf->last_report_seq = -1;
+        playout_buf->stats_interval = DEFAULT_STATS_INTERVAL;
         return playout_buf;
 }
 
@@ -228,7 +233,7 @@ void pbuf_destroy(struct pbuf *playout_buf) {
                         if (curr->prv != NULL) {
                                 curr->prv->nxt = curr->nxt;
                         }
-                        free_cdata(curr->cdata);
+                        free_cdata(curr->cdata, playout_buf->free_packet);
                         delete curr;
                         curr = temp;
                 }
@@ -470,19 +475,19 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                                         debug_msg
                                                 ("Oops... dropped packet with M bit set\n");
                                 }
-                                free(pkt);
+                                playout_buf->free_packet(pkt);
                         }
                 }
         }
         pbuf_validate(playout_buf);
 }
 
-static void free_cdata(struct coded_data *head)
+static void free_cdata(struct coded_data *head, void (*free_packet)(void *))
 {
         struct coded_data *tmp;
 
         while (head != NULL) {
-                free(head->data);
+                free_packet(head->data);
                 tmp = head;
                 head = head->nxt;
                 free(tmp);
@@ -515,7 +520,7 @@ void pbuf_remove(struct pbuf *playout_buf, std::chrono::high_resolution_clock::t
                         if (curr->prv != NULL) {
                                 curr->prv->nxt = curr->nxt;
                         }
-                        free_cdata(curr->cdata);
+                        free_cdata(curr->cdata, playout_buf->free_packet);
                         delete curr;
                 } else {
                         /* The playout buffer is stored in order, so once  */

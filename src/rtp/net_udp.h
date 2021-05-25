@@ -109,6 +109,7 @@ int         udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVE
 struct socket_udp_local *udp_get_local(socket_udp *s);
 socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len);
 
+void packet_pool_free(void *pkt);
 /*************************************************************************************************/
 #if defined(__cplusplus)
 }
