@@ -234,6 +234,10 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs) {
                 *logger_repeat_msgs = true;
         }
 
+        if (getenv("ULTRAGRID_VERBOSE") != nullptr) {
+                log_level = LOG_LEVEL_VERBOSE;
+        }
+
         if (optarg[0] == '+') {
                 return true;
         }

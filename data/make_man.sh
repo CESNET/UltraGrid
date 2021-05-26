@@ -6,6 +6,11 @@
 
 bugreport_and_resources() {
 	cat <<-'EOF'
+	== ENVIRONMENT VARIABLES ==
+	*`ULTRAGRID_VERBOSE`*::
+	  If is `ULTRAGRID_VERBOSE` environment variable is set, default UltraGrid
+	  log level is `verbose`. Command-line option always overrides this value.
+
 	== REPORTING BUGS ==
 	Report bugs to *ultragrid-dev@cesnet.cz* or use project *GitHub* to describe issues.
 
