@@ -79,6 +79,7 @@ typedef decoder_func_t *decoder_t;
 void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs12);
 /// @returns number of bits per color component
 int              get_bits_per_component(codec_t codec) ATTRIBUTE(const);
+int              get_subsampling(codec_t codec) ATTRIBUTE(const);
 /// @returns number of bytes per pixel
 double           get_bpp(codec_t codec) ATTRIBUTE(const);
 uint32_t         get_fourcc(codec_t codec) ATTRIBUTE(const);

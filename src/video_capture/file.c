@@ -232,10 +232,10 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
 static void *vidcap_file_worker(void *state) {
         set_thread_name(__func__);
         struct vidcap_state_lavf_decoder *s = (struct vidcap_state_lavf_decoder *) state;
-        AVPacket pkt;
-        av_init_packet(&pkt);
-        pkt.size = 0;
-        pkt.data = 0;
+        AVPacket *pkt = av_packet_alloc();
+
+        pkt->size = 0;
+        pkt->data = 0;
         while (!s->should_exit) {
                 pthread_mutex_lock(&s->lock);
                 if (s->new_msg) {
@@ -255,7 +255,7 @@ static void *vidcap_file_worker(void *state) {
                 }
                 pthread_mutex_unlock(&s->lock);
 
-                int ret = av_read_frame(s->fmt_ctx, &pkt);
+                int ret = av_read_frame(s->fmt_ctx, pkt);
                 if (ret == AVERROR_EOF) {
                         if (s->loop) {
                                 CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0), FAIL_WORKER);
@@ -267,24 +267,24 @@ static void *vidcap_file_worker(void *state) {
                 }
                 CHECK_FF(ret, FAIL_WORKER); // check the retval of av_read_frame for error other than EOF
 
-                AVRational tb = s->fmt_ctx->streams[pkt.stream_index]->time_base;
+                AVRational tb = s->fmt_ctx->streams[pkt->stream_index]->time_base;
 
                 char pts_val[128] = "NO VALUE";
-                if (pkt.pts != AV_NOPTS_VALUE) {
-                        snprintf(pts_val, sizeof pts_val, "%" PRId64, pkt.pts);
+                if (pkt->pts != AV_NOPTS_VALUE) {
+                        snprintf(pts_val, sizeof pts_val, "%" PRId64, pkt->pts);
                 }
                 char dts_val[128] = "NO VALUE";
-                if (pkt.dts != AV_NOPTS_VALUE) {
-                        snprintf(dts_val, sizeof dts_val, "%" PRId64, pkt.dts);
+                if (pkt->dts != AV_NOPTS_VALUE) {
+                        snprintf(dts_val, sizeof dts_val, "%" PRId64, pkt->dts);
                 }
                 log_msg(LOG_LEVEL_DEBUG, MOD_NAME "received %s packet, ID %d, pos %f (pts %s, dts %s), size %d\n",
                                 av_get_media_type_string(
-                                        s->fmt_ctx->streams[pkt.stream_index]->codecpar->codec_type),
-                                pkt.stream_index, (double) (pkt.pts == AV_NOPTS_VALUE ? pkt.dts : pkt.pts)
-                                * tb.num / tb.den, pts_val, dts_val, pkt.size);
+                                        s->fmt_ctx->streams[pkt->stream_index]->codecpar->codec_type),
+                                pkt->stream_index, (double) (pkt->pts == AV_NOPTS_VALUE ? pkt->dts : pkt->pts)
+                                * tb.num / tb.den, pts_val, dts_val, pkt->size);
 
-                if (pkt.stream_index == s->audio_stream_idx) {
-                        ret = avcodec_send_packet(s->aud_ctx, &pkt);
+                if (pkt->stream_index == s->audio_stream_idx) {
+                        ret = avcodec_send_packet(s->aud_ctx, pkt);
                         if (ret < 0) {
                                 print_decoder_error(MOD_NAME, ret);
                         }
@@ -303,23 +303,23 @@ static void *vidcap_file_worker(void *state) {
                                 vidcap_file_write_audio(s, frame);
                         }
                         av_frame_free(&frame);
-                } else if (pkt.stream_index == s->video_stream_idx) {
-                        s->last_vid_pts = pkt.pts == AV_NOPTS_VALUE ? pkt.dts : pkt.pts;
+                } else if (pkt->stream_index == s->video_stream_idx) {
+                        s->last_vid_pts = pkt->pts == AV_NOPTS_VALUE ? pkt->dts : pkt->pts;
                         struct video_frame *out;
                         if (s->no_decode) {
                                 out = vf_alloc_desc(s->video_desc);
                                 out->callbacks.data_deleter = vf_data_deleter;
                                 out->callbacks.dispose = vf_free;
-                                out->tiles[0].data_len = pkt.size;
-                                out->tiles[0].data = malloc(pkt.size);
-                                memcpy(out->tiles[0].data, pkt.data, pkt.size);
+                                out->tiles[0].data_len = pkt->size;
+                                out->tiles[0].data = malloc(pkt->size);
+                                memcpy(out->tiles[0].data, pkt->data, pkt->size);
                         } else {
                                 AVFrame * frame = av_frame_alloc();
                                 int got_frame = 0;
 
                                 struct timeval t0;
                                 gettimeofday(&t0, NULL);
-                                ret = avcodec_send_packet(s->vid_ctx, &pkt);
+                                ret = avcodec_send_packet(s->vid_ctx, pkt);
                                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
                                         ret = avcodec_receive_frame(s->vid_ctx, frame);
                                         if (ret == 0) {
@@ -363,15 +363,18 @@ static void *vidcap_file_worker(void *state) {
                         if (s->should_exit) {
                                 VIDEO_FRAME_DISPOSE(out);
                                 pthread_mutex_unlock(&s->lock);
-                                av_packet_unref(&pkt);
+                                av_packet_unref(pkt);
+                                av_packet_free(&pkt);
                                 return NULL;
                         }
                         s->video_frame = out;
                         pthread_mutex_unlock(&s->lock);
                         pthread_cond_signal(&s->new_frame_ready);
                 }
-                av_packet_unref(&pkt);
+                av_packet_unref(pkt);
         }
+
+        av_packet_free(&pkt);
 
         return NULL;
 }
@@ -406,7 +409,7 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
         return true;
 }
 
-static AVCodecContext *vidcap_file_open_dec_ctx(AVCodec *dec, AVStream *st) {
+static AVCodecContext *vidcap_file_open_dec_ctx(const AVCodec *dec, AVStream *st) {
         AVCodecContext *dec_ctx = avcodec_alloc_context3(dec);
         if (!dec_ctx) {
                 return NULL;
@@ -504,9 +507,9 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 return VIDCAP_INIT_FAIL;
         }
 
-        AVCodec *dec;
+        const AVCodec *dec = NULL;
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
-                s->audio_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
+                s->audio_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, (void *) &dec, 0);
                 if (s->audio_stream_idx < 0 && !opportunistic_audio) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find audio stream!\n");
                         vidcap_file_common_cleanup(s);
@@ -531,7 +534,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 }
         }
 
-        s->video_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &dec, 0);
+        s->video_stream_idx = av_find_best_stream(s->fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, (void *) &dec, 0);
         if (s->video_stream_idx < 0) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "No video stream found!\n");
                 vidcap_file_common_cleanup(s);

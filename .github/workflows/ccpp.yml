@@ -83,7 +83,7 @@ jobs:
       uses: actions/cache@v1
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-11
+        key: cache-ffmpeg-12
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
@@ -104,10 +104,13 @@ jobs:
     - name: Check AppImage
       run: |
         docker build -f .github/scripts/Linux/utils/Dockerfile.ubuntu-16.04 -t aitest-ubuntu-16.04 .
+        curl -LS -O https://raw.githubusercontent.com/AppImage/pkg2appimage/master/appdir-lint.sh -O https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+        sudo apt install desktop-file-utils libfile-mimeinfo-perl # desktop-file-validate, mimetype
         ./UltraGrid-$VERSION-x86_64.AppImage --appimage-extract
         docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu-16.04 /AppImage/AppRun -v
         docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu-16.04 /AppImage/AppRun --tool uv-qt -h
         docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu-16.04 /AppImage/AppRun --list-modules
+        bash appdir-lint.sh squashfs-root
     - name: Upload NDI Build
       id: upload-ndi
       env:

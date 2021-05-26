@@ -69,7 +69,7 @@ struct state_libavcodec_decompress {
         pthread_mutex_t *global_lavcd_lock;
         AVCodecContext  *codec_ctx;
         AVFrame         *frame;
-        AVPacket         pkt;
+        AVPacket        *pkt;
 
         struct video_desc desc;
         int              pitch;
@@ -129,7 +129,8 @@ static void deconfigure(struct state_libavcodec_decompress *s)
         }
         av_free(s->frame);
         s->frame = NULL;
-        av_packet_unref(&s->pkt);
+        av_packet_unref(s->pkt);
+        av_packet_free(&s->pkt);
 
 #ifdef HWACC_COMMON
         hwaccel_state_reset(&s->hwaccel);
@@ -259,7 +260,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
 
         // construct priority list of decoders that can be used for the codec
-        AVCodec *codecs_available[13]; // max num of preferred decoders (10) + user supplied + default one + NULL
+        const AVCodec *codecs_available[13]; // max num of preferred decoders (10) + user supplied + default one + NULL
         memset(codecs_available, 0, sizeof codecs_available);
         unsigned int codec_index = 0;
         // first try codec specified from cmdline if any
@@ -270,7 +271,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 char *item, *save_ptr;
                 while ((item = strtok_r(val, ":", &save_ptr))) {
                         val = NULL;
-                        AVCodec *codec = avcodec_find_decoder_by_name(item);
+                        const AVCodec *codec = avcodec_find_decoder_by_name(item);
                         if (codec == NULL) {
                                 log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", item);
                         } else {
@@ -287,7 +288,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         // then try preferred codecs
         const char * const *preferred_decoders_it = dec->preferred_decoders;
         while (*preferred_decoders_it) {
-                AVCodec *codec = avcodec_find_decoder_by_name(*preferred_decoders_it);
+                const AVCodec *codec = avcodec_find_decoder_by_name(*preferred_decoders_it);
                 if (codec == NULL) {
                         log_msg(LOG_LEVEL_VERBOSE, "[lavd] Decoder not available: %s\n", *preferred_decoders_it);
                         preferred_decoders_it++;
@@ -301,7 +302,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
         // finally, add a default one if there are no preferred encoders or all fail
         if (codec_index < (sizeof codecs_available / sizeof codecs_available[0]) - 1) {
-                AVCodec *default_decoder = avcodec_find_decoder(dec->avcodec_id);
+                const AVCodec *default_decoder = avcodec_find_decoder(dec->avcodec_id);
                 if (default_decoder == NULL) {
                         log_msg(LOG_LEVEL_WARNING, "[lavd] No decoder found for the input codec (libavcodec perhaps compiled without any)!\n"
                                                 "Use \"--param decompress=<d> to select a different decoder than libavcodec if there is any eligibe.\n");
@@ -311,7 +312,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         }
 
         // initialize the codec - use the first decoder initialization of which succeeds
-        AVCodec **codec_it = codecs_available;
+        const AVCodec **codec_it = codecs_available;
         while (*codec_it) {
                 log_msg(LOG_LEVEL_VERBOSE, "[lavd] Trying decoder: %s\n", (*codec_it)->name);
                 s->codec_ctx = avcodec_alloc_context3(*codec_it);
@@ -353,7 +354,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 return false;
         }
 
-        av_init_packet(&s->pkt);
+        s->pkt = av_packet_alloc();
 
         s->last_frame_seq_initialized = false;
         s->saved_desc = desc;
@@ -384,9 +385,9 @@ static void * libavcodec_decompress_init(void)
 
         s->codec_ctx = NULL;
         s->frame = NULL;
-        av_init_packet(&s->pkt);
-        s->pkt.data = NULL;
-        s->pkt.size = 0;
+        s->pkt = av_packet_alloc();
+        s->pkt->data = NULL;
+        s->pkt->size = 0;
 
 #ifdef HWACC_COMMON
         hwaccel_state_init(&s->hwaccel);
@@ -751,21 +752,21 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 src_len -= extradata_size + sizeof(uint32_t);
         }
 
-        s->pkt.size = src_len;
-        s->pkt.data = src;
+        s->pkt->size = src_len;
+        s->pkt->data = src;
 
-        while (s->pkt.size > 0) {
+        while (s->pkt->size > 0) {
                 int len;
                 struct timeval t0, t1;
                 gettimeofday(&t0, NULL);
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
-                len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, &s->pkt);
+                len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, s->pkt);
 #else
                 if (got_frame) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Decoded frame while compressed data left!\n");
                 }
                 got_frame = 0;
-                int ret = avcodec_send_packet(s->codec_ctx, &s->pkt);
+                int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
                         ret = avcodec_receive_frame(s->codec_ctx, s->frame);
                         if (ret == 0) {
@@ -775,7 +776,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 if (ret != 0) {
                         print_decoder_error(MOD_NAME, ret);
                 }
-                len = s->pkt.size;
+                len = s->pkt->size;
 #endif
                 gettimeofday(&t1, NULL);
 
@@ -846,9 +847,9 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         break;
                 }
 
-                if(s->pkt.data) {
-                        s->pkt.size -= len;
-                        s->pkt.data += len;
+                if(s->pkt->data) {
+                        s->pkt->size -= len;
+                        s->pkt->data += len;
                 }
         }
 

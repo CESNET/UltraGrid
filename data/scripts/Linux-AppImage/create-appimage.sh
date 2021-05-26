@@ -7,6 +7,7 @@
 ## @returns           name of created AppImage
 
 APPDIR=UltraGrid.AppDir
+APPPREFIX=$APPDIR/usr
 ARCH=`uname -m`
 DATE=`date +%Y%m%d`
 GLIBC_VERSION=`ldd --version | sed -n '1s/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/p'`
@@ -16,42 +17,42 @@ APPNAME=UltraGrid-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
 (
 exec 1>&2
 
-mkdir tmpinstall
+mkdir tmpinstall $APPDIR
 make DESTDIR=tmpinstall install
-mv tmpinstall/usr/local $APPDIR
+mv tmpinstall/usr/local $APPPREFIX
 
 # add packet reflector
 make -C hd-rum-multi
-cp hd-rum-multi/hd-rum $APPDIR/bin
+cp hd-rum-multi/hd-rum $APPPREFIX/bin
 
 # add platform and other Qt plugins if using dynamic libs
 # @todo copy only needed ones
 # @todo use https://github.com/probonopd/linuxdeployqt
 PLUGIN_LIBS=
-if [ -f $APPDIR/bin/uv-qt ]; then
-        QT_DIR=$(dirname $(ldd $APPDIR/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }'))
+if [ -f $APPPREFIX/bin/uv-qt ]; then
+        QT_DIR=$(dirname $(ldd $APPPREFIX/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }'))
 else
         QT_DIR=
 fi
 if [ -n "$QT_DIR" ]; then
         SRC_PLUGIN_DIR=$QT_DIR/qt5/plugins
-        DST_PLUGIN_DIR=$APPDIR/lib/qt5/plugins
+        DST_PLUGIN_DIR=$APPPREFIX/lib/qt5/plugins
         mkdir -p $DST_PLUGIN_DIR
         cp -r $SRC_PLUGIN_DIR/* $DST_PLUGIN_DIR
         PLUGIN_LIBS=$(find $DST_PLUGIN_DIR -type f)
 fi
 
 # copy dependencies
-mkdir -p $APPDIR/lib
-for n in $APPDIR/bin/* $APPDIR/lib/ultragrid/* $PLUGIN_LIBS; do
+mkdir -p $APPPREFIX/lib
+for n in $APPPREFIX/bin/* $APPPREFIX/lib/ultragrid/* $PLUGIN_LIBS; do
         for lib in `ldd $n | awk '{ print $3 }'`; do
-                [ ! -f $lib ] || cp $lib $APPDIR/lib
+                [ ! -f $lib ] || cp $lib $APPPREFIX/lib
         done
 done
 
 # add DejaVu font
-mkdir $APPDIR/lib/fonts
-cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPDIR/lib/fonts
+mkdir $APPPREFIX/lib/fonts
+cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPPREFIX/lib/fonts
 
 # Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
 wget https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
@@ -64,12 +65,12 @@ while read -r x; do
         EXCLUDE_LIST="$EXCLUDE_LIST $NAME"
 done < excludelist
 for n in $EXCLUDE_LIST; do
-        if [ -f $APPDIR/lib/$n ]; then
-                rm $APPDIR/lib/$n
+        if [ -f $APPPREFIX/lib/$n ]; then
+                rm $APPPREFIX/lib/$n
         fi
 done
 
-( cd $APPDIR/lib; rm -f libcmpto* ) # remove non-free components
+( cd $APPPREFIX/lib; rm -f libcmpto* ) # remove non-free components
 
 cp data/scripts/Linux-AppImage/AppRun data/scripts/Linux-AppImage/uv-wrapper.sh data/ultragrid.png $APPDIR
 cp data/uv-qt.desktop $APPDIR/ultragrid.desktop

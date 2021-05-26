@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>cz.cesnet.ultragrid</id>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>BSD-3-Clause</project_license>
+  <name>UltraGrid</name>
+  <summary>UltraGrid low-latency transmission system</summary>
+  <description>
+    <p>UltraGrid from Laboratory of Advanced Networking Technologies (SITOLA) is a software implementation of high-quality low-latency video and audio transmissions using commodity PC and Mac hardware. UltraGrid uses uncompressed or very low compression-ratio streams to achieve up to 8K resolution with as low as 100ms end-to-end latency. UltraGrid is used, among others in areas like collaborative environments, medical cinematography, broadcasting application and various educational activities.</p>
+
+    <p>SITOLA's UltraGrid is based on original UltraGrid developed by Colin Perkins, Ladan Gharai, et al., a research project used to demonstrate the possibilities of 10Gbps networks and to study multi-point data distribution in such environments. Due to recent advances in the field of GPU-accelerated low-latency codecs, we have been able to extend its usability also to Gigabit networks.</p>
+
+    <p>UltraGrid is open-source software, distributed under BSD license - we're interested in both research/academic and commercial applications. Our work is supported by CESNET large infrastructure LM2010005. In the past, it was also supported by "Optical Network of National Research and Its New Applications" (MŠM 6383917201) and incorporated research results achieved within by research intent "Parallel and Distributed Systems" (MŠM 0021622419).</p>
+  </description>
+  <launchable type="desktop-id">uv-qt.desktop</launchable>
+  <url type="homepage">http://www.ultragrid.cz</url>
+  <update_contact>ultragrid-dev_AT_cesnet.cz</update_contact>
+</component>

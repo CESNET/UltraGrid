@@ -7,20 +7,10 @@ export LD_LIBRARY_PATH=$EXTRA_LIB_PATH${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 export PATH=/usr/local/bin:$PATH
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH:+":$PKG_CONFIG_PATH"}
 
-PWD=`pwd`
 APPDIR=UltraGrid.AppDir
 ARCH=`dpkg --print-architecture`
 APPNAME=UltraGrid-latest-${ARCH}.AppImage
 DIR=UltraGrid-AppImage
-
-cleanup() {
-        rm -rf $PWD/UltraGrid
-}
-trap cleanup EXIT
-
-git clone --depth 1 https://github.com/CESNET/UltraGrid.git
-
-cd UltraGrid
 
 ./autogen.sh --enable-plugins
 

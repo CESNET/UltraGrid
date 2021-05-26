@@ -342,9 +342,6 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
                 if (color_spec == I420 || color_spec == v210 || color_spec == YUYV || color_spec == Y216) {
                         codec_intermediate = UYVY;
                 }
-                if (color_spec == R12L) {
-                        codec_intermediate = RGB;
-                }
 
                 auto decoder = get_decoder_from_to(RGBA, codec_intermediate, true);
                 assert(decoder != nullptr);

@@ -100,6 +100,7 @@ enum audio_transport_device {
 };
 
 #define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
+constexpr const char *MOD_NAME = "[audio] ";
 
 struct audio_network_parameters {
         char *addr = nullptr;
@@ -316,14 +317,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->audio_network_parameters.mcast_if = mcast_if
                 ? strdup(mcast_if) : NULL;
         s->audio_network_parameters.ttl = ttl;
-
-        if ((s->audio_network_device = initialize_audio_network(
-                                        &s->audio_network_parameters))
-                        == NULL) {
-                printf("Unable to open audio network\n");
-                free(tmp);
-                goto error;
-        }
         free(tmp);
 
         if (strcmp(send_cfg, "none") != 0) {
@@ -381,6 +374,15 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->audio_tx_mode |= MODE_RECEIVER;
         } else {
                 s->audio_playback_device = audio_playback_init_null_device();
+        }
+
+        if (s->audio_tx_mode != 0) {
+                if ((s->audio_network_device = initialize_audio_network(
+                                                &s->audio_network_parameters))
+                                == nullptr) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open audio network\n";
+                        goto error;
+                }
         }
 
         s->proto_cfg = proto_cfg;

@@ -138,78 +138,79 @@ struct codec_info_t {
         unsigned opaque:1;               ///< If codec is opaque (= compressed)
         unsigned interframe:1;           ///< Indicates if compression is interframe
         unsigned const_size:1;           ///< Indicates if data length is constant for all resolutions (hw surfaces)
+        int subsampling;                 ///< Decimal representation of subsampling in format 'JabA', eg. 4440 (last number is alpha), 0 if undefined
         const char *file_extension;      ///< Extension that should be added to name if frame is saved to file.
 };
 
 static const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {"(none)", "Undefined Codec",
-                0, 0, 0.0, 0, 0, FALSE, FALSE, FALSE, FALSE, NULL},
+                0, 0, 0.0, 0, 0, FALSE, FALSE, FALSE, FALSE, 0, NULL},
         [RGBA] = {"RGBA", "Red Green Blue Alpha 32bit",
-                to_fourcc('R','G','B','A'), 1, 4.0, 8, 4, TRUE, FALSE, FALSE, FALSE, "rgba"},
+                to_fourcc('R','G','B','A'), 1, 4.0, 8, 4, TRUE, FALSE, FALSE, FALSE, 4444, "rgba"},
         [UYVY] = {"UYVY", "YUV 4:2:2",
-                to_fourcc('U','Y','V','Y'), 2, 2, 8, 4, FALSE, FALSE, FALSE, FALSE, "yuv"},
+                to_fourcc('U','Y','V','Y'), 2, 2, 8, 4, FALSE, FALSE, FALSE, FALSE, 4220, "yuv"},
         [YUYV] = {"YUYV", "YUV 4:2:2",
-                to_fourcc('Y','U','Y','V'), 2, 2, 8, 4, FALSE, FALSE, FALSE, FALSE, "yuv"},
+                to_fourcc('Y','U','Y','V'), 2, 2, 8, 4, FALSE, FALSE, FALSE, FALSE, 4220, "yuv"},
         [R10k] = {"R10k", "RGB 4:4:4",
-                to_fourcc('R','1','0','k'), 64, 4, 10, 4, TRUE, FALSE, FALSE, FALSE, "r10k"},
+                to_fourcc('R','1','0','k'), 64, 4, 10, 4, TRUE, FALSE, FALSE, FALSE, 4440, "r10k"},
         [R12L] = {"R12L", "12-bit packed RGB 4:4:4 little-endian", // SMPTE 268M DPX v1, Annex C, Method C4
-                to_fourcc('R','1','2','l'), 8, 36.0/8.0, 12, 36, TRUE, FALSE, FALSE, FALSE, "r12l"},
+                to_fourcc('R','1','2','l'), 8, 36.0/8.0, 12, 36, TRUE, FALSE, FALSE, FALSE, 4440, "r12l"},
         [v210] = {"v210", "YUV 4:2:2",
-                to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 10, 16, FALSE, FALSE, FALSE, FALSE, "v210"},
+                to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 10, 16, FALSE, FALSE, FALSE, FALSE, 4220, "v210"},
         [DVS10] = {"DVS10", "Centaurus 10bit YUV 4:2:2",
-                to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 10, 4, FALSE, FALSE, FALSE, FALSE, "dvs10"},
+                to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 10, 4, FALSE, FALSE, FALSE, FALSE, 4220, "dvs10"},
         [DXT1] = {"DXT1", "S3 Compressed Texture DXT1",
-                to_fourcc('D','X','T','1'), 0, 0.5, 2, 0, TRUE, TRUE, FALSE, FALSE, "dxt1"},
+                to_fourcc('D','X','T','1'), 0, 0.5, 2, 0, TRUE, TRUE, FALSE, FALSE, 0, "dxt1"},
         [DXT1_YUV] = {"DXT1_YUV", "S3 Compressed Texture DXT1 YUV",
-                to_fourcc('D','X','T','Y'), 0, 0.5, 2, 0, FALSE, TRUE, FALSE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
+                to_fourcc('D','X','T','Y'), 0, 0.5, 2, 0, FALSE, TRUE, FALSE, FALSE, 0, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
         [DXT5] = {"DXT5", "S3 Compressed Texture DXT5 YCoCg",
-                to_fourcc('D','X','T','5'), 0, 1.0, 4, 0, FALSE, TRUE, FALSE, FALSE, "yog"},/* DXT5 YCoCg */
+                to_fourcc('D','X','T','5'), 0, 1.0, 4, 0, FALSE, TRUE, FALSE, FALSE, 0, "yog"},/* DXT5 YCoCg */
         [RGB] = {"RGB", "Red Green Blue 24bit",
-                to_fourcc('R','G','B','2'), 1, 3.0, 8, 3, TRUE, FALSE, FALSE, FALSE, "rgb"},
+                to_fourcc('R','G','B','2'), 1, 3.0, 8, 3, TRUE, FALSE, FALSE, FALSE, 4440, "rgb"},
         [DPX10] = {"DPX10", "DPX10",
-                to_fourcc('D','P','1','0'), 1, 4.0, 10, 4, TRUE, FALSE, FALSE, FALSE, "dpx"},
+                to_fourcc('D','P','1','0'), 1, 4.0, 10, 4, TRUE, FALSE, FALSE, FALSE, 4440, "dpx"},
         [JPEG] = {"JPEG",  "JPEG",
-                to_fourcc('J','P','E','G'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "jpg"},
+                to_fourcc('J','P','E','G'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, 0, "jpg"},
         [RAW] = {"raw", "Raw SDI video",
-                to_fourcc('r','a','w','s'), 0, 1.0, 0, 0, FALSE, TRUE, FALSE, FALSE, "raw"}, /* raw SDI */
+                to_fourcc('r','a','w','s'), 0, 1.0, 0, 0, FALSE, TRUE, FALSE, FALSE, 0, "raw"}, /* raw SDI */
         [H264] = {"H.264", "H.264/AVC",
-                to_fourcc('A','V','C','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "h264"},
+                to_fourcc('A','V','C','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, 0, "h264"},
         [H265] = {"H.265", "H.265/HEVC",
-                to_fourcc('H','E','V','C'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "h265"},
+                to_fourcc('H','E','V','C'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, 0, "h265"},
         [MJPG] = {"MJPEG", "MJPEG",
-                to_fourcc('M','J','P','G'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "jpg"},
+                to_fourcc('M','J','P','G'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, 0, "jpg"},
         [VP8] = {"VP8", "Google VP8",
-                to_fourcc('V','P','8','0'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "vp8"},
+                to_fourcc('V','P','8','0'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, 0, "vp8"},
         [VP9] = {"VP9", "Google VP9",
-                to_fourcc('V','P','9','0'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "vp9"},
+                to_fourcc('V','P','9','0'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, 0, "vp9"},
         [BGR] = {"BGR", "Blue Green Red 24bit",
-                to_fourcc('B','G','R','2'), 1, 3.0, 8, 3, TRUE, FALSE, FALSE, FALSE, "bgr"},
+                to_fourcc('B','G','R','2'), 1, 3.0, 8, 3, TRUE, FALSE, FALSE, FALSE, 4440, "bgr"},
         [J2K] = {"J2K", "JPEG 2000",
-                to_fourcc('M','J','2','C'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "j2k"},
+                to_fourcc('M','J','2','C'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, 0, "j2k"},
         [J2KR] = {"J2KR", "JPEG 2000 RGB",
-                to_fourcc('M','J','2','R'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "j2k"},
+                to_fourcc('M','J','2','R'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, 0, "j2k"},
 #ifdef HWACC_VDPAU
         [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
-                to_fourcc('V', 'D', 'P', 'S'), 0, 1.0, 8, sizeof(hw_vdpau_frame), FALSE, TRUE, FALSE, TRUE, "vdpau"},
+                to_fourcc('V', 'D', 'P', 'S'), 0, 1.0, 8, sizeof(hw_vdpau_frame), FALSE, TRUE, FALSE, TRUE, 4440, "vdpau"},
 #endif
         [HFYU] = {"HFYU", "HuffYUV",
-                to_fourcc('H','F','Y','U'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "hfyu"},
+                to_fourcc('H','F','Y','U'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, 0, "hfyu"},
         [FFV1] = {"FFV1", "FFV1",
-                to_fourcc('F','F','V','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "ffv1"},
+                to_fourcc('F','F','V','1'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, 0, "ffv1"},
         [CFHD] = {"CFHD", "Cineform",
-                to_fourcc('C','F','H','D'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, "cfhd"},
+                to_fourcc('C','F','H','D'), 0, 1.0, 8, 0, FALSE, TRUE, FALSE, FALSE, 0, "cfhd"},
         [RG48] = {"RG48", "16-bit RGB little-endian",
-                to_fourcc('R','G','4','8'), 1, 6.0, 16, 6, TRUE, FALSE, FALSE, FALSE, "rg48"},
+                to_fourcc('R','G','4','8'), 1, 6.0, 16, 6, TRUE, FALSE, FALSE, FALSE, 4440, "rg48"},
         [AV1] =  {"AV1", "AOMedia Video 1",
-                to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, "av1"},
+                to_fourcc('a','v','0','1'), 0, 1.0, 8, 0, FALSE, TRUE, TRUE, FALSE, 0, "av1"},
         [I420] =  {"I420", "planar YUV 4:2:0",
-                to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, "yuv"},
+                to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, 4200, "yuv"},
         [CUDA_RGBA] =  {"CUDA_RGBA", "CUDA RGBA",
-                to_fourcc('R','G','B','A'), 1, 4.0, 8, 4, TRUE, FALSE, FALSE, FALSE, "rgba"},
+                to_fourcc('R','G','B','A'), 1, 4.0, 8, 4, TRUE, FALSE, FALSE, FALSE, 4444, "rgba"},
         [CUDA_I420] =  {"CUDA_I420", "CUDA I420",
-                to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, "yuv"},
+                to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 0, FALSE, FALSE, FALSE, FALSE, 4200, "yuv"},
         [Y216] =  {"Y216", "Packed 16-bit YUV 4:2:2 little-endian",
-                to_fourcc('Y','2','1','6'), 2, 4.0, 16, 8, FALSE, FALSE, FALSE, FALSE, "y216"},
+                to_fourcc('Y','2','1','6'), 2, 4.0, 16, 8, FALSE, FALSE, FALSE, FALSE, 4220, "y216"},
 };
 
 /// for planar pixel formats
@@ -298,6 +299,14 @@ int get_bits_per_component(codec_t codec)
         } else {
                 return 0;
         }
+}
+
+int get_subsampling(codec_t codec)
+{
+        if (codec < sizeof codec_info / sizeof(struct codec_info_t)) {
+                return codec_info[codec].subsampling;
+        }
+        return 0;
 }
 
 double get_bpp(codec_t codec)

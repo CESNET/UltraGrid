@@ -269,8 +269,8 @@ void Logger::preinit(bool skip_repeated)
                 rang::setControlMode(rang::control::Force);
 #ifdef _WIN32
                 // ANSI control sequences need to be explicitly set in Windows
-                if (rang::rang_implementation::setWinTermAnsiColors(std::cout.rdbuf()) &&
-                                rang::rang_implementation::setWinTermAnsiColors(std::cerr.rdbuf())) {
+                if ((rang::rang_implementation::setWinTermAnsiColors(std::cout.rdbuf()) || rang::rang_implementation::isMsysPty(_fileno(stdout))) &&
+                                (rang::rang_implementation::setWinTermAnsiColors(std::cerr.rdbuf()) || rang::rang_implementation::isMsysPty(_fileno(stderr)))) {
                         rang::setWinTermMode(rang::winTerm::Ansi);
                 }
 #endif
