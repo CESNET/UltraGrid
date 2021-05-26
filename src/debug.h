@@ -79,7 +79,7 @@ void debug_dump(void*lp, int len);
 void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
 void log_perror(int log_level, const char *msg);
 
-bool set_log_level(const char *optarg, bool *logger_repeat_msgs);
+bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_timestamps);
 
 #ifdef __cplusplus
 }
@@ -99,7 +99,7 @@ class keyboard_control; // friend
 class Logger
 {
 public:
-        static void preinit(bool skip_repeated);
+        static void preinit(bool skip_repeated, int show_timetamps);
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
                 rang::fg color = rang::fg::reset;
@@ -132,7 +132,7 @@ public:
                 }
 
                 std::ostringstream timestamp;
-                if (log_level >= LOG_LEVEL_VERBOSE) {
+                if (show_timestamps == 1 || (show_timestamps == -1 && log_level >= LOG_LEVEL_VERBOSE)) {
                         auto time_ms = time_since_epoch_in_ms();
                         timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
                 }
@@ -151,6 +151,7 @@ private:
         std::ostringstream oss;
 
         static std::atomic<bool> skip_repeated;
+        static int show_timestamps;
         struct last_message {
                 std::string msg;
                 int count{0};

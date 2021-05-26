@@ -52,6 +52,7 @@
 #include "debug.h"
 #include "host.h"
 #include "rang.hpp"
+#include "utils/color_out.h"
 
 volatile int log_level = LOG_LEVEL_INFO;
 
@@ -200,7 +201,7 @@ void debug_dump(void *lp, int len)
         }
 }
 
-bool set_log_level(const char *optarg, bool *logger_repeat_msgs) {
+bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_timestamps) {
         assert(optarg != nullptr);
         assert(logger_repeat_msgs != nullptr);
 
@@ -225,13 +226,20 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs) {
                 for (auto m : mapping) {
                         cout << "|" << m.name;
                 }
-                cout << "][+repeat]\n";
-                cout << "\trepeat - print repeating log messages\n";
+                cout << "][+repeat][+/-timestamps]\n";
+                cout << BOLD("\trepeat") << " - print repeating log messages\n";
+                cout << BOLD("\ttimestamps") << " - enable/disable timestamps\n";
                 return false;
         }
 
         if (strstr(optarg, "+repeat") != nullptr) {
                 *logger_repeat_msgs = true;
+        }
+
+        if (const char *timestamps = strstr(optarg, "timestamps")) {
+                if (timestamps > optarg) {
+                        *show_timestamps = timestamps[-1] == '+' ? 1 : 0;
+                }
         }
 
         if (getenv("ULTRAGRID_VERBOSE") != nullptr) {
@@ -263,9 +271,13 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs) {
         return false;
 }
 
-void Logger::preinit(bool skip_repeated)
+/**
+ * @param show_timestamps 0 - no; 1 - yes; -1 auto
+ */
+void Logger::preinit(bool skip_repeated, int show_timestamps)
 {
         Logger::skip_repeated = skip_repeated;
+        Logger::show_timestamps = show_timestamps;
         if (rang::rang_implementation::supportsColor()
                         && rang::rang_implementation::isTerminal(std::cout.rdbuf())
                         && rang::rang_implementation::isTerminal(std::cerr.rdbuf())) {
@@ -283,4 +295,5 @@ void Logger::preinit(bool skip_repeated)
 
 std::atomic<Logger::last_message *> Logger::last_msg{};
 std::atomic<bool> Logger::skip_repeated{true};
+int Logger::show_timestamps = -1;
 

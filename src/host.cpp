@@ -207,15 +207,16 @@ struct init_data *common_preinit(int argc, char *argv[], const char *log_opt)
 {
         struct init_data *init;
         bool logger_repeat_msgs = false;
+        int show_timestamps = -1;
 
         uv_argc = argc;
         uv_argv = argv;
 
-        if (log_opt != nullptr && !set_log_level(log_opt, &logger_repeat_msgs)) {
+        if (log_opt != nullptr && !set_log_level(log_opt, &logger_repeat_msgs, &show_timestamps)) {
                 return nullptr;
         }
 
-        Logger::preinit(!logger_repeat_msgs);
+        Logger::preinit(!logger_repeat_msgs, show_timestamps);
 
 #ifdef HAVE_X
         void *handle = dlopen(X11_LIB_NAME, RTLD_NOW);
