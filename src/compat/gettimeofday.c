@@ -7,6 +7,8 @@
 
 #ifdef WIN32
 
+#include <assert.h>
+#include <limits.h>
 #include <time.h>
 #include <windows.h>
 #include <winbase.h>
@@ -40,6 +42,7 @@ static void gettimeofday_init() {
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&start_LI);
 	SetPriorityClass(process, prio);
+        assert((freq.QuadPart - 1) <= LLONG_MAX / 1000000LL); // check possible overflow for tv_usec computation below
 }
 
  
@@ -65,7 +68,7 @@ int gettimeofday_replacement(struct timeval *tv, void *tz)
 	long long int difference = val.QuadPart - start_LI.QuadPart;
 
 	tv->tv_sec =  start_time + difference / freq.QuadPart;
-	tv->tv_usec = (long long)((double) difference * 1000*1000 / freq.QuadPart) % (1000 * 1000);
+	tv->tv_usec = (difference % freq.QuadPart) * 1000000LL / freq.QuadPart;
 
 	return 0;
 }
