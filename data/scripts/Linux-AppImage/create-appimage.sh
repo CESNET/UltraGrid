@@ -75,7 +75,12 @@ done
 
 cp $srcdir/data/scripts/Linux-AppImage/AppRun $srcdir/data/scripts/Linux-AppImage/uv-wrapper.sh $srcdir/data/ultragrid.png $APPDIR
 cp $srcdir/data/uv-qt.desktop $APPDIR/ultragrid.desktop
-wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool # use AppImageUpdate for GUI updater
+APPIMAGEUPDATETOOL=$(command -v appimageupdatetool-x86_64.AppImage || true)
+if [ -n "$APPIMAGEUPDATETOOL" ]; then
+        cp $APPIMAGEUPDATETOOL $APPDIR/appimageupdatetool
+else
+        wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool # use AppImageUpdate for GUI updater
+fi
 chmod ugo+x $APPDIR/appimageupdatetool
 
 if [ -n "${appimage_key-}" ]; then
@@ -84,12 +89,16 @@ if [ -n "${appimage_key-}" ]; then
         SIGN=--sign
 fi
 
-wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
+APPIMAGETOOL=$(command -v appimagetool-x86_64.AppImage || true)
+if [ -z "$APPIMAGETOOL" ]; then
+        wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
+        APPIMAGETOOL=./appimagetool
+fi
 UPDATE_INFORMATION=
 if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
-./appimagetool ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
+$APPIMAGETOOL ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
 
 rm -rf $APPDIR tmpinstall
 )
