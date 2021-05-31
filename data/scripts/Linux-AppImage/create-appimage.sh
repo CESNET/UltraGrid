@@ -12,6 +12,7 @@ ARCH=`uname -m`
 DATE=`date +%Y%m%d`
 GLIBC_VERSION=`ldd --version | sed -n '1s/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/p'`
 APPNAME=UltraGrid-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
+eval $(cat Makefile  | grep 'srcdir *=' | tr -d \  )
 
 # redirect the whole output to stderr, output of this script is a created AppName only
 (
@@ -22,8 +23,8 @@ make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local $APPPREFIX
 
 # add packet reflector
-make -C hd-rum-multi
-cp hd-rum-multi/hd-rum $APPPREFIX/bin
+make -f $srcdir/hd-rum-multi/Makefile SRCDIR=$srcdir/hd-rum-multi
+cp hd-rum $APPPREFIX/bin
 
 # add platform and other Qt plugins if using dynamic libs
 # @todo copy only needed ones
@@ -72,8 +73,8 @@ done
 
 ( cd $APPPREFIX/lib; rm -f libcmpto* ) # remove non-free components
 
-cp data/scripts/Linux-AppImage/AppRun data/scripts/Linux-AppImage/uv-wrapper.sh data/ultragrid.png $APPDIR
-cp data/uv-qt.desktop $APPDIR/ultragrid.desktop
+cp $srcdir/data/scripts/Linux-AppImage/AppRun $srcdir/data/scripts/Linux-AppImage/uv-wrapper.sh $srcdir/data/ultragrid.png $APPDIR
+cp $srcdir/data/uv-qt.desktop $APPDIR/ultragrid.desktop
 wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool # use AppImageUpdate for GUI updater
 chmod ugo+x $APPDIR/appimageupdatetool
 
