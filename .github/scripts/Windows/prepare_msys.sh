@@ -80,7 +80,7 @@ build_cineform() {
         git submodule update --init cineform-sdk
         cd cineform-sdk
         cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 . # assume "-G 'Visual Studio 16 2019'"
-        cmake --build . --parallel --config Release
+        cmake --build . --config Release --parallel
         cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig
         )
 }
