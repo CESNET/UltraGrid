@@ -18,11 +18,14 @@ usage() {
         printf "\t$ARGV0 [--gui [args]]\n"
         printf "\t\tinvokes GUI\n"
         printf "\n"
+        printf "\t$ARGV0 --appimage-help\n"
+        printf "\t\tprints AppImage related options\n"
+        printf "\n"
         printf "\t$ARGV0 -h|--help\n"
         printf "\t\tprints this help\n"
         printf "\n"
-        printf "\t$ARGV0 --appimage-help\n"
-        printf "\t\tprints AppImage related options\n"
+        printf "\t$ARGV0 -m|--man [uv|hd-rum-transcode]\n"
+        printf "\t\tprints manual page\n"
         printf "\n"
         printf "\t$ARGV0 -u|--update [args]\n"
         printf "\t\tupdates AppImage (args will be passed to appimageupdatetool)\n"
@@ -89,6 +92,9 @@ elif [ x"$1" = x"--tool" ]; then
 elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
         usage
         exit 0
+elif [ x"$1" = x"-m" -o x"$1" = x"--man" ]; then
+        PAGE=${2:-uv}
+        cat $DIR/usr/share/man/man1/$PAGE.1 | man -l -
 elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
         shift
         unset LD_LIBRARY_PATH
