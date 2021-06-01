@@ -77,8 +77,8 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
                 LOG(LOG_LEVEL_ERROR) << "Receiver must be set!\n";
                 return nullptr;
         }
-        int connections = max<int>(init_params->connections, 1);
-        if (connections > 1) {
+        int connections = max<int>(init_params->connections, 0);
+        if (connections >= 1) {
                 commandline_params["rtp-multithreaded"] = to_string(connections);
         }
 
@@ -252,9 +252,15 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
         char display[128] = "vrg";
         const char *display_cfg = "";
 
-        init_params->connections = max<int>(init_params->connections, 1);
-        if (init_params->connections > 1) {
+        init_params->connections = max<int>(init_params->connections, 0);
+        if (init_params->connections >= 1) {
                 commandline_params["rtp-multithreaded"] = to_string(init_params->connections);
+        }
+        if (init_params->udp_packet_pool) {
+                if (init_params->connections == 0) {
+                        fprintf(stderr, "WARNING: UDP packet pool requires \"rtp-multithreaded\"!\n");
+                }
+                commandline_params["udp-packet-pool"] = string();
         }
 
         if (init_params->display != nullptr) {

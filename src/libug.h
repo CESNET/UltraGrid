@@ -81,6 +81,7 @@ struct ug_receiver_parameters {
         int verbose;                             ///< verbosity level (optional, default 0, 1 - verbose, 2 - debug)
         int enable_strips;                       ///< enable 8x1 strips (to improve compression), default 0 (disable)
         int connections;                         ///< number of connections (default 1), must match with sender
+        int udp_packet_pool;                     ///< use UDP packet pool (default 0 - no) to increase recv performance, implies connections >= 1
 };
 LIBUG_DLL struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params);
 LIBUG_DLL void ug_receiver_done(struct ug_receiver *state);
