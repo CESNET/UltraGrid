@@ -132,7 +132,7 @@ struct state_vrg {
         uint32_t magic;
         struct video_desc saved_desc;
 #ifdef HAVE_CUDA
-        video_frame_pool pool{0, vrg_cuda_allocator<cuda_malloc_host_allocate>()};
+        video_frame_pool pool{0, vrg_cuda_allocator<cuda_malloc_managed_allocate>()};
 #else
         video_frame_pool pool{0, vrg_cuda_allocator<default_data_allocator>()};
 #endif
@@ -162,7 +162,7 @@ static void *display_vrg_init(struct module *parent, const char *fmt, unsigned i
         UNUSED(flags);
         UNUSED(parent);
         if ("help"s == fmt) {
-                cout << "Usage:\n\t-d vrg[:managed|:malloc]\n";
+                cout << "Usage:\n\t-d vrg[:host|:managed|:malloc]\n";
                 cout << "where\n\tmanaged - use managed memory\n";
                 return NULL;
         }
@@ -173,7 +173,11 @@ static void *display_vrg_init(struct module *parent, const char *fmt, unsigned i
         }
         s->magic = MAGIC_VRG;
 
-        if ("managed"s == fmt) {
+        if ("host"s == fmt) {
+#ifdef HAVE_CUDA
+                s->pool.replace_allocator(vrg_cuda_allocator<cuda_malloc_host_allocate>());
+#endif
+        } else if ("managed"s == fmt) {
 #ifdef HAVE_CUDA
                 s->pool.replace_allocator(vrg_cuda_allocator<cuda_malloc_managed_allocate>());
 #endif

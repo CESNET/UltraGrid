@@ -82,7 +82,8 @@ struct dummy_display_state {
         size_t dump_bytes = 0;
         bool dump_to_file = false;
         int dump_to_file_skip_frames = 0;
-        bool cuda_managed = false;
+        bool cuda_host = false;
+        bool cuda_managed = true;
 
         struct rtp *rtp;
 };
@@ -91,13 +92,13 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
 {
         if ("help"s == cfg) {
                 cout << "Usage:\n";
-                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][:hexdump[=<n>]][:dump_to_file[=skip=<n>]][:managed]\n" << style::reset;
+                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][:hexdump[=<n>]][:dump_to_file[=skip=<n>]][:managed|:host]\n" << style::reset;
                 cout << "where\n";
                 cout << "\t" << style::bold << "<codec>" << style::reset << "   - force the use of a codec instead of default set\n";
                 cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (0, 8, 16)\n";
                 cout << "\t" << style::bold << "hexdump[=<n>]" << style::reset << " - dump first n (default " << DEFAULT_DUMP_LEN << ") bytes of every frame in hexadecimal format\n";
                 cout << "\t" << style::bold << "dump_to_file" << style::reset << " - dump first frame to file dummy.<ext> (optionally skip <n> first frames)\n";
-                cout << "\t" << style::bold << "managed" << style::reset << " - use managed memory for CUDA codecs instead of \n";
+                cout << "\t" << style::bold << "managed|host" << style::reset << " - use managed/host memory for CUDA codecs instead of \n";
                 return static_cast<void *>(&display_init_noerr);
         }
         auto s = make_unique<dummy_display_state>();
@@ -113,6 +114,8 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong codec spec!\n";
                                 return nullptr;
                         }
+                } else if (strstr(item, "host") != nullptr) {
+                        s->cuda_managed = false;
                 } else if (strstr(item, "managed") != nullptr) {
                         s->cuda_managed = true;
                 } else if (strstr(item, "dump_to_file") != nullptr) {
