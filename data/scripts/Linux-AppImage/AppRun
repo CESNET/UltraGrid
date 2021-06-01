@@ -21,8 +21,8 @@ usage() {
         printf "\t$ARGV0 --appimage-help\n"
         printf "\t\tprints AppImage related options\n"
         printf "\n"
-        printf "\t$ARGV0 -h|--help\n"
-        printf "\t\tprints this help\n"
+        printf "\t$ARGV0 -h|--help|--fullhelp\n"
+        printf "\t\tprints this help (extended version with --fullhelp)\n"
         printf "\n"
         printf "\t$ARGV0 -m|--man [uv|hd-rum-transcode]\n"
         printf "\t\tprints manual page\n"
@@ -39,6 +39,15 @@ usage() {
         printf "\n"
         printf "\t$ARGV0 args\n"
         printf "\t\tinvokes command-line UltraGrid\n"
+        printf "\n"
+}
+
+usage_aux() {
+        printf "environment variables:\n"
+        printf "\tULTRAGRID_AUTOUPDATE:   1 - try to autoupdate; 0 - disable update advice\n"
+        printf "\tULTRAGRID_USE_FIREJAIL: run the UltraGrid executable with firejail. If\n"
+        printf "\t                        the variable contains printf a profile path\n"
+        printf "\t                        (ends with '.profile'), it will be used.\n"
         printf "\n"
 }
 
@@ -102,6 +111,10 @@ elif [ x"$1" = x"--tool" ]; then
         ${RUN}$DIR/usr/bin/$TOOL "$@"
 elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
         usage
+        exit 0
+elif [ x"$1" = x"--fullhelp" ]; then
+        usage
+        usage_aux
         exit 0
 elif [ x"$1" = x"-m" -o x"$1" = x"--man" ]; then
         PAGE=${2:-uv}
