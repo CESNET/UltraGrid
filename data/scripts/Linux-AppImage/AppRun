@@ -75,6 +75,17 @@ handle_updates() {
         printf "\n"
 }
 
+RUN=
+if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
+        if expr $ULTRAGRID_USE_FIREJAIL : '.*\.profile' >/dev/null; then
+                FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
+        else
+                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6 --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --dbus-user=none --dbus-system=none --private --read-only=/tmp --keep-var-tmp --writable-var"
+                FIREJAIL_OPTS="$FIREJAIL_OPTS --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf"
+        fi
+        RUN="firejail $FIREJAIL_OPTS "
+fi
+
 if [ $# -eq 0 -o x"${1-}" = x"--gui" ]; then
         handle_updates
         [ $# -eq 0 ] && usage || shift
@@ -88,7 +99,7 @@ elif [ x"$1" = x"--tool" ]; then
         handle_updates
         TOOL=$2
         shift 2
-        $DIR/usr/bin/$TOOL "$@"
+        ${RUN}$DIR/usr/bin/$TOOL "$@"
 elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
         usage
         exit 0
@@ -102,7 +113,7 @@ elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
         $DIR/appimageupdatetool ${1+"$@" }$APPIMAGE
 else
         handle_updates
-        $DIR/usr/bin/uv "$@"
+        ${RUN}$DIR/usr/bin/uv "$@"
 fi
 
 exit $?
