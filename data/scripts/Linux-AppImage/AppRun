@@ -79,7 +79,7 @@ if [ $# -eq 0 -o x"${1-}" = x"--gui" ]; then
         handle_updates
         [ $# -eq 0 ] && usage || shift
         if [ -x $DIR/usr/bin/uv-qt ]; then
-                $DIR/usr/bin/uv-qt --with-uv $DIR/uv-wrapper.sh "$@"
+                $DIR/usr/bin/uv-qt --with-uv $DIR/usr/bin/uv "$@"
         else
                 echo "GUI was not compiled in!" >&2
                 exit 1
@@ -102,7 +102,7 @@ elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
         $DIR/appimageupdatetool ${1+"$@" }$APPIMAGE
 else
         handle_updates
-        $DIR/uv-wrapper.sh "$@"
+        $DIR/usr/bin/uv "$@"
 fi
 
 exit $?

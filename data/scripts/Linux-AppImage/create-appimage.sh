@@ -73,7 +73,7 @@ done
 
 ( cd $APPPREFIX/lib; rm -f libcmpto* ) # remove non-free components
 
-cp $srcdir/data/scripts/Linux-AppImage/AppRun $srcdir/data/scripts/Linux-AppImage/uv-wrapper.sh $srcdir/data/ultragrid.png $APPDIR
+cp $srcdir/data/scripts/Linux-AppImage/AppRun $srcdir/data/ultragrid.png $APPDIR
 cp $srcdir/data/uv-qt.desktop $APPDIR/ultragrid.desktop
 APPIMAGEUPDATETOOL=$(command -v appimageupdatetool-x86_64.AppImage || true)
 if [ -n "$APPIMAGEUPDATETOOL" ]; then
