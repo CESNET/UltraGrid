@@ -36,6 +36,7 @@ typedef enum {
 typedef enum {
         UG_UNCOMPRESSED = 0, ///< uncompressed input pixel format
         UG_JPEG,             ///< JPEG compression (from FFmpeg, CPU-backed)
+        UG_GPUJPEG,          ///< GPUJPEG compression (GPU-backed)
 } libug_compression_t;
 
 struct ug_sender;

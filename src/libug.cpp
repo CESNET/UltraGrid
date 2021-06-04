@@ -92,7 +92,12 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
         // common
         params["parent"].ptr = &s->root_module;
         params["exporter"].ptr = NULL;
-        params["compression"].str = init_params->compression == UG_UNCOMPRESSED ? "none" : "libavcodec:codec=mjpeg";
+        switch (init_params->compression) {
+                case UG_UNCOMPRESSED: params["compression"].str = "none"; break;
+                case UG_JPEG: params["compression"].str = "libavcodec:codec=mjpeg"; break;
+                case UG_GPUJPEG: params["compression"].str = "gpujpeg"; break;
+                default: abort();
+        }
         params["rxtx_mode"].i = MODE_SENDER;
         params["paused"].b = false;
 
