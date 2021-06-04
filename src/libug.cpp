@@ -133,6 +133,8 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
                 }
         }
 
+        cuda_devices[0] = init_params->cuda_device;
+
         render_packet_received_callback = init_params->rprc;
         render_packet_received_callback_udata = init_params->rprc_udata;
 
@@ -282,6 +284,8 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
         if (init_params->force_gpu_decoding) {
                 commandline_params["decompress"] = "gpujpeg";
         }
+
+        cuda_devices[0] = init_params->cuda_device;
 
         if (initialize_video_display(&s->root_module, display, display_cfg, 0, nullptr, &s->display) != 0) {
                 LOG(LOG_LEVEL_ERROR) << "Unable to initialize VRG display!\n";
