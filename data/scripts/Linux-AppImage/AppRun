@@ -89,7 +89,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
         if expr $ULTRAGRID_USE_FIREJAIL : '.*\.profile' >/dev/null; then
                 FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
         else
-                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6 --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --dbus-user=none --dbus-system=none --private --read-only=/tmp --keep-var-tmp --writable-var"
+                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --dbus-user=none --dbus-system=none --private --read-only=/tmp --keep-var-tmp --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf"
         fi
         RUN="firejail $FIREJAIL_OPTS "
