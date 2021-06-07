@@ -156,7 +156,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                                         }
                                         s->audio_level = val_num; // NOLINT
                                 }
-                        } else if (strstr(item, "audio_level=") != NULL) {
+                        } else if (strstr(item, "name=") != NULL) {
                                 ndi_name = item + strlen("name=");
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
