@@ -238,21 +238,43 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         
         gpujpeg_set_device(cuda_devices[0]);
 
-        if (s->unstripe && s->out_codec != CUDA_RGBA) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot unstripe - only supported to out codec CUDA_RGBA!\n");
+        if (s->unstripe && (s->out_codec != CUDA_RGBA && s->out_codec != CUDA_I420)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot unstripe - only supported to out codec CUDA_I420!\n");
                 return DECODER_NO_FRAME;
         }
 
-        if (s->out_codec == CUDA_RGBA && s->unstripe) {
+        if (s->unstripe) {
                 assert(s->cuda_tmp_buf != NULL);
                 gpujpeg_decoder_output_set_custom_cuda (&decoder_output, s->cuda_tmp_buf);
                 if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
                         return DECODER_NO_FRAME;
                 }
-                for (int i = 0; i < 8; ++i) {
-                        if (cudaMemcpy2D(dst + 4 * i * s->desc.width, 4 * s->desc.width * 8,
-                                                s->cuda_tmp_buf + i * 4 * s->desc.width * (s->desc.height / 8), 4 * s->desc.width, 4 * s->desc.width, s->desc.height / 8, cudaMemcpyDefault) != cudaSuccess) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                if (s->out_codec == CUDA_RGBA) {
+                        for (int i = 0; i < 8; ++i) {
+                                if (cudaMemcpy2D(dst + 4 * i * s->desc.width, 4 * s->desc.width * 8,
+                                                        s->cuda_tmp_buf + i * 4 * s->desc.width * (s->desc.height / 8), 4 * s->desc.width, 4 * s->desc.width, s->desc.height / 8, cudaMemcpyDefault) != cudaSuccess) {
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                                }
+                        }
+                } else { ///@todo irregular dimensions (%16 != 0)
+                        unsigned char *src = s->cuda_tmp_buf;
+                        for (int i = 0; i < 8; ++i) { // y
+                                if (cudaMemcpy2D(dst + i * s->desc.width, s->desc.width * 8,
+                                                        src + i * s->desc.width * (s->desc.height / 8), s->desc.width, s->desc.width, s->desc.height / 8, cudaMemcpyDefault) != cudaSuccess) {
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                                }
+                        }
+                        dst += s->desc.width * s->desc.height;
+                        src += s->desc.width * s->desc.height;
+                        for (int n = 0; n < 2; ++n) { // uv
+                                for (int i = 0; i < 8; ++i) { // u
+                                        if (cudaMemcpy2D(dst + i * s->desc.width / 2, s->desc.width / 2 * 8,
+                                                                src + i * s->desc.width / 2 * (s->desc.height / 2 / 8), s->desc.width / 2, s->desc.width / 2, s->desc.height / 2 / 8, cudaMemcpyDefault) != cudaSuccess) {
+                                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                                        }
+                                }
+                                dst += (s->desc.width / 2) * (s->desc.height / 2);
+                                src += (s->desc.width / 2) * (s->desc.height / 2);
                         }
                 }
         } else if (pitches != NULL) {
