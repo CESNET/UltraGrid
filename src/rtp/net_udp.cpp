@@ -51,7 +51,6 @@
 #include "host.h"
 #include "memory.h"
 #include "compat/platform_pipe.h"
-#include "compat/platform_semaphore.h"
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
 #include "rtp.h"

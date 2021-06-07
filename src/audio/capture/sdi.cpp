@@ -45,7 +45,6 @@
 #include "audio/audio_capture.h"
 #include "audio/capture/sdi.h" 
 
-#include "compat/platform_semaphore.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

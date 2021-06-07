@@ -47,7 +47,6 @@
 #ifndef _WIN32
 #include <execinfo.h>
 #endif // defined WIN32
-#include <getopt.h>
 
 #include "host.h"
 
@@ -71,7 +70,6 @@
 #include <iomanip>
 #include <iostream>
 #include <list>
-#include <set>
 #include <sstream>
 
 #if defined HAVE_X || defined BUILD_LIBRARIES

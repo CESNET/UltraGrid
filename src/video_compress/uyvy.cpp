@@ -46,9 +46,7 @@
 #include "module.h"
 #include "utils/video_frame_pool.h"
 #include "video_compress.h"
-#include "compat/platform_semaphore.h"
 #include "video.h"
-#include <pthread.h>
 #include <stdlib.h>
 
 #include "gl_context.h"

@@ -42,7 +42,6 @@
 #endif
 
 #include <chrono>
-#include <pthread.h>
 #include <stdlib.h>
 
 #include "debug.h"

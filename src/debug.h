@@ -90,6 +90,7 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_times
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <string>
 #include "compat/platform_time.h"
 #include "rang.hpp"
 

@@ -45,7 +45,6 @@
 #include "compat/platform_pipe.h"
 
 #include <condition_variable>
-#include <map>
 #include <mutex>
 #include <queue>
 #include <stdio.h>

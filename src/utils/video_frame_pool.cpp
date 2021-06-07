@@ -35,6 +35,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cassert>
+#include <functional>
+#include <iostream>
+#include <stdexcept>
 #include "video_frame_pool.h"
 
 void *default_data_allocator::allocate(size_t size) {

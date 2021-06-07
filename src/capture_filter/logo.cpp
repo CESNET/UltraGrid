@@ -51,8 +51,6 @@
 #include "video.h"
 #include "video_codec.h"
 
-#include <memory>
-
 using namespace std;
 
 struct state_capture_filter_logo {
