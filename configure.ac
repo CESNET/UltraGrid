@@ -1334,7 +1334,7 @@ if test $xrgl_disp_req != no -a $FOUND_XRGL_DEPS = yes
 then
         XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o"
         AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
-        XRGLDISP_LIBS+=$SDL_LIB
+        XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIB"
         ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
         INC="$INC $GLM_INC"
         xrgl_disp=yes
