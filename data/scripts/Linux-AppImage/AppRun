@@ -86,11 +86,18 @@ handle_updates() {
 
 RUN=
 if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
+        command -v firejail || { echo "Firejail not present in system!"; exit 1; }
         if expr $ULTRAGRID_USE_FIREJAIL : '.*\.profile' >/dev/null; then
                 FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
         else
-                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --dbus-user=none --dbus-system=none --private --read-only=/tmp --keep-var-tmp --writable-var"
+                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --private --read-only=/tmp --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf"
+        fi
+        if firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
+                FIREJAIL_OPTS="$FIREJAIL_OPTS --dbus-user=none --dbus-system=none"
+        fi
+        if firejail --help | grep -q -- --keep-var-tmp; then
+                FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
         RUN="firejail --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $FIREJAIL_OPTS "
 fi
