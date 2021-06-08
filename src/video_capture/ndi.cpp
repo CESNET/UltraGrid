@@ -341,13 +341,13 @@ static const NDIlib_source_t *get_matching_source(struct vidcap_state_ndi *s, co
         return nullptr;
 }
 
-using convert_t = void (*)(struct video_frame *, const uint8_t *, int field_idx, int total_fields);
+using convert_t = void (*)(struct video_frame *, const uint8_t *, int in_stride, int field_idx, int total_fields);
 
-static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data, int field_idx, int total_fields)
+static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data, int in_stride, int field_idx, int total_fields)
 {
-        const auto *in_p = reinterpret_cast<const uint32_t *>(data);
         auto *out_p = reinterpret_cast<uint32_t *>(out->tiles[0].data) + field_idx * out->tiles[0].width;
         for (unsigned int i = 0; i < out->tiles[0].height; i += total_fields) {
+                const auto *in_p = reinterpret_cast<const uint32_t *>(data + i * in_stride);
                 for (unsigned int j = 0; j < out->tiles[0].width; j++) {
                         uint32_t argb = *in_p++;
                         *out_p++ = (argb & 0xFF000000U) | ((argb & 0xFFU) << 16U) | (argb & 0xFF00U) | ((argb & 0xFF0000U) >> 16U);
@@ -356,7 +356,7 @@ static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data, int 
         }
 }
 
-static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, int field_idx, int total_fields)
+static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, [[maybe_unused]] int in_stride, int field_idx, int total_fields)
 {
         const auto *in_y = reinterpret_cast<const uint16_t *>(data);
         const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data) + out->tiles[0].width * out->tiles[0].height;
@@ -372,14 +372,14 @@ static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, int 
         }
 }
 
-static void convert_memcpy(struct video_frame *out, const uint8_t *data, int field_idx, int total_fields)
+static void convert_memcpy(struct video_frame *out, const uint8_t *data, int in_stride, int field_idx, int total_fields)
 {
         size_t linesize = vc_get_linesize(out->tiles[0].width, out->color_spec);
         auto *out_p = out->tiles[0].data + field_idx * linesize;
         for (unsigned int i = 0; i < out->tiles[0].height; i += total_fields) {
                 memcpy(out_p, data, linesize);
                 out_p += total_fields * linesize;
-                data += linesize;
+                data += in_stride;
         }
 }
 
@@ -498,19 +498,19 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
 
                 if (convert != nullptr) {
                         out = vf_alloc_desc_data(out_desc);
-                        assert(video_frame.line_stride_in_bytes == vc_get_linesize(video_frame.xres, out_desc.color_spec));
+                        int stride = video_frame.line_stride_in_bytes != 0 ? video_frame.line_stride_in_bytes : vc_get_linesize(video_frame.xres, out_desc.color_spec);
                         int field_count = video_frame.frame_format_type == NDIlib_frame_format_type_field_1 ? 2 : 1;
                         if (field_count > 1) {
                                 if (s->field_0.p_data == nullptr) {
                                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Missing corresponding field!\n";
                                 } else {
-                                        convert(out, s->field_0.p_data, 0, field_count);
+                                        convert(out, s->field_0.p_data, stride, 0, field_count);
                                         NDIlib_recv_free_video_v2(s->pNDI_recv, &s->field_0);
                                         s->field_0 = NDIlib_video_frame_v2_t();
                                 }
-                                convert(out, video_frame.p_data, 1, field_count);
+                                convert(out, video_frame.p_data, stride, 1, field_count);
                         } else {
-                                convert(out, video_frame.p_data, 0, 1);
+                                convert(out, video_frame.p_data, stride, 0, 1);
                         }
                         NDIlib_recv_free_video_v2(s->pNDI_recv, &video_frame);
                         out->callbacks.dispose = vf_free;
