@@ -236,7 +236,7 @@ jobs:
       uses: actions/cache@v1
       with:
         path: 'C:\AJA'
-        key: cache-aja-3
+        key: cache-aja-4
     - name: Build AJA
       if: steps.cache-aja.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/build_aja.ps1

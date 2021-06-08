@@ -7,6 +7,6 @@ if (${env:SDK_URL}) {
   Remove-Item aja.zip
   mv c:\ntv2sdk* c:\AJA
   cd c:\AJA
-  MSBuild.exe ntv2_vs12.sln -p:PlatformToolset=v142 -p:Configuration=Release -p:Platform=x64 -t:libajantv2
+  MSBuild.exe ntv2_vs12.sln -p:PlatformToolset=v142 -p:Configuration=Release -p:Platform=x64 -t:libajantv2:Rebuild
 }
 
