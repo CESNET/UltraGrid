@@ -1154,11 +1154,6 @@ int main(int argc, char *argv[])
                 video_rxtx_mode |= MODE_SENDER;
         }
 
-        if (video_rxtx_mode & MODE_RECEIVER && video_rxtx_mode & MODE_SENDER) {
-                LOG(LOG_LEVEL_ERROR) << "Combined sender and receiver not supported in VRG mode!\n";
-                EXIT(EXIT_FAILURE);
-        }
-
         if (video_rx_port == -1) {
                 if ((video_rxtx_mode & MODE_RECEIVER) == 0) {
                         // do not occupy recv port if we are not receiving (note that this disables communication with
