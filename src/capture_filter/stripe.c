@@ -88,8 +88,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         assert(state == &state_stripe);
         struct video_desc desc = video_desc_from_frame(in);
-        desc.width /= FACTOR;
-        desc.height *= FACTOR;
+        desc.width = (desc.width / FACTOR) & ~1U;
+        desc.height = (desc.height & ~1U) * FACTOR;
         struct video_frame *out = vf_alloc_desc_data(desc);
 
         out->callbacks.dispose = vf_free;
@@ -97,25 +97,27 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if (in->color_spec == I420) {
                 int in_linesize = in->tiles[0].width;
                 int out_linesize = out->tiles[0].width;
-                for (unsigned int y = 0; y < in->tiles[0].height; ++y) {
+                for (unsigned int y = 0; y < out->tiles[0].height / FACTOR; ++y) {
                         for (unsigned int i = 0; i < FACTOR; ++i) {
-                                memcpy(out->tiles[0].data + y * out_linesize + i * out_linesize * in->tiles[0].height, in->tiles[0].data + y * in_linesize + i * out_linesize, out_linesize);
+                                memcpy(out->tiles[0].data + y * out_linesize + i * out_linesize * out->tiles[0].height / FACTOR, in->tiles[0].data + y * in_linesize + i * out_linesize, out_linesize);
                         }
                 }
-                in_linesize /= 2;
+                in_linesize = (in->tiles[0].width + 1) / 2;
                 out_linesize /= 2;
-                for (unsigned int y = 0; y < in->tiles[0].height / 2; ++y) {
+                for (unsigned int y = 0; y < out->tiles[0].height / FACTOR / 2; ++y) {
                         // u
                         for (unsigned int i = 0; i < FACTOR; ++i) {
                                 const int in_off = in->tiles[0].width * in->tiles[0].height;
                                 const int out_off = out->tiles[0].width * out->tiles[0].height;
-                                memcpy(out->tiles[0].data + out_off + y * out_linesize + i * out_linesize * in->tiles[0].height / 2, in->tiles[0].data + in_off + y * in_linesize + i * out_linesize, out_linesize);
+                                memcpy(out->tiles[0].data + out_off + y * out_linesize + i * out_linesize * out->tiles[0].height / FACTOR / 2,
+                                                in->tiles[0].data + in_off + y * in_linesize + i * out_linesize, out_linesize);
                         }
                         // v
                         for (unsigned int i = 0; i < FACTOR; ++i) {
-                                const int in_off = in->tiles[0].width * in->tiles[0].height / 4 * 5;
+                                const int in_off = in->tiles[0].width * in->tiles[0].height + ((in->tiles[0].width + 1) / 2) * ((in->tiles[0].height + 1) / 2);
                                 const int out_off = out->tiles[0].width * out->tiles[0].height / 4 * 5;
-                                memcpy(out->tiles[0].data + out_off + y * out_linesize + i * out_linesize * in->tiles[0].height / 2, in->tiles[0].data + in_off + y * in_linesize + i * out_linesize, out_linesize);
+                                memcpy(out->tiles[0].data + out_off + y * out_linesize + i * out_linesize * out->tiles[0].height / FACTOR / 2,
+                                                in->tiles[0].data + in_off + y * in_linesize + i * out_linesize, out_linesize);
                         }
                 }
         } else {
