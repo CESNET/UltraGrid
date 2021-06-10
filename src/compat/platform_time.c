@@ -37,9 +37,9 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 #include "config_unix.h"
 #include "config_win32.h"
-#endif
 #include "debug.h"
 
 #include <time.h>
