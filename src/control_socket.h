@@ -40,7 +40,6 @@
 
 #define DEFAULT_CONTROL_PORT 5054
 
-#include <map>
 #include <string>
 
 struct control_state;

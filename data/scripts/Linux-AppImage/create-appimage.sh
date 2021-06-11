@@ -12,6 +12,7 @@ ARCH=`uname -m`
 DATE=`date +%Y%m%d`
 GLIBC_VERSION=`ldd --version | sed -n '1s/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/p'`
 APPNAME=UltraGrid-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
+eval $(cat Makefile  | grep 'srcdir *=' | tr -d \  )
 
 # redirect the whole output to stderr, output of this script is a created AppName only
 (
@@ -22,8 +23,8 @@ make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local $APPPREFIX
 
 # add packet reflector
-make -C hd-rum-multi
-cp hd-rum-multi/hd-rum $APPPREFIX/bin
+make -f $srcdir/hd-rum-multi/Makefile SRCDIR=$srcdir/hd-rum-multi
+cp hd-rum $APPPREFIX/bin
 
 # add platform and other Qt plugins if using dynamic libs
 # @todo copy only needed ones
@@ -72,9 +73,14 @@ done
 
 ( cd $APPPREFIX/lib; rm -f libcmpto* ) # remove non-free components
 
-cp data/scripts/Linux-AppImage/AppRun data/scripts/Linux-AppImage/uv-wrapper.sh data/ultragrid.png $APPDIR
-cp data/uv-qt.desktop $APPDIR/ultragrid.desktop
-wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool # use AppImageUpdate for GUI updater
+cp $srcdir/data/scripts/Linux-AppImage/AppRun $srcdir/data/ultragrid.png $APPDIR
+cp $srcdir/data/uv-qt.desktop $APPDIR/ultragrid.desktop
+APPIMAGEUPDATETOOL=$(command -v appimageupdatetool-x86_64.AppImage || true)
+if [ -n "$APPIMAGEUPDATETOOL" ]; then
+        cp $APPIMAGEUPDATETOOL $APPDIR/appimageupdatetool
+else
+        wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool # use AppImageUpdate for GUI updater
+fi
 chmod ugo+x $APPDIR/appimageupdatetool
 
 if [ -n "${appimage_key-}" ]; then
@@ -83,12 +89,16 @@ if [ -n "${appimage_key-}" ]; then
         SIGN=--sign
 fi
 
-wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
+APPIMAGETOOL=$(command -v appimagetool-x86_64.AppImage || true)
+if [ -z "$APPIMAGETOOL" ]; then
+        wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
+        APPIMAGETOOL=./appimagetool
+fi
 UPDATE_INFORMATION=
 if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
-./appimagetool ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
+$APPIMAGETOOL ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
 
 rm -rf $APPDIR tmpinstall
 )

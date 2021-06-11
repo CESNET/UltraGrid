@@ -42,6 +42,10 @@
 #include "config_win32.h"
 
 
+#include <cassert>
+#include <functional>
+#include <iostream>
+#include <stdexcept>
 #include "video_frame_pool.h"
 
 using std::unique_ptr;

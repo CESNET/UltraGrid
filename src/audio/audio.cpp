@@ -71,8 +71,6 @@
 #include "audio/playback/sdi.h"
 #include "audio/jack.h" 
 #include "audio/utils.h"
-#include "compat/platform_semaphore.h"
-#include "compat/platform_semaphore.h"
 #include "debug.h"
 #include "../export.h" // not audio/export.h
 #include "host.h"

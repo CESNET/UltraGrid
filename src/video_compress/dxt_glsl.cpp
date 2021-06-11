@@ -41,12 +41,10 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include <pthread.h>
 #include <stdlib.h>
 
 #include "gl_context.h"
 
-#include "compat/platform_semaphore.h"
 #include "debug.h"
 #include "dxt_compress/dxt_encoder.h"
 #include "dxt_compress/dxt_util.h"

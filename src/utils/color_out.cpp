@@ -41,7 +41,6 @@
 #include "config_win32.h"
 #endif
 
-#include <unordered_map>
 #include <iostream>
 
 #include "rang.hpp"

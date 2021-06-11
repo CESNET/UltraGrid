@@ -2,12 +2,12 @@
 .\"     Title: hd-rum-transcode
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 03/29/2021
+.\"      Date: 05/26/2021
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "HD\-RUM\-TRANSCODE" "1" "03/29/2021" "\ \&" "\ \&"
+.TH "HD\-RUM\-TRANSCODE" "1" "05/26/2021" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -71,6 +71,15 @@ Transcoder can be used as a reflector also for audio (and must be used if audio 
 .SS "Reflector running on UltraGrid sender machine"
 .sp
 \fBuv\fR \-t testcard \-s testcard \fI\-P 6004:5004:6006:5006\fR localhost \fBhd\-rum\-transcode\fR 8M 5004 receiver1 receiver2 \-c JPEG receiver3 # video \fBhd\-rum\-transcode\fR 8M 5006 receiver1 receiver2 receiver3 # audio
+.SH "ENVIRONMENT VARIABLES"
+.PP
+\fBULTRAGRID_VERBOSE\fR
+.RS 4
+If is
+ULTRAGRID_VERBOSE
+environment variable is set, default UltraGrid log level is
+verbose\&. Command\-line option always overrides this value\&.
+.RE
 .SH "REPORTING BUGS"
 .sp
 Report bugs to \fBultragrid\-dev@cesnet\&.cz\fR or use project \fBGitHub\fR to describe issues\&.

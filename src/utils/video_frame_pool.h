@@ -44,15 +44,11 @@
 
 #ifdef __cplusplus
 
-#include <cassert>
 #include <condition_variable>
 #include <cstdint>
-#include <functional>
-#include <iostream>
 #include <mutex>
 #include <memory>
 #include <queue>
-#include <stdexcept>
 
 struct video_frame;
 

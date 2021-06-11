@@ -49,8 +49,6 @@
 #include "utils/list.h"
 #include "video.h"
 
-#include <vector>
-
 using namespace std;
 
 struct capture_filter {

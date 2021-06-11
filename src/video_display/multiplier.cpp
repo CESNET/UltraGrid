@@ -45,15 +45,11 @@
 #include "video_display.h"
 
 #include <condition_variable>
-#include <chrono>
-#include <list>
-#include <map>
 #include <vector>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <unordered_map>
 
 using namespace std;
 

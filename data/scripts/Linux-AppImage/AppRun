@@ -18,11 +18,14 @@ usage() {
         printf "\t$ARGV0 [--gui [args]]\n"
         printf "\t\tinvokes GUI\n"
         printf "\n"
-        printf "\t$ARGV0 -h|--help\n"
-        printf "\t\tprints this help\n"
-        printf "\n"
         printf "\t$ARGV0 --appimage-help\n"
         printf "\t\tprints AppImage related options\n"
+        printf "\n"
+        printf "\t$ARGV0 -h|--help|--fullhelp\n"
+        printf "\t\tprints this help (extended version with --fullhelp)\n"
+        printf "\n"
+        printf "\t$ARGV0 -m|--man [uv|hd-rum-transcode]\n"
+        printf "\t\tprints manual page\n"
         printf "\n"
         printf "\t$ARGV0 -u|--update [args]\n"
         printf "\t\tupdates AppImage (args will be passed to appimageupdatetool)\n"
@@ -36,6 +39,15 @@ usage() {
         printf "\n"
         printf "\t$ARGV0 args\n"
         printf "\t\tinvokes command-line UltraGrid\n"
+        printf "\n"
+}
+
+usage_aux() {
+        printf "environment variables:\n"
+        printf "\tULTRAGRID_AUTOUPDATE:   1 - try to autoupdate; 0 - disable update advice\n"
+        printf "\tULTRAGRID_USE_FIREJAIL: run the UltraGrid executable with firejail. If\n"
+        printf "\t                        the variable contains printf a profile path\n"
+        printf "\t                        (ends with '.profile'), it will be used.\n"
         printf "\n"
 }
 
@@ -72,11 +84,29 @@ handle_updates() {
         printf "\n"
 }
 
+RUN=
+if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
+        command -v firejail || { echo "Firejail not present in system!"; exit 1; }
+        if expr $ULTRAGRID_USE_FIREJAIL : '.*\.profile' >/dev/null; then
+                FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
+        else
+                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --private --read-only=/tmp --writable-var"
+                FIREJAIL_OPTS="$FIREJAIL_OPTS --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf"
+        fi
+        if firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
+                FIREJAIL_OPTS="$FIREJAIL_OPTS --dbus-user=none --dbus-system=none"
+        fi
+        if firejail --help | grep -q -- --keep-var-tmp; then
+                FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
+        fi
+        RUN="firejail --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $FIREJAIL_OPTS "
+fi
+
 if [ $# -eq 0 -o x"${1-}" = x"--gui" ]; then
         handle_updates
         [ $# -eq 0 ] && usage || shift
         if [ -x $DIR/usr/bin/uv-qt ]; then
-                $DIR/usr/bin/uv-qt --with-uv $DIR/uv-wrapper.sh "$@"
+                $DIR/usr/bin/uv-qt --with-uv $DIR/usr/bin/uv "$@"
         else
                 echo "GUI was not compiled in!" >&2
                 exit 1
@@ -85,10 +115,17 @@ elif [ x"$1" = x"--tool" ]; then
         handle_updates
         TOOL=$2
         shift 2
-        $DIR/usr/bin/$TOOL "$@"
+        ${RUN}$DIR/usr/bin/$TOOL "$@"
 elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
         usage
         exit 0
+elif [ x"$1" = x"--fullhelp" ]; then
+        usage
+        usage_aux
+        exit 0
+elif [ x"$1" = x"-m" -o x"$1" = x"--man" ]; then
+        PAGE=${2:-uv}
+        cat $DIR/usr/share/man/man1/$PAGE.1 | man -l -
 elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
         shift
         unset LD_LIBRARY_PATH
@@ -96,7 +133,7 @@ elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
         $DIR/appimageupdatetool ${1+"$@" }$APPIMAGE
 else
         handle_updates
-        $DIR/uv-wrapper.sh "$@"
+        ${RUN}$DIR/usr/bin/uv "$@"
 fi
 
 exit $?
