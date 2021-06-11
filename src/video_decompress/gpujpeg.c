@@ -286,29 +286,37 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
                         }
                 }
         } else if (pitches != NULL) {
-                assert(s->out_codec == I420 || s->out_codec == CUDA_I420);
                 assert(s->cuda_tmp_buf != NULL);
                 gpujpeg_decoder_output_set_custom_cuda (&decoder_output, s->cuda_tmp_buf);
                 if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
                         return DECODER_NO_FRAME;
                 }
-                if (cudaMemcpy2D(dst, pitches[0],
-                                        s->cuda_tmp_buf, s->desc.width,
-                                        s->desc.width, s->desc.height,
-                                        cudaMemcpyDefault) != cudaSuccess) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Y failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
-                }
-                if (cudaMemcpy2D(dst + pitches[0] * s->desc.height, pitches[1],
-                                        s->cuda_tmp_buf + s->desc.width * s->desc.height, (s->desc.width + 1) / 2,
-                                        (s->desc.width + 1) / 2, (s->desc.height + 1) / 2,
-                                        cudaMemcpyDefault) != cudaSuccess) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Cb failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
-                }
-                if (cudaMemcpy2D(dst + pitches[0] * s->desc.height + pitches[1] * ((s->desc.height + 1) / 2), pitches[2],
-                                        s->cuda_tmp_buf + s->desc.width * s->desc.height + ((s->desc.width + 1) / 2) * ((s->desc.height + 1) / 2), (s->desc.width + 1) / 2,
-                                        (s->desc.width + 1) / 2, (s->desc.height + 1) / 2,
-                                        cudaMemcpyDefault) != cudaSuccess) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Cr failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                if (IS_I420(s->out_codec)) {
+                        if (cudaMemcpy2D(dst, pitches[0],
+                                                s->cuda_tmp_buf, s->desc.width,
+                                                s->desc.width, s->desc.height,
+                                                cudaMemcpyDefault) != cudaSuccess) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Y failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                        }
+                        if (cudaMemcpy2D(dst + pitches[0] * s->desc.height, pitches[1],
+                                                s->cuda_tmp_buf + s->desc.width * s->desc.height, (s->desc.width + 1) / 2,
+                                                (s->desc.width + 1) / 2, (s->desc.height + 1) / 2,
+                                                cudaMemcpyDefault) != cudaSuccess) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Cb failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                        }
+                        if (cudaMemcpy2D(dst + pitches[0] * s->desc.height + pitches[1] * ((s->desc.height + 1) / 2), pitches[2],
+                                                s->cuda_tmp_buf + s->desc.width * s->desc.height + ((s->desc.width + 1) / 2) * ((s->desc.height + 1) / 2), (s->desc.width + 1) / 2,
+                                                (s->desc.width + 1) / 2, (s->desc.height + 1) / 2,
+                                                cudaMemcpyDefault) != cudaSuccess) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Cr failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                        }
+                } else {
+                        if (cudaMemcpy2D(dst, pitches[0],
+                                                s->cuda_tmp_buf, s->desc.width * 4,
+                                                s->desc.width * 4, s->desc.height,
+                                                cudaMemcpyDefault) != cudaSuccess) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D Y failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
+                        }
                 }
 
         } else if (s->out_codec == CUDA_I420 || s->out_codec == CUDA_RGBA) {
