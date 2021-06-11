@@ -219,6 +219,8 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 	return DECODER_GOT_CODEC;
 }
 
+#define IS_I420(c) (c == I420 || c == CUDA_I420)
+
 static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec,
                 const int *pitches)
@@ -238,20 +240,26 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         
         gpujpeg_set_device(cuda_devices[0]);
 
-        if (s->unstripe && (s->out_codec != CUDA_RGBA && s->out_codec != CUDA_I420)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot unstripe - only supported to out codec CUDA_I420!\n");
-                return DECODER_NO_FRAME;
-        }
-
         if (s->unstripe) {
+                int pitches_buf[4];
+                if (!pitches) {
+                        pitches = pitches_buf;
+                        if (IS_I420(s->out_codec)) {
+                                pitches_buf[0] = s->desc.width * 8;
+                                pitches_buf[1] =
+                                        pitches_buf[2] = s->desc.width * 8 / 2;
+                        } else { // (CUDA_)RGBA
+                                pitches_buf[0] = 4 * s->desc.width * 8;
+                        }
+                }
                 assert(s->cuda_tmp_buf != NULL);
                 gpujpeg_decoder_output_set_custom_cuda (&decoder_output, s->cuda_tmp_buf);
                 if (gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output) != 0) {
                         return DECODER_NO_FRAME;
                 }
-                if (s->out_codec == CUDA_RGBA) {
+                if (!IS_I420(s->out_codec)) {
                         for (int i = 0; i < 8; ++i) {
-                                if (cudaMemcpy2D(dst + 4 * i * s->desc.width, 4 * s->desc.width * 8,
+                                if (cudaMemcpy2D(dst + 4 * i * s->desc.width, pitches[0],
                                                         s->cuda_tmp_buf + i * 4 * s->desc.width * (s->desc.height / 8), 4 * s->desc.width, 4 * s->desc.width, s->desc.height / 8, cudaMemcpyDefault) != cudaSuccess) {
                                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
                                 }
@@ -264,17 +272,17 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
                                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
                                 }
                         }
-                        dst += s->desc.width * s->desc.height;
                         src += s->desc.width * s->desc.height;
+                        dst += pitches[0] * (s->desc.height / 8);
                         for (int n = 0; n < 2; ++n) { // uv
                                 for (int i = 0; i < 8; ++i) { // u
-                                        if (cudaMemcpy2D(dst + i * s->desc.width / 2, s->desc.width / 2 * 8,
+                                        if (cudaMemcpy2D(dst + i * s->desc.width / 2, pitches[1],
                                                                 src + i * s->desc.width / 2 * (s->desc.height / 2 / 8), s->desc.width / 2, s->desc.width / 2, s->desc.height / 2 / 8, cudaMemcpyDefault) != cudaSuccess) {
                                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "cudaMemcpy2D failed: %s!\n", cudaGetErrorString(cudaGetLastError()));
                                         }
                                 }
-                                dst += (s->desc.width / 2) * (s->desc.height / 2);
                                 src += (s->desc.width / 2) * (s->desc.height / 2);
+                                dst += pitches[1] * (s->desc.height / 8 / 2);
                         }
                 }
         } else if (pitches != NULL) {
