@@ -900,11 +900,13 @@ static void y216_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
                 uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
                 uint16_t *src = (uint16_t *) (in_data + y * src_linesize);
-                OPTIMIZED_FOR(int x = 0; x < width; x++){
+                OPTIMIZED_FOR(int x = 0; x < (width + 1) / 2; x++){
                         *dst_y++ = *src++;
-                        *dst_cb++ = *src++;
+                        dst_cb[0] = dst_cb[1] = *src++;
+                        dst_cb += 2;
                         *dst_y++ = *src++;
-                        *dst_cr++ = *src++;
+                        dst_cr[0] = dst_cr[1] = *src++;
+                        dst_cr += 2;
                 }
         }
 }
