@@ -1,7 +1,7 @@
-From 50dccf1951ca04f756a06e2e5d606ed494d78ea8 Mon Sep 17 00:00:00 2001
+From 1bda9849043d8e44ad68d9933f4cdf9810b420ba Mon Sep 17 00:00:00 2001
 From: Martin Pulec <martin.pulec@cesnet.cz>
 Date: Fri, 16 Apr 2021 08:44:24 +0200
-Subject: [PATCH 2/3] avcodec/nvenc: support for intra refresh
+Subject: [PATCH] avcodec/nvenc: support for intra refresh
 
 ---
  libavcodec/nvenc.c      | 24 +++++++++++++++++++++---
@@ -11,10 +11,10 @@ Subject: [PATCH 2/3] avcodec/nvenc: support for intra refresh
  4 files changed, 24 insertions(+), 3 deletions(-)
 
 diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
-index ea8257aca9..beb28431ea 100644
+index ee046b9cef..2003943d0d 100644
 --- a/libavcodec/nvenc.c
 +++ b/libavcodec/nvenc.c
-@@ -460,6 +460,12 @@ static int nvenc_check_capabilities(AVCodecContext *avctx)
+@@ -524,6 +524,12 @@ static int nvenc_check_capabilities(AVCodecContext *avctx)
      }
  #endif
  
@@ -27,7 +27,7 @@ index ea8257aca9..beb28431ea 100644
      ctx->support_dyn_bitrate = nvenc_check_cap(avctx, NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE);
  
      return 0;
-@@ -1053,6 +1059,12 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
+@@ -1063,6 +1069,12 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
      h264->sliceMode = 3;
      h264->sliceModeData = 8;
  
@@ -40,7 +40,7 @@ index ea8257aca9..beb28431ea 100644
      h264->disableSPSPPS = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 1 : 0;
      h264->repeatSPSPPS  = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 0 : 1;
      h264->outputAUD     = ctx->aud;
-@@ -1062,7 +1074,7 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
+@@ -1072,7 +1084,7 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
          h264->maxNumRefFrames = ctx->dpb_size;
      }
      if (avctx->gop_size >= 0) {
@@ -49,7 +49,7 @@ index ea8257aca9..beb28431ea 100644
      }
  
      if (IS_CBR(cc->rcParams.rateControlMode)) {
-@@ -1150,6 +1162,12 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
+@@ -1160,6 +1172,12 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
      hevc->sliceMode = 3;
      hevc->sliceModeData = 1;
  
@@ -62,7 +62,7 @@ index ea8257aca9..beb28431ea 100644
      hevc->disableSPSPPS = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 1 : 0;
      hevc->repeatSPSPPS  = (avctx->flags & AV_CODEC_FLAG_GLOBAL_HEADER) ? 0 : 1;
      hevc->outputAUD     = ctx->aud;
-@@ -1159,7 +1177,7 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
+@@ -1169,7 +1187,7 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
          hevc->maxNumRefFramesInDPB = ctx->dpb_size;
      }
      if (avctx->gop_size >= 0) {
@@ -71,7 +71,7 @@ index ea8257aca9..beb28431ea 100644
      }
  
      if (IS_CBR(cc->rcParams.rateControlMode)) {
-@@ -1344,7 +1362,7 @@ static av_cold int nvenc_setup_encoder(AVCodecContext *avctx)
+@@ -1348,7 +1366,7 @@ static av_cold int nvenc_setup_encoder(AVCodecContext *avctx)
              ctx->encode_config.frameIntervalP = avctx->max_b_frames + 1;
          }
  
@@ -81,41 +81,41 @@ index ea8257aca9..beb28431ea 100644
          ctx->encode_config.frameIntervalP = 0;
          ctx->encode_config.gopLength = 1;
 diff --git a/libavcodec/nvenc.h b/libavcodec/nvenc.h
-index fefc5f7f0b..6109ee1ac9 100644
+index 85d3a33601..1e275884ad 100644
 --- a/libavcodec/nvenc.h
 +++ b/libavcodec/nvenc.h
-@@ -219,6 +219,7 @@ typedef struct NvencContext
-     int tuning_info;
+@@ -223,6 +223,7 @@ typedef struct NvencContext
      int multipass;
      int ldkfs;
+     int extra_sei;
 +    int intra_refresh;
  } NvencContext;
  
  int ff_nvenc_encode_init(AVCodecContext *avctx);
 diff --git a/libavcodec/nvenc_h264.c b/libavcodec/nvenc_h264.c
-index 4c2585876e..2255855c99 100644
+index c7af7fa682..31bb32785a 100644
 --- a/libavcodec/nvenc_h264.c
 +++ b/libavcodec/nvenc_h264.c
-@@ -182,6 +182,7 @@ static const AVOption options[] = {
-     { "ldkfs",        "Low delay key frame scale; Specifies the Scene Change frame size increase allowed in case of single frame VBV and CBR",
-                                                             OFFSET(ldkfs),        AV_OPT_TYPE_INT,   { .i64 = 0 }, 0, UCHAR_MAX, VE },
+@@ -184,6 +184,7 @@ static const AVOption options[] = {
  #endif
+     { "extra_sei",    "Pass on extra SEI data (e.g. a53 cc) to be included in the bitstream",
+                                                             OFFSET(extra_sei),    AV_OPT_TYPE_BOOL,  { .i64 = 1 }, 0, 1, VE },
 +    { "intra-refresh", "Use Periodic Intra Refresh instead of IDR frames.",OFFSET(intra_refresh),AV_OPT_TYPE_BOOL,   { .i64 = 0 }, 0, 1, VE },
      { NULL }
  };
  
 diff --git a/libavcodec/nvenc_hevc.c b/libavcodec/nvenc_hevc.c
-index 441e7871d2..5a6e9ab722 100644
+index c85a317518..b7563f75f7 100644
 --- a/libavcodec/nvenc_hevc.c
 +++ b/libavcodec/nvenc_hevc.c
-@@ -163,6 +163,7 @@ static const AVOption options[] = {
-     { "ldkfs",        "Low delay key frame scale; Specifies the Scene Change frame size increase allowed in case of single frame VBV and CBR",
-                                                             OFFSET(ldkfs),        AV_OPT_TYPE_INT,   { .i64 = 0 }, 0, UCHAR_MAX, VE },
+@@ -165,6 +165,7 @@ static const AVOption options[] = {
  #endif
+     { "extra_sei",    "Pass on extra SEI data (e.g. a53 cc) to be included in the bitstream",
+                                                             OFFSET(extra_sei),    AV_OPT_TYPE_BOOL,  { .i64 = 1 }, 0, 1, VE },
 +    { "intra-refresh", "Use Periodic Intra Refresh instead of IDR frames.",OFFSET(intra_refresh),AV_OPT_TYPE_BOOL,   { .i64 = 0 }, 0, 1, VE },
      { NULL }
  };
  
 -- 
-2.27.0
+2.25.1
 
