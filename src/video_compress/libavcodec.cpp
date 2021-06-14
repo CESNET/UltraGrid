@@ -860,7 +860,8 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
                         return rgb_a == rgb_in;
                 }
 
-                assert(depth_a >= depth_in && depth_b >= depth_in && subs_a >= subs_in && subs_b >= subs_in);
+                // now all rgb/depth/subs pairs are either the same or both better than in
+                assert((depth_a == depth_b || (depth_a >= depth_in && depth_b >= depth_in)) && (subs_a == subs_b || (subs_a >= subs_in && subs_b >= subs_in)));
                 if (depth_a != depth_b) {
                         return depth_a < depth_b;
                 }
