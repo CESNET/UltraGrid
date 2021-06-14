@@ -891,7 +891,7 @@ static void rg48_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
         rg48_to_yuv444pXXle(16, out_frame, in_data, width, height);
 }
 
-static void y216_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
 {
         const int src_linesize = vc_get_linesize(width, Y216);
 
@@ -901,12 +901,22 @@ static void y216_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
                 uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
                 uint16_t *src = (uint16_t *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < (width + 1) / 2; x++){
-                        *dst_y++ = *src++ >> 6U;
-                        *dst_cb++ = *src++ >> 6U;
-                        *dst_y++ = *src++ >> 6U;
-                        *dst_cr++ = *src++ >> 6U;
+                        *dst_y++ = *src++ >> (16U - depth);
+                        *dst_cb++ = *src++ >> (16U - depth);
+                        *dst_y++ = *src++ >> (16U - depth);
+                        *dst_cr++ = *src++ >> (16U - depth);
                 }
         }
+}
+
+static void y216_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        y216_to_yuv422pXXle(out_frame, in_data, width, height, 10);
+}
+
+static void y216_to_yuv422p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        y216_to_yuv422pXXle(out_frame, in_data, width, height, 16);
 }
 
 static void y216_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
@@ -2555,6 +2565,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { UYVY, AV_PIX_FMT_YUV444P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv444p },
                 { UYVY, AV_PIX_FMT_YUVJ444P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv444p },
                 { Y216, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y216_to_yuv422p10le },
+                { Y216, AV_PIX_FMT_YUV422P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y216_to_yuv422p16le },
                 { Y216, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y216_to_yuv444p16le },
                 { RGB, AV_PIX_FMT_BGR0,         AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgb_to_bgr0 },
                 { RGB, AV_PIX_FMT_GBRP,         AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgb_to_gbrp },
