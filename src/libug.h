@@ -56,6 +56,7 @@ struct ug_sender_parameters {
         int connections;                         ///< number of connections (default 1), must match with receiver
         long long int traffic_shapper_bw;        ///< use specified bitrate for traffic shaper in bps (default 0 - unlimited)
         int cuda_device;                         ///< CUDA device to use - default 0
+        int force_ip_version;                    ///< force IP version, 4 or 6 (default 0 - auto)
 };
 
 /**
@@ -85,6 +86,7 @@ struct ug_receiver_parameters {
         int connections;                         ///< number of connections (default 1), must match with sender
         int udp_packet_pool;                     ///< use UDP packet pool (default 0 - no) to increase recv performance, implies connections >= 1
         int cuda_device;                         ///< CUDA device to use - default 0
+        int force_ip_version;                    ///< force IP version, 4 or 6 (default 0 - auto)
 };
 LIBUG_DLL struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params);
 LIBUG_DLL void ug_receiver_done(struct ug_receiver *state);

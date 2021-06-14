@@ -106,7 +106,7 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
         params["receiver"].str = init_params->receiver;
         params["rx_port"].i = 0;
         params["tx_port"].i = init_params->port != 0 ? init_params->port : DEFAULT_UG_PORT;
-        params["force_ip_version"].i = 0;
+        params["force_ip_version"].i = init_params->force_ip_version;
         params["mcast_if"].str = NULL;
         params["fec"].str = "none";
         params["encryption"].str = NULL;
@@ -248,7 +248,7 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
         params["receiver"].str = init_params->sender ? init_params->sender : "localhost";
         params["rx_port"].i = init_params->port ? init_params->port : DEFAULT_UG_PORT;
         params["tx_port"].i = 0;
-        params["force_ip_version"].i = 0;
+        params["force_ip_version"].i = init_params->force_ip_version;
         params["mcast_if"].str = NULL;
         params["fec"].str = "none";
         params["encryption"].str = NULL;
