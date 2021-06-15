@@ -738,7 +738,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec,
                 const int *pitches)
 {
-        assert(pitches == NULL);
+        //assert(pitches == NULL); // TODO: the libavcodec may still be used for probing
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int got_frame = 0;
         decompress_status res = DECODER_NO_FRAME;
