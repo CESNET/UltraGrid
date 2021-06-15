@@ -43,8 +43,9 @@ static void usage(const char *progname) {
         printf("options:\n");
         printf("\t-C - connection count\n");
         printf("\t-f - FPS to use (default %f)\n", DEFAULT_FPS);
+        printf("\t-g - use GPUJPEG\n");
         printf("\t-h - show this help\n");
-        printf("\t-j - use JPEG\n");
+        printf("\t-j - use FFmpeg JPEG\n");
         printf("\t-m - use specified MTU\n");
         printf("\t-p - port number\n");
         printf("\t-S - enable strips\n");
@@ -112,13 +113,16 @@ int main(int argc, char *argv[]) {
         double fps = DEFAULT_FPS;
 
         int ch = 0;
-        while ((ch = getopt(argc, argv, "C:f:hjm:p:Ss:t:vy")) != -1) {
+        while ((ch = getopt(argc, argv, "C:f:ghjm:p:Ss:t:vy")) != -1) {
                 switch (ch) {
                 case 'C':
                         init_params.connections = atoi(optarg);
                         break;
                 case 'f':
                         fps = atof(optarg);
+                        break;
+                case 'g':
+                        init_params.compression = UG_GPUJPEG;
                         break;
                 case 'h':
                         usage(argv[0]);
