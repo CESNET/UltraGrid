@@ -263,27 +263,29 @@ static void display_vrg_run(void *state)
                         }
                 }
 
-                if (f->render_packet.pix_width_eye != 0 && f->render_packet.pix_height_eye != 0) {
-                    high_resolution_clock::time_point t_start = high_resolution_clock::now();
-                    ret = vrgStreamSubmitFrame(&f->render_packet, f->tiles[0].data, CPU);
-                    if (ret != Ok) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
-                    }
-                    high_resolution_clock::time_point now = high_resolution_clock::now();
-
-                    high_resolution_clock::time_point render_packet_start = s->render_packet_ts.find(f->render_packet.frame) != s->render_packet_ts.end()
-                            ? s->render_packet_ts.at(f->render_packet.frame) : high_resolution_clock::time_point();
-                    double render_packet_rtt = duration_cast<microseconds>(now - render_packet_start).count() / 1000000.0;
-
-                    LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
-                                         duration_cast<microseconds>(now - t_start).count() / 1000000.0
-                                         << " seconds, RTT: " << render_packet_rtt << "s\n";
-                    s->frames += 1;
-                } else {
+                high_resolution_clock::time_point t_start = high_resolution_clock::now();
+                bool submit = true;
+                if (f->render_packet.pix_width_eye == 0 || f->render_packet.pix_height_eye == 0) {
+                        submit = false;
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Dismissed frame with zero dimensions!\n";
                 }
 
-                high_resolution_clock::time_point now = high_resolution_clock::now();
+                if (submit) {
+                        if ((ret = vrgStreamSubmitFrame(&f->render_packet, f->tiles[0].data, CPU)) != Ok) {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Submit Frame failed: " << ret << "\n";
+                        }
+                }
+
+                auto now = high_resolution_clock::now();
+                auto render_packet_start = s->render_packet_ts.find(f->render_packet.frame) != s->render_packet_ts.end()
+                        ? s->render_packet_ts.at(f->render_packet.frame) : high_resolution_clock::time_point();
+                double render_packet_rtt = duration_cast<microseconds>(now - render_packet_start).count() / 1000000.0;
+
+                LOG(LOG_LEVEL_DEBUG) << "[VRG] Frame submit took " <<
+                        duration_cast<microseconds>(now - t_start).count() / 1000000.0
+                        << " seconds, RTT: " << render_packet_rtt << "s\n";
+                s->frames += 1;
+
                 double seconds = duration_cast<microseconds>(now - s->t0).count() / 1000000.0;
                 if (seconds >= 5) {
                         long long frames = s->frames - s->frames_last;
