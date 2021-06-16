@@ -478,7 +478,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         if (!filename) {
                 auto data = video_pattern_generate(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec);
                 if (!data) {
-                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unknown pattern: " << s->pattern << "!\n";
                          goto error;
                 }
 

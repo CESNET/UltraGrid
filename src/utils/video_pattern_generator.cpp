@@ -61,19 +61,24 @@
 #include <iostream>
 #include <random>
 #include <utility>
+#include <vector>
 
 #include "debug.h"
+#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "video.h"
 #include "video_capture/testcard_common.h"
 #include "video_pattern_generator.hpp"
 
 constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
+constexpr const char *MOD_NAME = "[vid. patt. generator] ";
 constexpr int rg48_bpp = 6;
 
 using namespace std::string_literals;
+using std::copy;
 using std::cout;
 using std::default_random_engine;
+using std::exception;
 using std::for_each;
 using std::make_unique;
 using std::min;
@@ -81,6 +86,7 @@ using std::move;
 using std::string;
 using std::swap;
 using std::unique_ptr;
+using std::vector;
 
 struct testcard_rect {
         int x, y, w, h;
@@ -94,7 +100,7 @@ static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r
 
 class image_pattern {
         public:
-                static unique_ptr<image_pattern> create(string const & config) noexcept;
+                static unique_ptr<image_pattern> create(string const & config);
                 auto init(int width, int height, int out_bit_depth) {
                         assert(out_bit_depth == 8 || out_bit_depth == 16);
                         auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
@@ -257,10 +263,42 @@ class image_pattern_noise : public image_pattern {
         }
 };
 
-unique_ptr<image_pattern> image_pattern::create(string const &config) noexcept {
+class image_pattern_raw : public image_pattern {
+        public:
+                explicit image_pattern_raw(string config) {
+                        if (config.empty()) {
+                                throw ug_runtime_error("Empty raw pattern is not allowed!\n");
+                        }
+                        while (!config.empty()) {
+                                unsigned char byte = 0;
+                                if (sscanf(config.c_str(), "%2hhx", &byte) == 1) {
+                                        m_pattern.push_back(byte);
+                                }
+                                config = config.substr(min<size_t>(config.size(), 2));
+                        }
+                }
+
+                void raw_fill(unsigned char *data, size_t data_len)  {
+                        while (data_len >= m_pattern.size()) {
+                                copy(m_pattern.begin(), m_pattern.end(), data);
+                                data += m_pattern.size();
+                                data_len -= m_pattern.size();
+                        }
+                }
+        private:
+                int fill(int width, int height, unsigned char *data) override {
+                        memset(data, 0, width * height * 3); // placeholder only
+                        return 8;
+                }
+                vector<unsigned char> m_pattern;
+};
+
+
+unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (config == "help") {
-                cout << "Pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>\n");
+                cout << "Pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>, raw=0xXX[YYZZ..]\n");
                 cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns for RG48 and R12L\n";
+                cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
                 return {};
         }
         if (config == "bars") {
@@ -291,15 +329,18 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) noexcept {
         if (config == "noise") {
                 return make_unique<image_pattern_noise>();
         }
+        if (config.substr(0, "raw=0x"s.length()) == "raw=0x") {
+                return make_unique<image_pattern_raw>(config.substr("raw=0x"s.length()));
+        }
         if (config.substr(0, "0x"s.length()) == "0x") {
                 uint32_t blank_color = 0U;
                 if (sscanf(config.substr("0x"s.length()).c_str(), "%x", &blank_color) == 1) {
                         return make_unique<image_pattern_blank>(blank_color);
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << "[testcard] Wrong color!\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong color!\n";
                 }
         }
-        return {};
+        throw ug_runtime_error("Unknown pattern: "s +  config + "!\n"s);
 }
 
 static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color)
@@ -322,7 +363,13 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
         auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
         auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
 
-        auto generator = image_pattern::create(config);
+        unique_ptr<image_pattern> generator;
+        try {
+                generator = image_pattern::create(config);
+        } catch (exception const &e) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what();
+                return {nullptr, free_deleter};
+        }
         if (!generator) {
                 return {nullptr, free_deleter};
         }
@@ -379,6 +426,11 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
                                         src.get() + i * src_linesize, dst_linesize, 0, 8, 16);
                 }
         }
+
+        if (auto *raw_generator = dynamic_cast<image_pattern_raw *>(generator.get())) {
+                raw_generator->raw_fill(data.get(), vc_get_datalen(width, height, color_spec));
+        }
+
         return data;
 }
 /* vim: set expandtab sw=8: */
