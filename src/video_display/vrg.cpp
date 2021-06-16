@@ -269,6 +269,10 @@ static void display_vrg_run(void *state)
                         submit = false;
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Dismissed frame with zero dimensions!\n";
                 }
+                if (f->render_packet.dx_row_pitch != render_packet.dx_row_pitch || f->render_packet.dx_row_pitch_uv != render_packet.dx_row_pitch_uv)  {
+                        submit = false;
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Dismissed frame with different pitches than just received!\n";
+                }
 
                 if (submit) {
                         if ((ret = vrgStreamSubmitFrame(&f->render_packet, f->tiles[0].data, CPU)) != Ok) {
