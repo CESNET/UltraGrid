@@ -82,8 +82,7 @@ struct dummy_display_state {
         size_t dump_bytes = 0;
         bool dump_to_file = false;
         int dump_to_file_skip_frames = 0;
-        bool cuda_host = false;
-        bool cuda_managed = true;
+        bool cuda_managed = false;
 
         struct rtp *rtp;
 };

@@ -76,6 +76,7 @@
 #endif
 
 constexpr int PADDING = 2048;
+#define DEFAULT_CUDA_ALLOCATOR cuda_malloc_host_allocate
 
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
@@ -134,7 +135,7 @@ struct state_vrg {
         uint32_t magic;
         struct video_desc saved_desc;
 #ifdef HAVE_CUDA
-        video_frame_pool pool{0, vrg_cuda_allocator<cuda_malloc_managed_allocate>()};
+        video_frame_pool pool{0, vrg_cuda_allocator<DEFAULT_CUDA_ALLOCATOR>()};
 #else
         video_frame_pool pool{0, vrg_cuda_allocator<default_data_allocator>()};
 #endif
