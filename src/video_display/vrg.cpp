@@ -75,6 +75,8 @@
 #include <cuda_runtime.h>
 #endif
 
+constexpr int PADDING = 2048;
+
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
@@ -255,11 +257,17 @@ static void display_vrg_run(void *state)
                         double seconds = duration_cast<microseconds>(render_frame_end - render_frame_start).count() / 1000000.0;
                         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Received RenderPacket for frame " << render_packet.frame << ": " << render_packet << ", dur: " << seconds << " s.\n";
                         if (render_packet.pix_width_eye > 0 && render_packet.pix_height_eye > 0 &&
-                                        render_packet.pix_width_eye <= 7680 && render_packet.pix_height_eye <= 4320) {
+                                        render_packet.pix_width_eye <= 7680 && render_packet.pix_height_eye <= 4320 &&
+                                        2U * render_packet.pix_width_eye <= render_packet.dx_row_pitch && (unsigned) render_packet.pix_width_eye <= render_packet.dx_row_pitch_uv) {
+                                if (render_packet.dx_row_pitch > render_packet.pix_width_eye * 2U + PADDING ||
+                                                render_packet.dx_row_pitch_uv > render_packet.pix_width_eye + PADDING / 2U) {
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Insufficient padding " << PADDING << " for " << render_packet << ". Fix in code!\n";
+                                        abort();
+                                }
                                 s->render_packet_ts.emplace(render_packet.frame, high_resolution_clock::now());
                                 rtp_send_rtcp_app(s->rtp, "VIEW", sizeof render_packet, (char *) &render_packet);
                         } else {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong RenderPacket dimensions: " << render_packet << "\n";
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong RenderPacket (dimensions or width>pitch): " << render_packet << "\n";
                         }
                 }
 
@@ -398,7 +406,7 @@ static int display_vrg_reconfigure(void *state, struct video_desc desc)
         }
 #endif
         // use headroom - VRG uses pitches
-        s->pool.reconfigure(desc, vc_get_datalen(desc.width + 2048, desc.height, desc.color_spec));
+        s->pool.reconfigure(desc, vc_get_datalen(desc.width + PADDING, desc.height, desc.color_spec));
 
         return TRUE;
 }
