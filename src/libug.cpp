@@ -15,6 +15,7 @@
 #include "debug.h"
 #include "host.h"
 #include "src/host.h"
+#include "utils/net.h"
 #include "utils/wait_obj.h"
 #include "video.h"
 #include "video_display.h"
@@ -119,6 +120,11 @@ struct ug_sender *ug_sender_init(const struct ug_sender_parameters *init_params)
         params["display_device"].ptr = NULL;
 
         params["shm_state"].ptr = nullptr;
+
+        if (!is_ipv6_supported() && params["force_ip_version"].i == 0) {
+                log_msg(LOG_LEVEL_WARNING, "IPv6 support missing, setting IPv4-only mode.\n");
+                params["force_ip_version"].i = 4;
+        }
 
         try {
                 s->video_rxtx = video_rxtx::create("ultragrid_rtp", params);
@@ -235,6 +241,11 @@ struct ug_receiver *ug_receiver_start(struct ug_receiver_parameters *init_params
         map<string, param_u> params;
 
         log_level += init_params->verbose;
+
+        if (!is_ipv6_supported() && init_params->force_ip_version == 0) {
+                log_msg(LOG_LEVEL_WARNING, "IPv6 support missing, setting IPv4-only mode.\n");
+                init_params->force_ip_version= 4;
+        }
 
         // common
         params["parent"].ptr = &s->root_module;
