@@ -412,7 +412,7 @@ static void show_help(bool full)
                 << " - set a profile that allows maximal number of simultaneous IOs\n";
         cout << "\nIf " << style::bold << "audio_level" << style::reset << " is " << style::bold << "mic" << style::reset << " audio analog level is set to maximum attenuation on audio output.\n";
 
-        cout << "Supported pixel formats:";
+        cout << "Recognized pixel formats:";
         for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { cout << " " << style::bold << get_codec_name(i.first) << style::reset; } );
         cout << "\n";
 
