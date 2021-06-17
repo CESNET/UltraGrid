@@ -152,6 +152,8 @@ static juice_agent_t *create_agent(const struct Holepunch_config *c, void *usr_p
         conf.turn_servers = NULL;
         conf.turn_servers_count = 0;
 
+        conf.bind_address = c->bind_addr;
+
         conf.cb_candidate = on_candidate;
         conf.user_ptr = usr_ptr;
 
@@ -286,7 +288,8 @@ static bool split_host_port(char *pair, int *port){
         if(end == colon + 1)
                 return false;
 
-        *port = p;
+        if(port)
+                *port = p;
         return true;
 }
 
@@ -351,9 +354,11 @@ bool punch_udp(struct Holepunch_config c){
 
         *c.video_rx_port = video_ctx.local_candidate_port;
         assert(split_host_port(remote, c.video_tx_port));
+        assert(split_host_port(local, NULL));
 
         strncpy(c.host_addr, remote, c.host_addr_len);
 
+        c.bind_addr = local;
         if(!initialize_punch(&audio_ctx, &c, "_audio")){
                 cleanup_punch(&video_ctx);
                 return false;

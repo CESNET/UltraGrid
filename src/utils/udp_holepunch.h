@@ -58,6 +58,8 @@ struct Holepunch_config{
         char *host_addr;
         size_t host_addr_len;
 
+        const char *bind_addr;
+
         const char *coord_srv_addr;
         int coord_srv_port;
         const char *stun_srv_addr;
