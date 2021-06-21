@@ -1793,6 +1793,14 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                 frame->tiles[substream].data = (char *) malloc(buffer_length + PADDING);
                         }
 
+                        if (data_pos + len >= (unsigned) buffer_length) {
+                                if((prints % 100) == 0) {
+                                        log_msg(LOG_LEVEL_ERROR, "WARNING!! Discarding input data as frame buffer is too small.\n"
+                                                        "Well this should not happened. Expect troubles pretty soon.\n");
+                                }
+                                prints++;
+                                len = max<int>(0, buffer_length - data_pos);
+                        }
                         memcpy(frame->tiles[substream].data + data_pos, (unsigned char*) data,
                                 len);
                 }
