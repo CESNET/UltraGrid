@@ -4,6 +4,8 @@ env:
   FEATURES: '--enable-option-checking=fatal --with-live555=/usr/local --enable-blank --enable-cineform --enable-decklink --enable-file --enable-gl --enable-jack --enable-jack-transport --enable-libavcodec --enable-natpmp --enable-openssl --enable-pcp --enable-portaudio --enable-qt --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-sdl2 --enable-sdp-http --enable-speexdsp --enable-swmix --enable-libswscale --enable-text --enable-video-mixer --enable-ximea --enable-zfec'
   CUDA_FEATURES: '--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy'
 
+# TODO: cache keys should contain resource ETag (curl -LI <URL>) to see, if upstream has changed (see also get-date in https://github.com/actions/cache#creating-a-cache-key)
+
 on:
   push:
     branches:
@@ -83,7 +85,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-13
+        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/download_build_ffmpeg.sh,.github/scripts/Linux/ffmpeg-patches/*') }}
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
@@ -151,7 +153,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
-        key: cache-macos-nonfree-sdks-3
+        key: cache-nonfree-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_nonfree_sdks.sh') }}
     - name: Download Non-Free SDKs
       if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
@@ -165,13 +167,10 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '/var/tmp/sdks-free'
-        key: cache-macos-free-sdks-2
+        key: cache-free-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_free_sdks.sh') }}
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
-      run: |
-        mkdir -p /var/tmp/sdks-free
-        cd /var/tmp/sdks-free
-        curl -S -LO https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg
+      run: $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_free_sdks.sh
     - name: bootstrap
       run: |
         . .github/scripts/environment.sh
@@ -236,7 +235,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'C:\AJA'
-        key: cache-aja-5
+        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_aja.ps1') }}
     - name: Build AJA
       if: steps.cache-aja.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/build_aja.ps1
@@ -245,7 +244,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'C:\Program Files\JACK2'
-        key: cache-jack-4
+        key: cache-jack-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_jack.ps1') }}
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
@@ -256,7 +255,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'C:\live555'
-        key: cache-live555-4
+        key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_live555.sh') }}
     - name: Build live555
       if: steps.cache-live555.outputs.cache-hit != 'true'
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/build_live555.sh'
