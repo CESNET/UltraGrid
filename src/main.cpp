@@ -556,12 +556,24 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
 }
 
 static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
+
         char *token = strchr(conf, ':');
         while(token){
                 token = token + 1;
                 char *next = strchr(token, ':');
                 if(next){
                         *next = '\0';
+                }
+
+                if(strncmp(token, "help", strlen("help")) == 0){
+                        cout << "Usage:\n" <<
+                                "\tuv " << BOLD("-Nholepunch:room=<room>:(server=<host> | coord_srv=<host:port>:stun_srv=<host:port>)[:client_name=<name>] \n") <<
+                                "\twhere\n"
+                                "\t\t" << BOLD("server") << " - used if both stun & coord server are on the same host on standard ports (3478, 12558)\n"
+                                "\t\t" << BOLD("room") << " - name of room to join\n"
+                                "\t\t" << BOLD("client_name") << " - name to identify as to the coord server, if not specified hostname is used\n"
+                                "\n";
+                        return false;
                 }
 
                 if(strncmp(token, "coord_srv=", strlen("coord_srv=")) == 0){
