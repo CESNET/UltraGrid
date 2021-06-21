@@ -15,7 +15,7 @@ jobs:
     steps:
     - name: Cache Coverity build tool
       id: cache-coverity-tool
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: '/tmp/cov-analysis'
         key: cache-coverity-tool

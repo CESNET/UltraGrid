@@ -80,10 +80,10 @@ jobs:
            .github/scripts/Linux/prepare.sh
     - name: Cache FFmpeg
       id: cache-ffmpeg
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-12
+        key: cache-ffmpeg-13
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
@@ -148,10 +148,10 @@ jobs:
     - uses: actions/checkout@v1
     - name: Cache Non-Free SDKs
       id: cache-macos-nonfree-sdks
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
-        key: cache-macos-nonfree-sdks-2
+        key: cache-macos-nonfree-sdks-3
     - name: Download Non-Free SDKs
       if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
@@ -162,10 +162,10 @@ jobs:
         $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache Free SDKs
       id: cache-macos-free-sdks
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: '/var/tmp/sdks-free'
-        key: cache-macos-free-sdks
+        key: cache-macos-free-sdks-2
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
       run: |
@@ -233,19 +233,19 @@ jobs:
       run: .github/scripts/Windows/prepare.ps1
     - name: Cache AJA
       id: cache-aja
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: 'C:\AJA'
-        key: cache-aja-4
+        key: cache-aja-5
     - name: Build AJA
       if: steps.cache-aja.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/build_aja.ps1
     - name: Cache JACK
       id: cache-jack
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: 'C:\Program Files\JACK2'
-        key: cache-jack-3
+        key: cache-jack-4
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
@@ -253,10 +253,10 @@ jobs:
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: Cache live555
       id: cache-live555
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: 'C:\live555'
-        key: cache-live555-3
+        key: cache-live555-4
     - name: Build live555
       if: steps.cache-live555.outputs.cache-hit != 'true'
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/build_live555.sh'
