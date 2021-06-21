@@ -15,10 +15,10 @@ jobs:
     steps:
     - name: Cache Coverity build tool
       id: cache-coverity-tool
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: '/tmp/cov-analysis'
-        key: cache-coverity-tool
+        key: cache-coverity-tool-2
     - name: Download Coverity build tool
       if: steps.cache-coverity-tool.outputs.cache-hit != 'true'
       run: |

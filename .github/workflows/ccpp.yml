@@ -78,10 +78,10 @@ jobs:
            .github/scripts/Linux/prepare.sh
     - name: Cache FFmpeg
       id: cache-ffmpeg
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-12
+        key: cache-ffmpeg-13
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
@@ -135,10 +135,10 @@ jobs:
         submodules: true
     - name: Cache SDKs
       id: cache-macos-sdks
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: '/var/tmp/sdks'
-        key: cache-macos-sdks-2
+        key: cache-macos-sdks-3
     - name: Download SDKs
       if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
@@ -146,10 +146,10 @@ jobs:
         curl -S -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMaster_SDK_MacOSX.zip -O $SDK_URL/NDISDK_Apple.pkg
     - name: Cache Free SDKs
       id: cache-macos-free-sdks
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: '/var/tmp/sdks-free'
-        key: cache-macos-free-sdks
+        key: cache-macos-free-sdks-2
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdk.outputs.cache-hit != 'true'
       run: |
@@ -218,28 +218,28 @@ jobs:
       run: .github/scripts/Windows/prepare.ps1
     - name: Cache AJA
       id: cache-aja
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: 'C:\AJA'
-        key: cache-aja-2
+        key: cache-aja-3
     - name: Build AJA
       if: steps.cache-aja.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/build_aja.ps1
     - name: Cache JACK
       id: cache-jack
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: 'C:\Program Files (x86)\Jack'
-        key: cache-jack-2
+        key: cache-jack-3
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
     - name: Cache live555
       id: cache-live555
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: 'C:\live555'
-        key: cache-live555
+        key: cache-live555-2
     - name: Build live555
       env:
         CC: gcc
