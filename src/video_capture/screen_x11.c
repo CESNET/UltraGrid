@@ -176,6 +176,7 @@ static void *grab_thread(void *args)
                         XFixesGetCursorImage (s->dpy);
 #endif // HAVE_XFIXES
                 new_item->data = XGetImage(s->dpy,s->root, 0,0, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
+                assert(new_item->data != NULL);
 
 #ifdef HAVE_XFIXES
                 if (cursor) {
