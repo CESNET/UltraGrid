@@ -1,5 +1,7 @@
 name: C/C++ CI
 
+# TODO: cache keys should contain resource ETag (curl -LI <URL>) to see, if upstream has changed (see also get-date in https://github.com/actions/cache#creating-a-cache-key)
+
 on:
   push:
     branches:
@@ -81,7 +83,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-13
+        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/download_build_ffmpeg.sh') }}
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
@@ -138,7 +140,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '/var/tmp/sdks'
-        key: cache-macos-sdks-3
+        key: cache-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare.sh') }}
     - name: Download SDKs
       if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
@@ -149,12 +151,10 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '/var/tmp/sdks-free'
-        key: cache-macos-free-sdks-2
+        key: cache-free-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_free_sdks.sh') }}
     - name: Download Free SDKs
-      if: steps.cache-macos-free-sdk.outputs.cache-hit != 'true'
-      run: |
-        mkdir /var/tmp/sdks-free && cd /var/tmp/sdks-free
-        curl -S -LO https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg
+      if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
+      run: $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_free_sdks.sh
     - name: bootstrap
       run: |
         . .github/scripts/environment.sh
@@ -221,7 +221,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'C:\AJA'
-        key: cache-aja-3
+        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_aja.ps1') }}
     - name: Build AJA
       if: steps.cache-aja.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/build_aja.ps1
@@ -229,8 +229,8 @@ jobs:
       id: cache-jack
       uses: actions/cache@v2
       with:
-        path: 'C:\Program Files (x86)\Jack'
-        key: cache-jack-3
+        path: 'C:\Program Files\JACK2'
+        key: cache-jack-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_jack.ps1') }}
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
@@ -239,7 +239,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'C:\live555'
-        key: cache-live555-2
+        key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_live555.sh') }}
     - name: Build live555
       env:
         CC: gcc
