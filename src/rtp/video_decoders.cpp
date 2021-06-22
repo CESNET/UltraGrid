@@ -608,7 +608,7 @@ static void *decompress_worker(void *data)
 }
 
 static int *get_pitches(struct video_frame *f, int *pitches) {
-        if (f->render_packet.dx_row_pitch == 0) {
+        if (f->render_packet.dx_row_pitch == 0 || f->render_packet.dx_row_pitch_uv == 0) {
                 return nullptr;
         }
         if (f->color_spec == I420 || f->color_spec == CUDA_I420) {

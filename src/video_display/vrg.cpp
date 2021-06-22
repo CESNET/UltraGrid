@@ -67,6 +67,7 @@
 #include "video.h"
 #include "video_display.h"
 
+#define IS_I420(c) (c == I420 || c == CUDA_I420)
 #define MAX_QUEUE_SIZE 1
 #define MOD_NAME "[VRG] "
 #define MAGIC_VRG to_fourcc('V', 'R', 'G', ' ')
@@ -260,7 +261,7 @@ static void display_vrg_run(void *state)
                         if (render_packet.pix_width_eye <= 0 || render_packet.pix_height_eye <= 0 ||
                                         render_packet.pix_width_eye > 7680 || render_packet.pix_height_eye > 4320) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong RenderPacket dimensions: " << render_packet << "\n";
-                        } else if (2U * render_packet.pix_width_eye > render_packet.dx_row_pitch || static_cast<unsigned>(render_packet.pix_width_eye) > render_packet.dx_row_pitch_uv) {
+                        } else if (IS_I420(f->color_spec) && (2U * render_packet.pix_width_eye > render_packet.dx_row_pitch || static_cast<unsigned>(render_packet.pix_width_eye) > render_packet.dx_row_pitch_uv)) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong RenderPacket (width>pitch): " << render_packet << "\n";
                         } else if (render_packet.dx_row_pitch > render_packet.pix_width_eye * 2U + PADDING ||
                                         render_packet.dx_row_pitch_uv > render_packet.pix_width_eye + PADDING / 2U) {
