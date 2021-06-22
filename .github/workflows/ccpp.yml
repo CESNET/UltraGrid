@@ -4,8 +4,6 @@ env:
   FEATURES: '--enable-option-checking=fatal --with-live555=/usr/local --enable-blank --enable-cineform --enable-decklink --enable-file --enable-gl --enable-jack --enable-jack-transport --enable-libavcodec --enable-natpmp --enable-openssl --enable-pcp --enable-portaudio --enable-qt --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-sdl2 --enable-sdp-http --enable-speexdsp --enable-swmix --enable-libswscale --enable-text --enable-video-mixer --enable-ximea --enable-zfec'
   CUDA_FEATURES: '--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy'
 
-# TODO: cache keys should contain resource ETag (curl -LI <URL>) to see, if upstream has changed (see also get-date in https://github.com/actions/cache#creating-a-cache-key)
-
 on:
   push:
     branches:
@@ -148,12 +146,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Fetch SDKs ETags
+      id: etags
+      run: |
+        echo "::set-output name=free::$($GITHUB_WORKSPACE/.github/scripts/macOS/prepare_free_sdks.sh -e)"
+        echo "::set-output name=nonfree::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkmac.zip $SDK_URL/VideoMaster_SDK_MacOSX.zip $SDK_URL/NDISDK_Apple.pkg)"
     - name: Cache Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@v2
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
-        key: cache-nonfree-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_nonfree_sdks.sh') }}
+        key: cache-nonfree-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_nonfree_sdks.sh') }}-${{ steps.etags.outputs.nonfree }}
     - name: Download Non-Free SDKs
       if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
@@ -167,7 +170,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '/var/tmp/sdks-free'
-        key: cache-free-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_free_sdks.sh') }}
+        key: cache-free-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_free_sdks.sh') }}-${{ steps.etags.outputs.free }}
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
       run: $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_free_sdks.sh
@@ -223,6 +226,11 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: Fetch SDKs ETags
+      id: etags
+      run:
+        echo "::set-output name=aja::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkwin.zip)"
+      shell: bash
     - name: Set environment
       run: .github/scripts/environment.sh
       shell: bash
@@ -235,7 +243,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'C:\AJA'
-        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_aja.ps1') }}
+        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_aja.ps1') }}-${{ steps.etags.outputs.aja }}
     - name: Build AJA
       if: steps.cache-aja.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/build_aja.ps1
