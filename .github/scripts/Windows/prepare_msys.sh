@@ -20,10 +20,10 @@ if test -d /c/Program\ Files/NewTek; then
         export LIBRARY_PATH=$LIBRARY_PATH:$NDI_D/Lib/x64
 fi
 
-JACK_D=/c/Program\ Files\ \(x86\)/Jack
+JACK_D=/c/Program\ Files/JACK2
 if test -d "$JACK_D"; then
         export PATH=$PATH:$JACK_D/bin
-        export CPATH=$CPATH:$JACK_D/includes
+        export CPATH=$CPATH:$JACK_D/include
         export LIBRARY_PATH=$LIBRARY_PATH:$JACK_D/lib
 fi
 
@@ -64,11 +64,6 @@ if [ -n "$SDK_URL" ]; then
         cd ..
         rm -rf VideoMaster
 fi
-
-# Install live555
-cd /c/live555
-make install
-cd -
 
 # Install SPOUT
 wget --no-verbose https://frakira.fi.muni.cz/~xpulec/SpoutSDK.zip # this is the SDK subdirectory installed by Spout installer

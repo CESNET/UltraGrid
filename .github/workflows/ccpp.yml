@@ -1,6 +1,8 @@
 name: C/C++ CI
 
-# TODO: cache keys should contain resource ETag (curl -LI <URL>) to see, if upstream has changed (see also get-date in https://github.com/actions/cache#creating-a-cache-key)
+env:
+  FEATURES: '--enable-option-checking=fatal --with-live555=/usr/local --enable-blank --enable-cineform --enable-decklink --enable-file --enable-gl --enable-jack --enable-jack-transport --enable-libavcodec --enable-openssl --enable-portaudio --enable-qt --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-sdl2 --enable-sdp-http --enable-swmix --enable-libswscale --enable-text --enable-video-mixer --enable-ximea'
+  CUDA_FEATURES: '--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy'
 
 on:
   push:
@@ -72,8 +74,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-      with:
-        submodules: true
     - name: bootstrap
       run: |
            . .github/scripts/environment.sh
@@ -83,27 +83,39 @@ jobs:
       uses: actions/cache@v2
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/download_build_ffmpeg.sh') }}
+        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/download_build_ffmpeg.sh,.github/scripts/Linux/ffmpeg-patches/*') }}
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
     - name: Install FFmpeg
       run: .github/scripts/Linux/install_ffmpeg.sh
     - name: configure
-      run: "[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins --with-live555=/usr/local $NDI"
+      run: "./autogen.sh --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa $NDI --enable-v4l2"
     - name: make
       run: make -j4
     - name: make check
       run: make check
     - name: make distcheck
       run: make distcheck
+    - name: check libstdc++ ABI
+      run: .github/scripts/Linux/check_abi.sh 2.23 3.4.21 1.3.9 bin/* lib/ultragrid/*
     - name: Create AppImage
       run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/UltraGrid-$VERSION-x86_64.AppImage.zsync` && mv $APPIMAGE UltraGrid-$VERSION-x86_64.AppImage
+    - name: Check AppImage
+      run: |
+        docker build -f .github/scripts/Linux/utils/Dockerfile.ubuntu-16.04 -t aitest-ubuntu-16.04 .
+        curl -LS -O https://raw.githubusercontent.com/AppImage/pkg2appimage/master/appdir-lint.sh -O https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+        sudo apt install desktop-file-utils libfile-mimeinfo-perl # desktop-file-validate, mimetype
+        ./UltraGrid-$VERSION-x86_64.AppImage --appimage-extract
+        docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu-16.04 /AppImage/AppRun -v
+        docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu-16.04 /AppImage/AppRun --tool uv-qt -h
+        docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu-16.04 /AppImage/AppRun --list-modules
+        bash appdir-lint.sh squashfs-root
     - name: Upload NDI Build
       id: upload-ndi
-      if: github.ref == 'refs/heads/ndi-build'
       env:
-        SSH_KEY: ${{ secrets.SSH_KEY }}
+        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
       run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload Release Asset
       id: upload-release
@@ -127,31 +139,38 @@ jobs:
     needs: prepare
     runs-on: macos-latest
     env:
+      SDK_NONFREE_PATH: /var/tmp/sdks-nonfree
       altool_credentials: ${{ secrets.altool_credentials }}
       apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
     - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: Cache SDKs
-      id: cache-macos-sdks
+    - name: Fetch SDKs ETags
+      id: etags
+      run: |
+        echo "::set-output name=free::$($GITHUB_WORKSPACE/.github/scripts/macOS/prepare_free_sdks.sh -e)"
+        echo "::set-output name=nonfree::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkmac.zip $SDK_URL/VideoMaster_SDK_MacOSX.zip $SDK_URL/NDISDK_Apple.pkg)"
+    - name: Cache Non-Free SDKs
+      id: cache-macos-nonfree-sdks
       uses: actions/cache@v2
       with:
-        path: '/var/tmp/sdks'
-        key: cache-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare.sh') }}
-    - name: Download SDKs
-      if: steps.cache-macos-sdk.outputs.cache-hit != 'true' && env.SDK_URL != null
+        path: ${{ env.SDK_NONFREE_PATH }}
+        key: cache-nonfree-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_nonfree_sdks.sh') }}-${{ steps.etags.outputs.nonfree }}
+    - name: Download Non-Free SDKs
+      if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != 'true' && env.SDK_URL != null
       run: |
-        mkdir /var/tmp/sdks && cd /var/tmp/sdks
-        curl -S -O $SDK_URL/ntv2sdkmac.zip -O $SDK_URL/VideoMaster_SDK_MacOSX.zip -O $SDK_URL/NDISDK_Apple.pkg
+        rm -rf ${{ env.SDK_NONFREE_PATH }}
+        mkdir -p ${{ env.SDK_NONFREE_PATH }}
+        cd ${{ env.SDK_NONFREE_PATH }}
+        curl -S -f -O $SDK_URL/ntv2sdkmac.zip --next -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip --next -f -O $SDK_URL/NDISDK_Apple.pkg || true
+        $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache Free SDKs
       id: cache-macos-free-sdks
       uses: actions/cache@v2
       with:
         path: '/var/tmp/sdks-free'
-        key: cache-free-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_free_sdks.sh') }}
+        key: cache-free-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_free_sdks.sh') }}-${{ steps.etags.outputs.free }}
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
       run: $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_free_sdks.sh
@@ -160,7 +179,7 @@ jobs:
         . .github/scripts/environment.sh
         .github/scripts/macOS/prepare.sh
     - name: configure
-      run: "export ARCH=-msse4.2; [ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt --with-live555=/usr/local $NDI"
+      run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio $NDI --enable-syphon"
     - name: make bundle
       run: make -j4 gui-bundle
     - name: sign+notarize
@@ -174,13 +193,13 @@ jobs:
     - name: make distcheck
       run: |
         for n in lib opt; do sudo mv /usr/local/$n /usr/local/$n-; done # hide local libs
-        make distcheck TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv GUI_EXE=gui/QT/uv-qt.app/Contents/MacOS/uv-qt
+        make distcheck TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv REFLECTOR_TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv GUI_EXE=gui/QT/uv-qt.app/Contents/MacOS/uv-qt
         for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
     - name: Upload NDI Build
       id: upload-ndi
-      if: github.ref == 'refs/heads/ndi-build'
       env:
-        SSH_KEY: ${{ secrets.SSH_KEY }}
+        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
       run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION.dmg
     - name: Upload Release Asset
       id: upload-release
@@ -207,8 +226,11 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
-      with:
-        submodules: false
+    - name: Fetch SDKs ETags
+      id: etags
+      run:
+        echo "::set-output name=aja::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkwin.zip)"
+      shell: bash
     - name: Set environment
       run: .github/scripts/environment.sh
       shell: bash
@@ -221,7 +243,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: 'C:\AJA'
-        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_aja.ps1') }}
+        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_aja.ps1') }}-${{ steps.etags.outputs.aja }}
     - name: Build AJA
       if: steps.cache-aja.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/build_aja.ps1
@@ -234,6 +256,8 @@ jobs:
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
+    - name: bootsrap MSYS2
+      run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: Cache live555
       id: cache-live555
       uses: actions/cache@v2
@@ -241,15 +265,12 @@ jobs:
         path: 'C:\live555'
         key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_live555.sh') }}
     - name: Build live555
-      env:
-        CC: gcc
-        CXX: g++
       if: steps.cache-live555.outputs.cache-hit != 'true'
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/build_live555.sh'
-    - name: bootsrap MSYS2
-      run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
+    - name: Install live555
+      run: C:\msys64\usr\bin\bash -cel 'make -C /c/live555 install'
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel '[ ${{ github.ref }} != refs/heads/ndi-build ] && NDI=-disable-ndi; ./autogen.sh --enable-qt $NDI --with-live555=/usr/local'
+      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-dshow $NDI --enable-spout --enable-wasapi'
     - name: make
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
@@ -259,19 +280,19 @@ jobs:
         C:\msys64\usr\bin\bash -cel '
           cp gui/QT/uv-qt.exe bin
           rm bin/run_tests.exe
-          IFS=\"|\"; for exe in bin/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" bin; done; done
-          windeployqt bin/uv-qt.exe
-          cp data/update.ps1 bin
-          mkdir build
-          mv bin build/UltraGrid-$VERSION-win64'
+          export DESTDIR=build/UltraGrid-$VERSION-win64
+          make install
+          IFS=\"|\"; for exe in $DESTDIR/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" $DESTDIR; done; done
+          windeployqt $DESTDIR/uv-qt.exe
+          cp data/update.ps1 $DESTDIR'
     - name: make dist-check
       run: C:\msys64\usr\bin\bash -cel 'PATH=
-        /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe'
+        /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe REFLECTOR_TARGET=build/UltraGrid-$VERSION-win64/hd-rum-transcode.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe'
     - name: Upload NDI Build
       id: upload-ndi
-      if: github.ref == 'refs/heads/ndi-build'
       env:
-        SSH_KEY: ${{ secrets.SSH_KEY }}
+        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
+      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
       run: |
         C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
           $GITHUB_WORKSPACE/.github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-win64.zip'
