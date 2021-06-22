@@ -1,5 +1,9 @@
 #Set-PSDebug -Trace 1
 
+if (Test-Path 'C:\Program Files\JACK2') {
+  Remove-Item -Recurse 'C:\Program Files\JACK2'
+}
+
 choco install -y --no-progress jack
 
 # The lib is moved to the JACK library for 2 reasons:

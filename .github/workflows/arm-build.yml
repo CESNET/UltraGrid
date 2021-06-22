@@ -35,6 +35,7 @@ jobs:
       if: steps.cache-bootstrap.outputs.cache-hit != 'true'
       run: |
         sudo apt install debootstrap debian-archive-keyring
+        sudo rm -rf ~/chroot
         sudo mkdir ~/chroot
         wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
         sudo qemu-debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} buster ~/chroot ${{ matrix.repo }}

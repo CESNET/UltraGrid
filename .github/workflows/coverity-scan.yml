@@ -23,6 +23,7 @@ jobs:
       if: steps.cache-coverity-tool.outputs.cache-hit != 'true'
       run: |
         cd /tmp
+        rm -rf cov-analysis
         wget --no-verbose https://scan.coverity.com/download/linux64 --post-data "token=$coverity_token&project=UltraGrid" -O coverity_tool.tgz
         tar xaf coverity_tool.tgz
         mv /tmp/cov-analysis* /tmp/cov-analysis

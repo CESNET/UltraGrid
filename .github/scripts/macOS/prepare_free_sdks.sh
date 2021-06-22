@@ -7,6 +7,7 @@ if [ $# -ge 1 ] && [ x$1 = x-e ]; then
         exit 0
 fi
 
+rm -rf /var/tmp/sdks-free
 mkdir -p /var/tmp/sdks-free
 cd /var/tmp/sdks-free
 curl -S -LO $XIMEA_DOWNLOAD_URL
