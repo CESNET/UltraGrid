@@ -252,6 +252,7 @@ typedef struct {
         int filter_my_packets;
         int reuse_bufs;
         int record_source;
+        int send_back;
 } options;
 
 /*
@@ -978,6 +979,7 @@ static void init_opt(struct rtp *session)
         rtp_set_option(session, RTP_OPT_FILTER_MY_PACKETS, FALSE);
         rtp_set_option(session, RTP_OPT_REUSE_PACKET_BUFS, FALSE);
         rtp_set_option(session, RTP_OPT_RECORD_SOURCE, FALSE);
+        rtp_set_option(session, RTP_OPT_SEND_BACK, FALSE);
 }
 
 static void init_rng(const char *s)
@@ -1365,6 +1367,12 @@ int rtp_set_option(struct rtp *session, rtp_option optname, int optval)
         case RTP_OPT_RECORD_SOURCE:
                 session->opt->record_source = optval;
                 break;
+        case RTP_OPT_SEND_BACK:
+                session->opt->send_back = optval;
+                if (optval) {
+                        session->opt->record_source = TRUE;
+                }
+                break;
         default:
                 debug_msg
                     ("Ignoring unknown option (%d) in call to rtp_set_option().\n",
@@ -1589,6 +1597,13 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 
         if (buflen > 0) {
                 rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
+
+                if (session->opt->send_back && udp_is_blackhole(session->rtp_socket)) {
+                        log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client.\n");
+                        session->opt->send_back = FALSE; // avoid multiple checks if already sending
+                        struct sockaddr_storage *ss = (struct sockaddr_storage *)((char *) packet + RTP_MAX_PACKET_LEN);
+                        udp_set_receiver(session->rtp_socket, (struct sockaddr *) ss, ss->ss_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
+                }
         }
 
         return buflen;
@@ -2792,6 +2807,9 @@ rtp_send_data_hdr(struct rtp *session,
                   char *data, int data_len,
                   char *extn, uint16_t extn_len, uint16_t extn_type)
 {
+        if (session->opt->send_back == TRUE && udp_is_blackhole(session->rtp_socket)) {
+                return FALSE;
+        }
         int vlen, buffer_len, i, rc, pad, pad_len __attribute__((unused));
         uint8_t *buffer = NULL;
         rtp_packet *packet = NULL;

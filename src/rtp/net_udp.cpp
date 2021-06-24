@@ -926,6 +926,18 @@ error:
         return NULL;
 }
 
+static const in6_addr in6_blackhole = IN6ADDR_BLACKHOLE_INIT;
+
+bool udp_is_blackhole(socket_udp *s) {
+        return s->sock.ss_family == AF_INET6 &&
+                        memcmp(&((struct sockaddr_in6 *) &s->sock)->sin6_addr, &in6_blackhole, IN6_BLACKHOLE_PREFIX_LEN) == 0;
+}
+
+void udp_set_receiver(socket_udp *s, struct sockaddr *sa, socklen_t len) {
+        memcpy(&s->sock, sa, len);
+        s->sock_len = len;
+}
+
 socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len)
 {
         if ((sa->sa_family == AF_INET && l->mode != IPv4) ||
@@ -939,8 +951,7 @@ socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa,
         s->local = l;
         s->local_is_slave = true;
 
-        memcpy(&s->sock, sa, len);
-        s->sock_len = len;
+        udp_set_receiver(s, sa, len);
 
         return s;
 }

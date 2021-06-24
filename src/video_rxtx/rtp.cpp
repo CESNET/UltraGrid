@@ -65,6 +65,7 @@
 #include "transmit.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
+#include "utils/net.h" // IN6_BLACKHOLE_STR
 #include "utils/vf_split.h"
 #include "video.h"
 #include "video_compress.h"
@@ -351,6 +352,10 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                 rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
                         RTCP_SDES_TOOL,
                         PACKAGE_STRING, strlen(PACKAGE_STRING));
+                if (strcmp(addr, IN6_BLACKHOLE_STR) == 0) {
+                        rtp_set_option(devices[index], RTP_OPT_SEND_BACK,
+                                        TRUE);
+                }
 
                 int size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
                 int ret = rtp_set_recv_buf(devices[index], INITIAL_VIDEO_RECV_BUFFER_SIZE);

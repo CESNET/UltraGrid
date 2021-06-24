@@ -47,6 +47,10 @@
 #include <stdint.h>
 #endif // __cplusplus
 
+#define IN6ADDR_BLACKHOLE_INIT { { { 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } } // RFC 6666
+#define IN6_BLACKHOLE_PREFIX_LEN 8
+#define IN6_BLACKHOLE_STR "100::1"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

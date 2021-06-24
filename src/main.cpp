@@ -661,7 +661,7 @@ int main(int argc, char *argv[])
         struct exporter *exporter = NULL;
 
         long long int bitrate = RATE_DEFAULT;
-
+        bool is_client = false;
         int audio_rxtx_mode = 0, video_rxtx_mode = 0;
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
@@ -711,10 +711,12 @@ int main(int argc, char *argv[])
                 {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
                 {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
                 {"nat-traverse", optional_argument, nullptr, 'N'},
+                {"client", no_argument, nullptr, 'C'},
+                {"server", no_argument, nullptr, 'S'},
                 {"ttl", required_argument, nullptr, 'T'},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "d:t:m:r:s:v46c:hM:N::p:f:P:l:A:VT:";
+        const char *optstring = "Cd:t:m:r:s:v46c:hM:N::p:f:P:l:A:VST:";
 
         const char *audio_protocol = "ultragrid_rtp";
         const char *audio_protocol_opts = "";
@@ -1077,6 +1079,12 @@ int main(int argc, char *argv[])
                 case 'N':
                         nat_traverse_config = optarg == nullptr ? "" : optarg;
                         break;
+                case 'C':
+                        is_client = true;
+                        break;
+                case 'S':
+                        requested_receiver = IN6_BLACKHOLE_STR;
+                        break;
                 case 'T':
                         requested_ttl = stoi(optarg);
                         if (requested_ttl < -1 || requested_ttl >= 255) {
@@ -1102,6 +1110,27 @@ int main(int argc, char *argv[])
 
         if (argc > 0) {
                 requested_receiver = argv[0];
+        }
+
+        if (strcmp(requested_receiver, IN6_BLACKHOLE_STR) == 0) { // server mode
+                commandline_params["udp-disable-multi-socket"] = string();
+                if (argc > 0) {
+                        LOG(LOG_LEVEL_ERROR) << "Receiver must not be given in server mode!\n";
+                        EXIT(EXIT_FAIL_USAGE);
+                }
+                if (strcmp(requested_display, "none") == 0) {
+                        requested_display = "dummy";
+                }
+        }
+        if (is_client) {
+                commandline_params["udp-disable-multi-socket"] = string();
+                if (argc == 0) {
+                        LOG(LOG_LEVEL_ERROR) << "Server address required in client mode!\n";
+                        EXIT(EXIT_FAIL_USAGE);
+                }
+                if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) == 0) {
+                        vidcap_params_set_device(vidcap_params_tail, "testcard:2:1:5:UYVY");
+                }
         }
 
         if (!audio_host) {

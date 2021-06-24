@@ -108,6 +108,8 @@ int         udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVE
 
 struct socket_udp_local *udp_get_local(socket_udp *s);
 socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa, socklen_t len);
+void udp_set_receiver(socket_udp *s, struct sockaddr *sa, socklen_t len);
+bool udp_is_blackhole(socket_udp *s);
 
 /*************************************************************************************************/
 #if defined(__cplusplus)

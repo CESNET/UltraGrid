@@ -218,8 +218,10 @@ typedef enum {
 	RTP_OPT_REUSE_PACKET_BUFS = 4,	/* Each data packet is written into the same buffer, */
 	                                /* rather than malloc()ing a new buffer each time.   */
 	RTP_OPT_PEEK              = 5,
-	RTP_OPT_RECORD_SOURCE     = 6   /* Record network source (sockaddr_storage) at the   */
+	RTP_OPT_RECORD_SOURCE     = 6,  /* Record network source (sockaddr_storage) at the   */
                                         /* end of the packet                                 */
+	RTP_OPT_SEND_BACK         = 7,  // Send to a receiver that is sending to us. Sets also
+                                        // RTP_POT_RECORD_SOURCE
 } rtp_option;
 
 struct socket_udp_local;
