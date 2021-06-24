@@ -123,7 +123,9 @@ AC_MSG_RESULT($system);
 AC_SUBST(system)
 
 if test $build != $host; then
-        cross_compile=yes
+        cross_compile=yes # don't confuse with autoconf's $cross_compiling - ours is more correct
+                          # because $cross_compiling=no if we are cross-compiling but are able to
+                          # execute the compiled binary (eg. using wine-binfmt)
 else
         cross_compile=no
 fi
@@ -1268,7 +1270,7 @@ PKG_CHECK_MODULES([GLM], [glm], [FOUND_GLM=yes], [FOUND_GLM=no])
 if test $FOUND_GLM = yes; then
         GLM_INC=$GLM_CFLAGS
         glm=yes
-else
+elif test $cross_compile = no; then
         AC_CHECK_FILE([$GLM_DIR/glm/glm.hpp], [found_glm_hpp=yes], [found_glm_hpp=no])
         if test $found_glm_hpp = yes; then
                 glm=yes
@@ -2509,7 +2511,10 @@ AC_ARG_ENABLE(zfec,
               AS_HELP_STRING([--disable-zfec], [disable zfec (default is auto)]),
               [zfec_req=$enableval],
               [zfec_req=$build_default])
-AC_CHECK_FILES([$srcdir/ext-deps/zfec/zfec/fec.c $srcdir/ext-deps/zfec/zfec/fec.h], [found_zfec=yes], [found_zfec=no])
+found_zfec=no
+if test $cross_compile = no; then
+        AC_CHECK_FILES([$srcdir/ext-deps/zfec/zfec/fec.c $srcdir/ext-deps/zfec/zfec/fec.h], [found_zfec=yes])
+fi
 
 if test "$found_zfec" = yes -a "$zfec_req" != no; then
         OBJS="$OBJS ext-deps/zfec/zfec/fec.o"
