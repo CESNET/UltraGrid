@@ -1120,7 +1120,7 @@ else
                 XI_LIB_PREF="lib"
                 XIMEA_CFLAGS="-I$XIAPI_PATH/../include"
         else
-                if test -n "$GENICAM_GENTL64_PATH"; then
+                if test -d "$GENICAM_GENTL64_PATH/../../API/xiAPI"; then
                         # the env var contains actually something like "C:\XIMEA\GenTL Producer\64bit"
                         XIAPI_PATH=$(realpath "$GENICAM_GENTL64_PATH/../../API/xiAPI")
                 else
