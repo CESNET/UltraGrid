@@ -157,7 +157,6 @@ struct socket_udp_local {
         bool is_wsa_overlapped;
 #endif
 
-
         // for multithreaded receiving
         pthread_t thread_id;
         queue<struct item> packets;
@@ -1109,12 +1108,13 @@ static void *udp_reader(void *arg)
                 if (FD_ISSET(s->local->should_exit_fd[0], &fds)) {
                         break;
                 }
-                uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
+                uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN + sizeof(struct sockaddr_storage));
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
 
+                socklen_t addrlen = sizeof(struct sockaddr_storage);
                 int size = recvfrom(s->local->rx_fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
-                                0, 0, 0);
+                                0, (struct sockaddr *)(packet + RTP_MAX_PACKET_LEN), &addrlen);
 
                 if (size <= 0) {
                         /// @todo

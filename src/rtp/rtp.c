@@ -1363,7 +1363,6 @@ int rtp_set_option(struct rtp *session, rtp_option optname, int optval)
                 session->opt->reuse_bufs = optval;
                 break;
         case RTP_OPT_RECORD_SOURCE:
-                assert(optval == FALSE || (!session->mt_recv && "Recording source not allowed in multithreaded mode!"));
                 session->opt->record_source = optval;
                 break;
         default:
