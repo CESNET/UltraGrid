@@ -2511,14 +2511,25 @@ AC_ARG_ENABLE(zfec,
               AS_HELP_STRING([--disable-zfec], [disable zfec (default is auto)]),
               [zfec_req=$enableval],
               [zfec_req=$build_default])
+AC_ARG_WITH(zfec,
+        AS_HELP_STRING([--with-zfec], [path to zfec sources]),
+        [ZFEC_PREFIX=$withval],
+        [ZFEC_PREFIX=$srcdir/ext-deps/zfec/zfec]
+)
 found_zfec=no
 if test $cross_compile = no; then
-        AC_CHECK_FILES([$srcdir/ext-deps/zfec/zfec/fec.c $srcdir/ext-deps/zfec/zfec/fec.h], [found_zfec=yes])
+        AC_CHECK_FILES([$ZFEC_PREFIX/fec.c $ZFEC_PREFIX/fec.h], [found_zfec=yes])
+        if test $found_zfec = no; then
+                ZFEC_PREFIX=/usr/lib/python3/dist-packages/zfec
+                AC_CHECK_FILES([$ZFEC_PREFIX/fec.c $ZFEC_PREFIX/fec.h], [found_zfec=yes])
+        fi
 fi
 
 if test "$found_zfec" = yes -a "$zfec_req" != no; then
-        OBJS="$OBJS ext-deps/zfec/zfec/fec.o"
+        OBJS="$OBJS src/zfec.o"
+        COMMON_FLAGS="$COMMON_FLAGS -I$ZFEC_PREFIX"
         AC_DEFINE([HAVE_ZFEC], [1], [Build with zfec support])
+        AC_SUBST(ZFEC_PREFIX)
         zfec=yes
 elif test "$zfec_req" = yes; then
         AC_MSG_ERROR([Zfec not found]);

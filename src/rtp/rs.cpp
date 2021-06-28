@@ -60,7 +60,7 @@ extern "C" {
 #ifndef _MSC_VER
 #define restrict __restrict
 #endif
-#include "ext-deps/zfec/zfec/fec.h"
+#include <fec.h>
 }
 #endif
 

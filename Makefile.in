@@ -280,7 +280,7 @@ ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp $(ALL_INCLUDES)
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -c $< -o $@
 
-ext-deps/zfec/zfec/fec.o: ext-deps/zfec/zfec/fec.c
+src/zfec.o: @ZFEC_PREFIX@/fec.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Wno-old-style-declaration -Wno-missing-declarations -Wno-missing-prototypes -Wno-sign-compare $(INC) -c $< -o $@
 
