@@ -335,26 +335,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                                 send_port, ttl, rtcp_bw, FALSE,
                                 rtp_recv_callback, (uint8_t *)participants,
                                 force_ip_version, multithreaded);
-                if (devices[index] != NULL) {
-                        rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
-                                TRUE);
-                        rtp_set_option(devices[index], RTP_OPT_PROMISC,
-                                TRUE);
-                        rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
-                                RTCP_SDES_TOOL,
-                                PACKAGE_STRING, strlen(PACKAGE_STRING));
-
-                        int size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
-                        int ret = rtp_set_recv_buf(devices[index], INITIAL_VIDEO_RECV_BUFFER_SIZE);
-                        if(!ret) {
-                                display_buf_increase_warning(size);
-                        }
-
-                        rtp_set_send_buf(devices[index], INITIAL_VIDEO_SEND_BUFFER_SIZE);
-
-                        pdb_add(participants, rtp_my_ssrc(devices[index]));
-                }
-                else {
+                if (devices[index] == nullptr) {
                         int index_nest;
                         for(index_nest = 0; index_nest < index; ++index_nest) {
                                 rtp_done(devices[index_nest]);
@@ -363,6 +344,23 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                         free(tmp);
                         return NULL;
                 }
+                rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
+                        TRUE);
+                rtp_set_option(devices[index], RTP_OPT_PROMISC,
+                        TRUE);
+                rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
+                        RTCP_SDES_TOOL,
+                        PACKAGE_STRING, strlen(PACKAGE_STRING));
+
+                int size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
+                int ret = rtp_set_recv_buf(devices[index], INITIAL_VIDEO_RECV_BUFFER_SIZE);
+                if (ret != 0) {
+                        display_buf_increase_warning(size);
+                }
+
+                rtp_set_send_buf(devices[index], INITIAL_VIDEO_SEND_BUFFER_SIZE);
+
+                pdb_add(participants, rtp_my_ssrc(devices[index]));
         }
         if(devices != NULL) devices[index] = NULL;
         free(tmp);
