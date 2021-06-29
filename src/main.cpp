@@ -1118,10 +1118,10 @@ int main(int argc, char *argv[])
                         LOG(LOG_LEVEL_ERROR) << "Receiver must not be given in server mode!\n";
                         EXIT(EXIT_FAIL_USAGE);
                 }
-                if (strcmp(requested_display, "none") == 0) {
+                if (strcmp(requested_display, "none") == 0 && strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0) {
                         requested_display = "dummy";
                 }
-                if (strcmp(audio_recv, "none") == 0) {
+                if (strcmp(audio_recv, "none") == 0 && strcmp(audio_send, "none") != 0) {
                         audio_recv = "dummy";
                 }
         }
@@ -1131,10 +1131,10 @@ int main(int argc, char *argv[])
                         LOG(LOG_LEVEL_ERROR) << "Server address required in client mode!\n";
                         EXIT(EXIT_FAIL_USAGE);
                 }
-                if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) == 0) {
+                if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) == 0 && strcmp(requested_display, "none") != 0) {
                         vidcap_params_set_device(vidcap_params_tail, "testcard:2:1:5:UYVY");
                 }
-                if (strcmp("none", audio_send) == 0) {
+                if (strcmp("none", audio_send) == 0 && strcmp("none", audio_recv) != 0) {
                         parse_audio_capture_format("sample_rate=5");
                         audio_send = "testcard:frames=1";
                 }
