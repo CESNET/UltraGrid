@@ -1597,13 +1597,6 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 
         if (buflen > 0) {
                 rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
-
-                if (session->opt->send_back && udp_is_blackhole(session->rtp_socket)) {
-                        session->opt->send_back = FALSE; // avoid multiple checks if already sending
-                        struct sockaddr *sa = (struct sockaddr *)((char *) packet + RTP_MAX_PACKET_LEN);
-                        log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client %s.\n", get_sockaddr_str(sa));
-                        udp_set_receiver(session->rtp_socket, sa, sa->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
-                }
         }
 
         return buflen;
@@ -1622,6 +1615,13 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
                         (session->decrypt_func) (session, buffer, buflen,
                                                  initVec);
+                }
+
+                if (session->opt->send_back && udp_is_blackhole(session->rtp_socket)) {
+                        session->opt->send_back = FALSE; // avoid multiple checks if already sending
+                        struct sockaddr *sa = (struct sockaddr *)((char *) packet + RTP_MAX_PACKET_LEN);
+                        log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client %s.\n", get_sockaddr_str(sa));
+                        udp_set_receiver(session->rtp_socket, sa, sa->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
                 }
 
                 /* figure out header lenght based on tfrc_on */
@@ -2807,9 +2807,6 @@ rtp_send_data_hdr(struct rtp *session,
                   char *data, int data_len,
                   char *extn, uint16_t extn_len, uint16_t extn_type)
 {
-        if (session->opt->send_back == TRUE && udp_is_blackhole(session->rtp_socket)) {
-                return FALSE;
-        }
         int vlen, buffer_len, i, rc, pad, pad_len __attribute__((unused));
         uint8_t *buffer = NULL;
         rtp_packet *packet = NULL;
@@ -4084,6 +4081,11 @@ int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
                 }
         }
         return 0;
+}
+
+bool rtp_has_receiver(struct rtp *session)
+{
+        return !session->opt->send_back || !udp_is_blackhole(session->rtp_socket);
 }
 
 bool rtp_is_ipv6(struct rtp *session)

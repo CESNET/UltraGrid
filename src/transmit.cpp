@@ -512,6 +512,10 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 unsigned int substream,
                 int fragment_offset)
 {
+        if (!rtp_has_receiver(rtp_session)) {
+                return;
+        }
+
         struct tile *tile = &frame->tiles[substream];
 
         int m, data_len;
@@ -754,6 +758,10 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
  */
 void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer)
 {
+        if (!rtp_has_receiver(rtp_session)) {
+                return;
+        }
+
         int pt; /* PT set for audio in our packet format */
         unsigned int pos = 0u,
                      m = 0u;
