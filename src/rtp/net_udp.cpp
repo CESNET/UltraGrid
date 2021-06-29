@@ -743,7 +743,9 @@ ADD_TO_PARAM("udp-queue-len",
                 "  Use different queue size than default DEFAULT_MAX_UDP_READER_QUEUE_LEN\n");
 #ifdef WIN32
 ADD_TO_PARAM("udp-disable-multi-socket",
-         "* disable separate sockets for RX and TX (Win only)\n");
+                "* udp-disable-multi-socket\n"
+                "  Disable separate sockets for RX and TX (Win only). Separated RX/TX is a workaround\n"
+                "  to some locking issues (thr. in recv() while no data are received and concurr. send()).\n");
 #endif
 /**
  * udp_init_if:
