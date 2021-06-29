@@ -379,3 +379,31 @@ bool is_ipv6_supported(void)
         return true;
 }
 
+const char *get_sockaddr_str(struct sockaddr *sa)
+{
+        _Thread_local static char addr[IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */] = "";
+        unsigned short port = 0;
+        const void *src = NULL;
+        if (sa->sa_family == AF_INET6) {
+                strcpy(addr, "[");
+                src = &((struct sockaddr_in6 *) sa)->sin6_addr;
+                port = ntohs(((struct sockaddr_in6 *) sa)->sin6_port);
+        } else if (sa->sa_family == AF_INET) {
+                src = &((struct sockaddr_in *) sa)->sin_addr;
+                port = ntohs(((struct sockaddr_in *) sa)->sin_port);
+        } else {
+                return "(unknown)";
+        }
+        if (inet_ntop(sa->sa_family, src, addr + strlen(addr), sizeof addr - strlen(addr)) == NULL) {
+                perror("get_sockaddr_str");
+                return "(error)";
+        }
+
+        if (sa->sa_family == AF_INET6) {
+                strcpy(addr + strlen(addr), "]");
+        }
+        sprintf(addr + strlen(addr), ":%hd", port);
+
+        return addr;
+}
+

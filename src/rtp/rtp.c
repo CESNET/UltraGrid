@@ -1599,10 +1599,10 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
                 rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
 
                 if (session->opt->send_back && udp_is_blackhole(session->rtp_socket)) {
-                        log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client.\n");
                         session->opt->send_back = FALSE; // avoid multiple checks if already sending
-                        struct sockaddr_storage *ss = (struct sockaddr_storage *)((char *) packet + RTP_MAX_PACKET_LEN);
-                        udp_set_receiver(session->rtp_socket, (struct sockaddr *) ss, ss->ss_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
+                        struct sockaddr *sa = (struct sockaddr *)((char *) packet + RTP_MAX_PACKET_LEN);
+                        log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client %s.\n", get_sockaddr_str(sa));
+                        udp_set_receiver(session->rtp_socket, sa, sa->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
                 }
         }
 

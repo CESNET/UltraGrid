@@ -47,6 +47,8 @@
 #include <stdint.h>
 #endif // __cplusplus
 
+#define IN6_MAX_ASCII_LEN 39 // 32 nibbles + 7 colons
+
 #define IN6ADDR_BLACKHOLE_INIT { { { 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } } // RFC 6666
 #define IN6_BLACKHOLE_PREFIX_LEN 8
 #define IN6_BLACKHOLE_STR "100::1"
@@ -55,6 +57,7 @@
 extern "C" {
 #endif
 
+struct sockaddr;
 struct sockaddr_storage;
 bool is_addr_linklocal(struct sockaddr *sa);
 bool is_addr_loopback(struct sockaddr *sa);
@@ -64,6 +67,7 @@ bool is_host_loopback(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
 bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version);
 bool is_ipv6_supported(void);
+const char *get_sockaddr_str(struct sockaddr *sa);
 
 #ifdef WIN32
 #define CLOSESOCKET closesocket
