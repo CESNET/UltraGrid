@@ -1121,6 +1121,9 @@ int main(int argc, char *argv[])
                 if (strcmp(requested_display, "none") == 0) {
                         requested_display = "dummy";
                 }
+                if (strcmp(audio_recv, "none") == 0) {
+                        audio_recv = "dummy";
+                }
         }
         if (is_client) {
                 commandline_params["udp-disable-multi-socket"] = string();
@@ -1130,6 +1133,10 @@ int main(int argc, char *argv[])
                 }
                 if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) == 0) {
                         vidcap_params_set_device(vidcap_params_tail, "testcard:2:1:5:UYVY");
+                }
+                if (strcmp("none", audio_send) == 0) {
+                        parse_audio_capture_format("sample_rate=5");
+                        audio_send = "testcard:frames=1";
                 }
         }
 

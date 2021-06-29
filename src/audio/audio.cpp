@@ -84,6 +84,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "pdb.h"
+#include "utils/net.h"
 #include "utils/thread.h"
 #include "utils/worker.h"
 
@@ -519,6 +520,9 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
                 rtp_set_option(r, RTP_OPT_RECORD_SOURCE, TRUE);
                 rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
                              PACKAGE_STRING, strlen(PACKAGE_VERSION));
+                if (strcmp(params->addr, IN6_BLACKHOLE_STR) == 0) {
+                        rtp_set_option(r, RTP_OPT_SEND_BACK, TRUE);
+                }
                 rtp_set_recv_buf(r, DEFAULT_AUDIO_RECV_BUF_SIZE);
         }
 
