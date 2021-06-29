@@ -226,6 +226,7 @@ static void * audio_cap_testcard_init(const char *cfg)
                         DEFAULT_AUDIO_SAMPLE_RATE;
                 s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_AUDIO_BPS;
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
+                assert(s->chunk_size > 0);
                 switch (pattern) {
                 case SINE:
                 case EBU:
