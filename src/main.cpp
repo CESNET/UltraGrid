@@ -665,7 +665,6 @@ struct ug_options {
         const char *video_protocol = "ultragrid_rtp";
         const char *video_protocol_opts = "";
 
-        const char *log_opt = nullptr;
         const char *nat_traverse_config = nullptr;
 
         unsigned int video_rxtx_mode = 0;
@@ -890,26 +889,7 @@ int main(int argc, char *argv[])
 
         struct ug_nat_traverse *nat_traverse = nullptr;
 
-        // First we need to set verbosity level prior to everything else.
-        // common_preinit() uses the verbosity level.
-        while ((ch =
-                getopt_long(argc, argv, optstring, getopt_options,
-                            NULL)) != -1) {
-                switch (ch) {
-                case 'V':
-                        if (optarg) {
-                                opt.log_opt = optarg;
-                        } else {
-                                log_level += 1;
-                        }
-                        break;
-                default:
-                        break;
-                }
-        }
-        optind = 1;
-
-        if ((init = common_preinit(argc, argv, opt.log_opt)) == nullptr) {
+        if ((init = common_preinit(argc, argv)) == nullptr) {
                 log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
                 EXIT(EXIT_FAILURE);
         }
@@ -1209,7 +1189,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'V':
-                        break; // already handled earlier
+                        break; // already handled in common_preinit()
                 case OPT_WINDOW_TITLE:
                         log_msg(LOG_LEVEL_WARNING, "Deprecated option used, please use "
                                         "--param window-title=<title>\n");

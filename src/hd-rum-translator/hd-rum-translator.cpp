@@ -722,7 +722,7 @@ int main(int argc, char **argv)
     int i;
     struct cmdline_parameters params;
 
-    if ((init = common_preinit(argc, argv, nullptr)) == nullptr) {
+    if ((init = common_preinit(argc, argv)) == nullptr) {
         EXIT(EXIT_FAILURE);
     }
 

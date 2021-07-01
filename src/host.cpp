@@ -67,6 +67,7 @@
 
 #include <array>
 #include <chrono>
+#include <getopt.h>
 #include <iomanip>
 #include <iostream>
 #include <list>
@@ -201,20 +202,58 @@ static void load_libgcc()
 #endif
 }
 
-struct init_data *common_preinit(int argc, char *argv[], const char *log_opt)
+static bool parse_set_logging(int argc, char *argv[])
+{
+        char *log_opt = nullptr;
+        static struct option getopt_options[] = {
+                {"verbose", optional_argument, nullptr, 'V'}, { nullptr, 0, nullptr, 0 }
+        };
+        int saved_opterr = opterr;
+        opterr = 0; // options are further handled in main.cpp
+        // modified getopt - process all "argv[0] argv[n]" pairs to avoid permutation
+        // of argv arguments - we do not have the whole option set in optstring, so it
+        // would put optargs to the end ("uv -t testcard -V" -> "uv -t -V testcard")
+        for (int i = 1; i < argc; ++i) {
+                char *my_argv[] = { argv[0], argv[i] };
+
+                int ch = 0;
+                while ((ch = getopt_long(2, my_argv, "V", getopt_options,
+                            NULL)) != -1) {
+                        switch (ch) {
+                        case 'V':
+                                if (optarg) {
+                                        log_opt = optarg;
+                                } else {
+                                        log_level += 1;
+                                }
+                                break;
+                        default:
+                                break;
+                        }
+                }
+                optind = 1;
+        }
+        opterr = saved_opterr;
+
+        bool logger_repeat_msgs = false;
+        int logger_show_timestamps = -1;
+        if (log_opt != nullptr && !set_log_level(log_opt, &logger_repeat_msgs, &logger_show_timestamps)) {
+                return false;
+        }
+        Logger::preinit(!logger_repeat_msgs, logger_show_timestamps);
+        return true;
+}
+
+struct init_data *common_preinit(int argc, char *argv[])
 {
         struct init_data *init;
-        bool logger_repeat_msgs = false;
-        int show_timestamps = -1;
 
         uv_argc = argc;
         uv_argv = argv;
 
-        if (log_opt != nullptr && !set_log_level(log_opt, &logger_repeat_msgs, &show_timestamps)) {
+        if (!parse_set_logging(argc, argv)) {
                 return nullptr;
         }
-
-        Logger::preinit(!logger_repeat_msgs, show_timestamps);
 
 #ifdef HAVE_X
         void *handle = dlopen(X11_LIB_NAME, RTLD_NOW);
