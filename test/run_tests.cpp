@@ -170,7 +170,7 @@ int main(int argc, char **argv)
         }
 
         struct init_data *init = nullptr;
-        if ((init = common_preinit(argc, argv, nullptr)) == nullptr) {
+        if ((init = common_preinit(argc, argv)) == nullptr) {
                 return 2;
         }
 

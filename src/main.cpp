@@ -605,6 +605,9 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
 }
 
 struct ug_options {
+        ug_options() {
+                vidcap_params_set_device(vidcap_params_head, "none");
+        }
         ~ug_options() {
                 while  (vidcap_params_head != nullptr) {
                         struct vidcap_params *next = vidcap_params_get_next(vidcap_params_head);
@@ -669,6 +672,411 @@ struct ug_options {
 
         unsigned int video_rxtx_mode = 0;
 };
+
+static int parse_options(int argc, char *argv[], struct ug_options *opt) {
+        static struct option getopt_options[] = {
+                {"display", required_argument, 0, 'd'},
+                {"capture", required_argument, 0, 't'},
+                {"mtu", required_argument, 0, 'm'},
+                {"mode", required_argument, 0, 'M'},
+                {"version", no_argument, 0, 'v'},
+                {"compress", required_argument, 0, 'c'},
+                {"receive", required_argument, 0, 'r'},
+                {"send", required_argument, 0, 's'},
+                {"help", no_argument, 0, 'h'},
+                {"fec", required_argument, 0, 'f'},
+                {"port", required_argument, 0, 'P'},
+                {"limit-bitrate", required_argument, 0, 'l'},
+                {"audio-channel-map", required_argument, 0, OPT_AUDIO_CHANNEL_MAP},
+                {"audio-scale", required_argument, 0, OPT_AUDIO_SCALE},
+                {"audio-capture-channels", required_argument, 0, OPT_AUDIO_CAPTURE_CHANNELS},
+                {"audio-capture-format", required_argument, 0, OPT_AUDIO_CAPTURE_FORMAT},
+                {"echo-cancellation", no_argument, 0, OPT_ECHO_CANCELLATION},
+                {"fullhelp", no_argument, 0, OPT_FULLHELP},
+                {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
+                {"mcast-if", required_argument, 0, OPT_MCAST_IF},
+                {"record", optional_argument, 0, OPT_EXPORT},
+                {"playback", required_argument, 0, OPT_IMPORT},
+                {"audio-host", required_argument, 0, 'A'},
+                {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
+                {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
+                {"control-port", required_argument, 0, OPT_CONTROL_PORT},
+                {"encryption", required_argument, 0, OPT_ENCRYPTION},
+                {"verbose", optional_argument, nullptr, 'V'},
+                {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
+                {"capabilities", no_argument, 0, OPT_CAPABILITIES},
+                {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
+                {"list-modules", no_argument, 0, OPT_LIST_MODULES},
+                {"start-paused", no_argument, 0, OPT_START_PAUSED},
+                {"audio-protocol", required_argument, 0, OPT_AUDIO_PROTOCOL},
+                {"video-protocol", required_argument, 0, OPT_VIDEO_PROTOCOL},
+                {"protocol", required_argument, 0, OPT_PROTOCOL},
+                {"rtsp-server", optional_argument, 0, 'H'},
+                {"param", required_argument, 0, OPT_PARAM},
+                {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
+                {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
+                {"nat-traverse", optional_argument, nullptr, 'N'},
+                {"client", no_argument, nullptr, 'C'},
+                {"server", no_argument, nullptr, 'S'},
+                {"ttl", required_argument, nullptr, 'T'},
+                {0, 0, 0, 0}
+        };
+        const char *optstring = "Cd:t:m:r:s:v46c:hM:N::p:f:P:l:A:VST:";
+
+        int ch = 0;
+        while ((ch =
+                getopt_long(argc, argv, optstring, getopt_options,
+                            NULL)) != -1) {
+                switch (ch) {
+                case 'd':
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                list_video_display_devices(strcmp(optarg, "fullhelp") == 0);
+                                return 0;
+                        }
+                        opt->requested_display = optarg;
+                        if(strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                opt->display_cfg = delim + 1;
+                        }
+                        break;
+                case 't':
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                list_video_capture_devices(strcmp(optarg, "fullhelp") == 0);
+                                return 0;
+                        }
+                        vidcap_params_set_device(opt->vidcap_params_tail, optarg);
+                        opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
+                        break;
+                case 'm':
+                        opt->requested_mtu = atoi(optarg);
+                        if (opt->requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
+                                log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", opt->requested_mtu);
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
+                case 'M':
+                        opt->decoder_mode = get_video_mode_from_str(optarg);
+                        if (opt->decoder_mode == VIDEO_UNKNOWN) {
+                                return strcasecmp(optarg, "help") == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
+                        }
+                        break;
+                case 'p':
+                        opt->postprocess = optarg;
+                        break;
+                case 'v':
+                        print_configuration();
+                        return EXIT_SUCCESS;
+                case 'c':
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                show_compress_help(strcmp(optarg, "fullhelp") == 0);
+                                return EXIT_SUCCESS;
+                        }
+                        opt->requested_compression = optarg;
+                        break;
+                case 'H':
+                        log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
+                                        "is deprecated and will be removed in future.\n"
+                                        "Please use \"--video-protocol rtsp[:args]\"instead.\n");
+                        opt->video_protocol = "rtsp";
+                        opt->video_protocol_opts = optarg ? optarg : "";
+                        break;
+                case OPT_AUDIO_PROTOCOL:
+                        opt->audio.proto = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                opt->audio.proto_cfg = delim + 1;
+                        }
+                        if (strcmp(opt->audio.proto, "help") == 0) {
+                                printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
+                                return EXIT_SUCCESS;
+                        }
+                        break;
+                case OPT_VIDEO_PROTOCOL:
+                        opt->video_protocol = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                opt->video_protocol_opts = delim + 1;
+                        }
+                        if (strcmp(opt->video_protocol, "help") == 0) {
+                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
+                                return EXIT_SUCCESS;
+                        }
+                        break;
+                case OPT_PROTOCOL:
+                        if (strcmp(optarg, "help") == 0 ||
+                                        strcmp(optarg, "fullhelp") == 0) {
+                                cout << "Specify a " << BOLD("common") << " protocol for both audio and video.\n";
+                                cout << "Audio protocol can be one of: " << BOLD(AUDIO_PROTOCOLS "\n");
+                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
+                                return EXIT_SUCCESS;
+                        }
+                        opt->audio.proto = opt->video_protocol = optarg;
+                        if (strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                opt->audio.proto_cfg = opt->video_protocol_opts = delim + 1;
+                        }
+                        break;
+                case 'r':
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                audio_playback_help(strcmp(optarg, "full") == 0);
+                                return EXIT_SUCCESS;
+                        }
+                        opt->audio.recv_cfg = optarg;
+                        break;
+                case 's':
+                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
+                                audio_capture_print_help(strcmp(optarg, "full") == 0);
+                                return EXIT_SUCCESS;
+                        }
+                        opt->audio.send_cfg = optarg;
+                        break;
+                case 'f':
+                        if(strlen(optarg) > 2 && optarg[1] == ':' &&
+                                        (toupper(optarg[0]) == 'A' || toupper(optarg[0]) == 'V')) {
+                                if(toupper(optarg[0]) == 'A') {
+                                        opt->audio.fec_cfg = optarg + 2;
+                                } else {
+                                        opt->requested_video_fec = optarg + 2;
+                                }
+                        } else {
+                                // there should be setting for both audio and video
+                                // but we conservativelly expect that the user wants
+                                // only vieo and let audio default until explicitly
+                                // stated otehrwise
+                                opt->requested_video_fec = optarg;
+                        }
+                        break;
+                case 'h':
+                        usage(uv_argv[0], false);
+                        return 0;
+                case 'P':
+                        try {
+                                if (strchr(optarg, ':') != nullptr) {
+                                        char *save_ptr = nullptr;
+                                        opt->video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
+                                        opt->video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
+                                        char *tok = nullptr;
+                                        if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                                                opt->audio.recv_port = stoi(tok, nullptr, 0);
+                                                if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                                                        opt->audio.send_port = stoi(tok, nullptr, 0);
+                                                } else {
+                                                        usage(uv_argv[0]);
+                                                        return EXIT_FAIL_USAGE;
+                                                }
+                                        }
+                                } else {
+                                        opt->port_base = stoi(optarg, nullptr, 0);
+                                }
+                                if (opt->audio.recv_port < -1 || opt->audio.send_port < -1 || opt->video_rx_port < -1 || opt->video_tx_port < -1 || opt->port_base < -1 ||
+                                                opt->audio.recv_port > UINT16_MAX || opt->audio.send_port > UINT16_MAX || opt->video_rx_port > UINT16_MAX || opt->video_tx_port > UINT16_MAX || opt->port_base > UINT16_MAX) {
+                                        throw ug_runtime_error("Invalid port value, allowed range 1-65535", EXIT_FAIL_USAGE);
+                                }
+                        } catch (exception const &e) {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong port specification: " << e.what() << "\n";
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
+                case 'l':
+                        if (!parse_bitrate(optarg, &opt->bitrate)) {
+                                return EXIT_FAILURE;
+                        }
+                        if (opt->bitrate == RATE_DEFAULT) {
+                                return EXIT_SUCCESS; // help written
+                        }
+                        break;
+                case '4':
+                case '6':
+                        opt->force_ip_version = ch - '0';
+                        break;
+                case OPT_AUDIO_CHANNEL_MAP:
+                        opt->audio.channel_map = optarg;
+                        break;
+                case OPT_AUDIO_SCALE:
+                        opt->audio.scale = optarg;
+                        break;
+                case OPT_AUDIO_CAPTURE_CHANNELS:
+                        log_msg(LOG_LEVEL_WARNING, "Parameter --audio-capture-channels is deprecated. "
+                                        "Use \"--audio-capture-format channels=<count>\" instead.\n");
+                        audio_capture_channels = atoi(optarg);
+                        if (audio_capture_channels < 1) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
+                case OPT_AUDIO_CAPTURE_FORMAT:
+                        if (!parse_audio_capture_format(optarg)) {
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
+                case OPT_ECHO_CANCELLATION:
+                        opt->audio.echo_cancellation = true;
+                        break;
+                case OPT_FULLHELP:
+                        usage(uv_argv[0], true);
+                        return EXIT_SUCCESS;
+                case OPT_CUDA_DEVICE:
+#ifdef HAVE_GPUJPEG
+                        if(strcmp("help", optarg) == 0) {
+                                struct compress_state *compression;
+                                int ret = compress_init(nullptr, "GPUJPEG:list_devices", &compression);
+                                if(ret >= 0) {
+                                        if(ret == 0) {
+                                                module_done(CAST_MODULE(compression));
+                                        }
+                                        return EXIT_SUCCESS;
+                                } else {
+                                        return EXIT_FAILURE;
+                                }
+                        } else {
+                                char *item, *save_ptr = NULL;
+                                unsigned int i = 0;
+                                while((item = strtok_r(optarg, ",", &save_ptr))) {
+                                        if(i >= MAX_CUDA_DEVICES) {
+                                                fprintf(stderr, "Maximal number of CUDA device exceeded.\n");
+                                                return EXIT_FAILURE;
+                                        }
+                                        cuda_devices[i] = atoi(item);
+                                        optarg = NULL;
+                                        ++i;
+                                }
+                                cuda_devices_count = i;
+                        }
+                        break;
+#else
+                        fprintf(stderr, "CUDA support is not enabled!\n");
+                        return EXIT_FAIL_USAGE;
+#endif // HAVE_CUDA
+                case OPT_MCAST_IF:
+                        opt->requested_mcast_if = optarg;
+                        break;
+                case 'A':
+                        opt->audio.host = optarg;
+                        break;
+                case OPT_EXPORT:
+                        opt->should_export = true;
+                        opt->export_opts = optarg;
+                        break;
+                case OPT_IMPORT:
+                        opt->audio.send_cfg = "embedded";
+                        {
+                                char dev_string[1024];
+                                int ret;
+                                if ((ret = playback_set_device(dev_string, sizeof dev_string, optarg)) <= 0) {
+                                        return ret == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
+                                }
+                                vidcap_params_set_device(opt->vidcap_params_tail, dev_string);
+                                opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
+                        }
+                        break;
+                case OPT_AUDIO_CODEC:
+                        if(strcmp(optarg, "help") == 0) {
+                                list_audio_codecs();
+                                return EXIT_SUCCESS;
+                        }
+                        opt->audio.codec_cfg = optarg;
+                        if (!check_audio_codec(optarg)) {
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
+                case OPT_CAPTURE_FILTER:
+                        vidcap_params_set_capture_filter(opt->vidcap_params_tail, optarg);
+                        break;
+                case OPT_ENCRYPTION:
+                        opt->requested_encryption = optarg;
+                        break;
+                case OPT_CONTROL_PORT:
+                        if (strchr(optarg, ':')) {
+                                char *save_ptr = NULL;
+                                char *tok;
+                                opt->control_port = atoi(strtok_r(optarg, ":", &save_ptr));
+                                opt->connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
+
+                                if (opt->connection_type < 0 || opt->connection_type > 1){
+                                        usage(uv_argv[0]);
+                                        return EXIT_FAIL_USAGE;
+                                }
+                                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
+                                        usage(uv_argv[0]);
+                                        return EXIT_FAIL_USAGE;
+                                }
+                        } else {
+                                opt->control_port = atoi(optarg);
+                                opt->connection_type = 0;
+                        }
+                        break;
+                case 'V':
+                        break; // already handled in common_preinit()
+                case OPT_WINDOW_TITLE:
+                        log_msg(LOG_LEVEL_WARNING, "Deprecated option used, please use "
+                                        "--param window-title=<title>\n");
+                        commandline_params["window-title"] = optarg;
+                        break;
+                case OPT_CAPABILITIES:
+                        opt->print_capabilities_req = true;
+                        break;
+                case OPT_AUDIO_DELAY:
+                        audio_offset = max(atoi(optarg), 0);
+                        video_offset = atoi(optarg) < 0 ? abs(atoi(optarg)) : 0;
+                        break;
+                case OPT_LIST_MODULES:
+                        return list_all_modules() ? EXIT_SUCCESS : EXIT_FAILURE;
+                case OPT_START_PAUSED:
+                        opt->start_paused = true;
+                        break;
+                case OPT_PARAM:
+                        if (!parse_params(optarg)) {
+                                return EXIT_SUCCESS;
+                        }
+                        break;
+                case OPT_PIX_FMTS:
+                        print_pixel_formats();
+                        return EXIT_SUCCESS;
+                case OPT_VIDEO_CODECS:
+                        print_video_codecs();
+                        return EXIT_SUCCESS;
+                case 'N':
+                        opt->nat_traverse_config = optarg == nullptr ? "" : optarg;
+                        break;
+                case 'C':
+                        opt->is_client = true;
+                        break;
+                case 'S':
+                        opt->is_server = true;
+                        break;
+                case 'T':
+                        opt->requested_ttl = stoi(optarg);
+                        if (opt->requested_ttl < -1 || opt->requested_ttl >= 255) {
+                                LOG(LOG_LEVEL_ERROR) << "TTL must be in range [0..255] or -1!\n";
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
+                case '?':
+                default:
+                        usage(uv_argv[0]);
+                        return EXIT_FAIL_USAGE;
+                }
+        }
+
+        argc -= optind;
+        argv += optind;
+
+        if (argc > 1) {
+                log_msg(LOG_LEVEL_ERROR, "Multiple receivers given!\n");
+                usage(uv_argv[0]);
+                return EXIT_FAIL_USAGE;
+        }
+
+        if (argc > 0) {
+                opt->requested_receiver = argv[0];
+        }
+
+        return -1;
+}
 
 static int adjust_params(struct ug_options *opt) {
         unsigned int audio_rxtx_mode = 0;
@@ -825,7 +1233,6 @@ int main(int argc, char *argv[])
         struct sched_param sp;
 #endif
         ug_options opt{};
-        int ch;
 
         pthread_t receiver_thread_id,
                   capture_thread_id;
@@ -838,55 +1245,6 @@ int main(int argc, char *argv[])
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
 
-        static struct option getopt_options[] = {
-                {"display", required_argument, 0, 'd'},
-                {"capture", required_argument, 0, 't'},
-                {"mtu", required_argument, 0, 'm'},
-                {"mode", required_argument, 0, 'M'},
-                {"version", no_argument, 0, 'v'},
-                {"compress", required_argument, 0, 'c'},
-                {"receive", required_argument, 0, 'r'},
-                {"send", required_argument, 0, 's'},
-                {"help", no_argument, 0, 'h'},
-                {"fec", required_argument, 0, 'f'},
-                {"port", required_argument, 0, 'P'},
-                {"limit-bitrate", required_argument, 0, 'l'},
-                {"audio-channel-map", required_argument, 0, OPT_AUDIO_CHANNEL_MAP},
-                {"audio-scale", required_argument, 0, OPT_AUDIO_SCALE},
-                {"audio-capture-channels", required_argument, 0, OPT_AUDIO_CAPTURE_CHANNELS},
-                {"audio-capture-format", required_argument, 0, OPT_AUDIO_CAPTURE_FORMAT},
-                {"echo-cancellation", no_argument, 0, OPT_ECHO_CANCELLATION},
-                {"fullhelp", no_argument, 0, OPT_FULLHELP},
-                {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
-                {"mcast-if", required_argument, 0, OPT_MCAST_IF},
-                {"record", optional_argument, 0, OPT_EXPORT},
-                {"playback", required_argument, 0, OPT_IMPORT},
-                {"audio-host", required_argument, 0, 'A'},
-                {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
-                {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
-                {"control-port", required_argument, 0, OPT_CONTROL_PORT},
-                {"encryption", required_argument, 0, OPT_ENCRYPTION},
-                {"verbose", optional_argument, nullptr, 'V'},
-                {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
-                {"capabilities", no_argument, 0, OPT_CAPABILITIES},
-                {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
-                {"list-modules", no_argument, 0, OPT_LIST_MODULES},
-                {"start-paused", no_argument, 0, OPT_START_PAUSED},
-                {"audio-protocol", required_argument, 0, OPT_AUDIO_PROTOCOL},
-                {"video-protocol", required_argument, 0, OPT_VIDEO_PROTOCOL},
-                {"protocol", required_argument, 0, OPT_PROTOCOL},
-                {"rtsp-server", optional_argument, 0, 'H'},
-                {"param", required_argument, 0, OPT_PARAM},
-                {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
-                {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
-                {"nat-traverse", optional_argument, nullptr, 'N'},
-                {"client", no_argument, nullptr, 'C'},
-                {"server", no_argument, nullptr, 'S'},
-                {"ttl", required_argument, nullptr, 'T'},
-                {0, 0, 0, 0}
-        };
-        const char *optstring = "Cd:t:m:r:s:v46c:hM:N::p:f:P:l:A:VST:";
-
         struct ug_nat_traverse *nat_traverse = nullptr;
 
         if ((init = common_preinit(argc, argv)) == nullptr) {
@@ -898,360 +1256,11 @@ int main(int argc, char *argv[])
         uv_state = &uv;
         keyboard_control kc{&uv.root_module};
 
-        vidcap_params_set_device(opt.vidcap_params_head, "none");
-
         print_version();
         printf("\n");
 
-        while ((ch =
-                getopt_long(argc, argv, optstring, getopt_options,
-                            NULL)) != -1) {
-                switch (ch) {
-                case 'd':
-                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
-                                list_video_display_devices(strcmp(optarg, "fullhelp") == 0);
-                                EXIT(0);
-                        }
-                        opt.requested_display = optarg;
-                        if(strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt.display_cfg = delim + 1;
-                        }
-                        break;
-                case 't':
-                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
-                                list_video_capture_devices(strcmp(optarg, "fullhelp") == 0);
-                                EXIT(0);
-                        }
-                        vidcap_params_set_device(opt.vidcap_params_tail, optarg);
-                        opt.vidcap_params_tail = vidcap_params_allocate_next(opt.vidcap_params_tail);
-                        break;
-                case 'm':
-                        opt.requested_mtu = atoi(optarg);
-                        if (opt.requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
-                                log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", opt.requested_mtu);
-                                EXIT(EXIT_FAIL_USAGE);
-                        }
-                        break;
-                case 'M':
-                        opt.decoder_mode = get_video_mode_from_str(optarg);
-                        if (opt.decoder_mode == VIDEO_UNKNOWN) {
-                                EXIT(strcasecmp(optarg, "help") == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE);
-                        }
-                        break;
-                case 'p':
-                        opt.postprocess = optarg;
-                        break;
-                case 'v':
-                        print_configuration();
-                        EXIT(EXIT_SUCCESS);
-                case 'c':
-                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
-                                show_compress_help(strcmp(optarg, "fullhelp") == 0);
-                                EXIT(EXIT_SUCCESS);
-                        }
-                        opt.requested_compression = optarg;
-                        break;
-                case 'H':
-                        log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
-                                        "is deprecated and will be removed in future.\n"
-                                        "Please use \"--video-protocol rtsp[:args]\"instead.\n");
-                        opt.video_protocol = "rtsp";
-                        opt.video_protocol_opts = optarg ? optarg : "";
-                        break;
-                case OPT_AUDIO_PROTOCOL:
-                        opt.audio.proto = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt.audio.proto_cfg = delim + 1;
-                        }
-                        if (strcmp(opt.audio.proto, "help") == 0) {
-                                printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
-                                EXIT(EXIT_SUCCESS);
-                        }
-                        break;
-                case OPT_VIDEO_PROTOCOL:
-                        opt.video_protocol = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt.video_protocol_opts = delim + 1;
-                        }
-                        if (strcmp(opt.video_protocol, "help") == 0) {
-                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
-                                EXIT(EXIT_SUCCESS);
-                        }
-                        break;
-                case OPT_PROTOCOL:
-                        if (strcmp(optarg, "help") == 0 ||
-                                        strcmp(optarg, "fullhelp") == 0) {
-                                cout << "Specify a " << BOLD("common") << " protocol for both audio and video.\n";
-                                cout << "Audio protocol can be one of: " << BOLD(AUDIO_PROTOCOLS "\n");
-                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
-                                EXIT(EXIT_SUCCESS);
-                        }
-                        opt.audio.proto = opt.video_protocol = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt.audio.proto_cfg = opt.video_protocol_opts = delim + 1;
-                        }
-                        break;
-                case 'r':
-                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
-                                audio_playback_help(strcmp(optarg, "full") == 0);
-                                EXIT(EXIT_SUCCESS);
-                        }
-                        opt.audio.recv_cfg = optarg;
-                        break;
-                case 's':
-                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
-                                audio_capture_print_help(strcmp(optarg, "full") == 0);
-                                EXIT(EXIT_SUCCESS);
-                        }
-                        opt.audio.send_cfg = optarg;
-                        break;
-                case 'f':
-                        if(strlen(optarg) > 2 && optarg[1] == ':' &&
-                                        (toupper(optarg[0]) == 'A' || toupper(optarg[0]) == 'V')) {
-                                if(toupper(optarg[0]) == 'A') {
-                                        opt.audio.fec_cfg = optarg + 2;
-                                } else {
-                                        opt.requested_video_fec = optarg + 2;
-                                }
-                        } else {
-                                // there should be setting for both audio and video
-                                // but we conservativelly expect that the user wants
-                                // only vieo and let audio default until explicitly
-                                // stated otehrwise
-                                opt.requested_video_fec = optarg;
-                        }
-                        break;
-                case 'h':
-                        usage(uv_argv[0], false);
-                        EXIT(0);
-                case 'P':
-                        try {
-                                if (strchr(optarg, ':') != nullptr) {
-                                        char *save_ptr = nullptr;
-                                        opt.video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
-                                        opt.video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
-                                        char *tok = nullptr;
-                                        if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
-                                                opt.audio.recv_port = stoi(tok, nullptr, 0);
-                                                if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
-                                                        opt.audio.send_port = stoi(tok, nullptr, 0);
-                                                } else {
-                                                        usage(uv_argv[0]);
-                                                        EXIT(EXIT_FAIL_USAGE);
-                                                }
-                                        }
-                                } else {
-                                        opt.port_base = stoi(optarg, nullptr, 0);
-                                }
-                                if (opt.audio.recv_port < -1 || opt.audio.send_port < -1 || opt.video_rx_port < -1 || opt.video_tx_port < -1 || opt.port_base < -1 ||
-                                                opt.audio.recv_port > UINT16_MAX || opt.audio.send_port > UINT16_MAX || opt.video_rx_port > UINT16_MAX || opt.video_tx_port > UINT16_MAX || opt.port_base > UINT16_MAX) {
-                                        throw ug_runtime_error("Invalid port value, allowed range 1-65535", EXIT_FAIL_USAGE);
-                                }
-                        } catch (exception const &e) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong port specification: " << e.what() << "\n";
-                                EXIT(EXIT_FAIL_USAGE);
-                        }
-                        break;
-                case 'l':
-                        if (!parse_bitrate(optarg, &opt.bitrate)) {
-                                EXIT(EXIT_FAILURE);
-                        }
-                        if (opt.bitrate == RATE_DEFAULT) {
-                                EXIT(EXIT_SUCCESS); // help written
-                        }
-                        break;
-                case '4':
-                case '6':
-                        opt.force_ip_version = ch - '0';
-                        break;
-                case OPT_AUDIO_CHANNEL_MAP:
-                        opt.audio.channel_map = optarg;
-                        break;
-                case OPT_AUDIO_SCALE:
-                        opt.audio.scale = optarg;
-                        break;
-                case OPT_AUDIO_CAPTURE_CHANNELS:
-                        log_msg(LOG_LEVEL_WARNING, "Parameter --audio-capture-channels is deprecated. "
-                                        "Use \"--audio-capture-format channels=<count>\" instead.\n");
-                        audio_capture_channels = atoi(optarg);
-                        if (audio_capture_channels < 1) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
-                                EXIT(EXIT_FAIL_USAGE);
-                        }
-                        break;
-                case OPT_AUDIO_CAPTURE_FORMAT:
-                        if (!parse_audio_capture_format(optarg)) {
-                                EXIT(EXIT_FAIL_USAGE);
-                        }
-                        break;
-                case OPT_ECHO_CANCELLATION:
-                        opt.audio.echo_cancellation = true;
-                        break;
-                case OPT_FULLHELP:
-                        usage(uv_argv[0], true);
-                        EXIT(EXIT_SUCCESS);
-                case OPT_CUDA_DEVICE:
-#ifdef HAVE_GPUJPEG
-                        if(strcmp("help", optarg) == 0) {
-                                struct compress_state *compression;
-                                int ret = compress_init(&uv.root_module, "GPUJPEG:list_devices", &compression);
-                                if(ret >= 0) {
-                                        if(ret == 0) {
-                                                module_done(CAST_MODULE(compression));
-                                        }
-                                        EXIT(EXIT_SUCCESS);
-                                } else {
-                                        EXIT(EXIT_FAILURE);
-                                }
-                        } else {
-                                char *item, *save_ptr = NULL;
-                                unsigned int i = 0;
-                                while((item = strtok_r(optarg, ",", &save_ptr))) {
-                                        if(i >= MAX_CUDA_DEVICES) {
-                                                fprintf(stderr, "Maximal number of CUDA device exceeded.\n");
-                                                EXIT(EXIT_FAILURE);
-                                        }
-                                        cuda_devices[i] = atoi(item);
-                                        optarg = NULL;
-                                        ++i;
-                                }
-                                cuda_devices_count = i;
-                        }
-                        break;
-#else
-                        fprintf(stderr, "CUDA support is not enabled!\n");
-                        EXIT(EXIT_FAIL_USAGE);
-#endif // HAVE_CUDA
-                case OPT_MCAST_IF:
-                        opt.requested_mcast_if = optarg;
-                        break;
-                case 'A':
-                        opt.audio.host = optarg;
-                        break;
-                case OPT_EXPORT:
-                        opt.should_export = true;
-                        opt.export_opts = optarg;
-                        break;
-                case OPT_IMPORT:
-                        opt.audio.send_cfg = "embedded";
-                        {
-                                char dev_string[1024];
-                                int ret;
-                                if ((ret = playback_set_device(dev_string, sizeof dev_string, optarg)) <= 0) {
-                                        EXIT(ret == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE);
-                                }
-                                vidcap_params_set_device(opt.vidcap_params_tail, dev_string);
-                                opt.vidcap_params_tail = vidcap_params_allocate_next(opt.vidcap_params_tail);
-                        }
-                        break;
-                case OPT_AUDIO_CODEC:
-                        if(strcmp(optarg, "help") == 0) {
-                                list_audio_codecs();
-                                EXIT(EXIT_SUCCESS);
-                        }
-                        opt.audio.codec_cfg = optarg;
-                        if (!check_audio_codec(optarg)) {
-                                EXIT(EXIT_FAIL_USAGE);
-                        }
-                        break;
-                case OPT_CAPTURE_FILTER:
-                        vidcap_params_set_capture_filter(opt.vidcap_params_tail, optarg);
-                        break;
-                case OPT_ENCRYPTION:
-                        opt.requested_encryption = optarg;
-                        break;
-                case OPT_CONTROL_PORT:
-                        if (strchr(optarg, ':')) {
-                                char *save_ptr = NULL;
-                                char *tok;
-                                opt.control_port = atoi(strtok_r(optarg, ":", &save_ptr));
-                                opt.connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
-
-                                if (opt.connection_type < 0 || opt.connection_type > 1){
-                                        usage(uv_argv[0]);
-                                        EXIT(EXIT_FAIL_USAGE);
-                                }
-                                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
-                                        usage(uv_argv[0]);
-                                        EXIT(EXIT_FAIL_USAGE);
-                                }
-                        } else {
-                                opt.control_port = atoi(optarg);
-                                opt.connection_type = 0;
-                        }
-                        break;
-                case 'V':
-                        break; // already handled in common_preinit()
-                case OPT_WINDOW_TITLE:
-                        log_msg(LOG_LEVEL_WARNING, "Deprecated option used, please use "
-                                        "--param window-title=<title>\n");
-                        commandline_params["window-title"] = optarg;
-                        break;
-                case OPT_CAPABILITIES:
-                        opt.print_capabilities_req = true;
-                        break;
-                case OPT_AUDIO_DELAY:
-                        audio_offset = max(atoi(optarg), 0);
-                        video_offset = atoi(optarg) < 0 ? abs(atoi(optarg)) : 0;
-                        break;
-                case OPT_LIST_MODULES:
-                        EXIT(list_all_modules() ? EXIT_SUCCESS : EXIT_FAILURE);
-                case OPT_START_PAUSED:
-                        opt.start_paused = true;
-                        break;
-                case OPT_PARAM:
-                        if (!parse_params(optarg)) {
-                                EXIT(EXIT_SUCCESS);
-                        }
-                        break;
-                case OPT_PIX_FMTS:
-                        print_pixel_formats();
-                        EXIT(EXIT_SUCCESS);
-                case OPT_VIDEO_CODECS:
-                        print_video_codecs();
-                        EXIT(EXIT_SUCCESS);
-                case 'N':
-                        opt.nat_traverse_config = optarg == nullptr ? "" : optarg;
-                        break;
-                case 'C':
-                        opt.is_client = true;
-                        break;
-                case 'S':
-                        opt.is_server = true;
-                        break;
-                case 'T':
-                        opt.requested_ttl = stoi(optarg);
-                        if (opt.requested_ttl < -1 || opt.requested_ttl >= 255) {
-                                LOG(LOG_LEVEL_ERROR) << "TTL must be in range [0..255] or -1!\n";
-                                EXIT(EXIT_FAIL_USAGE);
-                        }
-                        break;
-                case '?':
-                default:
-                        usage(uv_argv[0]);
-                        EXIT(EXIT_FAIL_USAGE);
-                }
-        }
-
-        argc -= optind;
-        argv += optind;
-
-        if (argc > 1) {
-                log_msg(LOG_LEVEL_ERROR, "Multiple receivers given!\n");
-                usage(uv_argv[0]);
-                EXIT(EXIT_FAIL_USAGE);
-        }
-
-        if (argc > 0) {
-                opt.requested_receiver = argv[0];
+        if ((ret = parse_options(argc, argv, &opt)) != -1) {
+                EXIT(ret);
         }
 
         if (int ret = adjust_params(&opt)) {
