@@ -232,34 +232,33 @@ static void audio_scale_usage(void)
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
-struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, int recv_port, int send_port,
-                const char *send_cfg, const char *recv_cfg,
-                const char *proto, const char *proto_cfg,
-                const char *fec_cfg, const char *encryption,
-                char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, int force_ip_version, const char *mcast_if,
-                const char *audio_codec_cfg,
-                long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time,
+
+struct state_audio * audio_cfg_init(struct module *parent,
+                struct audio_options *opt,
+                const char *encryption,
+                int force_ip_version, const char *mcast_iface,
+                long long int bitrate, volatile int *audio_delay,
+                const std::chrono::steady_clock::time_point *start_time,
                 int mtu, int ttl, struct exporter *exporter)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
         UNUSED(unused);
         char *addr;
-        int resample_to = get_audio_codec_sample_rate(audio_codec_cfg);
+        int resample_to = get_audio_codec_sample_rate(opt->codec_cfg);
         
-        assert(send_cfg != NULL);
-        assert(recv_cfg != NULL);
+        assert(opt->send_cfg != NULL);
+        assert(opt->recv_cfg != NULL);
 
-        if(audio_channel_map &&
-                     strcmp("help", audio_channel_map) == 0) {
+        if (opt->channel_map &&
+                     strcmp("help", opt->channel_map) == 0) {
                 audio_channel_map_usage();
                 exit_uv(0);
                 return NULL;
         }
 
-        if(audio_scale &&
-                     strcmp("help", audio_scale) == 0) {
+        if (opt->scale &&
+                     strcmp("help", opt->scale) == 0) {
                 audio_scale_usage();
                 exit_uv(0);
                 return NULL;
@@ -268,20 +267,20 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s = new state_audio(parent);
         s->start_time = *start_time;
 
-        s->audio_channel_map = audio_channel_map;
-        s->audio_scale = audio_scale;
+        s->audio_channel_map = opt->channel_map;
+        s->audio_scale = opt->scale;
 
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
         s->resample_to = resample_to;
 
-        s->audio_coder = audio_codec_init_cfg(audio_codec_cfg, AUDIO_CODER);
+        s->audio_coder = audio_codec_init_cfg(opt->codec_cfg, AUDIO_CODER);
         if(!s->audio_coder) {
                 goto error;
         }
 
         s->exporter = exporter;
 
-        if(echo_cancellation) {
+        if (opt->echo_cancellation) {
 #ifdef HAVE_SPEEXDSP
                 //s->echo_state = echo_cancellation_init();
                 fprintf(stderr, "Echo cancellation is currently broken "
@@ -302,25 +301,25 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->requested_encryption = strdup(encryption);
         }
         
-        assert(addrs != nullptr);
-        tmp = strdup(addrs);
+        assert(opt->host != nullptr);
+        tmp = strdup(opt->host);
         s->audio_participants = pdb_init(audio_delay);
         addr = strtok_r(tmp, ",", &unused);
         assert(addr != nullptr);
 
         s->audio_network_parameters.addr = strdup(addr);
-        s->audio_network_parameters.recv_port = recv_port;
-        s->audio_network_parameters.send_port = send_port;
+        s->audio_network_parameters.recv_port = opt->recv_port;
+        s->audio_network_parameters.send_port = opt->send_port;
         s->audio_network_parameters.participants = s->audio_participants;
         s->audio_network_parameters.force_ip_version = force_ip_version;
-        s->audio_network_parameters.mcast_if = mcast_if
-                ? strdup(mcast_if) : NULL;
+        s->audio_network_parameters.mcast_if = mcast_iface
+                ? strdup(mcast_iface) : NULL;
         s->audio_network_parameters.ttl = ttl;
         free(tmp);
 
-        if (strcmp(send_cfg, "none") != 0) {
+        if (strcmp(opt->send_cfg, "none") != 0) {
                 char *cfg = NULL;
-                char *device = strdup(send_cfg);
+                char *device = strdup(opt->send_cfg);
 		if(strchr(device, ':')) {
 			char *delim = strchr(device, ':');
 			*delim = '\0';
@@ -337,7 +336,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 if(ret > 0) {
                         goto error;
                 }
-                s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, fec_cfg, encryption, bitrate);
+                s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, opt->fec_cfg, encryption, bitrate);
                 if(!s->tx_session) {
                         fprintf(stderr, "Unable to initialize audio transmit.\n");
                         goto error;
@@ -348,9 +347,9 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->audio_capture_device = audio_capture_init_null_device();
         }
         
-        if (strcmp(recv_cfg, "none") != 0) {
+        if (strcmp(opt->recv_cfg, "none") != 0) {
                 char *cfg = NULL;
-                char *device = strdup(recv_cfg);
+                char *device = strdup(opt->recv_cfg);
 		if(strchr(device, ':')) {
 			char *delim = strchr(device, ':');
 			*delim = '\0';
@@ -384,15 +383,15 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 }
         }
 
-        s->proto_cfg = proto_cfg;
+        s->proto_cfg = opt->proto_cfg;
 
-        if (strcasecmp(proto, "ultragrid_rtp") == 0) {
+        if (strcasecmp(opt->proto, "ultragrid_rtp") == 0) {
                 s->sender = NET_NATIVE;
                 s->receiver = NET_NATIVE;
-        } else if (strcasecmp(proto, "rtsp") == 0 || strcasecmp(proto, "sdp") == 0) {
+        } else if (strcasecmp(opt->proto, "rtsp") == 0 || strcasecmp(opt->proto, "sdp") == 0) {
                 s->receiver = NET_STANDARD;
                 s->sender = NET_STANDARD;
-        } else if (strcasecmp(proto, "JACK") == 0) {
+        } else if (strcasecmp(opt->proto, "JACK") == 0) {
 #ifndef HAVE_JACK_TRANS
                 fprintf(stderr, "[Audio] JACK transport requested, "
                                 "but JACK support isn't compiled.\n");
@@ -402,7 +401,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->receiver = NET_JACK;
 #endif
         } else {
-                log_msg(LOG_LEVEL_ERROR, "Unknow audio protocol: %s\n", proto);
+                log_msg(LOG_LEVEL_ERROR, "Unknow audio protocol: %s\n", opt->proto);
                 goto error;
         }
 

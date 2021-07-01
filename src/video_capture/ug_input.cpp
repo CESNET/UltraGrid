@@ -144,12 +144,22 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         assert (s->video_rxtx);
 
         if (vidcap_params_get_flags(cap_params) & VIDCAP_FLAG_AUDIO_ANY) {
-                const char *audio_scale = "none";
-                s->audio = audio_cfg_init(vidcap_params_get_parent(cap_params), "localhost", port + 2, 0 /* send_port */,
-                                "none", "embedded",
-                                "ultragrid_rtp", "",
-                                "none", NULL, NULL, audio_scale, false, 0, NULL, "PCM", RATE_UNLIMITED, NULL,
-                                &start_time, 1500, -1, NULL);
+                struct audio_options opt = {
+                        .host = "localhost",
+                        .recv_port = port + 2,
+                        .send_port = 0,
+                        .recv_cfg = "embedded",
+                        .send_cfg = "none",
+                        .proto = "ultragrid_rtp",
+                        .proto_cfg = "",
+                        .fec_cfg = "none",
+                        .channel_map = NULL,
+                        .scale = "none",
+                        .echo_cancellation = false,
+                        .codec_cfg = "PCM"
+                };
+                s->audio = audio_cfg_init(vidcap_params_get_parent(cap_params), &opt, nullptr, 0, nullptr, RATE_UNLIMITED,
+                                nullptr, &start_time, 1500, -1, nullptr);
                 if (s->audio == nullptr) {
                         delete s;
                         return VIDCAP_INIT_FAIL;

@@ -604,6 +604,70 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         return true;
 }
 
+struct ug_options {
+        ~ug_options() {
+                while  (vidcap_params_head != nullptr) {
+                        struct vidcap_params *next = vidcap_params_get_next(vidcap_params_head);
+                        vidcap_params_free_struct(vidcap_params_head);
+                        vidcap_params_head = next;
+                }
+        }
+        struct audio_options audio = {
+                .host = nullptr,
+                .recv_port = -1,
+                .send_port = -1,
+                .recv_cfg = "none",
+                .send_cfg = "none",
+                .proto = "ultragrid_rtp",
+                .proto_cfg = "",
+                .fec_cfg = DEFAULT_AUDIO_FEC,
+                .channel_map = nullptr,
+                .scale = "mixauto",
+                .echo_cancellation = false,
+                .codec_cfg = nullptr
+        };
+        // NULL terminated array of capture devices
+        struct vidcap_params *vidcap_params_head = vidcap_params_allocate();
+        struct vidcap_params *vidcap_params_tail = vidcap_params_head;
+
+        const char *display_cfg = "";
+        const char *requested_video_fec = "none";
+        int port_base = PORT_BASE;
+        int requested_ttl = -1;
+        int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
+
+        bool should_export = false;
+        char *export_opts = NULL;
+
+        int control_port = 0;
+        int connection_type = 0;
+
+        enum video_mode decoder_mode = VIDEO_NORMAL;
+        const char *requested_compression = nullptr;
+
+        int force_ip_version = 0;
+
+        const char *requested_mcast_if = NULL;
+
+        unsigned requested_mtu = 0;
+        const char *postprocess = NULL;
+        const char *requested_display = "none";
+        const char *requested_receiver = "localhost";
+        const char *requested_encryption = NULL;
+
+        long long int bitrate = RATE_DEFAULT;
+        bool is_client = false;
+
+        bool print_capabilities_req = false;
+        bool start_paused = false;
+
+        const char *video_protocol = "ultragrid_rtp";
+        const char *video_protocol_opts = "";
+
+        const char *log_opt = nullptr;
+        const char *nat_traverse_config = nullptr;
+};
+
 #define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 
 int main(int argc, char *argv[])
@@ -612,62 +676,21 @@ int main(int argc, char *argv[])
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
         struct sched_param sp;
 #endif
-        // NULL terminated array of capture devices
-        struct vidcap_params *vidcap_params_head = vidcap_params_allocate();
-        struct vidcap_params *vidcap_params_tail = vidcap_params_head;
-
-        const char *display_cfg = "";
-        const char *audio_recv = "none";
-        const char *audio_send = "none";
-        const char *requested_video_fec = "none";
-        const char *requested_audio_fec = DEFAULT_AUDIO_FEC;
-        char *audio_channel_map = NULL;
-        const char *audio_scale = "mixauto";
-        int port_base = PORT_BASE;
-        int requested_ttl = -1;
-        int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
-
-        bool echo_cancellation = false;
-
-        bool should_export = false;
-        char *export_opts = NULL;
-
-        int control_port = 0;
-        int connection_type = 0;
-        struct control_state *control = NULL;
-
-        const char *audio_host = NULL;
-        enum video_mode decoder_mode = VIDEO_NORMAL;
-        const char *requested_compression = nullptr;
-
-        int force_ip_version = 0;
+        ug_options opt{};
         int ch;
-
-        const char *audio_codec = nullptr;
 
         pthread_t receiver_thread_id,
                   capture_thread_id;
         bool receiver_thread_started = false,
              capture_thread_started = false;
         unsigned display_flags = 0;
-        int ret;
-        const char *requested_mcast_if = NULL;
-
-        unsigned requested_mtu = 0;
-        const char *postprocess = NULL;
-        const char *requested_display = "none";
-        const char *requested_receiver = "localhost";
-        const char *requested_encryption = NULL;
+        int audio_rxtx_mode = 0;
+        int video_rxtx_mode = 0;
+        struct control_state *control = NULL;
         struct exporter *exporter = NULL;
-
-        long long int bitrate = RATE_DEFAULT;
-        bool is_client = false;
-        int audio_rxtx_mode = 0, video_rxtx_mode = 0;
+        int ret;
 
         const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
-
-        bool print_capabilities_req = false;
-        bool start_paused = false;
 
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
@@ -718,14 +741,6 @@ int main(int argc, char *argv[])
         };
         const char *optstring = "Cd:t:m:r:s:v46c:hM:N::p:f:P:l:A:VST:";
 
-        const char *audio_protocol = "ultragrid_rtp";
-        const char *audio_protocol_opts = "";
-
-        const char *video_protocol = "ultragrid_rtp";
-        const char *video_protocol_opts = "";
-
-        const char *log_opt = nullptr;
-        const char *nat_traverse_config = nullptr;
         struct ug_nat_traverse *nat_traverse = nullptr;
 
         // First we need to set verbosity level prior to everything else.
@@ -736,7 +751,7 @@ int main(int argc, char *argv[])
                 switch (ch) {
                 case 'V':
                         if (optarg) {
-                                log_opt = optarg;
+                                opt.log_opt = optarg;
                         } else {
                                 log_level += 1;
                         }
@@ -747,7 +762,7 @@ int main(int argc, char *argv[])
         }
         optind = 1;
 
-        if ((init = common_preinit(argc, argv, log_opt)) == nullptr) {
+        if ((init = common_preinit(argc, argv, opt.log_opt)) == nullptr) {
                 log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
                 EXIT(EXIT_FAILURE);
         }
@@ -756,7 +771,7 @@ int main(int argc, char *argv[])
         uv_state = &uv;
         keyboard_control kc{&uv.root_module};
 
-        vidcap_params_set_device(vidcap_params_head, "none");
+        vidcap_params_set_device(opt.vidcap_params_head, "none");
 
         print_version();
         printf("\n");
@@ -770,11 +785,11 @@ int main(int argc, char *argv[])
                                 list_video_display_devices(strcmp(optarg, "fullhelp") == 0);
                                 EXIT(0);
                         }
-                        requested_display = optarg;
+                        opt.requested_display = optarg;
                         if(strchr(optarg, ':')) {
                                 char *delim = strchr(optarg, ':');
                                 *delim = '\0';
-                                display_cfg = delim + 1;
+                                opt.display_cfg = delim + 1;
                         }
                         break;
                 case 't':
@@ -782,24 +797,24 @@ int main(int argc, char *argv[])
                                 list_video_capture_devices(strcmp(optarg, "fullhelp") == 0);
                                 EXIT(0);
                         }
-                        vidcap_params_set_device(vidcap_params_tail, optarg);
-                        vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
+                        vidcap_params_set_device(opt.vidcap_params_tail, optarg);
+                        opt.vidcap_params_tail = vidcap_params_allocate_next(opt.vidcap_params_tail);
                         break;
                 case 'm':
-                        requested_mtu = atoi(optarg);
-                        if (requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
-                                log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", requested_mtu);
+                        opt.requested_mtu = atoi(optarg);
+                        if (opt.requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
+                                log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", opt.requested_mtu);
                                 EXIT(EXIT_FAIL_USAGE);
                         }
                         break;
                 case 'M':
-                        decoder_mode = get_video_mode_from_str(optarg);
-                        if (decoder_mode == VIDEO_UNKNOWN) {
+                        opt.decoder_mode = get_video_mode_from_str(optarg);
+                        if (opt.decoder_mode == VIDEO_UNKNOWN) {
                                 EXIT(strcasecmp(optarg, "help") == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE);
                         }
                         break;
                 case 'p':
-                        postprocess = optarg;
+                        opt.postprocess = optarg;
                         break;
                 case 'v':
                         print_configuration();
@@ -809,35 +824,35 @@ int main(int argc, char *argv[])
                                 show_compress_help(strcmp(optarg, "fullhelp") == 0);
                                 EXIT(EXIT_SUCCESS);
                         }
-                        requested_compression = optarg;
+                        opt.requested_compression = optarg;
                         break;
                 case 'H':
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
                                         "is deprecated and will be removed in future.\n"
                                         "Please use \"--video-protocol rtsp[:args]\"instead.\n");
-                        video_protocol = "rtsp";
-                        video_protocol_opts = optarg ? optarg : "";
+                        opt.video_protocol = "rtsp";
+                        opt.video_protocol_opts = optarg ? optarg : "";
                         break;
                 case OPT_AUDIO_PROTOCOL:
-                        audio_protocol = optarg;
+                        opt.audio.proto = optarg;
                         if (strchr(optarg, ':')) {
                                 char *delim = strchr(optarg, ':');
                                 *delim = '\0';
-                                audio_protocol_opts = delim + 1;
+                                opt.audio.proto_cfg = delim + 1;
                         }
-                        if (strcmp(audio_protocol, "help") == 0) {
+                        if (strcmp(opt.audio.proto, "help") == 0) {
                                 printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
                                 EXIT(EXIT_SUCCESS);
                         }
                         break;
                 case OPT_VIDEO_PROTOCOL:
-                        video_protocol = optarg;
+                        opt.video_protocol = optarg;
                         if (strchr(optarg, ':')) {
                                 char *delim = strchr(optarg, ':');
                                 *delim = '\0';
-                                video_protocol_opts = delim + 1;
+                                opt.video_protocol_opts = delim + 1;
                         }
-                        if (strcmp(video_protocol, "help") == 0) {
+                        if (strcmp(opt.video_protocol, "help") == 0) {
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
                                 EXIT(EXIT_SUCCESS);
                         }
@@ -850,11 +865,11 @@ int main(int argc, char *argv[])
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
                                 EXIT(EXIT_SUCCESS);
                         }
-                        audio_protocol = video_protocol = optarg;
+                        opt.audio.proto = opt.video_protocol = optarg;
                         if (strchr(optarg, ':')) {
                                 char *delim = strchr(optarg, ':');
                                 *delim = '\0';
-                                audio_protocol_opts = video_protocol_opts = delim + 1;
+                                opt.audio.proto_cfg = opt.video_protocol_opts = delim + 1;
                         }
                         break;
                 case 'r':
@@ -862,29 +877,29 @@ int main(int argc, char *argv[])
                                 audio_playback_help(strcmp(optarg, "full") == 0);
                                 EXIT(EXIT_SUCCESS);
                         }
-                        audio_recv = optarg;                       
+                        opt.audio.recv_cfg = optarg;
                         break;
                 case 's':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 audio_capture_print_help(strcmp(optarg, "full") == 0);
                                 EXIT(EXIT_SUCCESS);
                         }
-                        audio_send = optarg;
+                        opt.audio.send_cfg = optarg;
                         break;
                 case 'f':
                         if(strlen(optarg) > 2 && optarg[1] == ':' &&
                                         (toupper(optarg[0]) == 'A' || toupper(optarg[0]) == 'V')) {
                                 if(toupper(optarg[0]) == 'A') {
-                                        requested_audio_fec = optarg + 2;
+                                        opt.audio.fec_cfg = optarg + 2;
                                 } else {
-                                        requested_video_fec = optarg + 2;
+                                        opt.requested_video_fec = optarg + 2;
                                 }
                         } else {
                                 // there should be setting for both audio and video
                                 // but we conservativelly expect that the user wants
                                 // only vieo and let audio default until explicitly
                                 // stated otehrwise
-                                requested_video_fec = optarg;
+                                opt.requested_video_fec = optarg;
                         }
                         break;
                 case 'h':
@@ -894,23 +909,23 @@ int main(int argc, char *argv[])
                         try {
                                 if (strchr(optarg, ':') != nullptr) {
                                         char *save_ptr = nullptr;
-                                        video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
-                                        video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
+                                        opt.video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
+                                        opt.video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
                                         char *tok = nullptr;
                                         if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
-                                                audio_rx_port = stoi(tok, nullptr, 0);
+                                                opt.audio.recv_port = stoi(tok, nullptr, 0);
                                                 if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
-                                                        audio_tx_port = stoi(tok, nullptr, 0);
+                                                        opt.audio.send_port = stoi(tok, nullptr, 0);
                                                 } else {
                                                         usage(uv_argv[0]);
                                                         EXIT(EXIT_FAIL_USAGE);
                                                 }
                                         }
                                 } else {
-                                        port_base = stoi(optarg, nullptr, 0);
+                                        opt.port_base = stoi(optarg, nullptr, 0);
                                 }
-                                if (audio_rx_port < -1 || audio_tx_port < -1 || video_rx_port < -1 || video_tx_port < -1 || port_base < -1 ||
-                                                audio_rx_port > UINT16_MAX || audio_tx_port > UINT16_MAX || video_rx_port > UINT16_MAX || video_tx_port > UINT16_MAX || port_base > UINT16_MAX) {
+                                if (opt.audio.recv_port < -1 || opt.audio.send_port < -1 || opt.video_rx_port < -1 || opt.video_tx_port < -1 || opt.port_base < -1 ||
+                                                opt.audio.recv_port > UINT16_MAX || opt.audio.send_port > UINT16_MAX || opt.video_rx_port > UINT16_MAX || opt.video_tx_port > UINT16_MAX || opt.port_base > UINT16_MAX) {
                                         throw ug_runtime_error("Invalid port value, allowed range 1-65535", EXIT_FAIL_USAGE);
                                 }
                         } catch (exception const &e) {
@@ -919,22 +934,22 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'l':
-                        if (!parse_bitrate(optarg, &bitrate)) {
+                        if (!parse_bitrate(optarg, &opt.bitrate)) {
                                 EXIT(EXIT_FAILURE);
                         }
-                        if (bitrate == RATE_DEFAULT) {
+                        if (opt.bitrate == RATE_DEFAULT) {
                                 EXIT(EXIT_SUCCESS); // help written
                         }
                         break;
                 case '4':
                 case '6':
-                        force_ip_version = ch - '0';
+                        opt.force_ip_version = ch - '0';
                         break;
                 case OPT_AUDIO_CHANNEL_MAP:
-                        audio_channel_map = optarg;
+                        opt.audio.channel_map = optarg;
                         break;
                 case OPT_AUDIO_SCALE:
-                        audio_scale = optarg;
+                        opt.audio.scale = optarg;
                         break;
                 case OPT_AUDIO_CAPTURE_CHANNELS:
                         log_msg(LOG_LEVEL_WARNING, "Parameter --audio-capture-channels is deprecated. "
@@ -951,7 +966,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case OPT_ECHO_CANCELLATION:
-                        echo_cancellation = true;
+                        opt.audio.echo_cancellation = true;
                         break;
                 case OPT_FULLHELP:
                         usage(uv_argv[0], true);
@@ -989,25 +1004,25 @@ int main(int argc, char *argv[])
                         EXIT(EXIT_FAIL_USAGE);
 #endif // HAVE_CUDA
                 case OPT_MCAST_IF:
-                        requested_mcast_if = optarg;
+                        opt.requested_mcast_if = optarg;
                         break;
                 case 'A':
-                        audio_host = optarg;
+                        opt.audio.host = optarg;
                         break;
                 case OPT_EXPORT:
-                        should_export = true;
-                        export_opts = optarg;
+                        opt.should_export = true;
+                        opt.export_opts = optarg;
                         break;
                 case OPT_IMPORT:
-                        audio_send = "embedded";
+                        opt.audio.send_cfg = "embedded";
                         {
                                 char dev_string[1024];
                                 int ret;
                                 if ((ret = playback_set_device(dev_string, sizeof dev_string, optarg)) <= 0) {
                                         EXIT(ret == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE);
                                 }
-                                vidcap_params_set_device(vidcap_params_tail, dev_string);
-                                vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
+                                vidcap_params_set_device(opt.vidcap_params_tail, dev_string);
+                                opt.vidcap_params_tail = vidcap_params_allocate_next(opt.vidcap_params_tail);
                         }
                         break;
                 case OPT_AUDIO_CODEC:
@@ -1015,25 +1030,25 @@ int main(int argc, char *argv[])
                                 list_audio_codecs();
                                 EXIT(EXIT_SUCCESS);
                         }
-                        audio_codec = optarg;
+                        opt.audio.codec_cfg = optarg;
                         if (!check_audio_codec(optarg)) {
                                 EXIT(EXIT_FAIL_USAGE);
                         }
                         break;
                 case OPT_CAPTURE_FILTER:
-                        vidcap_params_set_capture_filter(vidcap_params_tail, optarg);
+                        vidcap_params_set_capture_filter(opt.vidcap_params_tail, optarg);
                         break;
                 case OPT_ENCRYPTION:
-                        requested_encryption = optarg;
+                        opt.requested_encryption = optarg;
                         break;
                 case OPT_CONTROL_PORT:
                         if (strchr(optarg, ':')) {
                                 char *save_ptr = NULL;
                                 char *tok;
-                                control_port = atoi(strtok_r(optarg, ":", &save_ptr));
-                                connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
+                                opt.control_port = atoi(strtok_r(optarg, ":", &save_ptr));
+                                opt.connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
 
-                                if(connection_type < 0 || connection_type > 1){
+                                if (opt.connection_type < 0 || opt.connection_type > 1){
                                         usage(uv_argv[0]);
                                         EXIT(EXIT_FAIL_USAGE);
                                 }
@@ -1042,8 +1057,8 @@ int main(int argc, char *argv[])
                                         EXIT(EXIT_FAIL_USAGE);
                                 }
                         } else {
-                                control_port = atoi(optarg);
-                                connection_type = 0;
+                                opt.control_port = atoi(optarg);
+                                opt.connection_type = 0;
                         }
                         break;
                 case 'V':
@@ -1054,7 +1069,7 @@ int main(int argc, char *argv[])
                         commandline_params["window-title"] = optarg;
                         break;
                 case OPT_CAPABILITIES:
-                        print_capabilities_req = true;
+                        opt.print_capabilities_req = true;
                         break;
                 case OPT_AUDIO_DELAY:
                         audio_offset = max(atoi(optarg), 0);
@@ -1063,7 +1078,7 @@ int main(int argc, char *argv[])
                 case OPT_LIST_MODULES:
                         EXIT(list_all_modules() ? EXIT_SUCCESS : EXIT_FAILURE);
                 case OPT_START_PAUSED:
-                        start_paused = true;
+                        opt.start_paused = true;
                         break;
                 case OPT_PARAM:
                         if (!parse_params(optarg)) {
@@ -1077,17 +1092,17 @@ int main(int argc, char *argv[])
                         print_video_codecs();
                         EXIT(EXIT_SUCCESS);
                 case 'N':
-                        nat_traverse_config = optarg == nullptr ? "" : optarg;
+                        opt.nat_traverse_config = optarg == nullptr ? "" : optarg;
                         break;
                 case 'C':
-                        is_client = true;
+                        opt.is_client = true;
                         break;
                 case 'S':
-                        requested_receiver = IN6_BLACKHOLE_STR;
+                        opt.requested_receiver = IN6_BLACKHOLE_STR;
                         break;
                 case 'T':
-                        requested_ttl = stoi(optarg);
-                        if (requested_ttl < -1 || requested_ttl >= 255) {
+                        opt.requested_ttl = stoi(optarg);
+                        if (opt.requested_ttl < -1 || opt.requested_ttl >= 255) {
                                 LOG(LOG_LEVEL_ERROR) << "TTL must be in range [0..255] or -1!\n";
                                 EXIT(EXIT_FAIL_USAGE);
                         }
@@ -1109,44 +1124,44 @@ int main(int argc, char *argv[])
         }
 
         if (argc > 0) {
-                requested_receiver = argv[0];
+                opt.requested_receiver = argv[0];
         }
 
-        if (strcmp(requested_receiver, IN6_BLACKHOLE_STR) == 0) { // server mode
+        if (strcmp(opt.requested_receiver, IN6_BLACKHOLE_STR) == 0) { // server mode
                 commandline_params["udp-disable-multi-socket"] = string();
                 if (argc > 0) {
                         LOG(LOG_LEVEL_ERROR) << "Receiver must not be given in server mode!\n";
                         EXIT(EXIT_FAIL_USAGE);
                 }
-                if (strcmp(requested_display, "none") == 0 && strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0) {
-                        requested_display = "dummy";
+                if (strcmp(opt.requested_display, "none") == 0 && strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0) {
+                        opt.requested_display = "dummy";
                 }
-                if (strcmp(audio_recv, "none") == 0 && strcmp(audio_send, "none") != 0) {
-                        audio_recv = "dummy";
+                if (strcmp(opt.audio.recv_cfg, "none") == 0 && strcmp(opt.audio.send_cfg, "none") != 0) {
+                        opt.audio.recv_cfg = "dummy";
                 }
         }
-        if (is_client) {
+        if (opt.is_client) {
                 commandline_params["udp-disable-multi-socket"] = string();
                 if (argc == 0) {
                         LOG(LOG_LEVEL_ERROR) << "Server address required in client mode!\n";
                         EXIT(EXIT_FAIL_USAGE);
                 }
-                if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) == 0 && strcmp(requested_display, "none") != 0) {
-                        vidcap_params_set_device(vidcap_params_tail, "testcard:2:1:5:UYVY");
+                if (strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) == 0 && strcmp(opt.requested_display, "none") != 0) {
+                        vidcap_params_set_device(opt.vidcap_params_tail, "testcard:2:1:5:UYVY");
                 }
-                if (strcmp("none", audio_send) == 0 && strcmp("none", audio_recv) != 0) {
+                if (strcmp("none", opt.audio.send_cfg) == 0 && strcmp("none", opt.audio.recv_cfg) != 0) {
                         parse_audio_capture_format("sample_rate=5");
-                        audio_send = "testcard:frames=1";
+                        opt.audio.send_cfg = "testcard:frames=1";
                 }
         }
 
-        if (!audio_host) {
-                audio_host = requested_receiver;
+        if (!opt.audio.host) {
+                opt.audio.host = opt.requested_receiver;
         }
 
         if (!is_ipv6_supported()) {
                 log_msg(LOG_LEVEL_WARNING, "IPv6 support missing, setting IPv4-only mode.\n");
-                force_ip_version = 4;
+                opt.force_ip_version = 4;
         }
 
         if (!set_output_buffering()) {
@@ -1154,136 +1169,133 @@ int main(int argc, char *argv[])
         }
 
         // default values for different RXTX protocols
-        if (strcasecmp(video_protocol, "rtsp") == 0 || strcasecmp(video_protocol, "sdp") == 0) {
-                if (requested_compression == nullptr) {
-                        requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
+        if (strcasecmp(opt.video_protocol, "rtsp") == 0 || strcasecmp(opt.video_protocol, "sdp") == 0) {
+                if (opt.requested_compression == nullptr) {
+                        opt.requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
                 }
-                if (force_ip_version == 0 && strcasecmp(video_protocol, "rtsp") == 0) {
-                        force_ip_version = 4;
+                if (opt.force_ip_version == 0 && strcasecmp(opt.video_protocol, "rtsp") == 0) {
+                        opt.force_ip_version = 4;
                 }
         } else {
-                if (requested_compression == nullptr) {
-                        requested_compression = DEFAULT_VIDEO_COMPRESSION;
+                if (opt.requested_compression == nullptr) {
+                        opt.requested_compression = DEFAULT_VIDEO_COMPRESSION;
                 }
         }
 
-        if (audio_codec == nullptr) {
-                if (strcasecmp(audio_protocol, "rtsp") == 0 || strcasecmp(audio_protocol, "sdp") == 0) {
-                        audio_codec = "OPUS:sample_rate=48000";
+        if (opt.audio.codec_cfg == nullptr) {
+                if (strcasecmp(opt.audio.proto, "rtsp") == 0 || strcasecmp(opt.audio.proto, "sdp") == 0) {
+                        opt.audio.codec_cfg = "OPUS:sample_rate=48000";
                 } else {
-                        audio_codec = DEFAULT_AUDIO_CODEC;
+                        opt.audio.codec_cfg = DEFAULT_AUDIO_CODEC;
                 }
         }
 
-        if (strcmp("none", audio_recv) != 0) {
+        if (strcmp("none", opt.audio.recv_cfg) != 0) {
                 audio_rxtx_mode |= MODE_RECEIVER;
         }
 
-        if (strcmp("none", audio_send) != 0) {
+        if (strcmp("none", opt.audio.send_cfg) != 0) {
                 audio_rxtx_mode |= MODE_SENDER;
         }
 
-        if (strcmp("none", requested_display) != 0) {
+        if (strcmp("none", opt.requested_display) != 0) {
                 video_rxtx_mode |= MODE_RECEIVER;
         }
-        if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0) {
+        if (strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0) {
                 video_rxtx_mode |= MODE_SENDER;
         }
 
-        if (video_rx_port == -1) {
+        if (opt.video_rx_port == -1) {
                 if ((video_rxtx_mode & MODE_RECEIVER) == 0) {
                         // do not occupy recv port if we are not receiving (note that this disables communication with
                         // our receiver, because RTCP ports are changed as well)
-                        video_rx_port = 0;
+                        opt.video_rx_port = 0;
                 } else {
-                        video_rx_port = port_base;
+                        opt.video_rx_port = opt.port_base;
                 }
         }
 
-        if (video_tx_port == -1) {
+        if (opt.video_tx_port == -1) {
                 if ((video_rxtx_mode & MODE_SENDER) == 0) {
-                        video_tx_port = 0; // does not matter, we are receiver
+                        opt.video_tx_port = 0; // does not matter, we are receiver
                 } else {
-                        video_tx_port = port_base;
+                        opt.video_tx_port = opt.port_base;
                 }
         }
 
-        if (audio_rx_port == -1) {
+        if (opt.audio_rx_port == -1) {
                 if ((audio_rxtx_mode & MODE_RECEIVER) == 0) {
                         // do not occupy recv port if we are not receiving (note that this disables communication with
                         // our receiver, because RTCP ports are changed as well)
-                        audio_rx_port = 0;
+                        opt.audio_rx_port = 0;
                 } else {
-                        audio_rx_port = video_rx_port ? video_rx_port + 2 : port_base + 2;
+                        opt.audio_rx_port = opt.video_rx_port ? opt.video_rx_port + 2 : opt.port_base + 2;
                 }
         }
 
-        if (audio_tx_port == -1) {
+        if (opt.audio_tx_port == -1) {
                 if ((audio_rxtx_mode & MODE_SENDER) == 0) {
-                        audio_tx_port = 0;
+                        opt.audio_tx_port = 0;
                 } else {
-                        audio_tx_port = video_tx_port ? video_tx_port + 2 : port_base + 2;
+                        opt.audio_tx_port = opt.video_tx_port ? opt.video_tx_port + 2 : opt.port_base + 2;
                 }
         }
 
         // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
         // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possibile that we are sending
         // to a reflector, thats why we require equal ports (we are a receiver as well).
-        if (is_host_loopback(requested_receiver) && video_rx_port == video_tx_port &&
-                        audio_rx_port == audio_tx_port) {
-                requested_mtu = requested_mtu == 0 ? min(RTP_MAX_MTU, 65535) : requested_mtu;
-                bitrate = bitrate == RATE_DEFAULT ? RATE_UNLIMITED : bitrate;
+        if (is_host_loopback(opt.requested_receiver) && opt.video_rx_port == opt.video_tx_port &&
+                        opt.audio_rx_port == opt.audio_tx_port) {
+                opt.requested_mtu = opt.requested_mtu == 0 ? min(RTP_MAX_MTU, 65535) : opt.requested_mtu;
+                opt.bitrate = opt.bitrate == RATE_DEFAULT ? RATE_UNLIMITED : opt.bitrate;
         } else {
-                requested_mtu = requested_mtu == 0 ? 1500 : requested_mtu;
-                bitrate = bitrate == RATE_DEFAULT ? RATE_AUTO : bitrate;
+                opt.requested_mtu = opt.requested_mtu == 0 ? 1500 : opt.requested_mtu;
+                opt.bitrate = opt.bitrate == RATE_DEFAULT ? RATE_AUTO : opt.bitrate;
         }
 
-        if((strcmp("none", audio_send) != 0 || strcmp("none", audio_recv) != 0) && strcmp(video_protocol, "rtsp") == 0){
+        if((strcmp("none", opt.audio.send_cfg) != 0 || strcmp("none", opt.audio.recv_cfg) != 0) && strcmp(opt.video_protocol, "rtsp") == 0){
             //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
-            if (strcmp(audio_protocol, "rtsp") != 0) {
+            if (strcmp(opt.audio.proto, "rtsp") != 0) {
 		log_msg(LOG_LEVEL_WARNING, "Using RTSP for video but not for audio is not recommended. Consider adding '--audio-protocol rtsp'.\n");
             }
         }
-        if (strcmp(audio_protocol, "rtsp") == 0 && strcmp(video_protocol, "rtsp") != 0) {
+        if (strcmp(opt.audio.proto, "rtsp") == 0 && strcmp(opt.video_protocol, "rtsp") != 0) {
                 log_msg(LOG_LEVEL_WARNING, "Using RTSP for audio but not for video is not recommended and might not work.\n");
         }
 
-        cout << BOLD("Display device   : ") << requested_display << "\n";
-        cout << BOLD("Capture device   : ") << vidcap_params_get_driver(vidcap_params_head) << "\n";
-        cout << BOLD("Audio capture    : ") << audio_send << "\n";
-        cout << BOLD("Audio playback   : ") << audio_recv << "\n";
-        cout << BOLD("MTU              : ") << requested_mtu << " B\n";
-        cout << BOLD("Video compression: ") << requested_compression << "\n";
-        cout << BOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(audio_codec)) << "\n";
-        cout << BOLD("Network protocol : ") << video_rxtx::get_long_name(video_protocol) << "\n";
-        cout << BOLD("Audio FEC        : ") << requested_audio_fec << "\n";
-        cout << BOLD("Video FEC        : ") << requested_video_fec << "\n";
+        cout << BOLD("Display device   : ") << opt.requested_display << "\n";
+        cout << BOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
+        cout << BOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
+        cout << BOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
+        cout << BOLD("MTU              : ") << opt.requested_mtu << " B\n";
+        cout << BOLD("Video compression: ") << opt.requested_compression << "\n";
+        cout << BOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(opt.audio.codec_cfg)) << "\n";
+        cout << BOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
+        cout << BOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
+        cout << BOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
         cout << "\n";
 
-        exporter = export_init(&uv.root_module, export_opts, should_export);
+        exporter = export_init(&uv.root_module, opt.export_opts, opt.should_export);
         if (!exporter) {
                 log_msg(LOG_LEVEL_ERROR, "Export initialization failed.\n");
                 EXIT(EXIT_FAILURE);
         }
 
-        if (control_init(control_port, connection_type, &control, &uv.root_module, force_ip_version) != 0) {
+        if (control_init(opt.control_port, opt.connection_type, &control, &uv.root_module, opt.force_ip_version) != 0) {
                 LOG(LOG_LEVEL_FATAL) << "Error: Unable to initialize remote control!\n";
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
 
-        if ((nat_traverse = start_nat_traverse(nat_traverse_config, video_rx_port, audio_rx_port)) == nullptr) {
+        if ((nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.video_rx_port, opt.audio_rx_port)) == nullptr) {
                 exit_uv(1);
                 goto cleanup;
         }
 
-        uv.audio = audio_cfg_init (&uv.root_module, audio_host, audio_rx_port,
-                        audio_tx_port, audio_send, audio_recv,
-                        audio_protocol, audio_protocol_opts,
-                        requested_audio_fec, requested_encryption,
-                        audio_channel_map,
-                        audio_scale, echo_cancellation, force_ip_version, requested_mcast_if,
-                        audio_codec, bitrate, &audio_offset, &start_time,
-                        requested_mtu, requested_ttl, exporter);
+        uv.audio = audio_cfg_init (&uv.root_module, &opt.audio,
+                        opt.requested_encryption,
+                        opt.force_ip_version, opt.requested_mcast_if,
+                        opt.bitrate, &audio_offset, &start_time,
+                        opt.requested_mtu, opt.requested_ttl, exporter);
         if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
                 goto cleanup;
@@ -1294,10 +1306,10 @@ int main(int argc, char *argv[])
         // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
         // to initalize shared resource (X display) first
         ret =
-             initialize_video_display(&uv.root_module, requested_display, display_cfg, display_flags, postprocess, &uv.display_device);
+             initialize_video_display(&uv.root_module, opt.requested_display, opt.display_cfg, display_flags, opt.postprocess, &uv.display_device);
         if (ret < 0) {
                 printf("Unable to open display device: %s\n",
-                       requested_display);
+                       opt.requested_display);
                 exit_uv(EXIT_FAIL_DISPLAY);
                 goto cleanup;
         } else if(ret > 0) {
@@ -1305,19 +1317,19 @@ int main(int argc, char *argv[])
                 goto cleanup;
         }
 
-        printf("Display initialized-%s\n", requested_display);
+        printf("Display initialized-%s\n", opt.requested_display);
 
         /* Pass embedded/analog/AESEBU flags to selected vidcap
          * device. */
-        if (audio_capture_get_vidcap_flags(audio_send)) {
-                int index = audio_capture_get_vidcap_index(audio_send);
+        if (audio_capture_get_vidcap_flags(opt.audio.send_cfg)) {
+                int index = audio_capture_get_vidcap_index(opt.audio.send_cfg);
                 int i = 0;
-                for (auto *vidcap_params_it = vidcap_params_head; vidcap_params_it != vidcap_params_tail; vidcap_params_it = vidcap_params_get_next(vidcap_params_it)) {
+                for (auto *vidcap_params_it = opt.vidcap_params_head; vidcap_params_it != opt.vidcap_params_tail; vidcap_params_it = vidcap_params_get_next(vidcap_params_it)) {
                         if (index == i || index == -1) {
                                 unsigned int orig_flags =
                                         vidcap_params_get_flags(vidcap_params_it);
                                 vidcap_params_set_flags(vidcap_params_it, orig_flags
-                                                | audio_capture_get_vidcap_flags(audio_send));
+                                                | audio_capture_get_vidcap_flags(opt.audio.send_cfg));
                         }
                         i++;
                 }
@@ -1328,17 +1340,17 @@ int main(int argc, char *argv[])
                 }
         }
 
-        ret = initialize_video_capture(&uv.root_module, vidcap_params_head, &uv.capture_device);
+        ret = initialize_video_capture(&uv.root_module, opt.vidcap_params_head, &uv.capture_device);
         if (ret < 0) {
                 printf("Unable to open capture device: %s\n",
-                                vidcap_params_get_driver(vidcap_params_head));
+                                vidcap_params_get_driver(opt.vidcap_params_head));
                 exit_uv(EXIT_FAIL_CAPTURE);
                 goto cleanup;
         } else if(ret > 0) {
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
-        printf("Video capture initialized-%s\n", vidcap_params_get_driver(vidcap_params_head));
+        printf("Video capture initialized-%s\n", vidcap_params_get_driver(opt.vidcap_params_head));
 
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
@@ -1371,9 +1383,9 @@ int main(int argc, char *argv[])
                 // common
                 params["parent"].ptr = &uv.root_module;
                 params["exporter"].ptr = exporter;
-                params["compression"].str = requested_compression;
+                params["compression"].str = opt.requested_compression;
                 params["rxtx_mode"].i = video_rxtx_mode;
-                params["paused"].b = start_paused;
+                params["paused"].b = opt.start_paused;
 
                 // iHDTV
                 params["argc"].i = argc;
@@ -1386,40 +1398,40 @@ int main(int argc, char *argv[])
                         params["display_device"].ptr = uv.display_device;
 
                 //RTP
-                params["mtu"].i = requested_mtu;
-                params["ttl"].i = requested_ttl;
-                params["receiver"].str = requested_receiver;
-                params["rx_port"].i = video_rx_port;
-                params["tx_port"].i = video_tx_port;
-                params["force_ip_version"].i = force_ip_version;
-                params["mcast_if"].str = requested_mcast_if;
-                params["mtu"].i = requested_mtu;
-                params["fec"].str = requested_video_fec;
-                params["encryption"].str = requested_encryption;
-                params["bitrate"].ll = bitrate;
+                params["mtu"].i = opt.requested_mtu;
+                params["ttl"].i = opt.requested_ttl;
+                params["receiver"].str = opt.requested_receiver;
+                params["rx_port"].i = opt.video_rx_port;
+                params["tx_port"].i = opt.video_tx_port;
+                params["force_ip_version"].i = opt.force_ip_version;
+                params["mcast_if"].str = opt.requested_mcast_if;
+                params["mtu"].i = opt.requested_mtu;
+                params["fec"].str = opt.requested_video_fec;
+                params["encryption"].str = opt.requested_encryption;
+                params["bitrate"].ll = opt.bitrate;
                 params["start_time"].cptr = (const void *) &start_time;
                 params["video_delay"].vptr = (volatile void *) &video_offset;
 
                 // UltraGrid RTP
-                params["decoder_mode"].l = (long) decoder_mode;
+                params["decoder_mode"].l = (long) opt.decoder_mode;
                 params["display_device"].ptr = uv.display_device;
 
                 // SAGE + RTSP
-                params["opts"].str = video_protocol_opts;
+                params["opts"].str = opt.video_protocol_opts;
 
                 // RTSP/SDP
-                params["audio_codec"].l = get_audio_codec(audio_codec);
-                params["audio_sample_rate"].i = get_audio_codec_sample_rate(audio_codec) ? get_audio_codec_sample_rate(audio_codec) : 48000;
+                params["audio_codec"].l = get_audio_codec(opt.audio.codec_cfg);
+                params["audio_sample_rate"].i = get_audio_codec_sample_rate(opt.audio.codec_cfg) ? get_audio_codec_sample_rate(opt.audio.codec_cfg) : 48000;
                 params["audio_channels"].i = audio_capture_channels;
                 params["audio_bps"].i = 2;
-                params["a_rx_port"].i = audio_rx_port;
-                params["a_tx_port"].i = audio_tx_port;
+                params["a_rx_port"].i = opt.audio.recv_port;
+                params["a_tx_port"].i = opt.audio.send_port;
 
-                if (strcmp(video_protocol, "rtsp") == 0) {
+                if (strcmp(opt.video_protocol, "rtsp") == 0) {
                         rtps_types_t avType;
-                        if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
-                        else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream
-                        else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = video; //VStream
+                        if(strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0 && (strcmp("none",opt.audio.send_cfg) != 0)) avType = av; //AVStream
+                        else if((strcmp("none",opt.audio.send_cfg) != 0)) avType = audio; //AStream
+                        else if(strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head))) avType = video; //VStream
                         else {
                                 printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
                                 avType = none;
@@ -1428,9 +1440,9 @@ int main(int argc, char *argv[])
                         params["avType"].l = (long) avType;
                 }
 
-                uv.state_video_rxtx = video_rxtx::create(video_protocol, params);
+                uv.state_video_rxtx = video_rxtx::create(opt.video_protocol, params);
                 if (!uv.state_video_rxtx) {
-                        if (strcmp(video_protocol, "help") != 0) {
+                        if (strcmp(opt.video_protocol, "help") != 0) {
                                 throw string("Requested RX/TX cannot be created (missing library?)");
                         } else {
                                 throw 0;
@@ -1456,7 +1468,7 @@ int main(int argc, char *argv[])
                 }
 
                 if (video_rxtx_mode & MODE_SENDER) {
-                        uv.capture_device_name = vidcap_params_get_driver(vidcap_params_head);
+                        uv.capture_device_name = vidcap_params_get_driver(opt.vidcap_params_head);
                         if (pthread_create
                                         (&capture_thread_id, NULL, capture_thread,
                                          (void *) &uv.root_module) != 0) {
@@ -1480,8 +1492,8 @@ int main(int argc, char *argv[])
 
                 // This has to be run after start of capture thread since it may request
                 // captured video format information.
-                if (print_capabilities_req) {
-                        print_capabilities(&uv.root_module, strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0);
+                if (opt.print_capabilities_req) {
+                        print_capabilities(&uv.root_module, strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0);
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup;
                 }
@@ -1514,7 +1526,7 @@ int main(int argc, char *argv[])
         }
 
 cleanup:
-        if (strcmp("none", requested_display) != 0 &&
+        if (strcmp("none", opt.requested_display) != 0 &&
                         receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
@@ -1550,12 +1562,6 @@ cleanup:
 
         kc.stop();
         control_done(control);
-
-        while  (vidcap_params_head) {
-                struct vidcap_params *next = vidcap_params_get_next(vidcap_params_head);
-                vidcap_params_free_struct(vidcap_params_head);
-                vidcap_params_head = next;
-        }
 
         uv.stop();
         common_cleanup(init);

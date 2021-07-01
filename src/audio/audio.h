@@ -61,13 +61,28 @@ struct state_audio;
 
 #ifdef __cplusplus
 #include <chrono>
-struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, int recv_port, int send_port,
-                const char *send_cfg, const char *recv_cfg,
-                const char *proto, const char *proto_cfg,
-                const char *fec_cfg, const char *encryption,
-                char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, int force_ip_version, const char *mcast_iface, const char *audio_codec_cfg,
-                long long int bitrate, volatile int *audio_delay, const std::chrono::steady_clock::time_point *start_time,
+
+struct audio_options {
+        const char *host = NULL;
+        int recv_port = 0;
+        int send_port = 0;
+        const char *recv_cfg = "none";
+        const char *send_cfg = "none";
+        const char *proto = "ultragrid_rtp";
+        const char *proto_cfg = "";
+        const char *fec_cfg = "none";
+        char *channel_map = nullptr;
+        const char *scale = "none";
+        bool echo_cancellation = false;
+        const char *codec_cfg = "PCM";
+};
+
+struct state_audio * audio_cfg_init(struct module *parent,
+                struct audio_options *opt,
+                const char *encryption,
+                int force_ip_version, const char *mcast_iface,
+                long long int bitrate, volatile int *audio_delay,
+                const std::chrono::steady_clock::time_point *start_time,
                 int mtu, int ttl, struct exporter *exporter);
 #endif
 
