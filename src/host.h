@@ -94,8 +94,8 @@ extern unsigned int audio_capture_sample_rate; // user-specified sample rate, if
 extern unsigned int cuda_devices[];
 extern unsigned int cuda_devices_count;
 
-#define MODE_SENDER   (1<<0)
-#define MODE_RECEIVER (1<<1)
+#define MODE_SENDER   (1U<<0U)
+#define MODE_RECEIVER (1U<<1U)
 
 extern char *sage_network_device;
 

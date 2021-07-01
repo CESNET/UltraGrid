@@ -652,11 +652,12 @@ struct ug_options {
         unsigned requested_mtu = 0;
         const char *postprocess = NULL;
         const char *requested_display = "none";
-        const char *requested_receiver = "localhost";
+        const char *requested_receiver = nullptr;
         const char *requested_encryption = NULL;
 
         long long int bitrate = RATE_DEFAULT;
         bool is_client = false;
+        bool is_server = false;
 
         bool print_capabilities_req = false;
         bool start_paused = false;
@@ -666,7 +667,155 @@ struct ug_options {
 
         const char *log_opt = nullptr;
         const char *nat_traverse_config = nullptr;
+
+        unsigned int video_rxtx_mode = 0;
 };
+
+static int adjust_params(struct ug_options *opt) {
+        unsigned int audio_rxtx_mode = 0;
+        if (opt->is_server) {
+                commandline_params["udp-disable-multi-socket"] = string();
+                if (opt->requested_receiver != nullptr) {
+                        LOG(LOG_LEVEL_ERROR) << "Receiver must not be given in server mode!\n";
+                        return EXIT_FAIL_USAGE;
+                }
+                opt->requested_receiver = IN6_BLACKHOLE_STR;
+                if (strcmp(opt->requested_display, "none") == 0 && strcmp("none", vidcap_params_get_driver(opt->vidcap_params_head)) != 0) {
+                        opt->requested_display = "dummy";
+                }
+                if (strcmp(opt->audio.recv_cfg, "none") == 0 && strcmp(opt->audio.send_cfg, "none") != 0) {
+                        opt->audio.recv_cfg = "dummy";
+                }
+        }
+        if (opt->is_client) {
+                commandline_params["udp-disable-multi-socket"] = string();
+                if (opt->requested_receiver == nullptr) {
+                        LOG(LOG_LEVEL_ERROR) << "Server address required in client mode!\n";
+                        return EXIT_FAIL_USAGE;
+                }
+                if (strcmp("none", vidcap_params_get_driver(opt->vidcap_params_head)) == 0 && strcmp(opt->requested_display, "none") != 0) {
+                        vidcap_params_set_device(opt->vidcap_params_tail, "testcard:2:1:5:UYVY");
+                }
+                if (strcmp("none", opt->audio.send_cfg) == 0 && strcmp("none", opt->audio.recv_cfg) != 0) {
+                        parse_audio_capture_format("sample_rate=5");
+                        opt->audio.send_cfg = "testcard:frames=1";
+                }
+        }
+
+        if (opt->requested_receiver == nullptr) {
+                opt->requested_receiver = "localhost";
+        }
+
+        if (opt->audio.host == nullptr) {
+                opt->audio.host = opt->requested_receiver;
+        }
+
+        if (!is_ipv6_supported()) {
+                LOG(LOG_LEVEL_WARNING) << "IPv6 support missing, setting IPv4-only mode.\n";
+                opt->force_ip_version = 4;
+        }
+
+        if (!set_output_buffering()) {
+                LOG(LOG_LEVEL_WARNING) << "Cannot set console output buffering!\n";
+        }
+
+        // default values for different RXTX protocols
+        if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
+                if (opt->requested_compression == nullptr) {
+                        opt->requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
+                }
+                if (opt->force_ip_version == 0 && strcasecmp(opt->video_protocol, "rtsp") == 0) {
+                        opt->force_ip_version = 4;
+                }
+        } else {
+                if (opt->requested_compression == nullptr) {
+                        opt->requested_compression = DEFAULT_VIDEO_COMPRESSION;
+                }
+        }
+
+        if (opt->audio.codec_cfg == nullptr) {
+                if (strcasecmp(opt->audio.proto, "rtsp") == 0 || strcasecmp(opt->audio.proto, "sdp") == 0) {
+                        opt->audio.codec_cfg = "OPUS:sample_rate=48000";
+                } else {
+                        opt->audio.codec_cfg = DEFAULT_AUDIO_CODEC;
+                }
+        }
+
+        if (strcmp("none", opt->audio.recv_cfg) != 0) {
+                audio_rxtx_mode |= MODE_RECEIVER;
+        }
+
+        if (strcmp("none", opt->audio.send_cfg) != 0) {
+                audio_rxtx_mode |= MODE_SENDER;
+        }
+
+        if (strcmp("none", opt->requested_display) != 0) {
+                opt->video_rxtx_mode |= MODE_RECEIVER;
+        }
+        if (strcmp("none", vidcap_params_get_driver(opt->vidcap_params_head)) != 0) {
+                opt->video_rxtx_mode |= MODE_SENDER;
+        }
+
+        if (opt->video_rx_port == -1) {
+                if ((opt->video_rxtx_mode & MODE_RECEIVER) == 0U) {
+                        // do not occupy recv port if we are not receiving (note that this disables communication with
+                        // our receiver, because RTCP ports are changed as well)
+                        opt->video_rx_port = 0;
+                } else {
+                        opt->video_rx_port = opt->port_base;
+                }
+        }
+
+        if (opt->video_tx_port == -1) {
+                if ((opt->video_rxtx_mode & MODE_SENDER) == 0U) {
+                        opt->video_tx_port = 0; // does not matter, we are receiver
+                } else {
+                        opt->video_tx_port = opt->port_base;
+                }
+        }
+
+        if (opt->audio_rx_port == -1) {
+                if ((audio_rxtx_mode & MODE_RECEIVER) == 0U) {
+                        // do not occupy recv port if we are not receiving (note that this disables communication with
+                        // our receiver, because RTCP ports are changed as well)
+                        opt->audio_rx_port = 0;
+                } else {
+                        opt->audio_rx_port = opt->video_rx_port ? opt->video_rx_port + 2 : opt->port_base + 2;
+                }
+        }
+
+        if (opt->audio_tx_port == -1) {
+                if ((audio_rxtx_mode & MODE_SENDER) == 0U) {
+                        opt->audio_tx_port = 0;
+                } else {
+                        opt->audio_tx_port = opt->video_tx_port ? opt->video_tx_port + 2 : opt->port_base + 2;
+                }
+        }
+
+        // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
+        // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possibile that we are sending
+        // to a reflector, thats why we require equal ports (we are a receiver as well).
+        if (is_host_loopback(opt->requested_receiver) && opt->video_rx_port == opt->video_tx_port &&
+                        opt->audio_rx_port == opt->audio_tx_port) {
+                opt->requested_mtu = opt->requested_mtu == 0 ? min(RTP_MAX_MTU, 65535) : opt->requested_mtu;
+                opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_UNLIMITED : opt->bitrate;
+        } else {
+                opt->requested_mtu = opt->requested_mtu == 0 ? 1500 : opt->requested_mtu;
+                opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_AUTO : opt->bitrate;
+        }
+
+        if((strcmp("none", opt->audio.send_cfg) != 0 || strcmp("none", opt->audio.recv_cfg) != 0) && strcmp(opt->video_protocol, "rtsp") == 0){
+            //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
+            if (strcmp(opt->audio.proto, "rtsp") != 0) {
+                    LOG(LOG_LEVEL_WARNING) << "Using RTSP for video but not for audio is not recommended. Consider adding '--audio-protocol rtsp'.\n";
+            }
+        }
+        if (strcmp(opt->audio.proto, "rtsp") == 0 && strcmp(opt->video_protocol, "rtsp") != 0) {
+                LOG(LOG_LEVEL_WARNING) << "Using RTSP for audio but not for video is not recommended and might not work.\n";
+        }
+
+        return 0;
+}
 
 #define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 
@@ -684,8 +833,6 @@ int main(int argc, char *argv[])
         bool receiver_thread_started = false,
              capture_thread_started = false;
         unsigned display_flags = 0;
-        int audio_rxtx_mode = 0;
-        int video_rxtx_mode = 0;
         struct control_state *control = NULL;
         struct exporter *exporter = NULL;
         int ret;
@@ -1098,7 +1245,7 @@ int main(int argc, char *argv[])
                         opt.is_client = true;
                         break;
                 case 'S':
-                        opt.requested_receiver = IN6_BLACKHOLE_STR;
+                        opt.is_server = true;
                         break;
                 case 'T':
                         opt.requested_ttl = stoi(optarg);
@@ -1127,140 +1274,8 @@ int main(int argc, char *argv[])
                 opt.requested_receiver = argv[0];
         }
 
-        if (strcmp(opt.requested_receiver, IN6_BLACKHOLE_STR) == 0) { // server mode
-                commandline_params["udp-disable-multi-socket"] = string();
-                if (argc > 0) {
-                        LOG(LOG_LEVEL_ERROR) << "Receiver must not be given in server mode!\n";
-                        EXIT(EXIT_FAIL_USAGE);
-                }
-                if (strcmp(opt.requested_display, "none") == 0 && strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0) {
-                        opt.requested_display = "dummy";
-                }
-                if (strcmp(opt.audio.recv_cfg, "none") == 0 && strcmp(opt.audio.send_cfg, "none") != 0) {
-                        opt.audio.recv_cfg = "dummy";
-                }
-        }
-        if (opt.is_client) {
-                commandline_params["udp-disable-multi-socket"] = string();
-                if (argc == 0) {
-                        LOG(LOG_LEVEL_ERROR) << "Server address required in client mode!\n";
-                        EXIT(EXIT_FAIL_USAGE);
-                }
-                if (strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) == 0 && strcmp(opt.requested_display, "none") != 0) {
-                        vidcap_params_set_device(opt.vidcap_params_tail, "testcard:2:1:5:UYVY");
-                }
-                if (strcmp("none", opt.audio.send_cfg) == 0 && strcmp("none", opt.audio.recv_cfg) != 0) {
-                        parse_audio_capture_format("sample_rate=5");
-                        opt.audio.send_cfg = "testcard:frames=1";
-                }
-        }
-
-        if (!opt.audio.host) {
-                opt.audio.host = opt.requested_receiver;
-        }
-
-        if (!is_ipv6_supported()) {
-                log_msg(LOG_LEVEL_WARNING, "IPv6 support missing, setting IPv4-only mode.\n");
-                opt.force_ip_version = 4;
-        }
-
-        if (!set_output_buffering()) {
-                log_msg(LOG_LEVEL_WARNING, "Cannot set console output buffering!\n");
-        }
-
-        // default values for different RXTX protocols
-        if (strcasecmp(opt.video_protocol, "rtsp") == 0 || strcasecmp(opt.video_protocol, "sdp") == 0) {
-                if (opt.requested_compression == nullptr) {
-                        opt.requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
-                }
-                if (opt.force_ip_version == 0 && strcasecmp(opt.video_protocol, "rtsp") == 0) {
-                        opt.force_ip_version = 4;
-                }
-        } else {
-                if (opt.requested_compression == nullptr) {
-                        opt.requested_compression = DEFAULT_VIDEO_COMPRESSION;
-                }
-        }
-
-        if (opt.audio.codec_cfg == nullptr) {
-                if (strcasecmp(opt.audio.proto, "rtsp") == 0 || strcasecmp(opt.audio.proto, "sdp") == 0) {
-                        opt.audio.codec_cfg = "OPUS:sample_rate=48000";
-                } else {
-                        opt.audio.codec_cfg = DEFAULT_AUDIO_CODEC;
-                }
-        }
-
-        if (strcmp("none", opt.audio.recv_cfg) != 0) {
-                audio_rxtx_mode |= MODE_RECEIVER;
-        }
-
-        if (strcmp("none", opt.audio.send_cfg) != 0) {
-                audio_rxtx_mode |= MODE_SENDER;
-        }
-
-        if (strcmp("none", opt.requested_display) != 0) {
-                video_rxtx_mode |= MODE_RECEIVER;
-        }
-        if (strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0) {
-                video_rxtx_mode |= MODE_SENDER;
-        }
-
-        if (opt.video_rx_port == -1) {
-                if ((video_rxtx_mode & MODE_RECEIVER) == 0) {
-                        // do not occupy recv port if we are not receiving (note that this disables communication with
-                        // our receiver, because RTCP ports are changed as well)
-                        opt.video_rx_port = 0;
-                } else {
-                        opt.video_rx_port = opt.port_base;
-                }
-        }
-
-        if (opt.video_tx_port == -1) {
-                if ((video_rxtx_mode & MODE_SENDER) == 0) {
-                        opt.video_tx_port = 0; // does not matter, we are receiver
-                } else {
-                        opt.video_tx_port = opt.port_base;
-                }
-        }
-
-        if (opt.audio_rx_port == -1) {
-                if ((audio_rxtx_mode & MODE_RECEIVER) == 0) {
-                        // do not occupy recv port if we are not receiving (note that this disables communication with
-                        // our receiver, because RTCP ports are changed as well)
-                        opt.audio_rx_port = 0;
-                } else {
-                        opt.audio_rx_port = opt.video_rx_port ? opt.video_rx_port + 2 : opt.port_base + 2;
-                }
-        }
-
-        if (opt.audio_tx_port == -1) {
-                if ((audio_rxtx_mode & MODE_SENDER) == 0) {
-                        opt.audio_tx_port = 0;
-                } else {
-                        opt.audio_tx_port = opt.video_tx_port ? opt.video_tx_port + 2 : opt.port_base + 2;
-                }
-        }
-
-        // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
-        // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possibile that we are sending
-        // to a reflector, thats why we require equal ports (we are a receiver as well).
-        if (is_host_loopback(opt.requested_receiver) && opt.video_rx_port == opt.video_tx_port &&
-                        opt.audio_rx_port == opt.audio_tx_port) {
-                opt.requested_mtu = opt.requested_mtu == 0 ? min(RTP_MAX_MTU, 65535) : opt.requested_mtu;
-                opt.bitrate = opt.bitrate == RATE_DEFAULT ? RATE_UNLIMITED : opt.bitrate;
-        } else {
-                opt.requested_mtu = opt.requested_mtu == 0 ? 1500 : opt.requested_mtu;
-                opt.bitrate = opt.bitrate == RATE_DEFAULT ? RATE_AUTO : opt.bitrate;
-        }
-
-        if((strcmp("none", opt.audio.send_cfg) != 0 || strcmp("none", opt.audio.recv_cfg) != 0) && strcmp(opt.video_protocol, "rtsp") == 0){
-            //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
-            if (strcmp(opt.audio.proto, "rtsp") != 0) {
-		log_msg(LOG_LEVEL_WARNING, "Using RTSP for video but not for audio is not recommended. Consider adding '--audio-protocol rtsp'.\n");
-            }
-        }
-        if (strcmp(opt.audio.proto, "rtsp") == 0 && strcmp(opt.video_protocol, "rtsp") != 0) {
-                log_msg(LOG_LEVEL_WARNING, "Using RTSP for audio but not for video is not recommended and might not work.\n");
+        if (int ret = adjust_params(&opt)) {
+                EXIT(ret);
         }
 
         cout << BOLD("Display device   : ") << opt.requested_display << "\n";
@@ -1384,18 +1399,14 @@ int main(int argc, char *argv[])
                 params["parent"].ptr = &uv.root_module;
                 params["exporter"].ptr = exporter;
                 params["compression"].str = opt.requested_compression;
-                params["rxtx_mode"].i = video_rxtx_mode;
+                params["rxtx_mode"].i = opt.video_rxtx_mode;
                 params["paused"].b = opt.start_paused;
 
                 // iHDTV
                 params["argc"].i = argc;
                 params["argv"].ptr = argv;
-                params["capture_device"].ptr = NULL;
-                params["display_device"].ptr = NULL;
-                if (video_rxtx_mode & MODE_SENDER)
-                        params["capture_device"].ptr = uv.capture_device;
-                if (video_rxtx_mode & MODE_RECEIVER)
-                        params["display_device"].ptr = uv.display_device;
+                params["capture_device"].ptr = (opt.video_rxtx_mode & MODE_SENDER) != 0U ? uv.capture_device : nullptr;
+                params["display_device"].ptr = (opt.video_rxtx_mode & MODE_RECEIVER) != 0U ? uv.display_device : nullptr;
 
                 //RTP
                 params["mtu"].i = opt.requested_mtu;
@@ -1449,7 +1460,7 @@ int main(int argc, char *argv[])
                         }
                 }
 
-                if (video_rxtx_mode & MODE_RECEIVER) {
+                if ((opt.video_rxtx_mode & MODE_RECEIVER) != 0U) {
                         if (!uv.state_video_rxtx->supports_receiving()) {
                                 fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");
                                 exit_uv(EXIT_FAILURE);
@@ -1467,7 +1478,7 @@ int main(int argc, char *argv[])
                         }
                 }
 
-                if (video_rxtx_mode & MODE_SENDER) {
+                if ((opt.video_rxtx_mode & MODE_SENDER) != 0U) {
                         uv.capture_device_name = vidcap_params_get_driver(opt.vidcap_params_head);
                         if (pthread_create
                                         (&capture_thread_id, NULL, capture_thread,
@@ -1530,9 +1541,10 @@ cleanup:
                         receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
-        if (video_rxtx_mode & MODE_SENDER
-                        && capture_thread_started)
+        if ((opt.video_rxtx_mode & MODE_SENDER) != 0U
+                        && capture_thread_started) {
                 pthread_join(capture_thread_id, NULL);
+        }
 
         /* also wait for audio threads */
         audio_join(uv.audio);
