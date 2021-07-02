@@ -50,7 +50,10 @@
 #       include <GL/glx.h>
 #       define XR_USE_PLATFORM_XLIB
 #       define XR_USE_GRAPHICS_API_OPENGL
-#endif //HAVE_LINUX
+#elif defined WIN32
+#       define XR_USE_PLATFORM_WIN32
+#       define XR_USE_GRAPHICS_API_OPENGL
+#endif
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
@@ -621,6 +624,20 @@ static void display_xrgl_run(void *state){
         Openxr_session session(s->xr_state.instance.get(),
                         s->xr_state.system_id,
                         &graphics_binding_gl);
+#elif defined WIN32
+        XrGraphicsBindingOpenGLWin32KHR graphics_binding_gl = {};
+        graphics_binding_gl.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
+        graphics_binding_gl.next = nullptr;
+
+        s->window.make_render_context_current();
+
+        graphics_binding_gl.hDC = wglGetCurrentDC();
+        graphics_binding_gl.hGLRC = wglGetCurrentContext();
+
+        Openxr_session session(s->xr_state.instance.get(),
+                        s->xr_state.system_id,
+                        &graphics_binding_gl);
+
 #else
         //TODO: Implement GL OpenXR binding for other platforms
         log_msg(LOG_LEVEL_ERROR, "OpenXR and OpenGL binding not implemented on this platform!\n");
