@@ -1101,10 +1101,10 @@ static int adjust_params(struct ug_options *opt) {
                         return EXIT_FAIL_USAGE;
                 }
                 if (strcmp("none", vidcap_params_get_driver(opt->vidcap_params_head)) == 0 && strcmp(opt->requested_display, "none") != 0) {
-                        vidcap_params_set_device(opt->vidcap_params_tail, "testcard:2:1:5:UYVY");
+                        vidcap_params_set_device(opt->vidcap_params_tail, "testcard:2:1:1:UYVY");
                 }
                 if (strcmp("none", opt->audio.send_cfg) == 0 && strcmp("none", opt->audio.recv_cfg) != 0) {
-                        parse_audio_capture_format("sample_rate=5");
+                        parse_audio_capture_format("sample_rate=1");
                         opt->audio.send_cfg = "testcard:frames=1";
                 }
         }
