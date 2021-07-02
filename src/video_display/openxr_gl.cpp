@@ -70,6 +70,7 @@
 #include "video_display/splashscreen.h"
 
 #include "opengl_utils.hpp"
+#include "sdl_window.hpp"
 #include "utils/profile_timer.hpp"
 
 #define MAX_BUFFER_SIZE   3

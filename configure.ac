@@ -1301,7 +1301,7 @@ fi
 
 if test $panogl_disp_req != no -a $sdl = yes -a $sdl_version = 2 -a $glm = yes
 then
-        PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o"
+        PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
         AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
         PANOGL_LIBS=$SDL_LIB
         ADD_MODULE("display_panogl", "$PANOGL_OBJ", "$PANOGL_LIBS")
@@ -1334,7 +1334,7 @@ fi
 
 if test $xrgl_disp_req != no -a $FOUND_XRGL_DEPS = yes
 then
-        XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o"
+        XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
         AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
         XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIB"
         ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
