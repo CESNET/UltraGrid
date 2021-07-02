@@ -637,7 +637,7 @@ struct ug_options {
         const char *requested_video_fec = "none";
         int port_base = PORT_BASE;
         int requested_ttl = -1;
-        int video_rx_port = -1, video_tx_port = -1, audio_rx_port = -1, audio_tx_port = -1;
+        int video_rx_port = -1, video_tx_port = -1;
 
         bool should_export = false;
         char *export_opts = NULL;
@@ -1181,21 +1181,21 @@ static int adjust_params(struct ug_options *opt) {
                 }
         }
 
-        if (opt->audio_rx_port == -1) {
+        if (opt->audio.recv_port == -1) {
                 if ((audio_rxtx_mode & MODE_RECEIVER) == 0U) {
                         // do not occupy recv port if we are not receiving (note that this disables communication with
                         // our receiver, because RTCP ports are changed as well)
-                        opt->audio_rx_port = 0;
+                        opt->audio.recv_port = 0;
                 } else {
-                        opt->audio_rx_port = opt->video_rx_port ? opt->video_rx_port + 2 : opt->port_base + 2;
+                        opt->audio.recv_port = opt->video_rx_port ? opt->video_rx_port + 2 : opt->port_base + 2;
                 }
         }
 
-        if (opt->audio_tx_port == -1) {
+        if (opt->audio.send_port == -1) {
                 if ((audio_rxtx_mode & MODE_SENDER) == 0U) {
-                        opt->audio_tx_port = 0;
+                        opt->audio.send_port = 0;
                 } else {
-                        opt->audio_tx_port = opt->video_tx_port ? opt->video_tx_port + 2 : opt->port_base + 2;
+                        opt->audio.send_port = opt->video_tx_port ? opt->video_tx_port + 2 : opt->port_base + 2;
                 }
         }
 
@@ -1203,7 +1203,7 @@ static int adjust_params(struct ug_options *opt) {
         // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possibile that we are sending
         // to a reflector, thats why we require equal ports (we are a receiver as well).
         if (is_host_loopback(opt->requested_receiver) && opt->video_rx_port == opt->video_tx_port &&
-                        opt->audio_rx_port == opt->audio_tx_port) {
+                        opt->audio.recv_port == opt->audio.send_port) {
                 opt->requested_mtu = opt->requested_mtu == 0 ? min(RTP_MAX_MTU, 65535) : opt->requested_mtu;
                 opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_UNLIMITED : opt->bitrate;
         } else {
@@ -1290,7 +1290,7 @@ int main(int argc, char *argv[])
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
 
-        if ((nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.video_rx_port, opt.audio_rx_port)) == nullptr) {
+        if ((nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.video_rx_port, opt.audio.recv_port)) == nullptr) {
                 exit_uv(1);
                 goto cleanup;
         }
