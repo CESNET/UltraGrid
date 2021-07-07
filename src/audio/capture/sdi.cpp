@@ -52,9 +52,12 @@
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
+#include <string>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define DEFAULT_BUF_SIZE_MS 100L
 
 #define FRAME_NETWORK 0
 #define FRAME_CAPTURE 1
@@ -63,10 +66,18 @@ using std::condition_variable;
 using std::cv_status;
 using std::chrono::milliseconds;
 using std::mutex;
+using std::stol;
 using std::unique_lock;
 
 struct state_sdi_capture {
-        struct audio_frame audio_frame[2];
+        state_sdi_capture() {
+                if (commandline_params.find("audio-buffer-len") != commandline_params.end()) {
+                        buf_size_ms = stol(commandline_params.at("audio-buffer-len"));
+                }
+        }
+
+        long buf_size_ms{DEFAULT_BUF_SIZE_MS};
+        struct audio_frame audio_frame[2]{};
         mutex lock;
         condition_variable audio_frame_ready_cv;
 };
@@ -156,8 +167,6 @@ static void audio_cap_sdi_help(const char *driver_name)
         }
 }
 
-#define MAX_BUF_SIZE_MS 100l
-
 void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
 {
         struct state_sdi_capture *s;
@@ -173,13 +182,13 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
                 s->audio_frame[FRAME_CAPTURE].ch_count = frame->ch_count;
                 s->audio_frame[FRAME_CAPTURE].sample_rate = frame->sample_rate;
                 s->audio_frame[FRAME_CAPTURE].data_len = 0;
-                s->audio_frame[FRAME_CAPTURE].max_size = frame->bps * frame->ch_count * frame->sample_rate / 1000L * MAX_BUF_SIZE_MS;
+                s->audio_frame[FRAME_CAPTURE].max_size = frame->bps * frame->ch_count * frame->sample_rate / 1000L * s->buf_size_ms;
                 s->audio_frame[FRAME_CAPTURE].data = static_cast<char *>(malloc(s->audio_frame[FRAME_CAPTURE].max_size));
         }
 
         int len = frame->data_len;
         if (len + s->audio_frame[FRAME_CAPTURE].data_len > s->audio_frame[FRAME_CAPTURE].max_size) {
-                LOG(LOG_LEVEL_WARNING) << "[SDI] Maximal audio buffer length " << MAX_BUF_SIZE_MS << " ms exceeded! Dropping "
+                LOG(LOG_LEVEL_WARNING) << "[SDI] Maximal audio buffer length " << s->buf_size_ms << " ms exceeded! Dropping "
                         << len - (s->audio_frame[FRAME_CAPTURE].max_size - s->audio_frame[FRAME_CAPTURE].data_len) << " samples.\n";
                 len = s->audio_frame[FRAME_CAPTURE].max_size - s->audio_frame[FRAME_CAPTURE].data_len;
         }
