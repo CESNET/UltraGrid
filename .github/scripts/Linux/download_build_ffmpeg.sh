@@ -26,7 +26,6 @@ install_nv_codec_headers() {
 rm -rf /var/tmp/ffmpeg
 git clone --depth 1000 https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg # depth 1000 useful for 3-way merges
 cd /var/tmp/ffmpeg
-( git clone --depth 1 -b nasm-2.13.xx https://github.com/sezero/nasm.git && cd nasm && ./autogen.sh && ./configure && make nasm.1 && make ndisasm.1 && make -j $(nproc) && sudo make install || exit 1 )
 ( git clone --depth 1 http://git.videolan.org/git/x264.git && cd x264 && ./configure --disable-static --enable-shared && make -j $(nproc) && sudo make install || exit 1 )
 ( git clone --depth 1 https://aomedia.googlesource.com/aom && mkdir -p aom/build && cd aom/build && cmake -DBUILD_SHARED_LIBS=1 .. &&  cmake --build . --parallel && sudo cmake --install . || exit 1 )
 install_libvpx
