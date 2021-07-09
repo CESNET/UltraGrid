@@ -12,6 +12,9 @@ export LD_LIBRARY_PATH=$DIR/usr/lib${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 export QT_QPA_FONTDIR=$DIR/usr/lib/fonts
 export QT_PLUGIN_PATH=$DIR/usr/lib/qt5/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
+if [ -d "$DIR/usr/lib/va" ] && [ -z "${LIBVA_DRIVERS_PATH:-}" ]; then
+        export LIBVA_DRIVERS_PATH=$DIR/usr/lib/va
+fi
 
 usage() {
         printf "usage:\n"

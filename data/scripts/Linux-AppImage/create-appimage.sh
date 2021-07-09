@@ -73,6 +73,16 @@ done
 
 ( cd $APPPREFIX/lib; rm -f libcmpto* ) # remove non-free components
 
+# ship VA-API drivers if have libva
+if [ -f $(echo $APPPREFIX/lib/libva.so.* | cut -d\  -f 1) ]; then
+        for n in ${LIBVA_DRIVERS_PATH:-} /usr/lib/x86_64-linux-gnu/dri /usr/lib/dri; do
+                if [ -d "$n" ]; then
+                        cp -r "$n" $APPPREFIX/lib/va
+                        break
+                fi
+        done
+fi
+
 cp $srcdir/data/scripts/Linux-AppImage/AppRun $srcdir/data/ultragrid.png $APPDIR
 cp $srcdir/data/uv-qt.desktop $APPDIR/ultragrid.desktop
 APPIMAGEUPDATETOOL=$(command -v appimageupdatetool-x86_64.AppImage || true)
