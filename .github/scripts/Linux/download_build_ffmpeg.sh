@@ -1,6 +1,7 @@
 #!/bin/bash -eux
 
 install_svt() {
+        sudo apt install yasm
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-HEVC && cd SVT-HEVC/Build/linux && ./build.sh release && cd Release && make && sudo make install || exit 1 )
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-AV1 && cd SVT-AV1 && cd Build && cmake .. -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Release && make -j $(nproc) && sudo make install || exit 1 )
         git apply -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
