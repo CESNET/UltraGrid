@@ -273,7 +273,8 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         val = NULL;
                         const AVCodec *codec = avcodec_find_decoder_by_name(item);
                         if (codec == NULL) {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Decoder not found: %s\n", item);
+                                log_msg(LOG_LEVEL_ERROR, "[lavd] Decoder not found: %s\n", item);
+                                exit_uv(1);
                         } else {
                                 if (codec->id == dec->avcodec_id) {
                                         if (codec_index < (sizeof codecs_available / sizeof codecs_available[0] - 1)) {
