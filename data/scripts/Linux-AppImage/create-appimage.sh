@@ -41,6 +41,10 @@ if [ -n "$QT_DIR" ]; then
         mkdir -p $DST_PLUGIN_DIR
         cp -r $SRC_PLUGIN_DIR/* $DST_PLUGIN_DIR
         PLUGIN_LIBS=$(find $DST_PLUGIN_DIR -type f)
+
+        # add DejaVu font
+        mkdir $APPPREFIX/lib/fonts
+        cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPPREFIX/lib/fonts
 fi
 
 # copy dependencies
@@ -50,10 +54,6 @@ for n in $APPPREFIX/bin/* $APPPREFIX/lib/ultragrid/* $PLUGIN_LIBS; do
                 [ ! -f $lib ] || cp $lib $APPPREFIX/lib
         done
 done
-
-# add DejaVu font
-mkdir $APPPREFIX/lib/fonts
-cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPPREFIX/lib/fonts
 
 # Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
 wget https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
