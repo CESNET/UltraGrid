@@ -7,5 +7,6 @@ cd /var/tmp/ffmpeg
 ( cd aom/build && sudo cmake --install . )
 ( cd SVT-HEVC/Build/linux/Release && sudo make install )
 ( cd SVT-AV1/Build && sudo make install )
+( cd SVT-VP9/Build && sudo make install || exit 1 )
 sudo make install
 sudo ldconfig
