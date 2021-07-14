@@ -78,6 +78,19 @@ jobs:
       run: |
            . .github/scripts/environment.sh
            .github/scripts/Linux/prepare.sh
+    - name: Cache rav1e
+      id: cache-rav1e
+      uses: actions/cache@v2
+      with:
+        path: rav1e
+        key: cache-rav1e-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/rav1e.sh') }}
+    - name: Build rav1e
+      if: steps.cache-rav1e.outputs.cache-hit != 'true'
+      run: .github/scripts/Linux/rav1e.sh
+    - name: Install rav1e
+      run: |
+        sudo cp -r rav1e/install/* /
+        sudo ldconfig
     - name: Cache FFmpeg
       id: cache-ffmpeg
       uses: actions/cache@v2
