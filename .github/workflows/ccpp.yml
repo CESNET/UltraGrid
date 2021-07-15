@@ -87,7 +87,8 @@ jobs:
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
-    - name: Install FFmpeg
+    - name: Install Cached FFmpeg
+      if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
       run: .github/scripts/Linux/install_ffmpeg.sh
     - name: configure
       run: "./autogen.sh --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa $NDI --enable-v4l2"
