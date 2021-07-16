@@ -224,12 +224,6 @@ static const char *delta_get_error_description(ULONG CodeError)
    case VHDERR_DEVICE_REMOVED:                       return "Device removed";
    case VHDERR_LTCSOURCEUNLOCKED:                    return "LTC source unlocked";
    case VHDERR_INVALIDACCESSRIGHT:                   return "Invalid access right";
-   case VHDERR_LICENSERESTRICTION:                   return "Not allowed by the provided license";
-   case VHDERR_SOFTWAREPROTECTION_FAILURE:           return "Error occured in the software protection module";
-   case VHDERR_SOFTWAREPROTECTION_IDNOTFOUND:        return "Host ID cannot be found";
-   case VHDERR_SOFTWAREPROTECTION_BADLICENSEINFO:    return "invalid provided License";
-   case VHDERR_SOFTWAREPROTECTION_UNAUTHORIZEDHOST:  return "Host unauthorized";
-   case VHDERR_SOFTWAREPROTECTION_STREAMSTARTED:     return "License providing requires all stream to be stopped";
    case VHDERR_INVALIDCAPABILITY:                                    return "Invalid capability index";
 #ifdef DELTA_DVI_DEPRECATED
    case VHDERR_DEPRECATED:                                         return "Symbol is deprecated";
