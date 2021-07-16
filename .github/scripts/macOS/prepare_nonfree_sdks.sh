@@ -19,13 +19,11 @@ if [ -f $SDK_NONFREE_PATH/VideoMaster_SDK_MacOSX.zip ]; then
         cd /Library/Frameworks
         sudo install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
         sudo install_name_tool -id @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
-        sudo install_name_tool -change /Library/Frameworks/libVideoMasterHD_SP.dylib @executable_path/../Frameworks/libVideoMasterHD_SP.dylib /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
-        sudo install_name_tool -id @executable_path/../Frameworks/libVideoMasterHD_SP.dylib /Library/Frameworks/libVideoMasterHD_SP.dylib
         sudo install_name_tool -id @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio
         sudo install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio
         #sudo cp -a VideoMasterHD.framework VideoMasterHD_Audio.framework libVideoMasterHD_SP.dylib $(xcrun --show-sdk-path)/System/Library/Frameworks
         mkdir $DELTA_CACHE_INST
-        sudo cp -a VideoMasterHD.framework VideoMasterHD_Audio.framework libVideoMasterHD_SP.dylib $DELTA_CACHE_INST
+        sudo cp -a VideoMasterHD.framework VideoMasterHD_Audio.framework $DELTA_CACHE_INST
         cd -
         sudo rm -rf /Library/Frameworks/VideoMasterHD* # ensure that only the copy above is used
 fi
