@@ -15,7 +15,7 @@ fi
 DELTA_CACHE_INST=$SDK_NONFREE_PATH/VideoMasterHD_inst
 if [ -f $SDK_NONFREE_PATH/VideoMaster_SDK_MacOSX.zip ]; then
         unzip $SDK_NONFREE_PATH/VideoMaster_SDK_MacOSX.zip
-        sudo installer -pkg VideoMaster_SDK.pkg -target /
+        sudo installer -pkg VideoMaster_SDK.pkg -target / || true
         cd /Library/Frameworks
         sudo install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
         sudo install_name_tool -id @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
