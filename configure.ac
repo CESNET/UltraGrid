@@ -1067,7 +1067,7 @@ else # OS X
 	if test "$ac_cv_header_VideoMasterHD_VideoMasterHD_Core_h" = yes -a $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
 		deltacast_found=yes
 		DELTACAST_LIB="$FRAMEWORK_VIDEOMASTERHD $FRAMEWORK_VIDEOMASTERHD_AUDIO"
-                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/libVideoMasterHD_SP.dylib Frameworks/VideoMasterHD_Audio.framework Frameworks/VideoMasterHD.framework"
+                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/VideoMasterHD_Audio.framework Frameworks/VideoMasterHD.framework"
 	fi
 fi
 
