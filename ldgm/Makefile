@@ -2,7 +2,7 @@ OPTS	  = -Wall -g -pg
 CXXFLAGS += ${OPTS} -std=gnu++0x
 
 CUDA_COMPILER	 ?= nvcc
-CUDA_FLAGS ?= -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35
+CUDA_FLAGS ?=
 
 TARGET    = ldgm-encode
 SRC_DIR   = src

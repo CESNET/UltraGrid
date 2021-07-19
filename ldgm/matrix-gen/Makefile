@@ -5,8 +5,8 @@ TARGET = matrix-gen
 
 all: ${TARGET}
 
-${TARGET} :
-	g++ -std=gnu++0x matrix-generator.cpp ldpc-matrix.cpp main.cpp -o $@
+${TARGET} : matrix-generator.cpp ldpc-matrix.cpp main.cpp
+	g++ -std=gnu++0x $? -o $@
 
 clean:
 	rm -f ${TARGET}

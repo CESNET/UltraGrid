@@ -55,7 +55,7 @@ int main (int argc, char* argv[])
     char fname[32];
 
 
-    while ( ( c = getopt ( argc, argv, "ac:f:k:m:rs:")) != -1 ) {
+    while ( ( c = getopt ( argc, argv, "ac:f:hk:m:rs:")) != -1 ) {
 	switch(c) {
 	    case 'a':
 		if(random)
@@ -71,6 +71,9 @@ int main (int argc, char* argv[])
 	    case 'f':
 		sprintf(fname, "%s", optarg );
 		break;
+	    case 'h':
+                usage();
+		return EXIT_SUCCESS;
 	    case 'k':
 		k = atoi ( optarg );
 		break;
@@ -92,7 +95,7 @@ int main (int argc, char* argv[])
 		if ( optopt == 'c' || optopt == 'k' || optopt == 'm' )
 		    fprintf ( stderr, "Option -%c requires an argument.\n", optopt);
 		else
-		    fprintf ( stderr, "Uknown option character '\\x%x'.\n", optopt);
+		    fprintf ( stderr, "Unknown option character '\\x%x'.\n", optopt);
 
 		return 1;
 	    default:
