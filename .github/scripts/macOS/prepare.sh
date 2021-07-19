@@ -28,7 +28,7 @@ mkdir $TEMP_INST
 cd $TEMP_INST
 
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
-hdiutil mount /var/tmp/sdks-free/XIMEA_OSX_SP.dmg
+hdiutil mount $SDK_FREE_PATH/XIMEA_OSX_SP.dmg
 sudo cp -a /Volumes/XIMEA/m3api.framework $(xcrun --show-sdk-path)/System/Library/Frameworks
 sudo xattr -dr com.apple.quarantine $(xcrun --show-sdk-path)/System/Library/Frameworks
 umount /Volumes/XIMEA

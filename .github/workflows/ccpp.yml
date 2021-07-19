@@ -140,7 +140,8 @@ jobs:
     needs: prepare
     runs-on: macos-latest
     env:
-      SDK_NONFREE_PATH: /var/tmp/sdks-nonfree
+      SDK_FREE_PATH: /private/var/tmp/sdks-free
+      SDK_NONFREE_PATH: /private/var/tmp/sdks-nonfree
       altool_credentials: ${{ secrets.altool_credentials }}
       apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
       SDK_URL: ${{ secrets.SDK_URL }}
@@ -170,7 +171,7 @@ jobs:
       id: cache-macos-free-sdks
       uses: actions/cache@v2
       with:
-        path: '/var/tmp/sdks-free'
+        path: ${{ env.SDK_FREE_PATH }}
         key: cache-free-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_free_sdks.sh') }}-${{ steps.etags.outputs.free }}
     - name: Download Free SDKs
       if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
