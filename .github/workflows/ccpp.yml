@@ -195,8 +195,10 @@ jobs:
     - name: make distcheck
       run: |
         for n in lib opt; do sudo mv /usr/local/$n /usr/local/$n-; done # hide local libs
+        sudo mv $(xcrun --show-sdk-path)/System/Library/Frameworks /tmp/FRMWK
         make distcheck TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv REFLECTOR_TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv GUI_EXE=gui/QT/uv-qt.app/Contents/MacOS/uv-qt
         for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
+        sudo mv /tmp/FRMWK $(xcrun --show-sdk-path)/System/Library/Frameworks
     - name: Upload NDI Build
       id: upload-ndi
       env:
