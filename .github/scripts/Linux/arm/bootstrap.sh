@@ -33,7 +33,7 @@ apt -y install portaudio19-dev libglib2.0-dev libglew-dev libcurl4-openssl-dev f
 
 # FFmpeg
 if [ $ARCH = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
-        git clone --depth 1 https://github.com/raspberrypi/firmware.git firmware && mv firmware/* / && echo /opt/vc/lib > /etc/ld.so.conf.d/00-vmcs.conf && ldconfig
+        apt -y install libraspberrypi-dev
         sed -i '/^deb /p;s/deb /deb-src /' /etc/apt/sources.list
         apt -y update && apt -y build-dep ffmpeg
         raspbian_build_sdl2
