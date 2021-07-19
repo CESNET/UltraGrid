@@ -216,17 +216,13 @@ Frameworks/Syphon.framework:
 	$(MKDIR_P) Frameworks
 	cp -R $(srcdir)/data/redists/Syphon.framework Frameworks
 
-Frameworks/libVideoMasterHD_SP.dylib:
-	$(MKDIR_P) Frameworks
-	cp -R $(srcdir)/data/redists/VideoMasterHD/libVideoMasterHD_SP.dylib Frameworks
-
 Frameworks/VideoMasterHD_Audio.framework:
 	$(MKDIR_P) Frameworks
-	cp -R $(srcdir)/data/redists/VideoMasterHD/VideoMasterHD_Audio.framework Frameworks
+	cp -R $$(xcrun --show-sdk-path)/System/Library/Frameworks/VideoMasterHD_Audio.framework Frameworks
 
 Frameworks/VideoMasterHD.framework:
 	$(MKDIR_P) Frameworks
-	cp -R $(srcdir)/data/redists/VideoMasterHD/VideoMasterHD.framework Frameworks
+	cp -R $$(xcrun --show-sdk-path)/System/Library/Frameworks/VideoMasterHD.framework Frameworks
 
 $(TARGET): src/dir-stamp $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS) $(BIN_DEPS)
 	$(MKDIR_P) $(dir $@)
@@ -589,12 +585,9 @@ $(BUNDLE)/Contents/libs: $(BUNDLE)
 	done
 	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
-	$(CP) -R data/redists/VideoMasterHD/* $(BUNDLE)/Contents/Frameworks
+	cp -R $$(xcrun --show-sdk-path)/System/Library/Frameworks/VideoMasterHD*.framework $(BUNDLE)/Contents/Frameworks
+	rm -rf /VideoMasterHD*.framework Frameworks/VideoMasterHD*.framework/Versions/Current/Headers
 	$(CP) -R data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
-	for n in $(BUNDLE)/Contents/MacOS/*; \
-		 do install_name_tool -change /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio $$n; \
-		install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD $$n; \
-	done
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 # ships UltraGrid itself to GUI bundle which is created by target gui/QT/uv-qt
