@@ -74,6 +74,7 @@
 #include "module.h"
 #include "playback.h"
 #include "utils/color_out.h"
+#include "utils/list.h"
 #include "utils/misc.h"
 #include "utils/time.h"
 #include "utils/thread.h"
@@ -81,6 +82,7 @@
 #include "video_capture.h"
 
 static const double AUDIO_RATIO = 1.05; ///< at this ratio the audio frame can be longer than the video frame
+#define FILE_MAX_QUEUE_LEN 1
 #define MAGIC to_fourcc('u', 'g', 'l', 'f')
 #define MOD_NAME "[File cap.] "
 
@@ -106,7 +108,7 @@ struct vidcap_state_lavf_decoder {
 
         struct video_desc video_desc;
 
-        struct video_frame *video_frame;
+        struct simple_linked_list *video_frame_queue;
         struct audio_frame audio_frame;
         pthread_mutex_t audio_frame_lock;
 
@@ -148,7 +150,10 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         }
 
         free(s->audio_frame.data);
-        VIDEO_FRAME_DISPOSE(s->video_frame);
+        struct video_frame *f = NULL;
+        while ((f = simple_linked_list_pop(s->video_frame_queue)) != NULL) {
+                VIDEO_FRAME_DISPOSE(f);
+        }
 
         pthread_mutex_destroy(&s->audio_frame_lock);
         pthread_mutex_destroy(&s->lock);
@@ -157,6 +162,7 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         pthread_cond_destroy(&s->paused_cv);
         free(s->src_filename);
         module_done(&s->mod);
+        simple_linked_list_destroy(s->video_frame_queue);
         free(s);
 }
 
@@ -357,7 +363,7 @@ static void *vidcap_file_worker(void *state) {
                                 out->callbacks.dispose = vf_free;
                         }
                         pthread_mutex_lock(&s->lock);
-                        while (!s->should_exit && s->video_frame != NULL) {
+                        while (!s->should_exit && simple_linked_list_size(s->video_frame_queue) > FILE_MAX_QUEUE_LEN) {
                                 pthread_cond_wait(&s->frame_consumed, &s->lock);
                         }
                         if (s->should_exit) {
@@ -367,7 +373,7 @@ static void *vidcap_file_worker(void *state) {
                                 av_packet_free(&pkt);
                                 return NULL;
                         }
-                        s->video_frame = out;
+                        simple_linked_list_append(s->video_frame_queue, out);
                         pthread_mutex_unlock(&s->lock);
                         pthread_cond_signal(&s->new_frame_ready);
                 }
@@ -471,6 +477,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
 #endif
 
         struct vidcap_state_lavf_decoder *s = calloc(1, sizeof (struct vidcap_state_lavf_decoder));
+        s->video_frame_queue = simple_linked_list_init();
         s->audio_stream_idx = -1;
         s->video_stream_idx = -1;
         s->convert_to = UYVY;
@@ -636,15 +643,14 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         assert(s->mod.priv_magic == MAGIC);
         *audio = NULL;
         pthread_mutex_lock(&s->lock);
-        while (s->video_frame == NULL && !s->failed && !s->should_exit) {
+        while (simple_linked_list_size(s->video_frame_queue) == 0 && !s->failed && !s->should_exit) {
                 pthread_cond_wait(&s->new_frame_ready, &s->lock);
         }
         if (s->failed || s->should_exit) {
                 pthread_mutex_unlock(&s->lock);
                 return NULL;
         }
-        out = s->video_frame;
-        s->video_frame = NULL;
+        out = simple_linked_list_pop(s->video_frame_queue);
         pthread_mutex_unlock(&s->lock);
         pthread_cond_signal(&s->frame_consumed);
 
