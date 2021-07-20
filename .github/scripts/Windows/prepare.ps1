@@ -25,8 +25,8 @@ if (${env:SDK_URL} -and ${env:GITHUB_REF} -eq "refs/heads/ndi-build") {
   #Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT" -Wait -NoNewWindow
   Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT"
   Sleep 10
-  $sdk=(dir "C:\Program Files\NewTek" -Filter *SDK -Name)
-  echo "C:\Program Files\NewTek\$sdk\Bin\x64" >> ${env:GITHUB_PATH}
+  $sdk=(dir "C:\Program Files\NDI" -Filter *SDK -Name)
+  echo "C:\Program Files\NDI\$sdk\Bin\x64" >> ${env:GITHUB_PATH}
   #Remove-Item C:\ndi.exe
 }
 

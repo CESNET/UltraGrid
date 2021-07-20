@@ -56,7 +56,7 @@ fi
 if [ -n "$SDK_URL" -a "$GITHUB_REF" = refs/heads/ndi-build ]; then
         curl -S $SDK_URL/NDISDK_Linux.tar.gz -O
         tar -C /var/tmp -xzf NDISDK_Linux.tar.gz
-        yes | PAGER=cat /var/tmp/InstallNDI*sh
+        yes | PAGER=cat /var/tmp/Install*NDI*sh
 	sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
 	sudo cp -r NDI\ SDK\ for\ Linux/lib/x86_64-linux-gnu/* /usr/local/lib
 	sudo ldconfig
