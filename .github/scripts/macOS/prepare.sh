@@ -55,14 +55,19 @@ fi
 # Install NDI
 if [ -f $SDK_NONFREE_PATH/NDISDK_Apple.pkg  ]; then
         sudo installer -pkg $SDK_NONFREE_PATH/NDISDK_Apple.pkg -target /
-        sudo mv "/Library/NDI SDK for Apple/" /Library/NDI
+        sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
         cat /Library/NDI/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
-        cd /Library/NDI/lib/x64
-        sudo ln -s libndi.?.dylib libndi.dylib
+        if [ -d /Library/NDI/lib/x64 ]; then # NDI 4
+                cd /Library/NDI/lib/x64
+                sudo ln -s libndi.?.dylib libndi.dylib
+                NDI_LIB=/Library/NDI/lib/x64
+        else # NDI 5
+                NDI_LIB=/Library/NDI/lib/macOS
+        fi
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
-        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /Library/NDI/lib/x64"
-        export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}/Library/NDI/lib/x64
-        export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}/Library/NDI/lib/x64"
+        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $NDI_LIB"
+        export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}$NDI_LIB
+        export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}$NDI_LIB"
         echo "CPATH=$CPATH" >> $GITHUB_ENV
         echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> $GITHUB_ENV
         echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV

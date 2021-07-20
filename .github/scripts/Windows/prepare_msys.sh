@@ -15,8 +15,8 @@ if test -d "$CUDA_D"; then
         export CPATH=$CPATH:$CUDA_D/include
 fi
 
-if test -d /c/Program\ Files/NewTek; then
-        NDI_D=$(ls -d /c/Program\ Files/NewTek/*SDK)
+if test -d /c/Program\ Files/NDI; then
+        NDI_D=$(ls -d /c/Program\ Files/NDI/*SDK)
         export CPATH=$CPATH:$NDI_D/Include
         export LIBRARY_PATH=$LIBRARY_PATH:$NDI_D/Lib/x64
         cat $NDI_D/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | tee /usr/local/include/ndi_version.h
