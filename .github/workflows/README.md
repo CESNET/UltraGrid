@@ -39,7 +39,7 @@ libraries for Linux (as does for macOS and Windows).
   [DELTACAST](https://www.deltacast.tv/support/download-center)
 
 ### Windows
-- **NDI 4 SDK.exe** - Windows NDI installer downloaded from NewTek
+- **NDI\_SDK.exe** - Windows NDI installer downloaded from NewTek
 - **ntv2sdkwin.zip** - NTV2 SDK downloaded from AJA
 - **VideoMaster\_SDK\_Windows.zip** - VideoMaster SDK from DELTACAST for Windows
 
