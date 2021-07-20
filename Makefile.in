@@ -47,6 +47,7 @@ docdir = @docdir@
 mandir = @mandir@
 man1dir = @mandir@/man1
 srcdir        = @srcdir@
+srcdir_abs    = @srcdir_abs@
 VPATH         = @srcdir@
 
 DOCS 	      = $(srcdir)/CONTRIBUTING.md $(srcdir)/README.md $(wildcard $(srcdir)/doc/*)
@@ -455,7 +456,7 @@ src/capture_filter/preview.o: src/capture_filter/preview.cpp $(ALL_INCLUDES)
 $(GUI_TARGET): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	$(MKDIR_P) $(dir $@)
 	if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	QT_SRC=$$(realpath $(srcdir))/gui/QT; cd gui/QT && $(QMAKE) "DESTDIR+=./" $$QT_SRC && make -j 4
+	cd gui/QT && $(QMAKE) "DESTDIR+=./" $(srcdir_abs)/gui/QT && make -j 4
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = $(COMMON_OBJS) \

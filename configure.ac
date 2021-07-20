@@ -466,6 +466,13 @@ then
         AC_DEFINE([HAVE_IPv6], [1], [Enable IPv6 support])
 fi
 
+if command -v realpath > /dev/null; then
+        srcdir_abs=`realpath $srcdir`
+else
+        srcdir_abs=`python -c 'import os; print(os.path.realpath("'$srcdir'"))'`
+fi
+AC_SUBST(srcdir_abs)
+
 # ----------------------------------------------------------------------
 # environment variables
 # ----------------------------------------------------------------------
