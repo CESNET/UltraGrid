@@ -197,12 +197,6 @@ jobs:
       run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio $NDI --enable-syphon"
     - name: make bundle
       run: make -j4 gui-bundle
-    - name: sign+notarize
-      run: .github/scripts/macOS/sign.sh gui/QT/uv-qt.app
-    - name: make dmg
-      run: |
-        make osx-gui-dmg
-        mv UltraGrid.dmg UltraGrid-$VERSION.dmg
     - name: make check
       run: make check
     - name: make distcheck
@@ -212,6 +206,12 @@ jobs:
         make distcheck TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv REFLECTOR_TARGET=gui/QT/uv-qt.app/Contents/MacOS/uv GUI_EXE=gui/QT/uv-qt.app/Contents/MacOS/uv-qt
         for n in lib opt; do sudo mv /usr/local/$n- /usr/local/$n; done # return back
         sudo mv /tmp/FRMWK $(xcrun --show-sdk-path)/System/Library/Frameworks
+    - name: sign+notarize
+      run: .github/scripts/macOS/sign.sh gui/QT/uv-qt.app
+    - name: make dmg
+      run: |
+        make osx-gui-dmg
+        mv UltraGrid.dmg UltraGrid-$VERSION.dmg
     - name: Upload NDI Build
       id: upload-ndi
       env:
