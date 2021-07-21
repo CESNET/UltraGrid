@@ -61,6 +61,7 @@
 #include <libavformat/version.h>
 #include <libswscale/swscale.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <tv.h>
@@ -82,7 +83,7 @@
 #include "video_capture.h"
 
 static const double AUDIO_RATIO = 1.05; ///< at this ratio the audio frame can be longer than the video frame
-#define FILE_MAX_QUEUE_LEN 1
+#define FILE_DEFAULT_QUEUE_LEN 1
 #define MAGIC to_fourcc('u', 'g', 'l', 'f')
 #define MOD_NAME "[File cap.] "
 
@@ -91,6 +92,8 @@ struct vidcap_state_lavf_decoder {
         char *src_filename;
         AVFormatContext *fmt_ctx;
         AVCodecContext *aud_ctx, *vid_ctx;
+        int thread_count;
+        int thread_type;
 
         struct SwsContext *sws_ctx;
         av_to_uv_convert_p conv_uv;
@@ -109,6 +112,7 @@ struct vidcap_state_lavf_decoder {
         struct video_desc video_desc;
 
         struct simple_linked_list *video_frame_queue;
+        int max_queue_len;
         struct audio_frame audio_frame;
         pthread_mutex_t audio_frame_lock;
 
@@ -122,10 +126,14 @@ struct vidcap_state_lavf_decoder {
         bool should_exit;
 };
 
-static void vidcap_file_show_help() {
+static void vidcap_file_show_help(bool full) {
         color_out(0, "Usage:\n");
         color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-t file:<name>");
-        color_out(COLOR_OUT_BOLD, "[:loop][:nodecode][:codec=<c>]\n");
+        color_out(COLOR_OUT_BOLD, "[:loop][:nodecode][:codec=<c>]");
+        if (full) {
+                color_out(COLOR_OUT_BOLD, "[:opportunistic_audio][:queue=<len>][:threads=<n>[FS]]");
+        }
+        color_out(0, "\n");
         color_out(0, "\t\twhere\n");
         color_out(COLOR_OUT_BOLD, "\tloop\n");
         color_out(0, "\t\tloop the playback\n");
@@ -133,6 +141,16 @@ static void vidcap_file_show_help() {
         color_out(0, "\t\tdon't decompress the video (may not work because required data for correct decompess are in container or UG doesn't recognize the codec)\n");
         color_out(COLOR_OUT_BOLD, "\tcodec\n");
         color_out(0, "\t\tcodec to decode to\n");
+        if (full) {
+                color_out(COLOR_OUT_BOLD, "\topportunistic_audio\n");
+                color_out(0, "\t\tgrab audio if not present but do not fail if not\n");
+                color_out(COLOR_OUT_BOLD, "\tqueue\n");
+                color_out(0, "\t\tmax queue len (default: %d), increasing may help if video stutters\n", FILE_DEFAULT_QUEUE_LEN);
+                color_out(COLOR_OUT_BOLD, "\tthreads\n");
+                color_out(0, "\t\tnumber of threads (0 is default), 'S' and/or 'F' to use slice/frame threads, use at least one flag\n");
+        } else {
+                color_out(0, "\n(use \":fullhelp\" to see all available options)\n");
+        }
 }
 
 static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
@@ -363,7 +381,7 @@ static void *vidcap_file_worker(void *state) {
                                 out->callbacks.dispose = vf_free;
                         }
                         pthread_mutex_lock(&s->lock);
-                        while (!s->should_exit && simple_linked_list_size(s->video_frame_queue) > FILE_MAX_QUEUE_LEN) {
+                        while (!s->should_exit && simple_linked_list_size(s->video_frame_queue) > s->max_queue_len) {
                                 pthread_cond_wait(&s->frame_consumed, &s->lock);
                         }
                         if (s->should_exit) {
@@ -404,9 +422,17 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
                 } else if (strncmp(item, "codec=", strlen("codec=")) == 0) {
                         char *codec_name = item + strlen("codec=");
                         if ((s->convert_to = get_codec_from_name(codec_name)) == VIDEO_CODEC_NONE) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", codec_name);
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown codec: %s\n", codec_name);
                                 return false;
                         }
+                } else if (strncmp(item, "queue=", strlen("queue=")) == 0) {
+                        s->max_queue_len = atoi(item + strlen("queue="));
+                } else if (strncmp(item, "threads=", strlen("threads=")) == 0) {
+                        char *endptr = NULL;
+                        long count = strtol(item + strlen("threads="), &endptr, 0);
+                        s->thread_count = clampi(count, 0, INT_MAX);
+                        s->thread_type = strchr(endptr, 'F') != NULL ? FF_THREAD_FRAME : 0;
+                        s->thread_type |= strchr(endptr, 'S') != NULL ? FF_THREAD_SLICE : 0;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", item);
                         return false;
@@ -415,13 +441,13 @@ static bool vidcap_file_parse_fmt(struct vidcap_state_lavf_decoder *s, const cha
         return true;
 }
 
-static AVCodecContext *vidcap_file_open_dec_ctx(const AVCodec *dec, AVStream *st) {
+static AVCodecContext *vidcap_file_open_dec_ctx(const AVCodec *dec, AVStream *st, int thread_count, int thread_type) {
         AVCodecContext *dec_ctx = avcodec_alloc_context3(dec);
         if (!dec_ctx) {
                 return NULL;
         }
-        dec_ctx->thread_count = 0; // means auto for most codecs
-        dec_ctx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
+        dec_ctx->thread_count = thread_count;
+        dec_ctx->thread_type = thread_type;
 
         /* Copy codec parameters from input stream to output codec context */
         if (avcodec_parameters_to_context(dec_ctx, st->codecpar) < 0) {
@@ -463,9 +489,10 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         bool opportunistic_audio = false; // do not fail if audio requested but not found
         int rc = 0;
         char errbuf[1024] = "";
+        bool fullhelp = strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0;
         if (strlen(vidcap_params_get_fmt(params)) == 0 ||
-                        strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                vidcap_file_show_help();
+                        strcmp(vidcap_params_get_fmt(params), "help") == 0 || fullhelp) {
+                vidcap_file_show_help(fullhelp);
                 return strlen(vidcap_params_get_fmt(params)) == 0 ? VIDCAP_INIT_FAIL : VIDCAP_INIT_NOERR;
         }
 
@@ -481,6 +508,9 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         s->audio_stream_idx = -1;
         s->video_stream_idx = -1;
         s->convert_to = UYVY;
+        s->max_queue_len = FILE_DEFAULT_QUEUE_LEN;
+        s->thread_count = 0; // means auto for most codecs
+        s->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
         CHECK(pthread_mutex_init(&s->audio_frame_lock, NULL));
         CHECK(pthread_mutex_init(&s->lock, NULL));
         CHECK(pthread_cond_init(&s->frame_consumed, NULL));
@@ -524,7 +554,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                 }
                 if (s->audio_stream_idx >= 0) {
                         s->aud_ctx = vidcap_file_open_dec_ctx(dec,
-                                        s->fmt_ctx->streams[s->audio_stream_idx]);
+                                        s->fmt_ctx->streams[s->audio_stream_idx], s->thread_count, s->thread_type);
 
                         if (s->aud_ctx == NULL) {
                                 vidcap_file_common_cleanup(s);
@@ -564,7 +594,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                         }
                 } else {
                         s->video_desc.color_spec = s->convert_to;
-                        s->vid_ctx = vidcap_file_open_dec_ctx(dec, st);
+                        s->vid_ctx = vidcap_file_open_dec_ctx(dec, st, s->thread_count, s->thread_type);
                         if (!s->vid_ctx) {
                                 vidcap_file_common_cleanup(s);
                                 return VIDCAP_INIT_FAIL;

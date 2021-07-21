@@ -47,6 +47,16 @@
 #include "debug.h"
 #include "utils/misc.h"
 
+int clampi(long long val, int lo, int hi) {
+        if (val < lo) {
+                return lo;
+        }
+        if (val > hi) {
+                return hi;
+        }
+        return val;
+}
+
 /**
  * Converts units in format <val>[.<val>][kMG] to integral representation.
  *
