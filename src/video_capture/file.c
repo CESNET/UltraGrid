@@ -421,7 +421,7 @@ static AVCodecContext *vidcap_file_open_dec_ctx(const AVCodec *dec, AVStream *st
                 return NULL;
         }
         dec_ctx->thread_count = 0; // means auto for most codecs
-        dec_ctx->thread_type = FF_THREAD_SLICE;
+        dec_ctx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
 
         /* Copy codec parameters from input stream to output codec context */
         if (avcodec_parameters_to_context(dec_ctx, st->codecpar) < 0) {
