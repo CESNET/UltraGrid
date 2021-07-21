@@ -34,43 +34,41 @@ sudo xattr -dr com.apple.quarantine $(xcrun --show-sdk-path)/System/Library/Fram
 umount /Volumes/XIMEA
 
 # Install AJA
-if [ -f /var/tmp/sdks/ntv2sdkmac.zip ]; then
-        unzip /var/tmp/sdks/ntv2sdkmac.zip -d /tmp
-        mv /tmp/ntv2sdk* $AJA_INST
-        cd $AJA_INST/ajalibraries/ajantv2/build
-        xcodebuild -project ajantv2.xcodeproj
+AJA_DIRECTORY=$SDK_NONFREE_PATH/ntv2sdk
+if [ -d $AJA_DIRECTORY ]; then
+        echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> $GITHUB_ENV
+        FEATURES="$FEATURES --enable-aja"
+        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         sudo rm -f /usr/local/lib/libajantv2.dylib
-        sudo cp ../../../bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
+        sudo cp $AJA_DIRECTORY/bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
         sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
         cd $TEMP_INST
 fi
 
 # DELTACAST
-if [ -f /var/tmp/sdks/VideoMaster_SDK_MacOSX.zip ]; then
-        unzip /var/tmp/sdks/VideoMaster_SDK_MacOSX.zip
-        sudo installer -pkg VideoMaster_SDK.pkg -target /
-        cd /Library/Frameworks
-        sudo install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
-        sudo install_name_tool -id @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
-        sudo install_name_tool -change /Library/Frameworks/libVideoMasterHD_SP.dylib @executable_path/../Frameworks/libVideoMasterHD_SP.dylib /Library/Frameworks/VideoMasterHD.framework/VideoMasterHD
-        sudo install_name_tool -id @executable_path/../Frameworks/libVideoMasterHD_SP.dylib /Library/Frameworks/libVideoMasterHD_SP.dylib
-        sudo install_name_tool -id @executable_path/../Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio
-        sudo install_name_tool -change /Library/Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD @executable_path/../Frameworks/VideoMasterHD.framework/Versions/A/VideoMasterHD /Library/Frameworks/VideoMasterHD_Audio.framework/Versions/A/VideoMasterHD_Audio
-        sudo cp -a VideoMasterHD.framework VideoMasterHD_Audio.framework libVideoMasterHD_SP.dylib $(xcrun --show-sdk-path)/System/Library/Frameworks
-        cd -
-        sudo rm -rf /Library/Frameworks/VideoMasterHD* # ensure that only the copy above is used
+DELTA_CACHE_INST=$SDK_NONFREE_PATH/VideoMasterHD_inst
+if [ -d $DELTA_CACHE_INST ]; then
+        FEATURES="$FEATURES --enable-deltacast"
+        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
+        sudo cp -a $DELTA_CACHE_INST/* $(xcrun --show-sdk-path)/System/Library/Frameworks
 fi
 
 # Install NDI
-if [ -f /var/tmp/sdks/NDISDK_Apple.pkg  ]; then
-        sudo installer -pkg /var/tmp/sdks/NDISDK_Apple.pkg -target /
-        sudo mv "/Library/NDI SDK for Apple/" /Library/NDI
-        cd /Library/NDI/lib/x64
-        sudo ln -s libndi.?.dylib libndi.dylib
+if [ -f $SDK_NONFREE_PATH/NDISDK_Apple.pkg  ]; then
+        sudo installer -pkg $SDK_NONFREE_PATH/NDISDK_Apple.pkg -target /
+        sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
+        cat /Library/NDI/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
+        if [ -d /Library/NDI/lib/x64 ]; then # NDI 4
+                cd /Library/NDI/lib/x64
+                sudo ln -s libndi.?.dylib libndi.dylib
+                NDI_LIB=/Library/NDI/lib/x64
+        else # NDI 5
+                NDI_LIB=/Library/NDI/lib/macOS
+        fi
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
-        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /Library/NDI/lib/x64"
-        export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}/Library/NDI/lib/x64
-        export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}/Library/NDI/lib/x64"
+        export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $NDI_LIB"
+        export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}$NDI_LIB
+        export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}$NDI_LIB"
         echo "CPATH=$CPATH" >> $GITHUB_ENV
         echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> $GITHUB_ENV
         echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV
