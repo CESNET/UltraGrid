@@ -340,15 +340,30 @@ static void display_sdl2_run(void *arg)
         }
 }
 
+static void sdl2_print_displays() {
+        for (int i = 0; i < SDL_GetNumVideoDisplays(); ++i) {
+                if (i > 0) {
+                        cout << ", ";
+                }
+                const char *dname = SDL_GetDisplayName(i);
+                if (dname == nullptr) {
+                        dname = SDL_GetError();
+                }
+                cout << style::bold << i << style::reset << " - " << dname;
+        }
+        cout << "\n";
+}
+
 static void show_help(void)
 {
-        SDL_Init(0);
+        SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
         printf("SDL options:\n");
         cout << style::bold << fg::red << "\t-d sdl" << fg::reset << "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>|:keep-aspect]*|:help]\n" << style::reset;
         printf("\twhere:\n");
         cout << style::bold <<"\t\t       d" << style::reset << " - deinterlace\n";
         cout << style::bold <<"\t\t      fs" << style::reset << " - fullscreen\n";
-        cout << style::bold <<"\t\t  <didx>" << style::reset << " - display index\n";
+        cout << style::bold <<"\t\t  <didx>" << style::reset << " - display index, available indices: ";
+        sdl2_print_displays();
         cout << style::bold <<"\t\t   <drv>" << style::reset << " - one of following: ";
         for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
                 cout << (i == 0 ? "" : ", ") << style::bold << SDL_GetVideoDriver(i) << style::reset;
