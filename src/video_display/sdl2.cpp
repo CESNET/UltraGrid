@@ -5,7 +5,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -578,7 +578,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 tmp = NULL;
         }
 
-        int ret = SDL_Init(SDL_INIT_EVENTS);
+        int ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize SDL2: %s\n", SDL_GetError());
                 delete s;
