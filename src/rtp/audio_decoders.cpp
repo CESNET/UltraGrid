@@ -67,11 +67,15 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstring>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
 
+using std::chrono::duration_cast;
+using std::chrono::seconds;
+using std::chrono::steady_clock;
 using rang::fg;
 using rang::style;
 using std::fixed;
@@ -93,6 +97,46 @@ struct channel_map {
         int *sizes;
         int size;
         int max_output;
+};
+
+struct state_audio_decoder_summary {
+private:
+        unsigned long int last_bufnum = -1;
+        unsigned long int played;
+        unsigned long int missed;
+
+        steady_clock::time_point t_last = steady_clock::now();
+
+        void print() const {
+                LOG(LOG_LEVEL_INFO) << style::underline << "Audio dec stats" << style::reset << " (cumulative): "
+                        << style::bold << played << style::reset << " played / "
+                        << style::bold << played + missed << style::reset << " total audio frames\n";
+        }
+public:
+        ~state_audio_decoder_summary() {
+                print();
+        }
+
+        void update(unsigned long int bufnum) {
+                if (last_bufnum != static_cast<unsigned long int>(-1)) {
+                        if ((last_bufnum + 1) % (1U<<BUFNUM_BITS) == bufnum) {
+                                played += 1;
+                        } else {
+                                unsigned long int diff = (bufnum - last_bufnum + 1 + (1U<<BUFNUM_BITS)) % (1U<<BUFNUM_BITS);
+                                if (diff >= (1U<<BUFNUM_BITS) / 2) {
+                                        diff -= (1U<<BUFNUM_BITS) / 2;
+                                }
+                                missed += diff;
+                        }
+                }
+                last_bufnum = bufnum;
+
+                auto now = steady_clock::now();
+                if (duration_cast<seconds>(steady_clock::now() - t_last).count() > CUMULATIVE_REPORTS_INTERVAL) {
+                        print();
+                        t_last = now;
+                }
+        }
 };
 
 struct state_audio_decoder {
@@ -126,6 +170,8 @@ struct state_audio_decoder {
         void *audio_playback_state;
 
         struct control_state *control;
+
+        struct state_audio_decoder_summary summary;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -391,6 +437,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         int output_channels = 0;
         int bps, sample_rate, channel;
         bool first = true;
+        int bufnum = 0;
 
         if(!cdata) {
                 return FALSE;
@@ -472,7 +519,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 assert(input_channels > 0);
 
                 channel = (ntohl(audio_hdr[0]) >> 22) & 0x3ff;
-                int bufnum = ntohl(audio_hdr[0]) & 0x3fffff;
+                bufnum = ntohl(audio_hdr[0]) & ((1U<<BUFNUM_BITS) - 1U);
                 sample_rate = ntohl(audio_hdr[3]) & 0x3fffff;
                 bps = (ntohl(audio_hdr[3]) >> 26) / 8;
                 uint32_t audio_tag = ntohl(audio_hdr[4]);
@@ -553,6 +600,8 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 
                 cdata = cdata->nxt;
         }
+
+        decoder->summary.update(bufnum);
 
         s->frame_size = received_frame.get_data_len();
         audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);

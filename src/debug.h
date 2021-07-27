@@ -85,6 +85,8 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_times
 }
 #endif
 
+#define CUMULATIVE_REPORTS_INTERVAL 30
+
 #ifdef __cplusplus
 #include <atomic>
 #include <iomanip>
