@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2015 CESNET, z. s.p. o.
+ * Copyright (c) 2011-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@
 
 #define FRAME_NETWORK 0
 #define FRAME_CAPTURE 1
+#define MOD_NAME "[acap.] "
 
 using std::condition_variable;
 using std::cv_status;
@@ -188,7 +189,7 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
 
         int len = frame->data_len;
         if (len + s->audio_frame[FRAME_CAPTURE].data_len > s->audio_frame[FRAME_CAPTURE].max_size) {
-                LOG(LOG_LEVEL_WARNING) << "[SDI] Maximal audio buffer length " << s->buf_size_ms << " ms exceeded! Dropping "
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Maximal audio buffer length " << s->buf_size_ms << " ms exceeded! Dropping "
                         << len - (s->audio_frame[FRAME_CAPTURE].max_size - s->audio_frame[FRAME_CAPTURE].data_len) << " samples.\n";
                 len = s->audio_frame[FRAME_CAPTURE].max_size - s->audio_frame[FRAME_CAPTURE].data_len;
         }
