@@ -16,6 +16,7 @@ else
 fi
 echo "CUDA_HOST_COMPILER=$CUDA_HOST_COMPILER" >> $GITHUB_ENV
 
+sudo add-apt-repository ppa:devilutionx/dev # SDL 2.0.14 - CESNET/UltraGrid#168
 sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
 sudo apt update
 sudo apt -y upgrade
