@@ -127,6 +127,7 @@
 #include <future>
 #endif
 #include <algorithm>
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -206,7 +207,12 @@ struct line_decoder {
 };
 
 struct reported_statistics_cumul {
+        ~reported_statistics_cumul() {
+                print();
+        }
+        long int last_buffer_number = -1; ///< last received buffer ID
         mutex             lock;
+        chrono::steady_clock::time_point t_last = chrono::steady_clock::now();
         unsigned long long int     received_bytes_total = 0;
         unsigned long long int     expected_bytes_total = 0;
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
@@ -216,6 +222,7 @@ struct reported_statistics_cumul {
         unsigned long long int     nano_per_frame_expected = 0;
         unsigned long int     reported_frames = 0;
         void print() {
+                lock_guard<mutex> lk(lock);
                 ostringstream fec;
                 if (fec_ok + fec_nok + fec_corrected > 0) {
                         fec << " FEC noerr/OK/NOK: "
@@ -236,6 +243,25 @@ struct reported_statistics_cumul {
                         << " corr / "
                         << style::bold << missing << style::reset
                         << " missing." << fec.str() << "\n";
+        }
+        void update(int buffer_number) {
+                if (last_buffer_number != -1) {
+                        long int diff = buffer_number -
+                                ((last_buffer_number + 1) & 0x3fffff);
+                        diff = (diff + 0x3fffff) % 0x3fffff;
+                        lock_guard<mutex> lk(lock);
+                        if (diff < 0x3fffff / 2) {
+                                missing += diff;
+                        } else { // frames may have been reordered, add arbitrary 1
+                                missing += 1;
+                        }
+                }
+                last_buffer_number = buffer_number;
+                auto now = chrono::steady_clock::now();
+                if (chrono::duration_cast<chrono::seconds>(chrono::steady_clock::now() - t_last).count() > CUMULATIVE_REPORTS_INTERVAL) {
+                        print();
+                        t_last = now;
+                }
         }
 };
 
@@ -278,9 +304,6 @@ struct frame_msg {
                                 " nanoPerFrameErrorCorrection " << (stats.nano_per_frame_error_correction += nanoPerFrameErrorCorrection) <<
                                 " nanoPerFrameExpected " << (stats.nano_per_frame_expected += nanoPerFrameExpected) <<
                                 " reportedFrames " << (stats.reported_frames += 1);
-                        if ((stats.displayed + stats.dropped + stats.missing) % 600 == 599) {
-                                stats.print();
-                        }
                         if (control) {
                                 control_report_stats(control, oss.str());
                         }
@@ -377,7 +400,6 @@ struct state_video_decoder
         enum video_mode   video_mode = {} ;  ///< video mode set for this decoder
         bool          merged_fb = false; ///< flag if the display device driver requires tiled video or not
 
-        long int last_buffer_number = -1; ///< last received buffer ID
         timed_message<LOG_LEVEL_WARNING> slow_msg; ///< shows warning ony in certain interval
 
         synchronized_queue<main_msg_reconfigure *, -1> msg_queue;
@@ -968,8 +990,6 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
         cleanup(decoder);
 
         free(decoder->disp_supported_il);
-
-        decoder->stats.print();
 
         delete decoder;
 }
@@ -1876,18 +1896,7 @@ cleanup:
         pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);
         pbuf_data->decoded++;
 
-        if (decoder->last_buffer_number != -1) {
-                long int missing = buffer_number -
-                        ((decoder->last_buffer_number + 1) & 0x3fffff);
-                missing = (missing + 0x3fffff) % 0x3fffff;
-                lock_guard<mutex> lk(decoder->stats.lock);
-                if (missing < 0x3fffff / 2) {
-                        decoder->stats.missing += missing;
-                } else { // frames may have been reordered, add arbitrary 1
-                        decoder->stats.missing += 1;
-                }
-        }
-        decoder->last_buffer_number = buffer_number;
+        decoder->stats.update(buffer_number);
 
         return ret;
 }
