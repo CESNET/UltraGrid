@@ -84,6 +84,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "pdb.h"
+#include "utils/color_out.h"
 #include "utils/net.h"
 #include "utils/thread.h"
 #include "utils/worker.h"
@@ -216,17 +217,15 @@ static void audio_channel_map_usage(void)
 
 static void audio_scale_usage(void)
 {
-        printf("\t--audio-scale [<factor>|<method>]\n");
-        printf("\t                                 Floating point number that tells\n");
-        printf("\t                                 a static scaling factor for all\n");
-        printf("\t                                 output channels.\n");
-        printf("\t                                 Scaling method can be one from these:\n");
-        printf("\t                                   mixauto - automatically adjust\n");
-        printf("\t                                             volume if using channel\n");
-        printf("\t                                             mixing/remapping\n");
-        printf("\t                                             (default)\n");
-        printf("\t                                   auto - automatically adjust volume\n");
-        printf("\t                                   none - no scaling will be performed\n");
+        cout << "Usage:\n";
+        cout << BOLD(RED("\t--audio-scale [<factor>|<method>]\n"));
+        cout << "\t        Floating point number that tells a static scaling factor for all\n";
+        cout << "\t        output channels. Scaling method can be one from these:\n";
+        cout << BOLD("\t          0.0-1.0") << " - factor to scale to (usually 0-1 but can be more)\n";
+        cout << BOLD("\t          mixauto") << " - automatically adjust volume if using channel\n";
+        cout << "\t                    mixing/remapping (default)\n";
+        cout << BOLD("\t          auto") << " - automatically adjust volume\n";
+        cout << BOLD("\t          none") << " - no scaling will be performed\n";
 }
 
 /**
