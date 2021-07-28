@@ -53,11 +53,13 @@
                 return WAV_HDR_PARSE_READ_ERROR;\
         }
 
-static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
+#define GUID_PCM { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71 }
+
+static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t chunk_size)
 {
         uint16_t format;
         READ_N(&format, 2);
-        if (format != 0x0001) {
+        if (format != 0x0001 && format != 0xFFFE) {
                 log_msg(LOG_LEVEL_ERROR, "[WAV] Expected format 0x0001, 0x%04d given.\n", format);
                 return WAV_HDR_PARSE_NOT_PCM;
         }
@@ -88,6 +90,32 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata)
                 return WAV_HDR_PARSE_INVALID_PARAM;
         }
         metadata->bits_per_sample = bits_per_sample;
+
+        if (chunk_size >= 18) {
+                uint16_t ext_size;
+                READ_N(&ext_size, 2);
+                if (ext_size == 22) {
+                        assert(chunk_size == 40);
+                        READ_N(&metadata->valid_bits, sizeof metadata->valid_bits);
+                        READ_N(&metadata->channel_mask, sizeof metadata->channel_mask);
+                        char buffer[16];
+                        READ_N(buffer, 16);
+                        const char guid[] = GUID_PCM;
+                        if (memcmp(guid, buffer, 16) != 0) {
+                                log_msg(LOG_LEVEL_ERROR, "[WAV] GUID is not PCM!\n");
+                                return WAV_HDR_PARSE_NOT_PCM;
+                        }
+                        format = 0x0001;
+                } else if (ext_size != 0) {
+                        log_msg(LOG_LEVEL_ERROR, "[WAV] Extension size either 0 or 22 expected, %d presented.\n", ext_size);
+                        return WAV_HDR_PARSE_READ_ERROR;
+                }
+        }
+
+        if (format == 0xFFFE) {
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Subtype GUID not found!\n");
+                return WAV_HDR_PARSE_READ_ERROR;
+        }
 
         return WAV_HDR_PARSE_OK;
 }
@@ -138,11 +166,11 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                         metadata->data_size = data_len;
                 } else if (strncmp(buffer, "fmt ", 4) == 0) {
                         found_fmt_chunk = true;
-                        if (chunk_size != 16) {
-                                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected fmt chunk size 16, %d given.\n", chunk_size);
+                        if (chunk_size != 16 && chunk_size != 18 && chunk_size != 40) {
+                                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected fmt chunk size 16, 18 or 40, %d given.\n", chunk_size);
                                 return WAV_HDR_PARSE_WRONG_FORMAT;
                         }
-                        int rc = read_fmt_chunk(wav_file, metadata);
+                        int rc = read_fmt_chunk(wav_file, metadata, chunk_size);
                         if (rc != WAV_HDR_PARSE_OK) {
                                 return rc;
                         }

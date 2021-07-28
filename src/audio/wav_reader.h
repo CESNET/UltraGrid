@@ -37,10 +37,19 @@
 
 #include <stdio.h> // FILE *
 
+#ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
+#endif
+
 struct wav_metadata {
         unsigned int ch_count;
         unsigned int sample_rate;
         unsigned int bits_per_sample;
+        uint16_t valid_bits;
+        uint32_t channel_mask;
+
 
         unsigned int data_size;
         unsigned int data_offset; // from the beginning of file
