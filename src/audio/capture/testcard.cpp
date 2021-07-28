@@ -284,16 +284,16 @@ static void * audio_cap_testcard_init(const char *cfg)
                 s->audio.ch_count = metadata.ch_count;
                 s->audio.sample_rate = metadata.sample_rate;
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
-                s->audio.max_size = metadata.data_size + (s->chunk_size - 1) * metadata.ch_count *
-                        (metadata.bits_per_sample / 8);
+                const int headroom = (s->chunk_size - 1) * metadata.ch_count * (metadata.bits_per_sample / 8);
+                s->audio.max_size = metadata.data_size + headroom;
                 s->total_samples = metadata.data_size /  metadata.ch_count / metadata.bits_per_sample * 8;
                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->total_samples << " samples read from file " << wav_file << "\n";
 
                 s->audio_samples = (char *) calloc(1, s->audio.max_size);
-                int bytes = fread(s->audio_samples, 1, s->audio.max_size, wav);
-                if(bytes != (int) s->audio.max_size) {
-                        s->audio.max_size = bytes;
-                        fprintf(stderr, "Warning: premature end of WAV file!\n");
+                int bytes = fread(s->audio_samples, 1, metadata.data_size, wav);
+                if (bytes != static_cast<int>(metadata.data_size)) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Warning: premature end of WAV file (" << bytes << " read, " << metadata.data_size << " expected)!\n";
+                        s->audio.max_size = bytes + headroom;
                 }
                 memcpy(s->audio_samples + metadata.data_size, s->audio_samples, s->audio.max_size -
                                 metadata.data_size);
