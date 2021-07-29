@@ -50,7 +50,6 @@ struct wav_metadata {
         uint16_t valid_bits;
         uint32_t channel_mask;
 
-
         unsigned int data_size;
         unsigned int data_offset; // from the beginning of file
 };

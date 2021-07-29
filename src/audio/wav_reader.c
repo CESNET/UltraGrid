@@ -41,6 +41,8 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <inttypes.h>
+
 #include "audio/wav_reader.h"
 #include "debug.h"
 
@@ -91,11 +93,19 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t 
         }
         metadata->bits_per_sample = bits_per_sample;
 
+        if (chunk_size == 17) {
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Wrong fmt chunk size 17!\n");
+                return WAV_HDR_PARSE_READ_ERROR;
+        }
+
         if (chunk_size >= 18) {
                 uint16_t ext_size;
                 READ_N(&ext_size, 2);
+                if (ext_size != chunk_size - 18) {
+                        log_msg(LOG_LEVEL_ERROR, "[WAV] Unexpected ext size %" PRIu16 ", remaining chunk size %zu.\n", ext_size, chunk_size - 18);
+                        return WAV_HDR_PARSE_READ_ERROR;
+                }
                 if (ext_size == 22) {
-                        assert(chunk_size == 40);
                         READ_N(&metadata->valid_bits, sizeof metadata->valid_bits);
                         READ_N(&metadata->channel_mask, sizeof metadata->channel_mask);
                         char buffer[16];
