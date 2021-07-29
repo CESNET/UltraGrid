@@ -244,10 +244,10 @@ struct reported_statistics_cumul {
         void update(int buffer_number) {
                 if (last_buffer_number != -1) {
                         long int diff = buffer_number -
-                                ((last_buffer_number + 1) & 0x3fffff);
-                        diff = (diff + 0x3fffff) % 0x3fffff;
+                                ((last_buffer_number + 1) & ((1U<<BUFNUM_BITS) - 1));
+                        diff = (diff + (1U<<BUFNUM_BITS)) % (1U<<BUFNUM_BITS);
                         lock_guard<mutex> lk(lock);
-                        if (diff < 0x3fffff / 2) {
+                        if (diff < (1U<<BUFNUM_BITS) / 2) {
                                 missing += diff;
                         } else { // frames may have been reordered, add arbitrary 1
                                 missing += 1;
