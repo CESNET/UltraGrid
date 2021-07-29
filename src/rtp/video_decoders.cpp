@@ -122,12 +122,13 @@
 #include "video_decompress.h"
 #include "video_display.h"
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
 #include <future>
 #endif
-#include <algorithm>
-#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -214,12 +215,10 @@ struct reported_statistics_cumul {
                 print();
         }
         long int last_buffer_number = -1; ///< last received buffer ID
-        mutex             lock;
         chrono::steady_clock::time_point t_last = chrono::steady_clock::now();
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
-        unsigned long int fec_ok = 0, fec_corrected = 0, fec_nok = 0;
+        atomic_ulong fec_ok = 0, fec_corrected = 0, fec_nok = 0;
         void print() {
-                lock_guard<mutex> lk(lock);
                 ostringstream fec;
                 if (fec_ok + fec_nok + fec_corrected > 0) {
                         fec << " FEC noerr/OK/NOK: "
@@ -246,7 +245,6 @@ struct reported_statistics_cumul {
                         long int diff = buffer_number -
                                 ((last_buffer_number + 1) & ((1U<<BUFNUM_BITS) - 1));
                         diff = (diff + (1U<<BUFNUM_BITS)) % (1U<<BUFNUM_BITS);
-                        lock_guard<mutex> lk(lock);
                         if (diff < (1U<<BUFNUM_BITS) / 2) {
                                 missing += diff;
                         } else { // frames may have been reordered, add arbitrary 1
@@ -271,7 +269,6 @@ struct frame_msg {
         {}
         inline ~frame_msg() {
                 if (recv_frame) {
-                        lock_guard<mutex> lk(stats.lock);
                         int received_bytes = 0;
                         for (unsigned int i = 0; i < recv_frame->tile_count; ++i) {
                                 received_bytes += sum_map(pckt_list[i]);
