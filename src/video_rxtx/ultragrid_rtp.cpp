@@ -147,10 +147,7 @@ void *ultragrid_rtp_video_rxtx::send_frame_async_callback(void *arg) {
 
 void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame)
 {
-        std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         lock_guard<mutex> lock(m_network_devices_lock);
-
-        int buffer_id = tx_get_buffer_id(m_tx);
 
         if (m_paused) {
                 goto after_send;
@@ -194,40 +191,6 @@ after_send:
         m_async_sending = false;
         m_async_sending_lock.unlock();
         m_async_sending_cv.notify_all();
-
-        // report events if occured and stats
-        if (!m_paused) {
-                std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-                int dropped_frames = 0; /// @todo
-                auto nano_actual = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-                long long int nano_expected = 1000l * 1000 * 1000 / tx_frame->fps;
-                int send_bytes = tx_frame->tiles[0].data_len;
-                auto now = time_since_epoch_in_ms();
-                auto compress_millis = tx_frame->compress_end - tx_frame->compress_start;
-
-                // report events and stats
-                auto new_desc = video_desc_from_frame(tx_frame.get());
-                if (new_desc != m_video_desc) {
-                        control_report_event(m_control, "SEND " + m_port_id + " " +
-                                        string("captured video changed - ") +
-                                        (string) new_desc);
-                        m_video_desc = new_desc;
-                }
-                if (tx_frame->paused_play) {
-                        control_report_event(m_control, "SEND " + m_port_id + " " +
-                                        string("play"));
-                }
-                ostringstream oss;
-                oss << "SEND " << m_port_id << " bufferId " << buffer_id <<
-                        " droppedFrames " << dropped_frames <<
-                        " nanoPerFrameActual " << (m_nano_per_frame_actual_cumul += nano_actual) <<
-                        " nanoPerFrameExpected " << (m_nano_per_frame_expected_cumul += nano_expected) <<
-                        " sendBytesTotal " << (m_send_bytes_total += send_bytes) <<
-                        " timestamp " << now <<
-                        " compressMillis " << (m_compress_millis_cumul += compress_millis);
-                control_report_stats(m_control, oss.str());
-        }
 }
 
 void ultragrid_rtp_video_rxtx::receiver_process_messages()

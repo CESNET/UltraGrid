@@ -147,6 +147,9 @@
 using rang::style;
 using namespace std;
 using namespace std::string_literals;
+using std::chrono::duration_cast;
+using std::chrono::high_resolution_clock;
+using std::chrono::nanoseconds;
 
 struct state_video_decoder;
 
@@ -213,14 +216,8 @@ struct reported_statistics_cumul {
         long int last_buffer_number = -1; ///< last received buffer ID
         mutex             lock;
         chrono::steady_clock::time_point t_last = chrono::steady_clock::now();
-        unsigned long long int     received_bytes_total = 0;
-        unsigned long long int     expected_bytes_total = 0;
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
         unsigned long int fec_ok = 0, fec_corrected = 0, fec_nok = 0;
-        unsigned long long int     nano_per_frame_decompress = 0;
-        unsigned long long int     nano_per_frame_error_correction = 0;
-        unsigned long long int     nano_per_frame_expected = 0;
-        unsigned long int     reported_frames = 0;
         void print() {
                 lock_guard<mutex> lk(lock);
                 ostringstream fec;
@@ -291,22 +288,6 @@ struct frame_msg {
                                         }
                                 }
                         }
-                        ostringstream oss;
-                        oss << "RECV " << "bufferId " << buffer_num[0] << " expectedPackets " <<
-                                expected_pkts_cum <<  " receivedPackets " << received_pkts_cum <<
-                                // droppedPackets
-                                " expectedBytes " << (stats.expected_bytes_total += expected_bytes) <<
-                                " receivedBytes " << (stats.received_bytes_total += received_bytes) <<
-                                " isCorrupted " << (stats.corrupted += (is_corrupted ? 1 : 0)) <<
-                                " isDisplayed " << (stats.displayed += (is_displayed ? 1 : 0)) <<
-                                " timestamp " << time_since_epoch_in_ms() <<
-                                " nanoPerFrameDecompress " << (stats.nano_per_frame_decompress += nanoPerFrameDecompress) <<
-                                " nanoPerFrameErrorCorrection " << (stats.nano_per_frame_error_correction += nanoPerFrameErrorCorrection) <<
-                                " nanoPerFrameExpected " << (stats.nano_per_frame_expected += nanoPerFrameExpected) <<
-                                " reportedFrames " << (stats.reported_frames += 1);
-                        if (control) {
-                                control_report_stats(control, oss.str());
-                        }
                 }
                 vf_free(recv_frame);
                 vf_free(nofec_frame);
@@ -318,9 +299,6 @@ struct frame_msg {
         unique_ptr<map<int, int>[]> pckt_list;
         unsigned long long int received_pkts_cum, expected_pkts_cum;
         struct reported_statistics_cumul &stats;
-        unsigned long long int nanoPerFrameDecompress = 0;
-        unsigned long long int nanoPerFrameErrorCorrection = 0;
-        unsigned long long int nanoPerFrameExpected = 0;
         bool is_displayed = false;
         bool is_corrupted = false;
 };
@@ -447,7 +425,6 @@ static void *fec_thread(void *args) {
 
                 struct video_frame *frame = decoder->frame;
                 struct tile *tile = NULL;
-                auto t0 = std::chrono::high_resolution_clock::now();
 
                 if (data->recv_frame->fec_params.type != FEC_NONE) {
                         if(!fec_state || desc.k != data->recv_frame->fec_params.k ||
@@ -572,9 +549,6 @@ static void *fec_thread(void *args) {
                                 }
                         }
                 }
-
-                data->nanoPerFrameErrorCorrection =
-                        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - t0).count();
 
                 decoder->decompress_queue.push(move(data));
 cleanup:
@@ -720,9 +694,8 @@ static void *decompress_thread(void *args) {
                         }
                 }
 
-                msg->nanoPerFrameDecompress =
-                        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - t0).count();
-                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Decompress duration: " << msg->nanoPerFrameDecompress / 1000000.0 << " ms\n";
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Decompress duration: " <<
+                        duration_cast<nanoseconds>(high_resolution_clock::now() - t0).count() / 1000000.0 << " ms\n";
 
                 if(decoder->change_il) {
                         for(unsigned int i = 0; i < decoder->frame->tile_count; ++i) {
@@ -944,7 +917,6 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if (decoder->display) {
                 video_decoder_stop_threads(decoder);
-                control_report_event(decoder->control, string("RECV stream ended"));
                 if (decoder->frame) {
                         display_put_frame(decoder->display, decoder->frame, PUTF_DISCARD);
                         decoder->frame = NULL;
@@ -1459,9 +1431,6 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
 
         if (desc_changed) {
                 LOG(LOG_LEVEL_NOTICE) << "[video dec.] New incoming video format detected: " << network_desc << endl;
-                control_report_event(decoder->control, string("RECV received video changed - ") +
-                                (string) network_desc);
-
                 decoder->received_vid_desc = network_desc;
         }
 
@@ -1876,7 +1845,6 @@ next_packet:
                 fec_msg->pckt_list = std::move(pckt_list);
                 fec_msg->received_pkts_cum = stats->received_pkts_cum;
                 fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
-                fec_msg->nanoPerFrameExpected = decoder->frame ? 1000000000 / decoder->frame->fps : 0;
 
                 auto t0 = std::chrono::high_resolution_clock::now();
                 decoder->fec_queue.push(move(fec_msg));

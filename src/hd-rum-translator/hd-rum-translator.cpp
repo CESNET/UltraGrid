@@ -890,12 +890,6 @@ int main(int argc, char **argv)
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
                 unsigned long long int bps = cur_data / seconds;
-                string port_list = format_port_list(&state);
-                string statline = "FWD receivedBytes " + to_string(received_data) + " receivedPackets " + to_string(received_pkts) + " timestamp " + to_string(time_since_epoch_in_ms());
-                if (!port_list.empty()) {
-                    statline += " portList " + format_port_list(&state);
-                }
-                control_report_stats(state.control_state, statline);
                 log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %llu B/s.\n", cur_data, seconds, bps);
                 t0 = t;
                 last_data = received_data;
