@@ -310,7 +310,7 @@ struct state_gl {
         void *syphon_spout;
         bool hide_window;
 
-        bool fixed_size, first_run;
+        bool fixed_size;
         int fixed_w, fixed_h;
 
         bool nodecorate = false;
@@ -326,7 +326,7 @@ struct state_gl {
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
                 vsync(1), paused(false), show_cursor(SC_AUTOHIDE),
                 should_exit_main_loop(false), window_size_factor(1.0),
-                syphon_spout(nullptr), hide_window(false), fixed_size(false), first_run(true),
+                syphon_spout(nullptr), hide_window(false), fixed_size(false),
                 fixed_w(0), fixed_h(0)
         {
                 gettimeofday(&tv, NULL);
@@ -587,8 +587,7 @@ static void glut_resize_window(bool fs, int height, double aspect, double window
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "glut_resize_window - fullscreen: %d, aspect: %lf, factor %lf\n",
                         (int) fs, aspect, window_size_factor);
         if (fs) {
-                glutReshapeWindow(glutGet(GLUT_SCREEN_WIDTH),
-                               glutGet(GLUT_SCREEN_HEIGHT));
+                //glutReshapeWindow(glutGet(GLUT_SCREEN_WIDTH), glutGet(GLUT_SCREEN_HEIGHT));
                 glutFullScreen();
         } else {
                 glutReshapeWindow(window_size_factor *
@@ -711,7 +710,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         else
                 s->aspect = s->video_aspect;
 
-        log_msg(LOG_LEVEL_INFO,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
+        log_msg(LOG_LEVEL_INFO, "Setting GL size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
         if (!s->hide_window)
                 glutShowWindow();
@@ -791,13 +790,10 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         gl_check_error();
 
-        if (!s->fixed_size || s->first_run) {
+        if (!s->fixed_size) {
                 glut_resize_window(s->fs, desc.height, s->aspect, s->window_size_factor);
-                s->first_run = false;
-        } else {
-                // s->aspect might have changed so we may want to run this to reflect it
-                gl_change_aspect(s, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
         }
+        gl_change_aspect(s, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 
         gl_check_error();
 
@@ -990,6 +986,7 @@ static void glut_idle_callback(void)
         }
 
         glutSwapBuffers();
+        log_msg(LOG_LEVEL_DEBUG, "Render buffer %dx%d\n", frame->tiles[0].width, frame->tiles[0].height);
         pop_frame(s);
 
         /* FPS Data, this is pretty ghetto though.... */
@@ -1161,6 +1158,16 @@ static bool display_gl_check_gl_version() {
         return true;
 }
 
+static void display_gl_render_last() {
+        if (!gl->current_frame) {
+                return;
+        }
+        // redraw last frame
+        gl_render(gl, gl->current_frame->tiles[0].data);
+        gl_draw(gl->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2, gl->vsync != SINGLE_BUF);
+        glutSwapBuffers();
+}
+
 static bool display_gl_init_opengl(struct state_gl *s)
 {
 #if defined HAVE_LINUX || defined WIN32
@@ -1190,6 +1197,11 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 #endif
         glutIdleFunc(glut_idle_callback);
+        if (s->fixed_size && s->fixed_w && s->fixed_h) {
+                glutInitWindowSize(s->fixed_w, s->fixed_h);
+        } else {
+                glutInitWindowSize(splash_width, splash_height);
+        }
 	s->window = glutCreateWindow(get_commandline_param("window-title") ? get_commandline_param("window-title") : DEFAULT_WIN_NAME);
         if (s->hide_window)
                 glutHideWindow();
@@ -1197,7 +1209,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
         //glutHideWindow();
 	glutKeyboardFunc([](unsigned char key, int /*x*/, int /*y*/) { glut_key_callback(key, false); });
 	glutSpecialFunc([](int key, int /*x*/, int /*y*/) { glut_key_callback(key, true); }); // special keys
-	glutDisplayFunc((void (*)())glutSwapBuffers); // cast is needed because glutSwapBuffers is stdcall on MSW
+	//glutDisplayFunc((void (*)())glutSwapBuffers); // cast is needed because glutSwapBuffers is stdcall on MSW
+        glutDisplayFunc(display_gl_render_last); // if not called, freeglut wouldn't call some window events
         glutMotionFunc(glut_mouse_callback);
         glutPassiveMotionFunc(glut_mouse_callback);
 #ifdef HAVE_MACOSX
@@ -1310,16 +1323,6 @@ static void gl_resize(int width, int height)
                 glDrawBuffer(GL_FRONT);
                 /* Clear the screen */
                 glClear(GL_COLOR_BUFFER_BIT);
-        }
-
-        if (gl->current_frame) {
-                // redraw last frame
-                for (int i = 0; i < 2; ++i) {
-                        gl_render(gl, gl->current_frame->tiles[0].data);
-                        gl_draw(gl->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2, gl->vsync != SINGLE_BUF);
-                        glutSwapBuffers();
-                }
-                glutPostRedisplay();
         }
 }
 
