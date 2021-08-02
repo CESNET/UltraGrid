@@ -893,7 +893,8 @@ void keycontrol_send_key(struct module *root, int64_t key) {
  *
  * @ref message_universal message type is always sent
  * @param[in] sender_mod  module that should receive the message for key
- * @param[in] description optional decription (may be NULL)
+ * @param[in] message     text that will be passed back to receiver_mod if key was pressed
+ * @param[in] description optional decription that will be displayed in keyboard control help (may be NULL)
  */
 bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const char *message, const char *description) {
         assert(strchr(message, '#') == nullptr && strchr(description, '#') == nullptr);
