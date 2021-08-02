@@ -449,6 +449,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 return FALSE;
         }
 
+        DEBUG_TIMER_START(audio_decode);
         audio_frame2 received_frame;
         received_frame.init(decoder->saved_desc.ch_count,
                         get_audio_codec_to_tag(decoder->saved_audio_tag),
@@ -702,6 +703,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 packet_counter_clear(decoder->packet_counter);
         }
 
+        DEBUG_TIMER_START(audio_decode_compute_autoscale);
         if(!decoder->fixed_scale) {
                 for(int i = 0; i <= decoder->channel_map.max_output; ++i) {
                         double avg = get_avg_volume(s->buffer.data, bps,
@@ -710,6 +712,8 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                         s->buffer.data_len / output_channels / bps, sample_rate);
                 }
         }
+        DEBUG_TIMER_STOP(audio_decode_compute_autoscale);
+        DEBUG_TIMER_STOP(audio_decode);
         
         return TRUE;
 }

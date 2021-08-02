@@ -169,4 +169,13 @@ if (level <= log_level) Logger(level).Get()
 
 #endif
 
+#ifdef DEBUG
+#define DEBUG_TIMER_EVENT(name) struct timeval name = { 0, 0 }; gettimeofday(&name, NULL)
+#define DEBUG_TIMER_START(name) DEBUG_TIMER_EVENT(name##_start);
+#define DEBUG_TIMER_STOP(name) DEBUG_TIMER_EVENT(name##_stop); log_msg(LOG_LEVEL_DEBUG2, "%s duration: %lf s\n", #name, tv_diff(name##_stop, name##_start)) // NOLINT(cppcoreguidelines-pro-type-vararg, hicpp-vararg)
+#else
+#define DEBUG_TIMER_START(name)
+#define DEBUG_TIMER_STOP(name)
+#endif
+
 #endif
