@@ -1281,14 +1281,15 @@ static void display_gl_run(void *arg)
 
 static void gl_change_aspect(struct state_gl *s, int width, int height)
 {
-        double screen_ratio;
         double x = 1.0,
                y = 1.0;
+
+        glViewport( 0, 0, ( GLint )width, ( GLint )height );
 
         glMatrixMode( GL_PROJECTION );
         glLoadIdentity( );
 
-        screen_ratio = (double) width / height;
+        double screen_ratio = (double) width / height;
         if(screen_ratio > s->aspect) {
                 x = (double) height * s->aspect / width;
         } else {
@@ -1303,13 +1304,7 @@ static void gl_resize(int width, int height)
 {
         debug_msg("Resized to: %dx%d\n", width, height);
 
-        glViewport( 0, 0, ( GLint )width, ( GLint )height );
-
         gl_change_aspect(gl, width, height);
-
-        glMatrixMode( GL_MODELVIEW );
-
-        glLoadIdentity( );
 
         if (gl->vsync == SINGLE_BUF) {
                 glDrawBuffer(GL_FRONT);
@@ -1734,6 +1729,7 @@ static void gl_draw(double ratio, double bottom_offset, bool double_buf)
                 glClear(GL_COLOR_BUFFER_BIT);
         }
 
+        glMatrixMode( GL_MODELVIEW );
         glLoadIdentity( );
         glTranslatef( 0.0f, 0.0f, -1.35f );
 
