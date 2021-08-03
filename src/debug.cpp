@@ -50,6 +50,7 @@
 #include <array>
 #include <cstdint>
 
+#include "compat/misc.h" // strdupa
 #include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
@@ -248,7 +249,7 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_times
                 log_level = LOG_LEVEL_VERBOSE;
         }
 
-        if (optarg[0] == '+') {
+        if (optarg[0] == '+' || optarg[0] == '-') { // only flags, no log level
                 return true;
         }
 
@@ -262,8 +263,12 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_times
                 return true;
         }
 
+        char *log_level_str = strdupa(optarg);
+        if (char *delim = strpbrk(log_level_str, "+-")) {
+                *delim = '\0';
+        }
         for (auto m : mapping) {
-                if (strstr(optarg, m.name) == optarg) {
+                if (strcmp(log_level_str, m.name) == 0) {
                         log_level = m.level;
                         return true;
                 }
