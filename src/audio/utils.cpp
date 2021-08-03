@@ -59,6 +59,35 @@
 
 using namespace std;
 
+/**
+ * Loads sample with BPS width and returns it cast to
+ * int32_t.
+ */
+template<int BPS> static int32_t load_sample(const char *data);
+
+template<> int32_t load_sample<1>(const char *data) {
+        return *reinterpret_cast<const int8_t *>(data);
+}
+
+template<> int32_t load_sample<2>(const char *data) {
+        return *reinterpret_cast<const int16_t *>(data);
+}
+
+template<> int32_t load_sample<3>(const char *data) {
+        int32_t in_value = 0;
+        memcpy(&in_value, data, 3);
+
+        if ((in_value & 1U<<23U) != 0U) { // negative
+                in_value |= 0xFF000000U;
+        }
+
+        return in_value;
+}
+
+template<> int32_t load_sample<4>(const char *data) {
+        return *reinterpret_cast<const int32_t *>(data);
+}
+
 static double get_normalized(const int8_t *in, int bps) {
         int64_t sample = 0;
         bool negative = false;
@@ -291,27 +320,36 @@ void mux_and_mix_channel(char *out, const char *in, int bps, int in_len, int out
         }
 }
 
-double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int pos_in_stream)
+template<int BPS>
+static double get_avg_volume_helper(const char *data, int sample_count, int stream_channels, int pos_in_stream)
 {
-        float average_vol = 0;
-        int i;
+        int64_t vol = 0;
 
-        assert ((unsigned int) bps <= sizeof(int32_t));
+        data += pos_in_stream * BPS;
 
-        data += pos_in_stream * bps;
+        for (int i = 0; i < sample_count; i++) {
+                int32_t in_value = load_sample<BPS> (data + i * BPS * stream_channels);
 
-        for(i = 0; i < in_len / bps; i++) {
-                int32_t in_value = format_from_in_bps(data, bps);
-
-                //if(pos_in_stream) fprintf(stderr, "%d-%d ", pos_in_stream, data);
-
-                average_vol = average_vol * (i / ((double) i + 1)) + 
-                        fabs(((double) in_value / ((1 << (bps * 8 - 1)) - 1)) / (i + 1));
-
-                data += bps * stream_channels;
+                vol += labs(in_value);
         }
 
-        return average_vol;
+        return static_cast<double>(vol) / sample_count / ((1U << (BPS * 8U - 1U)));
+}
+
+double get_avg_volume(char *data, int bps, int sample_count, int stream_channels, int pos_in_stream) {
+        switch (bps) {
+                case 1:
+                        return get_avg_volume_helper<1>(data, sample_count, stream_channels, pos_in_stream);
+                case 2:
+                        return get_avg_volume_helper<2>(data, sample_count, stream_channels, pos_in_stream);
+                case 3:
+                        return get_avg_volume_helper<3>(data, sample_count, stream_channels, pos_in_stream);
+                case 4:
+                        return get_avg_volume_helper<4>(data, sample_count, stream_channels, pos_in_stream);
+                default:
+                        LOG(LOG_LEVEL_FATAL) << "Wrong BPS " << bps << "\n";
+                        abort();
+        }
 }
 
 void float2int(char *out, const char *in, int len)
