@@ -93,10 +93,30 @@ struct scale_data {
 };
 
 struct channel_map {
-        int **map; // index is source channel, content is output channels
-        int *sizes;
-        int size;
-        int max_output;
+        ~channel_map() {
+                free(sizes);
+                for(int i = 0; i < size; ++i) {
+                        free(map[i]);
+                }
+                free(map);
+        }
+        int **map = nullptr; // index is source channel, content is output channels
+        int *sizes = nullptr;
+        int size = 0;
+        int max_output = -1;
+
+        bool validate() {
+                for(int i = 0; i < size; ++i) {
+                        for(int j = 0; j < sizes[i]; ++j) {
+                                if(map[i][j] < 0) {
+                                        log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occured.\n");
+                                        return false;
+                                }
+                        }
+                }
+
+                return true;
+        }
 };
 
 struct state_audio_decoder_summary {
@@ -173,26 +193,6 @@ struct state_audio_decoder {
 
         struct state_audio_decoder_summary summary;
 };
-
-static int validate_mapping(struct channel_map *map);
-
-static int validate_mapping(struct channel_map *map)
-{
-        int ret = TRUE;
-
-        for(int i = 0; i < map->size; ++i) {
-                for(int j = 0; j < map->sizes[i]; ++j) {
-                        if(map->map[i][j] < 0) {
-                                log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occured.\n");
-                                ret = FALSE;
-                                goto return_value;
-                        }
-                }
-        }
-
-return_value:
-        return ret;
-}
 
 constexpr double VOL_UP = 1.1;
 constexpr double VOL_DOWN = 1.0/1.1;
@@ -275,7 +275,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 
                 s->channel_map.map = (int **) malloc(s->channel_map.size * sizeof(int *));
                 s->channel_map.sizes = (int *) malloc(s->channel_map.size * sizeof(int));
-                s->channel_map.max_output = -1;
 
                 /* default value, do not process */
                 for(int i = 0; i < s->channel_map.size; ++i) {
@@ -314,7 +313,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 }
 
 
-                if(!validate_mapping(&s->channel_map)) {
+                if (!s->channel_map.validate()) {
                         log_msg(LOG_LEVEL_ERROR, "Wrong audio mapping.\n");
                         goto error;
                 } else {
@@ -373,8 +372,6 @@ void audio_decoder_destroy(void *state)
         assert(s->magic == AUDIO_DECODER_MAGIC);
 
         free(s->scale);
-        free(s->channel_map.map);
-        free(s->channel_map.sizes);
         packet_counter_destroy(s->packet_counter);
         audio_codec_done(s->audio_decompress);
 
