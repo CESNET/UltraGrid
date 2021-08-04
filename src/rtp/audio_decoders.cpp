@@ -99,9 +99,11 @@ struct channel_map {
                         free(map[i]);
                 }
                 free(map);
+                free(contributors);
         }
         int **map = nullptr; // index is source channel, content is output channels
         int *sizes = nullptr;
+        int *contributors = nullptr; // count of contributing channels to output
         int size = 0;
         int max_output = -1;
 
@@ -116,6 +118,20 @@ struct channel_map {
                 }
 
                 return true;
+        }
+
+        void compute_contributors() {
+                for (int i = 0; i < size; ++i) {
+                        for (int j = 0; j < sizes[i]; ++j) {
+                                max_output = std::max(map[i][j], max_output);
+                        }
+                }
+                contributors = (int *) calloc(max_output + 1, sizeof(int));
+                for (int i = 0; i < size; ++i) {
+                        for (int j = 0; j < sizes[i]; ++j) {
+                                contributors[map[i][j]] += 1;
+                        }
+                }
         }
 };
 
@@ -309,16 +325,14 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                                 }
                                 s->channel_map.map[src][s->channel_map.sizes[src] - 1] = dst;
                         }
-                        s->channel_map.max_output = std::max(dst, s->channel_map.max_output);
                 }
-
 
                 if (!s->channel_map.validate()) {
                         log_msg(LOG_LEVEL_ERROR, "Wrong audio mapping.\n");
                         goto error;
-                } else {
-                        s->channel_remapping = TRUE;
                 }
+                s->channel_remapping = TRUE;
+                s->channel_map.compute_contributors();
 
                 free (tmp);
                 tmp = NULL;
@@ -699,6 +713,9 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         DEBUG_TIMER_START(audio_decode_compute_autoscale);
         if(!decoder->fixed_scale) {
                 for(int i = 0; i <= decoder->channel_map.max_output; ++i) {
+                        if (decoder->channel_map.contributors[i] <= 1) {
+                                continue;
+                        }
                         double avg = get_avg_volume(s->buffer.data, bps,
                                         s->buffer.data_len / output_channels, output_channels, i);
                         compute_scale(&decoder->scale[i], avg,
