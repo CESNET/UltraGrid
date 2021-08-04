@@ -175,7 +175,6 @@ struct state_audio_decoder {
 };
 
 static int validate_mapping(struct channel_map *map);
-static void compute_scale(struct scale_data *scale_data, float vol_avg, int samples, int sample_rate);
 
 static int validate_mapping(struct channel_map *map)
 {
@@ -195,29 +194,26 @@ return_value:
         return ret;
 }
 
-static void compute_scale(struct scale_data *scale_data, float vol_avg, int samples, int sample_rate)
+constexpr double VOL_UP = 1.1;
+constexpr double VOL_DOWN = 1.0/1.1;
+
+static void compute_scale(struct scale_data *scale_data, double vol_avg, int samples, int sample_rate)
 {
         scale_data->vol_avg = scale_data->vol_avg * (scale_data->samples / ((double) scale_data->samples + samples)) +
                 vol_avg * (samples / ((double) scale_data->samples + samples));
         scale_data->samples += samples;
 
-        if(scale_data->samples > sample_rate * 6) { // 10 sec
-                double ratio = 0.0;
+        if (scale_data->samples > sample_rate * 6) {
+                double ratio = 1.0;
 
-                if(scale_data->vol_avg < 0.01 && scale_data->vol_avg > 0.0001) {
-                        ratio = 1.1;
-                } else if(scale_data->vol_avg > 0.25) {
-                        ratio = 1/1.1;
-                } else if(scale_data->vol_avg > 0.05 && scale_data->scale > 1.0) {
-                        ratio = 1/1.1;
-                } else if(scale_data->vol_avg < 0.20 && scale_data->scale < 1.0) {
-                        ratio = 1.1;
+                if (scale_data->vol_avg > 0.25 || (scale_data->vol_avg > 0.05 && scale_data->scale > 1.0)) {
+                        ratio = VOL_DOWN;
+                } else if (scale_data->vol_avg < 0.20 && scale_data->scale < 1.0) {
+                        ratio = VOL_UP;
                 }
 
-                if(ratio != 0.0) {
-                        scale_data->scale *= ratio;
-                        scale_data->vol_avg *= ratio;
-                }
+                scale_data->scale *= ratio;
+                scale_data->vol_avg *= ratio;
 
                 debug_msg("Audio scale adjusted to: %f (average volume was %f)\n", scale_data->scale, scale_data->vol_avg);
 
