@@ -73,12 +73,14 @@
 #endif // defined __arm64__
 #include <SDL2/SDL.h>
 
+#include <array>
+#include <cassert>
 #include <condition_variable>
 #include <cstdint>
-#include <list>
 #include <mutex>
 #include <queue>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility> // pair
 
@@ -147,8 +149,12 @@ struct state_sdl2 {
                 module_done(&mod);
         }
 };
-static const list<pair<char, string>> display_sdl2_keybindings{{'d', "toggle deinterlace"},
-        {'f', "toggle fullscreen"}, {'q', "quit"}};
+
+static constexpr array<pair<char, string_view>, 3> display_sdl2_keybindings{{
+        {'d', "toggle deinterlace"},
+        {'f', "toggle fullscreen"}, 
+        {'q', "quit"} 
+}};
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
@@ -335,7 +341,6 @@ static void display_sdl2_run(void *arg)
                         }
                 } else if (sdl_event.type == SDL_QUIT) {
                         exit_uv(0);
-                        break;
                 }
         }
 }
@@ -641,7 +646,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
 
         loadSplashscreen(s);
         for (auto i : display_sdl2_keybindings) {
-                keycontrol_register_key(&s->mod, i.first, to_string(static_cast<int>(i.first)).c_str(), i.second.c_str());
+                keycontrol_register_key(&s->mod, i.first, to_string(static_cast<int>(i.first)).c_str(), i.second.data());
         }
 
         log_msg(LOG_LEVEL_NOTICE, "SDL2 initialized successfully.\n");

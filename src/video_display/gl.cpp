@@ -68,15 +68,16 @@
 #include "spout_sender.h"
 #include "syphon_server.h"
 
+#include <array>
 #include <algorithm>
 #include <condition_variable>
 #include <csetjmp>
 #include <fstream>
 #include <iostream>
-#include <list>
 #include <mutex>
 #include <queue>
 #include <string>
+#include <string_view>
 
 #include "debug.h"
 #include "gl_context.h"
@@ -177,12 +178,16 @@ void main()
 } // main end
 )raw";
 
-const static list<pair<int64_t, string>> keybindings {{'f', "toggle fullscreen"},
-        {'q', "quit"}, {'d', "toggle deinterlace"}, {'p', "pause video"},
-        {K_ALT('s'), "screenshot"}, {K_ALT('c'), "show/hide cursor"},
+static constexpr array<pair<int64_t, string_view>, 8> keybindings{{
+        {'f', "toggle fullscreen"},
+        {'q', "quit"},
+        {'d', "toggle deinterlace"},
+        {'p', "pause video"},
+        {K_ALT('s'), "screenshot"},
+        {K_ALT('c'), "show/hide cursor"},
         {K_CTRL_DOWN, "make window 10% smaller"},
         {K_CTRL_UP, "make window 10% bigger"}
-};
+}};
 
 #ifdef HWACC_VDPAU
 struct state_vdpau {
@@ -545,7 +550,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         for (auto i : keybindings) {
                 char msg[18];
                 sprintf(msg, "%" PRIx64, i.first);
-                keycontrol_register_key(&s->mod, i.first, msg, i.second.c_str());
+                keycontrol_register_key(&s->mod, i.first, msg, i.second.data());
         }
 
         /* GLUT callbacks take only some arguments so we need static variable */
