@@ -384,6 +384,7 @@ static void display_sdl_run(void *arg)
                                 break;
                         case SDL_QUIT:
                                 exit_uv(0);
+                                break;
                         }
                 }
 	}

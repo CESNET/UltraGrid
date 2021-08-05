@@ -80,7 +80,6 @@
 #include <mutex>
 #include <queue>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility> // pair
 
@@ -150,11 +149,11 @@ struct state_sdl2 {
         }
 };
 
-static constexpr array<pair<char, string_view>, 3> display_sdl2_keybindings{{
-        {'d', "toggle deinterlace"},
-        {'f', "toggle fullscreen"}, 
-        {'q', "quit"} 
-}};
+static constexpr array display_sdl2_keybindings{
+        pair{'d', "toggle deinterlace"},
+        pair{'f', "toggle fullscreen"},
+        pair{'q', "quit"}
+};
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
@@ -646,7 +645,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
 
         loadSplashscreen(s);
         for (auto i : display_sdl2_keybindings) {
-                keycontrol_register_key(&s->mod, i.first, to_string(static_cast<int>(i.first)).c_str(), i.second.data());
+                keycontrol_register_key(&s->mod, i.first, to_string(static_cast<int>(i.first)).c_str(), i.second);
         }
 
         log_msg(LOG_LEVEL_NOTICE, "SDL2 initialized successfully.\n");

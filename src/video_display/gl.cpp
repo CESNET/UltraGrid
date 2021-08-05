@@ -178,16 +178,16 @@ void main()
 } // main end
 )raw";
 
-static constexpr array<pair<int64_t, string_view>, 8> keybindings{{
-        {'f', "toggle fullscreen"},
-        {'q', "quit"},
-        {'d', "toggle deinterlace"},
-        {'p', "pause video"},
-        {K_ALT('s'), "screenshot"},
-        {K_ALT('c'), "show/hide cursor"},
-        {K_CTRL_DOWN, "make window 10% smaller"},
-        {K_CTRL_UP, "make window 10% bigger"}
-}};
+static constexpr array keybindings{
+        pair<int64_t, string_view>{'f', "toggle fullscreen"},
+        pair<int64_t, string_view>{'q', "quit"},
+        pair<int64_t, string_view>{'d', "toggle deinterlace"},
+        pair<int64_t, string_view>{'p', "pause video"},
+        pair<int64_t, string_view>{K_ALT('s'), "screenshot"},
+        pair<int64_t, string_view>{K_ALT('c'), "show/hide cursor"},
+        pair<int64_t, string_view>{K_CTRL_DOWN, "make window 10% smaller"},
+        pair<int64_t, string_view>{K_CTRL_UP, "make window 10% bigger"}
+};
 
 #ifdef HWACC_VDPAU
 struct state_vdpau {
