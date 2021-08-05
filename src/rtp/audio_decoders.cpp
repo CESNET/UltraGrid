@@ -717,7 +717,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 continue;
                         }
                         double avg = get_avg_volume(s->buffer.data, bps,
-                                        s->buffer.data_len / output_channels, output_channels, i);
+                                        s->buffer.data_len / output_channels / bps, output_channels, i);
                         compute_scale(&decoder->scale[i], avg,
                                         s->buffer.data_len / output_channels / bps, sample_rate);
                 }
