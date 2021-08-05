@@ -88,21 +88,38 @@ template<> int32_t load_sample<4>(const char *data) {
         return *reinterpret_cast<const int32_t *>(data);
 }
 
-static double get_normalized(const int8_t *in, int bps) {
-        int64_t sample = 0;
-        bool negative = false;
+/**
+ * @brief Calculates mean and peak RMS from audio samples
+ *
+ * @param[in]  frame   audio frame
+ * @param[in]  channel channel index to calculate RMS to
+ * @param[out] peak    peak RMS
+ * @returns            mean RMS
+ */
+template<int BPS>
+static double calculate_rms_helper(const char *channel_data, int sample_count, double *peak)
+{
+        double sum = 0;
+        *peak = 0;
+        for (int i = 0; i < sample_count; i += 1) {
+                double val = load_sample<BPS>(channel_data + i * BPS) / static_cast<double>(1U << (BPS * CHAR_BIT - 1U));
+                sum += val;
+                *peak = max(fabs(val), *peak);
+        }
 
-        for (int j = 0; j < bps; ++j) {
-                sample = (sample | ((((const uint8_t *)in)[j]) << (uint64_t)(8ull * j)));
+        double average = sum / sample_count;
+
+        double sumMeanSquare = 0.0;
+
+        for (int i = 0; i < sample_count; i += 1) {
+                sumMeanSquare += pow(load_sample<BPS>(channel_data + i * BPS) / static_cast<double>(1U << (BPS * CHAR_BIT - 1U))
+                                - average, 2.0);
         }
-        if ((int8_t)(in[bps - 1] < 0))
-                negative = true;
-        if (negative) {
-                for (int i = bps; i < 8; ++i) {
-                        sample = (sample |  (255ull << (8ull * i)));
-                }
-        }
-        return (double) sample / ((1 << (bps * 8 - 1)));
+
+        double averageMeanSquare = sumMeanSquare / sample_count;
+        double rootMeanSquare = sqrt(averageMeanSquare);
+
+        return rootMeanSquare;
 }
 
 /**
@@ -116,31 +133,20 @@ static double get_normalized(const int8_t *in, int bps) {
 double calculate_rms(audio_frame2 *frame, int channel, double *peak)
 {
         assert(frame->get_codec() == AC_PCM);
-        double sum = 0;
-        *peak = 0;
         int sample_count = frame->get_data_len(channel) / frame->get_bps();
-        const char *channel_data = frame->get_data(channel);
-        for (size_t i = 0; i < frame->get_data_len(channel); i += frame->get_bps()) {
-                double val = get_normalized((const int8_t *) channel_data + i, frame->get_bps());
-                sum += val;
-                if (fabs(val) > *peak) {
-                        *peak = fabs(val);
-                }
+        switch (frame->get_bps()) {
+                case 1:
+                        return calculate_rms_helper<1>(frame->get_data(channel), sample_count, peak);
+                case 2:
+                        return calculate_rms_helper<2>(frame->get_data(channel), sample_count, peak);
+                case 3:
+                        return calculate_rms_helper<3>(frame->get_data(channel), sample_count, peak);
+                case 4:
+                        return calculate_rms_helper<4>(frame->get_data(channel), sample_count, peak);
+                default:
+                        LOG(LOG_LEVEL_FATAL) << "Wrong BPS " << frame->get_bps() << "\n";
+                        abort();
         }
-
-        double average = sum / sample_count;
-
-        double sumMeanSquare = 0.0;
-
-        for (size_t i = 0; i < frame->get_data_len(channel); i += frame->get_bps()) {
-                sumMeanSquare += pow(get_normalized((const int8_t *) channel_data + i, frame->get_bps())
-                                - average, 2.0);
-        }
-
-        double averageMeanSquare = sumMeanSquare / sample_count;
-        double rootMeanSquare = sqrt(averageMeanSquare);
-
-        return rootMeanSquare;
 }
 
 bool audio_desc_eq(struct audio_desc a1, struct audio_desc a2) {
