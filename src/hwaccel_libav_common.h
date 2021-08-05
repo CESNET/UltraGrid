@@ -64,7 +64,8 @@ struct hw_accel_state {
         enum {
                 HWACCEL_NONE,
                 HWACCEL_VDPAU,
-                HWACCEL_VAAPI
+                HWACCEL_VAAPI,
+                HWACCEL_VIDEOTOOLBOX
         } type;
 
         bool copy; ///< Specifies whether to use the copy mode

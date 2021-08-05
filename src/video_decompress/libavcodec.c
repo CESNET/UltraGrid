@@ -448,6 +448,51 @@ static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
         return false;
 }
 
+#if HAVE_MACOSX
+int videotoolbox_init(struct AVCodecContext *s,
+                struct hw_accel_state *state,
+                codec_t out_codec)
+{
+        AVBufferRef *device_ref = NULL;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VIDEOTOOLBOX, &device_ref);
+        if(ret < 0)
+                return ret;
+
+        AVBufferRef *hw_frames_ctx = NULL;
+        ret = create_hw_frame_ctx(device_ref,
+                        s->coded_width,
+                        s->coded_height,
+                        AV_PIX_FMT_VIDEOTOOLBOX,
+                        s->sw_pix_fmt,
+                        0, //has to be 0, ffmpeg can't allocate frames by itself
+                        &hw_frames_ctx);
+
+        if(ret < 0)
+                goto fail;
+
+        AVFrame *frame = av_frame_alloc();
+        if(!frame){
+                ret = -1;
+                goto fail;
+        }
+
+        state->type = HWACCEL_VIDEOTOOLBOX;
+        state->copy = true;
+        state->tmp_frame = frame;
+
+        s->hw_frames_ctx = hw_frames_ctx;
+        s->hw_device_ctx = device_ref;
+
+        return 0;
+
+fail:
+        av_frame_free(&state->tmp_frame);
+        av_buffer_unref(&device_ref);
+        av_buffer_unref(&hw_frames_ctx);
+        return ret;
+}
+#endif
+
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
 {
         if (log_level >= LOG_LEVEL_VERBOSE) {
@@ -474,6 +519,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 #endif
 #ifdef HWACC_VAAPI
                 {AV_PIX_FMT_VAAPI, vaapi_init}
+#endif
+#ifdef HAVE_MACOSX
+                {AV_PIX_FMT_VIDEOTOOLBOX, videotoolbox_init}
 #endif
         };
 

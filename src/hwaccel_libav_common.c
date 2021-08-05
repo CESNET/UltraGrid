@@ -110,7 +110,8 @@ int create_hw_frame_ctx(AVBufferRef *device_ref,
         if (ret < 0) {
                 av_buffer_unref(ctx);
                 *ctx = NULL;
-                log_msg(LOG_LEVEL_ERROR, "[hw accel] Unable to init hwframe_ctx!!\n\n");
+                log_msg(LOG_LEVEL_ERROR, "[hw accel] Unable to init hwframe_ctx: %s\n\n",
+						av_err2str(ret));
                 return ret;
         }
 
