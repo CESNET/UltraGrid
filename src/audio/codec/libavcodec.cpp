@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2015 CESNET z.s.p.o.
+ * Copyright (c) 2012-2021 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -463,7 +463,11 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         int chunk_size = s->codec_ctx->frame_size * bps;
         //while(offset + chunk_size <= s->tmp.data_len) {
         while(offset + chunk_size <= s->tmp.data_len) {
-		memcpy(s->av_frame->data[0], s->tmp.data + offset, chunk_size);
+                if (bps == 1) {
+                        signed2unsigned(reinterpret_cast<char *>(s->av_frame->data[0]), s->tmp.data + offset, chunk_size);
+                } else {
+                        memcpy(s->av_frame->data[0], s->tmp.data + offset, chunk_size);
+                }
                 auto pkt = shared_ptr<AVPacket>(av_packet_alloc(), [](AVPacket *pkt) { av_packet_free(&pkt); });
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
 		int ret = avcodec_send_frame(s->codec_ctx, s->av_frame);
@@ -610,12 +614,11 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT ||
                         s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
                 float2int(s->output_channel_data.data(), s->output_channel.data, s->output_channel.data_len);
-                s->output_channel.bps = 4;
-        } else {
-                s->output_channel.bps =
-                        av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
+        } else if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_U8) {
+                signed2unsigned(s->output_channel_data.data(), s->output_channel.data, s->output_channel.data_len);
         }
 
+        s->output_channel.bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
         s->output_channel.sample_rate = s->codec_ctx->sample_rate;
 
         return &s->output_channel;
