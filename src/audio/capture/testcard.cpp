@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -286,12 +286,13 @@ static void * audio_cap_testcard_init(const char *cfg)
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
                 const int headroom = (s->chunk_size - 1) * metadata.ch_count * (metadata.bits_per_sample / 8);
                 s->audio.max_size = metadata.data_size + headroom;
-                s->total_samples = metadata.data_size /  metadata.ch_count / metadata.bits_per_sample * 8;
+                s->total_samples = metadata.data_size  * 8ULL /  metadata.ch_count / metadata.bits_per_sample;
                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->total_samples << " samples read from file " << wav_file << "\n";
 
                 s->audio_samples = (char *) calloc(1, s->audio.max_size);
-                int bytes = fread(s->audio_samples, 1, metadata.data_size, wav);
-                if (bytes != static_cast<int>(metadata.data_size)) {
+                unsigned int samples = wav_read(s->audio_samples, s->total_samples, wav, &metadata);
+                int bytes = samples * s->audio.bps * s->audio.ch_count;
+                if (samples != s->total_samples) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Warning: premature end of WAV file (" << bytes << " read, " << metadata.data_size << " expected)!\n";
                         s->audio.max_size = bytes + headroom;
                 }

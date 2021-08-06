@@ -145,6 +145,7 @@ struct message_queue {
 struct audio_state {
         bool has_audio;
         FILE *file;
+        struct wav_metadata metadata;
         ring_buffer_t *data;
         int total_samples;
         int samples_read;
@@ -234,18 +235,16 @@ static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
                 return false;
         }
 
-        struct wav_metadata metadata;
-
-        int ret = read_wav_header(audio_file, &metadata);
+        int ret = read_wav_header(audio_file, &s->audio_state.metadata);
         if (ret != WAV_HDR_PARSE_OK) {
                         log_msg(LOG_LEVEL_ERROR, "%s!\n", get_wav_error(ret));
                         goto error_format;
         }
 
-        s->audio_frame.ch_count = metadata.ch_count;
-        s->audio_frame.sample_rate = metadata.sample_rate;
-        s->audio_frame.bps = metadata.bits_per_sample / 8;
-        s->audio_state.total_samples = metadata.data_size / s->audio_frame.bps / s->audio_frame.ch_count;
+        s->audio_frame.ch_count = s->audio_state.metadata.ch_count;
+        s->audio_frame.sample_rate = s->audio_state.metadata.sample_rate;
+        s->audio_frame.bps = s->audio_state.metadata.bits_per_sample / 8;
+        s->audio_state.total_samples = s->audio_state.metadata.data_size / s->audio_frame.bps / s->audio_frame.ch_count;
         s->audio_state.samples_read = 0;
 
         s->audio_state.data = ring_buffer_init(s->audio_frame.bps * s->audio_frame.sample_rate *
@@ -780,13 +779,12 @@ static void * audio_reading_thread(void *args)
 
                 char *buffer = (char *) malloc(max_read);
 
-                size_t ret = fread(buffer, s->audio_frame.ch_count * s->audio_frame.bps,
-                                max_read / s->audio_frame.ch_count / s->audio_frame.bps, s->audio_state.file);
-                s->audio_state.samples_read += ret;
+                size_t samples = wav_read(buffer, max_read / s->audio_frame.ch_count / s->audio_frame.bps, s->audio_state.file, &s->audio_state.metadata);
+                s->audio_state.samples_read += samples;
 
                 {
                         unique_lock<mutex> lk(s->audio_state.lock);
-                        ring_buffer_write(s->audio_state.data, buffer, ret * s->audio_frame.ch_count * s->audio_frame.bps);
+                        ring_buffer_write(s->audio_state.data, buffer, samples * s->audio_frame.ch_count * s->audio_frame.bps);
                         lk.unlock();
                         s->audio_state.boss_cv.notify_one();
                 }

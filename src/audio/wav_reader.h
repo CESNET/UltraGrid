@@ -77,6 +77,11 @@ extern "C" {
  */
 int read_wav_header(FILE *wav_file, struct wav_metadata *metadata);
 
+/**
+ * Reads sample_count samples from wav_file according to metadata.
+ */
+size_t wav_read(void *buffer, size_t sample_count, FILE *wav_file, struct wav_metadata *metadata);
+
 const char *get_wav_error(int errcode);
 
 #ifdef __cplusplus

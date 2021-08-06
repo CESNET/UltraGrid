@@ -43,6 +43,7 @@
 
 #include <inttypes.h>
 
+#include "audio/utils.h"
 #include "audio/wav_reader.h"
 #include "debug.h"
 
@@ -213,6 +214,15 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         }
 
         return WAV_HDR_PARSE_OK;
+}
+
+size_t wav_read(void *buffer, size_t sample_count, FILE *wav_file, struct wav_metadata *metadata)
+{
+        size_t samples = fread(buffer, metadata->ch_count * metadata->bits_per_sample / 8, sample_count, wav_file);
+        if (metadata->bits_per_sample == 8) {
+                signed2unsigned(buffer, buffer, samples * metadata->ch_count * metadata->bits_per_sample / 8);
+        }
+        return samples;
 }
 
 const char *get_wav_error(int errcode)
