@@ -88,6 +88,25 @@ template<> int32_t load_sample<4>(const char *data) {
         return *reinterpret_cast<const int32_t *>(data);
 }
 
+template<int BPS> static void store_sample(char *data, int32_t val);
+
+template<> void store_sample<1>(char *data, int32_t val) {
+        *reinterpret_cast<int8_t *>(data) = clamp(val, INT8_MIN, INT8_MAX);
+}
+
+template<> void store_sample<2>(char *data, int32_t val) {
+        *reinterpret_cast<int16_t *>(data) =  clamp(val, INT16_MIN, INT16_MAX);
+}
+
+template<> void store_sample<3>(char *data, int32_t val) {
+        val = clamp<int32_t>(val, -(1L<<24), (1L<<24) - 1);
+        memcpy(data, &val, 3);
+}
+
+template<> void store_sample<4>(char *data, int32_t val) {
+        *reinterpret_cast<int32_t *>(data) = val;
+}
+
 /**
  * @brief Calculates mean and peak RMS from audio samples
  *
@@ -428,31 +447,23 @@ void audio_channel_demux(const audio_frame2 *frame, int index, audio_channel *ch
 }
 
 int32_t format_from_in_bps(const char * in, int bps) {
-        int32_t in_value = 0;
-        memcpy(&in_value, in, bps);
-
-        if(in_value >> (bps * 8 - 1) && bps != 4) { //negative
-                in_value |= ((1<<(32 - bps * 8)) - 1) << (bps * 8);
+        switch (bps) {
+                case 1: return load_sample<1>(in);
+                case 2: return load_sample<2>(in);
+                case 3: return load_sample<3>(in);
+                case 4: return load_sample<4>(in);
+                default: abort();
         }
-
-        return in_value;
 }
 
 void format_to_out_bps(char *out, int bps, int32_t out_value) {
-        uint32_t mask = ((1ll << (bps * 8)) - 1);
 
-        // clamp
-        if(out_value > (1ll << (bps * 8 - 1)) -1) {
-                out_value = (1ll << (bps * 8 - 1)) -1;
+        switch (bps) {
+                case 1: store_sample<1>(out, out_value); break;
+                case 2: store_sample<2>(out, out_value); break;
+                case 3: store_sample<3>(out, out_value); break;
+                case 4: store_sample<4>(out, out_value); break;
         }
-
-        if(out_value < -(1ll << (bps * 8 - 1))) {
-                out_value = -(1ll << (bps * 8 - 1));
-        }
-
-        uint32_t out_value_formatted = (1 * (0x1 & (out_value >> 31))) << (bps * 8 - 1) | (out_value & mask);
-
-        memcpy(out, &out_value_formatted, bps);
 }
 
 void interleaved2noninterleaved(char *out, const char *in, int bps, int in_len, int channel_count)
