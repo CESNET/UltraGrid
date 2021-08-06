@@ -69,7 +69,7 @@ using std::string;
 #define CHUNKS_PER_SEC 25 // 1 video frame time @25 fps
                    // has to be divisor of AUDIO_SAMLE_RATE
 
-#define FREQUENCY 1000
+#define DEFAULT_FREQUENCY 1000
 #define DEFAULT_VOLUME -18.0
 constexpr const char *MOD_NAME = "[Audio testc.] ";
 
@@ -167,6 +167,7 @@ static void * audio_cap_testcard_init(const char *cfg)
         char *item, *save_ptr;
 
         double volume = DEFAULT_VOLUME;
+        int frequency = DEFAULT_FREQUENCY;
         int chunk_size = 0;
         enum {
                 SINE,
@@ -178,10 +179,11 @@ static void * audio_cap_testcard_init(const char *cfg)
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available testcard capture:\n");
                 audio_cap_testcard_help(NULL);
-                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:silence|:ebu]\n");
+                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:frequency=<f>][:silence|:ebu]\n");
                 printf("\t\t\t<vol> is a volume in dBFS (default %.2f dBFS)\n", DEFAULT_VOLUME);
                 printf("\t\t\t<wav> is a wav file to be played\n");
                 printf("\t\t\t<nf> sets number of audio frames per packet\n");
+                printf("\t\t\t<f> frequency of sinusoide\n");
                 return &audio_init_state_ok;
         }
 
@@ -197,6 +199,8 @@ static void * audio_cap_testcard_init(const char *cfg)
                                 pattern = WAV;
                         } else if(strncasecmp(item, "frames=", strlen("frames=")) == 0) {
                                 chunk_size = atoi(item + strlen("frames="));
+                        } else if (strncasecmp(item, "frequency=", strlen("frequency=")) == 0) {
+                                frequency = atoi(item + strlen("frequency="));
                         } else if(strcasecmp(item, "ebu") == 0) {
                                 pattern = EBU;
                         } else if(strcasecmp(item, "silence") == 0) {
@@ -230,7 +234,7 @@ static void * audio_cap_testcard_init(const char *cfg)
                 switch (pattern) {
                 case SINE:
                 case EBU:
-                        log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) %s ", FREQUENCY,
+                        log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) %s ", frequency,
                                         volume, pattern == SINE ? "sine" : "EBU tone");
                         break;
                 case SILENCE:
@@ -245,10 +249,10 @@ static void * audio_cap_testcard_init(const char *cfg)
                 if (pattern == EBU || pattern == SINE) {
                         if (pattern == EBU) {
                                 s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                                FREQUENCY, volume, &s->total_samples);
+                                                frequency, volume, &s->total_samples);
                         } else {
                                 s->audio_samples = get_sine_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                                FREQUENCY, volume);
+                                                frequency, volume);
                                 s->total_samples = s->audio.sample_rate;
                         }
 
