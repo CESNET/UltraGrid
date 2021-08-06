@@ -1005,7 +1005,7 @@ static void *audio_sender_thread(void *arg)
                                 resample_to = find_codec_sample_rate(bf_n.get_sample_rate(),
                                                 supp_sample_rates);
                         }
-                        if (resample_to != 0 && bf_n.get_sample_rate() != s->resample_to) {
+                        if (resample_to != 0 && bf_n.get_sample_rate() != resample_to) {
                                 if (bf_n.get_bps() != 2) {
                                         bf_n.change_bps(2);
                                 }
