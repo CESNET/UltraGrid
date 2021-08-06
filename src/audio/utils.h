@@ -38,6 +38,15 @@
 #ifndef _AUDIO_UTILS_H_
 #define _AUDIO_UTILS_H_
 
+#ifdef __cplusplus
+#include <cstdint>
+#include <cstddef>
+#else
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#endif
+
 #include <audio/audio.h>
 
 #ifdef __cplusplus
@@ -108,9 +117,9 @@ void int2float(char *out, const char *in, int len);
  * @param[out] out 4-byte aligned output buffer
  * @param[in] in 4-byte aligned input buffer
  */
-void short_int2float(char *out, char *in, int in_len);
+void short_int2float(char *out, const char *in, int in_len);
 
-void signed2unsigned(char *out, char *in, int in_len);
+void signed2unsigned(char *out, const char *in, int in_len);
 
 struct audio_desc audio_desc_from_frame(struct audio_frame *frame);
 

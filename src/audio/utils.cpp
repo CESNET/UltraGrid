@@ -358,6 +358,9 @@ double get_avg_volume(char *data, int bps, int sample_count, int stream_channels
         }
 }
 
+/**
+ * Can be used in situ.
+ */
 void float2int(char *out, const char *in, int len)
 {
         const float *inf = (const float *)(const void *) in;
@@ -383,7 +386,7 @@ void int2float(char *out, const char *in, int len)
         }
 }
 
-void short_int2float(char *out, char *in, int in_len)
+void short_int2float(char *out, const char *in, int in_len)
 {
         int16_t *ini = (int16_t *)(void *) in;
         float *outf = (float *)(void *) out;
@@ -394,7 +397,15 @@ void short_int2float(char *out, char *in, int in_len)
         }
 }
 
-void signed2unsigned(char *out, char *in, int in_len)
+/**
+ * Converts int8_t samples to uint8_t by adding 128 (standard
+ * shifted zero unsigned samples).
+ *
+ * Works also in the opposite direction!
+ *
+ * Can be used in situ.
+ */
+void signed2unsigned(char *out, const char *in, int in_len)
 {
         int8_t *inch = (int8_t *) in;
         uint8_t *outch = (uint8_t *) out;
