@@ -609,9 +609,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         // convert from float if needed
         if (s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLT ||
                         s->codec_ctx->sample_fmt == AV_SAMPLE_FMT_FLTP) {
-                unique_ptr<char []> int32_data(unique_ptr<char []>(new char [s->output_channel.data_len]));
-                float2int(int32_data.get(), s->output_channel.data, s->output_channel.data_len);
-                memcpy(s->output_channel_data.data(), int32_data.get(), s->output_channel.data_len);
+                float2int(s->output_channel_data.data(), s->output_channel.data, s->output_channel.data_len);
                 s->output_channel.bps = 4;
         } else {
                 s->output_channel.bps =
