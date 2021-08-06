@@ -127,6 +127,9 @@ static void *audio_export_thread(void *arg)
 
                 pthread_mutex_unlock(&s->lock);
 
+                if (s->saved_format.bps == 1) {
+                        signed2unsigned(data, data, size);
+                }
 
                 const int sample_size = s->saved_format.bps * s->saved_format.ch_count;
                 res = fwrite(data, sample_size, size / sample_size, s->output);
