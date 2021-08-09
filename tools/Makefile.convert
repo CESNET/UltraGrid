@@ -1,0 +1,2 @@
+all:
+	g++ -D_GNU_SOURCE -I../src/ -xc ../src/video_codec.c ../src/compat/platform_time.c -xc++ convert.cpp ../src/debug.cpp -o convert
