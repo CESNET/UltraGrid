@@ -45,6 +45,9 @@
 #include <stddef.h>
 #endif
 
+#define STRINGIFY(A) #A
+#define TOSTRING(A) STRINGIFY(A) // https://stackoverflow.com/questions/240353/convert-a-preprocessor-token-to-a-string
+
 #ifdef __cplusplus
 extern "C" {
 #endif

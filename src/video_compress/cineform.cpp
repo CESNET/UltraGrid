@@ -126,17 +126,13 @@ struct {
         const char *opt_str;
 } usage_opts[] = {
         {"Quality", "quality", "specifies encode quality, range 1-6 (default: 4)", ":quality="},
-        {"Threads", "num_threads", "specifies number of threads for encoding", ":num_threads="},
-        {"Pool size", "pool_size", "specifies the size of encoding pool", ":pool_size="},
+        {"Threads", "num_threads", "specifies number of threads for encoding (default: " TOSTRING(DEFAULT_THREAD_COUNT) ")", ":num_threads="},
+        {"Pool size", "pool_size", "specifies the size of encoding pool (default: " TOSTRING(DEFAULT_POOL_SIZE) ")", ":pool_size="},
 };
 
 static void usage() {
         printf("Cineform encoder usage:\n");
         printf("\t-c cineform[:quality=<quality>][:threads=<num_threads>][:pool_size=<pool_size>]\n");
-
-        printf("\t\t<quality> specifies encode quality, range 1-6 (default: 4)\n");
-        printf("\t\t<num_threads> specifies number of threads for encoding \n");
-        printf("\t\t<pool_size> specifies the size of encoding pool \n");
 
         for(const auto& opt : usage_opts){
                 printf("\t\t<%s> %s\n", opt.key, opt.description);
