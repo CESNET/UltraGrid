@@ -12,11 +12,32 @@ using std::cerr;
 using std::ifstream;
 using std::ofstream;
 using std::stoi;
+using std::string;
+
+static void print_conversions() {
+        for (int i = 0; i < VIDEO_CODEC_END; ++i) {
+                bool src_print = false;
+                for (int j = 0; j < VIDEO_CODEC_END; ++j) {
+                        if (get_decoder_from_to(static_cast<codec_t>(i), static_cast<codec_t>(j), true) == nullptr || i == j) {
+                                continue;
+                        }
+                        if (!src_print) {
+                                cout << get_codec_name(static_cast<codec_t>(i)) << " ->\n";
+                                src_print = true;
+                        }
+                        cout << "\t" << get_codec_name(static_cast<codec_t>(j)) << "\n";
+                }
+        }
+}
 
 int main(int argc, char *argv[]) {
+        if (argc == 2 && string("conversions") == argv[1]) {
+                print_conversions();
+                return 0;
+        }
         if (argc < 7) {
                 cout << "Usage:\n"
-                                "\t" << argv[0] << " <width> <height> <in_codec> <out_codec> <in_file> <out_file>\n";
+                                "\t" << argv[0] << " <width> <height> <in_codec> <out_codec> <in_file> <out_file> | conversions\n";
                 return 1;
         }
         int width = stoi(argv[1]);
@@ -40,7 +61,7 @@ int main(int argc, char *argv[]) {
 
         auto *decode = get_decoder_from_to(in_codec, out_codec, true);
         if (decode == nullptr) {
-                cerr << "Cannot find decoder from " << argv[3] << " to " << argv[4] << "!\n";
+                cerr << "Cannot find decoder from " << argv[3] << " to " << argv[4] << "! See '" << argv[0] << " conversions'\n";
                 return 1;
         }
 
