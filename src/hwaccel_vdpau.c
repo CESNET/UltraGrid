@@ -50,8 +50,33 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 #include "debug.h"
 #include "hwaccel_vdpau.h"
+
+static bool is_emulated(VdpDevice dev, VdpGetProcAddress *get_proc_address){
+        VdpStatus st;
+
+        VdpGetInformationString *get_info_str;
+        st = get_proc_address(dev, VDP_FUNC_ID_GET_INFORMATION_STRING,
+                        &get_info_str);
+
+        if(st != VDP_STATUS_OK){
+                error_msg("Error loading vdpau function getInformationString\n");
+                return false;
+        }
+
+        const char *info_str = NULL;
+        st = get_info_str(&info_str);
+        if(st != VDP_STATUS_OK || !info_str){
+                error_msg("Failed to get vdpau info string\n");
+                return false;
+        }
+
+        log_msg(LOG_LEVEL_INFO, "Vdpau info: %s\n", info_str);
+
+        return strstr(info_str, "VAAPI");
+}
 
 int vdpau_init(struct AVCodecContext *s,
 		struct hw_accel_state *state,
@@ -77,6 +102,12 @@ int vdpau_init(struct AVCodecContext *s,
                 goto fail;
 
         s->hw_frames_ctx = hw_frames_ctx;
+
+        if(is_emulated(device_vdpau_ctx->device, device_vdpau_ctx->get_proc_address)){
+                log_msg(LOG_LEVEL_WARNING, "[hwacc] Looks like vdpau is being emulated"
+                                " through another acceleration API (e.g. vaapi)."
+                                " This can lead to degraded performance.\n");
+        }
 
         state->type = HWACCEL_VDPAU;
         state->copy = out_codec != HW_VDPAU;
@@ -245,5 +276,6 @@ void vdp_funcs_load(vdp_funcs *f, VdpDevice device, VdpGetProcAddress *get_proc_
         LOAD(&f->outputSurfaceDestroy, VDP_FUNC_ID_OUTPUT_SURFACE_DESTROY);
         LOAD(&f->outputSurfaceGetParameters, VDP_FUNC_ID_OUTPUT_SURFACE_GET_PARAMETERS);
         LOAD(&f->getErrorString, VDP_FUNC_ID_GET_ERROR_STRING);
+        LOAD(&f->getInformationString, VDP_FUNC_ID_GET_INFORMATION_STRING);
 }
 

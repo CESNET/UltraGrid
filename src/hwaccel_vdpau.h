@@ -152,6 +152,7 @@ typedef struct vdp_funcs{
         VdpOutputSurfaceGetParameters *outputSurfaceGetParameters;
 
         VdpGetErrorString *getErrorString;
+        VdpGetInformationString *getInformationString;
 } vdp_funcs;
 
 /**
