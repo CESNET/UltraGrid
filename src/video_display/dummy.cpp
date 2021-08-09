@@ -42,6 +42,7 @@
 #include "lib_common.h"
 #include "rang.hpp"
 #include "video.h"
+#include "video_codec.h"
 #include "video_display.h"
 
 #include <algorithm>
@@ -65,7 +66,7 @@ struct dummy_display_state {
         struct video_frame *f;
         steady_clock::time_point t0;
         vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R12L, RGBA, RGB, BGR, RG48};
-        vector<int> rgb_shift = {0, 8, 16};
+        vector<int> rgb_shift = DEFAULT_RGB_SHIFT_INIT;
         int frames = 0;
 
         size_t dump_bytes = 0;
@@ -80,7 +81,7 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                 cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][:hexdump[=<n>]][:dump_to_file[=skip=<n>]]\n" << style::reset;
                 cout << "where\n";
                 cout << "\t" << style::bold << "<codec>" << style::reset << "   - force the use of a codec instead of default set\n";
-                cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (0, 8, 16)\n";
+                cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (" << DEFAULT_R_SHIFT << ", " << DEFAULT_G_SHIFT << ", " << DEFAULT_B_SHIFT << ")\n";
                 cout << "\t" << style::bold << "hexdump[=<n>]" << style::reset << " - dump first n (default " << DEFAULT_DUMP_LEN << ") bytes of every frame in hexadecimal format\n";
                 cout << "\t" << style::bold << "dump_to_file" << style::reset << " - dump first frame to file dummy.<ext> (optionally skip <n> first frames)\n";
                 return static_cast<void *>(&display_init_noerr);

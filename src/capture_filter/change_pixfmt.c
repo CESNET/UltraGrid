@@ -110,7 +110,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         int dst_linesize = vc_get_linesize(in->tiles[0].width, s->to_codec);
 
         for (unsigned int i = 0; i < in->tiles[0].height; i += 1) {
-                decoder(out_data, in_data, dst_linesize, 0, 8, 16);
+                decoder(out_data, in_data, dst_linesize, DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
                 in_data += src_linesize;
                 out_data += dst_linesize;
         }

@@ -1195,7 +1195,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         enum interlacing_t display_il = PROGRESSIVE;
         //struct video_frame *frame;
         int display_requested_pitch = PITCH_DEFAULT;
-        int display_requested_rgb_shift[3] = { 0, 8, 16 };
+        int display_requested_rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
 
         // this code forces flushing the pipelined data
         video_decoder_stop_threads(decoder);
@@ -1256,7 +1256,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                 &display_requested_rgb_shift, &len);
                 if(!ret) {
                         debug_msg("Failed to get r,g,b shift property from video driver.\n");
-                        int rgb_shift[3] = {0, 8, 16};
+                        int rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
                         memcpy(&display_requested_rgb_shift, rgb_shift, sizeof(rgb_shift));
                 }
 

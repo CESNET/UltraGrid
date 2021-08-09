@@ -371,7 +371,7 @@ static void *vidcap_file_worker(void *state) {
                                 int video_dst_linesize[4] = { vc_get_linesize(out->tiles[0].width, out->color_spec) };
                                 uint8_t *dst[4] = { (uint8_t *) out->tiles[0].data };
                                 if (s->conv_uv) {
-                                        int rgb_shift[] = {0, 8, 16};
+                                        int rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
                                         s->conv_uv(out->tiles[0].data, frame, out->tiles[0].width, out->tiles[0].height, video_dst_linesize[0], rgb_shift);
                                 } else {
                                         sws_scale(s->sws_ctx, (const uint8_t * const *) frame->data, frame->linesize, 0,
