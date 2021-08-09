@@ -65,6 +65,7 @@
 #include "module.h"
 #include "rang.hpp"
 #include "utils/misc.h"
+#include "utils/parallel_conv.h"
 #include "utils/resource_manager.h"
 #include "utils/worker.h"
 #include "video.h"
@@ -1433,16 +1434,9 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         s->in_frame->pts = frame_seq++;
 
         if (s->decoder != vc_memcpy) {
-                unsigned char *line1 = (unsigned char *) tx->tiles[0].data;
-                unsigned char *line2 = (unsigned char *) s->decoded;
                 int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);
                 int dst_linesize = vc_get_linesize(tx->tiles[0].width, s->decoded_codec);
-                for (int i = 0; i < (int) tx->tiles[0].height; ++i) {
-                        s->decoder(line2, line1, dst_linesize,
-                                        0, 8, 16);
-                        line1 += src_linesize;
-                        line2 += dst_linesize;
-                }
+                parallel_pix_conv(tx->tiles[0].height, reinterpret_cast<char *>(s->decoded), dst_linesize, tx->tiles[0].data, src_linesize, s->decoder, s->params.conv_thread_count);
                 decoded = s->decoded;
         } else {
                 decoded = (unsigned char *) tx->tiles[0].data;

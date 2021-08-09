@@ -141,6 +141,7 @@ COMMON_OBJS     = \
 		src/utils/nat.o \
 		src/utils/net.o \
 		src/utils/packet_counter.o \
+		src/utils/parallel_conv.o \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
 		src/utils/sdp.o \

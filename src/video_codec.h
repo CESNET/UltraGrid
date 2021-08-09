@@ -53,6 +53,9 @@
 extern "C" {
 #endif
 
+#define DEFAULT_R_SHIFT  0
+#define DEFAULT_G_SHIFT  8
+#define DEFAULT_B_SHIFT 16
 #define MAX_BPS 6 /* for RG48 */  ///< maximal (average) number of pixels per know pixel formats (up-round if needed)
 #define MAX_PADDING 36 /* R12L */ ///< maximal padding that may be needed to align to pixfmt block size
 
