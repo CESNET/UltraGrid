@@ -681,19 +681,6 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
     return 0;
 }
 
-static string format_port_list(struct hd_rum_translator_state *s)
-{
-    ostringstream oss;
-    for (auto it : s->replicas) {
-        if (!oss.str().empty()) {
-            oss << ",";
-        }
-        oss << it->host << ":" << it->m_tx_port;
-    }
-
-    return oss.str();
-}
-
 static void hd_rum_translator_deinit(struct hd_rum_translator_state *s) {
     if(s->decompress) {
         hd_rum_decompress_done(s->decompress);
