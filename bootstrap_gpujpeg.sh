@@ -87,6 +87,6 @@ if [ "$($UG_SRC_PATH/.github/scripts/Linux/utils/semver.sh $CMAKE_VER 3.12)" -ge
 	CMAKE_COMPILE_FLAGS=--parallel
 fi
 cmake --build $BUILD_DIR $CMAKE_COMPILE_FLAGS
-${SUDO}cmake --install $BUILD_DIR
+${SUDO} cmake --install $BUILD_DIR
 
 # vim: set noexpandtab:
