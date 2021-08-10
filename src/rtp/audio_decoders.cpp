@@ -138,8 +138,8 @@ struct channel_map {
 struct state_audio_decoder_summary {
 private:
         unsigned long int last_bufnum = -1;
-        unsigned long int played;
-        unsigned long int missed;
+        int64_t played = 0;
+        int64_t missed = 0;
 
         steady_clock::time_point t_last = steady_clock::now();
 
