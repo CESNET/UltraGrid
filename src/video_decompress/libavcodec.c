@@ -78,6 +78,8 @@ struct state_libavcodec_decompress {
         codec_t          internal_codec;
         codec_t          out_codec;
         bool             blacklist_vdpau;
+        bool             block_accel[HWACCEL_COUNT];
+        int              consecutive_failed_decodes;
 
         unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
         bool             last_frame_seq_initialized;
@@ -239,6 +241,8 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 {
         const struct decoder_info *dec = NULL;
 
+        s->consecutive_failed_decodes = 0;
+
         for (unsigned int i = 0; i < sizeof decoders / sizeof decoders[0]; ++i) {
                 if (decoders[i].ug_codec == desc.color_spec) {
                         dec = &decoders[i];
@@ -398,6 +402,9 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         s->rgb_shift[B] = bshift;
         s->internal_codec = VIDEO_CODEC_NONE;
         s->blacklist_vdpau = false;
+        for(int i = 0; i < HWACCEL_COUNT; i++){
+                s->block_accel[i] = false;
+        }
         s->out_codec = out_codec;
         s->desc = desc;
 
@@ -519,16 +526,17 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 
         static const struct{
                 enum AVPixelFormat pix_fmt;
+                enum hw_accel_type accel_type;
                 int (*init_func)(AVCodecContext *, struct hw_accel_state *, codec_t);
         } accels[] = {
 #ifdef HWACC_VDPAU
-                {AV_PIX_FMT_VDPAU, vdpau_init},
+                {AV_PIX_FMT_VDPAU, HWACCEL_VDPAU, vdpau_init},
 #endif
 #ifdef HWACC_VAAPI
-                {AV_PIX_FMT_VAAPI, vaapi_init}
+                {AV_PIX_FMT_VAAPI, HWACCEL_VAAPI, vaapi_init}
 #endif
 #ifdef HAVE_MACOSX
-                {AV_PIX_FMT_VIDEOTOOLBOX, videotoolbox_init}
+                {AV_PIX_FMT_VIDEOTOOLBOX, HWACCEL_VIDEOTOOLBOX, videotoolbox_init}
 #endif
         };
 
@@ -541,7 +549,8 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                 }
                 for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
                         for(unsigned i = 0; i < sizeof(accels) / sizeof(accels[0]); i++){
-                                if(*it == accels[i].pix_fmt){
+                                if(*it == accels[i].pix_fmt && !state->block_accel[accels[i].accel_type])
+                                {
                                         int ret = accels[i].init_func(s, &state->hwaccel, state->out_codec);
                                         if(ret < 0){
                                                 hwaccel_state_reset(&state->hwaccel);
@@ -823,12 +832,26 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
                         ret = avcodec_receive_frame(s->codec_ctx, s->frame);
+                        s->consecutive_failed_decodes = 0;
                         if (ret == 0) {
                                 got_frame = 1;
                         }
                 }
                 if (ret != 0) {
                         print_decoder_error(MOD_NAME, ret);
+                        if(ret == AVERROR(EIO)){
+                                s->consecutive_failed_decodes++;
+                                if(s->consecutive_failed_decodes > 70){
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Decode failing, "
+                                                        " blacklisting hw. accelerator...\n");
+                                        s->block_accel[s->hwaccel.type] = true;
+                                        deconfigure(s);
+                                        configure_with(s, s->desc, NULL, 0);
+                                        if(s->out_codec == HW_VDPAU){
+                                                s->blacklist_vdpau = true;
+                                        }
+                                }
+                        }
                 }
                 len = s->pkt->size;
 #endif

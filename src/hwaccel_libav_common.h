@@ -55,17 +55,20 @@
 extern "C" {
 #endif
 
+enum hw_accel_type {
+        HWACCEL_NONE,
+        HWACCEL_VDPAU,
+        HWACCEL_VAAPI,
+        HWACCEL_VIDEOTOOLBOX,
+        HWACCEL_COUNT
+};
+
 /**
  * hw_accel_state describes the current state of hw. accleration
  */
 
 struct hw_accel_state {
-        enum {
-                HWACCEL_NONE,
-                HWACCEL_VDPAU,
-                HWACCEL_VAAPI,
-                HWACCEL_VIDEOTOOLBOX
-        } type;
+        enum hw_accel_type type;
 
         bool copy; ///< Specifies whether to use the copy mode
         AVFrame *tmp_frame; ///< Temporary frame used when copying
