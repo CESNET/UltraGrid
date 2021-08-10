@@ -46,7 +46,10 @@
 #endif // HAVE_CONFIG_H
 #include "config_msvc.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wcast-qual"
 #include <ajantv2/includes/ntv2utils.h>
+#pragma GCC diagnostic pop
 #include <ajatypes.h>
 #include <ntv2debug.h>
 #include <ntv2democommon.h>

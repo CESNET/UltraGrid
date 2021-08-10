@@ -52,7 +52,10 @@
 #ifdef WAND7
 #include <MagickWand/MagickWand.h>
 #else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wignored-qualifiers"
 #include <wand/magick_wand.h>
+#pragma GCC diagnostic pop
 #endif
 
 #include "capture_filter.h"

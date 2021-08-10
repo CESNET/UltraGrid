@@ -51,8 +51,11 @@
 #include "config_win32.h"
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wcast-qual"
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/types_c.h>
+#pragma GCC diagnostic pop
 
 #include "capture_filter/resize_utils.h"
 #include "debug.h"

@@ -58,7 +58,10 @@
 
 #include <sys/time.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wcast-qual"
 #include <opencv2/opencv.hpp>
+#pragma GCC diagnostic pop
 
 #ifdef HAVE_OPENCV_CUDA
 #ifdef HAVE_OPENCV_2
