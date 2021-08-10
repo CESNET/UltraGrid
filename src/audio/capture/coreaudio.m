@@ -221,9 +221,12 @@ static void * audio_cap_ca_init(const char *cfg)
         if(cfg != NULL) {
                 device = atoi(cfg);
         } else {
-                ret = AudioHardwareGetProperty(kAudioHardwarePropertyDefaultInputDevice, &size, &device);
-                if(ret) {
-                        fprintf(stderr, "Error finding default input device.\n");
+                AudioObjectPropertyAddress propertyAddress;
+                propertyAddress.mSelector = kAudioHardwarePropertyDefaultInputDevice;
+                propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
+                propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+                if ((ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, &device)) != 0) {
+                        fprintf(stderr, "Error finding default input device: %d.\n", ret);
                         return NULL;
                 }
         }
@@ -248,11 +251,15 @@ static void * audio_cap_ca_init(const char *cfg)
         s->frame.bps = audio_capture_bps ? audio_capture_bps : 2;
         s->frame.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
 
-        double rate;
+        double rate = 0.0;
         size = sizeof(double);
-        ret = AudioDeviceGetProperty(device, 0, 0, kAudioDevicePropertyNominalSampleRate, &size, &rate);
+        AudioObjectPropertyAddress propertyAddress;
+        propertyAddress.mSelector = kAudioDevicePropertyNominalSampleRate;
+        propertyAddress.mScope = kAudioDevicePropertyScopeInput;
+        propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+        ret = AudioObjectGetPropertyData(device, &propertyAddress, 0, NULL, &size, &rate);
         s->frame.sample_rate = rate;
-        if (audio_capture_sample_rate != 0 && audio_capture_sample_rate != rate) {
+        if (ret != noErr || (audio_capture_sample_rate != 0 && audio_capture_sample_rate != rate)) {
                 log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Requested sample rate %u, got %lf!\n", audio_capture_sample_rate, rate);
         }
 
