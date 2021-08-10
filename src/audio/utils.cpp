@@ -407,7 +407,7 @@ void int2float(char *out, const char *in, int len)
 
 void short_int2float(char *out, const char *in, int in_len)
 {
-        int16_t *ini = (int16_t *)(void *) in;
+        const auto *ini = reinterpret_cast<const int16_t *>(in);
         float *outf = (float *)(void *) out;
         int items = in_len / sizeof(int16_t);
 
@@ -426,7 +426,7 @@ void short_int2float(char *out, const char *in, int in_len)
  */
 void signed2unsigned(char *out, const char *in, int in_len)
 {
-        int8_t *inch = (int8_t *) in;
+        const auto *inch = reinterpret_cast<const int8_t *>(in);
         uint8_t *outch = (uint8_t *) out;
         int items = in_len / sizeof(int8_t);
 
