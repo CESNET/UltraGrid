@@ -225,7 +225,7 @@ audio_frame2 audio_codec_compress(struct audio_codec_state *s, const audio_frame
 
         audio_channel channel;
         int nonzero_channels = 0;
-        for (int i = 0; i < s->state_count; ++i) {
+        for (int i = 0; i < s->desc.ch_count; ++i) {
                 audio_channel *encode_channel = NULL;
                 if(frame) {
                         audio_channel_demux(frame, i, &channel);
