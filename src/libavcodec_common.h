@@ -195,6 +195,22 @@ static void print_decoder_error(const char *mod_name, int rc) {
 	}
 }
 
+inline static bool pixfmt_has_422_subsampling(enum AVPixelFormat fmt){
+        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(fmt);
+
+        return fmt_desc && !(fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)
+                && fmt_desc->log2_chroma_w == 1 && fmt_desc->log2_chroma_h == 0;
+}
+
+inline static bool pixfmt_list_has_422_subsasmpling(const enum AVPixelFormat *fmt){
+        for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
+                if(pixfmt_has_422_subsampling(*it))
+                        return true;
+        }
+
+        return false;
+}
+
 void print_libav_error(int verbosity, const char *msg, int rc);
 bool libav_codec_has_extradata(codec_t codec);
 

@@ -1242,6 +1242,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
         s->selected_pixfmt = pix_fmt;
+        if(pixfmt_has_422_subsampling(pix_fmt)){
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Selected pixfmt has 4:2:2 subsampling, "
+                                "which is usually not supported by hw. decoders\n");
+        }
 
         if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
                 log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to find a way to convert %s to %s\n",

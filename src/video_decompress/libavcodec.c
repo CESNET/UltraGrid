@@ -494,19 +494,6 @@ fail:
 }
 #endif
 
-static bool is_422_subsasmpling(const enum AVPixelFormat *fmt){
-        for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
-                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*it);
-                if(!fmt_desc || fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)
-                        continue;
-
-                if(fmt_desc->log2_chroma_w == 1 && fmt_desc->log2_chroma_h == 0)
-                        return true;
-        }
-
-        return false;
-}
-
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
 {
         if (log_level >= LOG_LEVEL_VERBOSE) {
@@ -542,7 +529,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 
         if (hwaccel && state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
                 struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque; 
-                if(is_422_subsasmpling(fmt)){
+                if(pixfmt_list_has_422_subsasmpling(fmt)){
                         log_msg(LOG_LEVEL_WARNING, "[lavd] Hw. acceleration requested "
                                         "but incoming video has 4:2:2 subsampling, "
                                         "which is usually not supported by hw. accelerators\n");
