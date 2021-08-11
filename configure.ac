@@ -196,12 +196,12 @@ then
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
         CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -fPIC"
-        CU_OBJ_SUFFIX="cu.o"
+        CU_OBJ_SUFFIX="o"
 else # Windows
         if test $WORD_LEN = 32; then
                 CUDA_FLAGS="-m32"
         fi
-        CU_OBJ_SUFFIX="cu.lib"
+        CU_OBJ_SUFFIX="lib"
 fi
 AC_SUBST(CUDA_FLAGS)
 
@@ -288,7 +288,7 @@ AC_DEFUN([DEFINE_CUDA], [
                           # somehow. The same applies also for other CUDA objs/libs.
                           CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_OBJ_SUFFIX
                           CUDA_COMMON_LIB=src/cuda_wrapper.$CU_OBJ_SUFFIX
-                          DLL_LIBS="$DLL_LIBS src/cuda_wrapper.cu.dll"
+                          DLL_LIBS="$DLL_LIBS src/cuda_wrapper.dll"
                   else
                           CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_OBJ_SUFFIX
                           CUDA_COMMON_LIB=
@@ -2318,7 +2318,7 @@ AC_DEFUN([DEFINE_CUDA_DXT], [
                   if test $system = Windows; then
                           CUDA_DXT_COMMON_OBJ="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
                           CUDA_DXT_COMMON_LIB="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
-                          DLL_LIBS="$DLL_LIBS cuda_dxt/cuda_dxt.cu.dll"
+                          DLL_LIBS="$DLL_LIBS cuda_dxt/cuda_dxt.dll"
                   else
                           CUDA_DXT_COMMON_OBJ="cuda_dxt/cuda_dxt.$CU_OBJ_SUFFIX"
                           CUDA_DXT_COMMON_LIB=
@@ -2945,7 +2945,7 @@ then
         LDGM_GPU_OBJS="ldgm/src/ldgm-session-gpu.o src/rtp/ldgm_gpu.o $CUDA_COMMON_OBJ"
         LDGM_GPU_LIBS="$CUDA_COMMON_LIB $CUDA_LIB"
         if test $system = Windows; then
-                DLL_LIBS="$DLL_LIBS ldgm/src/gpu.cu.dll"
+                DLL_LIBS="$DLL_LIBS ldgm/src/gpu.dll"
                 LDGM_GPU_OBJS="$LDGM_GPU_OBJS ldgm/src/gpu.$CU_OBJ_SUFFIX"
                 LDGM_GPU_LIBS="$LDGM_GPU_LIBS ldgm/src/gpu.$CU_OBJ_SUFFIX"
         else

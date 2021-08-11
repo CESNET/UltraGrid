@@ -289,13 +289,13 @@ GEN_DEPENDENCIES = \
 .SUFFIXES: .cu
 
 # Pattern rule for compiling CUDA files
-%.cu.o: %.cu
+%.o: %.cu
 	$(MKDIR_P) $(dir $@)
 	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(INC) -Xcompiler -MD -c $< -o $@
 	$(GEN_DEPENDENCIES)
-%.cu.lib: %.cu
+%.lib: %.cu
 	$(MKDIR_P) $(dir $@)
-	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(INC) -MD --shared $< -o $<.dll
+	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(INC) -MD --shared $< -o $*.dll
 	touch $@
 	$(GEN_DEPENDENCIES)
 
