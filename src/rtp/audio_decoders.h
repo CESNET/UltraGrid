@@ -35,8 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "audio/audio.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

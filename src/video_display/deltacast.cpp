@@ -49,7 +49,7 @@
 #include "video.h"
 #include "video_display.h"
 #include "debug.h"
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
 

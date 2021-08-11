@@ -46,8 +46,8 @@
 #define MAX_PORTS 64
 #define MOD_NAME "[JACK playback] "
 
-#include "audio/audio.h"
 #include "audio/audio_playback.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"

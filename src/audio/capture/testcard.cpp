@@ -44,7 +44,7 @@
 #endif
 
 #include "audio/audio_capture.h"
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
 #include "debug.h"

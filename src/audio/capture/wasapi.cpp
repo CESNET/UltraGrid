@@ -40,7 +40,6 @@
 #include <string>
 #include <windows.h>
 
-#include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/types.h"
 #include "debug.h"

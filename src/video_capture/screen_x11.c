@@ -49,7 +49,7 @@
 
 #include "tv.h"
 
-#include "audio/audio.h"
+#include "audio/types.h"
 
 #include <stdio.h>
 #include <stdlib.h>

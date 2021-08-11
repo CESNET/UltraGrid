@@ -64,7 +64,7 @@
 #endif // _WIN64
 #endif // _WIN32
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"

@@ -43,8 +43,8 @@
 
 #include <iostream>
 
-#include "audio/audio.h"
 #include "audio/audio_playback.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "blackmagic_common.h"
 #include "debug.h"

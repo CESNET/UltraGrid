@@ -64,7 +64,7 @@
 #include <SDL/SDL_ttf.h>
 #endif
 #endif
-#include "audio/audio.h"
+#include "audio/types.h"
 #include <pthread.h>
 #include <time.h>
 #include <limits.h>

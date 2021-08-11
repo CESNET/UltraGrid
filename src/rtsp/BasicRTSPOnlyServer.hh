@@ -48,7 +48,7 @@
 #include <RTSPServer.hh>
 #include <BasicUsageEnvironment.hh>
 #include "rtsp/rtsp_utils.h"
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "module.h"
 
 

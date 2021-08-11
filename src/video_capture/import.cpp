@@ -49,7 +49,7 @@
 
 #include "tv.h"
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "audio/wav_reader.h"
 #include "keyboard_control.h"
 #include "messaging.h"
@@ -58,7 +58,6 @@
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
 #include "video_export.h"
-//#include "audio/audio.h"
 
 #include <stdio.h>
 #include <stdlib.h>

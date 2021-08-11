@@ -52,8 +52,8 @@
 #include <string.h>
 
 #include "alsa_common.h"
-#include "audio/audio.h"
 #include "audio/audio_playback.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"

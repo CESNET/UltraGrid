@@ -66,7 +66,7 @@
 #include <stdint.h>
 #include <tv.h>
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"

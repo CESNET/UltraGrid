@@ -54,8 +54,6 @@
 
 #include "audio/types.h"
 
-extern int audio_init_state_ok;
-
 struct module;
 struct state_audio;
 
@@ -89,6 +87,8 @@ struct state_audio * audio_cfg_init(struct module *parent,
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+extern int audio_init_state_ok;
 
 void audio_start(struct state_audio *s);
 void audio_done(struct state_audio *s);

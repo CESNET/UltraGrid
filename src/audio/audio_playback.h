@@ -36,11 +36,15 @@
  */
 
 #include "../types.h"
-#include "audio/audio.h"
+
+struct audio_desc;
+struct audio_frame;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+extern int audio_init_state_ok;
 
 #define AUDIO_PLAYBACK_ABI_VERSION 5
 

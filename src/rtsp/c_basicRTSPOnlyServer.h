@@ -56,7 +56,7 @@
 #include "module.h"
 #include "debug.h"
 #include "rtsp/rtsp_utils.h"
-#include "audio/audio.h"
+#include "audio/types.h"
 
 
 #ifdef __cplusplus

@@ -46,7 +46,7 @@
 
 #include "tv.h"
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "module.h"
 
 #include <inttypes.h>

@@ -57,7 +57,7 @@
 #ifndef TRANSMIT_H_
 #define TRANSMIT_H_
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "rtp/rtpenc_h264.h"
 #include "types.h"
 

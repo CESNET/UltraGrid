@@ -58,7 +58,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "debug.h"
 #include "host.h"
 #include "deltacast_common.hpp"

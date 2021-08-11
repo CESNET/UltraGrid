@@ -55,8 +55,8 @@
 #ifdef HAVE_ALSA
 
 #include "alsa_common.h"
-#include "audio/audio.h"
 #include "audio/audio_capture.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 
 #include "debug.h"

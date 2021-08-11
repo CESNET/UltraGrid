@@ -47,8 +47,8 @@
 #include "debug.h"
 #include "host.h"
 
-#include "audio/audio.h"
 #include "audio/audio_capture.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "lib_common.h"
 #include "utils/ring_buffer.h"

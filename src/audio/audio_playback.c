@@ -45,9 +45,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "audio/audio.h"
 #include "audio/audio_playback.h"
 #include "audio/playback/sdi.h"
+#include "audio/types.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

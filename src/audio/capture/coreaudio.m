@@ -50,9 +50,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/playback/coreaudio.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"

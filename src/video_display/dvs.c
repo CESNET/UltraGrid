@@ -56,12 +56,12 @@
 
 #ifdef HAVE_DVS           /* From config.h */
 
+#include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/dvs.h"
-#include "audio/audio.h"
 #include "tv.h"
 #include "utils/ring_buffer.h"
 

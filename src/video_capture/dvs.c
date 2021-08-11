@@ -56,7 +56,7 @@
 
 #ifdef HAVE_DVS           /* From config.h */
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"
@@ -67,7 +67,6 @@
 #include "tv.h"
 #include "dvs_clib.h"           /* From the DVS SDK */
 #include "dvs_fifo.h"           /* From the DVS SDK */
-#include "audio/audio.h"
 
 struct vidcap_dvs_state {
         sv_handle *sv;

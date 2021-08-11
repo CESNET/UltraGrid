@@ -52,6 +52,7 @@
 #include <pthread.h>
 #include <glib.h>
 
+#include "audio/types.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -69,7 +70,6 @@
 #include "video.h"
 #include "video_codec.h"
 #include "video_capture.h"
-#include "audio/audio.h"
 
 #include <curl/curl.h>
 #include <chrono>

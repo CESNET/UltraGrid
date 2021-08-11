@@ -41,8 +41,8 @@
 #include "config_win32.h"
 #endif
 
-#include "audio/audio.h"
 #include "audio/audio_playback.h"
+#include "audio/types.h"
 #include "lib_common.h"
 
 static int state;

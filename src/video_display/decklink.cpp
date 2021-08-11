@@ -49,7 +49,7 @@
 
 #define MOD_NAME "[Decklink display] "
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "blackmagic_common.h"
 #include "compat/platform_time.h"
 #include "debug.h"

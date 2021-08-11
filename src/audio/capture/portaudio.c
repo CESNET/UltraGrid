@@ -60,9 +60,9 @@
 
 #include <portaudio.h> /* from PortAudio API */
 
-#include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/portaudio_common.h"
+#include "audio/types.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

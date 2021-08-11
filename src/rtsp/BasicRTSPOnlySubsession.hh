@@ -49,7 +49,7 @@
 #endif
 
 #include "rtsp/rtsp_utils.h"
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "module.h"
 #include "control_socket.h"
 

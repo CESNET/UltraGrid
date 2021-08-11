@@ -42,10 +42,10 @@
 #include "config_win32.h"
 #endif
 
-#include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
+#include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "module.h"

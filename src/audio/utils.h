@@ -47,7 +47,7 @@
 #include <stdint.h>
 #endif
 
-#include <audio/audio.h>
+#include "audio/types.h"
 
 #ifdef __cplusplus
 double calculate_rms(audio_frame2 *frame, int channel, double *peak);

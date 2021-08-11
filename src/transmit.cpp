@@ -62,8 +62,8 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "audio/audio.h"
 #include "audio/codec.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "crypto/random.h"
 #include "debug.h"

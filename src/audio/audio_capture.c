@@ -50,9 +50,8 @@
 #include "host.h"
 
 #include "audio/audio_capture.h"
-
-#include "audio/audio.h"
 #include "audio/capture/sdi.h"
+#include "audio/types.h"
 
 /* vidcap flags */
 #include "video_capture.h"

@@ -53,7 +53,7 @@
 
 #include "bluefish444_common.h"
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"

@@ -65,7 +65,7 @@
 #include <vector>
 
 #include "blackmagic_common.h"
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"

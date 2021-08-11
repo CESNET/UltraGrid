@@ -41,9 +41,9 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "audio/audio.h" 
 #include "audio/audio_capture.h"
-#include "audio/capture/sdi.h" 
+#include "audio/capture/sdi.h"
+#include "audio/types.h"
 
 #include "debug.h"
 #include "host.h"

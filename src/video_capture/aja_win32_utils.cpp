@@ -49,7 +49,7 @@
 #include <string.h>
 
 #include "video.h"
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "audio/utils.h"
 
 void remux_channel(char *out, const char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream)

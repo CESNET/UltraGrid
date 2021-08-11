@@ -42,9 +42,9 @@
 #endif // HAVE_CONFIG_H
 
 
-#include "audio/audio.h"
 #include "audio/codec.h"
-#include "audio/utils.h" 
+#include "audio/types.h"
+#include "audio/utils.h"
 #include "debug.h"
 #include <assert.h>
 #include <limits.h>

@@ -49,12 +49,11 @@
 #ifndef _ECHO_H_
 #define _ECHO_H_
 
-#include "audio/audio.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+struct audio_frame;
 struct echo_cancellation;
 
 typedef struct echo_cancellation echo_cancellation_t;

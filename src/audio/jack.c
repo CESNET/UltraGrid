@@ -52,8 +52,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "audio/audio.h"
 #include "audio/jack.h"
+#include "audio/types.h"
 #include "jack_common.h"
 #include "pthread.h"
 #include "rtp/rtp.h"

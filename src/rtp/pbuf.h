@@ -59,7 +59,7 @@
 /* Internet" Figure 6.8 (page 167) for a diagram.                       [csp] */
 /******************************************************************************/
 
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "rtp/rtp.h"
 
 #ifdef __cplusplus

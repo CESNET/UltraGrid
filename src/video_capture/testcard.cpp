@@ -82,7 +82,7 @@
 #endif // defined HAVE_SDL2
 #endif /* HAVE_LIBSDL_MIXER */
 #include <vector>
-#include "audio/audio.h"
+#include "audio/types.h"
 #include "utils/video_pattern_generator.hpp"
 
 #define AUDIO_SAMPLE_RATE 48000

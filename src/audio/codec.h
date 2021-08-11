@@ -49,7 +49,7 @@
 #ifndef AUDIO_CODEC_H_
 #define AUDIO_CODEC_H_
 
-#include "audio/audio.h"
+#include "audio/types.h"
 
 #define AUDIO_COMPRESS_ABI_VERSION 2
 

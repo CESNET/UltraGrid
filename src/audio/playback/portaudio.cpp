@@ -62,9 +62,9 @@
 
 #include <portaudio.h> /* from PortAudio */
 
-#include "audio/audio.h"
 #include "audio/audio_playback.h"
 #include "audio/portaudio_common.h"
+#include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/audio_buffer.h"
