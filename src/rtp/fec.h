@@ -38,16 +38,21 @@
 #ifndef FEC_H_
 #define FEC_H_
 
+#include "audio/types.h"
 #include "types.h"
 
 #ifdef __cplusplus
 #include <map>
 #include <memory>
+#include <stdexcept>
 
 struct video_frame;
 
 struct fec {
         virtual std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame>) = 0;
+        virtual audio_frame2 encode(audio_frame2 const &) {
+                throw std::logic_error("Selected FEC not implemented for audio!");
+        }
         /**
          * @retval true  if whole frame was reconstructed
          * @retval false if decoder was unable to reconstruct the frame

@@ -135,12 +135,18 @@ int fec::pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type,
                         return encrypted ? PT_ENCRYPT_VIDEO_LDGM : PT_VIDEO_LDGM;
                 case FEC_RS:
                         return encrypted ? PT_ENCRYPT_VIDEO_RS : PT_VIDEO_RS;
-                default:
-                        abort();
+                default: break;
                 }
         } else {
-                abort();
+                switch (fec_type) {
+                case FEC_NONE:
+                        return encrypted ? PT_ENCRYPT_AUDIO : PT_AUDIO;
+                case FEC_RS:
+                        return encrypted ? PT_ENCRYPT_AUDIO_RS : PT_AUDIO_RS;
+                default: break;
+                }
         }
+        assert(0 && "Unsupported media/FEC type combination");
 }
 
 enum fec_type fec::fec_type_from_pt(int pt) throw()

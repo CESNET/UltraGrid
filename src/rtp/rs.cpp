@@ -193,6 +193,54 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
 #endif // defined HAVE_ZFEC
 }
 
+#ifdef HAVE_ZFEC
+audio_frame2 rs::encode(const audio_frame2 &in)
+{
+        audio_frame2 out;
+        out.init(in.get_channel_count(), in.get_codec(), in.get_bps(), in.get_sample_rate());
+        out.reserve(3 * in.get_data_len() / in.get_channel_count()); // just an estimate
+
+        for (int i = 0; i < in.get_channel_count(); ++i) {
+                audio_payload_hdr_t hdr;
+                format_audio_header(&in, i, 0, (uint32_t *) &hdr);
+                size_t hdr_len = sizeof(hdr);
+                size_t len = in.get_data_len(i);
+                uint32_t len32 = len + hdr_len;
+                //const char *data = in->get_data(i);
+                out.append(i, (char *) &len32, sizeof len32);
+                out.append(i, (char *) &hdr, sizeof hdr);
+                out.append(i, in.get_data(i), in.get_data_len(i));
+
+                int ss = get_ss(hdr_len, len);
+                int buffer_len = ss * m_n;
+                out.resize(i, buffer_len);
+                memset(out.get_data(i) + sizeof(len32) + hdr_len + len, 0, ss * m_k - (sizeof(len32) + hdr_len + len));
+
+                out.set_fec_params(i, fec_desc(FEC_RS, m_k, m_n - m_k, 0, 0, ss));
+
+                void *src[m_k];
+                for (unsigned int k = 0; k < m_k; ++k) {
+                        src[k] = out.get_data(i) + ss * k;
+                }
+
+                void *dst[m_n-m_k];
+                unsigned int dst_idx[m_n-m_k];
+                for (unsigned int m = 0; m < m_n-m_k; ++m) {
+                        dst[m] = out.get_data(i) + ss * (m_k + m);
+                        dst_idx[m] = m_k + m;
+                }
+
+                fec_encode((const fec_t *)state, (gf **) src,
+                                (gf **) dst, dst_idx, m_n-m_k, ss);
+        }
+
+        return out;
+}
+#endif
+
+/**
+ * Returns symbol size (?) for given headers len and with configured m_k
+ */
 int rs::get_ss(int hdr_len, int len) {
         return ((sizeof(uint32_t) + hdr_len + len) + m_k - 1) / m_k;
 }

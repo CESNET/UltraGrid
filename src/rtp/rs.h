@@ -51,6 +51,7 @@ struct rs : public fec {
         rs(const char *cfg);
         virtual ~rs();
         std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame> frame);
+        virtual audio_frame2 encode(audio_frame2 const &) override;
         bool decode(char *in, int in_len, char **out, int *len,
                 const std::map<int, int> &);
 

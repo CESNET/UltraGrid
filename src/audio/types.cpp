@@ -258,6 +258,11 @@ double audio_frame2::get_duration() const
         }
 }
 
+fec_desc const &audio_frame2::get_fec_params(int channel) const
+{
+        return channels[channel].fec_params;
+}
+
 int audio_frame2::get_channel_count() const
 {
         return channels.size();
@@ -291,6 +296,11 @@ void audio_frame2::set_duration(double new_duration)
         duration = new_duration;
 }
 
+void audio_frame2::set_fec_params(int channel, fec_desc const &fec_params)
+{
+        channels[channel].fec_params = fec_params;
+}
+
 audio_frame2 audio_frame2::copy_with_bps_change(audio_frame2 const &frame, int new_bps)
 {
         audio_frame2 ret;
@@ -316,7 +326,7 @@ void  audio_frame2::change_bps(int new_bps)
 
         for (size_t i = 0; i < channels.size(); i++) {
                 size_t new_size = channels[i].len / bps * new_bps;
-                new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size};
+                new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size, {}};
         }
 
         for (size_t i = 0; i < channels.size(); i++) {
@@ -366,7 +376,7 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
         for (size_t i = 0; i < channels.size(); i++) {
                 // allocate new storage + 10 ms headroom
                 size_t new_size = channels[i].len * new_sample_rate / sample_rate + new_sample_rate * sizeof(int16_t) / 100;
-                new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size};
+                new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size, {}};
         }
 
         /// @todo

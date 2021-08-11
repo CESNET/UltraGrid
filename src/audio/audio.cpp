@@ -79,6 +79,7 @@
 #include "perf.h"
 #include "rang.hpp"
 #include "rtp/audio_decoders.h"
+#include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -133,6 +134,8 @@ struct state_audio {
                 gettimeofday(&t0, NULL);
         }
         ~state_audio() {
+                delete fec_state;
+
                 module_done(&audio_receiver_module);
                 module_done(&audio_sender_module);
                 module_done(&mod);
@@ -161,6 +164,7 @@ struct state_audio {
         audio_frame2 captured;
 
         struct tx *tx_session = nullptr;
+        fec       *fec_state = nullptr;
         
         pthread_t audio_sender_thread_id{},
                   audio_receiver_thread_id{};
@@ -795,6 +799,29 @@ static void *audio_receiver_thread(void *arg)
 static struct response *audio_sender_process_message(struct state_audio *s, struct msg_sender *msg)
 {
         switch (msg->type) {
+                case SENDER_MSG_CHANGE_FEC:
+                        {
+                                auto old_fec_state = s->fec_state;
+                                s->fec_state = NULL;
+                                if (strcmp(msg->fec_cfg, "flush") == 0) {
+                                        delete old_fec_state;
+                                } else {
+                                        s->fec_state = fec::create_from_config(msg->fec_cfg);
+                                        if (!s->fec_state) {
+                                                s->fec_state = old_fec_state;
+                                                if (strstr(msg->fec_cfg, "help") != nullptr) { // -f LDGM:help or so + init
+                                                        exit_uv(0);
+                                                } else {
+                                                        LOG(LOG_LEVEL_ERROR) << "[control] Unable to initalize FEC!\n";
+                                                }
+                                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
+                                        } else {
+                                                delete old_fec_state;
+                                                log_msg(LOG_LEVEL_NOTICE, "[control] Fec changed successfully\n");
+                                        }
+                                }
+                        }
+                        break;
                 case SENDER_MSG_CHANGE_RECEIVER:
                         {
                                 assert(s->audio_tx_mode == MODE_SENDER);
@@ -876,11 +903,6 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                                 }
                         }
                         break;
-                case SENDER_MSG_CHANGE_FEC:
-                        if (strcmp(msg->fec_cfg, "flush") != 0) {
-                                LOG(LOG_LEVEL_ERROR) << "Not implemented!\n";
-                        }
-                        return new_response(RESPONSE_NOT_IMPL, NULL);
         }
         return new_response(RESPONSE_OK, NULL);
 }
@@ -1025,8 +1047,11 @@ static void *audio_sender_thread(void *arg)
                         // SEND
                         if(s->sender == NET_NATIVE) {
                                 audio_frame2 *uncompressed = &bf_n;
-                                while (audio_frame2 compressed = audio_codec_compress(s->audio_encoder, uncompressed)) {
-                                        audio_tx_send(s->tx_session, s->audio_network_device, &compressed);
+                                while (audio_frame2 to_send = audio_codec_compress(s->audio_encoder, uncompressed)) {
+                                        if (s->fec_state != nullptr) {
+                                                to_send = s->fec_state->encode(to_send);
+                                        }
+                                        audio_tx_send(s->tx_session, s->audio_network_device, &to_send);
                                         uncompressed = NULL;
                                 }
                         }else if(s->sender == NET_STANDARD){

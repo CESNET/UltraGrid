@@ -40,6 +40,8 @@
 #ifndef AUDIO_TYPES_H
 #define AUDIO_TYPES_H
 
+#include "../types.h" // fec_desc
+
 typedef enum {
         AC_NONE,
         AC_PCM,
@@ -109,12 +111,12 @@ typedef struct
         double duration;
 } audio_channel;
 
+struct audio_frame2;
+
 #ifdef __cplusplus
 #include <memory>
 #include <utility>
 #include <vector>
-
-class audio_frame2;
 
 class audio_frame2_resampler {
 public:
@@ -160,10 +162,12 @@ public:
         size_t get_data_len() const;
         double get_duration() const;
         int get_channel_count() const;
+        fec_desc const &get_fec_params(int channel) const;
         int get_sample_count() const;
         int get_sample_rate() const;
         bool has_same_prop_as(audio_frame2 const &frame) const;
         void set_duration(double duration);
+        void set_fec_params(int channel, fec_desc const &);
         static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
         void change_bps(int new_bps);
         /**
@@ -185,6 +189,7 @@ private:
                 std::unique_ptr<char []> data;
                 size_t len;
                 size_t max_len;
+                struct fec_desc fec_params;
         };
         void reserve(int channel, size_t len);
         int bps;                /* bytes per sample */
