@@ -148,6 +148,7 @@ public:
         explicit audio_frame2(const struct audio_frame *);
         audio_frame2& operator=(audio_frame2 &&) DEFAULTED;
         bool operator!() const;
+        explicit operator bool() const;
         void init(int nr_channels, audio_codec_t codec, int bps, int sample_rate);
         void append(audio_frame2 const &frame);
         void append(int channel, const char *data, size_t length);

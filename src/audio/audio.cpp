@@ -1017,17 +1017,15 @@ static void *audio_sender_thread(void *arg)
                         // SEND
                         if(s->sender == NET_NATIVE) {
                                 audio_frame2 *uncompressed = &bf_n;
-                                const audio_frame2 *compressed = NULL;
-                                while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
-                                        audio_tx_send(s->tx_session, s->audio_network_device, compressed);
+                                while (audio_frame2 compressed = audio_codec_compress(s->audio_coder, uncompressed)) {
+                                        audio_tx_send(s->tx_session, s->audio_network_device, &compressed);
                                         uncompressed = NULL;
                                 }
                         }else if(s->sender == NET_STANDARD){
                             audio_frame2 *uncompressed = &bf_n;
-                            const audio_frame2 *compressed = NULL;
-                            while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
+                            while (audio_frame2 compressed = audio_codec_compress(s->audio_coder, uncompressed)) {
                                     //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
-                                    audio_tx_send_standard(s->tx_session, s->audio_network_device, compressed);
+                                    audio_tx_send_standard(s->tx_session, s->audio_network_device, &compressed);
                                     uncompressed = NULL;
                             }
                         }

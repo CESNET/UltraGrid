@@ -118,6 +118,11 @@ bool audio_frame2::operator!() const
         return codec == AC_NONE;
 }
 
+audio_frame2::operator bool() const
+{
+        return codec != AC_NONE;
+}
+
 /**
  * @brief Initializes audio_frame2 for use. If already initialized, data are dropped.
  */
