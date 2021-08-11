@@ -399,6 +399,24 @@ void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx
         video_hdr[5] = format_interl_fps_hdr_row(frame->interlacing, frame->fps);
 }
 
+void format_audio_header(const struct audio_frame2 *frame, int channel, int buffer_idx, uint32_t *audio_hdr)
+{
+        uint32_t tmp = 0;
+        tmp = channel << 22U; /* bits 0-9 */
+        tmp |= buffer_idx; /* bits 10-31 */
+        audio_hdr[0] = htonl(tmp);
+
+        audio_hdr[2] = htonl(frame->get_data_len(channel));
+
+        /* fourth word */
+        tmp = (frame->get_bps() * 8) << 26U;
+        tmp |= frame->get_sample_rate();
+        audio_hdr[3] = htonl(tmp);
+
+        /* fifth word */
+        audio_hdr[4] = htonl(get_audio_tag(frame->get_codec()));
+}
+
 void
 tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
 {
@@ -814,20 +832,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         mult_index = 0;
                 }
 
-                uint32_t tmp;
-                tmp = channel << 22; /* bits 0-9 */
-                tmp |= tx->buffer; /* bits 10-31 */
-                audio_hdr[0] = htonl(tmp);
-
-                audio_hdr[2] = htonl(buffer->get_data_len(channel));
-
-                /* fourth word */
-                tmp = (buffer->get_bps() * 8) << 26;
-                tmp |= buffer->get_sample_rate();
-                audio_hdr[3] = htonl(tmp);
-
-                /* fifth word */
-                audio_hdr[4] = htonl(get_audio_tag(buffer->get_codec()));
+                format_audio_header(buffer, channel, tx->buffer, audio_hdr);
 
                 int packet_rate;
                 if (tx->bitrate > 0) {
