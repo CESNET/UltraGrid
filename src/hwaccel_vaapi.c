@@ -52,6 +52,8 @@
 
 #include "debug.h"
 
+#define DEFAULT_SURFACES 20
+
 void vaapi_uninit(struct hw_accel_state *s){
 
         free(s->ctx);

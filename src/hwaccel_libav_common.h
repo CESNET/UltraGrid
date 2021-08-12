@@ -5,7 +5,7 @@
  * @brief This file contains functions related to hw acceleration
  */
 /*
- * Copyright (c) 2018 CESNET z.s.p.o.
+ * Copyright (c) 2018-2021 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -44,13 +44,12 @@
 
 #ifndef HWACCEL_LIBAV_COMMON_H
 #define HWACCEL_LIBAV_COMMON_H
-#ifdef HWACC_COMMON
 
 #include "types.h"
 #include <libavcodec/avcodec.h>
+#ifdef HWACC_COMMON_IMPL
 #include <libavutil/hwcontext.h>
-
-#define DEFAULT_SURFACES 20
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -86,6 +85,8 @@ void hwaccel_state_init(struct hw_accel_state *hwaccel);
  */
 void hwaccel_state_reset(struct hw_accel_state *hwaccel);
 
+#ifdef HWACC_COMMON_IMPL
+
 /**
  * @brief Creates hw. device context
  *
@@ -117,9 +118,10 @@ int create_hw_frame_ctx(AVBufferRef *device_ref,
  */
 void transfer_frame(struct hw_accel_state *s, AVFrame *frame);
 
+#endif //HWACC_COMMON_IMPL
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif //HWACC_COMMON
 #endif

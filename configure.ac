@@ -1660,8 +1660,7 @@ PKG_CHECK_MODULES([LAVC_HWACC_VAAPI], [lavc_hwacc_vaapi_dep], [FOUND_HWACC_VAAPI
 
 LAVC_HWACC_FLAGS=
 LAVC_HWACC_LIBS=
-HW_ACC_OBJ=
-HW_ACC_DISPLAY_OBJ=
+HW_ACC_OBJ="src/hwaccel_libav_common.o"
 
 if test $lavc_hwacc_vdpau_req != no -a $FOUND_HWACC_VDPAU_DEP = yes
 then
@@ -1680,9 +1679,7 @@ fi
 
 if test $lavc_hwacc_common = yes
 then
-        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_COMMON"
-        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_libav_common.o"
-        HW_ACC_DISPLAY_OBJ="${HW_ACC_DISPLAY_OBJ} src/hwaccel_libav_common.o"
+        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_COMMON_IMPL"
 fi
 
 if test $lavc_hwacc_vdpau = yes
@@ -1690,7 +1687,6 @@ then
         LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VDPAU ${LAVC_HWACC_VDPAU_CFLAGS}"
         LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VDPAU_LIBS}"
         HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vdpau.o"
-        HW_ACC_DISPLAY_OBJ="${HW_ACC_DISPLAY_OBJ} src/hwaccel_vdpau.o"
 fi
 
 if test $lavc_hwacc_vaapi = yes
@@ -1698,15 +1694,9 @@ then
         LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VAAPI ${LAVC_HWACC_VAAPI_CFLAGS}"
         LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VAAPI_LIBS}"
         HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
-        HW_ACC_DISPLAY_OBJ="${HW_ACC_DISPLAY_OBJ} src/hwaccel_vaapi.o"
 fi
 
 COMMON_FLAGS="$COMMON_FLAGS $LAVC_HWACC_FLAGS"
-
-if test -n "$HW_ACC_OBJ"
-then
-        ADD_MODULE("hw_accel", "$HW_ACC_OBJ", "$LAVC_HWACC_LIBS")
-fi
 
 if test $lavc_hwacc_vdpau_req = yes -a $lavc_hwacc_vdpau = no; then
 	AC_MSG_ERROR([Could not find hwacc vdpau dependencies!]);
@@ -1795,12 +1785,12 @@ then
         LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
 
         LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON src/video_compress/libavcodec.o"
-        LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_COMMON src/video_decompress/libavcodec.o"
+        LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_COMMON $HW_ACC_OBJ src/video_decompress/libavcodec.o"
         COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
         libavcodec=yes
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
         ADD_MODULE("vcompress_libavcodec", "$LIBAVCODEC_COMPRESS_OBJ", "$LIBAVCODEC_LIBS $LIBSWSCALE_LIBS")
-        ADD_MODULE("vdecompress_libavcodec", "$LIBAVCODEC_DECOMPRESS_OBJ", "$LIBAVCODEC_LIBS")
+        ADD_MODULE("vdecompress_libavcodec", "$LIBAVCODEC_DECOMPRESS_OBJ", "$LIBAVCODEC_LIBS $LAVC_HWACC_LIBS")
         ADD_MODULE("acompress_libavcodec", "$LIBAVCODEC_AUDIO_CODEC_OBJ", "$LIBAVCODEC_LIBS")
 fi
 
@@ -1893,7 +1883,7 @@ then
         gl_display=yes
         AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 	INC="$INC $GL_INC"
-	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_DISPLAY_OBJ", "$GL_LIB $LAVC_HWACC_LIBS")
+	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_OBJ", "$GL_LIB $LAVC_HWACC_LIBS")
 fi
 
 if test $gl_display_req = yes -a $gl_display = no; then

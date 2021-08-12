@@ -54,6 +54,8 @@
 #include "debug.h"
 #include "hwaccel_vdpau.h"
 
+#define DEFAULT_SURFACES 20
+
 static bool is_emulated(VdpDevice dev, VdpGetProcAddress *get_proc_address){
         VdpStatus st;
 

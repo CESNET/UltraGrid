@@ -93,9 +93,7 @@ struct state_libavcodec_decompress {
 #endif
         } sws;
 
-#ifdef HWACC_COMMON
         struct hw_accel_state hwaccel;
-#endif
 };
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
@@ -132,9 +130,7 @@ static void deconfigure(struct state_libavcodec_decompress *s)
         av_packet_unref(s->pkt);
         av_packet_free(&s->pkt);
 
-#ifdef HWACC_COMMON
         hwaccel_state_reset(&s->hwaccel);
-#endif
 
 #ifdef HAVE_SWSCALE
         s->sws.ctx = NULL;
@@ -234,7 +230,7 @@ ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>..
                 "  Forces specified Libavcodec decoder. If more need to be specified, use colon as a delimiter.\n"
                 "  Use '-c libavcodec:help' to see available decoders.\n");
 
-#ifdef HWACC_COMMON
+#ifdef HWACC_COMMON_IMPL
 ADD_TO_PARAM("use-hw-accel", "* use-hw-accel\n"
                 "  Tries to use hardware acceleration. \n");
 #endif
@@ -385,9 +381,7 @@ static void * libavcodec_decompress_init(void)
         s->pkt->data = NULL;
         s->pkt->size = 0;
 
-#ifdef HWACC_COMMON
         hwaccel_state_init(&s->hwaccel);
-#endif
 
         return s;
 }
@@ -520,7 +514,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 
         struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque;
         bool hwaccel = get_commandline_param("use-hw-accel") != NULL;
-#ifdef HWACC_COMMON
+#ifdef HWACC_COMMON_IMPL
         hwaccel_state_reset(&state->hwaccel);
 
         static const struct{
@@ -879,7 +873,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                                 s->last_frame_seq : -1, (unsigned) frame_seq);
                                 res = DECODER_NO_FRAME;
                         } else {
-#ifdef HWACC_COMMON
+#ifdef HWACC_COMMON_IMPL
                                 if(s->hwaccel.copy){
                                         transfer_frame(&s->hwaccel, s->frame);
                                 }

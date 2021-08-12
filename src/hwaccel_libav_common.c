@@ -5,7 +5,7 @@
  * @brief This file contains functions related to hw acceleration
  */
 /*
- * Copyright (c) 2018 CESNET z.s.p.o.
+ * Copyright (c) 2018-2021 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -71,6 +71,8 @@ void hwaccel_state_reset(struct hw_accel_state *hwaccel){
         hwaccel_state_init(hwaccel);
 }
 
+#ifdef HWACC_COMMON_IMPL
+
 int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref){
         const char *device_paths[] = { NULL, "/dev/dri/renderD128" };
 
@@ -126,3 +128,4 @@ void transfer_frame(struct hw_accel_state *s, AVFrame *frame){
         av_frame_unref(frame);
         av_frame_move_ref(frame, s->tmp_frame);
 }
+#endif
