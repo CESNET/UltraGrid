@@ -5,6 +5,7 @@ config.h
 config.h.in
 config.sub
 *.o
+*.P
 *.lo
 *.txt
 *.mp4
