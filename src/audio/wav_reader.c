@@ -131,6 +131,16 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t 
         return WAV_HDR_PARSE_OK;
 }
 
+static _Bool is_member(const char *needle, const char **haystack) {
+        while (*haystack != NULL) {
+                if (strncmp(needle, *haystack, 4) == 0) {
+                        return 1;
+                }
+                haystack++;
+        }
+        return 0;
+}
+
 #define CHECK(cmd, retval) if (cmd == -1) return retval;
 int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
 {
@@ -185,15 +195,11 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                         if (rc != WAV_HDR_PARSE_OK) {
                                 return rc;
                         }
-                } else if (strncmp(buffer, "LIST", 4) == 0) {
-                        log_msg(LOG_LEVEL_DEBUG, "[WAV] Skipping LIST chunk.\n");
+                } else { // other tags
+                        const char *known_tags[] = { "JUNK", "LIST", "id3 ", NULL }; // "olym" ?
+                        int level = is_member(buffer, known_tags) ? LOG_LEVEL_VERBOSE : LOG_LEVEL_WARNING;
+                        log_msg(level, "[WAV] Skipping chunk \"%4s\" sized %" PRIu32 " B!\n", buffer, chunk_size);
                         CHECK(fseek(wav_file, chunk_size, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
-                } else if (strncmp(buffer, "JUNK", 4) == 0) {
-                        log_msg(LOG_LEVEL_DEBUG, "[WAV] Skipping JUNK chunk.\n");
-                        CHECK(fseek(wav_file, chunk_size, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "[WAV] Unknown chunk \"%4s\" found!\n", buffer);
-                        return WAV_HDR_PARSE_WRONG_FORMAT;
                 }
         }
 
