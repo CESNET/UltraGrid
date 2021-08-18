@@ -41,7 +41,7 @@ update_nasm() {
 
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
 FFMPEG_BUILD_DEP=`apt-cache showsrc ffmpeg | grep Build-Depends: | sed 's/Build-Depends://' | tr ',' '\n' |cut -f 2 -d\  | grep -v libzmq3-dev`
-sudo apt install $FFMPEG_BUILD_DEP
+sudo apt install $FFMPEG_BUILD_DEP libdav1d-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
 update_nasm
 sudo apt --no-install-recommends install asciidoc xmlto

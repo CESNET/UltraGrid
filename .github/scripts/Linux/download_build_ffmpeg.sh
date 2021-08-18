@@ -37,6 +37,7 @@ for n in $GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches/*patch; do
         git apply $n
 done
 ./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame --enable-libsvthevc --enable-libsvtav1 \
+        --enable-libdav1d \
         --enable-librav1e \
         --enable-libsvtvp9 \
 
