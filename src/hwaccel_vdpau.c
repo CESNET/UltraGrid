@@ -61,7 +61,7 @@ static bool is_emulated(VdpDevice dev, VdpGetProcAddress *get_proc_address){
 
         VdpGetInformationString *get_info_str;
         st = get_proc_address(dev, VDP_FUNC_ID_GET_INFORMATION_STRING,
-                        &get_info_str);
+                        (void **) &get_info_str);
 
         if(st != VDP_STATUS_OK){
                 error_msg("Error loading vdpau function getInformationString\n");
