@@ -281,12 +281,15 @@ struct state_audio * audio_cfg_init(struct module *parent,
 
         if (opt->echo_cancellation) {
 #ifdef HAVE_SPEEXDSP
-                //s->echo_state = echo_cancellation_init();
+#if 1
+                s->echo_state = echo_cancellation_init();
+#else
                 fprintf(stderr, "Echo cancellation is currently broken "
                                 "in UltraGrid.\nPlease write to %s "
                                 "if you wish to use this feature.\n",
                                 PACKAGE_BUGREPORT);
                 goto error;
+#endif
 #else
                 fprintf(stderr, "Speex not compiled in. Could not enable echo cancellation.\n");
                 delete s;

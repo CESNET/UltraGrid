@@ -1,6 +1,7 @@
 /**
  * @file   audio/echo.c
  * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
  * Copyright (c) 2012-2021 CESNET z.s.p.o.
@@ -57,11 +58,13 @@
 struct echo_cancellation {
         SpeexEchoState *echo_state;
 
-        char *near_end_residual;
-        int near_end_residual_size;
-        ring_buffer_t *far_end;
+        ring_buffer_t *near_end_ringbuf;
+        ring_buffer_t *far_end_ringbuf;
 
         struct audio_frame frame;
+
+        bool drop_near;
+        int overfill;
 
         pthread_mutex_t lock;
 };
@@ -75,22 +78,16 @@ static void reconfigure_echo (struct echo_cancellation *s, int sample_rate, int 
         s->frame.bps = 2;
         s->frame.ch_count = 1;
         s->frame.sample_rate = sample_rate;
-        s->frame.max_size = s->frame.data_len = 0;
-        free(s->frame.data);
-        s->frame.data = NULL;
 
-        free(s->near_end_residual);
-        ring_buffer_destroy(s->far_end);
-        s->near_end_residual = NULL;
-        s->near_end_residual_size = 0;
-        s->far_end = ring_buffer_init(sample_rate * 2 / 2); // 0.5 sec
+        ring_buffer_flush(s->far_end_ringbuf);
+        ring_buffer_flush(s->near_end_ringbuf);
 
         speex_echo_ctl(s->echo_state, SPEEX_ECHO_SET_SAMPLING_RATE, &sample_rate); // should the 3rd parameter be int?
 }
 
 struct echo_cancellation * echo_cancellation_init(void)
 {
-        struct echo_cancellation *s = (struct echo_cancellation *) malloc(sizeof(struct echo_cancellation));
+        struct echo_cancellation *s = (struct echo_cancellation *) calloc(1, sizeof(struct echo_cancellation));
 
         s->echo_state = speex_echo_state_init(SAMPLES_PER_FRAME, FILTER_LENGTH);
 
@@ -98,7 +95,19 @@ struct echo_cancellation * echo_cancellation_init(void)
         s->frame.sample_rate = s->frame.bps = 0;
         pthread_mutex_init(&s->lock, NULL);
 
+        const int ringbuf_sample_count = 2 << 15;
+        const int bps = 2; //TODO: assuming bps to be 2
+
+        s->far_end_ringbuf = ring_buffer_init(ringbuf_sample_count * bps);
+        s->near_end_ringbuf = ring_buffer_init(ringbuf_sample_count * bps);
+
+        s->frame.data = malloc(ringbuf_sample_count * bps);
+        s->frame.max_size = ringbuf_sample_count * bps;
+
         printf("Echo cancellation initialized.\n");
+
+        s->drop_near = true;
+        s->overfill = 3000;
 
         return s;
 }
@@ -108,8 +117,9 @@ void echo_cancellation_destroy(struct echo_cancellation *s)
         if(s->echo_state) {
                 speex_echo_state_destroy(s->echo_state);  
         }
-        ring_buffer_destroy(s->far_end);
-        free(s->near_end_residual);
+        ring_buffer_destroy(s->near_end_ringbuf);
+        ring_buffer_destroy(s->far_end_ringbuf);
+        free(s->frame.data);
 
         pthread_mutex_destroy(&s->lock);
 
@@ -119,11 +129,6 @@ void echo_cancellation_destroy(struct echo_cancellation *s)
 void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
 {
         pthread_mutex_lock(&s->lock);
-
-        if(!s->far_end) { // near end hasn't initialized yet
-                pthread_mutex_unlock(&s->lock);
-                return;
-        }
 
         if(frame->ch_count != 1) {
                 static int prints = 0;
@@ -135,15 +140,37 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
                 return;
         }
 
-        if(frame->bps != 2) {
-                char *tmp = malloc(frame->data_len / frame->bps * 2);
-                change_bps(tmp, 2, frame->data, frame->bps, frame->data_len/* bytes */);
-                ring_buffer_write(s->far_end, tmp, frame->data_len / frame->bps * 2);
-                free(tmp);
-        } else {
-                ring_buffer_write(s->far_end, frame->data, frame->data_len);
+        size_t samples = frame->data_len / frame->bps;
+        size_t ringbuf_free_samples = ring_get_available_write_size(s->far_end_ringbuf) / 2;
+
+        if(samples > ringbuf_free_samples){
+                samples = ringbuf_free_samples;
+                log_msg(LOG_LEVEL_WARNING, "Far end ringbuf overflow!\n");
         }
 
+
+        if(frame->bps != 2) {
+                char *tmp = malloc(samples * 2);
+                change_bps(tmp, 2, frame->data, frame->bps, frame->data_len/* bytes */);
+
+                ring_buffer_write(s->far_end_ringbuf, tmp, samples * 2);
+
+                free(tmp);
+        } else {
+                ring_buffer_write(s->far_end_ringbuf, frame->data, samples * 2);
+        }
+
+        if(s->drop_near){
+                printf("Dropping near end buffer\n");
+                ring_buffer_flush(s->near_end_ringbuf);
+                s->drop_near = false;
+        }
+
+        if(s->overfill){
+                int to_fill = s->overfill > samples ? samples : s->overfill;
+                ring_buffer_write(s->far_end_ringbuf, frame->data, to_fill * 2);
+                s->overfill -= to_fill;
+        }
 
         pthread_mutex_unlock(&s->lock);
 }
@@ -182,71 +209,53 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 data = frame->data;
                 data_len = frame->data_len;
         }
+
+        size_t samples = data_len / 2;
+        size_t ringbuf_free_samples = ring_get_available_write_size(s->near_end_ringbuf) / 2;
         
-        const int chunk_size = SAMPLES_PER_FRAME * 2 /* BPS */;
-        const int rounded_data_len = (s->near_end_residual_size + data_len) / chunk_size * chunk_size;
-
-        if(rounded_data_len) {
-                char *data_to_write = malloc(rounded_data_len);
-                char *far_end_tmp = malloc(chunk_size);
-
-                memcpy(data_to_write, s->near_end_residual, s->near_end_residual_size);
-                memcpy(data_to_write + s->near_end_residual_size, 
-                                data,
-                                rounded_data_len - s->near_end_residual_size);
-
-                free(s->near_end_residual);
-                s->near_end_residual_size = data_len + s->near_end_residual_size - rounded_data_len;
-                s->near_end_residual = malloc(s->near_end_residual_size);
-                memcpy(s->near_end_residual, data + data_len - s->near_end_residual_size, s->near_end_residual_size);
-
-                free(s->frame.data);
-                s->frame.data = malloc(rounded_data_len);
-                s->frame.max_size = rounded_data_len;
-                s->frame.data_len = 0;
-
-                const spx_int16_t *near_ptr = (spx_int16_t *)(void *) data_to_write;
-                spx_int16_t *out_ptr = (spx_int16_t *)(void *) s->frame.data;
-
-                int read_len_far;
-                read_len_far = ring_buffer_read(s->far_end, far_end_tmp, chunk_size);
-                while((read_len_far == chunk_size) && s->frame.data_len < rounded_data_len)  {
-                        speex_echo_cancellation(s->echo_state, near_ptr,
-                                        (spx_int16_t *)(void *) far_end_tmp,
-                                        out_ptr);
-
-                        read_len_far = ring_buffer_read(s->far_end, far_end_tmp, chunk_size);
-                        near_ptr += chunk_size;
-                        out_ptr += chunk_size;
-                        s->frame.data_len += chunk_size;
-                }
-               
-                if(s->frame.data_len < rounded_data_len) {
-                        memcpy(out_ptr, near_ptr, rounded_data_len - s->frame.data_len);
-                }
-
-                free(data_to_write);
-                free(far_end_tmp);
-
-                s->frame.data_len = rounded_data_len;
-
-                res = &s->frame;
-        } else {
-                if(!s->near_end_residual) {
-                        s->near_end_residual_size = frame->data_len;
-                        s->near_end_residual = malloc(frame->data_len);
-                        memcpy(s->near_end_residual, frame->data, frame->data_len);
-                } else {
-                        s->near_end_residual_size += frame->data_len;
-                        s->near_end_residual = realloc(s->near_end_residual, s->near_end_residual_size);
-                        memcpy(s->near_end_residual + (s->near_end_residual_size - frame->data_len),
-                                        frame->data, frame->data_len);
-                }
-
-                res = NULL;
+        if(samples > ringbuf_free_samples){
+                samples = ringbuf_free_samples;
+                log_msg(LOG_LEVEL_WARNING, "Near end ringbuf overflow\n");
         }
 
+        ring_buffer_write(s->near_end_ringbuf, data, samples * 2);
+
         free(tmp);
+
+
+        size_t near_end_samples = ring_get_current_size(s->near_end_ringbuf) / 2;
+        size_t far_end_samples = ring_get_current_size(s->far_end_ringbuf) / 2;
+        size_t available_samples = (near_end_samples > far_end_samples) ? far_end_samples : near_end_samples;
+
+        if(true || available_samples < near_end_samples){
+                printf("Limited by far end (%lu near, %lu far)\n", near_end_samples, far_end_samples);
+        }
+
+        size_t frames_to_process = available_samples / SAMPLES_PER_FRAME;
+        if(!frames_to_process){
+                pthread_mutex_unlock(&s->lock);
+                return NULL;
+        }
+
+        size_t out_size = frames_to_process * SAMPLES_PER_FRAME * 2;
+        assert(s->frame.max_size >= out_size);
+        s->frame.data_len = out_size;
+
+        res = &s->frame;
+
+        spx_int16_t *out_ptr = (spx_int16_t *)(void *) s->frame.data;
+        for(size_t i = 0; i < frames_to_process; i++){
+                spx_int16_t near_arr[SAMPLES_PER_FRAME];
+                spx_int16_t far_arr[SAMPLES_PER_FRAME];
+
+                ring_buffer_read(s->near_end_ringbuf, near_arr, SAMPLES_PER_FRAME * 2);
+                ring_buffer_read(s->far_end_ringbuf, far_arr, SAMPLES_PER_FRAME * 2);
+                available_samples -= SAMPLES_PER_FRAME;
+
+                speex_echo_cancellation(s->echo_state, near_arr, far_arr, out_ptr); 
+
+                out_ptr += SAMPLES_PER_FRAME;
+        }
 
         pthread_mutex_unlock(&s->lock);
 
