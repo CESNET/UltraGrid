@@ -333,8 +333,9 @@ static void usage() {
                         "[:subsampling=<subsampling>][:gop=<gop>]"
                         "[:disable_intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n" <<
                         style::reset;
-        cout << style::bold << "\t\t<encoder>" << style::reset << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
-        cout << style::bold << "\t\t<codec_name>" << style::reset << " may be specified codec name (default MJPEG), supported codecs:\n";
+        cout << "\nwhere\n";
+        cout << style::bold << "\t<encoder>" << style::reset << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
+        cout << style::bold << "\t<codec_name>" << style::reset << " may be specified codec name (default MJPEG), supported codecs:\n";
         for (auto && param : codec_params) {
                 enum AVCodecID avID = get_ug_to_av_codec(param.first);
                 if (avID == AV_CODEC_ID_NONE) { // old FFMPEG -> codec id is flushed to 0 in compat
@@ -349,20 +350,20 @@ static void usage() {
                 }
                 print_codec_info(avID, avail + strlen(avail), sizeof avail - strlen(avail));
 
-                cout << "\t\t\t" << style::bold << get_codec_name(param.first) << style::reset << " - " << avail << "\n";
+                cout << "\t\t" << style::bold << get_codec_name(param.first) << style::reset << " - " << avail << "\n";
 
         }
-        cout << style::bold << "\t\tdisable_intra_refresh" << style::reset << " - do not use Periodic Intra Refresh (H.264/H.265)\n";
-        cout << style::bold << "\t\t<bits_per_sec>" << style::reset << " specifies requested bitrate\n"
+        cout << style::bold << "\tdisable_intra_refresh" << style::reset << " - do not use Periodic Intra Refresh (H.264/H.265)\n";
+        cout << style::bold << "\t<bits_per_sec>" << style::reset << " specifies requested bitrate\n"
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
-        cout << style::bold << "\t\t<bits_per_pixel>" << style::reset << " specifies requested bitrate using compressed bits per pixel\n"
+        cout << style::bold << "\t<bits_per_pixel>" << style::reset << " specifies requested bitrate using compressed bits per pixel\n"
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
-        cout << style::bold << "\t\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
-        cout << style::bold << "\t\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
-        cout << style::bold << "\t\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
-        cout << style::bold << "\t\t<gop>" << style::reset << " specifies GOP size\n";
-        cout << style::bold << "\t\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
-        cout << "\tUse '" << style::bold << "-c libavcodec:encoder=<enc>:help" << style::reset << "' to display encoder specific options.\n";
+        cout << style::bold << "\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
+        cout << style::bold << "\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
+        cout << style::bold << "\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
+        cout << style::bold << "\t<gop>" << style::reset << " specifies GOP size\n";
+        cout << style::bold << "\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
+        cout << "\nUse '" << style::bold << "-c libavcodec:encoder=<enc>:help" << style::reset << "' to display encoder specific options.\n";
         cout << "\n";
         cout << "Libavcodec version (linked): " << style::bold << LIBAVCODEC_IDENT << style::reset << "\n";
         const char *swscale = "no";
