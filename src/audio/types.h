@@ -138,8 +138,10 @@ class audio_frame2
 {
 public:
         audio_frame2();
+        audio_frame2(audio_frame2 const &) = delete;
         audio_frame2(audio_frame2 &&) = default;
         explicit audio_frame2(const struct audio_frame *);
+        audio_frame2& operator=(audio_frame2 const &) = delete;
         audio_frame2& operator=(audio_frame2 &&) = default;
         bool operator!() const;
         explicit operator bool() const;
