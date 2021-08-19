@@ -291,7 +291,8 @@ POSTPROCESS_DEPS = \
 # Pattern rule for compiling CUDA files
 %.o: %.cu
 	$(MKDIR_P) $(dir $@)
-	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(INC) -Xcompiler -MD -c $< -o $@
+	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(INC) -c $< -o $@
+	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(INC) -M $< > $*.d
 	$(POSTPROCESS_DEPS)
 %.lib: %.cu
 	$(MKDIR_P) $(dir $@)
