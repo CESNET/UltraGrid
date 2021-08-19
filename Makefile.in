@@ -259,7 +259,7 @@ $(REFLECTOR_TARGET): src/dir-stamp $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS
 
 -include $(DEP_FILES)
 
-GEN_DEPENDENCIES = \
+POSTPROCESS_DEPS = \
 	@cp $*.d $*.P; \
 		sed -e 's/\#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
 		-e '/^$$/ d' -e 's/$$/ :/' < $*.d >> $*.P; \
@@ -268,22 +268,22 @@ GEN_DEPENDENCIES = \
 %.o : %.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 %.o : %.cpp
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 %.o: %.m
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CFLAGS) $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 %.o: %.mm
 	$(MKDIR_P) $(dir $@)
 	$(CXX) -x objective-c++ -std=c++11 $(CXXFLAGS) $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 # Set suffix for CUDA files
 .SUFFIXES: .cu
@@ -292,28 +292,28 @@ GEN_DEPENDENCIES = \
 %.o: %.cu
 	$(MKDIR_P) $(dir $@)
 	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(INC) -Xcompiler -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 %.lib: %.cu
 	$(MKDIR_P) $(dir $@)
 	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(INC) -MD --shared $< -o $*.dll
 	touch $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 src/libavcodec_common.o: src/libavcodec_common.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Ofast $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 src/video_codec.o: src/video_codec.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) -Ofast $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 # Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)
 ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) -Isrc/cuda_wrapper -DEXPORT_DLL_SYMBOLS $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 src/zfec.o: @ZFEC_PREFIX@/fec.c
 	$(MKDIR_P) $(dir $@)
@@ -473,15 +473,15 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 src/shared_mem_frame.o: $(srcdir)/src/shared_mem_frame.cpp
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 src/video_display/preview.o: $(srcdir)/src/video_display/preview.cpp
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -MD -c  $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 src/capture_filter/preview.o: $(srcdir)/src/capture_filter/preview.cpp
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -MD -c $< -o $@
-	$(GEN_DEPENDENCIES)
+	$(POSTPROCESS_DEPS)
 
 $(GUI_TARGET): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
 	$(MKDIR_P) $(dir $@)
