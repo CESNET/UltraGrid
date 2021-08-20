@@ -164,7 +164,7 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
         if(tx->sent_frames >= 100) {
                 if(tx->fec_scheme == FEC_LDGM && tx->max_loss > 0.0) {
                         if(abs(tx->avg_len_last - tx->avg_len) > tx->avg_len / 3) {
-                                int data_len = tx->mtu -  (40 + (sizeof(fec_video_payload_hdr_t)));
+                                int data_len = tx->mtu -  (40 + (sizeof(fec_payload_hdr_t)));
                                 data_len = (data_len / 48) * 48;
                                 //void *fec_state_old = tx->fec_state;
 
@@ -587,10 +587,10 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 if (frame->fec_params.type != FEC_NONE) {
                         video_hdr = tmp_hdr;
                         fec_hdr = rtp_hdr;
-                        encryption_hdr = rtp_hdr + sizeof(fec_video_payload_hdr_t)/sizeof(uint32_t);
-                        rtp_hdr_len += sizeof(fec_video_payload_hdr_t);
+                        encryption_hdr = rtp_hdr + sizeof(fec_payload_hdr_t)/sizeof(uint32_t);
+                        rtp_hdr_len += sizeof(fec_payload_hdr_t);
                         pt = fec_pt_from_fec_type(frame->fec_params.type, true);
-                        hdrs_len += (sizeof(fec_video_payload_hdr_t));
+                        hdrs_len += (sizeof(fec_payload_hdr_t));
                 } else {
                         video_hdr = rtp_hdr;
                         encryption_hdr = rtp_hdr + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
@@ -605,9 +605,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 if (frame->fec_params.type != FEC_NONE) {
                         video_hdr = tmp_hdr;
                         fec_hdr = rtp_hdr;
-                        rtp_hdr_len = sizeof(fec_video_payload_hdr_t);
+                        rtp_hdr_len = sizeof(fec_payload_hdr_t);
                         pt = fec_pt_from_fec_type(frame->fec_params.type, false);
-                        hdrs_len += (sizeof(fec_video_payload_hdr_t));
+                        hdrs_len += (sizeof(fec_payload_hdr_t));
                 } else {
                         video_hdr = rtp_hdr;
                         rtp_hdr_len = sizeof(video_payload_hdr_t);
@@ -729,7 +729,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                 data_len = tx->enc_funcs->encrypt(tx->encryption,
                                                 data, data_len,
                                                 (char *) rtp_hdr_packet,
-                                                frame->fec_params.type != FEC_NONE ? sizeof(fec_video_payload_hdr_t) :
+                                                frame->fec_params.type != FEC_NONE ? sizeof(fec_payload_hdr_t) :
                                                 sizeof(video_payload_hdr_t),
                                                 encrypted_data);
                                 data = encrypted_data;

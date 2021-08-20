@@ -116,7 +116,7 @@ typedef uint32_t video_payload_hdr_t[6];
 typedef uint32_t audio_payload_hdr_t[5];
 
 /*
- * FEC video payload
+ * FEC payload
  *
  * 1st word
  * bits 0 - 9 substream
@@ -136,7 +136,7 @@ typedef uint32_t audio_payload_hdr_t[5];
  * 5th word
  * bits 0 - 31 LDGM random generator seed
  */
-typedef uint32_t fec_video_payload_hdr_t[5];
+typedef uint32_t fec_payload_hdr_t[5];
 
 /*
  * Crypto video payload

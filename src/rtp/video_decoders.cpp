@@ -1596,14 +1596,14 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         break;
                 case PT_VIDEO_RS:
                 case PT_VIDEO_LDGM:
-                        len = pckt->data_len - sizeof(fec_video_payload_hdr_t);
-                        data = (char *) hdr + sizeof(fec_video_payload_hdr_t);
+                        len = pckt->data_len - sizeof(fec_payload_hdr_t);
+                        data = (char *) hdr + sizeof(fec_payload_hdr_t);
                         break;
                 case PT_ENCRYPT_VIDEO:
                 case PT_ENCRYPT_VIDEO_LDGM:
                 case PT_ENCRYPT_VIDEO_RS:
                         {
-				size_t media_hdr_len = pt == PT_ENCRYPT_VIDEO ? sizeof(video_payload_hdr_t) : sizeof(fec_video_payload_hdr_t);
+				size_t media_hdr_len = pt == PT_ENCRYPT_VIDEO ? sizeof(video_payload_hdr_t) : sizeof(fec_payload_hdr_t);
                                 len = pckt->data_len - sizeof(crypto_payload_hdr_t) - media_hdr_len;
 				data = (char *) hdr + sizeof(crypto_payload_hdr_t) + media_hdr_len;
                                 uint32_t crypto_hdr = ntohl(*(uint32_t *)((char *) hdr + media_hdr_len));
@@ -1650,7 +1650,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         if((data_len = decoder->dec_funcs->decrypt(decoder->decrypt,
                                         data, len,
                                         (char *) hdr, pt == PT_ENCRYPT_VIDEO ?
-                                        sizeof(video_payload_hdr_t) : sizeof(fec_video_payload_hdr_t),
+                                        sizeof(video_payload_hdr_t) : sizeof(fec_payload_hdr_t),
                                         plaintext, crypto_mode)) == 0) {
                                 log_msg(LOG_LEVEL_VERBOSE, "Warning: Packet dropped AES - wrong CRC!\n");
                                 goto next_packet;
