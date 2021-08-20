@@ -130,7 +130,7 @@ int fec::pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type,
         if (media_type == TX_MEDIA_VIDEO) {
                 switch (fec_type) {
                 case FEC_NONE:
-                        return encrypted ? PT_VIDEO_LDGM : PT_VIDEO;
+                        return encrypted ? PT_ENCRYPT_VIDEO : PT_VIDEO;
                 case FEC_LDGM:
                         return encrypted ? PT_ENCRYPT_VIDEO_LDGM : PT_VIDEO_LDGM;
                 case FEC_RS:
