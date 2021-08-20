@@ -541,9 +541,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         uint32_t rtp_hdr[100];
         int rtp_hdr_len;
-        uint32_t tmp_hdr[100];
-        uint32_t *video_hdr;
-        uint32_t *fec_hdr;
         int pt;            /* A value specified in our packet format */
         char *data;
         unsigned int pos;
@@ -580,40 +577,31 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         m = 0;
         pos = 0;
 
-        if (tx->encryption) {
-                uint32_t *encryption_hdr;
-                rtp_hdr_len = sizeof(crypto_payload_hdr_t);
+        pt = fec_pt_from_fec_type(frame->fec_params.type, tx->encryption);
 
-                if (frame->fec_params.type != FEC_NONE) {
-                        video_hdr = tmp_hdr;
-                        fec_hdr = rtp_hdr;
-                        encryption_hdr = rtp_hdr + sizeof(fec_payload_hdr_t)/sizeof(uint32_t);
-                        rtp_hdr_len += sizeof(fec_payload_hdr_t);
-                        pt = fec_pt_from_fec_type(frame->fec_params.type, true);
-                        hdrs_len += (sizeof(fec_payload_hdr_t));
-                } else {
-                        video_hdr = rtp_hdr;
-                        encryption_hdr = rtp_hdr + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
-                        rtp_hdr_len += sizeof(video_payload_hdr_t);
-                        pt = PT_ENCRYPT_VIDEO;
-                        hdrs_len += (sizeof(video_payload_hdr_t));
-                }
-
-                encryption_hdr[0] = htonl(DEFAULT_CIPHER_MODE << 24);
-                hdrs_len += sizeof(crypto_payload_hdr_t) + tx->enc_funcs->get_overhead(tx->encryption);
+        if (frame->fec_params.type == FEC_NONE) {
+                hdrs_len += (sizeof(video_payload_hdr_t));
+                rtp_hdr_len = sizeof(video_payload_hdr_t);
+                format_video_header(frame, substream, tx->buffer, rtp_hdr);
         } else {
-                if (frame->fec_params.type != FEC_NONE) {
-                        video_hdr = tmp_hdr;
-                        fec_hdr = rtp_hdr;
-                        rtp_hdr_len = sizeof(fec_payload_hdr_t);
-                        pt = fec_pt_from_fec_type(frame->fec_params.type, false);
-                        hdrs_len += (sizeof(fec_payload_hdr_t));
-                } else {
-                        video_hdr = rtp_hdr;
-                        rtp_hdr_len = sizeof(video_payload_hdr_t);
-                        pt = PT_VIDEO;
-                        hdrs_len += (sizeof(video_payload_hdr_t));
-                }
+                hdrs_len += (sizeof(fec_payload_hdr_t));
+                rtp_hdr_len = sizeof(fec_payload_hdr_t);
+                tmp = substream << 22;
+                tmp |= 0x3fffff & tx->buffer;
+                // see definition in rtp_callback.h
+                rtp_hdr[0] = htonl(tmp);
+                rtp_hdr[2] = htonl(tile->data_len);
+                rtp_hdr[3] = htonl(
+                             frame->fec_params.k << 19 |
+                             frame->fec_params.m << 6 |
+                             frame->fec_params.c);
+                rtp_hdr[4] = htonl(frame->fec_params.seed);
+        }
+
+        if (tx->encryption) {
+                hdrs_len += sizeof(crypto_payload_hdr_t) + tx->enc_funcs->get_overhead(tx->encryption);
+                rtp_hdr[rtp_hdr_len / sizeof(uint32_t)] = htonl(DEFAULT_CIPHER_MODE << 24);
+                rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
         if (frame->fec_params.type != FEC_NONE) {
@@ -629,21 +617,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         }
                         status_printed = true;
                 }
-        }
-
-        format_video_header(frame, substream, tx->buffer, video_hdr);
-
-        if (frame->fec_params.type != FEC_NONE) {
-                tmp = substream << 22;
-                tmp |= 0x3fffff & tx->buffer;
-                // see definition in rtp_callback.h
-                fec_hdr[0] = htonl(tmp);
-                fec_hdr[2] = htonl(tile->data_len);
-                fec_hdr[3] = htonl(
-                                frame->fec_params.k << 19 |
-                                frame->fec_params.m << 6 |
-                                frame->fec_params.c);
-                fec_hdr[4] = htonl(frame->fec_params.seed);
         }
 
         int fec_symbol_offset = 0;
