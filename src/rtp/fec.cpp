@@ -125,16 +125,20 @@ fec *fec::create_from_desc(struct fec_desc desc) noexcept
 
 }
 
-int fec::pt_from_fec_type(enum fec_type type, bool encrypted) throw()
+int fec::pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted) throw()
 {
-        switch (type) {
-        case FEC_NONE:
-                return encrypted ? PT_VIDEO_LDGM : PT_VIDEO;
-        case FEC_LDGM:
-                return encrypted ? PT_ENCRYPT_VIDEO_LDGM : PT_VIDEO_LDGM;
-        case FEC_RS:
-                return encrypted ? PT_ENCRYPT_VIDEO_RS : PT_VIDEO_RS;
-        default:
+        if (media_type == TX_MEDIA_VIDEO) {
+                switch (fec_type) {
+                case FEC_NONE:
+                        return encrypted ? PT_VIDEO_LDGM : PT_VIDEO;
+                case FEC_LDGM:
+                        return encrypted ? PT_ENCRYPT_VIDEO_LDGM : PT_VIDEO_LDGM;
+                case FEC_RS:
+                        return encrypted ? PT_ENCRYPT_VIDEO_RS : PT_VIDEO_RS;
+                default:
+                        abort();
+                }
+        } else {
                 abort();
         }
 }
@@ -157,8 +161,8 @@ enum fec_type fec::fec_type_from_pt(int pt) throw()
 }
 
 
-int fec_pt_from_fec_type(enum fec_type type, bool encrypted)
+int fec_pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted)
 {
-        return fec::pt_from_fec_type(type, encrypted);
+        return fec::pt_from_fec_type(media_type, fec_type, encrypted);
 }
 

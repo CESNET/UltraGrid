@@ -61,7 +61,7 @@ struct fec {
 
         static fec *create_from_config(const char *str) noexcept;
         static fec *create_from_desc(struct fec_desc) noexcept;
-        static int pt_from_fec_type(enum fec_type type, bool encrypted) throw();
+        static int pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted) throw();
         static enum fec_type fec_type_from_pt(int pt) throw();
 };
 #endif // __cplusplus
@@ -69,7 +69,7 @@ struct fec {
 #ifdef __cplusplus
 extern "C" {
 #endif
-int fec_pt_from_fec_type(enum fec_type type, bool encrypted);
+int fec_pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type, bool encrypted);
 #ifdef __cplusplus
 }
 #endif

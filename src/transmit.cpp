@@ -577,7 +577,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         m = 0;
         pos = 0;
 
-        pt = fec_pt_from_fec_type(frame->fec_params.type, tx->encryption);
+        pt = fec_pt_from_fec_type(TX_MEDIA_VIDEO, frame->fec_params.type, tx->encryption);
 
         if (frame->fec_params.type == FEC_NONE) {
                 hdrs_len += (sizeof(video_payload_hdr_t));
