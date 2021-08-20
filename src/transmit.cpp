@@ -543,6 +543,25 @@ static inline int get_data_len(bool with_fec, int mtu, int hdrs_len,
         return data_len;
 }
 
+static inline void check_symbol_size(int fec_symbol_size, int payload_len)
+{
+        thread_local static bool status_printed = false;
+
+        if (status_printed) {
+                return;
+        }
+
+        if (fec_symbol_size > payload_len) {
+                LOG(LOG_LEVEL_WARNING) << "Warning: FEC symbol size exceeds payload size! "
+                                "FEC symbol size: " << fec_symbol_size << "\n";
+        } else {
+                LOG(LOG_LEVEL_INFO) << "FEC symbol size: " << fec_symbol_size << ", symbols per packet: " <<
+                                payload_len / fec_symbol_size << ", payload size: " <<
+                                payload_len / fec_symbol_size * fec_symbol_size << "\n";
+        }
+        status_printed = true;
+}
+
 static void
 tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
@@ -624,18 +643,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         if (frame->fec_params.type != FEC_NONE) {
-                static bool status_printed = false;
-                if (!status_printed) {
-                        if (fec_symbol_size > tx->mtu - hdrs_len) {
-                                fprintf(stderr, "Warning: FEC symbol size exceeds payload size! "
-                                                "FEC symbol size: %d\n", fec_symbol_size);
-                        } else {
-                                printf("FEC symbol size: %d, symbols per packet: %d, payload size: %d\n",
-                                                fec_symbol_size, (tx->mtu - hdrs_len) / fec_symbol_size,
-                                                (tx->mtu - hdrs_len) / fec_symbol_size * fec_symbol_size);
-                        }
-                        status_printed = true;
-                }
+                check_symbol_size(fec_symbol_size, tx->mtu - hdrs_len);
         }
 
         int fec_symbol_offset = 0;
