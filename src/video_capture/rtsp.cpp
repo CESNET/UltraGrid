@@ -503,7 +503,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     int i = 0;
     const size_t uri_len = 1024;
     s->uri = (char *) malloc(uri_len);
-    strcpy(s->uri, "rtsp:");
+    strcpy(s->uri, "rtsp://");
 
     s->vrtsp_state->tile = vf_get_tile(s->vrtsp_state->frame, 0);
     s->vrtsp_state->tile->width = DEFAULT_VIDEO_FRAME_WIDTH/2;
@@ -1103,7 +1103,9 @@ vidcap_rtsp_done(void *state) {
     if(s->vrtsp_state->decompress)
         decompress_done(s->vrtsp_state->sd);
 
-    rtp_done(s->vrtsp_state->device);
+    if (s->vrtsp_state->device != nullptr) {
+        rtp_done(s->vrtsp_state->device);
+    }
 
     free(s->vrtsp_state->tile->data);
     if(s->vrtsp_state->h264_offset_buffer!=NULL) free(s->vrtsp_state->h264_offset_buffer);
