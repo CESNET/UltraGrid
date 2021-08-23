@@ -1247,6 +1247,14 @@ int main(int argc, char *argv[])
 
         struct ug_nat_traverse *nat_traverse = nullptr;
 
+#ifndef WIN32
+        signal(SIGQUIT, crash_signal_handler);
+#endif
+        signal(SIGABRT, crash_signal_handler);
+        signal(SIGFPE, crash_signal_handler);
+        signal(SIGILL, crash_signal_handler);
+        signal(SIGSEGV, crash_signal_handler);
+
         if ((init = common_preinit(argc, argv)) == nullptr) {
                 log_msg(LOG_LEVEL_FATAL, "common_preinit() failed!\n");
                 EXIT(EXIT_FAILURE);
@@ -1360,12 +1368,7 @@ int main(int argc, char *argv[])
         signal(SIGTERM, signal_handler);
 #ifndef WIN32
         signal(SIGHUP, signal_handler);
-        signal(SIGQUIT, crash_signal_handler);
 #endif
-        signal(SIGABRT, crash_signal_handler);
-        signal(SIGFPE, crash_signal_handler);
-        signal(SIGILL, crash_signal_handler);
-        signal(SIGSEGV, crash_signal_handler);
 
 #ifdef USE_RT
 #ifdef HAVE_SCHED_SETSCHEDULER
