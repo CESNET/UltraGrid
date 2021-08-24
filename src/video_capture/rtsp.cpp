@@ -781,6 +781,8 @@ error:
     return -1;
 }
 
+#define LEN 10
+
 bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     struct rtsp_state *rtspState;
     rtspState = (struct rtsp_state *) state;
@@ -790,13 +792,8 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     char* tmpBuff;
     int countT = 0;
     int countC = 0;
-    const size_t len = 10;
-    char* codecs[2];
-    char* tracks[2];
-    for(int q=0; q<2 ; q++){
-        codecs[q] = (char*) malloc(len);
-        tracks[q] = (char*) malloc(len);
-    }
+    char codecs[2][LEN] = { 0 };
+    char tracks[2][LEN] = { 0 };
 
     fseek(sdp_file, 0, SEEK_END);
     long fileSize = ftell(sdp_file);
@@ -825,8 +822,8 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
         if(tmpBuff!=NULL){
             if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
                 //debug_msg("track = %s\n",tmpBuff);
-                strncpy(tracks[countT],tmpBuff,MIN(strlen(tmpBuff)-2, len-1));
-                tracks[countT][MIN(strlen(tmpBuff)-2, len-1)] = '\0';
+                strncpy(tracks[countT],tmpBuff,MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1));
+                tracks[countT][MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1)] = '\0';
                 countT++;
             } else {
                 log_msg(LOG_LEVEL_WARNING, "skipping track = %s\n",tmpBuff);
