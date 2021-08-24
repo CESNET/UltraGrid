@@ -1,6 +1,7 @@
 /**
  * @file   utils/ring_buffer.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
  * Copyright (c) 2011-2019 CESNET, z. s. p. o.
@@ -75,6 +76,11 @@ void ring_buffer_flush(struct ring_buffer *ring);
  * Returns actual buffer usage
  */
 int ring_get_current_size(struct ring_buffer * ring);
+
+/**
+ * Returns size available for writing
+ */
+int ring_get_available_write_size(struct ring_buffer * ring);
 
 extern struct audio_buffer_api ring_buffer_fns;
 

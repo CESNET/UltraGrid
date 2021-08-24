@@ -130,6 +130,12 @@ int ring_get_current_size(struct ring_buffer * ring)
         return (ring->end - ring->start + ring->len) % ring->len;
 }
 
+int ring_get_available_write_size(struct ring_buffer * ring){
+        /* Ring buffer needs at least one free byte, otherwise start == end
+         * and the ring would appear empty */
+        return ring_get_size(ring) - ring_get_current_size(ring) - 1;
+}
+
 struct audio_buffer_api ring_buffer_fns = {
         (void (*)(void *)) ring_buffer_destroy,
         (int (*)(void *, char *, int)) ring_buffer_read,
