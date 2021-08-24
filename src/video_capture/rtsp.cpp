@@ -272,7 +272,7 @@ rtsp_keepalive_video(void *state) {
     s = (struct rtsp_state *) state;
     struct timeval now;
     gettimeofday(&now, NULL);
-    if (tv_diff(now, s->vrtsp_state->prev_time) >= 20) {
+    if (tv_diff(now, s->vrtsp_state->prev_time) >= 5) {
         if(rtsp_get_parameters(s->curl, s->uri)==0){
             s->should_exit = TRUE;
             exit_uv(1);
