@@ -435,6 +435,8 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
         }
         s->vrtsp_state->frames++;
         s->vrtsp_state->grab = false;
+    } else {
+        return NULL;
     }
 
     return s->vrtsp_state->frame;
