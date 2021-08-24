@@ -74,6 +74,7 @@
 #include <curl/curl.h>
 #include <chrono>
 
+#define MOD_NAME  "[rtsp] "
 #define VERSION_STR  "V1.0"
 
 //TODO set lower initial video recv buffer size (to find the minimal?)
@@ -239,7 +240,7 @@ struct audio_rtsp_state {
 
 struct rtsp_state {
     CURL *curl;
-    char *uri;
+    char uri[1024];
     rtps_types_t avType;
     const char *addr;
     char *sdp;
@@ -259,11 +260,11 @@ struct rtsp_state {
 static void
 show_help() {
     printf("[rtsp] usage:\n");
-    printf("\t-t rtsp:<uri>:<port>[:<decompress>[:<width>:<height>]]\n");
-    printf("\t\t <uri> RTSP server URI\n");
-    printf("\t\t <port> receiver port number \n");
+    printf("\t-t rtsp:<uri>[:rtp_rx_port=<port>][:decompress][size=<width>x<height>]\n");
+    printf("\t\t <uri> - RTSP server URI\n");
+    printf("\t\t <port> - receiver port number \n");
     printf(
-        "\t\t <decompress> receiver decompress boolean [true|false] - default: false - no decompression active\n\n");
+        "\t\t decompress - decompress the stream (default: disabled)\n\n");
 }
 
 static void
@@ -442,7 +443,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     return s->vrtsp_state->frame;
 }
 
-#define INIT_FAIL(msg) log_msg(LOG_LEVEL_ERROR, msg); \
+#define INIT_FAIL(msg) log_msg(LOG_LEVEL_ERROR, MOD_NAME msg); \
                     free(tmp); \
                     vidcap_rtsp_done(s); \
                     show_help(); \
@@ -496,7 +497,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state->h264_offset_buffer = (unsigned char *) malloc(2048);
     s->vrtsp_state->h264_offset_len = 0;
 
-    s->uri = NULL;
     s->curl = NULL;
     char *fmt = NULL;
 
@@ -511,57 +511,54 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     char *tmp, *item;
     fmt = strdup(vidcap_params_get_fmt(params));
     tmp = fmt;
-    int i = 0;
-    const size_t uri_len = 1024;
-    s->uri = (char *) malloc(uri_len);
     strcpy(s->uri, "rtsp://");
 
     s->vrtsp_state->tile = vf_get_tile(s->vrtsp_state->frame, 0);
     s->vrtsp_state->tile->width = DEFAULT_VIDEO_FRAME_WIDTH/2;
     s->vrtsp_state->tile->height = DEFAULT_VIDEO_FRAME_HEIGHT/2;
 
+    bool in_uri = true;
     while ((item = strtok_r(fmt, ":", &save_ptr))) {
-        switch (i) {
-            case 0:
-                strncat(s->uri, item, uri_len - strlen(s->uri) - 1);
-                item = strtok_r(NULL, ":", &save_ptr);
-                if (item == NULL) {
-                    INIT_FAIL("[rtsp] Missing port number!\n");
-                }
-                strncat(s->uri, ":", uri_len - strlen(s->uri) - 1);
-                strncat(s->uri, item, uri_len - strlen(s->uri) - 1);
-                break;
-            case 1:
-                s->vrtsp_state->port = atoi(item);
-                break;
-            case 2:
-                if (strcmp(item, "true") == 0) {
-                    s->vrtsp_state->decompress = TRUE;
-                } else if (strcmp(item, "false") == 0) {
-                    s->vrtsp_state->decompress = FALSE;
-                } else {
-                    INIT_FAIL("\n[rtsp] Wrong format for boolean decompress flag! \n");
-                }
-                break;
-            case 3:
-                s->vrtsp_state->tile->width = atoi(item);
-                break;
-            case 4:
-                s->vrtsp_state->tile->height = atoi(item);
-                break;
-        }
         fmt = NULL;
-        ++i;
+        bool option_given = true;
+        if (strstr(item, "rtp_rx_port=") == item) {
+            s->vrtsp_state->port = atoi(strchr(item, '=') + 1);
+        } else if (strcmp(item, "decompress") == 0) {
+            s->vrtsp_state->decompress = TRUE;
+        } else if (strstr(item, "size=")) {
+            assert(strchr(item, 'x') != NULL);
+            item = strchr(item, '=') + 1;
+            s->vrtsp_state->tile->width = atoi(item);
+            s->vrtsp_state->tile->height = atoi(strchr(item, 'x') + 1);
+        } else {
+            option_given = false;
+            if (in_uri) {
+                if (strcmp(item, "rtsp") == 0) { // rtsp:
+                    continue;
+                }
+                if (strstr(item, "//") == item) { // rtsp://
+                    item += 2;
+                }
+                if (strcmp(s->uri, "rtsp://") != 0) {
+                    strncat(s->uri, ":", sizeof s->uri - strlen(s->uri) - 1);
+                }
+                strncat(s->uri, item, sizeof s->uri - strlen(s->uri) - 1);
+            } else {
+                INIT_FAIL("Unknown option\n");
+            }
+        }
+        if (option_given) {
+            in_uri = false;
+        }
     }
     free(tmp);
+    tmp = NULL;
 
     //re-check parameters
-    if (i == 0) {
-        printf("\n[rtsp] Not enough parameters!\n");
-        vidcap_rtsp_done(s);
-        show_help();
-        return VIDCAP_INIT_FAIL;
+    if (strcmp(s->uri, "rtsp://") == 0) {
+        INIT_FAIL("No URI given!\n");
     }
+    fprintf(stderr, "%s\n\n\n", s->uri);
 
     s->vrtsp_state->device = rtp_init_if("localhost", s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
         0, rtp_recv_callback, (uint8_t *) s->vrtsp_state->participants, 0, true);
@@ -694,7 +691,6 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     debug_msg("    Project web site: http://code.google.com/p/rtsprequest/\n");
     debug_msg("    Requires cURL V7.20 or greater\n\n");
     const char *url = rtsp_uri;
-    s->uri = (char *) malloc(strlen(url) + 32);
     char *sdp_filename = nullptr;
     char Atransport[256];
     char Vtransport[256];
@@ -719,8 +715,6 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     my_curl_easy_setopt(s->curl, CURLOPT_NOPROGRESS, 1L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_WRITEHEADER, stdout, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_URL, url, goto error);
-
-    sprintf(s->uri, "%s", url);
 
     //TODO TO CHECK CONFIGURING ERRORS
     //CURLOPT_ERRORBUFFER
@@ -1118,7 +1112,7 @@ vidcap_rtsp_done(void *state) {
     pthread_join(s->vrtsp_state->vrtsp_thread_id, NULL);
     pthread_join(s->keep_alive_rtsp_thread_id, NULL);
 
-    if(s->vrtsp_state->decompress)
+    if(s->vrtsp_state->sd)
         decompress_done(s->vrtsp_state->sd);
 
     if (s->vrtsp_state->device != nullptr) {
