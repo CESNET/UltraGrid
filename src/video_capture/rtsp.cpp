@@ -556,11 +556,47 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     free(tmp);
 
     //re-check parameters
-    if (i < 2) {
+    if (i == 0) {
         printf("\n[rtsp] Not enough parameters!\n");
         vidcap_rtsp_done(s);
         show_help();
         return VIDCAP_INIT_FAIL;
+    }
+
+    s->vrtsp_state->device = rtp_init_if("localhost", s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
+        0, rtp_recv_callback, (uint8_t *) s->vrtsp_state->participants, 0, true);
+    if (s->vrtsp_state->device == NULL) {
+        log_msg(LOG_LEVEL_ERROR, "[rtsp] Cannot intialize RTP device!\n");
+        vidcap_rtsp_done(s);
+        return VIDCAP_INIT_FAIL;
+    }
+    if (!rtp_set_option(s->vrtsp_state->device, RTP_OPT_WEAK_VALIDATION, 1)) {
+        debug_msg("[rtsp] RTP INIT - set option\n");
+        return VIDCAP_INIT_FAIL;
+    }
+    if (!rtp_set_sdes(s->vrtsp_state->device, rtp_my_ssrc(s->vrtsp_state->device),
+                RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING))) {
+        debug_msg("[rtsp] RTP INIT - set sdes\n");
+        return VIDCAP_INIT_FAIL;
+    }
+
+    int ret = rtp_set_recv_buf(s->vrtsp_state->device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
+    if (!ret) {
+        debug_msg("[rtsp] RTP INIT - set recv buf \nset command: sudo sysctl -w net.core.rmem_max=9123840\n");
+        return VIDCAP_INIT_FAIL;
+    }
+
+    if (!rtp_set_send_buf(s->vrtsp_state->device, 1024 * 56)) {
+        debug_msg("[rtsp] RTP INIT - set send buf\n");
+        return VIDCAP_INIT_FAIL;
+    }
+    ret=pdb_add(s->vrtsp_state->participants, rtp_my_ssrc(s->vrtsp_state->device));
+
+    debug_msg("[rtsp] rtp receiver init done\n");
+
+    if (s->vrtsp_state->port == 0) {
+        s->vrtsp_state->port = rtp_get_udp_rx_port(s->vrtsp_state->device);
+        assert(s->vrtsp_state->port != 0);
     }
 
     debug_msg("[rtsp] selected flags:\n");
@@ -590,35 +626,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state->frame->tiles[0].data = (char *) calloc(1, s->vrtsp_state->tile->width * s->vrtsp_state->tile->height);
 
     s->should_exit = FALSE;
-
-    s->vrtsp_state->device = rtp_init_if("localhost", s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
-        0, rtp_recv_callback, (uint8_t *) s->vrtsp_state->participants, 0, true);
-
-    if (s->vrtsp_state->device != NULL) {
-        if (!rtp_set_option(s->vrtsp_state->device, RTP_OPT_WEAK_VALIDATION, 1)) {
-            debug_msg("[rtsp] RTP INIT - set option\n");
-            return VIDCAP_INIT_FAIL;
-        }
-        if (!rtp_set_sdes(s->vrtsp_state->device, rtp_my_ssrc(s->vrtsp_state->device),
-            RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING))) {
-            debug_msg("[rtsp] RTP INIT - set sdes\n");
-            return VIDCAP_INIT_FAIL;
-        }
-
-        int ret = rtp_set_recv_buf(s->vrtsp_state->device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
-        if (!ret) {
-            debug_msg("[rtsp] RTP INIT - set recv buf \nset command: sudo sysctl -w net.core.rmem_max=9123840\n");
-            return VIDCAP_INIT_FAIL;
-        }
-
-        if (!rtp_set_send_buf(s->vrtsp_state->device, 1024 * 56)) {
-            debug_msg("[rtsp] RTP INIT - set send buf\n");
-            return VIDCAP_INIT_FAIL;
-        }
-        ret=pdb_add(s->vrtsp_state->participants, rtp_my_ssrc(s->vrtsp_state->device));
-    }
-
-    debug_msg("[rtsp] rtp receiver init done\n");
 
     pthread_mutex_init(&s->vrtsp_state->lock, NULL);
     pthread_cond_init(&s->vrtsp_state->boss_cv, NULL);
