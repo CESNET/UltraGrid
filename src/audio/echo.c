@@ -55,6 +55,8 @@
 #define SAMPLES_PER_FRAME (48 * 10)
 #define FILTER_LENGTH (48 * 500)
 
+#define MOD_NAME "[Echo cancel] "
+
 struct echo_cancellation {
         SpeexEchoState *echo_state;
 
@@ -104,7 +106,7 @@ struct echo_cancellation * echo_cancellation_init(void)
         s->frame.data = malloc(ringbuf_sample_count * bps);
         s->frame.max_size = ringbuf_sample_count * bps;
 
-        printf("Echo cancellation initialized.\n");
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Echo cancellation initialized.\n");
 
         s->drop_near = true;
         s->overfill = 3000;
@@ -133,7 +135,7 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
         if(frame->ch_count != 1) {
                 static int prints = 0;
                 if(prints++ % 100 == 0) {
-                        fprintf(stderr, "Echo cancellation needs 1 played channel. Disabling echo cancellation.\n"
+                        error_msg(MOD_NAME "Echo cancellation needs 1 played channel. Disabling echo cancellation.\n"
                                         "Use channel mapping and let only one channel played to enable this feature.\n");
                 }
                 pthread_mutex_unlock(&s->lock);
@@ -145,7 +147,7 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
 
         if(samples > ringbuf_free_samples){
                 samples = ringbuf_free_samples;
-                log_msg(LOG_LEVEL_WARNING, "Far end ringbuf overflow!\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Far end ringbuf overflow!\n");
         }
 
 
@@ -161,7 +163,7 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
         }
 
         if(s->drop_near){
-                printf("Dropping near end buffer\n");
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Dropping near end buffer\n");
                 ring_buffer_flush(s->near_end_ringbuf);
                 s->drop_near = false;
         }
@@ -184,7 +186,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         if(frame->ch_count != 1) {
                 static int prints = 0;
                 if(prints++ % 100 == 0)
-                        fprintf(stderr, "Echo cancellation needs 1 captured channel. Disabling echo cancellation.\n"
+                        error_msg(MOD_NAME "Echo cancellation needs 1 captured channel. Disabling echo cancellation.\n"
                                         "Use '--audio-capture-channels 1' parameter to capture single channel.\n");
                 pthread_mutex_unlock(&s->lock);
                 return frame;
@@ -215,7 +217,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         
         if(samples > ringbuf_free_samples){
                 samples = ringbuf_free_samples;
-                log_msg(LOG_LEVEL_WARNING, "Near end ringbuf overflow\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Near end ringbuf overflow\n");
         }
 
         ring_buffer_write(s->near_end_ringbuf, data, samples * 2);
@@ -228,7 +230,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         size_t available_samples = (near_end_samples > far_end_samples) ? far_end_samples : near_end_samples;
 
         if(true || available_samples < near_end_samples){
-                printf("Limited by far end (%lu near, %lu far)\n", near_end_samples, far_end_samples);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Limited by far end (%lu near, %lu far)\n", near_end_samples, far_end_samples);
         }
 
         size_t frames_to_process = available_samples / SAMPLES_PER_FRAME;
