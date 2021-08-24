@@ -275,8 +275,7 @@ rtsp_keepalive_video(void *state) {
     if (tv_diff(now, s->vrtsp_state->prev_time) >= 20) {
         if(rtsp_get_parameters(s->curl, s->uri)==0){
             s->should_exit = TRUE;
-            vidcap_rtsp_done(s);
-            exit(0);
+            exit_uv(1);
         }
         gettimeofday(&s->vrtsp_state->prev_time, NULL);
     }
@@ -373,10 +372,14 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
         {
             s->vrtsp_state->grab = true;
 
-            while (!s->vrtsp_state->new_frame) {
+            while (!s->vrtsp_state->new_frame && !s->should_exit) {
                 s->vrtsp_state->boss_waiting = true;
                 pthread_cond_wait(&s->vrtsp_state->boss_cv, &s->vrtsp_state->lock);
                 s->vrtsp_state->boss_waiting = false;
+            }
+
+            if (s->should_exit) {
+                return NULL;
             }
 
             gettimeofday(&s->vrtsp_state->curr_time, NULL);
@@ -436,6 +439,12 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
     return s->vrtsp_state->frame;
 }
+
+#define INIT_FAIL(msg) log_msg(LOG_LEVEL_ERROR, msg); \
+                    free(tmp); \
+                    vidcap_rtsp_done(s); \
+                    show_help(); \
+                    return VIDCAP_INIT_FAIL
 
 static int
 vidcap_rtsp_init(struct vidcap_params *params, void **state) {
@@ -513,10 +522,15 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         switch (i) {
             case 0:
                 strncat(s->uri, item, uri_len - strlen(s->uri) - 1);
-                break;
-            case 1:
+                item = strtok_r(NULL, ":", &save_ptr);
+                if (item == NULL) {
+                    INIT_FAIL("[rtsp] Missing port number!\n");
+                }
                 strncat(s->uri, ":", uri_len - strlen(s->uri) - 1);
                 strncat(s->uri, item, uri_len - strlen(s->uri) - 1);
+                break;
+            case 1:
+                s->vrtsp_state->port = atoi(item);
                 break;
             case 2:
                 if (strcmp(item, "true") == 0) {
@@ -524,11 +538,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
                 } else if (strcmp(item, "false") == 0) {
                     s->vrtsp_state->decompress = FALSE;
                 } else {
-                    printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
-                    free(tmp);
-                    vidcap_rtsp_done(s);
-                    show_help();
-                    return VIDCAP_INIT_FAIL;
+                    INIT_FAIL("\n[rtsp] Wrong format for boolean decompress flag! \n");
                 }
                 break;
             case 3:
@@ -751,7 +761,6 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
 
     debug_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n",s->vrtsp_state->tile->width,s->vrtsp_state->tile->height);
 
-    curl_global_cleanup();
     free(sdp_filename);
     return len_nals;
 
@@ -1117,6 +1126,7 @@ vidcap_rtsp_done(void *state) {
     rtsp_teardown(s->curl, s->uri);
 
     curl_easy_cleanup(s->curl);
+    curl_global_cleanup();
     s->curl = NULL;
 
     free(s);
