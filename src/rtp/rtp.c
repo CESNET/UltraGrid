@@ -4108,3 +4108,8 @@ struct socket_udp_local *rtp_get_udp_local_socket(struct rtp *session)
         return udp_get_local(session->rtp_socket);
 }
 
+int rtp_get_udp_rx_port(struct rtp *session)
+{
+        return udp_get_udp_rx_port(session->rtp_socket);
+}
+

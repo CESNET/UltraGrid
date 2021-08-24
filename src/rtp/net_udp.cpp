@@ -1713,3 +1713,16 @@ struct socket_udp_local *udp_get_local(socket_udp *s)
         return s->local;
 }
 
+int udp_get_udp_rx_port(socket_udp *s)
+{
+        struct sockaddr_storage ss;
+        socklen_t len = sizeof ss;
+        if (getsockname(s->local->rx_fd, (struct sockaddr *) &ss, &len) != 0) {
+                socket_error(__func__);
+                return -1;
+        }
+        assert(ss.ss_family == AF_INET || ss.ss_family == AF_INET6);
+
+        return htons(ss.ss_family == AF_INET ? ((struct sockaddr_in *) &ss)->sin_port : ((struct sockaddr_in6 *) &ss)->sin6_port);
+}
+
