@@ -197,6 +197,8 @@ struct video_rtsp_state {
 
     unsigned int h264_offset_len;
     unsigned char *h264_offset_buffer;
+
+    int pt;
 };
 
 struct audio_rtsp_state {
@@ -291,13 +293,12 @@ keep_alive_thread(void *arg){
 int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *) {
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
-
-    switch(pckt->pt){
-        case PT_DynRTP_Type96:
-            return decode_frame_h264(cdata,decode_data);
-        default:
-            error_msg("Wrong Payload type: %u\n", pckt->pt);
-            return FALSE;
+    struct decode_data_h264 *d = (struct decode_data_h264 *) decode_data;
+    if (pckt->pt == d->video_pt) {
+        return decode_frame_h264(cdata,decode_data);
+    } else {
+        error_msg("Wrong Payload type: %u\n", pckt->pt);
+        return FALSE;
     }
 }
 
@@ -337,6 +338,7 @@ vidcap_rtsp_thread(void *arg) {
                             struct decode_data_h264 d;
                             d.frame = s->vrtsp_state->frame;
                             d.offset_len = s->vrtsp_state->h264_offset_len;
+                            d.video_pt = s->vrtsp_state->pt;
                             if (pbuf_decode(s->vrtsp_state->cp->playout_buffer, curr_time_hr,
                                 decode_frame_by_pt, &d))
                             {
@@ -831,7 +833,8 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
             }
         }
         tmpBuff=NULL;
-        sscanf(line, " a=rtpmap:96 %*s");
+        int pt = 0;
+        sscanf(line, " a=rtpmap:%d %*s", &pt);
         tmpBuff = strstr(line, "H264");
         if(tmpBuff!=NULL){
             if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
@@ -839,6 +842,11 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
                 strncpy(codecs[countC],tmpBuff,4);
                 codecs[countC][4] = '\0';
                 countC++;
+                if (pt == 0) {
+                    log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing video PT for H.264!\n");
+                    return false;
+                }
+                rtspState->vrtsp_state->pt = pt;
             } else {
                 log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
             }
