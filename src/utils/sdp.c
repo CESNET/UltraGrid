@@ -210,9 +210,9 @@ int sdp_add_video(struct sdp *sdp, int port, codec_t codec)
     if (index < 0) {
         return -1;
     }
-    snprintf(sdp->stream[index].media_info, STR_LENGTH, "m=video %d RTP/AVP %d\n", port, codec == H264 ? PT_H264 : PT_JPEG);
+    snprintf(sdp->stream[index].media_info, STR_LENGTH, "m=video %d RTP/AVP %d\n", port, codec == H264 ? PT_DynRTP_Type96 : PT_JPEG);
     if (codec == H264) {
-        snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d H264/90000\n", PT_H264);
+        snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d H264/90000\n", PT_DynRTP_Type96);
     }
     return 0;
 }

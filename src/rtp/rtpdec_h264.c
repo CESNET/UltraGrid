@@ -90,7 +90,7 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
         while (cdata != NULL) {
             pckt = cdata->data;
 
-            if (pckt->pt != PT_H264) {
+            if (pckt->pt != PT_DynRTP_Type96) {
                 error_msg("Wrong Payload type: %u\n", pckt->pt);
                 return FALSE;
             }

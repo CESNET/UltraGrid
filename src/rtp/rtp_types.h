@@ -62,7 +62,7 @@
 #define PT_VIDEO_RS     27
 #define PT_ENCRYPT_VIDEO_LDGM 29
 #define PT_ENCRYPT_VIDEO_RS   30
-#define PT_H264 96
+#define PT_DynRTP_Type96    96 /* usually H.264 */
 #define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
 /*
  * Video payload

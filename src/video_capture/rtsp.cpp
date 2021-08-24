@@ -293,7 +293,7 @@ int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_
     pckt = cdata->data;
 
     switch(pckt->pt){
-        case PT_H264:
+        case PT_DynRTP_Type96:
             return decode_frame_h264(cdata,decode_data);
         default:
             error_msg("Wrong Payload type: %u\n", pckt->pt);
