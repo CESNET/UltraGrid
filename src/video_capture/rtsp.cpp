@@ -108,7 +108,7 @@ rtsp_options(CURL *curl, const char *uri);
 
 /* send RTSP DESCRIBE request and write sdp response to a file */
 static bool
-rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename);
+rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp);
 
 /* send RTSP SETUP request */
 static int
@@ -122,14 +122,10 @@ rtsp_play(CURL *curl, const char *uri, const char *range);
 static int
 rtsp_teardown(CURL *curl, const char *uri);
 
-/* convert url into an sdp filename */
-static char *
-get_sdp_filename(const char *url);
-
 static int
-get_nals(const char *sdp_filename, char *nals, int *width, int *height);
+get_nals(FILE *sdp_file, char *nals, int *width, int *height);
 
-bool setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state);
+bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state);
 
 static int
 init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals);
@@ -691,17 +687,19 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     debug_msg("    Project web site: http://code.google.com/p/rtsprequest/\n");
     debug_msg("    Requires cURL V7.20 or greater\n\n");
     const char *url = rtsp_uri;
-    char *sdp_filename = nullptr;
     char Atransport[256];
     char Vtransport[256];
     memset(Atransport, 0, 256);
     memset(Vtransport, 0, 256);
     int port = rtsp_port;
     CURLcode res;
-
-    if ((sdp_filename = get_sdp_filename(url)) == nullptr) {
-        LOG(LOG_LEVEL_ERROR) << "[RTSP] Cannot SDP file name from URL: " << url << "\n";
-        return -1;
+    FILE *sdp_file = tmpfile();
+    if (sdp_file == NULL) {
+        sdp_file = fopen("rtsp.sdp", "w+");
+        if (sdp_file == NULL) {
+            perror("Creating SDP file");
+            goto error;
+        }
     }
 
     sprintf(Vtransport, "RTP/AVP;unicast;client_port=%d-%d", port, port + 1);
@@ -726,11 +724,20 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     }
 
     /* request session description and write response to sdp file */
-    if (!rtsp_describe(s->curl, s->uri, sdp_filename)) {
+    if (!rtsp_describe(s->curl, s->uri, sdp_file)) {
         goto error;
     }
 
-    if (!setup_codecs_and_controls_from_sdp(sdp_filename, s)) {
+    if (log_level >= LOG_LEVEL_VERBOSE) {
+        fprintf(stderr, "SDP:\n");
+        while (!feof(sdp_file)) {
+            putc(getc(sdp_file), stderr);
+        }
+        rewind(sdp_file);
+        fprintf(stderr, "\n\n");
+    }
+
+    if (!setup_codecs_and_controls_from_sdp(sdp_file, s)) {
         goto error;
     }
     if (strcmp(s->vrtsp_state->codec, "H264") == 0){
@@ -760,19 +767,19 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     }
 
     /* get start nal size attribute from sdp file */
-    len_nals = get_nals(sdp_filename, nals, (int *) &s->vrtsp_state->tile->width, (int *) &s->vrtsp_state->tile->height);
+    len_nals = get_nals(sdp_file, nals, (int *) &s->vrtsp_state->tile->width, (int *) &s->vrtsp_state->tile->height);
 
     debug_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n",s->vrtsp_state->tile->width,s->vrtsp_state->tile->height);
 
-    free(sdp_filename);
+    fclose(sdp_file);
     return len_nals;
 
 error:
-    free(sdp_filename);
+    fclose(sdp_file);
     return -1;
 }
 
-bool setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
+bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     struct rtsp_state *rtspState;
     rtspState = (struct rtsp_state *) state;
 
@@ -789,31 +796,21 @@ bool setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
         tracks[q] = (char*) malloc(len);
     }
 
-    FILE* fp;
-
-    fp = fopen(sdp_filename, "r");
-    if(fp == 0){
-        debug_msg("unable to open asset %s", sdp_filename);
-        free(line);
-        return false;
-    }
-    fseek(fp, 0, SEEK_END);
-    long fileSize = ftell(fp);
+    fseek(sdp_file, 0, SEEK_END);
+    long fileSize = ftell(sdp_file);
     if (fileSize < 0) {
             perror("RTSP ftell");
             free(line);
-            fclose(fp);
             return false;
     }
-    rewind(fp);
+    rewind(sdp_file);
 
     char* buffer = (char*) malloc(fileSize+1);
-    unsigned long readResult = fread(buffer, sizeof(char), fileSize, fp);
+    unsigned long readResult = fread(buffer, sizeof(char), fileSize, sdp_file);
 
     if(readResult != (unsigned long) fileSize){
         debug_msg("something bad happens, read result != file size");
         free(line);
-        fclose(fp);
         free(buffer);
         return false;
     }
@@ -878,7 +875,7 @@ bool setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
     }
     free(line);
     free(buffer);
-    fclose(fp);
+    rewind(sdp_file);
     return true;
 }
 
@@ -979,16 +976,9 @@ rtsp_options(CURL *curl, const char *uri) {
  * send RTSP DESCRIBE request and write sdp response to a file
  */
 static bool
-rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename) {
+rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp) {
     CURLcode res = CURLE_OK;
-    FILE *sdp_fp = fopen(sdp_filename, "wt");
     debug_msg("\n[rtsp] DESCRIBE %s\n", uri);
-    if (sdp_fp == NULL) {
-        fprintf(stderr, "Could not open '%s' for writing\n", sdp_filename);
-        sdp_fp = stdout;
-    } else {
-        debug_msg("Writing SDP to '%s'\n", sdp_filename);
-    }
     my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, sdp_fp, goto error);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_DESCRIBE, goto error);
@@ -1000,14 +990,9 @@ rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename) {
     }
 
     my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout, goto error);
-    if (sdp_fp != stdout) {
-        fclose(sdp_fp);
-    }
+    rewind(sdp_fp);
     return true;
 error:
-    if (sdp_fp != stdout) {
-        fclose(sdp_fp);
-    }
     return false;
 }
 
@@ -1070,25 +1055,6 @@ rtsp_teardown(CURL *curl, const char *uri) {
         return 1;
     }
 }
-/**
- * convert url into an sdp filename
- */
-static char *
-get_sdp_filename(const char *url) {
-    const char *s = strrchr(url, '/');
-
-    if (s == nullptr) {
-        return nullptr;
-    }
-    s++;
-    char *sdp_filename = nullptr;
-    if (strlen(s) > 0) {
-        sdp_filename = static_cast<char *>(malloc(strlen(s) + 4 + 1));
-        sprintf(sdp_filename, "%s.sdp", s);
-        debug_msg("sdp_file get: %s\n", sdp_filename);
-    }
-    return sdp_filename;
-}
 
 static struct vidcap_type *
 vidcap_rtsp_probe(bool verbose, void (**deleter)(void *)) {
@@ -1139,7 +1105,7 @@ vidcap_rtsp_done(void *state) {
  * scan sdp file for media control attributes to generate coded frame required params (WxH and offset)
  */
 static int
-get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
+get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
 
     uint8_t nalInfo;
     uint8_t type;
@@ -1148,64 +1114,62 @@ get_nals(const char *sdp_filename, char *nals, int *width, int *height) {
     char *s = (char *) malloc(max_len);
     char *sprop;
     memset(s, 0, max_len);
-    FILE *sdp_fp = fopen(sdp_filename, "rt");
     nals[0] = '\0';
-    if (sdp_fp != NULL) {
-        while (fgets(s, max_len - 2, sdp_fp) != NULL) {
-            sprop = strstr(s, "sprop-parameter-sets=");
-            if (sprop != NULL) {
-                gsize length;   //gsize is an unsigned int.
-                char *nal_aux, *nal;
-                memcpy(nals, start_sequence, sizeof(start_sequence));
-                len_nals = sizeof(start_sequence);
-                nal_aux = strstr(sprop, "=");
-                nal_aux++;
-                nal = strtok(nal_aux, ",;");
-                if (nal == nullptr) {
-                    continue;
-                }
-                //convert base64 to hex
+
+    while (fgets(s, max_len - 2, sdp_file) != NULL) {
+        sprop = strstr(s, "sprop-parameter-sets=");
+        if (sprop != NULL) {
+            gsize length;   //gsize is an unsigned int.
+            char *nal_aux, *nal;
+            memcpy(nals, start_sequence, sizeof(start_sequence));
+            len_nals = sizeof(start_sequence);
+            nal_aux = strstr(sprop, "=");
+            nal_aux++;
+            nal = strtok(nal_aux, ",;");
+            if (nal == nullptr) {
+                continue;
+            }
+            //convert base64 to hex
+            guchar *nals_aux = g_base64_decode(nal, &length);
+            memcpy(nals + len_nals, nals_aux, length);
+            g_free(nals_aux);
+            len_nals += length;
+
+            nalInfo = (uint8_t) nals[4];
+            type = nalInfo & 0x1f;
+            nri = nalInfo & 0x60;
+
+            if (type == 7){
+                width_height_from_SDP(width, height , (unsigned char *) (nals+4), length);
+            }
+
+            while ((nal = strtok(NULL, ",;")) != NULL) {
                 guchar *nals_aux = g_base64_decode(nal, &length);
-                memcpy(nals + len_nals, nals_aux, length);
-                g_free(nals_aux);
-                len_nals += length;
+                if (length) {
+                    //convert base64 to hex
+                    memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
+                    len_nals += sizeof(start_sequence);
+                    memcpy(nals + len_nals, nals_aux, length);
+                    len_nals += length;
 
-                nalInfo = (uint8_t) nals[4];
-                type = nalInfo & 0x1f;
-                nri = nalInfo & 0x60;
+                    nalInfo = (uint8_t) nals[len_nals - length];
+                    type = nalInfo & 0x1f;
+                    nri = nalInfo & 0x60;
 
-                if (type == 7){
-                    width_height_from_SDP(width, height , (unsigned char *) (nals+4), length);
-                }
-
-                while ((nal = strtok(NULL, ",;")) != NULL) {
-                    guchar *nals_aux = g_base64_decode(nal, &length);
-                    if (length) {
-                        //convert base64 to hex
-                        memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
-                        len_nals += sizeof(start_sequence);
-                        memcpy(nals + len_nals, nals_aux, length);
-                        len_nals += length;
-
-                        nalInfo = (uint8_t) nals[len_nals - length];
-                        type = nalInfo & 0x1f;
-                        nri = nalInfo & 0x60;
-
-                        if (type == 7){
-                            width_height_from_SDP(width, height , (unsigned char *) (nals+(len_nals - length)), length);
-                        }
-                        //assure start sequence injection between sps, pps and other nals
-                        memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
-                        len_nals += sizeof(start_sequence);
+                    if (type == 7){
+                        width_height_from_SDP(width, height , (unsigned char *) (nals+(len_nals - length)), length);
                     }
-                    g_free(nals_aux);
+                    //assure start sequence injection between sps, pps and other nals
+                    memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
+                    len_nals += sizeof(start_sequence);
                 }
+                g_free(nals_aux);
             }
         }
-        fclose(sdp_fp);
     }
 
     free(s);
+    rewind(sdp_file);
     return len_nals;
 }
 
