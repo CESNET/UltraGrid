@@ -904,8 +904,11 @@ void getNewLine(const char* buffer, int* i, char* line){
 
     if(j>0){
         memcpy(line,buffer+(*i)-j,j);
-        line[j] = '\0';
+        if (line[j - 1] == '\r') {
+            line[j - 1] = '\0';
+        }
     }
+    line[j] = '\0';
 }
 /**
  * Initializes decompressor if required by decompress flag
