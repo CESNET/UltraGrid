@@ -343,9 +343,9 @@ vidcap_rtsp_thread(void *arg) {
                                 decode_frame_by_pt, &d))
                             {
                                  s->vrtsp_state->new_frame = true;
+                                 if (s->vrtsp_state->boss_waiting)
+                                     pthread_cond_signal(&s->vrtsp_state->boss_cv);
                             }
-                            if (s->vrtsp_state->boss_waiting)
-                                pthread_cond_signal(&s->vrtsp_state->boss_cv);
                         }
                     }
                     pthread_mutex_unlock(&s->vrtsp_state->lock);
@@ -372,12 +372,23 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             s->vrtsp_state->grab = true;
 
             while (!s->vrtsp_state->new_frame && !s->should_exit) {
+                struct timeval  tp;
+                gettimeofday(&tp, NULL);
+                struct timespec timeout = { .tv_sec = tp.tv_sec, .tv_nsec = (tp.tv_usec + 100*1000) * 1000 };
+                if (timeout.tv_nsec >= 1000L*1000*1000) {
+                    timeout.tv_nsec -= 1000L*1000*1000;
+                    timeout.tv_sec += 1;
+                }
                 s->vrtsp_state->boss_waiting = true;
-                pthread_cond_wait(&s->vrtsp_state->boss_cv, &s->vrtsp_state->lock);
+                if (pthread_cond_timedwait(&s->vrtsp_state->boss_cv, &s->vrtsp_state->lock, &timeout) == ETIMEDOUT) {
+                    pthread_mutex_unlock(&s->vrtsp_state->lock);
+                    return NULL;
+                }
                 s->vrtsp_state->boss_waiting = false;
             }
 
             if (s->should_exit) {
+                pthread_mutex_unlock(&s->vrtsp_state->lock);
                 return NULL;
             }
 
@@ -556,7 +567,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     if (strcmp(s->uri, "rtsp://") == 0) {
         INIT_FAIL("No URI given!\n");
     }
-    fprintf(stderr, "%s\n\n\n", s->uri);
 
     s->vrtsp_state->device = rtp_init_if("localhost", s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
         0, rtp_recv_callback, (uint8_t *) s->vrtsp_state->participants, 0, true);
