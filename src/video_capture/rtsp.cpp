@@ -814,14 +814,13 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
 
     char* buffer = (char*) malloc(fileSize+1);
     unsigned long readResult = fread(buffer, sizeof(char), fileSize, sdp_file);
-
-    if(readResult != (unsigned long) fileSize){
-        debug_msg("something bad happens, read result != file size");
+    if (ferror(sdp_file)){
+        perror(MOD_NAME "SDP file read failed");
         free(line);
         free(buffer);
         return false;
     }
-    buffer[fileSize] = '\0';
+    buffer[readResult] = '\0';
 
     while (buffer[n] != '\0'){
         getNewLine(buffer,&n,line);
