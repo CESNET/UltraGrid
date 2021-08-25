@@ -566,7 +566,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     }
 
     s->vrtsp_state.device = rtp_init_if("localhost", s->vrtsp_state.mcast_if, s->vrtsp_state.port, 0, s->vrtsp_state.ttl, s->vrtsp_state.rtcp_bw,
-        0, rtp_recv_callback, (uint8_t *) s->vrtsp_state.participants, 0, true);
+        0, rtp_recv_callback, (uint8_t *) s->vrtsp_state.participants, 0, false);
     if (s->vrtsp_state.device == NULL) {
         log_msg(LOG_LEVEL_ERROR, "[rtsp] Cannot intialize RTP device!\n");
         vidcap_rtsp_done(s);
