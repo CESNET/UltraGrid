@@ -128,7 +128,7 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height);
 bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state);
 
 static int
-init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals);
+init_rtsp(struct rtsp_state *s);
 
 static int
 init_decompressor(void *state);
@@ -172,7 +172,7 @@ struct video_rtsp_state {
 
     int port;
     float fps;
-    const char *control;
+    char *control;
 
     struct rtp *device;
     struct pdb *participants;
@@ -213,7 +213,7 @@ struct audio_rtsp_state {
     int port;
     float fps;
 
-    const char *control;
+    char *control;
 
     struct rtp *device;
     struct pdb *participants;
@@ -476,8 +476,8 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     //TODO now static codec assignment, to be dynamic as a function of supported codecs
     s->vrtsp_state->codec = "";
     s->artsp_state->codec = "";
-    s->artsp_state->control = "";
-    s->artsp_state->control = "";
+    s->artsp_state->control = strdup("");
+    s->artsp_state->control = strdup("");
 
     int len = -1;
     char *save_ptr = NULL;
@@ -609,7 +609,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     debug_msg("\t  port: %d\n", s->vrtsp_state->port);
     debug_msg("\t  decompress: %d\n\n",s->vrtsp_state->decompress);
 
-    len = init_rtsp(s->uri, s->vrtsp_state->port, s, (char *) s->vrtsp_state->h264_offset_buffer);
+    len = init_rtsp(s);
 
     if(len < 0){
         vidcap_rtsp_done(s);
@@ -683,10 +683,8 @@ static CURL *init_curl() {
  * Initializes rtsp state and internal parameters
  */
 static int
-init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
+init_rtsp(struct rtsp_state *s) {
     /* initialize curl */
-    struct rtsp_state *s = (struct rtsp_state *) state;
-
     s->curl = init_curl();
 
     if (!s->curl) {
@@ -698,12 +696,11 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     debug_msg("\n[rtsp] request %s\n", VERSION_STR);
     debug_msg("    Project web site: http://code.google.com/p/rtsprequest/\n");
     debug_msg("    Requires cURL V7.20 or greater\n\n");
-    const char *url = rtsp_uri;
     char Atransport[256];
     char Vtransport[256];
     memset(Atransport, 0, 256);
     memset(Vtransport, 0, 256);
-    int port = rtsp_port;
+    int port = s->vrtsp_state->port;
     CURLcode res;
     FILE *sdp_file = tmpfile();
     if (sdp_file == NULL) {
@@ -724,7 +721,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE, 0L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_NOPROGRESS, 1L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_WRITEHEADER, stdout, goto error);
-    my_curl_easy_setopt(s->curl, CURLOPT_URL, url, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_URL, s->uri, goto error);
 
     //TODO TO CHECK CONFIGURING ERRORS
     //CURLOPT_ERRORBUFFER
@@ -754,20 +751,24 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     }
     if (strcmp(s->vrtsp_state->codec, "H264") == 0){
         s->vrtsp_state->frame->color_spec = H264;
-        sprintf(s->uri, "%s/%s", url, s->vrtsp_state->control);
-        debug_msg("\n V URI = %s\n", s->uri);
-        if(rtsp_setup(s->curl, s->uri, Vtransport)==0){
+        char uri[strlen(s->uri) + 1 + strlen(s->vrtsp_state->control) + 1];
+        strcpy(uri, s->uri);
+        strcat(uri, "/");
+        strcat(uri, s->vrtsp_state->control);
+        debug_msg("\n V URI = %s\n", uri);
+        if (rtsp_setup(s->curl, uri, Vtransport) == 0) {
             goto error;
         }
-        sprintf(s->uri, "%s", url);
     }
     if (strcmp(s->artsp_state->codec, "PCMU") == 0){
-        sprintf(s->uri, "%s/%s", url, s->artsp_state->control);
-        debug_msg("\n A URI = %s\n", s->uri);
-        if(rtsp_setup(s->curl, s->uri, Atransport)==0){
+        char uri[strlen(s->uri) + 1 + strlen(s->artsp_state->control) + 1];
+        strcpy(uri, s->uri);
+        strcat(uri, "/");
+        strcat(uri, s->artsp_state->control);
+        debug_msg("\n A URI = %s\n", uri);
+        if (rtsp_setup(s->curl, uri, Atransport) == 0) {
             goto error;
         }
-        sprintf(s->uri, "%s", url);
     }
     if (strlen(s->artsp_state->codec) == 0 && strlen(s->vrtsp_state->codec) == 0){
         goto error;
@@ -779,7 +780,7 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
     }
 
     /* get start nal size attribute from sdp file */
-    len_nals = get_nals(sdp_file, nals, (int *) &s->vrtsp_state->tile->width, (int *) &s->vrtsp_state->tile->height);
+    len_nals = get_nals(sdp_file, (char *) s->vrtsp_state->h264_offset_buffer, (int *) &s->vrtsp_state->tile->width, (int *) &s->vrtsp_state->tile->height);
 
     debug_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n",s->vrtsp_state->tile->width,s->vrtsp_state->tile->height);
 
@@ -881,11 +882,11 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     for(int p=0;p<2;p++){
         if(strncmp(codecs[p],"H264",4)==0){
             rtspState->vrtsp_state->codec = "H264";
-            rtspState->vrtsp_state->control = tracks[p];
+            rtspState->vrtsp_state->control = strdup(tracks[p]);
 
         }if(strncmp(codecs[p],"PCMU",4)==0){
             rtspState->artsp_state->codec = "PCMU";
-            rtspState->artsp_state->control = tracks[p];
+            rtspState->artsp_state->control = strdup(tracks[p]);
         }
     }
     free(line);
@@ -1103,9 +1104,14 @@ vidcap_rtsp_done(void *state) {
     free(s->vrtsp_state->tile->data);
     if(s->vrtsp_state->h264_offset_buffer!=NULL) free(s->vrtsp_state->h264_offset_buffer);
     if(s->vrtsp_state->frame!=NULL) free(s->vrtsp_state->frame);
+    if (s->vrtsp_state) {
+        free(s->vrtsp_state->control);
+    }
+    if (s->artsp_state) {
+        free(s->artsp_state->control);
+    }
     free(s->vrtsp_state);
     free(s->artsp_state);
-
 
     rtsp_teardown(s->curl, s->uri);
 
