@@ -115,34 +115,66 @@ static int calculate_avail_write(int start, int end, int buf_len){
         return buf_len - calculate_avail_read(start, end, buf_len) - 1; 
 }
 
-void ring_buffer_write(struct ring_buffer * ring, const char *in, int len) {
+static bool ring_get_write_regions(struct ring_buffer *ring, int requested_len,
+                void **ptr1, int *size1,
+                void **ptr2, int *size2)
+{
+        *ptr1 = nullptr;
+        *size1 = 0;
+        *ptr2 = nullptr;
+        *size2 = 0;
+
         int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
         // end index is modified only by this (writer) thread, so relaxed is enough
         int end = std::atomic_load_explicit(&ring->start, std::memory_order_relaxed);
 
-        if(len > ring->len) {
-                fprintf(stderr, "Warning: too long write request for ring buffer (%d B)!!!\n", len);
-                return;
+        if(len >= ring->len) {
+                return false;
         }
 
-        /* detect overrun */
-        if(len > calculate_avail_write(start, end, ring->len)) {
-                fprintf(stderr, "Warning: ring buffer overflow!!!\n");
-        }
-        
         int to_end = ring->len - end;
-        if(len <= to_end) {
-                memcpy(ring->data + end, in, len);
-        } else {
-                memcpy(ring->data + end, in, to_end);
-                memcpy(ring->data, in + to_end, len - to_end);
+        *ptr1 = ring->data + end;
+        *size1 = requested_len < to_end ? requested_len : to_end;
+        if(*size1 < requested_len){
+                *ptr2 = ring->data;
+                *size2 = requested_len - *size1;
         }
+
+        return true;
+}
+
+static bool ring_advance_write_idx(struct ring_buffer *ring, int amount) {
+        const int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
+        // end index is modified only by this (writer) thread, so relaxed is enough
+        const int end = std::atomic_load_explicit(&ring->start, std::memory_order_relaxed);
 
         /* Use release order to ensure that all writes to the buffer are
          * completed before advancing the end index (no reads or writes in the
          * current thread can be reordered after this store).
          */
-        std::atomic_store_explicit(&ring->end, (end + len) % ring->len, std::memory_order_release);
+        std::atomic_store_explicit(&ring->end, (end + amount) % ring->len, std::memory_order_release);
+
+        return amount > calculate_avail_write(start, end, ring->len);
+}
+
+void ring_buffer_write(struct ring_buffer * ring, const char *in, int len) {
+        void *ptr1;
+        int size1;
+        void *ptr2;
+        int size2;
+        if(!ring_get_write_regions(ring, len, &ptr1, &size1, &ptr2, &size2)){
+                fprintf(stderr, "Warning: too long write request for ring buffer (%d B)!!!\n", len);
+                return;
+        }
+
+        memcpy(ptr1, in, size1);
+        if(ptr2){
+                memcpy(ptr2, in + size1, size2);
+        }
+
+        if(ring_advance_write_idx(ring, len)) {
+                fprintf(stderr, "Warning: ring buffer overflow!!!\n");
+        }
 }
 
 int ring_get_size(struct ring_buffer * ring) {
