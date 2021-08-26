@@ -50,6 +50,7 @@
 #include "module.h"
 #include "perf.h"
 #include "tv.h"
+#include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/ptime.h"
@@ -74,6 +75,8 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 using std::chrono::duration_cast;
 using std::chrono::seconds;
@@ -81,10 +84,14 @@ using std::chrono::steady_clock;
 using rang::fg;
 using rang::style;
 using std::fixed;
+using std::hex;
+using std::map;
 using std::ostringstream;
+using std::pair;
 using std::setprecision;
 using std::string;
 using std::to_string;
+using std::vector;
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 #define MOD_NAME "[audio dec.] "
@@ -210,6 +217,8 @@ struct state_audio_decoder {
         void *audio_playback_state;
 
         struct control_state *control;
+        fec *fec_state;
+        fec_desc fec_state_desc;
 
         struct state_audio_decoder_summary summary;
 };
@@ -256,7 +265,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->audio_playback_state = p_state;
 
         gettimeofday(&s->t0, NULL);
-        s->packet_counter = NULL;
+        s->packet_counter = packet_counter_init(0);
 
         s->audio_decompress = NULL;
 
@@ -397,6 +406,8 @@ void audio_decoder_destroy(void *state)
                 s->dec_funcs->destroy(s->decrypt);
         }
 
+        delete s->fec_state;
+
         delete s;
 }
 
@@ -488,8 +499,6 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
         decoder->saved_desc.bps = bps;
         decoder->saved_desc.sample_rate = sample_rate;
         decoder->saved_audio_tag = audio_tag;
-        packet_counter_destroy(decoder->packet_counter);
-        decoder->packet_counter = packet_counter_init(input_channels);
         audio_codec_t audio_codec = get_audio_codec_to_tag(audio_tag);
 
         received_frame.init(input_channels, audio_codec, bps, sample_rate);
@@ -507,6 +516,59 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
         return true;
 }
 
+static bool audio_fec_decode(struct pbuf_audio_data *s, vector<pair<vector<char>, map<int, int>>> &fec_data, uint32_t fec_params, audio_frame2 &received_frame)
+{
+        struct state_audio_decoder *decoder = s->decoder;
+        fec_desc fec_desc { FEC_RS, fec_params >> 18, (fec_params >> 5) & 0x1FFFU, fec_params & 0x1FF };
+
+        if (decoder->fec_state == NULL || decoder->fec_state_desc.k != fec_desc.k || decoder->fec_state_desc.m != fec_desc.m || decoder->fec_state_desc.c != fec_desc.c) {
+                delete decoder->fec_state;
+                decoder->fec_state = fec::create_from_desc(fec_desc);
+                if (decoder->fec_state == nullptr) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize FEC decoder!\n";
+                        return false;
+                }
+                decoder->fec_state_desc = fec_desc;
+        }
+
+        audio_desc desc{};
+
+        int channel = 0;
+        for (auto & c : fec_data) {
+                char *out = nullptr;
+                int out_len = 0;
+                if (decoder->fec_state->decode(c.first.data(), c.first.size(), &out, &out_len, c.second)) {
+                        if (!desc) {
+                                uint32_t quant_sample_rate = 0;
+                                uint32_t audio_tag = 0;
+
+                                memcpy(&quant_sample_rate, out + 3 * sizeof(uint32_t), sizeof(uint32_t));
+                                memcpy(&audio_tag, out + 4 * sizeof(uint32_t), sizeof(uint32_t));
+                                quant_sample_rate = ntohl(quant_sample_rate);
+                                audio_tag = ntohl(audio_tag);
+
+                                desc.bps = (quant_sample_rate >> 26) / 8;
+                                desc.sample_rate = quant_sample_rate & 0x07FFFFFFU;
+                                desc.ch_count = fec_data.size();
+                                desc.codec = get_audio_codec_to_tag(audio_tag);
+                                if (!desc.codec) {
+                                        auto flags = std::clog.flags();
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong AudioTag 0x" << hex << audio_tag << "\n";
+                                        std::clog.setf(flags);
+                                }
+
+                                if (!audio_decoder_reconfigure(decoder, s, received_frame, desc.ch_count, desc.bps, desc.sample_rate, audio_tag)) {
+                                        return FALSE;
+                                }
+                        }
+                        received_frame.replace(channel, 0, out + sizeof(audio_payload_hdr_t), out_len - sizeof(audio_payload_hdr_t));
+                }
+                channel += 1;
+        }
+
+        return true;
+}
+
 int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_stats *)
 {
         struct pbuf_audio_data *s = (struct pbuf_audio_data *) pbuf_data;
@@ -514,7 +576,6 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
         int input_channels = 0;
 
-        int bps, sample_rate, channel;
         bool first = true;
         int bufnum = 0;
 
@@ -534,6 +595,8 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         get_audio_codec_to_tag(decoder->saved_audio_tag),
                         decoder->saved_desc.bps,
                         decoder->saved_desc.sample_rate);
+        vector<pair<vector<char>, map<int, int>>> fec_data;
+        uint32_t fec_params = 0;
 
         while (cdata != NULL) {
                 char *data;
@@ -542,13 +605,13 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 const int pt = cdata->data->pt;
                 enum openssl_mode crypto_mode;
 
-                if(pt == PT_ENCRYPT_AUDIO) {
+                if (PT_AUDIO_IS_ENCRYPTED(pt)) {
                         if(!decoder->decrypt) {
                                 log_msg(LOG_LEVEL_WARNING, "Receiving encrypted audio data but "
                                                 "no decryption key entered!\n");
                                 return FALSE;
                         }
-                } else if(pt == PT_AUDIO) {
+                } else if (PT_IS_AUDIO(pt) && !PT_AUDIO_IS_ENCRYPTED(pt)) {
                         if(decoder->decrypt) {
                                 log_msg(LOG_LEVEL_WARNING, "Receiving unencrypted audio data "
                                                 "while expecting encrypted.\n");
@@ -565,22 +628,17 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
                 unsigned int length;
                 char plaintext[cdata->data->data_len]; // plaintext will be actually shorter
-                switch (pt) {
-                case PT_AUDIO:
-                        length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
-                        data = cdata->data->data + sizeof(audio_payload_hdr_t);
-                        break;
-                case PT_ENCRYPT_AUDIO:
-                {
-                        uint32_t encryption_hdr = ntohl(*(uint32_t *)(void *) (cdata->data->data + sizeof(audio_payload_hdr_t)));
+                size_t main_hdr_len = PT_AUDIO_HAS_FEC(pt) ? sizeof(fec_payload_hdr_t) : sizeof(audio_payload_hdr_t);
+                if (PT_AUDIO_IS_ENCRYPTED(pt)) {
+                        uint32_t encryption_hdr = ntohl(*(uint32_t *) (cdata->data->data + main_hdr_len));
                         crypto_mode = (enum openssl_mode) (encryption_hdr >> 24);
                         if (crypto_mode == MODE_AES128_NONE || crypto_mode > MODE_AES128_MAX) {
                                 log_msg(LOG_LEVEL_WARNING, "Unknown cipher mode: %d\n", (int) crypto_mode);
                                 return FALSE;
                         }
                         char *ciphertext = cdata->data->data + sizeof(crypto_payload_hdr_t) +
-                                sizeof(audio_payload_hdr_t);
-                        int ciphertext_len = cdata->data->data_len - sizeof(audio_payload_hdr_t) -
+                                main_hdr_len;
+                        int ciphertext_len = cdata->data->data_len - main_hdr_len -
                                 sizeof(crypto_payload_hdr_t);
 
                         if((length = decoder->dec_funcs->decrypt(decoder->decrypt,
@@ -591,9 +649,10 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 return FALSE;
                         }
                         data = plaintext;
-                        break;
-                }
-                default:
+                } else if (PT_IS_AUDIO(pt)) {
+                        length = cdata->data->data_len - main_hdr_len;
+                        data = cdata->data->data + main_hdr_len;
+                } else {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown packet type: " << pt << ".\n";
                         return FALSE;
                 }
@@ -609,38 +668,57 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 // 2) not last, but the last one was processed at first
                 assert(input_channels > 0);
 
-                channel = (ntohl(audio_hdr[0]) >> 22) & 0x3ff;
+                int channel = (ntohl(audio_hdr[0]) >> 22) & 0x3ff;
                 bufnum = ntohl(audio_hdr[0]) & ((1U<<BUFNUM_BITS) - 1U);
-                sample_rate = ntohl(audio_hdr[3]) & 0x3fffff;
-                bps = (ntohl(audio_hdr[3]) >> 26) / 8;
-                uint32_t audio_tag = ntohl(audio_hdr[4]);
-
-                if (!audio_decoder_reconfigure(decoder, s, received_frame, input_channels, bps, sample_rate, audio_tag)) {
-                        return FALSE;
-                }
-
+                int sample_rate = ntohl(audio_hdr[3]) & 0x3fffff;
                 unsigned int offset = ntohl(audio_hdr[1]);
                 unsigned int buffer_len = ntohl(audio_hdr[2]);
                 //fprintf(stderr, "%d-%d-%d ", length, bufnum, channel);
+
+                if (packet_counter_get_channels(decoder->packet_counter) != input_channels) {
+                        packet_counter_destroy(decoder->packet_counter);
+                        decoder->packet_counter = packet_counter_init(input_channels);
+                }
+
+                if (PT_AUDIO_HAS_FEC(pt)) {
+                        fec_data.resize(input_channels);
+                        fec_data[channel].first.resize(buffer_len);
+                        fec_params = ntohl(audio_hdr[3]);
+                        fec_data[channel].second[offset] = length;
+                        memcpy(fec_data[channel].first.data() + offset, data, length);
+                } else {
+                        int bps = (ntohl(audio_hdr[3]) >> 26) / 8;
+                        uint32_t audio_tag = ntohl(audio_hdr[4]);
+
+                        if (!audio_decoder_reconfigure(decoder, s, received_frame, input_channels, bps, sample_rate, audio_tag)) {
+                                return FALSE;
+                        }
+
+                        received_frame.replace(channel, offset, data, length);
+
+                        /* buffer size same for every packet of the frame */
+                        /// @todo do we really want to scale to expected buffer length even if some frames are missing
+                        /// at the end of the buffer
+                        received_frame.resize(channel, buffer_len);
+                }
+
+                packet_counter_register_packet(decoder->packet_counter, channel, bufnum, offset, length);
 
                 if (first) {
                         memcpy(&s->source, ((char *) cdata->data) + RTP_MAX_PACKET_LEN, sizeof(struct sockaddr_storage));
                         first = false;
                 }
 
-                received_frame.replace(channel, offset, data, length);
-
-                packet_counter_register_packet(decoder->packet_counter, channel, bufnum, offset, length);
-
-                /* buffer size same for every packet of the frame */
-                /// @todo do we really want to scale to expected buffer length even if some frames are missing
-                /// at the end of the buffer
-                received_frame.resize(channel, buffer_len);
-                
                 cdata = cdata->nxt;
         }
 
         decoder->summary.update(bufnum);
+
+        if (fec_params != 0) {
+                if (!audio_fec_decode(s, fec_data, fec_params, received_frame)) {
+                        return FALSE;
+                }
+        }
 
         s->frame_size = received_frame.get_data_len();
         audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
@@ -750,10 +828,10 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         if (decoder->channel_map.contributors[i] <= 1) {
                                 continue;
                         }
-                        double avg = get_avg_volume(s->buffer.data, bps,
-                                        s->buffer.data_len / output_channels / bps, output_channels, i);
+                        double avg = get_avg_volume(s->buffer.data, s->buffer.bps,
+                                        s->buffer.data_len / output_channels / s->buffer.bps, output_channels, i);
                         compute_scale(&decoder->scale[i], avg,
-                                        s->buffer.data_len / output_channels / bps, sample_rate);
+                                        s->buffer.data_len / output_channels / s->buffer.bps, s->buffer.sample_rate);
                 }
         }
         DEBUG_TIMER_STOP(audio_decode_compute_autoscale);

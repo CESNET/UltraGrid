@@ -1,3 +1,8 @@
+next
+====
+
+* added Reed-Solomon for audio
+
 1.7
 ====
 * DeckLink - capture supports signal bit-depth detection (8-bit capture is

@@ -60,7 +60,7 @@ struct fec {
          *               (or the code is a systematic one) and length
          *               can be read, set len to a non-zero value.
          */
-        virtual bool decode(char *in, int in_len, char **out, int *len,
+        virtual bool decode(char *in, int in_len, char **out, int *out_len,
                         const std::map<int, int> &) = 0;
         virtual ~fec() {}
 

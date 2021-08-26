@@ -52,6 +52,7 @@ bool packet_counter_has_packet(struct packet_counter *state, unsigned int substr
                 unsigned int bufnum, unsigned int offset, unsigned int len);
 int packet_counter_get_total_bytes(struct packet_counter *state);
 int packet_counter_get_all_bytes(struct packet_counter *state);
+int packet_counter_get_channels(struct packet_counter *state);
 void packet_counter_clear(struct packet_counter *state);
 
 #ifdef __cplusplus

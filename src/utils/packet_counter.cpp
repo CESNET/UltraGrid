@@ -161,6 +161,11 @@ int packet_counter_get_all_bytes(struct packet_counter *state)
         return state->get_all_bytes();
 }
 
+int packet_counter_get_channels(struct packet_counter *state)
+{
+        return state->num_substreams;
+}
+
 void packet_counter_clear(struct packet_counter *state)
 {
         state->clear();

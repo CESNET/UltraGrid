@@ -156,6 +156,9 @@ typedef uint32_t fec_payload_hdr_t[5];
  */
 typedef uint32_t crypto_payload_hdr_t[1];
 
+#define PT_AUDIO_HAS_FEC(pt) ((pt) == PT_AUDIO_RS || (pt) == PT_ENCRYPT_AUDIO_RS)
+#define PT_AUDIO_IS_ENCRYPTED(pt) ((pt) == PT_ENCRYPT_AUDIO || (pt) == PT_ENCRYPT_AUDIO_RS)
+#define PT_IS_AUDIO(pt) ((pt) == PT_AUDIO || (pt) == PT_AUDIO_RS || (pt) == PT_ENCRYPT_AUDIO || (pt) == PT_ENCRYPT_AUDIO_RS)
 #define PT_VIDEO_HAS_FEC(pt) (pt == PT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_LDGM || pt == PT_VIDEO_RS || pt == PT_ENCRYPT_VIDEO_RS)
 #define PT_VIDEO_IS_ENCRYPTED(pt) (pt == PT_ENCRYPT_VIDEO || pt == PT_ENCRYPT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_RS)
 
