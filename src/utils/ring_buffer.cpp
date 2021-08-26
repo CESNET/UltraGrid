@@ -105,29 +105,29 @@ void ring_buffer_flush(struct ring_buffer * buf) {
         buf->end = 0;
 }
 
+static int calculate_avail_read(int start, int end, int buf_len){
+        return (end - start + buf_len) % buf_len;
+}
+
+static int calculate_avail_write(int start, int end, int buf_len){
+        /* Ring buffer needs at least one free byte, otherwise start == end
+         * and the ring would appear empty */
+        return buf_len - calculate_avail_read(start, end, buf_len) - 1; 
+}
+
 void ring_buffer_write(struct ring_buffer * ring, const char *in, int len) {
         int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
-
         // end index is modified only by this (writer) thread, so relaxed is enough
         int end = std::atomic_load_explicit(&ring->start, std::memory_order_relaxed);
-
 
         if(len > ring->len) {
                 fprintf(stderr, "Warning: too long write request for ring buffer (%d B)!!!\n", len);
                 return;
         }
+
         /* detect overrun */
-        {
-                int read_len_old = end - start;
-                int read_len_new = ((end + len) % ring->len) - start;
-                
-                if(read_len_old < 0)
-                        read_len_old += ring->len;
-                if(read_len_new < 0)
-                        read_len_new += ring->len;
-                if(read_len_new < read_len_old) {
-                        fprintf(stderr, "Warning: ring buffer overflow!!!\n");
-                }
+        if(len > calculate_avail_write(start, end, ring->len)) {
+                fprintf(stderr, "Warning: ring buffer overflow!!!\n");
         }
         
         int to_end = ring->len - end;
@@ -149,31 +149,31 @@ int ring_get_size(struct ring_buffer * ring) {
         return ring->len;
 }
 
-int ring_get_current_size(struct ring_buffer * ring)
-{
-        /* This is called from both reader and writer thread.
-         *
-         * Writer case:
-         * If the reader modifies start index under our feet, it doesn't
-         * matter, because reader can only make the current size smaller. That
-         * means the writer may calculate less free space, but never more than
-         * really available.
-         *
-         * Reader case:
-         * If the writer modifies end index under our feet, it doesn't matter,
-         * because the writer can only make current size bigger. That means the
-         * reader may calculate less size for reading, but the read data is
-         * always valid.
-         */
+/* ring_get_current_size and ring_get_available_write_size can be called from
+ * both reader and writer threads.
+ *
+ * Writer case:
+ * If the reader modifies start index under our feet, it doesn't
+ * matter, because reader can only make the current size smaller. That
+ * means the writer may calculate less free space, but never more than
+ * really available.
+ *
+ * Reader case:
+ * If the writer modifies end index under our feet, it doesn't matter,
+ * because the writer can only make current size bigger. That means the
+ * reader may calculate less size for reading, but the read data is
+ * always valid.
+ */
+int ring_get_current_size(struct ring_buffer * ring) {
         int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
         int end = std::atomic_load_explicit(&ring->end, std::memory_order_acquire);
-        return (end - start + ring->len) % ring->len;
+        return calculate_avail_read(start, end, ring->len);
 }
 
-int ring_get_available_write_size(struct ring_buffer * ring){
-        /* Ring buffer needs at least one free byte, otherwise start == end
-         * and the ring would appear empty */
-        return ring_get_size(ring) - ring_get_current_size(ring) - 1;
+int ring_get_available_write_size(struct ring_buffer * ring) {
+        int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
+        int end = std::atomic_load_explicit(&ring->end, std::memory_order_acquire);
+        return calculate_avail_write(start, end, ring->len);
 }
 
 struct audio_buffer_api ring_buffer_fns = {
