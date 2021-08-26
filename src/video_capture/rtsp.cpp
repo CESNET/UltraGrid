@@ -74,6 +74,7 @@
 #include <curl/curl.h>
 #include <chrono>
 
+#define KEEPALIVE_INTERVAL_S 5
 #define MOD_NAME  "[rtsp] "
 #define VERSION_STR  "V1.0"
 
@@ -182,7 +183,6 @@ struct video_rtsp_state {
     char *mcast_if;
     struct timeval curr_time;
     struct timeval timeout;
-    struct timeval prev_time;
     struct timeval start_time;
     int required_connections;
     uint32_t timestamp;
@@ -249,10 +249,7 @@ struct rtsp_state {
 
     pthread_t keep_alive_rtsp_thread_id; //the worker_id
     pthread_mutex_t lock;
-    pthread_cond_t worker_cv;
-    volatile bool worker_waiting;
-    pthread_cond_t boss_cv;
-    volatile bool boss_waiting;
+    pthread_cond_t keepalive_cv;
 };
 
 static void
@@ -265,27 +262,27 @@ show_help() {
         "\t\t decompress - decompress the stream (default: disabled)\n\n");
 }
 
-static void
-rtsp_keepalive_video(void *state) {
-    struct rtsp_state *s;
-    s = (struct rtsp_state *) state;
-    struct timeval now;
-    gettimeofday(&now, NULL);
-    if (tv_diff(now, s->vrtsp_state.prev_time) >= 5) {
-        if(rtsp_get_parameters(s->curl, s->uri)==0){
+static void *
+keep_alive_thread(void *arg){
+    struct rtsp_state *s = (struct rtsp_state *) arg;
+
+    pthread_mutex_lock(&s->lock);
+    while (1) {
+        struct timeval tp;
+        gettimeofday(&tp, NULL);
+        struct timespec timeout = { .tv_sec = tp.tv_sec + KEEPALIVE_INTERVAL_S, .tv_nsec = tp.tv_usec * 1000 };
+        pthread_cond_timedwait(&s->keepalive_cv, &s->lock, &timeout);
+        if (s->should_exit) {
+            pthread_mutex_unlock(&s->vrtsp_state.lock);
+            break;
+        }
+        pthread_mutex_unlock(&s->vrtsp_state.lock);
+
+        // actuall keepalive
+        if (rtsp_get_parameters(s->curl, s->uri) == 0) {
             s->should_exit = TRUE;
             exit_uv(1);
         }
-        gettimeofday(&s->vrtsp_state.prev_time, NULL);
-    }
-}
-
-static void *
-keep_alive_thread(void *arg){
-    struct rtsp_state *s;
-    s = (struct rtsp_state *) arg;
-    while (!s->should_exit) {
-        rtsp_keepalive_video(s);
     }
     return NULL;
 }
@@ -308,7 +305,6 @@ vidcap_rtsp_thread(void *arg) {
     s = (struct rtsp_state *) arg;
 
     gettimeofday(&s->vrtsp_state.start_time, NULL);
-    gettimeofday(&s->vrtsp_state.prev_time, NULL);
 
     while (!s->should_exit) {
     	usleep(10);
@@ -512,6 +508,8 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->curl = NULL;
     char *fmt = NULL;
 
+    pthread_mutex_init(&s->lock, NULL);
+    pthread_cond_init(&s->keepalive_cv, NULL);
     pthread_mutex_init(&s->vrtsp_state.lock, NULL);
     pthread_cond_init(&s->vrtsp_state.boss_cv, NULL);
     pthread_cond_init(&s->vrtsp_state.worker_cv, NULL);
@@ -1084,7 +1082,11 @@ static void
 vidcap_rtsp_done(void *state) {
     struct rtsp_state *s = (struct rtsp_state *) state;
 
+    pthread_mutex_lock(&s->lock);
     s->should_exit = TRUE;
+    pthread_cond_signal(&s->keepalive_cv);
+    pthread_mutex_unlock(&s->lock);
+
     pthread_join(s->vrtsp_state.vrtsp_thread_id, NULL);
     pthread_join(s->keep_alive_rtsp_thread_id, NULL);
 
@@ -1107,6 +1109,8 @@ vidcap_rtsp_done(void *state) {
     curl_global_cleanup();
     s->curl = NULL;
 
+    pthread_mutex_destroy(&s->lock);
+    pthread_cond_destroy(&s->keepalive_cv);
     pthread_mutex_destroy(&s->vrtsp_state.lock);
     pthread_cond_destroy(&s->vrtsp_state.boss_cv);
     pthread_cond_destroy(&s->vrtsp_state.worker_cv);
