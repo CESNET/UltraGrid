@@ -464,11 +464,17 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     log_msg(LOG_LEVEL_WARNING, "RTSP capture module is most likely broken, "
             "please contact " PACKAGE_BUGREPORT " if you wish to use it.\n");
 
-    struct rtsp_state *s;
+    if (vidcap_params_get_fmt(params)
+        && strcmp(vidcap_params_get_fmt(params), "help") == 0)
+    {
+        show_help();
+        return VIDCAP_INIT_NOERR;
+    }
 
-    s = (struct rtsp_state *) calloc(1, sizeof(struct rtsp_state));
-    if (!s)
+    struct rtsp_state *s = (struct rtsp_state *) calloc(1, sizeof(struct rtsp_state));
+    if (s == NULL) {
         return VIDCAP_INIT_FAIL;
+    }
 
     //TODO now static codec assignment, to be dynamic as a function of supported codecs
     s->vrtsp_state.codec = "";
@@ -506,13 +512,9 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->curl = NULL;
     char *fmt = NULL;
 
-    if (vidcap_params_get_fmt(params)
-        && strcmp(vidcap_params_get_fmt(params), "help") == 0)
-    {
-        show_help();
-        free(s);
-        return VIDCAP_INIT_NOERR;
-    }
+    pthread_mutex_init(&s->vrtsp_state.lock, NULL);
+    pthread_cond_init(&s->vrtsp_state.boss_cv, NULL);
+    pthread_cond_init(&s->vrtsp_state.worker_cv, NULL);
 
     char *tmp, *item;
     fmt = strdup(vidcap_params_get_fmt(params));
@@ -628,10 +630,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     s->vrtsp_state.frame->tiles[0].data = (char *) calloc(1, s->vrtsp_state.tile->width * s->vrtsp_state.tile->height);
 
     s->should_exit = FALSE;
-
-    pthread_mutex_init(&s->vrtsp_state.lock, NULL);
-    pthread_cond_init(&s->vrtsp_state.boss_cv, NULL);
-    pthread_cond_init(&s->vrtsp_state.worker_cv, NULL);
 
     s->vrtsp_state.boss_waiting = false;
     s->vrtsp_state.worker_waiting = false;
@@ -1108,6 +1106,10 @@ vidcap_rtsp_done(void *state) {
     curl_easy_cleanup(s->curl);
     curl_global_cleanup();
     s->curl = NULL;
+
+    pthread_mutex_destroy(&s->vrtsp_state.lock);
+    pthread_cond_destroy(&s->vrtsp_state.boss_cv);
+    pthread_cond_destroy(&s->vrtsp_state.worker_cv);
 
     free(s);
 }
