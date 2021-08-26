@@ -69,7 +69,9 @@ int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len);
 void ring_buffer_write(struct ring_buffer * ring, const char *in, int len);
 int ring_get_size(struct ring_buffer * ring);
 /**
- * Flushes all data from ring buffer
+ * Flushes all data from ring buffer. Not thread safe - needs external
+ * synchronization to ensure that this is not called while the buffer is being
+ * read or written.
  */
 void ring_buffer_flush(struct ring_buffer *ring);
 /**
