@@ -444,6 +444,68 @@ static void *adec_compute_and_print_stats(void *arg) {
         return NULL;
 }
 
+/**
+ * Compares provided parameters with previous configuration and if it differs, reconfigure
+ * the decoder, otherwise the reconfiguration is skipped.
+ */
+static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struct pbuf_audio_data *s, audio_frame2 &received_frame, int input_channels, int bps, int sample_rate, uint32_t audio_tag)
+{
+        if(decoder->saved_desc.ch_count == input_channels &&
+                        decoder->saved_desc.bps == bps &&
+                        decoder->saved_desc.sample_rate == sample_rate &&
+                        decoder->saved_audio_tag == audio_tag) {
+                return true;
+        }
+
+        log_msg(LOG_LEVEL_NOTICE, "New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
+                        sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
+                        get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
+
+        int output_channels = decoder->channel_remapping ?
+                        decoder->channel_map.max_output + 1: input_channels;
+        audio_desc device_desc = audio_desc{bps, sample_rate, output_channels, AC_PCM};
+        size_t len = sizeof device_desc;
+        if (!decoder->audio_playback_ctl_func(decoder->audio_playback_state, AUDIO_PLAYBACK_CTL_QUERY_FORMAT, &device_desc, &len)) {
+                log_msg(LOG_LEVEL_ERROR, "Unable to query audio desc!\n");
+                return false;
+        }
+
+        s->buffer.bps = device_desc.bps;
+        s->buffer.ch_count = device_desc.ch_count;
+        s->buffer.sample_rate = device_desc.sample_rate;
+
+        if(!decoder->fixed_scale) {
+                free(decoder->scale);
+                decoder->scale = (struct scale_data *) malloc(output_channels * sizeof(struct scale_data));
+
+                for(int i = 0; i < output_channels; ++i) {
+                        decoder->scale[i].samples = 0;
+                        decoder->scale[i].vol_avg = 1.0;
+                        decoder->scale[i].scale = 1.0;
+                }
+        }
+        decoder->saved_desc.ch_count = input_channels;
+        decoder->saved_desc.bps = bps;
+        decoder->saved_desc.sample_rate = sample_rate;
+        decoder->saved_audio_tag = audio_tag;
+        packet_counter_destroy(decoder->packet_counter);
+        decoder->packet_counter = packet_counter_init(input_channels);
+        audio_codec_t audio_codec = get_audio_codec_to_tag(audio_tag);
+
+        received_frame.init(input_channels, audio_codec, bps, sample_rate);
+        decoder->decoded.init(input_channels, AC_PCM,
+                        device_desc.bps, device_desc.sample_rate);
+        decoder->decoded.reserve(device_desc.bps * device_desc.sample_rate * 6);
+
+        decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
+        if(!decoder->audio_decompress) {
+                log_msg(LOG_LEVEL_FATAL, "Unable to create audio decompress!\n");
+                exit_uv(1);
+                return false;
+        }
+
+        return true;
+}
 
 int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_stats *)
 {
@@ -451,7 +513,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         struct state_audio_decoder *decoder = s->decoder;
 
         int input_channels = 0;
-        int output_channels = 0;
+
         int bps, sample_rate, channel;
         bool first = true;
         int bufnum = 0;
@@ -552,61 +614,9 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 sample_rate = ntohl(audio_hdr[3]) & 0x3fffff;
                 bps = (ntohl(audio_hdr[3]) >> 26) / 8;
                 uint32_t audio_tag = ntohl(audio_hdr[4]);
-                
-                output_channels = decoder->channel_remapping ?
-                        decoder->channel_map.max_output + 1: input_channels;
 
-                /*
-                 * Reconfiguration
-                 */
-                if(decoder->saved_desc.ch_count != input_channels ||
-                                decoder->saved_desc.bps != bps ||
-                                decoder->saved_desc.sample_rate != sample_rate ||
-                                decoder->saved_audio_tag != audio_tag) {
-                        log_msg(LOG_LEVEL_NOTICE, "New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
-                                        sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
-                                        get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
-
-                        audio_desc device_desc = audio_desc{bps, sample_rate, output_channels, AC_PCM};
-                        size_t len = sizeof device_desc;
-                        if (!decoder->audio_playback_ctl_func(decoder->audio_playback_state, AUDIO_PLAYBACK_CTL_QUERY_FORMAT, &device_desc, &len)) {
-                                log_msg(LOG_LEVEL_ERROR, "Unable to query audio desc!\n");
-                                return FALSE;
-                        }
-
-                        s->buffer.bps = device_desc.bps;
-                        s->buffer.ch_count = device_desc.ch_count;
-                        s->buffer.sample_rate = device_desc.sample_rate;
-
-                        if(!decoder->fixed_scale) {
-                                free(decoder->scale);
-                                decoder->scale = (struct scale_data *) malloc(output_channels * sizeof(struct scale_data));
-
-                                for(int i = 0; i < output_channels; ++i) {
-                                        decoder->scale[i].samples = 0;
-                                        decoder->scale[i].vol_avg = 1.0;
-                                        decoder->scale[i].scale = 1.0;
-                                }
-                        }
-                        decoder->saved_desc.ch_count = input_channels;
-                        decoder->saved_desc.bps = bps;
-                        decoder->saved_desc.sample_rate = sample_rate;
-                        decoder->saved_audio_tag = audio_tag;
-                        packet_counter_destroy(decoder->packet_counter);
-                        decoder->packet_counter = packet_counter_init(input_channels);
-                        audio_codec_t audio_codec = get_audio_codec_to_tag(audio_tag);
-
-                        received_frame.init(input_channels, audio_codec, bps, sample_rate); 
-                        decoder->decoded.init(input_channels, AC_PCM,
-                                        device_desc.bps, device_desc.sample_rate);
-                        decoder->decoded.reserve(device_desc.bps * device_desc.sample_rate * 6);
-
-                        decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
-                        if(!decoder->audio_decompress) {
-                                log_msg(LOG_LEVEL_FATAL, "Unable to create audio decompress!\n");
-                                exit_uv(1);
-                                return FALSE;
-                        }
+                if (!audio_decoder_reconfigure(decoder, s, received_frame, input_channels, bps, sample_rate, audio_tag)) {
+                        return FALSE;
                 }
 
                 unsigned int offset = ntohl(audio_hdr[1]);
@@ -734,6 +744,8 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
         DEBUG_TIMER_START(audio_decode_compute_autoscale);
         if(!decoder->fixed_scale) {
+                int output_channels = decoder->channel_remapping ?
+                        decoder->channel_map.max_output + 1: input_channels;
                 for(int i = 0; i <= decoder->channel_map.max_output; ++i) {
                         if (decoder->channel_map.contributors[i] <= 1) {
                                 continue;
