@@ -132,7 +132,7 @@ static int
 init_rtsp(struct rtsp_state *s);
 
 static int
-init_decompressor(struct video_rtsp_state *sr);
+init_decompressor(struct video_rtsp_state *sr, struct video_desc desc);
 
 static void *
 vidcap_rtsp_thread(void *args);
@@ -168,8 +168,8 @@ struct video_rtsp_state {
     bool grab;
 
     struct state_decompress *sd;
-    struct video_desc des;
-    char * out_frame;
+    struct video_desc decompress_desc;
+    char * decompressed_data;
 
     int port;
     float fps;
@@ -386,24 +386,24 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             }
 
             if (s->vrtsp_state.decompress) {
-                if(s->vrtsp_state.des.width != s->vrtsp_state.tile->width || s->vrtsp_state.des.height != s->vrtsp_state.tile->height){
-                    s->vrtsp_state.des.width = s->vrtsp_state.tile->width;
-                    s->vrtsp_state.des.height = s->vrtsp_state.tile->height;
+                struct video_desc curr_desc = video_desc_from_frame(s->vrtsp_state.frame);
+                curr_desc.color_spec = H264;
+                if (!video_desc_eq(s->vrtsp_state.decompress_desc, curr_desc)) {
                     decompress_done(s->vrtsp_state.sd);
-                    s->vrtsp_state.frame->color_spec = H264;
-                    if (init_decompressor(&s->vrtsp_state) == 0) {
+                    if (init_decompressor(&s->vrtsp_state, curr_desc) == 0) {
                         pthread_mutex_unlock(&s->vrtsp_state.lock);
                         return NULL;
                     }
                     s->vrtsp_state.frame->color_spec = UYVY;
+                    s->vrtsp_state.decompress_desc = curr_desc;
                 }
 
-                decompress_frame(s->vrtsp_state.sd, (unsigned char *) s->vrtsp_state.out_frame,
+                decompress_frame(s->vrtsp_state.sd, (unsigned char *) s->vrtsp_state.decompressed_data,
                     (unsigned char *) s->vrtsp_state.frame->tiles[0].data,
                     s->vrtsp_state.tile->data_len, 0, nullptr, nullptr);
-                s->vrtsp_state.frame->tiles[0].data = s->vrtsp_state.out_frame;               //TODO memcpy?
-                s->vrtsp_state.frame->tiles[0].data_len = vc_get_linesize(s->vrtsp_state.des.width, UYVY)
-                            * s->vrtsp_state.des.height;                           //TODO reconfigurable?
+                s->vrtsp_state.frame->tiles[0].data = s->vrtsp_state.decompressed_data;               //TODO memcpy?
+                s->vrtsp_state.frame->tiles[0].data_len = vc_get_linesize(s->vrtsp_state.decompress_desc.width, UYVY)
+                            * s->vrtsp_state.decompress_desc.height;                           //TODO reconfigurable?
             }
             s->vrtsp_state.new_frame = false;
 
@@ -622,7 +622,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     if (s->vrtsp_state.decompress) {
         s->vrtsp_state.frame->color_spec = H264;
-        if (init_decompressor(&s->vrtsp_state) == 0) {
+        if (init_decompressor(&s->vrtsp_state, video_desc_from_frame(s->vrtsp_state.frame)) == 0) {
             vidcap_rtsp_done(s);
             return VIDCAP_INIT_FAIL;
         }
@@ -898,19 +898,13 @@ void getNewLine(const char* buffer, int* i, char* line){
  * Initializes decompressor if required by decompress flag
  */
 static int
-init_decompressor(struct video_rtsp_state *sr) {
+init_decompressor(struct video_rtsp_state *sr, struct video_desc desc) {
     if (decompress_init_multi(H264, VIDEO_CODEC_NONE, UYVY, &sr->sd, 1)) {
-        sr->des.width = sr->tile->width;
-        sr->des.height = sr->tile->height;
-        sr->des.color_spec = sr->frame->color_spec;
-        sr->des.tile_count = 0;
-        sr->des.interlacing = PROGRESSIVE;
-
-        decompress_reconfigure(sr->sd, sr->des, 16, 8, 0,
-            vc_get_linesize(sr->des.width, UYVY), UYVY);
+        decompress_reconfigure(sr->sd, desc, 16, 8, 0,
+            vc_get_linesize(desc.width, UYVY), UYVY);
     } else
         return 0;
-    sr->out_frame = (char *) malloc(sr->tile->width * sr->tile->height * 4);
+    sr->decompressed_data = (char *) malloc(sr->tile->width * sr->tile->height * 4);
     return 1;
 }
 
