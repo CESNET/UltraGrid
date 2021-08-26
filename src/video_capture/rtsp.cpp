@@ -181,11 +181,7 @@ struct video_rtsp_state {
     double rtcp_bw;
     int ttl;
     char *mcast_if;
-    struct timeval curr_time;
-    struct timeval timeout;
-    struct timeval start_time;
     int required_connections;
-    uint32_t timestamp;
 
     pthread_t vrtsp_thread_id; //the worker_id
 
@@ -221,12 +217,7 @@ struct audio_rtsp_state {
     double rtcp_bw;
     int ttl;
     char *mcast_if;
-    struct timeval curr_time;
-    struct timeval timeout;
-    struct timeval prev_time;
-    struct timeval start_time;
     int required_connections;
-    uint32_t timestamp;
 
     pthread_t artsp_thread_id; //the worker_id
     pthread_mutex_t lock;
@@ -304,20 +295,22 @@ vidcap_rtsp_thread(void *arg) {
     struct rtsp_state *s;
     s = (struct rtsp_state *) arg;
 
-    gettimeofday(&s->vrtsp_state.start_time, NULL);
+    struct timeval start_time;
+    gettimeofday(&start_time, NULL);
 
     while (!s->should_exit) {
-    	usleep(10);
         auto curr_time_hr = std::chrono::high_resolution_clock::now();
-        gettimeofday(&s->vrtsp_state.curr_time, NULL);
-        s->vrtsp_state.timestamp = tv_diff(s->vrtsp_state.curr_time, s->vrtsp_state.start_time) * 90000;
+        struct timeval curr_time;
+        gettimeofday(&curr_time, NULL);
+        uint32_t timestamp = tv_diff(curr_time, start_time) * 90000;
 
-        rtp_update(s->vrtsp_state.device, s->vrtsp_state.curr_time);
+        rtp_update(s->vrtsp_state.device, curr_time);
 
-        s->vrtsp_state.timeout.tv_sec = 0;
-        s->vrtsp_state.timeout.tv_usec = 10000;
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 10000;
 
-        if (!rtp_recv_r(s->vrtsp_state.device, &s->vrtsp_state.timeout, s->vrtsp_state.timestamp)) {
+        if (!rtp_recv_r(s->vrtsp_state.device, &timeout, timestamp)) {
             pdb_iter_t it;
             s->vrtsp_state.cp = pdb_iter_init(s->vrtsp_state.participants, &it);
 
@@ -387,8 +380,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
                 pthread_mutex_unlock(&s->vrtsp_state.lock);
                 return NULL;
             }
-
-            gettimeofday(&s->vrtsp_state.curr_time, NULL);
 
             if(s->vrtsp_state.h264_offset_len>0 && s->vrtsp_state.frame->frame_type == INTRA){
                     memcpy(s->vrtsp_state.frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
@@ -493,9 +484,6 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
 
     s->vrtsp_state.mcast_if = NULL;
     s->vrtsp_state.required_connections = 1;
-
-    s->vrtsp_state.timeout.tv_sec = 0;
-    s->vrtsp_state.timeout.tv_usec = 10000;
 
     s->vrtsp_state.participants = pdb_init(0);
 
