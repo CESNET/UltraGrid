@@ -1663,7 +1663,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                         (char *) hdr, pt == PT_ENCRYPT_VIDEO ?
                                         sizeof(video_payload_hdr_t) : sizeof(fec_payload_hdr_t),
                                         plaintext, crypto_mode)) == 0) {
-                                log_msg(LOG_LEVEL_VERBOSE, "Warning: Packet dropped AES - wrong CRC!\n");
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Warning: Packet dropped AES - wrong CRC!\n";
                                 goto next_packet;
                         }
                         data = (char *) plaintext;
