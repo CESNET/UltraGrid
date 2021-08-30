@@ -93,7 +93,7 @@ static int calculate_avail_write(int start, int end, int buf_len) {
 }
 
 
-static int ring_get_read_regions(struct ring_buffer *ring, int max_len,
+int ring_get_read_regions(struct ring_buffer *ring, int max_len,
                 void **ptr1, int *size1,
                 void **ptr2, int *size2)
 {
@@ -124,7 +124,7 @@ static int ring_get_read_regions(struct ring_buffer *ring, int max_len,
         return read_len;
 }
 
-static void ring_advance_read_idx(struct ring_buffer *ring, int amount) {
+void ring_advance_read_idx(struct ring_buffer *ring, int amount) {
         // start index is modified only by this (reader) thread, so relaxed is enough
         int start = std::atomic_load_explicit(&ring->start, std::memory_order_relaxed);
 
@@ -161,7 +161,7 @@ void ring_buffer_flush(struct ring_buffer * buf) {
         buf->end = 0;
 }
 
-static bool ring_get_write_regions(struct ring_buffer *ring, int requested_len,
+int ring_get_write_regions(struct ring_buffer *ring, int requested_len,
                 void **ptr1, int *size1,
                 void **ptr2, int *size2)
 {
@@ -174,7 +174,7 @@ static bool ring_get_write_regions(struct ring_buffer *ring, int requested_len,
         int end = std::atomic_load_explicit(&ring->end, std::memory_order_relaxed);
 
         if(requested_len > ring->len) {
-                return false;
+                return 0;
         }
 
         int end_idx = end % ring->len;
@@ -186,10 +186,10 @@ static bool ring_get_write_regions(struct ring_buffer *ring, int requested_len,
                 *size2 = requested_len - *size1;
         }
 
-        return true;
+        return *size1 + *size2;
 }
 
-static bool ring_advance_write_idx(struct ring_buffer *ring, int amount) {
+bool ring_advance_write_idx(struct ring_buffer *ring, int amount) {
         const int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
         // end index is modified only by this (writer) thread, so relaxed is enough
         const int end = std::atomic_load_explicit(&ring->end, std::memory_order_relaxed);

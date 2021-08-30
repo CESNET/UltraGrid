@@ -84,6 +84,59 @@ int ring_get_current_size(struct ring_buffer * ring);
  */
 int ring_get_available_write_size(struct ring_buffer * ring);
 
+
+/**
+ * Returns pointers to memory available for reading. After reading use 
+ * ring_advance_read_idx() to mark the memory as free for writing.
+ *
+ * @param max_len      cap returned size to this value
+ * @param ptr1         pointer to the first region
+ * @param size1        size of available data in the first region
+ * @param ptr2         pointer to the second region
+ * @param size2        size of available data in the second region
+ * @return             size1 + size2
+ */
+int ring_get_read_regions(struct ring_buffer *ring, int max_len,
+                void **ptr1, int *size1,
+                void **ptr2, int *size2);
+
+/**
+ * Marks memory as already read and free for writing. Use after reading using
+ * ring_get_read_regions(), or simply for discarding unwanted unread data.
+ *
+ * @param amount      amount in bytes to discard
+ */
+void ring_advance_read_idx(struct ring_buffer *ring, int amount);
+
+/**
+ * Returns pointers to memory available for writing. After writing use 
+ * ring_advance_write_idx() to mark the memory as available for reading.
+ *
+ * Does not check for overflow, returns regions of requested size even if
+ * buffer is full.
+ *
+ * If the requested_len is longer than the whole buffer, returns 0.
+ *
+ * @param requested_len    amount you want to write
+ * @param ptr1             pointer to the first region
+ * @param size1            size of the first region
+ * @param ptr2             pointer to the second region
+ * @param size2            size of the second region
+ * @return                 size1 + size2
+ */
+int ring_get_write_regions(struct ring_buffer *ring, int requested_len,
+                void **ptr1, int *size1,
+                void **ptr2, int *size2);
+
+/**
+ * Marks written memory as ready for reading. Use after writing using
+ * ring_get_write_regions().
+ *
+ * @param amount      amount in bytes to discard
+ * @return            true if an overflow occured
+ */
+bool ring_advance_write_idx(struct ring_buffer *ring, int amount);
+
 extern struct audio_buffer_api ring_buffer_fns;
 
 #ifdef __cplusplus
