@@ -46,6 +46,19 @@
 struct ring_buffer {
         char *data;
         int len;
+        /* Start and end markers for the buffer.
+         *
+         * Valid values are in the range (0, 2 * ring->len). This is because in
+         * the simple implementation, where the values are in range
+         * (0, ring->len), it would be impossible to tell apart empty buffer
+         * and completely full buffer (both would have start == end). The
+         * simple workaround of always having at least one byte free would make
+         * it impossible to correctly align multi-byte elements for direct
+         * zero-copy access.
+         *
+         * When the range is doubled, full buffer has start == end in modulo
+         * ring->len, but not in modulo 2*ring->len.
+         */
         std::atomic<int> start, end;
 };
 
@@ -67,14 +80,16 @@ void ring_buffer_destroy(struct ring_buffer *ring) {
         }
 }
 
-static int calculate_avail_read(int start, int end, int buf_len){
-        return (end - start + buf_len) % buf_len;
+static int calculate_avail_read(int start, int end, int buf_len) {
+        int avail = (end - start + 2 * buf_len) % buf_len;
+        if(avail == 0 && (end >= buf_len) != (start >= buf_len))
+                avail += buf_len;
+
+        return avail;
 }
 
-static int calculate_avail_write(int start, int end, int buf_len){
-        /* Ring buffer needs at least one free byte, otherwise start == end
-         * and the ring would appear empty */
-        return buf_len - calculate_avail_read(start, end, buf_len) - 1; 
+static int calculate_avail_write(int start, int end, int buf_len) {
+        return buf_len - calculate_avail_read(start, end, buf_len); 
 }
 
 
@@ -93,8 +108,9 @@ static int ring_get_read_regions(struct ring_buffer *ring, int max_len,
         if(read_len > max_len)
                 read_len = max_len;
 
-        int to_end = ring->len - start;
-        *ptr1 = ring->data + start;
+        int start_idx = start % ring->len;
+        int to_end = ring->len - start_idx;
+        *ptr1 = ring->data + start_idx;
         if(read_len <= to_end) {
                 *size1 = read_len;
                 *ptr2 = nullptr;
@@ -115,7 +131,8 @@ static void ring_advance_read_idx(struct ring_buffer *ring, int amount) {
         /* Use release order to ensure that all reads are completed (no reads
          * or writes in the current thread can be reordered after this store).
          */
-        std::atomic_store_explicit(&ring->start, (start + amount) % ring->len, std::memory_order_release);
+        std::atomic_store_explicit(&ring->start,
+                        (start + amount) % (2*ring->len), std::memory_order_release);
 }
 
 int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len) {
@@ -153,16 +170,16 @@ static bool ring_get_write_regions(struct ring_buffer *ring, int requested_len,
         *ptr2 = nullptr;
         *size2 = 0;
 
-        int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
         // end index is modified only by this (writer) thread, so relaxed is enough
         int end = std::atomic_load_explicit(&ring->end, std::memory_order_relaxed);
 
-        if(requested_len >= ring->len) {
+        if(requested_len > ring->len) {
                 return false;
         }
 
-        int to_end = ring->len - end;
-        *ptr1 = ring->data + end;
+        int end_idx = end % ring->len;
+        int to_end = ring->len - end_idx;
+        *ptr1 = ring->data + end_idx;
         *size1 = requested_len < to_end ? requested_len : to_end;
         if(*size1 < requested_len){
                 *ptr2 = ring->data;
@@ -181,7 +198,8 @@ static bool ring_advance_write_idx(struct ring_buffer *ring, int amount) {
          * completed before advancing the end index (no reads or writes in the
          * current thread can be reordered after this store).
          */
-        std::atomic_store_explicit(&ring->end, (end + amount) % ring->len, std::memory_order_release);
+        std::atomic_store_explicit(&ring->end,
+                        (end + amount) % (2*ring->len), std::memory_order_release);
 
         return amount > calculate_avail_write(start, end, ring->len);
 }
