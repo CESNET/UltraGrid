@@ -67,32 +67,71 @@ void ring_buffer_destroy(struct ring_buffer *ring) {
         }
 }
 
-int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len) {
+static int calculate_avail_read(int start, int end, int buf_len){
+        return (end - start + buf_len) % buf_len;
+}
+
+static int calculate_avail_write(int start, int end, int buf_len){
+        /* Ring buffer needs at least one free byte, otherwise start == end
+         * and the ring would appear empty */
+        return buf_len - calculate_avail_read(start, end, buf_len) - 1; 
+}
+
+
+static int ring_get_read_regions(struct ring_buffer *ring, int max_len,
+                void **ptr1, int *size1,
+                void **ptr2, int *size2)
+{
         /* end index is modified by the writer thread, use acquire order to ensure
          * that all writes by the writer thread made before the modification are
          * observable in this (reader) thread */
         int end = std::atomic_load_explicit(&ring->end, std::memory_order_acquire);
         // start index is modified only by this (reader) thread, so relaxed is enough
         int start = std::atomic_load_explicit(&ring->start, std::memory_order_relaxed);
-        int read_len = end - start;
-        
-        if(read_len < 0)
-                read_len += ring->len;
+
+        int read_len = calculate_avail_read(start, end, ring->len);
         if(read_len > max_len)
                 read_len = max_len;
-        
-        if(start + read_len <= ring->len) {
-                memcpy(out, ring->data + start, read_len);
+
+        int to_end = ring->len - start;
+        *ptr1 = ring->data + start;
+        if(read_len <= to_end) {
+                *size1 = read_len;
+                *ptr2 = nullptr;
+                *size2 = 0;
         } else {
-                int to_end = ring->len - start;
-                memcpy(out, ring->data + start, to_end);
-                memcpy(out + to_end, ring->data, read_len - to_end);
+                *size1 = to_end;
+                *ptr2 = ring->data;
+                *size2 = read_len - to_end;
         }
+
+        return read_len;
+}
+
+static void ring_advance_read_idx(struct ring_buffer *ring, int amount) {
+        // start index is modified only by this (reader) thread, so relaxed is enough
+        int start = std::atomic_load_explicit(&ring->start, std::memory_order_relaxed);
 
         /* Use release order to ensure that all reads are completed (no reads
          * or writes in the current thread can be reordered after this store).
          */
-        std::atomic_store_explicit(&ring->start, (start + read_len) % ring->len, std::memory_order_release);
+        std::atomic_store_explicit(&ring->start, (start + amount) % ring->len, std::memory_order_release);
+}
+
+int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len) {
+        void *ptr1;
+        int size1;
+        void *ptr2;
+        int size2;
+
+        int read_len = ring_get_read_regions(ring, max_len, &ptr1, &size1, &ptr2, &size2);
+        
+        memcpy(out, ptr1, size1);
+        if(ptr2) {
+                memcpy(out + size1, ptr2, size2);
+        }
+
+        ring_advance_read_idx(ring, read_len);
         return read_len;
 }
 
@@ -103,16 +142,6 @@ void ring_buffer_flush(struct ring_buffer * buf) {
          */
         buf->start = 0;
         buf->end = 0;
-}
-
-static int calculate_avail_read(int start, int end, int buf_len){
-        return (end - start + buf_len) % buf_len;
-}
-
-static int calculate_avail_write(int start, int end, int buf_len){
-        /* Ring buffer needs at least one free byte, otherwise start == end
-         * and the ring would appear empty */
-        return buf_len - calculate_avail_read(start, end, buf_len) - 1; 
 }
 
 static bool ring_get_write_regions(struct ring_buffer *ring, int requested_len,
@@ -126,9 +155,9 @@ static bool ring_get_write_regions(struct ring_buffer *ring, int requested_len,
 
         int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
         // end index is modified only by this (writer) thread, so relaxed is enough
-        int end = std::atomic_load_explicit(&ring->start, std::memory_order_relaxed);
+        int end = std::atomic_load_explicit(&ring->end, std::memory_order_relaxed);
 
-        if(len >= ring->len) {
+        if(requested_len >= ring->len) {
                 return false;
         }
 
@@ -146,7 +175,7 @@ static bool ring_get_write_regions(struct ring_buffer *ring, int requested_len,
 static bool ring_advance_write_idx(struct ring_buffer *ring, int amount) {
         const int start = std::atomic_load_explicit(&ring->start, std::memory_order_acquire);
         // end index is modified only by this (writer) thread, so relaxed is enough
-        const int end = std::atomic_load_explicit(&ring->start, std::memory_order_relaxed);
+        const int end = std::atomic_load_explicit(&ring->end, std::memory_order_relaxed);
 
         /* Use release order to ensure that all writes to the buffer are
          * completed before advancing the end index (no reads or writes in the
