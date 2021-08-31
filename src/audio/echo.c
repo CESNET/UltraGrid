@@ -52,7 +52,7 @@
 #include <pthread.h>
 #include "utils/ring_buffer.h"
 
-#define SAMPLES_PER_FRAME (48 * 10)
+#define SAMPLES_PER_FRAME (2 << 8) //about 10ms at 48kHz, power of two for easy FFT
 #define FILTER_LENGTH (48 * 500)
 
 #define MOD_NAME "[Echo cancel] "
@@ -65,7 +65,6 @@ struct echo_cancellation {
 
         struct audio_frame frame;
 
-        bool drop_near;
         int overfill;
 
         pthread_mutex_t lock;
@@ -97,7 +96,7 @@ struct echo_cancellation * echo_cancellation_init(void)
         s->frame.sample_rate = s->frame.bps = 0;
         pthread_mutex_init(&s->lock, NULL);
 
-        const int ringbuf_sample_count = 2 << 15;
+        const int ringbuf_sample_count = 2 << 15; //should be divisable by SAMPLES_PER_FRAME
         const int bps = 2; //TODO: assuming bps to be 2
 
         s->far_end_ringbuf = ring_buffer_init(ringbuf_sample_count * bps);
@@ -108,8 +107,7 @@ struct echo_cancellation * echo_cancellation_init(void)
 
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Echo cancellation initialized.\n");
 
-        s->drop_near = true;
-        s->overfill = 3000;
+        s->overfill = 0;
 
         return s;
 }
@@ -152,26 +150,31 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
 
 
         if(frame->bps != 2) {
-                char *tmp = malloc(samples * 2);
-                change_bps(tmp, 2, frame->data, frame->bps, frame->data_len/* bytes */);
+                void *ptr1;
+                int size1;
+                void *ptr2;
+                int size2;
+                ring_get_write_regions(s->far_end_ringbuf, samples * 2,
+                                &ptr1, &size1, &ptr2, &size2);
 
-                ring_buffer_write(s->far_end_ringbuf, tmp, samples * 2);
+                assert(size1 % 2 == 0);
+                int in_bytes1 = (size1 / 2) * frame->bps;
+                change_bps(ptr1, 2, frame->data, frame->bps, in_bytes1);
+                if(ptr2){
+                        change_bps(ptr2, 2, frame->data + in_bytes1, frame->bps, frame->data_len - in_bytes1);
+                }
 
-                free(tmp);
+                ring_advance_write_idx(s->far_end_ringbuf, samples * 2);
         } else {
                 ring_buffer_write(s->far_end_ringbuf, frame->data, samples * 2);
         }
 
-        if(s->drop_near){
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Dropping near end buffer\n");
-                ring_buffer_flush(s->near_end_ringbuf);
-                s->drop_near = false;
-        }
-
         if(s->overfill){
-                int to_fill = s->overfill > samples ? samples : s->overfill;
-                ring_buffer_write(s->far_end_ringbuf, frame->data, to_fill * 2);
+                //fill only whole frames
+                int to_fill = (s->overfill / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME;
                 s->overfill -= to_fill;
+                ring_advance_write_idx(s->far_end_ringbuf, to_fill);
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Pre filling far end with %d samples\n", to_fill);
         }
 
         pthread_mutex_unlock(&s->lock);
@@ -198,42 +201,45 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 reconfigure_echo(s, frame->sample_rate, frame->bps);
         }
 
-        char *data;
-        char *tmp;
-        int data_len;
+        size_t in_frame_samples = frame->data_len / frame->bps;
 
-        if(frame->bps != 2) {
-                data_len = frame->data_len / frame->bps * 2;
-                data = tmp = malloc(data_len);
-                change_bps(tmp, 2, frame->data, frame->bps, frame->data_len/* bytes */);
-        } else {
-                tmp = NULL;
-                data = frame->data;
-                data_len = frame->data_len;
-        }
-
-        size_t samples = data_len / 2;
         size_t ringbuf_free_samples = ring_get_available_write_size(s->near_end_ringbuf) / 2;
-        
-        if(samples > ringbuf_free_samples){
-                samples = ringbuf_free_samples;
+        if(in_frame_samples > ringbuf_free_samples){
+                in_frame_samples = ringbuf_free_samples;
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Near end ringbuf overflow\n");
         }
 
-        ring_buffer_write(s->near_end_ringbuf, data, samples * 2);
+        if(frame->bps != 2){
+                //Need to change bps, put whole incoming frame into ringbuf
+                void *ptr1;
+                int size1;
+                void *ptr2;
+                int size2;
+                ring_get_write_regions(s->near_end_ringbuf, in_frame_samples * 2,
+                                &ptr1, &size1, &ptr2, &size2);
 
-        free(tmp);
-
+                int in_bytes1 = (size1 / 2) * frame->bps;
+                change_bps(ptr1, 2, frame->data, frame->bps, in_bytes1);
+                if(ptr2){
+                        change_bps(ptr2, 2, frame->data + in_bytes1, frame->bps, frame->data_len - in_bytes1);
+                }
+                ring_advance_write_idx(s->near_end_ringbuf, in_frame_samples * 2);
+        } else {
+                ring_buffer_write(s->near_end_ringbuf, frame->data, frame->data_len);
+        }
 
         size_t near_end_samples = ring_get_current_size(s->near_end_ringbuf) / 2;
         size_t far_end_samples = ring_get_current_size(s->far_end_ringbuf) / 2;
-        size_t available_samples = (near_end_samples > far_end_samples) ? far_end_samples : near_end_samples;
 
-        if(true || available_samples < near_end_samples){
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Limited by far end (%lu near, %lu far)\n", near_end_samples, far_end_samples);
+        if(far_end_samples < near_end_samples){
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Not enough far end samples (%lu near, %lu far)\n", near_end_samples, far_end_samples);
+
+                //The delay between far end and near end will always be at least
+                //recorded frame length
+                s->overfill = in_frame_samples;
         }
 
-        size_t frames_to_process = available_samples / SAMPLES_PER_FRAME;
+        size_t frames_to_process = near_end_samples / SAMPLES_PER_FRAME;
         if(!frames_to_process){
                 pthread_mutex_unlock(&s->lock);
                 return NULL;
@@ -242,7 +248,6 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         size_t out_size = frames_to_process * SAMPLES_PER_FRAME * 2;
         assert(s->frame.max_size >= out_size);
         s->frame.data_len = out_size;
-
         res = &s->frame;
 
         spx_int16_t *out_ptr = (spx_int16_t *)(void *) s->frame.data;
@@ -250,11 +255,27 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 spx_int16_t near_arr[SAMPLES_PER_FRAME];
                 spx_int16_t far_arr[SAMPLES_PER_FRAME];
 
-                ring_buffer_read(s->near_end_ringbuf, near_arr, SAMPLES_PER_FRAME * 2);
-                ring_buffer_read(s->far_end_ringbuf, far_arr, SAMPLES_PER_FRAME * 2);
-                available_samples -= SAMPLES_PER_FRAME;
+                if(far_end_samples >= SAMPLES_PER_FRAME){
+                        ring_buffer_read(s->far_end_ringbuf, far_arr, SAMPLES_PER_FRAME * 2);
+                        ring_buffer_read(s->near_end_ringbuf, near_arr, SAMPLES_PER_FRAME * 2);
 
-                speex_echo_cancellation(s->echo_state, near_arr, far_arr, out_ptr); 
+                        speex_echo_cancellation(s->echo_state, near_arr, far_arr, out_ptr); 
+                        far_end_samples -= SAMPLES_PER_FRAME;
+                } else {
+                        ring_buffer_read(s->near_end_ringbuf, out_ptr, SAMPLES_PER_FRAME * 2);
+
+#if 0
+                        if(far_end_samples > 0){
+                                /* We don't have enough far end samples for the
+                                 * whole frame, so just flush them, since
+                                 * they'll be useless anyway.
+                                 */
+                                //TODO: cannot do it this way, would break alignment
+                                ring_advance_read_idx(s->far_end_ringbuf, far_end_samples * 2);
+                                far_end_samples = 0;
+                        }
+#endif
+                }
 
                 out_ptr += SAMPLES_PER_FRAME;
         }
