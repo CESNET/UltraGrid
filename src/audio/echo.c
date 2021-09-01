@@ -65,7 +65,7 @@ struct echo_cancellation {
 
         struct audio_frame frame;
 
-        int overfill;
+        int prefill;
         bool before_first_near_sample;
 
         pthread_mutex_t lock;
@@ -108,7 +108,7 @@ struct echo_cancellation * echo_cancellation_init(void)
 
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Echo cancellation initialized.\n");
 
-        s->overfill = 0;
+        s->prefill = 0;
         s->before_first_near_sample = true;
 
         return s;
@@ -142,6 +142,20 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
                 return;
         }
 
+        if(s->prefill){
+                int target = (s->prefill / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME;
+                int current = ring_get_current_size(s->far_end_ringbuf);
+                //buffer can contain small remainder (<SAMPLES_PER_FRAME)
+                int to_fill = target - current;
+                s->prefill -= target;
+                if(to_fill < 0){
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Pre fill requested to %d, but the buffer is already %d!\n", target, current);
+                } else {
+                        ring_advance_write_idx(s->far_end_ringbuf, to_fill);
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Pre filling far end with %d samples\n", to_fill);
+                }
+        }
+
         size_t samples = frame->data_len / frame->bps;
         size_t ringbuf_free_samples = ring_get_available_write_size(s->far_end_ringbuf) / 2;
 
@@ -149,7 +163,6 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
                 samples = ringbuf_free_samples;
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Far end ringbuf overflow!\n");
         }
-
 
         if(frame->bps != 2) {
                 void *ptr1;
@@ -169,14 +182,6 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
                 ring_advance_write_idx(s->far_end_ringbuf, samples * 2);
         } else {
                 ring_buffer_write(s->far_end_ringbuf, frame->data, samples * 2);
-        }
-
-        if(s->overfill){
-                //fill only whole frames
-                int to_fill = (s->overfill / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME;
-                s->overfill -= to_fill;
-                ring_advance_write_idx(s->far_end_ringbuf, to_fill);
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Pre filling far end with %d samples\n", to_fill);
         }
 
         pthread_mutex_unlock(&s->lock);
@@ -255,7 +260,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 
                 //The delay between far end and near end will always be at least
                 //recorded frame length
-                s->overfill = in_frame_samples;
+                s->prefill = in_frame_samples;
         }
 
         size_t frames_to_process = near_end_samples / SAMPLES_PER_FRAME;
@@ -282,18 +287,6 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                         far_end_samples -= SAMPLES_PER_FRAME;
                 } else {
                         ring_buffer_read(s->near_end_ringbuf, out_ptr, SAMPLES_PER_FRAME * 2);
-
-#if 0
-                        if(far_end_samples > 0){
-                                /* We don't have enough far end samples for the
-                                 * whole frame, so just flush them, since
-                                 * they'll be useless anyway.
-                                 */
-                                //TODO: cannot do it this way, would break alignment
-                                ring_advance_read_idx(s->far_end_ringbuf, far_end_samples * 2);
-                                far_end_samples = 0;
-                        }
-#endif
                 }
 
                 out_ptr += SAMPLES_PER_FRAME;
