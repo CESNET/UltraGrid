@@ -285,31 +285,50 @@ static void * audio_cap_testcard_init(const char *cfg)
                         delete s;
                         return NULL;
                 }
-                s->audio.bps = metadata.bits_per_sample / 8;
+                s->audio.bps = audio_capture_bps ? audio_capture_bps : metadata.bits_per_sample / 8;
                 s->audio.ch_count = metadata.ch_count;
                 s->audio.sample_rate = metadata.sample_rate;
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
-                const int headroom = (s->chunk_size - 1) * metadata.ch_count * (metadata.bits_per_sample / 8);
-                s->audio.max_size = metadata.data_size + headroom;
+
                 s->total_samples = metadata.data_size  * 8ULL /  metadata.ch_count / metadata.bits_per_sample;
                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->total_samples << " samples read from file " << wav_file << "\n";
 
-                s->audio_samples = (char *) calloc(1, s->audio.max_size);
-                unsigned int samples = wav_read(s->audio_samples, s->total_samples, wav, &metadata);
-                int bytes = samples * s->audio.bps * s->audio.ch_count;
+                const int headroom = (s->chunk_size - 1) * s->audio.ch_count * s->audio.bps;
+                const int samples_data_size = s->total_samples * s->audio.ch_count * s->audio.bps;
+
+                const int audio_samples_size = samples_data_size + headroom;
+                s->audio_samples = (char *) calloc(1, audio_samples_size);
+
+                char *read_to;
+                char *tmp = NULL;
+                if(s->audio.bps == metadata.bits_per_sample / 8){
+                    read_to = s->audio_samples;
+                } else {
+                    tmp = (char *) calloc(1, metadata.data_size);
+                    read_to = tmp;
+                }
+                unsigned int samples = wav_read(read_to, s->total_samples, wav, &metadata);
+                int bytes = samples * (metadata.bits_per_sample / 8) * metadata.ch_count;
                 if (samples != s->total_samples) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Warning: premature end of WAV file (" << bytes << " read, " << metadata.data_size << " expected)!\n";
-                        s->audio.max_size = bytes + headroom;
+                        s->total_samples = samples;
                 }
-                memcpy(s->audio_samples + metadata.data_size, s->audio_samples, s->audio.max_size -
-                                metadata.data_size);
                 fclose(wav);
+
+                if(s->audio.bps != metadata.bits_per_sample / 8){
+                    change_bps(s->audio_samples, s->audio.bps, tmp, metadata.bits_per_sample / 8, bytes);
+                    free(tmp);
+                }
+
+
+                memcpy(s->audio_samples + samples_data_size, s->audio_samples, headroom);
                 break;
         }
         }
 
         s->audio.data_len = s->chunk_size * s->audio.bps * s->audio.ch_count;
-        s->audio.data = (char *) calloc(1, s->audio.data_len);
+        s->audio.max_size = s->audio.data_len;
+        s->audio.data = (char *) calloc(1, s->audio.max_size);
 
         s->samples_played = 0;
 
