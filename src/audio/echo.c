@@ -66,6 +66,7 @@ struct echo_cancellation {
         struct audio_frame frame;
 
         int overfill;
+        bool before_first_near_sample;
 
         pthread_mutex_t lock;
 };
@@ -108,6 +109,7 @@ struct echo_cancellation * echo_cancellation_init(void)
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Echo cancellation initialized.\n");
 
         s->overfill = 0;
+        s->before_first_near_sample = true;
 
         return s;
 }
@@ -207,6 +209,23 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         if(in_frame_samples > ringbuf_free_samples){
                 in_frame_samples = ringbuf_free_samples;
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Near end ringbuf overflow\n");
+        }
+
+        if(s->before_first_near_sample){
+                /* It is possible that the capture thread starts late, which
+                 * could create an unwanted delay between far and near ends.
+                 * To partialy protect against this, drop the contents of far
+                 * end buffer, when the very first near end samples arrive.
+                 *
+                 * This does not however protect against random capture thread
+                 * freezes or dropouts.
+                 */
+                int current = ring_get_current_size(s->far_end_ringbuf);
+                //drop only whole frames
+                current = (current / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME;
+                ring_advance_read_idx(s->far_end_ringbuf, current);
+
+                s->before_first_near_sample = false;
         }
 
         if(frame->bps != 2){
