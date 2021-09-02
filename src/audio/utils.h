@@ -1,6 +1,7 @@
 /**
  * @file   audio/utils.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
  * Copyright (c) 2011-2021 CESNET, z. s. p. o.
@@ -69,6 +70,19 @@ void audio_frame_write_desc(struct audio_frame *f, struct audio_desc desc);
  * The memory areas shouldn't (supposedly) overlap.
  */
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
+
+/**
+ * Bit-shifts val down by shift bits with a triangular dither noise.
+ *
+ * By reducing bit-depth of audio, quantization noise is introduced. If the bit
+ * depth is reduced by consistent rounding (either always down, always up, or
+ * always to nearest) the quantization noise is correlated with the input
+ * signal and percieved as distortion. Adding a small amount of noise to the
+ * input signal before reducing the bit-depth causes random rounding, which
+ * makes the noise uncorrelated and uniformly spread through the whole
+ * spectrum.
+ */
+int32_t downshift_with_dither(int32_t val, int shift);
 
 /**
  * Makes n copies of first channel (interleaved).

@@ -1,6 +1,7 @@
 /**
  * @file   audio/utils.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
  * Copyright (c) 2011-2021 CESNET z.s.p.o.
@@ -51,6 +52,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <random>
 
 
 #ifdef WORDS_BIGENDIAN
@@ -204,6 +206,29 @@ void audio_frame_write_desc(struct audio_frame *f, struct audio_desc desc)
         f->ch_count = desc.ch_count;
 }
 
+int32_t downshift_with_dither(int32_t val, int shift){
+        static thread_local std::uint_fast32_t last_rand = 1;
+
+        const int mask = (1 << shift) - 1;
+
+        //Pseudorandom number generation, same parameters as std::minstd_rand
+        last_rand = (last_rand * 48271) % 2147483647;
+        int triangle_dither = last_rand & mask;
+        last_rand = (last_rand * 48271) % 2147483647;
+        triangle_dither -= last_rand & mask; //triangle probability distribution
+
+        /* Prevent over/underflow when val is big.
+         *
+         * abs(val) could cause problems if val is INT32_MIN, but integer
+         * 32-bit pcm is rare and should not contain the value INT32_MIN
+         * anyway because of symmetry, as specified by AES17 and IEC 61606-3
+         */
+        if(INT32_MAX - abs(val) < mask)
+                return val >> shift;
+
+        return (val + triangle_dither) >> shift;
+}
+
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
 {
         int i;
@@ -216,7 +241,8 @@ void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /
                 int32_t out_value;
 
                 if(in_bps > out_bps) {
-                        out_value = in_value >> (in_bps * 8 - out_bps * 8);
+                        const int downshift = in_bps * 8 - out_bps * 8;
+                        out_value = downshift_with_dither(in_value, downshift);
                 } else {
                         out_value = in_value << (out_bps * 8 - in_bps * 8);
                 }
