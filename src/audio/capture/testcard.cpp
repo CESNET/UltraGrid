@@ -58,6 +58,7 @@
 
 #include <chrono>
 #include <string>
+#include <algorithm>
 
 using namespace std::chrono;
 using std::string;
@@ -112,7 +113,12 @@ static char *get_sine_signal(int sample_rate, int bps, int channels, int frequen
         for (int i = 0; i < (int) sample_rate; i += 1)
         {
                 for (int channel = 0; channel < channels; ++channel) {
-                        int64_t val = round(sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. ) * ((1ll << (bps * 8)) / 2 - 1) * scale);
+                        double sine = sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. );
+                        int32_t val = std::clamp(sine * INT32_MAX * scale, (double) INT32_MIN, (double) INT32_MAX);
+
+                        const int downshift = 4 * 8 - bps * 8;
+                        val = downshift_with_dither(val, downshift);
+
                         format_to_out_bps(data + i * bps * channels + bps * channel,
                                         bps, val);
                 }
