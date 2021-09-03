@@ -178,16 +178,13 @@ static void *worker(void *args) {
                 .ch_count = s->desc.ch_count };
 
         size_t len = f.bps * f.ch_count * (f.sample_rate * s->sched_latency_ms / 1000);
-        char *silence = alloca(len);
-        memset(silence, 0, len);
+        char *data = alloca(len);
 
 #ifdef USE_SPEEX_JITTER_BUFFER
 	const int pkt_max_len = s->desc.sample_rate / 10;
         JitterBufferPacket pkt;
         pkt.len = pkt_max_len;
         pkt.data = alloca(pkt_max_len);
-#else
-        char *data = alloca(len);
 #endif
         while (1) {
                 pthread_mutex_lock(&s->lock);
@@ -216,8 +213,9 @@ static void *worker(void *args) {
 						JITTER_BUFFER_INTERNAL_ERROR ? "internal error" :
 						"invalid argument\n");
 			}
+                        memset(data, 0, len);
                         f.data_len = len;
-                        f.data = silence;
+                        f.data = data;
 		}
 		pkt.len = pkt_max_len;
 #else
@@ -229,8 +227,9 @@ static void *worker(void *args) {
                         f.data = data;
                         s->last_audio_read = now;
                 } else {
+                        memset(data, 0, len);
                         f.data_len = len;
-                        f.data = silence;
+                        f.data = data;
 
                         if (tv_diff(now, s->last_audio_read) < 2.0) {
                                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "empty buffer\n");
