@@ -765,19 +765,20 @@ AC_ARG_ENABLE(gpustitch,
 
 PKG_CHECK_MODULES([LIBGPUSTITCH], [libgpustitch >= 0.0.1 ], [found_gpustitch=yes], [found_gpustitch=no])
 
-if test "$found_gpustitch" != yes
+SAVED_LIBS=$LIBS
+LIBS="$LIBS -lgpustitch"
+AC_CHECK_HEADER([libgpustitch/stitcher.hpp])
+LIBS=$SAVED_LIBS
+
+if test "$ac_cv_header_libgpustitch_stitcher_hpp" != yes
 then
-        GPUSTITCH_LIB="$GPUSTITCH_LIB -lgpustitch"
-        SAVED_LIBS=$LIBS
-        LIBS="$LIBS $GPUSTITCH_LIB"
-        AC_CHECK_HEADER([libgpustitch/stitcher.hpp])
-        LIBS=$SAVED_LIBS
-        if test "$ac_cv_header_libgpustitch_stitcher_hpp" = yes
-        then
-                found_gpustitch=yes
-        else
-                found_gpustitch=no
-        fi
+	found_gpustitch=no
+else
+	if test "$found_gpustitch" != yes
+	then
+		GPUSTITCH_LIB="$GPUSTITCH_LIB -lgpustitch"
+		found_gpustitch=yes
+	fi
 fi
 
 if test "$gpustitch_req" != no -a \
