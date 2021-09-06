@@ -35,8 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef WIN32
+#ifdef HAVE_USLEEP
+
+#include <unistd.h>
+
+#else
 
 EXTERN_C int usleep(unsigned int usec);
 
-#endif /* WIN32 */
+#endif /* !defined HAVE_USLEEP */

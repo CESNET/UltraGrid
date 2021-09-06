@@ -315,6 +315,7 @@ else
         AC_CHECK_FUNCS(if_nametoindex)
 fi
 
+AC_CHECK_FUNCS(usleep)
 AC_CHECK_FUNCS(strtok_r)
 
 AC_CHECK_FUNCS(drand48)
