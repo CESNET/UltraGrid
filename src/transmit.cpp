@@ -399,7 +399,7 @@ void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx
         video_hdr[5] = format_interl_fps_hdr_row(frame->interlacing, frame->fps);
 }
 
-void format_audio_header(const struct audio_frame2 *frame, int channel, int buffer_idx, uint32_t *audio_hdr)
+void format_audio_header(const audio_frame2 *frame, int channel, int buffer_idx, uint32_t *audio_hdr)
 {
         uint32_t tmp = 0;
         tmp = channel << 22U; /* bits 0-9 */
