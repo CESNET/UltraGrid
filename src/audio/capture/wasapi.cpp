@@ -354,7 +354,7 @@ static struct audio_frame *audio_cap_wasapi_read(void *state)
         UINT32 packetLength = 0;
         FAIL_IF_NOT(s->pCaptureClient->GetNextPacketSize(&packetLength));
         if (packetLength == 0) {
-                usleep(10000);
+                Sleep(10);
         }
 
         FAIL_IF_NOT(s->pCaptureClient->GetNextPacketSize(&packetLength));

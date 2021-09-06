@@ -47,6 +47,7 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
+#include "compat/usleep.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
