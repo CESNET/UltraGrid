@@ -430,9 +430,11 @@ static int snprintfResponseHeader(char* destination, size_t destinationCapacity,
 #if EWS_IMPLEMENT_SPRINTF
     static int snprintf(char* destination, size_t length, const char* format, ...);
 #endif
-    static int strcasecmp(const char* utf8String1, const char* utf8String2);
     static wchar_t* strdupWideFromUTF8(const char* utf8String, size_t extraBytes);
     /* windows function aliases */
+    #ifndef strcasecmp
+      #define strcasecmp _stricmp
+    #endif // defined strcasecmp
     #define strdup(string) _strdup(string)
     #define unlink(file) _unlink(file)
     #define close(x) closesocket(x)
@@ -2275,11 +2277,6 @@ static void printIPv4Addresses(uint16_t portInHostOrder){
 
 static void ignoreSIGPIPE() {
     /* not needed on Windows */
-}
-
-static int strcasecmp(const char* str1, const char* str2) {
-    /* lstrcmpI seems like the closest analog */
-    return lstrcmpiA(str1, str2);
 }
 
 static int pthread_create(HANDLE* threadHandle, const void* attributes, LPTHREAD_START_ROUTINE threadRoutine, void* params) {
