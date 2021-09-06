@@ -1,5 +1,5 @@
 /**
- * @file   audio/echo.c
+ * @file   audio/echo.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
@@ -49,26 +49,38 @@
 #include <speex/speex_echo.h>
 
 #include <stdlib.h>
-#include <pthread.h>
+#include <mutex>
+#include <memory>
 #include "utils/ring_buffer.h"
 
-#define SAMPLES_PER_FRAME (2 << 8) //about 10ms at 48kHz, power of two for easy FFT
+#define SAMPLES_PER_FRAME (1 << 9) //about 10ms at 48kHz, power of two for easy FFT
 #define FILTER_LENGTH (48 * 500)
 
 #define MOD_NAME "[Echo cancel] "
 
+namespace {
+        struct Ring_buf_deleter{
+                void operator()(ring_buffer_t* ring) { ring_buffer_destroy(ring); }
+        };
+
+        struct Echo_state_deleter{
+                void operator()(SpeexEchoState* echo) { speex_echo_state_destroy(echo); }
+        };
+}
+
 struct echo_cancellation {
-        SpeexEchoState *echo_state;
+        std::unique_ptr<SpeexEchoState, Echo_state_deleter> echo_state;
 
-        ring_buffer_t *near_end_ringbuf;
-        ring_buffer_t *far_end_ringbuf;
+        std::unique_ptr<ring_buffer_t, Ring_buf_deleter> near_end_ringbuf;
+        std::unique_ptr<ring_buffer_t, Ring_buf_deleter> far_end_ringbuf;
 
+        std::unique_ptr<spx_int16_t[]> frame_data;
         struct audio_frame frame;
 
         int prefill;
         bool before_first_near_sample;
 
-        pthread_mutex_t lock;
+        std::mutex lock;
 };
 
 static void reconfigure_echo (struct echo_cancellation *s, int sample_rate, int bps);
@@ -81,30 +93,31 @@ static void reconfigure_echo (struct echo_cancellation *s, int sample_rate, int 
         s->frame.ch_count = 1;
         s->frame.sample_rate = sample_rate;
 
-        ring_buffer_flush(s->far_end_ringbuf);
-        ring_buffer_flush(s->near_end_ringbuf);
+        ring_buffer_flush(s->far_end_ringbuf.get());
+        ring_buffer_flush(s->near_end_ringbuf.get());
 
-        speex_echo_ctl(s->echo_state, SPEEX_ECHO_SET_SAMPLING_RATE, &sample_rate); // should the 3rd parameter be int?
+        speex_echo_ctl(s->echo_state.get(), SPEEX_ECHO_SET_SAMPLING_RATE, &sample_rate); // should the 3rd parameter be int?
 }
 
 struct echo_cancellation * echo_cancellation_init(void)
 {
-        struct echo_cancellation *s = (struct echo_cancellation *) calloc(1, sizeof(struct echo_cancellation));
+        struct echo_cancellation *s = new echo_cancellation();
 
-        s->echo_state = speex_echo_state_init(SAMPLES_PER_FRAME, FILTER_LENGTH);
+        s->echo_state.reset(speex_echo_state_init(SAMPLES_PER_FRAME, FILTER_LENGTH));
 
         s->frame.data = NULL;
         s->frame.sample_rate = s->frame.bps = 0;
-        pthread_mutex_init(&s->lock, NULL);
+        std::lock_guard(s->lock);
 
         const int ringbuf_sample_count = 2 << 15; //should be divisable by SAMPLES_PER_FRAME
         const int bps = 2; //TODO: assuming bps to be 2
 
-        s->far_end_ringbuf = ring_buffer_init(ringbuf_sample_count * bps);
-        s->near_end_ringbuf = ring_buffer_init(ringbuf_sample_count * bps);
+        s->far_end_ringbuf.reset(ring_buffer_init(ringbuf_sample_count * bps));
+        s->near_end_ringbuf.reset(ring_buffer_init(ringbuf_sample_count * bps));
 
-        s->frame.data = malloc(ringbuf_sample_count * bps);
-        s->frame.max_size = ringbuf_sample_count * bps;
+        s->frame_data = std::make_unique<spx_int16_t[]>(ringbuf_sample_count);
+        s->frame.data = reinterpret_cast<char *>(s->frame_data.get());
+        s->frame.max_size = ringbuf_sample_count * sizeof(s->frame_data[0]);
 
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Echo cancellation initialized.\n");
 
@@ -116,21 +129,12 @@ struct echo_cancellation * echo_cancellation_init(void)
 
 void echo_cancellation_destroy(struct echo_cancellation *s)
 {
-        if(s->echo_state) {
-                speex_echo_state_destroy(s->echo_state);  
-        }
-        ring_buffer_destroy(s->near_end_ringbuf);
-        ring_buffer_destroy(s->far_end_ringbuf);
-        free(s->frame.data);
-
-        pthread_mutex_destroy(&s->lock);
-
-        free(s);
+        delete s;
 }
 
 void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
 {
-        pthread_mutex_lock(&s->lock);
+        std::lock_guard(s->lock);
 
         if(frame->ch_count != 1) {
                 static int prints = 0;
@@ -138,26 +142,25 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
                         error_msg(MOD_NAME "Echo cancellation needs 1 played channel. Disabling echo cancellation.\n"
                                         "Use channel mapping and let only one channel played to enable this feature.\n");
                 }
-                pthread_mutex_unlock(&s->lock);
                 return;
         }
 
         if(s->prefill){
                 int target = (s->prefill / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME;
-                int current = ring_get_current_size(s->far_end_ringbuf);
+                int current = ring_get_current_size(s->far_end_ringbuf.get());
                 //buffer can contain small remainder (<SAMPLES_PER_FRAME)
                 int to_fill = target - current;
                 s->prefill -= target;
                 if(to_fill < 0){
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Pre fill requested to %d, but the buffer is already %d!\n", target, current);
                 } else {
-                        ring_advance_write_idx(s->far_end_ringbuf, to_fill);
+                        ring_advance_write_idx(s->far_end_ringbuf.get(), to_fill);
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Pre filling far end with %d samples\n", to_fill);
                 }
         }
 
         size_t samples = frame->data_len / frame->bps;
-        size_t ringbuf_free_samples = ring_get_available_write_size(s->far_end_ringbuf) / 2;
+        size_t ringbuf_free_samples = ring_get_available_write_size(s->far_end_ringbuf.get()) / 2;
 
         if(samples > ringbuf_free_samples){
                 samples = ringbuf_free_samples;
@@ -169,36 +172,33 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
                 int size1;
                 void *ptr2;
                 int size2;
-                ring_get_write_regions(s->far_end_ringbuf, samples * 2,
+                ring_get_write_regions(s->far_end_ringbuf.get(), samples * 2,
                                 &ptr1, &size1, &ptr2, &size2);
 
                 assert(size1 % 2 == 0);
                 int in_bytes1 = (size1 / 2) * frame->bps;
-                change_bps(ptr1, 2, frame->data, frame->bps, in_bytes1);
+                change_bps(static_cast<char *>(ptr1), 2, frame->data, frame->bps, in_bytes1);
                 if(ptr2){
-                        change_bps(ptr2, 2, frame->data + in_bytes1, frame->bps, frame->data_len - in_bytes1);
+                        change_bps(static_cast<char *>(ptr2), 2, frame->data + in_bytes1, frame->bps, frame->data_len - in_bytes1);
                 }
 
-                ring_advance_write_idx(s->far_end_ringbuf, samples * 2);
+                ring_advance_write_idx(s->far_end_ringbuf.get(), samples * 2);
         } else {
-                ring_buffer_write(s->far_end_ringbuf, frame->data, samples * 2);
+                ring_buffer_write(s->far_end_ringbuf.get(), frame->data, samples * 2);
         }
-
-        pthread_mutex_unlock(&s->lock);
 }
 
 struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame *frame)
 {
         struct audio_frame *res;
 
-        pthread_mutex_lock(&s->lock);
+        std::lock_guard(s->lock);
 
         if(frame->ch_count != 1) {
                 static int prints = 0;
                 if(prints++ % 100 == 0)
                         error_msg(MOD_NAME "Echo cancellation needs 1 captured channel. Disabling echo cancellation.\n"
                                         "Use '--audio-capture-channels 1' parameter to capture single channel.\n");
-                pthread_mutex_unlock(&s->lock);
                 return frame;
         }
 
@@ -210,7 +210,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 
         size_t in_frame_samples = frame->data_len / frame->bps;
 
-        size_t ringbuf_free_samples = ring_get_available_write_size(s->near_end_ringbuf) / 2;
+        size_t ringbuf_free_samples = ring_get_available_write_size(s->near_end_ringbuf.get()) / 2;
         if(in_frame_samples > ringbuf_free_samples){
                 in_frame_samples = ringbuf_free_samples;
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Near end ringbuf overflow\n");
@@ -225,10 +225,10 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                  * This does not however protect against random capture thread
                  * freezes or dropouts.
                  */
-                int current = ring_get_current_size(s->far_end_ringbuf);
+                int current = ring_get_current_size(s->far_end_ringbuf.get());
                 //drop only whole frames
                 current = (current / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME;
-                ring_advance_read_idx(s->far_end_ringbuf, current);
+                ring_advance_read_idx(s->far_end_ringbuf.get(), current);
 
                 s->before_first_near_sample = false;
         }
@@ -239,21 +239,21 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 int size1;
                 void *ptr2;
                 int size2;
-                ring_get_write_regions(s->near_end_ringbuf, in_frame_samples * 2,
+                ring_get_write_regions(s->near_end_ringbuf.get(), in_frame_samples * 2,
                                 &ptr1, &size1, &ptr2, &size2);
 
                 int in_bytes1 = (size1 / 2) * frame->bps;
-                change_bps(ptr1, 2, frame->data, frame->bps, in_bytes1);
+                change_bps(static_cast<char *>(ptr1), 2, frame->data, frame->bps, in_bytes1);
                 if(ptr2){
-                        change_bps(ptr2, 2, frame->data + in_bytes1, frame->bps, frame->data_len - in_bytes1);
+                        change_bps(static_cast<char *>(ptr2), 2, frame->data + in_bytes1, frame->bps, frame->data_len - in_bytes1);
                 }
-                ring_advance_write_idx(s->near_end_ringbuf, in_frame_samples * 2);
+                ring_advance_write_idx(s->near_end_ringbuf.get(), in_frame_samples * 2);
         } else {
-                ring_buffer_write(s->near_end_ringbuf, frame->data, frame->data_len);
+                ring_buffer_write(s->near_end_ringbuf.get(), frame->data, frame->data_len);
         }
 
-        size_t near_end_samples = ring_get_current_size(s->near_end_ringbuf) / 2;
-        size_t far_end_samples = ring_get_current_size(s->far_end_ringbuf) / 2;
+        size_t near_end_samples = ring_get_current_size(s->near_end_ringbuf.get()) / 2;
+        size_t far_end_samples = ring_get_current_size(s->far_end_ringbuf.get()) / 2;
 
         if(far_end_samples < near_end_samples){
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Not enough far end samples (%lu near, %lu far)\n", near_end_samples, far_end_samples);
@@ -265,7 +265,6 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 
         size_t frames_to_process = near_end_samples / SAMPLES_PER_FRAME;
         if(!frames_to_process){
-                pthread_mutex_unlock(&s->lock);
                 return NULL;
         }
 
@@ -280,19 +279,17 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 spx_int16_t far_arr[SAMPLES_PER_FRAME];
 
                 if(far_end_samples >= SAMPLES_PER_FRAME){
-                        ring_buffer_read(s->far_end_ringbuf, far_arr, SAMPLES_PER_FRAME * 2);
-                        ring_buffer_read(s->near_end_ringbuf, near_arr, SAMPLES_PER_FRAME * 2);
+                        ring_buffer_read(s->far_end_ringbuf.get(), reinterpret_cast<char *>(far_arr), SAMPLES_PER_FRAME * 2);
+                        ring_buffer_read(s->near_end_ringbuf.get(), reinterpret_cast<char *>(near_arr), SAMPLES_PER_FRAME * 2);
 
-                        speex_echo_cancellation(s->echo_state, near_arr, far_arr, out_ptr); 
+                        speex_echo_cancellation(s->echo_state.get(), near_arr, far_arr, out_ptr); 
                         far_end_samples -= SAMPLES_PER_FRAME;
                 } else {
-                        ring_buffer_read(s->near_end_ringbuf, out_ptr, SAMPLES_PER_FRAME * 2);
+                        ring_buffer_read(s->near_end_ringbuf.get(), reinterpret_cast<char *>(out_ptr), SAMPLES_PER_FRAME * 2);
                 }
 
                 out_ptr += SAMPLES_PER_FRAME;
         }
-
-        pthread_mutex_unlock(&s->lock);
 
         return res;
 }
