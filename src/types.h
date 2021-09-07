@@ -235,7 +235,7 @@ struct tile {
         unsigned int         offset;
 };
 
-#define ANYSIZE_ARRAY 1
+#define ANYSIZE_ARRAY 0
 
 enum mem_location_t {
         CPU_MEM = 0,
