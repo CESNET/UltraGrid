@@ -51,12 +51,18 @@
 #include <stdlib.h>
 #include <mutex>
 #include <memory>
+#include <algorithm>
+#include <chrono>
 #include "utils/ring_buffer.h"
 
 #define SAMPLES_PER_FRAME (1 << 9) //about 10ms at 48kHz, power of two for easy FFT
 #define FILTER_LENGTH (48 * 500)
 
 #define MOD_NAME "[Echo cancel] "
+
+using steady_clock = std::chrono::steady_clock;
+using time_point = steady_clock::time_point;
+using duration = steady_clock::duration;
 
 namespace {
         struct Ring_buf_deleter{
@@ -66,6 +72,10 @@ namespace {
         struct Echo_state_deleter{
                 void operator()(SpeexEchoState* echo) { speex_echo_state_destroy(echo); }
         };
+
+        constexpr duration get_expected_duration(int samples, int sample_rate){
+                return std::chrono::microseconds((static_cast<long long>(samples) * 1'000'000) / sample_rate);
+        }
 }
 
 struct echo_cancellation {
@@ -79,6 +89,7 @@ struct echo_cancellation {
 
         int prefill;
         bool before_first_near_sample;
+        time_point next_expected_near;
 
         std::mutex lock;
 };
@@ -107,10 +118,9 @@ struct echo_cancellation * echo_cancellation_init(void)
 
         s->frame.data = NULL;
         s->frame.sample_rate = s->frame.bps = 0;
-        std::lock_guard(s->lock);
 
         const int ringbuf_sample_count = 2 << 15; //should be divisable by SAMPLES_PER_FRAME
-        const int bps = 2; //TODO: assuming bps to be 2
+        constexpr int bps = 2; //TODO: assuming bps to be 2
 
         s->far_end_ringbuf.reset(ring_buffer_init(ringbuf_sample_count * bps));
         s->near_end_ringbuf.reset(ring_buffer_init(ringbuf_sample_count * bps));
@@ -118,6 +128,7 @@ struct echo_cancellation * echo_cancellation_init(void)
         s->frame_data = std::make_unique<spx_int16_t[]>(ringbuf_sample_count);
         s->frame.data = reinterpret_cast<char *>(s->frame_data.get());
         s->frame.max_size = ringbuf_sample_count * sizeof(s->frame_data[0]);
+        static_assert(sizeof(s->frame_data[0]) == bps);
 
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Echo cancellation initialized.\n");
 
@@ -146,11 +157,11 @@ void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
         }
 
         if(s->prefill){
-                int target = (s->prefill / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME;
+                int target = std::max(SAMPLES_PER_FRAME, (s->prefill / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME);
                 int current = ring_get_current_size(s->far_end_ringbuf.get());
                 //buffer can contain small remainder (<SAMPLES_PER_FRAME)
                 int to_fill = target - current;
-                s->prefill -= target;
+                s->prefill = 0;
                 if(to_fill < 0){
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Pre fill requested to %d, but the buffer is already %d!\n", target, current);
                 } else {
@@ -208,6 +219,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 reconfigure_echo(s, frame->sample_rate, frame->bps);
         }
 
+
         size_t in_frame_samples = frame->data_len / frame->bps;
 
         size_t ringbuf_free_samples = ring_get_available_write_size(s->near_end_ringbuf.get()) / 2;
@@ -216,6 +228,19 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Near end ringbuf overflow\n");
         }
 
+        if(s->next_expected_near < steady_clock::now()){
+                auto diff = steady_clock::now() - s->next_expected_near;
+                long long delay = std::chrono::duration_cast<std::chrono::microseconds>(diff).count();
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Near samples late by %lldus\n", delay);
+
+                int current = ring_get_current_size(s->far_end_ringbuf.get());
+                //drop only whole frames
+                current = (current / SAMPLES_PER_FRAME) * SAMPLES_PER_FRAME;
+                ring_advance_read_idx(s->far_end_ringbuf.get(), current);
+        }
+        s->next_expected_near = steady_clock::now() + std::chrono::seconds(1);
+
+#if 0
         if(s->before_first_near_sample){
                 /* It is possible that the capture thread starts late, which
                  * could create an unwanted delay between far and near ends.
@@ -232,6 +257,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 
                 s->before_first_near_sample = false;
         }
+#endif
 
         if(frame->bps != 2){
                 //Need to change bps, put whole incoming frame into ringbuf
@@ -269,7 +295,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         }
 
         size_t out_size = frames_to_process * SAMPLES_PER_FRAME * 2;
-        assert(s->frame.max_size >= out_size);
+        assert(static_cast<size_t>(s->frame.max_size) >= out_size);
         s->frame.data_len = out_size;
         res = &s->frame;
 
