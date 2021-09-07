@@ -85,9 +85,9 @@ xor_using_sse (char* source, char* dest, int packet_size)
     {
 
         //    printf ( "iter_bytes: %d\n", iter_bytes );
-        __m128i* wrd_ptr = (__m128i *) source;
-        __m128i* wrd_end = (__m128i *) (source + iter_bytes_16);
-        __m128i* dst_ptr = (__m128i *) dest;
+        __m128i* wrd_ptr = (__m128i *)(void *) source;
+        __m128i* wrd_end = (__m128i *)(void *) (source + iter_bytes_16);
+        __m128i* dst_ptr = (__m128i *)(void *) dest;
 
         //    printf ( "wrd_ptr address: %p\n", wrd_ptr );
         do
@@ -113,8 +113,8 @@ xor_using_sse (char* source, char* dest, int packet_size)
 
         for ( int i = 0; i < (packet_size - iter_bytes_16)/4; i++)
         {
-            int *s = ((int*) mark_source) + i;
-            int *d = ((int*) mark_dest) + i;
+            int *s = ((int*)(void *) mark_source) + i;
+            int *d = ((int*)(void *) mark_dest) + i;
             *d ^= *s;
         }
 

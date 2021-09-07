@@ -124,6 +124,8 @@ int jack_process_callback(jack_nframes_t nframes, void *arg) {
                 
         }
         s->play_buffer_start = (s->play_buffer_start + send_b) % BUFF_SIZE;
+
+        const float int_max_flt = nexttowardf((float) INT_MAX, INT_MAX); // max int representable as float
         
         for(i = 0; i < s->record.ch_count; ++i) {
                 int j;
@@ -131,7 +133,7 @@ int jack_process_callback(jack_nframes_t nframes, void *arg) {
                         s->libjack->port_get_buffer (s->input_port[i], nframes);
                 for(j = 0; j < (int) nframes; ++j) {
                         *(int *)(void *)(s->rec_buffer + ((s->rec_buffer_end + (j * s->record.ch_count + i) * sizeof(int32_t)) % BUFF_SIZE)) =
-                                        in[j] * INT_MAX;
+                                        in[j] * int_max_flt;
                 }
         }
         s->rec_buffer_end = (s->rec_buffer_end + nframes * s->record.ch_count * sizeof(int32_t)) % BUFF_SIZE;

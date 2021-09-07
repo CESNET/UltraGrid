@@ -86,7 +86,7 @@ long long unit_evaluate(const char *str) {
                         return -1;
         }
 
-        if (ret < 0.0 || ret >= LLONG_MAX || strlen(end_ptr) > 1) {
+        if (ret < 0.0 || ret >= nexttoward((double) LLONG_MAX, LLONG_MAX) || strlen(end_ptr) > 1) {
                 return -1;
         } else {
                 return ret;

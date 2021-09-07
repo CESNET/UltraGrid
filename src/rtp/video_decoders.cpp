@@ -1606,7 +1606,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 				size_t media_hdr_len = pt == PT_ENCRYPT_VIDEO ? sizeof(video_payload_hdr_t) : sizeof(fec_payload_hdr_t);
                                 len = pckt->data_len - sizeof(crypto_payload_hdr_t) - media_hdr_len;
 				data = (char *) hdr + sizeof(crypto_payload_hdr_t) + media_hdr_len;
-                                uint32_t crypto_hdr = ntohl(*(uint32_t *)((char *) hdr + media_hdr_len));
+                                uint32_t crypto_hdr = ntohl(*(uint32_t *)(void *)((char *) hdr + media_hdr_len));
                                 crypto_mode = (enum openssl_mode) (crypto_hdr >> 24);
 				if (crypto_mode == MODE_AES128_NONE || crypto_mode > MODE_AES128_MAX) {
 					log_msg(LOG_LEVEL_WARNING, "Unknown cipher mode: %d\n", (int) crypto_mode);

@@ -741,8 +741,8 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     char* tmpBuff;
     int countT = 0;
     int countC = 0;
-    char codecs[2][LEN] = { 0 };
-    char tracks[2][LEN] = { 0 };
+    char codecs[2][LEN] = { { 0 } };
+    char tracks[2][LEN] = { { 0 } };
 
     fseek(sdp_file, 0, SEEK_END);
     long fileSize = ftell(sdp_file);

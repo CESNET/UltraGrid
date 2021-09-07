@@ -101,7 +101,7 @@ int create_hw_frame_ctx(AVBufferRef *device_ref,
                 return -1;
         }
 
-        AVHWFramesContext *frames_ctx = (AVHWFramesContext *) (*ctx)->data;
+        AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(void *) (*ctx)->data;
         frames_ctx->format    = format;
         frames_ctx->width     = width;
         frames_ctx->height    = height;

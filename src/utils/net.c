@@ -65,7 +65,7 @@ bool is_addr_linklocal(struct sockaddr *sa)
         switch (sa->sa_family) {
         case AF_INET:
         {
-                struct sockaddr_in *sin = (struct sockaddr_in *) sa;
+                struct sockaddr_in *sin = (struct sockaddr_in *)(void *) sa;
                 uint32_t addr = ntohl(sin->sin_addr.s_addr);
                 if ((addr >> 16u) == IPV4_LL_PREFIX) {
                         return true;
@@ -74,9 +74,9 @@ bool is_addr_linklocal(struct sockaddr *sa)
         }
         case AF_INET6:
         {
-                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) sa;
+                struct sockaddr_in6 *sin = (struct sockaddr_in6 *)(void *) sa;
                 if (IN6_IS_ADDR_V4MAPPED(&sin->sin6_addr)) {
-                        uint32_t v4_addr = ntohl(*((uint32_t*)(sin->sin6_addr.s6_addr + 12)));
+                        uint32_t v4_addr = ntohl(*((uint32_t*)(void *)(sin->sin6_addr.s6_addr + 12)));
                         if ((v4_addr >> 16u) == IPV4_LL_PREFIX) {
                                 return true;
                         }
@@ -96,7 +96,7 @@ bool is_addr_loopback(struct sockaddr *sa)
                 return true;
         case AF_INET:
         {
-                struct sockaddr_in *sin = (struct sockaddr_in *) sa;
+                struct sockaddr_in *sin = (struct sockaddr_in *)(void *) sa;
                 uint32_t addr = ntohl(sin->sin_addr.s_addr);
                 if ((addr >> 24u) == IN_LOOPBACKNET) {
                         return true;
@@ -105,9 +105,9 @@ bool is_addr_loopback(struct sockaddr *sa)
         }
         case AF_INET6:
         {
-                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) sa;
+                struct sockaddr_in6 *sin = (struct sockaddr_in6 *)(void *) sa;
                 if (IN6_IS_ADDR_V4MAPPED(&sin->sin6_addr)) {
-                        uint32_t v4_addr = ntohl(*((uint32_t*)(sin->sin6_addr.s6_addr + 12)));
+                        uint32_t v4_addr = ntohl(*((uint32_t*)(void *)(sin->sin6_addr.s6_addr + 12)));
                         if ((v4_addr >> 24u) == IN_LOOPBACKNET) {
                                 return true;
                         }
@@ -127,13 +127,13 @@ bool is_addr_private(struct sockaddr *sa)
                 return true;
         case AF_INET:
         {
-                struct sockaddr_in *sin = (struct sockaddr_in *) sa;
+                struct sockaddr_in *sin = (struct sockaddr_in *)(void *) sa;
                 uint32_t addr = ntohl(sin->sin_addr.s_addr);
                 return ((addr >> 24U) == 10) || ((addr >> 20U) == 2753) || ((addr >> 16U) == 49320);
         }
         case AF_INET6:
         {
-                struct sockaddr_in6 *sin = (struct sockaddr_in6 *) sa;
+                struct sockaddr_in6 *sin = (struct sockaddr_in6 *)(void *) sa;
                 return (sin->sin6_addr.s6_addr[0] & 0xFEU) == 0xFCU; // ULA
         }
         default:
@@ -386,11 +386,11 @@ const char *get_sockaddr_str(struct sockaddr *sa)
         const void *src = NULL;
         if (sa->sa_family == AF_INET6) {
                 strcpy(addr, "[");
-                src = &((struct sockaddr_in6 *) sa)->sin6_addr;
-                port = ntohs(((struct sockaddr_in6 *) sa)->sin6_port);
+                src = &((struct sockaddr_in6 *)(void *) sa)->sin6_addr;
+                port = ntohs(((struct sockaddr_in6 *)(void *) sa)->sin6_port);
         } else if (sa->sa_family == AF_INET) {
-                src = &((struct sockaddr_in *) sa)->sin_addr;
-                port = ntohs(((struct sockaddr_in *) sa)->sin_port);
+                src = &((struct sockaddr_in *)(void *) sa)->sin_addr;
+                port = ntohs(((struct sockaddr_in *)(void *) sa)->sin_port);
         } else {
                 return "(unknown)";
         }

@@ -186,7 +186,7 @@ int vaapi_init(struct AVCodecContext *s,
         if(ret < 0)
                 goto fail;
 
-        ctx->device_ctx = (AVHWDeviceContext*)ctx->device_ref->data;
+        ctx->device_ctx = (AVHWDeviceContext*)(void *)ctx->device_ref->data;
         ctx->device_vaapi_ctx = ctx->device_ctx->hwctx;
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 74, 100)
@@ -210,7 +210,7 @@ int vaapi_init(struct AVCodecContext *s,
         if(ret < 0)
                 goto fail;
 
-        ctx->frame_ctx = (AVHWFramesContext *) (ctx->hw_frames_ctx->data);
+        ctx->frame_ctx = (AVHWFramesContext *)(void *) (ctx->hw_frames_ctx->data);
 
         s->hw_frames_ctx = ctx->hw_frames_ctx;
 

@@ -59,6 +59,7 @@
 #include <sys/time.h>
 
 #pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wcast-align"
 #pragma GCC diagnostic warning "-Wcast-qual"
 #include <opencv2/opencv.hpp>
 #pragma GCC diagnostic pop

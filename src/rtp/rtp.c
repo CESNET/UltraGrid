@@ -1583,7 +1583,7 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
                 struct sockaddr_storage *sin = NULL;
                 socklen_t addrlen = 0;
                 if (session->opt->record_source) {
-                        sin = (struct sockaddr_storage *) ((char *) packet + RTP_MAX_PACKET_LEN);
+                        sin = (struct sockaddr_storage *)(void *) ((char *) packet + RTP_MAX_PACKET_LEN);
                         addrlen = sizeof(struct sockaddr_storage);
                 }
                 buflen =
@@ -1619,7 +1619,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
 
                 if (session->opt->send_back && udp_is_blackhole(session->rtp_socket)) {
                         session->opt->send_back = FALSE; // avoid multiple checks if already sending
-                        struct sockaddr *sa = (struct sockaddr *)((char *) packet + RTP_MAX_PACKET_LEN);
+                        struct sockaddr *sa = (struct sockaddr *)(void *)((char *) packet + RTP_MAX_PACKET_LEN);
                         log_msg(LOG_LEVEL_NOTICE, "[RTP] Redirecting stream to a client %s.\n", get_sockaddr_str(sa));
                         udp_set_receiver(session->rtp_socket, sa, sa->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6));
                 }
@@ -1647,7 +1647,7 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                 /* Setup internal pointers, etc... */
                 if (packet->cc) {
                         int i;
-                        packet->csrc = (uint32_t *) (buffer_vlen);
+                        packet->csrc = (uint32_t *)(void *) (buffer_vlen);
                         for (i = 0; i < packet->cc; i++) {
                                 packet->csrc[i] = ntohl(packet->csrc[i]);
                         }
@@ -1730,8 +1730,8 @@ static int validate_rtcp(uint8_t * packet, int len)
         /* o The length fields of the individual RTCP packets must total to */
         /*   the overall length of the compound RTCP packet as received.    */
 
-        rtcp_t *pkt = (rtcp_t *) packet;
-        rtcp_t *end = (rtcp_t *) (((char *)pkt) + len);
+        rtcp_t *pkt = (rtcp_t *)(void *) packet;
+        rtcp_t *end = (rtcp_t *)(void *) (((char *)pkt) + len);
         rtcp_t *r = pkt;
         int l = 0;
         int pc = 1;
@@ -2193,8 +2193,8 @@ static void rtp_process_ctrl(struct rtp *session, uint8_t * buffer, int buflen)
                 }
                 if (validate_rtcp(buffer, buflen)) {
                         first = TRUE;
-                        packet = (rtcp_t *) buffer;
-                        while (packet < (rtcp_t *) (buffer + buflen)) {
+                        packet = (rtcp_t *)(void *) buffer;
+                        while (packet < (rtcp_t *)(void *) (buffer + buflen)) {
                                 switch (packet->common.pt) {
                                 case RTCP_SR:
                                         if (first
@@ -2299,7 +2299,7 @@ static void rtp_process_ctrl(struct rtp *session, uint8_t * buffer, int buflen)
                                         break;
                                 }
                                 packet =
-                                    (rtcp_t *) ((char *)packet +
+                                    (rtcp_t *)(void *) ((char *)packet +
                                                 (4 *
                                                  (ntohs(packet->common.length) +
                                                   1)));
@@ -2923,7 +2923,7 @@ rtp_send_data_hdr(struct rtp *session,
         /* ...a header extension? */
         if (extn != NULL) {
                 /* We don't use the packet->extn_type field here, that's for receive only... */
-                uint16_t *base = (uint16_t *) packet->extn;
+                uint16_t *base = (uint16_t *)(void *) packet->extn;
                 base[0] = htons(extn_type);
                 base[1] = htons(extn_len);
                 memcpy(packet->extn + 4, extn, extn_len * 4);
@@ -3067,7 +3067,7 @@ static uint8_t *format_rtcp_sr(uint8_t * buffer, int buflen,
 {
         /* Write an RTCP SR into buffer, returning a pointer to */
         /* the next byte after the header we have just written. */
-        rtcp_t *packet = (rtcp_t *) buffer;
+        rtcp_t *packet = (rtcp_t *)(void *) buffer;
         int remaining_length;
         uint32_t ntp_sec, ntp_frac;
 
@@ -3103,7 +3103,7 @@ static uint8_t *format_rtcp_rr(uint8_t * buffer, int buflen,
 {
         /* Write an RTCP RR into buffer, returning a pointer to */
         /* the next byte after the header we have just written. */
-        rtcp_t *packet = (rtcp_t *) buffer;
+        rtcp_t *packet = (rtcp_t *)(void *) buffer;
         int remaining_length;
 
         assert(buflen >= 8);    /* ...else there isn't space for the header */
@@ -3158,7 +3158,7 @@ static uint8_t *format_rtcp_sdes(uint8_t * buffer, int buflen, uint32_t ssrc,
         /* 4, 7, 10, 13, 16, 19, while, say, EMAIL is used in RTCP packet  */
         /* 22".                                                            */
         uint8_t *packet = buffer;
-        rtcp_common *common = (rtcp_common *) buffer;
+        rtcp_common *common = (rtcp_common *)(void *) buffer;
         const char *item;
         size_t remaining_len;
         int pad;
@@ -3172,7 +3172,7 @@ static uint8_t *format_rtcp_sdes(uint8_t * buffer, int buflen, uint32_t ssrc,
         common->length = 0;
         packet += sizeof(rtcp_common);
 
-        *((uint32_t *) packet) = htonl(ssrc);
+        *((uint32_t *)(void *) packet) = htonl(ssrc);
         packet += 4;
 
         remaining_len = buflen - (packet - buffer);
@@ -3288,7 +3288,7 @@ static uint8_t *format_rtcp_app(uint8_t * buffer, int buflen, uint32_t ssrc,
                                 rtcp_app * app)
 {
         /* Write an RTCP APP into the outgoing packet buffer. */
-        rtcp_app *packet = (rtcp_app *) buffer;
+        rtcp_app *packet = (rtcp_app *)(void *) buffer;
         int pkt_octets = (app->length + 1) * 4;
         int data_octets = pkt_octets - 12;
 
@@ -3347,7 +3347,7 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
         check_database(session);
         /* If encryption is enabled, add a 32 bit random prefix to the packet */
         if (session->encryption_enabled) {
-                *((uint32_t *) ptr) = lbl_random();
+                *((uint32_t *)(void *) ptr) = lbl_random();
                 ptr += 4;
         }
 
@@ -3427,8 +3427,8 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
                                  buffer) % session->encryption_pad_length) ==
                                0);
 
-                        ((rtcp_t *) lpt)->common.p = TRUE;
-                        ((rtcp_t *) lpt)->common.length =
+                        ((rtcp_t *)(void *) lpt)->common.p = TRUE;
+                        ((rtcp_t *)(void *) lpt)->common.length =
                             htons((int16_t) (((ptr - lpt) / 4) - 1));
                 }
                 (session->encrypt_func) (session, buffer, ptr - buffer,
@@ -3592,12 +3592,12 @@ static void rtp_send_bye_now(struct rtp *session)
         check_database(session);
         /* If encryption is enabled, add a 32 bit random prefix to the packet */
         if (session->encryption_enabled) {
-                *((uint32_t *) ptr) = lbl_random();
+                *((uint32_t *)(void *) ptr) = lbl_random();
                 ptr += 4;
         }
 
         ptr = format_rtcp_rr(ptr, RTP_MAX_PACKET_LEN - (ptr - buffer), session);
-        common = (rtcp_common *) ptr;
+        common = (rtcp_common *)(void *) ptr;
 
         common->version = 2;
         common->p = 0;
@@ -3606,7 +3606,7 @@ static void rtp_send_bye_now(struct rtp *session)
         common->length = htons(1);
         ptr += sizeof(rtcp_common);
 
-        *((uint32_t *) ptr) = htonl(session->my_ssrc);
+        *((uint32_t *)(void *) ptr) = htonl(session->my_ssrc);
         ptr += 4;
 
         if (session->encryption_enabled) {

@@ -377,6 +377,8 @@ double get_avg_volume(char *data, int bps, int sample_count, int stream_channels
         }
 }
 
+const float INT_MAX_FLT = nexttowardf((float) INT_MAX, INT_MAX); // max int representable as float
+
 /**
  * Can be used in situ.
  */
@@ -390,7 +392,7 @@ void float2int(char *out, const char *in, int len)
                 float sample = *inf++;
                 if(sample > 1.0) sample = 1.0;
                 if(sample < -1.0) sample = -1.0;
-                *outi++ = sample * INT_MAX;
+                *outi++ = sample * INT_MAX_FLT;
         }
 }
 
@@ -401,7 +403,7 @@ void int2float(char *out, const char *in, int len)
         int items = len / sizeof(int32_t);
 
         while(items-- > 0) {
-                *outf++ = (float) *ini++ / INT_MAX;
+                *outf++ = (float) *ini++ / (float) INT_MAX;
         }
 }
 

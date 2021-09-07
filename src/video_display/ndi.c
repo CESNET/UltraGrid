@@ -214,9 +214,11 @@ typedef void ndi_disp_convert_t(const struct video_frame *f, char *out);
 
 static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out)
 {
-        uint16_t *in = (uint16_t *) f->tiles[0].data;
-        uint16_t *out_y = (uint16_t *) out;
-        uint16_t *out_cb_cr = (uint16_t *) out + f->tiles[0].width * f->tiles[0].height;
+        assert((uintptr_t) out % 2 == 0);
+
+        uint16_t *in = (uint16_t *)(void *) f->tiles[0].data;
+        uint16_t *out_y = (uint16_t *)(void *) out;
+        uint16_t *out_cb_cr = (uint16_t *)(void *) out + f->tiles[0].width * f->tiles[0].height;
 
         for (unsigned int i = 0; i < f->tiles[0].height; ++i) {
                 for (unsigned int j = 0; j < f->tiles[0].width; j += 2) {
@@ -349,7 +351,7 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                 NDI_audio_frame.no_channels = (frame)->ch_count; \
                 NDI_audio_frame.reference_level = s->audio_level; \
                 NDI_audio_frame.timecode = NDIlib_send_timecode_synthesize; \
-                NDI_audio_frame.p_data = (int ## bit_depth ## _t *) (frame)->data; \
+                NDI_audio_frame.p_data = (int ## bit_depth ## _t *)(void *) (frame)->data; \
                 NDI_audio_frame.no_samples = (frame)->data_len / (frame)->ch_count / ((bit_depth) / 8); \
                 \
                 NDIlib_util_send_send_audio_interleaved_ ## bit_depth ## s(s->pNDI_send, &NDI_audio_frame); \

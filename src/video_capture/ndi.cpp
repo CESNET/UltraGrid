@@ -293,7 +293,7 @@ static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *fr
 
         for (int i = 0; i < frame->no_samples; ++i) {
                 float *in = frame->p_data + i;
-                int32_t *out = (int32_t *) s->audio[s->audio_buf_idx].data + i * d.ch_count;
+                int32_t *out = (int32_t *)(void *) s->audio[s->audio_buf_idx].data + i * d.ch_count;
                 int j = 0;
                 for (; j < min(d.ch_count, frame->no_channels); ++j) {
                         if (s->audio[s->audio_buf_idx].data_len >= s->audio[s->audio_buf_idx].max_size) {

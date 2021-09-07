@@ -89,7 +89,7 @@ int vdpau_init(struct AVCodecContext *s,
         if(ret < 0)
                 return ret;
 
-        AVHWDeviceContext *device_ctx = (AVHWDeviceContext*)device_ref->data;
+        AVHWDeviceContext *device_ctx = (AVHWDeviceContext*)(void *)device_ref->data;
         AVVDPAUDeviceContext *device_vdpau_ctx = device_ctx->hwctx;
 
         AVBufferRef *hw_frames_ctx = NULL;
@@ -189,7 +189,7 @@ void hw_vdpau_frame_unref(hw_vdpau_frame *frame){
 
 void hw_vdpau_recycle_callback(struct video_frame *frame){
         for(unsigned i = 0; i < frame->tile_count; i++){
-                struct hw_vdpau_frame *vdp_frame = (struct hw_vdpau_frame *) frame->tiles[i].data;
+                struct hw_vdpau_frame *vdp_frame = (struct hw_vdpau_frame *)(void *) frame->tiles[i].data;
                 hw_vdpau_frame_unref(vdp_frame);
         }
 
@@ -198,7 +198,7 @@ void hw_vdpau_recycle_callback(struct video_frame *frame){
 
 void hw_vdpau_copy_callback(struct video_frame *frame){
         for(unsigned i = 0; i < frame->tile_count; i++){
-                struct hw_vdpau_frame *vdp_frame = (struct hw_vdpau_frame *) frame->tiles[i].data;
+                struct hw_vdpau_frame *vdp_frame = (struct hw_vdpau_frame *)(void *) frame->tiles[i].data;
                 *vdp_frame = hw_vdpau_frame_copy(vdp_frame);
         }
 }
@@ -234,7 +234,7 @@ void *hw_vdpau_frame_data_cpy(void *dst, const void *src, size_t n){
 hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *src){
         hw_vdpau_frame_init(dst);
 
-        AVHWFramesContext *frame_ctx = (AVHWFramesContext *) src->hw_frames_ctx->data;
+        AVHWFramesContext *frame_ctx = (AVHWFramesContext *)(void *) src->hw_frames_ctx->data;
         AVHWDeviceContext *device_ctx = frame_ctx->device_ctx; 
         AVVDPAUDeviceContext *vdpau_ctx = (AVVDPAUDeviceContext *) device_ctx->hwctx;
 

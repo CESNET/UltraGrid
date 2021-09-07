@@ -1127,7 +1127,7 @@ static void *udp_reader(void *arg)
                 socklen_t addrlen = sizeof(struct sockaddr_storage);
                 int size = recvfrom(s->local->rx_fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
-                                0, (struct sockaddr *)(packet + RTP_MAX_PACKET_LEN), &addrlen);
+                                0, (struct sockaddr *)(void *)(packet + RTP_MAX_PACKET_LEN), &addrlen);
 
                 if (size <= 0) {
                         /// @todo
@@ -1598,7 +1598,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                 fd_t fd;
 
                 if (sin->sa_family == AF_INET6) {
-                        struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *) sin;
+                        struct sockaddr_in6 *s_in6 = (struct sockaddr_in6 *)(void *) sin;
                         int ipv6only = 0;
                         s_in6->sin6_port = htons(even_port + i);
                         fd = socket(AF_INET6, SOCK_DGRAM, 0);
@@ -1613,7 +1613,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                                 }
                         }
                 } else {
-                        struct sockaddr_in *s_in = (struct sockaddr_in *) sin;
+                        struct sockaddr_in *s_in = (struct sockaddr_in *)(void *) sin;
                         s_in->sin_port = htons(even_port + i);
                         fd = socket(AF_INET, SOCK_DGRAM, 0);
                 }

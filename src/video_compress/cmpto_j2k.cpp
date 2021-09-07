@@ -367,7 +367,7 @@ static void j2k_compressed_frame_dispose(struct video_frame *frame)
 static void release_cstream(void * custom_data, size_t custom_data_size, const void * codestream, size_t codestream_size)
 {
         (void) codestream; (void) custom_data_size; (void) codestream_size;
-        ((shared_ptr<video_frame> *) ((char *) custom_data + sizeof(struct video_desc)))->~shared_ptr<video_frame>();
+        ((shared_ptr<video_frame> *)(void *) ((char *) custom_data + sizeof(struct video_desc)))->~shared_ptr<video_frame>();
 }
 
 #define HANDLE_ERROR_COMPRESS_PUSH if (img) cmpto_j2k_enc_img_destroy(img); return
@@ -414,7 +414,7 @@ static void j2k_compress_push(struct module *state, std::shared_ptr<video_frame>
                         HANDLE_ERROR_COMPRESS_PUSH);
         memcpy(udata, &s->compressed_desc, sizeof(s->compressed_desc));
 
-        ref = (shared_ptr<video_frame> *)((char *) udata + sizeof(struct video_desc));
+        ref = (shared_ptr<video_frame> *)(void *)((char *) udata + sizeof(struct video_desc));
         new (ref) shared_ptr<video_frame>(get_copy(s, tx.get()));
 
         CHECK_OK(cmpto_j2k_enc_img_set_samples(img, ref->get()->tiles[0].data, ref->get()->tiles[0].data_len, release_cstream),

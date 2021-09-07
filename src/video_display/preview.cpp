@@ -60,7 +60,6 @@
 
 using namespace std;
 
-static constexpr int BUFFER_LEN = 5;
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 

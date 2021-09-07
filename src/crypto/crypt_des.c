@@ -524,7 +524,7 @@ static Word ROTATE_RIGHT(Word x)
 #define MAKE_LITTLE_ENDIAN(t, s) \
 { \
     register unsigned int z, l = s/4; \
-    register Word *tp = (Word *) t; \
+    register Word *tp = (Word *)(void *) t; \
     for(z = 0; z < l; ++z) tp[z] = htonl(tp[z]); \
 }
 
@@ -562,14 +562,14 @@ qfDES(unsigned char *key,
 {
         /* Store some info to optimise for multiple calls ... */
         static unsigned char desKey[8], desKeys[128];
-        static Word *oldKey = (Word *) desKey, *keys = (Word *) desKeys;
+        static Word *oldKey = (Word *)(void *) desKey, *keys = (Word *) desKeys;
         static QFDES_what oldWhat;
         static QFDES_mode oldMode __attribute__((unused));
         unsigned char b0[8] = "", b1[8];     /* feedback blocks */
-        Word *newKey = (Word *) key,    /* key from user */
+        Word *newKey = (Word *)(void *) key,    /* key from user */
             *text,              /* text to be [en|de]crypted */
-            *cb = (Word *) b0,  /* the chained block in CBC mode */
-            *cb1 = (Word *) b1; /* a copy for use when decrypting */
+            *cb = (Word *)(void *) b0,  /* the chained block in CBC mode */
+            *cb1 = (Word *)(void *) b1; /* a copy for use when decrypting */
 
 #if !defined(WORDS_BIGENDIAN)
         unsigned int origSize = size;
@@ -648,8 +648,8 @@ qfDES(unsigned char *key,
         if (mode != qfDES_ecb) {
                 if (initVec) {
                         {
-                                cb[0] = ((Word *) initVec)[0];
-                                cb[1] = ((Word *) initVec)[1];
+                                cb[0] = ((Word *)(void *) initVec)[0];
+                                cb[1] = ((Word *)(void *) initVec)[1];
                         }
                 } else {
                         cb[0] = 0;
@@ -697,7 +697,7 @@ qfDES(unsigned char *key,
  _ECB_:
 
         /* ECB */
-        for (text = (Word *) data; size; --size, text += 2) {
+        for (text = (Word *)(void *) data; size; --size, text += 2) {
                 DES(text, keys);
         }
 
@@ -706,7 +706,7 @@ qfDES(unsigned char *key,
  _CBC_encrypt_:
 
         /* CBC Encryption */
-        for (text = (Word *) data; size; --size, text += 2) {
+        for (text = (Word *)(void *) data; size; --size, text += 2) {
 
                 /* chaining block */
                 text[0] ^= cb[0];
@@ -724,7 +724,7 @@ qfDES(unsigned char *key,
  _CBC_decrypt_:
 
         /* CBC Decryption */
-        for (text = (Word *) data; size; --size, text += 2) {
+        for (text = (Word *)(void *) data; size; --size, text += 2) {
 
                 /* set up chaining block */
                 /*
@@ -753,7 +753,7 @@ qfDES(unsigned char *key,
  _CFB_encrypt_:
 
         /* CFB Encryption */
-        for (text = (Word *) data; size; --size, text += 2) {
+        for (text = (Word *)(void *) data; size; --size, text += 2) {
 
                 /* use cb as the feedback block */
                 DES(cb, keys);
@@ -771,7 +771,7 @@ qfDES(unsigned char *key,
  _CFB_decrypt_:
 
         /* CFB Decryption */
-        for (text = (Word *) data; size; --size, text += 2) {
+        for (text = (Word *)(void *) data; size; --size, text += 2) {
 
                 /* set up feedback block */
                 /*
@@ -797,7 +797,7 @@ qfDES(unsigned char *key,
  _OFB_:
 
         /* OFB */
-        for (text = (Word *) data; size; --size, text += 2) {
+        for (text = (Word *)(void *) data; size; --size, text += 2) {
 
                 /* use cb as the feed back block */
                 DES(cb, keys);
@@ -814,8 +814,8 @@ qfDES(unsigned char *key,
          ** chunks.
          */
         if (initVec) {
-                ((Word *) initVec)[0] = cb[0];
-                ((Word *) initVec)[1] = cb[1];
+                ((Word *)(void *) initVec)[0] = cb[0];
+                ((Word *)(void *) initVec)[1] = cb[1];
 
 #if !defined(WORDS_BIGENDIAN)
                 MAKE_LITTLE_ENDIAN(initVec, 8);

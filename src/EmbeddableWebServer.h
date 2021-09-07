@@ -1614,7 +1614,7 @@ static int acceptConnectionsUntilStoppedInternal(struct Server* server, const st
     /* print out the addresses we're listening on. Special-case IPv4 0.0.0.0 bind-to-all-interfaces */
     bool printed = false;
     if (address->sa_family == AF_INET) {
-        const struct sockaddr_in* addressIPv4 = (const struct sockaddr_in*) address;
+        const struct sockaddr_in* addressIPv4 = (const struct sockaddr_in*)(const void *) address;
         if (INADDR_ANY == addressIPv4->sin_addr.s_addr) {
             printIPv4Addresses(ntohs(addressIPv4->sin_port));
             printed = true;

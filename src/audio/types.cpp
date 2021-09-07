@@ -381,8 +381,8 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
                 speex_resampler_process_int(
                                 (SpeexResamplerState *) resampler_state.resampler,
                                 i,
-                                (const spx_int16_t *) get_data(i), &in_frames,
-                                (spx_int16_t *) new_channels[i].data.get(), &write_frames);
+                                (const spx_int16_t *)(const void *) get_data(i), &in_frames,
+                                (spx_int16_t *)(void *) new_channels[i].data.get(), &write_frames);
                 if (in_frames != in_frames_orig) {
                         LOG(LOG_LEVEL_WARNING) << "Audio frame resampler: not all samples resampled!\n";
                 }

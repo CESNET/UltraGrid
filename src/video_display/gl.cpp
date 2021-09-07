@@ -1569,7 +1569,7 @@ static void check_mixer(struct state_gl *s, hw_vdpau_frame *frame){
 static void gl_render_vdpau(struct state_gl *s, char *data)
 {
         assert(s->vdp.initialized);
-        hw_vdpau_frame * frame = (hw_vdpau_frame *) data;
+        hw_vdpau_frame * frame = (hw_vdpau_frame *)(void *) data;
 
         glBindTexture(GL_TEXTURE_2D, 0);
 

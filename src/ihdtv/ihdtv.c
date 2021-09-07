@@ -94,7 +94,7 @@ ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
                         exit(1);        // FIXME: maybe should just return but it requires not to return ihdtv_connection
                 }
 
-                connection->peer_address_1 = *(struct in_addr *)target->h_addr;
+                connection->peer_address_1 = *(struct in_addr *)(void *) target->h_addr;
 
                 connection->check_peer_ip = 1;
         }
@@ -107,7 +107,7 @@ ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
                         exit(1);        // FIXME: maybe should just return but it requires not to return ihdtv_connection
                 }
 
-                connection->peer_address_2 = *(struct in_addr *)target->h_addr;
+                connection->peer_address_2 = *(struct in_addr *)(void *) target->h_addr;
 
                 connection->check_peer_ip = 1;
         }
@@ -220,13 +220,13 @@ ihdtv_init_tx_session(ihdtv_connection * connection, const char *address_1,
         connection->target_sockaddress_1.sin_family = AF_INET;
         connection->target_sockaddress_1.sin_port = htons(3000);        // FIXME: target port
         connection->target_sockaddress_1.sin_addr =
-            *((struct in_addr *)target_1->h_addr);
+            *((struct in_addr *)(void *) target_1->h_addr);
         memset(connection->target_sockaddress_1.sin_zero, '\0',
                sizeof(connection->target_sockaddress_1.sin_zero));
         connection->target_sockaddress_2.sin_family = AF_INET;
         connection->target_sockaddress_2.sin_port = htons(3001);        // FIXME: target port
         connection->target_sockaddress_2.sin_addr =
-            *((struct in_addr *)target_2->h_addr);
+            *((struct in_addr *)(void *) target_2->h_addr);
         memset(connection->target_sockaddress_2.sin_zero, '\0',
                sizeof(connection->target_sockaddress_2.sin_zero));
 

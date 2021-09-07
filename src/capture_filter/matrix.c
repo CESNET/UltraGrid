@@ -180,8 +180,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                                         s->transform_matrix[8] * a[2]));
                         }
                 } else if (in->color_spec == RG48) {
-                        uint16_t *in_data = (uint16_t *) in->tiles[0].data;
-                        uint16_t *out_data = (uint16_t *) out->tiles[0].data;
+                        uint16_t *in_data = (uint16_t *)(void *) in->tiles[0].data;
+                        uint16_t *out_data = (uint16_t *)(void *) out->tiles[0].data;
 
                         for (unsigned int i = 0; i < in->tiles[0].data_len; i += 6) {
                                 double a[3];
@@ -255,8 +255,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                                         s->transform_matrix[8] * a[2];
                         }
                 } else if (in->color_spec == RG48) {
-                        uint16_t *in_data = (uint16_t *) in->tiles[0].data;
-                        uint16_t *out_data = (uint16_t *) out->tiles[0].data;
+                        uint16_t *in_data = (uint16_t *)(void *) in->tiles[0].data;
+                        uint16_t *out_data = (uint16_t *)(void *) out->tiles[0].data;
 
                         for (unsigned int i = 0; i < in->tiles[0].data_len; i += 6) {
                                 double a[3];

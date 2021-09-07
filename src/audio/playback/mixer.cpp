@@ -180,6 +180,7 @@ struct am_participant {
 template<typename source_t, typename intermediate_t>
 class generic_mix_algo {
 public:
+        virtual ~generic_mix_algo() {}
         virtual intermediate_t add_to_mix(intermediate_t dst, source_t sample) {
                 return dst + sample;
         }
@@ -330,7 +331,7 @@ void state_audio_mixer::worker()
                         int ret = audio_buffer_read(p.second.m_buffer, particip_data, data_len_source);
                         memset(particip_data, 0, data_len_source - ret);
 
-                        sample_type_source *src = (sample_type_source *) particip_data;
+                        sample_type_source *src = (sample_type_source *)(void *) particip_data;
                         auto dst = mixed.begin();
                         for (int i = 0; i < SAMPLES_PER_FRAME * CHANNELS; ++i) {
                                 *dst = mixing_algorithm->add_to_mix(*dst, *src);
@@ -343,7 +344,7 @@ void state_audio_mixer::worker()
                 // substract each source signal from the mix coming to that participant
                 for (auto & pb : participant_frames) {
                         auto mix = mixed.begin();
-                        sample_type_source *part = (sample_type_source *) pb.get_data(0);
+                        sample_type_source *part = (sample_type_source *)(void *) pb.get_data(0);
                         for (int i = 0; i < SAMPLES_PER_FRAME * CHANNELS; ++i) {
                                 *part = mixing_algorithm->normalize(mixing_algorithm->get_mixed_without_source_sample(*mix, *part));
                                 ++mix;

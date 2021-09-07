@@ -86,6 +86,9 @@
 #define BYTE_SWAP(x) x
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic warning "-Wpass-failed"
+
 //
 // UG <-> FFMPEG format translations
 //
@@ -356,8 +359,8 @@ static void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restr
                 __m128i dstuv;
 
                 for (; x < (width - 15); x += 16){
-                        yuv = _mm_lddqu_si128((__m128i const*) src);
-                        yuv2 = _mm_lddqu_si128((__m128i const*) src2);
+                        yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
+                        yuv2 = _mm_lddqu_si128((__m128i const*)(const void *) src2);
                         src += 16;
                         src2 += 16;
 
@@ -371,8 +374,8 @@ static void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restr
 
                         uv = _mm_avg_epu8(uv, uv2);
 
-                        yuv = _mm_lddqu_si128((__m128i const*) src);
-                        yuv2 = _mm_lddqu_si128((__m128i const*) src2);
+                        yuv = _mm_lddqu_si128((__m128i const*)(const void *) src);
+                        yuv2 = _mm_lddqu_si128((__m128i const*)(const void *) src2);
                         src += 16;
                         src2 += 16;
 
@@ -389,9 +392,9 @@ static void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restr
                         dsty = _mm_packus_epi16(y1, y3);
                         dsty2 = _mm_packus_epi16(y2, y4);
                         dstuv = _mm_packus_epi16(uv, uv3);
-                        _mm_storeu_si128((__m128i *) dst_y, dsty);
-                        _mm_storeu_si128((__m128i *) dst_y2, dsty2);
-                        _mm_storeu_si128((__m128i *) dst_cbcr, dstuv);
+                        _mm_storeu_si128((__m128i *)(void *) dst_y, dsty);
+                        _mm_storeu_si128((__m128i *)(void *) dst_y2, dsty2);
+                        _mm_storeu_si128((__m128i *)(void *) dst_cbcr, dstuv);
                         dst_y += 16;
                         dst_y2 += 16;
                         dst_cbcr += 16;
@@ -411,15 +414,20 @@ static void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restr
 
 static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) in_data % 4 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
-                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
+                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
                 /*  every odd row */
-                uint32_t *src2 = (uint32_t *) (in_data + (y + 1) * vc_get_linesize(width, v210));
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_y2 = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y / 2);
+                uint32_t *src2 = (uint32_t *)(void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_y2 = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y / 2);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
 			//block 1, bits  0 -  9: U0+0
@@ -473,11 +481,16 @@ static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * 
 
 static void v210_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) in_data % 4 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         for(int y = 0; y < height; y += 1) {
-                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -507,11 +520,16 @@ static void v210_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
 
 static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) in_data % 4 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         for(int y = 0; y < height; y += 1) {
-                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0, w0_1, w0_2, w0_3;
@@ -547,11 +565,16 @@ static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * 
 
 static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) in_data % 4 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         for(int y = 0; y < height; y += 1) {
-                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
                         uint32_t w0_0 = *src++;
@@ -585,14 +608,19 @@ static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
 
 static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) in_data % 4 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
-                uint32_t *src = (uint32_t *) (in_data + y * vc_get_linesize(width, v210));
+                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
                 /*  every odd row */
-                uint32_t *src2 = (uint32_t *) (in_data + (y + 1) * vc_get_linesize(width, v210));
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_y2 = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
-                uint16_t *dst_cbcr = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
+                uint32_t *src2 = (uint32_t *)(void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_y2 = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
+                uint16_t *dst_cbcr = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
 			//block 1, bits  0 -  9: U0+0
@@ -645,6 +673,10 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __res
 
 static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         const int src_linesize = vc_get_linesize(width, R10k);
         const int32_t y_r = 190893; //0.18205 << 20
         const int32_t y_g = 642179; //0.61243 << 20
@@ -656,9 +688,9 @@ static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
         const int32_t cr_g = -487085; //-0.46452 << 20
         const int32_t cr_b = -49168;  //-0.04689 << 20
         for(int y = 0; y < height; y++) {
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
                 unsigned char *src = in_data + y * src_linesize;
                 int iterations = width / 2;
                 OPTIMIZED_FOR(int x = 0; x < iterations; x++){
@@ -704,11 +736,15 @@ static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
  */
 static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         const int src_linesize = vc_get_linesize(width, R10k);
         for(int y = 0; y < height; y++) {
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
                 unsigned char *src = in_data + y * src_linesize;
                 OPTIMIZED_FOR(int x = 0; x < width; x++){
                         comp_type_t r = src[0] << 2 | src[1] >> 6;
@@ -745,6 +781,10 @@ static void r10k_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
 // RGB full range to YCbCr bt. 709 limited range
 static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
 #define WRITE_RES \
         res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-4));\
         res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-1));\
@@ -756,9 +796,9 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         const int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
                 unsigned char *src = in_data + y * src_linesize;
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
 			comp_type_t r = 0;
@@ -854,12 +894,17 @@ static void r12l_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
 /// @brief Converts RG48 to yuv444p 10/12/14 le
 static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) in_data % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         const int src_linesize = vc_get_linesize(width, RG48);
         for(int y = 0; y < height; y++) {
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                uint16_t *src = (uint16_t *) (in_data + y * src_linesize);
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *src = (uint16_t *)(void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < width; x++){
                         comp_type_t r = *src++;
                         comp_type_t g = *src++;
@@ -893,13 +938,18 @@ static void rg48_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
 
 static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
 {
+        assert((uintptr_t) in_data % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         const int src_linesize = vc_get_linesize(width, Y216);
 
         for(int y = 0; y < height; y++) {
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                uint16_t *src = (uint16_t *) (in_data + y * src_linesize);
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *src = (uint16_t *)(void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < (width + 1) / 2; x++){
                         *dst_y++ = *src++ >> (16U - depth);
                         *dst_cb++ = *src++ >> (16U - depth);
@@ -921,13 +971,18 @@ static void y216_to_yuv422p16le(AVFrame * __restrict out_frame, unsigned char * 
 
 static void y216_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) in_data % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         const int src_linesize = vc_get_linesize(width, Y216);
 
         for(int y = 0; y < height; y++) {
-                uint16_t *dst_y = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                uint16_t *src = (uint16_t *) (in_data + y * src_linesize);
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *src = (uint16_t *)(void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < (width + 1) / 2; x++){
                         *dst_y++ = *src++;
                         dst_cb[0] = dst_cb[1] = *src++;
@@ -993,12 +1048,16 @@ static void rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restr
 
 static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         int src_linesize = vc_get_linesize(width, R10k);
         for (int y = 0; y < height; ++y) {
                 unsigned char *src = in_data + y * src_linesize;
-                uint16_t *dst_g = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_b = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_r = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *dst_g = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_b = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_r = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         unsigned char w0 = *src++;
@@ -1021,12 +1080,16 @@ static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __r
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
 static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
                 unsigned char *src = in_data + y * src_linesize;
-                uint16_t *dst_g = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_b = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_r = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *dst_g = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_b = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_r = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
 			uint16_t tmp;
@@ -1096,12 +1159,17 @@ static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __r
 
 static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
+        assert((uintptr_t) in_data % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
         int src_linesize = vc_get_linesize(width, RG48);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src = (uint16_t *) (in_data + y * src_linesize);
-                uint16_t *dst_g = (uint16_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_b = (uint16_t *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_r = (uint16_t *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *src = (uint16_t *)(void *) (in_data + y * src_linesize);
+                uint16_t *dst_g = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_b = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+                uint16_t *dst_r = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         *dst_r++ = *src++ >> 4U;
@@ -1181,8 +1249,10 @@ static void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame
 static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) dst_buffer % 4 == 0);
+
         for (int y = 0; y < height; ++y) {
-                uint32_t *line = (uint32_t *) ((uint8_t *) dst_buffer + y * pitch);
+                uint32_t *line = (uint32_t *)(void *) (dst_buffer + y * pitch);
                 int src_idx = y * frame->linesize[0];
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
@@ -1197,11 +1267,15 @@ static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict fram
 static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
 		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
@@ -1216,11 +1290,15 @@ static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict 
 static void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_y = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_cb = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
 		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
@@ -1266,11 +1344,15 @@ static void yuv444p16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restri
 static void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_y = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_cb = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
                 unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
@@ -1351,12 +1433,17 @@ static void yuv444p16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restri
 static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) dst_buffer % 2 == 0);
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_y = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_cb = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
-                uint16_t *dst = (uint16_t *) (dst_buffer + y * pitch);
+                uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
+                uint16_t *dst = (uint16_t *)(void *) (dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         comp_type_t y = (y_scale * (*src_y++ - (1<<(depth-4))));
@@ -1397,11 +1484,15 @@ static void yuv444p16le_to_rg48(char * __restrict dst_buffer, AVFrame * __restri
 static void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
 		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
@@ -1415,11 +1506,16 @@ static void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict f
 static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) dst_buffer % 4 == 0);
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
-		uint32_t *dst = (uint32_t *) (dst_buffer + y * pitch);
+                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
+		uint32_t *dst = (uint32_t *)(void *) (dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
 			*dst++ = (*src_r++ >> 2) << rgb_shift[0] | (*src_g++ >> 2) << rgb_shift[1] |
@@ -1432,11 +1528,15 @@ static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
 static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
                 unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
@@ -1484,11 +1584,15 @@ static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict 
 static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
                 unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
@@ -1502,11 +1606,16 @@ static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict f
 static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
+        assert((uintptr_t) dst_buffer % 4 == 0);
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
-                uint32_t *dst = (uint32_t *) (dst_buffer + y * pitch);
+                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
+                uint32_t *dst = (uint32_t *)(void *) (dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
 			*dst++ = (*src_r++ >> 4) << rgb_shift[0] | (*src_g++ >> 4) << rgb_shift[1] |
@@ -1566,8 +1675,8 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
                 __m128i zero = _mm_set1_epi32(0);
 
                 for (; x < width - 15; x += 16){
-                        y1 = _mm_lddqu_si128((__m128i const*) src_y1);
-                        y2 = _mm_lddqu_si128((__m128i const*) src_y2);
+                        y1 = _mm_lddqu_si128((__m128i const*)(const void *) src_y1);
+                        y2 = _mm_lddqu_si128((__m128i const*)(const void *) src_y2);
                         src_y1 += 16;
                         src_y2 += 16;
 
@@ -1576,8 +1685,8 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
                         out2l = _mm_unpacklo_epi8(zero, y2);
                         out2h = _mm_unpackhi_epi8(zero, y2);
 
-                        u1 = _mm_lddqu_si128((__m128i const*) src_cb);
-                        v1 = _mm_lddqu_si128((__m128i const*) src_cr);
+                        u1 = _mm_lddqu_si128((__m128i const*)(const void *) src_cb);
+                        v1 = _mm_lddqu_si128((__m128i const*)(const void *) src_cr);
                         src_cb += 8;
                         src_cr += 8;
 
@@ -1599,13 +1708,13 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
                         out2l = _mm_or_si128(out2l, u1);
                         out2h = _mm_or_si128(out2h, u2);
 
-                        _mm_storeu_si128((__m128i *) dst1, out1l);
+                        _mm_storeu_si128((__m128i *)(void *) dst1, out1l);
                         dst1 += 16;
-                        _mm_storeu_si128((__m128i *) dst1, out1h);
+                        _mm_storeu_si128((__m128i *)(void *) dst1, out1h);
                         dst1 += 16;
-                        _mm_storeu_si128((__m128i *) dst2, out2l);
+                        _mm_storeu_si128((__m128i *)(void *) dst2, out2l);
                         dst2 += 16;
-                        _mm_storeu_si128((__m128i *) dst2, out2h);
+                        _mm_storeu_si128((__m128i *)(void *) dst2, out2h);
                         dst2 += 16;
                 }
 #endif
@@ -1849,6 +1958,8 @@ static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
 static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
+        assert((uintptr_t) dst_buffer % 4 == 0);
+
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -1863,7 +1974,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                         comp_type_t g = g_cb * cb + g_cr * cr;
                         comp_type_t b = b_cb * cb;
                         if (rgba) {
-                                *((uint32_t *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                *((uint32_t *)(void *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
@@ -1873,7 +1984,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
 
                         y = *src_y++ * y_scale;
                         if (rgba) {
-                                *((uint32_t *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                *((uint32_t *)(void *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
@@ -1924,7 +2035,7 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                 }
 
 #define WRITE_RES_YUV8P_TO_RGB(DST) if (rgba) {\
-                                *((uint32_t *) DST) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);\
+                                *((uint32_t *)(void *) DST) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);\
                                 DST += 4;\
                         } else {\
                                 *DST++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);\
@@ -1992,6 +2103,8 @@ static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict 
 static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
 {
+        assert((uintptr_t) dst_buffer % 4 == 0);
+
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -2007,7 +2120,7 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
                         int g = g_cb * cb + g_cr * cr;
                         int b = b_cb * cb;
                         if (rgba) {
-                                *((uint32_t *) dst) = (MIN(MAX((r + y) >> COMP_BASE, 1), 254) << rgb_shift[R] | MIN(MAX((g + y) >> COMP_BASE, 1), 254) << rgb_shift[G] | MIN(MAX((b + y) >> COMP_BASE, 1), 254) << rgb_shift[B]);
+                                *((uint32_t *)(void *) dst) = (MIN(MAX((r + y) >> COMP_BASE, 1), 254) << rgb_shift[R] | MIN(MAX((g + y) >> COMP_BASE, 1), 254) << rgb_shift[G] | MIN(MAX((b + y) >> COMP_BASE, 1), 254) << rgb_shift[B]);
                                 dst += 4;
                         } else {
                                 *dst++ = MIN(MAX((r + y) >> COMP_BASE, 1), 254);
@@ -2291,22 +2404,27 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
 static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, int out_bit_depth)
 {
+        assert((uintptr_t) dst_buffer % 4 == 0);
+        assert((uintptr_t) frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
         assert(subsampling == 422 || subsampling == 420);
         for (int y = 0; y < height / 2; ++y) {
-                uint16_t * __restrict src_y1 = (uint16_t *) (frame->data[0] + frame->linesize[0] * 2 * y);
-                uint16_t * __restrict src_y2 = (uint16_t *) (frame->data[0] + frame->linesize[0] * (2 * y + 1));
+                uint16_t * __restrict src_y1 = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * 2 * y);
+                uint16_t * __restrict src_y2 = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * (2 * y + 1));
                 uint16_t * __restrict src_cb1;
                 uint16_t * __restrict src_cr1;
                 uint16_t * __restrict src_cb2;
                 uint16_t * __restrict src_cr2;
                 if (subsampling == 420) {
-                        src_cb1 = src_cb2 = (uint16_t *) (frame->data[1] + frame->linesize[1] * y);
-                        src_cr1 = src_cr2 = (uint16_t *) (frame->data[2] + frame->linesize[2] * y);
+                        src_cb1 = src_cb2 = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
+                        src_cr1 = src_cr2 = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
                 } else {
-                        src_cb1 = (uint16_t *) (frame->data[1] + frame->linesize[1] * (2 * y));
-                        src_cb2 = (uint16_t *) (frame->data[1] + frame->linesize[1] * (2 * y + 1));
-                        src_cr1 = (uint16_t *) (frame->data[2] + frame->linesize[2] * (2 * y));
-                        src_cr2 = (uint16_t *) (frame->data[2] + frame->linesize[2] * (2 * y + 1));
+                        src_cb1 = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * (2 * y));
+                        src_cb2 = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * (2 * y + 1));
+                        src_cr1 = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * (2 * y));
+                        src_cr2 = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * (2 * y + 1));
                 }
                 unsigned char *dst1 = (unsigned char *) dst_buffer + (2 * y) * pitch;
                 unsigned char *dst2 = (unsigned char *) dst_buffer + (2 * y + 1) * pitch;
@@ -2326,7 +2444,7 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                                 g = CLAMP_FULL(g, 8);\
                                 b = CLAMP_FULL(b, 8);\
                                 if (out_bit_depth == 32) {\
-                                        *((uint32_t *) DST) = (r << rgb_shift[R] | g << rgb_shift[G] | b << rgb_shift[B]);\
+                                        *((uint32_t *)(void *) DST) = (r << rgb_shift[R] | g << rgb_shift[G] | b << rgb_shift[B]);\
                                         DST += 4;\
                                 } else {\
                                         *DST++ = r;\
@@ -2514,7 +2632,7 @@ static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restr
 
         struct video_frame_callbacks *callbacks = in_frame->opaque;
 
-        hw_vdpau_frame *out = (hw_vdpau_frame *) dst_buffer;
+        hw_vdpau_frame *out = (hw_vdpau_frame *)(void *) dst_buffer;
 
         hw_vdpau_frame_init(out);
 
@@ -2751,5 +2869,7 @@ struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPi
     return Context;
 }
 #endif // defined HAVE_SWSCALE
+
+#pragma clang diagnostic pop
 
 /* vi: set expandtab sw=8: */

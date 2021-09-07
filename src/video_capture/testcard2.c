@@ -113,7 +113,7 @@ static int configure_audio(struct testcard_state2 *s)
         s->audio_silence = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
         
         s->audio_tone = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
-        short int * data = (short int *) s->audio_tone;
+        short int * data = (short int *)(void *) s->audio_tone;
         for(int i=0; i < (int) AUDIO_BUFFER_SIZE/2; i+=2 )
         {
                 data[i] = data[i+1] = (float) sin( ((double)i/(double)200) * M_PI * 2. ) * SHRT_MAX;
