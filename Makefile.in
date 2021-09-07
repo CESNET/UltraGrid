@@ -318,7 +318,7 @@ ldgm/src/ldgm-session-gpu.o: ldgm/src/ldgm-session-gpu.cpp
 
 src/zfec.o: @ZFEC_PREFIX@/fec.c
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) -Wno-old-style-declaration -Wno-missing-declarations -Wno-missing-prototypes -Wno-sign-compare $(INC) -c $< -o $@
+	$(CC) $(CFLAGS) -w $(INC) -c $< -o $@
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(MKDIR_P) $(dir $@)
