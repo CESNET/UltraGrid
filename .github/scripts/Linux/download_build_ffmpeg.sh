@@ -33,8 +33,9 @@ install_libvpx
 install_nv_codec_headers
 install_svt
 # apply patches
-for n in $GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches/*patch; do
-        git apply $n
+FF_PATCH_DIR=$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches
+for n in `ls $FF_PATCH_DIR`; do
+        git apply $FF_PATCH_DIR/$n
 done
 ./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame --enable-libsvthevc --enable-libsvtav1 \
         --enable-libdav1d \
