@@ -1,0 +1,39 @@
+From 8fa747e6d0e36f293643c451ddbb8f389c02ed30 Mon Sep 17 00:00:00 2001
+From: Martin Pulec <martin.pulec@cesnet.cz>
+Date: Tue, 7 Sep 2021 17:08:30 +0200
+Subject: [PATCH] NVENC: set idrPeriod to gop_size
+
+NVENC_INFINITE_GOPLENGTH is useless for UltraGrid
+---
+ libavcodec/nvenc.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
+index ae25afd7f8..d387d75057 100644
+--- a/libavcodec/nvenc.c
++++ b/libavcodec/nvenc.c
+@@ -1129,9 +1129,7 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
+         h264->maxNumRefFrames = ctx->dpb_size;
+     }
+ 
+-    if (ctx->intra_refresh) {
+-        h264->idrPeriod = NVENC_INFINITE_GOPLENGTH;
+-    } else if (avctx->gop_size >= 0) {
++    if (avctx->gop_size >= 0) {
+         h264->idrPeriod = avctx->gop_size;
+     }
+ 
+@@ -1243,9 +1241,7 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
+         hevc->maxNumRefFramesInDPB = ctx->dpb_size;
+     }
+ 
+-    if (ctx->intra_refresh) {
+-        hevc->idrPeriod = NVENC_INFINITE_GOPLENGTH;
+-    } else if (avctx->gop_size >= 0) {
++    if (avctx->gop_size >= 0) {
+         hevc->idrPeriod = avctx->gop_size;
+     }
+ 
+-- 
+2.30.2
+
