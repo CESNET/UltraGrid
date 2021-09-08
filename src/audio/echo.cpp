@@ -43,6 +43,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "audio/utils.h"
+#include "audio/export.h"
 #include "debug.h"
 #include "echo.h"
 
@@ -74,6 +75,10 @@ namespace {
                 void operator()(SpeexEchoState* echo) { speex_echo_state_destroy(echo); }
         };
 
+        struct Export_state_deleter{
+                void operator()(struct audio_export* e) { audio_export_destroy(e); }
+        };
+
         constexpr duration get_expected_duration(int samples, int sample_rate){
                 return std::chrono::microseconds((static_cast<long long>(samples) * 1'000'000) / sample_rate);
         }
@@ -92,8 +97,13 @@ struct echo_cancellation {
         int prefill;
         time_point next_expected_near;
 
+        std::unique_ptr<struct audio_export, Export_state_deleter> exporter;
+
         std::mutex lock;
 };
+
+ADD_TO_PARAM("echo-cancel-dump-audio", "* echo-cancel-dump-audio\n"
+                "Dump near end, far end and output samples in separate channels to a wav file.\n");
 
 static void reconfigure_echo (struct echo_cancellation *s, int sample_rate, int bps);
 
@@ -109,6 +119,12 @@ static void reconfigure_echo (struct echo_cancellation *s, int sample_rate, int 
         ring_buffer_flush(s->near_end_ringbuf.get());
 
         speex_echo_ctl(s->echo_state.get(), SPEEX_ECHO_SET_SAMPLING_RATE, &sample_rate); // should the 3rd parameter be int?
+
+        if(get_commandline_param("echo-cancel-dump-audio")){
+                s->exporter.reset(nullptr); //previous file gets closed
+                s->exporter.reset(audio_export_init("echo_cancel_dump.wav"));
+                audio_export_configure_raw(s->exporter.get(), 2, sample_rate, 3);
+        }
 }
 
 #define TEXTIFY(a) TEXTIFY2(a)
@@ -316,14 +332,23 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 spx_int16_t near_arr[SAMPLES_PER_FRAME];
                 spx_int16_t far_arr[SAMPLES_PER_FRAME];
 
+                const void *export_channels[] = {near_arr, far_arr, out_ptr, nullptr};
                 if(far_end_samples >= SAMPLES_PER_FRAME){
                         ring_buffer_read(s->far_end_ringbuf.get(), reinterpret_cast<char *>(far_arr), SAMPLES_PER_FRAME * 2);
                         ring_buffer_read(s->near_end_ringbuf.get(), reinterpret_cast<char *>(near_arr), SAMPLES_PER_FRAME * 2);
 
                         speex_echo_cancellation(s->echo_state.get(), near_arr, far_arr, out_ptr); 
                         far_end_samples -= SAMPLES_PER_FRAME;
+
                 } else {
                         ring_buffer_read(s->near_end_ringbuf.get(), reinterpret_cast<char *>(out_ptr), SAMPLES_PER_FRAME * 2);
+                        export_channels[0] = out_ptr;
+                        export_channels[1] = out_ptr;
+                        export_channels[2] = out_ptr;
+                }
+
+                if(s->exporter){
+                        audio_export_raw_ch(s->exporter.get(), export_channels, SAMPLES_PER_FRAME);
                 }
 
                 out_ptr += SAMPLES_PER_FRAME;
