@@ -45,7 +45,7 @@ extern "C" {
 struct audio_export;
 struct audio_frame;
 
-struct audio_export * audio_export_init(char *filename);
+struct audio_export * audio_export_init(const char *filename);
 void audio_export_destroy(struct audio_export *state);
 void audio_export(struct audio_export *state, struct audio_frame *frame);
 

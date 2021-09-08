@@ -131,7 +131,7 @@ static bool configure(struct audio_export *s, struct audio_desc fmt) {
         return true;
 }
 
-struct audio_export * audio_export_init(char *filename)
+struct audio_export * audio_export_init(const char *filename)
 {
         struct audio_export *s = calloc(1, sizeof(struct audio_export));
         if(!s) {
