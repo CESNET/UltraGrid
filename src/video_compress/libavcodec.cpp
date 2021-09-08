@@ -104,6 +104,7 @@ namespace {
 
 struct setparam_param {
         double fps;
+        bool have_preset;
         bool interlaced;
         bool no_periodic_intra;
         int thread_count;
@@ -730,7 +731,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         int_fast64_t bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
                 desc.width * desc.height * avg_bpp * desc.fps;
 
-        bool have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
+        s->params.have_preset = s->lavc_opts.find("preset") != s->lavc_opts.end();
 
         s->codec_ctx->strict_std_compliance = -2;
 
@@ -777,7 +778,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         set_thread_mode(s->codec_ctx, &s->params);
         s->codec_ctx->slices = max(s->params.thread_count, MIN_SLICE_COUNT);
 
-        if (!have_preset) {
+        if (!s->params.have_preset) {
                 string preset{};
                 if (codec_params[ug_codec].get_preset) {
                         preset = codec_params[ug_codec].get_preset(s->codec_ctx->codec->name, desc.width, desc.height, desc.fps);
@@ -1823,12 +1824,14 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
                 LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC tune to \"" << DEFAULT_NVENC_TUNE << "\" (" << errbuf.data() << "). Possibly old libavcodec or compiled with old NVIDIA NVENC headers.\n";
                 preset = FALLBACK_NVENC_PRESET;
         }
-        if (int rc = av_opt_set(codec_ctx->priv_data, "preset", preset, 0)) {
-                array<char, LIBAV_ERRBUF_LEN> errbuf{};
-                av_strerror(rc, errbuf.data(), errbuf.size());
-                LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC preset to: " << preset << " (" << errbuf.data() << ").\n";
-        } else {
-                LOG(LOG_LEVEL_INFO) << "[lavc] Setting NVENC preset to " << preset << ".\n";
+        if (!param->have_preset) {
+                if (int rc = av_opt_set(codec_ctx->priv_data, "preset", preset, 0)) {
+                        array<char, LIBAV_ERRBUF_LEN> errbuf{};
+                        av_strerror(rc, errbuf.data(), errbuf.size());
+                        LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC preset to: " << preset << " (" << errbuf.data() << ").\n";
+                } else {
+                        LOG(LOG_LEVEL_INFO) << "[lavc] Setting NVENC preset to " << preset << ".\n";
+                }
         }
 
         set_forced_idr(codec_ctx, 1);
