@@ -86,7 +86,8 @@
 #define BYTE_SWAP(x) x
 #endif
 
-#pragma clang diagnostic push
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic warning "-Wpass-failed"
 
 //
@@ -2870,6 +2871,6 @@ struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPi
 }
 #endif // defined HAVE_SWSCALE
 
-#pragma clang diagnostic pop
+#pragma GCC diagnostic pop
 
 /* vi: set expandtab sw=8: */
