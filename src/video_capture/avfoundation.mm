@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2020 CESNET z.s.p.o.
+ * Copyright (c) 2014-2021 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,6 +100,7 @@ using std::chrono::milliseconds;
         condition_variable m_frame_ready;
         queue<struct video_frame *> m_queue;
 	chrono::steady_clock::time_point m_t0;
+        double m_fps_req;
 	int m_frames;
 }
 
@@ -184,6 +185,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 
 	m_t0 = chrono::steady_clock::now();
 	m_frames = 0;
+        m_fps_req = 0.0;
 
 #ifdef __MAC_10_14
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
@@ -275,7 +277,6 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                 // Find a suitable AVCaptureDevice
                 AVCaptureDeviceFormat *format = nil;
                 AVFrameRateRange *rate = nil;
-                double fps_req = 0;
                 int rate_idx_req = -1;
                 for (format in [m_device formats] ) {
                         i++;
@@ -287,12 +288,12 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                         format = nil;
                 }
                 if ([params valueForKey:@"fps"]) {
-                        fps_req = [[params valueForKey:@"fps"] doubleValue];
+                        m_fps_req = [[params valueForKey:@"fps"] doubleValue];
                 }
                 if ([params valueForKey:@"fr_idx"]) {
                         rate_idx_req = [[params valueForKey:@"fr_idx"] intValue];
                 }
-                if (format && (fps_req != 0 || rate_idx_req != -1)) {
+                if (format && (m_fps_req != 0 || rate_idx_req != -1)) {
 			int rate_idx = 0;
 			for (AVFrameRateRange *it in format.videoSupportedFrameRateRanges) {
 				if (rate_idx_req != -1) {
@@ -300,9 +301,9 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 						rate = it;
 						break;
 					}
-				} else { // fps_req != 0
+				} else { // m_fps_req != 0
                                         const double eps = 0.01; // needed because there are ranges for like 30,00003-30,00003 FPS
-					if (fps_req >= (double) it.minFrameDuration.timescale / it.minFrameDuration.value - eps && fps_req <= (double) it.maxFrameDuration.timescale / it.maxFrameDuration.value + eps) {
+					if (m_fps_req >= (double) it.minFrameDuration.timescale / it.minFrameDuration.value - eps && m_fps_req <= (double) it.maxFrameDuration.timescale / it.maxFrameDuration.value + eps) {
 						rate = it;
 						break;
 					}
@@ -424,7 +425,7 @@ fromConnection:(AVCaptureConnection *)connection
 	desc.color_spec = get<0>(codec_it->second);
 	desc.width = dim.width;
 	desc.height = dim.height;
-	desc.fps = 1.0 / CMTimeGetSeconds(dur);
+	desc.fps = m_fps_req != 0 ? m_fps_req : 1.0 / CMTimeGetSeconds(dur);
 	desc.tile_count = 1;
 	desc.interlacing = PROGRESSIVE;
 
