@@ -74,8 +74,9 @@ using std::unique_lock;
 
 #define FPS 60.0
 #define MOD_NAME "[Syphon capture] "
+#define DEFAULT_MAX_QUEUE_SIZE 1
 
-static void usage();
+static void usage(bool full);
 
 static const char fp_display_rgba_to_yuv422_legacy[] =
 "#define LEGACY 1\n"
@@ -137,6 +138,7 @@ struct state_vidcap_syphon {
         mutex lock;
         condition_variable frame_ready_cv;
         queue<video_frame *> q;
+        int max_queue_size = DEFAULT_MAX_QUEUE_SIZE;
 
         GLuint fbo_id;
         GLuint tex_id;
@@ -152,7 +154,7 @@ struct state_vidcap_syphon {
 
         GLuint program_to_yuv422;
 
-        bool show_help;     ///< only show help and exit
+        int show_help;     ///< only show help and exit - 1 - standard; 2 - full
         bool probe_devices; ///< devices probed
         bool should_exit_main_loop = false; ///< events (probe/help) processed
 
@@ -219,8 +221,8 @@ static void oneshot_init(int value [[gnu::unused]])
                 return;
         }
 
-        if (s->show_help) {
-                usage();
+        if (s->show_help != 0) {
+                usage(s->show_help == 2);
                 s->should_exit_main_loop = true;
                 return;
         }
@@ -294,7 +296,7 @@ static void oneshot_init(int value [[gnu::unused]])
 
                 unique_lock<mutex> lk(s->lock);
                 bool pushed = false;
-                if (s->q.size() == 0) {
+                if (s->q.size() < s->max_queue_size) {
                         s->q.push(f);
                         pushed = true;
                 } else {
@@ -347,15 +349,18 @@ static void syphon_mainloop(void *state)
  * Because it enumerates available servers it must be run from within
  * application main loop, not directly from vidcap_syphon_init().
  */
-static void usage()
+static void usage(bool full)
 {
         cout << "Usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-t syphon" << rang::fg::reset << "[:name=<server_name>][:app=<app_name>][:override_fps=<fps>][:RGB]\n" << rang::style::reset;
+        cout << rang::style::bold << rang::fg::red << "\t-t syphon" << rang::fg::reset << "[:name=<server_name>][:app=<app_name>][:override_fps=<fps>][:RGB]" << (full ? "[:queue_size=<len>]" : "[:fullhelp]") << "\n" << rang::style::reset;
         cout << "\nwhere:\n";
         cout << rang::style::bold << "\tname\n" << rang::style::reset << "\t\tSyphon server name\n";
         cout << rang::style::bold << "\tapp\n" << rang::style::reset << "\t\tSyphon server application name\n";
         cout << rang::style::bold << "\toverride_fps\n" << rang::style::reset << "\t\toverrides FPS in metadata (but not the actual rate captured)\n";
         cout << rang::style::bold << "\tRGB\n" << rang::style::reset << "\t\tuse RGB as an output codec instead of default UYVY\n";
+        if (full) {
+                cout << rang::style::bold << "\tqueue_size=<len>\n" << rang::style::reset << "\t\tsize of internal frame queue\n";
+        }
         cout << "\n";
         cout << "Available servers:\n";
 
@@ -380,8 +385,8 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 
         item = strtok_r(opts, ":", &save_ptr);
         while (item) {
-                if (strcmp(item, "help") == 0) {
-                        s->show_help = true;
+                if (strcmp(item, "help") == 0 || strcmp(item, "fullhelp") == 0) {
+                        s->show_help = strcmp(item, "help") == 0 ? 1 : 2;
                         syphon_mainloop(s);
                         vidcap_syphon_done(s);
                         return VIDCAP_INIT_NOERR;
@@ -391,6 +396,8 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
                         s->serverName = [NSString stringWithCString: item + strlen("name=") encoding:NSASCIIStringEncoding];
                 } else if (strstr(item, "override_fps=") == item) {
                         s->override_fps = atof(item + strlen("override_fps="));
+                } else if (strstr(item, "queue_size=") == item) {
+                        s->max_queue_size = atoi(strchr(item, '=') + 1);
                 } else if (strcasecmp(item, "RGB") == 0) {
                         s->use_rgb = true;
                 } else {
