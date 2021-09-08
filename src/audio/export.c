@@ -242,3 +242,53 @@ void audio_export(struct audio_export *s, struct audio_frame *frame)
         audio_export_raw(s, frame->data, frame->data_len);
 }
 
+static int write_samples(char *out, const void **channels_data,
+                int bps, int ch_count, int size, int start_sample)
+{
+        int written = 0;
+        int in_offset = start_sample*bps;
+        for(; written * bps * ch_count < size; written++){
+                for(int ch = 0; ch < ch_count; ch++){
+                        const char *in_ptr = ((const char *)channels_data[ch]) + in_offset;
+                        memcpy(out, in_ptr, bps);
+                        out += bps;
+                }
+                in_offset += bps;
+        }
+
+        return written;
+}
+
+void audio_export_raw_ch(struct audio_export *s,
+                const void **channels_data, unsigned sample_count)
+{
+        const int ch_count = s->saved_format.ch_count;
+        const int bps = s->saved_format.bps;
+        assert(ch_count != 0 && "Export not configured");
+
+        int len = s->saved_format.ch_count * s->saved_format.bps * sample_count;
+
+        pthread_mutex_lock(&s->lock);
+        void *ptr1;
+        int size1;
+        void *ptr2;
+        int size2;
+        int avail = ring_get_write_regions(s->ring, len, &ptr1, &size1, &ptr2, &size2);
+
+        assert((size1 % (bps * ch_count)) == 0);
+        assert(!ptr2 || (size2 % (bps * ch_count)) == 0);
+
+        int written = write_samples(ptr1, channels_data, bps, ch_count, size1, 0);
+        if(ptr2){
+                write_samples(ptr2, channels_data, bps, ch_count, size2, written);
+        }
+
+        ring_advance_write_idx(s->ring, avail);
+
+        s->new_work_ready = true;
+        if(s->worker_waiting) {
+                pthread_cond_signal(&s->worker_cv);
+        }
+        pthread_mutex_unlock(&s->lock);
+}
+
