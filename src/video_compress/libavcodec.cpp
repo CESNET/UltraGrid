@@ -54,6 +54,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -97,6 +98,7 @@ static constexpr double DEFAULT_X264_X265_CRF = 22.0;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
 static constexpr int MIN_SLICE_COUNT = 8;
+static constexpr string_view DEFER_PRESET_SETTING = "defer";
 
 namespace {
 
@@ -781,7 +783,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                         preset = codec_params[ug_codec].get_preset(s->codec_ctx->codec->name, desc.width, desc.height, desc.fps);
                 }
 
-                if (!preset.empty() && preset != "defer"s) {
+                if (!preset.empty() && preset != DEFER_PRESET_SETTING) {
                         if (av_opt_set(s->codec_ctx->priv_data, "preset", preset.c_str(), 0) != 0) {
                                 LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to set preset.\n";
                         } else {
@@ -1926,7 +1928,7 @@ void show_encoder_help(string const &name) {
         }
 }
 
-/// @retval "defer" - preset will be set individually later (NVENC)
+/// @retval DEFER_PRESET_SETTING - preset will be set individually later (NVENC)
 static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps)
 {
         if (enc_name == "libx264" || enc_name == "libx264rgb") {
@@ -1938,7 +1940,7 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
         } else if (enc_name == "libx265") {
                 return string("ultrafast");
         } else if (regex_match(enc_name, regex(".*nvenc.*"))) { // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
-                return "defer"s; // nvenc preset is handled with configure_nvenc()
+                return string{DEFER_PRESET_SETTING}; // nvenc preset is handled with configure_nvenc()
         } else if (enc_name == "h264_qsv") {
                 return string(DEFAULT_QSV_PRESET);
         } else {
