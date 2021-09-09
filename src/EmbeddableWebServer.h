@@ -1515,6 +1515,7 @@ void serverInit(struct Server* server) {
 void serverStop(struct Server* server) {
     serverMutexLock(server);
     if (!server->initialized) {
+        serverMutexUnlock(server);
         ews_printf("Warning: Server %p was never initialized and you tried to stop it. Ignoring...\n", server);
         return;
     }
