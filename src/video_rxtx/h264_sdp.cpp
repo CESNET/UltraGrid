@@ -199,6 +199,7 @@ void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 
         if (m_sdp_configured_codec != tx_frame->color_spec) {
                 LOG(LOG_LEVEL_ERROR) << "[SDP] Video codec reconfiguration is not supported!\n";
+                return;
         }
 
         if (m_connections_count == 1) { /* normal/default case - only one connection */
