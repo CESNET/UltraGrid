@@ -235,7 +235,7 @@ struct tile {
         unsigned int         offset;
 };
 
-#define ANYSIZE_ARRAY 0
+#define FLEXIBLE_ARRAY_MEMBER 0
 
 enum mem_location_t {
         CPU_MEM = 0,
@@ -281,7 +281,7 @@ struct video_frame {
         /// tiles contain actual video frame data. A frame usually contains exactly one
         /// tile but in some cases it can contain more tiles (eg. 4 for tiled 4K).
         unsigned int         tile_count;
-        struct tile          tiles[ANYSIZE_ARRAY];
+        struct tile          tiles[FLEXIBLE_ARRAY_MEMBER];
 };
 
 #define VF_METADATA_SIZE (offsetof(struct video_frame, VF_METADATA_END) - offsetof(struct video_frame, VF_METADATA_START))
