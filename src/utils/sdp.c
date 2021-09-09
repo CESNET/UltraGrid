@@ -46,20 +46,15 @@
  * * createResponseForRequest() should be probably static (in case that other
  *   modules want also to use EmbeddableWebServer)
  * * HTTP server should work even if the SDP file cannot be written
- * * at least some Windows compatibility functions should be perhaps deleted from
- *   EmbeddableWebServer, eg. pthread_* which we have from winpthreads, either.
- *   This can also be potentially dangerous.
  */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
-// config_win32.h must not be included if using EWS because EWS has
-// some incomatible implementations of POSIX functions
+#include "config_win32.h"
 #endif
 
 #ifdef WIN32
-#define _WIN32_WINNT 0x0600
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
