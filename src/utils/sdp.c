@@ -45,7 +45,6 @@
  * * consider using serverStop() to stop the thread - likely doesn't work now
  * * createResponseForRequest() should be probably static (in case that other
  *   modules want also to use EmbeddableWebServer)
- * * HTTP server should work even if the SDP file cannot be written
  */
 
 #ifdef HAVE_CONFIG_H
