@@ -232,6 +232,9 @@ void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 
 h264_sdp_video_rxtx::~h264_sdp_video_rxtx()
 {
+        if (m_sdp_configured_codec != VIDEO_CODEC_NONE) {
+                sdp_stop_http_server(m_sdp);
+        }
         clean_sdp(m_sdp);
 }
 

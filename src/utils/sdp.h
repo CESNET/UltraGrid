@@ -67,6 +67,7 @@ int sdp_add_video(struct sdp *sdp, int port, codec_t codec);
  */
 bool gen_sdp(struct sdp *sdp, const char *sdp_file_name);
 bool sdp_run_http_server(struct sdp *sdp, int port, address_callback_t addr_callback, void *addr_callback_udata);
+void sdp_stop_http_server(struct sdp *sdp);
 void clean_sdp(struct sdp *sdp);
 
 #ifdef __cplusplus

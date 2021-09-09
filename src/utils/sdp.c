@@ -4,7 +4,7 @@
  *          Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2018-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2021 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -42,7 +42,7 @@
 /**
  * @file
  * @todo
- * * exit correctly HTTP thread (but it is a bit tricky because it waits on accept())
+ * * consider using serverStop() to stop the thread - likely doesn't work now
  * * createResponseForRequest() should be probably static (in case that other
  *   modules want also to use EmbeddableWebServer)
  * * HTTP server should work even if the SDP file cannot be written
@@ -92,6 +92,8 @@ struct stream_info {
 };
 
 struct sdp {
+    struct Server http_server;
+    pthread_t http_server_thr;
     int ip_version;
     char version[STR_LENGTH];
     char origin[STR_LENGTH];
@@ -141,6 +143,8 @@ struct sdp *new_sdp(int ip_version, const char *receiver) {
     strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
     snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, connection_address);
     strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
+
+    serverInit(&sdp->http_server);
 
     return sdp;
 }
@@ -273,6 +277,7 @@ void clean_sdp(struct sdp *sdp){
             return;
     }
     free(sdp->sdp_dump);
+    serverDeInit(&sdp->http_server);
     free(sdp);
 }
 
@@ -361,16 +366,22 @@ bool sdp_run_http_server(struct sdp *sdp, int port, address_callback_t addr_call
     sdp->address_callback_udata = addr_callback_udata;
 
     portInHostOrder = port;
-    struct Server *http_server = calloc(1, sizeof(struct Server));
-    serverInit(http_server);
-    http_server->tag = sdp;
-    pthread_t http_server_thr;
-    pthread_create(&http_server_thr, NULL, &acceptConnectionsThread, http_server);
-    pthread_detach(http_server_thr);
+    sdp->http_server.tag = sdp;
+    pthread_create(&sdp->http_server_thr, NULL, &acceptConnectionsThread, &sdp->http_server);
     // some resource will definitely leak but it shouldn't be a problem
     print_http_path(sdp);
     return true;
 }
+
+void sdp_stop_http_server(struct sdp *sdp)
+{
+    ///@todo use "serverStop(&sdp->http_server);" instead
+    sdp->http_server.shouldRun = false;
+    pthread_cancel(sdp->http_server_thr);
+
+    pthread_join(sdp->http_server_thr, NULL);
+}
+
 #endif // SDP_HTTP
 
 /* vim: set expandtab sw=4 : */
