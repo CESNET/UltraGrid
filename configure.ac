@@ -760,7 +760,7 @@ gpustitch_req=auto
 
 AC_ARG_ENABLE(gpustitch,
 [  --disable-gpustitch      disable gpustitch (default is auto)]
-[                          Requires: gpustitch],
+[                          Requires: CUDA gpustitch],
 	[gpustitch_req=$enableval])
 
 PKG_CHECK_MODULES([LIBGPUSTITCH], [libgpustitch >= 0.0.1 ], [found_gpustitch=yes], [found_gpustitch=no])
@@ -782,7 +782,9 @@ else
 fi
 
 if test "$gpustitch_req" != no -a \
-        "$found_gpustitch" = yes
+        "$found_gpustitch" = yes -a \
+        "$FOUND_CUDA" = yes
+
 then
         gpustitch=yes
 
