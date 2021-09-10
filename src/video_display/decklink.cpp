@@ -371,7 +371,7 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square][:HDR[=<t>]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square][:HDR[=<t>]]\n" << style::reset;
         cout << "Options:\n";
         cout << style::bold << "\tfullhelp" << style::reset << " displays help for further options\n";
         cout << style::bold << "\t<device(s)>" << style::reset << " is comma-separated indices or names of output devices\n";
