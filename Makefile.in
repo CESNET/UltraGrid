@@ -90,6 +90,7 @@ COMMON_OBJS     = \
 		src/audio/codec/dummy_pcm.o \
 		src/audio/export.o \
 		src/audio/playback/dummy.o \
+		src/audio/playback/dump.o \
 		src/audio/playback/mixer.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
