@@ -80,6 +80,12 @@ public:
     unsigned char rtpChannelId, rtcpChannelId;
 };
 
+#ifdef __clang__
+#define MAYBE_UNUSED_ATTRIBUTE [[maybe_unused]]
+#else
+#define MAYBE_UNUSED_ATTRIBUTE // GCC complains if [[maybe_used]] is used there
+#endif
+
 class BasicRTSPOnlySubsession: public ServerMediaSubsession {
 
 public:
@@ -131,8 +137,8 @@ private:
 
     void setSDPLines();
 
-    [[maybe_unused]] Boolean fReuseFirstSource;
-    [[maybe_unused]] void* fLastStreamToken;
+    MAYBE_UNUSED_ATTRIBUTE Boolean fReuseFirstSource;
+    MAYBE_UNUSED_ATTRIBUTE void* fLastStreamToken;
     char fCNAME[100];
     struct module *fmod;
     rtps_types_t avType;
