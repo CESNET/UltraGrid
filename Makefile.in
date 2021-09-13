@@ -99,6 +99,7 @@ COMMON_OBJS     = \
 		@JACK_TRANS_OBJ@ \
 		src/capture_filter.o \
 		src/capture_filter/change_pixfmt.o \
+		src/capture_filter/disrupt.o \
 		src/capture_filter/every.o \
 		src/capture_filter/flip.o \
 		src/capture_filter/gamma.o \
