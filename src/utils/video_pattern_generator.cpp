@@ -86,6 +86,7 @@ using std::move;
 using std::string;
 using std::swap;
 using std::unique_ptr;
+using std::uniform_int_distribution;
 using std::vector;
 
 struct testcard_rect {
@@ -258,7 +259,8 @@ class image_pattern_gradient2 : public image_pattern {
 class image_pattern_noise : public image_pattern {
         default_random_engine rand_gen;
         int fill(int width, int height, unsigned char *data) override {
-                for_each(reinterpret_cast<uint16_t *>(data), reinterpret_cast<uint16_t *>(data) + 3 * width * height, [&](uint16_t & c) { c = rand_gen() % 0xFFFFU; });
+                uniform_int_distribution<> dist(0, 0xFFFF);
+                for_each(reinterpret_cast<uint16_t *>(data), reinterpret_cast<uint16_t *>(data) + 3 * width * height, [&](uint16_t & c) { c = dist(rand_gen); });
                 return 16;
         }
 };
