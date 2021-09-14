@@ -47,6 +47,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -86,7 +87,7 @@ struct audio_export {
         FILE *output;
 
         struct audio_desc saved_format;
-        uint32_t total;
+        long long total;
 
         ring_buffer_t *ring;
 
@@ -254,10 +255,10 @@ static void finalize(struct audio_export *s)
         if (ret != 0) {
                 goto error;
         }
-        uint32_t ck_master_size = 4 + 24 + (8 + s->saved_format.bps *
+        long long ck_master_size = 4 + 24 + (8 + s->saved_format.bps *
                         s->saved_format.ch_count * s->total + padding_byte_len);
-        size_t res;
-        res = fwrite(&ck_master_size, sizeof(ck_master_size), 1, s->output);
+        uint32_t val = ck_master_size < UINT32_MAX ? ck_master_size : UINT32_MAX;
+        size_t res = fwrite(&val, sizeof val, 1, s->output);
         if(res != 1) {
                 goto error;
         }
@@ -266,9 +267,10 @@ static void finalize(struct audio_export *s)
         if (ret != 0) {
                 goto error;
         }
-        uint32_t ck_data_size = s->saved_format.bps *
+        long long ck_data_size = s->saved_format.bps *
                         s->saved_format.ch_count * s->total;
-        res = fwrite(&ck_data_size, sizeof(ck_data_size), 1, s->output);
+        val = ck_data_size < UINT32_MAX ? ck_data_size : UINT32_MAX;
+        res = fwrite(&val, sizeof val, 1, s->output);
         if(res != 1) {
                 goto error;
         }
