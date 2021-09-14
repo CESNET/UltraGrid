@@ -66,86 +66,56 @@
 #define NBLOCK_ALIGN_OFFSET              32 /* M * Nc */
 #define NBITS_PER_SAMPLE                 34 /* rounds up to 8 * M */
 
+#define CHECK_FWRITE(a, b, c, d) do { if (fwrite(a, b, c, d) != (c)) { \
+        return false; \
+} } while(0)
+
+static bool wav_write_header_data(FILE *wav, struct audio_desc fmt) {
+
+        CHECK_FWRITE("RIFF", 4, 1, wav);
+        // chunk size - to be added
+        CHECK_FWRITE("    ", 4, 1, wav);
+        CHECK_FWRITE("WAVE", 4, 1, wav);
+        CHECK_FWRITE("fmt ", 4, 1, wav);
+
+        uint32_t chunk_size = FMT_CHUNK_SIZE;
+        CHECK_FWRITE(&chunk_size, sizeof(chunk_size), 1, wav);
+
+        uint16_t wave_format_pcm = 0x0001;
+        CHECK_FWRITE(&wave_format_pcm, sizeof(wave_format_pcm), 1, wav);
+
+        uint16_t channels = fmt.ch_count;
+        CHECK_FWRITE(&channels, sizeof(channels), 1, wav);
+
+        uint32_t sample_rate = fmt.sample_rate;
+        CHECK_FWRITE(&sample_rate, sizeof(sample_rate), 1, wav);
+
+        uint32_t avg_bytes_per_sec = fmt.sample_rate * fmt.bps * fmt.ch_count;
+        CHECK_FWRITE(&avg_bytes_per_sec, sizeof(avg_bytes_per_sec), 1, wav);
+
+        uint16_t block_align_offset = fmt.bps * fmt.ch_count;
+        CHECK_FWRITE(&block_align_offset, sizeof(block_align_offset), 1, wav);
+
+        uint16_t bits_per_sample = fmt.bps * CHAR_BIT;
+        CHECK_FWRITE(&bits_per_sample, sizeof(bits_per_sample), 1, wav);
+
+        CHECK_FWRITE("data", 4, 1, wav);
+
+        CHECK_FWRITE("    ", 1, 4, wav); // data size - to be added
+
+        return true;
+}
+
 FILE *wav_write_header(const char *filename, struct audio_desc fmt) {
         FILE *wav = fopen(filename, "wb+");
         if (wav == NULL) {
-                fprintf(stderr, "[WAV writer] Output file creating error.\n");
+                perror("[WAV writer] Output file creating error\n");
                 return NULL;
         }
-
-        size_t res = 0;
-
-        res = fwrite("RIFF", 4, 1, wav);
-        if(res != 1) {
+        if (!wav_write_header_data(wav, fmt)) {
+                fclose(wav);
                 return NULL;
         }
-        // chunk size - to be added
-        res = fwrite("    ", 4, 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-        res = fwrite("WAVE", 4, 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-        res = fwrite("fmt ", 4, 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        uint32_t chunk_size = FMT_CHUNK_SIZE;
-        res = fwrite(&chunk_size, sizeof(chunk_size), 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        uint16_t wave_format_pcm = 0x0001;
-        res = fwrite(&wave_format_pcm, sizeof(wave_format_pcm), 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        uint16_t channels = fmt.ch_count;
-        res = fwrite(&channels, sizeof(channels), 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        uint32_t sample_rate = fmt.sample_rate;
-        res = fwrite(&sample_rate, sizeof(sample_rate), 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        uint32_t avg_bytes_per_sec = fmt.sample_rate * fmt.bps * fmt.ch_count;
-        res = fwrite(&avg_bytes_per_sec, sizeof(avg_bytes_per_sec), 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        uint16_t block_align_offset = fmt.bps * fmt.ch_count;
-        res = fwrite(&block_align_offset, sizeof(block_align_offset), 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        uint16_t bits_per_sample = fmt.bps * CHAR_BIT;
-        res = fwrite(&bits_per_sample, sizeof(bits_per_sample), 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        res = fwrite("data", 4, 1, wav);
-        if(res != 1) {
-                return NULL;
-        }
-
-        char blank[4] = "";
-        res = fwrite(blank, 1, 4, wav);
-        if(res != 4) {
-                return NULL;
-        }
-
         return wav;
 }
 
