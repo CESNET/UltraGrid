@@ -131,7 +131,7 @@ bool wav_finalize(FILE *wav, int bps, int ch_count, long long total_samples)
         }
 
 
-        int ret = fseek(wav, CK_MASTER_SIZE_OFFSET, SEEK_SET);
+        int64_t ret = _fseeki64(wav, CK_MASTER_SIZE_OFFSET, SEEK_SET);
         if (ret != 0) {
                 goto error;
         }
@@ -143,7 +143,7 @@ bool wav_finalize(FILE *wav, int bps, int ch_count, long long total_samples)
                 goto error;
         }
 
-        ret = fseek(wav, CK_DATA_SIZE_OFFSET, SEEK_SET);
+        ret = _fseeki64(wav, CK_DATA_SIZE_OFFSET, SEEK_SET);
         if (ret != 0) {
                 goto error;
         }
