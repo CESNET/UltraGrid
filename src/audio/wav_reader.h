@@ -50,8 +50,8 @@ struct wav_metadata {
         uint16_t valid_bits;
         uint32_t channel_mask;
 
-        unsigned int data_size;
-        unsigned int data_offset; // from the beginning of file
+        long long data_size;
+        long long data_offset; // from the beginning of file
 };
 
 #define WAV_HDR_PARSE_OK           0

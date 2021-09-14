@@ -215,5 +215,8 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 
 #define ATTRIBUTE(a) __attribute__((a))
 
+#define _ftelli64 ftell
+#define _fseeki64 fseek
+
 #endif /* _CONFIG_UNIX_H */
 #endif /* NDEF WIN32 */
