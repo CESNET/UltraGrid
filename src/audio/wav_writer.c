@@ -137,6 +137,10 @@ bool wav_finalize(FILE *wav, int bps, int ch_count, long long total_samples)
         }
         long long ck_master_size = 4 + FMT_CHUNK_SIZE_BRUT + (DATA_CHUNK_HDR_SIZE + bps *
                         ch_count * total_samples + padding_byte_len);
+        if (ck_master_size > UINT32_MAX) {
+                fprintf(stderr, "[WAV writer] Data size exceeding 4 GiB, resulting file may be incompatible!\n");
+        }
+
         uint32_t val = ck_master_size < UINT32_MAX ? ck_master_size : UINT32_MAX;
         size_t res = fwrite(&val, sizeof val, 1, wav);
         if(res != 1) {
