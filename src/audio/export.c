@@ -35,11 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * File format is taken from:
- * http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
- */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -47,31 +42,16 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <pthread.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "audio/audio.h"
 #include "audio/utils.h"
+#include "audio/wav_writer.h"
 #include "debug.h"
 #include "export.h"
 #include "utils/ring_buffer.h"
-
-/* Chunk size: 4 + 24 + (8 + M * Nc * Ns + (0 or 1)) */
-#define CK_MASTER_SIZE_OFFSET            4
-
-#define NCHANNELS_OFFSET                 22 /* Nc */
-#define NSAMPLES_PER_SEC_OFFSET          24 /* F */
-#define NAVG_BYTES_PER_SEC_OFFSET        28 /* F * M * Nc */
-#define NBLOCK_ALIGN_OFFSET              32 /* M * Nc */
-#define NBITS_PER_SAMPLE                 34 /* rounds up to 8 * M */
-
-
-#define CK_DATA_SIZE_OFFSET              40 /*  M * Nc * Ns */
-
-#define DATA_OFFSET                      44
-
 
 #define CACHE_SECONDS                   10
 
@@ -80,7 +60,6 @@
  */
 static void *audio_export_thread(void *arg);
 static bool configure(struct audio_export *s, struct audio_desc fmt);
-static void finalize(struct audio_export *s);
 
 struct audio_export {
         char *filename;
@@ -146,139 +125,17 @@ static void *audio_export_thread(void *arg)
 }
 
 static bool configure(struct audio_export *s, struct audio_desc fmt) {
-        size_t res;
         s->saved_format = fmt;
 
-        s->output = fopen(s->filename, "wb+");
-        if(!s->output) {
-                goto open_err;
-        }
-
-        res = fwrite("RIFF", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-        // chunk size - to be added
-        res = fwrite("    ", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-        res = fwrite("WAVE", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-        res = fwrite("fmt ", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint32_t chunk_size = 16;
-        res = fwrite(&chunk_size, sizeof(chunk_size), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint16_t wave_format_pcm = 0x0001;
-        res = fwrite(&wave_format_pcm, sizeof(wave_format_pcm), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint16_t channels = fmt.ch_count;
-        res = fwrite(&channels, sizeof(channels), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint32_t sample_rate = fmt.sample_rate;
-        res = fwrite(&sample_rate, sizeof(sample_rate), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint32_t avg_bytes_per_sec = fmt.sample_rate * fmt.bps * fmt.ch_count;
-        res = fwrite(&avg_bytes_per_sec, sizeof(avg_bytes_per_sec), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint16_t block_align_offset = fmt.bps * fmt.ch_count;
-        res = fwrite(&block_align_offset, sizeof(block_align_offset), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint16_t bits_per_sample = fmt.bps * 8;
-        res = fwrite(&bits_per_sample, sizeof(bits_per_sample), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        res = fwrite("data", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        char blank[4];
-        memset((void *) blank, 1, 4);
-        res = fwrite(blank, 1, 4, s->output);
-        if(res != 4) {
-                goto file_err;
+        if ((s->output = wav_write_header(s->filename, fmt)) == NULL) {
+                fprintf(stderr, "[Audio export] Error writting header!\n");
+                return false;
         }
 
         s->ring = ring_buffer_init(CACHE_SECONDS * fmt.sample_rate * fmt.bps *
                         fmt.ch_count);
 
         return true;
-
-file_err:
-        fclose(s->output);
-open_err:
-        fprintf(stderr, "[Audio export] File opening error. Skipping audio export.\n");
-
-        return false;
-}
-
-static void finalize(struct audio_export *s)
-{
-        int padding_byte_len = 0;
-        if((s->saved_format.ch_count * s->saved_format.bps * s->total) % 2 == 1) {
-                char padding_byte = '\0';
-                padding_byte_len = 1;
-                if (fwrite(&padding_byte, sizeof(padding_byte), 1, s->output) != 1) {
-                        goto error;
-                }
-        }
-
-
-        int ret = fseek(s->output, CK_MASTER_SIZE_OFFSET, SEEK_SET);
-        if (ret != 0) {
-                goto error;
-        }
-        long long ck_master_size = 4 + 24 + (8 + s->saved_format.bps *
-                        s->saved_format.ch_count * s->total + padding_byte_len);
-        uint32_t val = ck_master_size < UINT32_MAX ? ck_master_size : UINT32_MAX;
-        size_t res = fwrite(&val, sizeof val, 1, s->output);
-        if(res != 1) {
-                goto error;
-        }
-
-        ret = fseek(s->output, CK_DATA_SIZE_OFFSET, SEEK_SET);
-        if (ret != 0) {
-                goto error;
-        }
-        long long ck_data_size = s->saved_format.bps *
-                        s->saved_format.ch_count * s->total;
-        val = ck_data_size < UINT32_MAX ? ck_data_size : UINT32_MAX;
-        res = fwrite(&val, sizeof val, 1, s->output);
-        if(res != 1) {
-                goto error;
-        }
-
-        return;
-error:
-        fprintf(stderr, "[Audio export] Could not finalize file. Audio file may be corrupted.\n");
-
 }
 
 struct audio_export * audio_export_init(char *filename)
@@ -323,8 +180,7 @@ void audio_export_destroy(struct audio_export *s)
                 }
 
                 if(s->total > 0) {
-                        finalize(s);
-                        fclose(s->output);
+                        wav_finalize(s->output, s->saved_format.bps, s->saved_format.ch_count, s->total);
                         ring_buffer_destroy(s->ring);
                 }
                 pthread_cond_destroy(&s->worker_cv);
