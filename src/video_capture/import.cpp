@@ -182,8 +182,9 @@ struct vidcap_import_state {
         pthread_t thread_id;
 
         struct timeval prev_time;
-        int count;
+        long video_frame_count = 0L;
 
+        bool has_video = true;
         bool finished;
         bool loop;
         bool o_direct;
@@ -263,6 +264,118 @@ error_format:
         fprintf(stderr, "Audio format file error - unknown format\n");
         fclose(audio_file);
         return false;
+}
+
+static video_desc parse_video_desc_info(FILE *info, long *video_frame_count) {
+        struct video_desc desc{};
+
+        char line[512];
+        uint32_t items_found = 0;
+        while(!feof(info)) {
+                if(fgets(line, sizeof(line), info) == NULL) {
+                        // empty line
+                        continue;
+                }
+                if(strncmp(line, "version ", strlen("version ")) == 0) {
+                        long int version = strtol(line + strlen("version "), (char **) NULL, 10);
+                        if(version == LONG_MIN || version == LONG_MAX) {
+                                throw string("[import] cannot read version line.\n");
+                        }
+                        if(version != VIDEO_EXPORT_SUMMARY_VERSION) {
+                                ostringstream oss;
+                                oss << "[import] Invalid version " << version << ".\n";
+                                throw oss.str();
+                        }
+                        items_found |= 1<<0;
+                } else if(strncmp(line, "width ", strlen("width ")) == 0) {
+                        long int width = strtol(line + strlen("width "), (char **) NULL, 10);
+                        if(width == LONG_MIN || width == LONG_MAX) {
+                                throw string("[import] cannot read video width.\n");
+                        }
+                        desc.width = width;
+                        items_found |= 1<<1;
+                } else if(strncmp(line, "height ", strlen("height ")) == 0) {
+                        long int height = strtol(line + strlen("height "), (char **) NULL, 10);
+                        if(height == LONG_MIN || height == LONG_MAX) {
+                                throw string("[import] cannot read video height.\n");
+                        }
+                        desc.height = height;
+                        items_found |= 1<<2;
+                } else if(strncmp(line, "fourcc ", strlen("fourcc ")) == 0) {
+                        char *ptr = line + strlen("fourcc ");
+                        if(strlen(ptr) != 5) { // including '\n'
+                                throw string("[import] cannot read video FourCC tag.\n");
+                        }
+                        uint32_t fourcc;
+                        memcpy((void *) &fourcc, ptr, sizeof(fourcc));
+                        desc.color_spec = get_codec_from_fcc(fourcc);
+                        if(desc.color_spec == VIDEO_CODEC_NONE) {
+                                throw string("[import] Requested codec not known.\n");
+                        }
+                        items_found |= 1<<3;
+                } else if(strncmp(line, "fps ", strlen("fps ")) == 0) {
+                        char *ptr = line + strlen("fps ");
+                        desc.fps = strtod(ptr, NULL);
+                        if(desc.fps == HUGE_VAL || desc.fps <= 0) {
+                                throw string("[import] Invalid FPS.\n");
+                        }
+                        items_found |= 1<<4;
+                } else if(strncmp(line, "interlacing ", strlen("interlacing ")) == 0) {
+                        char *ptr = line + strlen("interlacing ");
+                        desc.interlacing = (interlacing_t) atoi(ptr);
+                        if(desc.interlacing > 4) {
+                                throw string("[import] Invalid interlacing.\n");
+                        }
+                        items_found |= 1<<5;
+                } else if(strncmp(line, "count ", strlen("count ")) == 0) {
+                        char *ptr = line + strlen("count ");
+                        *video_frame_count = atoi(ptr);
+                        items_found |= 1<<6;
+                }
+        }
+
+        if(items_found != (1 << 7) - 1) {
+                throw string("[import] Failed while reading config file - some items missing.\n");
+        }
+
+        assert((desc.color_spec != VIDEO_CODEC_NONE && desc.width != 0 && desc.height != 0 && desc.fps != 0.0 &&
+                                *video_frame_count != 0));
+        return desc;
+}
+
+static int get_tile_count(const char *directory, codec_t color_spec, char *tile_delim) {
+        char name[1024];
+        snprintf(name, sizeof(name), "%s/%08d.%s", directory, 1,
+                       get_codec_file_extension(color_spec));
+
+        struct stat sb;
+        if (stat(name, &sb) == 0) {
+                return 1;
+        }
+        int tile_count = 0;
+        char possible_tile_delim[] = { '_', '-' };
+        for (unsigned int d = 0; d < sizeof possible_tile_delim; d++) {
+                for (int i = 0; i < 10; i++) {
+                        snprintf(name, sizeof(name), "%s/%08d%c%d.%s",
+                                        directory, 1,
+                                        possible_tile_delim[d], i,
+                                        get_codec_file_extension(color_spec));
+                        if (stat(name, &sb) == 0) {
+                                tile_count++;
+                        } else {
+                                break;
+                        }
+                }
+                if (tile_count > 0) {
+                        *tile_delim = possible_tile_delim[d];
+                        break;
+                }
+        }
+        if (tile_count == 0) {
+                throw string("Unable to open first file of "
+                                "the video sequence.\n");
+        }
+        return tile_count;
 }
 
 static int
@@ -367,130 +480,29 @@ try {
 
         info = fopen(info_filename, "r");
         free(info_filename);
-        if(info == NULL) {
-                perror("[import] Failed to open index file");
-                if (errno == ENOENT) {
-                        throw string("Invalid directory?\n");
+        if (info == nullptr) {
+                perror("[import] Failed to open video index file");
+                if (!s->audio_state.has_audio) {
+                        if (errno == ENOENT) {
+                                throw string("Invalid directory?\n");
+                        }
+                        throw string();
                 }
-                throw string();
+                s->has_video = false;
+                s->video_desc.fps = 30; // used to sample audio
         }
 
-        struct video_desc desc;
-        memset(&desc, 0, sizeof desc);
+        if (s->has_video) {
+                s->video_desc = parse_video_desc_info(info, &s->video_frame_count);
+                fclose(info);
+                info = NULL;
 
-        char line[512];
-        uint32_t items_found = 0;
-        while(!feof(info)) {
-                if(fgets(line, sizeof(line), info) == NULL) {
-                        // empty line
-                        continue;
-                }
-                if(strncmp(line, "version ", strlen("version ")) == 0) {
-                        long int version = strtol(line + strlen("version "), (char **) NULL, 10);
-                        if(version == LONG_MIN || version == LONG_MAX) {
-                                throw string("[import] cannot read version line.\n");
-                        }
-                        if(version != VIDEO_EXPORT_SUMMARY_VERSION) {
-                                ostringstream oss;
-                                oss << "[import] Invalid version " << version << ".\n";
-                                throw oss.str();
-                        }
-                        items_found |= 1<<0;
-                } else if(strncmp(line, "width ", strlen("width ")) == 0) {
-                        long int width = strtol(line + strlen("width "), (char **) NULL, 10);
-                        if(width == LONG_MIN || width == LONG_MAX) {
-                                throw string("[import] cannot read video width.\n");
-                        }
-                        desc.width = width;
-                        items_found |= 1<<1;
-                } else if(strncmp(line, "height ", strlen("height ")) == 0) {
-                        long int height = strtol(line + strlen("height "), (char **) NULL, 10);
-                        if(height == LONG_MIN || height == LONG_MAX) {
-                                throw string("[import] cannot read video height.\n");
-                        }
-                        desc.height = height;
-                        items_found |= 1<<2;
-                } else if(strncmp(line, "fourcc ", strlen("fourcc ")) == 0) {
-                        char *ptr = line + strlen("fourcc ");
-                        if(strlen(ptr) != 5) { // including '\n'
-                                throw string("[import] cannot read video FourCC tag.\n");
-                        }
-                        uint32_t fourcc;
-                        memcpy((void *) &fourcc, ptr, sizeof(fourcc));
-                        desc.color_spec = get_codec_from_fcc(fourcc);
-                        if(desc.color_spec == VIDEO_CODEC_NONE) {
-                                throw string("[import] Requested codec not known.\n");
-                        }
-                        items_found |= 1<<3;
-                } else if(strncmp(line, "fps ", strlen("fps ")) == 0) {
-                        char *ptr = line + strlen("fps ");
-                        desc.fps = strtod(ptr, NULL);
-                        if(desc.fps == HUGE_VAL || desc.fps <= 0) {
-                                throw string("[import] Invalid FPS.\n");
-                        }
-                        items_found |= 1<<4;
-                } else if(strncmp(line, "interlacing ", strlen("interlacing ")) == 0) {
-                        char *ptr = line + strlen("interlacing ");
-                        desc.interlacing = (interlacing_t) atoi(ptr);
-                        if(desc.interlacing > 4) {
-                                throw string("[import] Invalid interlacing.\n");
-                        }
-                        items_found |= 1<<5;
-                } else if(strncmp(line, "count ", strlen("count ")) == 0) {
-                        char *ptr = line + strlen("count ");
-                        s->count = atoi(ptr);
-                        items_found |= 1<<6;
-                }
+                s->video_desc.tile_count = get_tile_count(s->directory, s->video_desc.color_spec, &s->tile_delim);
         }
 
         // override metadata fps setting
         if (s->force_fps > 0.0) {
-                desc.fps = s->force_fps;
-        }
-
-        assert(desc.color_spec != VIDEO_CODEC_NONE && desc.width != 0 && desc.height != 0 && desc.fps != 0.0 &&
-                        s->count != 0);
-
-        char name[1024];
-        snprintf(name, sizeof(name), "%s/%08d.%s", s->directory, 1,
-                        get_codec_file_extension(desc.color_spec));
-
-        struct stat sb;
-        if (stat(name, &sb) == 0) {
-                desc.tile_count = 1;
-        } else {
-                desc.tile_count = 0;
-                char possible_tile_delim[] = { '_', '-' };
-                for (unsigned int d = 0; d < sizeof possible_tile_delim; d++) {
-                        for (int i = 0; i < 10; i++) {
-                                snprintf(name, sizeof(name), "%s/%08d%c%d.%s",
-                                                s->directory, 1,
-                                                possible_tile_delim[d], i,
-                                                get_codec_file_extension(desc.color_spec));
-                                if (stat(name, &sb) == 0) {
-                                        desc.tile_count++;
-                                } else {
-                                        break;
-                                }
-                        }
-                        if (desc.tile_count > 0) {
-                                s->tile_delim = possible_tile_delim[d];
-                                break;
-                        }
-                }
-                if (desc.tile_count == 0) {
-                        throw string("Unable to open first file of "
-                                        "the video sequence.\n");
-                }
-        }
-
-        s->video_desc = desc;
-
-        fclose(info);
-        info = NULL;
-
-        if(items_found != (1 << 7) - 1) {
-                throw string("[import] Failed while reading config file - some items missing.\n");
+                s->video_desc.fps = s->force_fps;
         }
 
         if (s->audio_state.has_audio) {
@@ -499,8 +511,10 @@ try {
                         throw string("Unable to create thread.\n");
                 }
         }
-        if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
-                throw string("Unable to create thread.\n");
+        if (s->has_video) {
+                if (pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
+                        throw string("Unable to create thread.\n");
+                }
         }
 
         gettimeofday(&s->prev_time, NULL);
@@ -529,14 +543,14 @@ static void exit_reading_threads(struct vidcap_import_state *s)
         msg->data_len = 0;
         msg->next = NULL;
 
-        {
+        if (s->has_video) {
                 unique_lock<mutex> lk(s->lock);
                 send_message(msg, &s->message_queue);
                 lk.unlock();
                 s->worker_cv.notify_one();
-        }
 
-	pthread_join(s->thread_id, NULL);
+                pthread_join(s->thread_id, NULL);
+        }
 
         // audio
         if(s->audio_state.has_audio) {
@@ -882,17 +896,17 @@ static void *video_reader_callback(void *arg)
 static void * reading_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
-        int index = 0;
+        long index = 0;
 
         bool paused = false;
 
-        ///while(index < s->count && !s->finish_threads) {
+        ///while(index < s->video_frame_count && !s->finish_threads) {
         while(1) {
                 {
                         unique_lock<mutex> lk(s->lock);
-                        while((s->queue_len >= BUFFER_LEN_MAX - 1 || index >= s->count || paused)
+                        while((s->queue_len >= BUFFER_LEN_MAX - 1 || index >= s->video_frame_count || paused)
                                        && s->message_queue.len == 0) {
-                                if (index >= s->count) {
+                                if (index >= s->video_frame_count) {
                                         s->finished = true;
                                 }
                                 s->worker_cv.wait(lk);
@@ -924,10 +938,10 @@ static void * reading_thread(void *args)
                                         } else if (data->whence == IMPORT_SEEK_SET) {
                                                 index = data->offset;
                                         } else if (data->whence == IMPORT_SEEK_END) {
-                                                index = s->count + data->offset;
+                                                index = s->video_frame_count + data->offset;
                                         }
-                                        index = min(max(0, index), s->count - 1);
-                                        printf("Current index: frame %d\n", index);
+                                        index = min(max(0L, index), s->video_frame_count - 1);
+                                        printf("Current index: frame %ld\n", index);
                                         free(data);
                                 } else {
                                         fprintf(stderr, "Unknown message type: %d!\n", msg->type);
@@ -937,14 +951,14 @@ static void * reading_thread(void *args)
                 }
 
                 /// @todo are these checks necessary?
-                index = min(max(0, index), s->count - 1);
+                index = min(max(0L, index), s->video_frame_count - 1);
 
                 struct video_reader_data data_reader[MAX_NUMBER_WORKERS];
                 task_result_handle_t task_handle[MAX_NUMBER_WORKERS];
 
                 int number_workers = s->video_reading_threads_count;
-                if (index + number_workers >= s->count) {
-                        number_workers = s->count - index;
+                if (index + number_workers >= s->video_frame_count) {
+                        number_workers = s->video_frame_count - index;
                 }
                 // run workers
                 for (int i = 0; i < number_workers; ++i) {
@@ -954,7 +968,7 @@ static void * reading_thread(void *args)
                         data->tile_count = s->video_desc.tile_count;
                         data->tile_delim = s->tile_delim;
                         snprintf(data->file_name_prefix, sizeof(data->file_name_prefix),
-                                        "%s/%08d", s->directory, index + i + 1);
+                                        "%s/%08ld", s->directory, index + i + 1);
                         strncpy(data->file_name_suffix,
                                         get_codec_file_extension(s->video_desc.color_spec),
                                         sizeof(data->file_name_suffix));
@@ -1008,10 +1022,12 @@ static void reset_import(struct vidcap_import_state *s)
         }
         s->frames_prev = s->frames = 0;
 
-        if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
-                fprintf(stderr, "Unable to create thread.\n");
-                /// @todo what to do here
-                abort();
+        if (s->has_video) {
+                if (pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
+                        fprintf(stderr, "Unable to create thread.\n");
+                        /// @todo what to do here
+                        abort();
+                }
         }
         if (s->audio_state.has_audio) {
                 if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
@@ -1031,11 +1047,11 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) state;
         struct timeval cur_time;
-        struct video_frame *ret;
+        struct video_frame *ret = nullptr;
         
         struct processed_entry *current = NULL;
 
-        {
+        if (s->has_video) {
                 unique_lock<mutex> lk(s->lock);
                 if(s->queue_len == 0) {
                         if (s->finished == true && s->loop) {
@@ -1073,7 +1089,6 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                         ret->tiles[i].data = current->tiles[i].data;
                 }
         }
-
 
         // audio
         if(s->audio_state.has_audio) {
