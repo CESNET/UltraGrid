@@ -115,6 +115,7 @@ enum interlacing_t {
         LOWER_FIELD_FIRST = 2, ///< First stored field is bottom, followed by top
         INTERLACED_MERGED = 3, ///< Columngs of both fields are interlaced together
         SEGMENTED_FRAME   = 4,  ///< Segmented frame. Contains the same data as progressive frame.
+        INTERLACING_MAX   = SEGMENTED_FRAME,
 };
 
 /**
