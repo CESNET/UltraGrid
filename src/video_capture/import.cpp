@@ -142,7 +142,7 @@ struct message_queue {
 };
 
 struct audio_state {
-        bool has_audio;
+        bool has_audio = false;
         FILE *file;
         struct wav_metadata metadata;
         ring_buffer_t *data;
@@ -357,12 +357,6 @@ try {
         strcat(audio_filename, "/sound.wav");
         if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && !disable_audio && init_audio(s, audio_filename)) {
                 s->audio_state.has_audio = true;
-                if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
-                        free(audio_filename);
-                        throw string("Unable to create thread.\n");
-                }
-        } else {
-                s->audio_state.has_audio = false;
         }
         free(audio_filename);
         
@@ -499,6 +493,12 @@ try {
                 throw string("[import] Failed while reading config file - some items missing.\n");
         }
 
+        if (s->audio_state.has_audio) {
+                if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
+                        free(audio_filename);
+                        throw string("Unable to create thread.\n");
+                }
+        }
         if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
                 throw string("Unable to create thread.\n");
         }
