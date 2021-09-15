@@ -142,6 +142,18 @@ static _Bool is_member(const char *needle, const char **haystack) {
         return 0;
 }
 
+static int fskip(FILE *f, long off) {
+        if (_fseeki64(f, off, SEEK_CUR) == 0) {
+                return 1;
+        }
+        while (off-- > 0) {
+                if (getc(f) == EOF) {
+                        return -1;
+                }
+        }
+        return 1;
+}
+
 #define CHECK(cmd, retval) if (cmd == -1) return retval;
 int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
 {
@@ -170,30 +182,20 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                 READ_N(&chunk_size, 4);
                 if (strncmp(buffer, "data", 4) == 0) {
                         found_data_chunk = true;
-                        uint32_t data_len = chunk_size;
-                        int64_t data_start = _ftelli64(wav_file);
-                        CHECK(data_start, WAV_HDR_PARSE_READ_ERROR);
+                        metadata->data_size = chunk_size;
+                        metadata->data_offset = _ftelli64(wav_file);
 
-                        metadata->data_offset = data_start;
-                        if (data_len == UINT32_MAX) {
+                        if (metadata->data_size == UINT32_MAX) {
                                 // for UINT32_MAX deduce the length from file length (as FFmpeg does)
-                                CHECK(_fseeki64(wav_file, 0, SEEK_END), WAV_HDR_PARSE_READ_ERROR);
-                        } else {
-                                CHECK(_fseeki64(wav_file, data_len, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
-                        }
-                        int64_t data_end = _ftelli64(wav_file);
-                        CHECK(data_end, WAV_HDR_PARSE_READ_ERROR);
-
-                        long long actual_data_size = data_end - data_start;
-                        if (data_len == UINT32_MAX) {
-                                metadata->data_size = actual_data_size;
-                        } else {
-                                if (actual_data_size != (long) data_len) {
-                                        log_msg(LOG_LEVEL_WARNING, "[WAV] Premature end of file, read %lld of audio data, expected %ld.\n",
-                                                        actual_data_size, (long) data_len);
+                                if (metadata->data_offset == -1 || _fseeki64(wav_file, 0, SEEK_END) == -1) {
+                                        metadata->data_size = -1;
+                                } else {
+                                        int64_t data_end = _ftelli64(wav_file);
+                                        CHECK(data_end, WAV_HDR_PARSE_READ_ERROR);
+                                        metadata->data_size = data_end - metadata->data_offset;
                                 }
-                                metadata->data_size = data_len;
                         }
+                        break;
                 } else if (strncmp(buffer, "fmt ", 4) == 0) {
                         found_fmt_chunk = true;
                         if (chunk_size != 16 && chunk_size != 18 && chunk_size != 40) {
@@ -208,7 +210,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                         const char *known_tags[] = { "JUNK", "LIST", "id3 ", NULL }; // "olym" ?
                         int level = is_member(buffer, known_tags) ? LOG_LEVEL_VERBOSE : LOG_LEVEL_WARNING;
                         log_msg(level, "[WAV] Skipping chunk \"%4s\" sized %" PRIu32 " B!\n", buffer, chunk_size);
-                        CHECK(fseek(wav_file, chunk_size, SEEK_CUR), WAV_HDR_PARSE_READ_ERROR);
+                        CHECK(fskip(wav_file, chunk_size), WAV_HDR_PARSE_READ_ERROR);
                 }
         }
 
@@ -222,11 +224,8 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                 return WAV_HDR_PARSE_READ_ERROR;
         }
 
-        log_msg(LOG_LEVEL_VERBOSE, "[WAV] File parsed correctly - length %lld bytes, offset %lld.\n",
+        log_msg(LOG_LEVEL_VERBOSE, "[WAV] File parsed correctly - length %lld bytes, data offset %lld.\n",
                         metadata->data_size, metadata->data_offset);
-        if (fseek(wav_file, metadata->data_offset, SEEK_SET) != 0) {
-                return WAV_HDR_PARSE_READ_ERROR;
-        }
 
         return WAV_HDR_PARSE_OK;
 }
