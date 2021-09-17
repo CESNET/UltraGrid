@@ -1257,7 +1257,7 @@ then
         fi
         ADD_MODULE("display_sdl2", "$SDL2_OBJ", "$SDL2_LIBS")
         SDL_LIB=$SDL2_LIBS
-        INC="$INC $SDL2_CFLAGS"
+        INC="$INC $($PKG_CONFIG --cflags-only-I sdl2)"
         sdl_version=2
         sdl=yes
 elif test $sdl1_req != no -a $found_sdl1 = yes
@@ -1266,7 +1266,7 @@ then
         AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
         ADD_MODULE("display_sdl", "$SDL1_OBJ", "$SDL1_LIBS")
         SDL_LIB="$SDL1_LIBS -lX11" # X11 for x11_common.o
-        INC="$INC $SDL1_CFLAGS"
+        INC="$INC $($PKG_CONFIG --cflags-only-I sdl)"
         sdl_version=1
         sdl=yes
 fi
