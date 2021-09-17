@@ -102,6 +102,7 @@ COMMON_OBJS     = \
 		@JACK_TRANS_OBJ@ \
 		src/audio/audio_filter.o \
 		src/audio/filter_chain.o \
+		src/audio/filter/delay.o \
 		src/capture_filter.o \
 		src/capture_filter/change_pixfmt.o \
 		src/capture_filter/disrupt.o \
