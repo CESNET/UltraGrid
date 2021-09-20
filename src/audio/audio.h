@@ -74,6 +74,7 @@ struct audio_options {
         const char *scale = "none";
         bool echo_cancellation = false;
         const char *codec_cfg = "PCM";
+        const char *filter_cfg = "";
 };
 
 struct state_audio * audio_cfg_init(struct module *parent,

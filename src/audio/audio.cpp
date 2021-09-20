@@ -72,6 +72,8 @@
 #include "audio/playback/sdi.h"
 #include "audio/jack.h" 
 #include "audio/utils.h"
+#include "audio/audio_filter.h"
+#include "audio/filter_chain.hpp"
 #include "debug.h"
 #include "../export.h" // not audio/export.h
 #include "host.h"
@@ -90,6 +92,7 @@
 #include "utils/net.h"
 #include "utils/thread.h"
 #include "utils/worker.h"
+#include "utils/misc.h"
 
 using namespace std;
 using rang::fg;
@@ -147,6 +150,8 @@ struct state_audio {
 
         struct module audio_receiver_module;
         struct module audio_sender_module;
+
+        Filter_chain filter_chain;
 
         struct audio_codec_state *audio_encoder = nullptr;
         
@@ -292,6 +297,25 @@ struct state_audio * audio_cfg_init(struct module *parent,
 #endif /* HAVE_SPEEXDSP */
         } else {
                 s->echo_state = NULL;
+        }
+
+        if(opt->filter_cfg){
+                std::string_view cfg_sv = opt->filter_cfg;;
+                std::string_view item;
+                while(item = tokenize(cfg_sv, '#'), !item.empty()) {
+                        std::string filter_name(tokenize(item, ':'));
+                        std::string config(item);
+
+                        struct audio_filter afilter;
+                        if(audio_filter_init(filter_name.c_str(), config.c_str(),
+                                                &afilter) != AF_OK)
+                        {
+                                printf("Failed to init audio filter\n");
+                                goto error;
+                        }
+
+                        s->filter_chain.push_back(afilter);
+                }
         }
 
         if(encryption) {
@@ -992,6 +1016,7 @@ static void *audio_sender_thread(void *arg)
         audio_frame2_resampler resampler_state;
 
         printf("Audio sending started.\n");
+
         while (!should_exit) {
                 struct message *msg;
                 while((msg = check_message(&s->audio_sender_module))) {
@@ -1028,6 +1053,8 @@ static void *audio_sender_thread(void *arg)
                         if (s->paused) {
                                 continue;
                         }
+
+                        s->filter_chain.filter(&buffer);
 
                         audio_frame2 bf_n(buffer);
 
