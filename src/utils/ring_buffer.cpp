@@ -228,6 +228,26 @@ int ring_get_size(struct ring_buffer * ring) {
         return ring->len;
 }
 
+void ring_fill(struct ring_buffer *ring, int c, int size){
+        void *ptr1;
+        int size1;
+        void *ptr2;
+        int size2;
+        if(!ring_get_write_regions(ring, size, &ptr1, &size1, &ptr2, &size2)){
+                fprintf(stderr, "Warning: too long write request for ring buffer (%d B)!!!\n", size);
+                return;
+        }
+
+        memset(ptr1, c, size1);
+        if(ptr2){
+                memset(ptr2, c, size2);
+        }
+
+        if(ring_advance_write_idx(ring, size)) {
+                fprintf(stderr, "Warning: ring buffer overflow!!!\n");
+        }
+}
+
 /* ring_get_current_size and ring_get_available_write_size can be called from
  * both reader and writer threads.
  *

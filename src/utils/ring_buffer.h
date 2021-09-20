@@ -137,6 +137,8 @@ int ring_get_write_regions(struct ring_buffer *ring, int requested_len,
  */
 bool ring_advance_write_idx(struct ring_buffer *ring, int amount);
 
+void ring_fill(struct ring_buffer *ring, int c, int size);
+
 extern struct audio_buffer_api ring_buffer_fns;
 
 #ifdef __cplusplus
