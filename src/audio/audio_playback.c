@@ -104,9 +104,11 @@ error:
 
 struct state_audio_playback *audio_playback_init_null_device(void)
 {
-        struct state_audio_playback *device;
+        struct state_audio_playback *device = NULL;
         int ret = audio_playback_init("none", NULL, &device);
-        assert(ret == 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize null audio playback: %d\n", ret);
+        }
 
         return device;
 }

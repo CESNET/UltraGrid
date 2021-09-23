@@ -100,9 +100,11 @@ error:
 
 struct state_audio_capture *audio_capture_init_null_device()
 {
-        struct state_audio_capture *device;
+        struct state_audio_capture *device = NULL;
         int ret = audio_capture_init("none", NULL, &device);
-        assert(ret == 0);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_ERROR, "Unable to initialize null audio capture: %d\n", ret);
+        }
         return device;
 }
 
