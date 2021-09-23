@@ -80,6 +80,7 @@ struct state_acap_wasapi {
 
 static string get_name(IMMDevice *pDevice);
 static void show_help();
+string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enumerator);
 
 #define SAFE_RELEASE(u) \
     do { if ((u) != NULL) (u)->Release(); (u) = NULL; } while(0)
@@ -163,6 +164,22 @@ static string get_name(IMMDevice *pDevice) {
         return wstring_to_string(out);
 }
 
+string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enumerator) {
+        IMMDevice *pDevice = nullptr;
+        if (!SUCCEEDED(enumerator->GetDefaultAudioEndpoint(dataFlow, eConsole, &pDevice))) {
+                return {};
+        }
+        LPWSTR pwszID = nullptr;
+        if (!SUCCEEDED(pDevice->GetId(&pwszID))) {
+                SAFE_RELEASE(pDevice);
+                return {};
+        }
+        string ret = wstring_to_string(pwszID);
+        SAFE_RELEASE(pDevice);
+
+        return ret;
+}
+
 static void show_help() {
         cout << "Usage:\n" <<
                 style::bold << fg::red << "\t-s wasapi" << fg::reset << "[:<index>|:<ID>]\n" << style::reset <<
@@ -178,7 +195,7 @@ static void show_help() {
         try {
                 THROW_IF_FAILED(CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator,
                                         (void **) &enumerator));
-
+                string default_dev_id = wasapi_get_default_device_id(eCapture, enumerator);
                 THROW_IF_FAILED(enumerator->EnumAudioEndpoints(eCapture, DEVICE_STATEMASK_ALL, &pEndpoints));
                 UINT count;
                 THROW_IF_FAILED(pEndpoints->GetCount(&count));
@@ -188,7 +205,8 @@ static void show_help() {
                         try {
                                 THROW_IF_FAILED(pEndpoints->Item(i, &pDevice));
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
-                                cout << "\t" << style::bold << i << style::reset << ") " << style::bold << get_name(pDevice) << style::reset << " (ID: " << wstring_to_string(pwszID) << ")\n";
+                                string dev_id = wstring_to_string(pwszID);
+                                cout << (dev_id == default_dev_id ? "(*)" : "") << "\t" << style::bold << i << style::reset << ") " << style::bold << get_name(pDevice) << style::reset << " (ID: " << dev_id << ")\n";
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
