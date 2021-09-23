@@ -304,35 +304,31 @@ static auto parse_format(char **fmt, char **save_ptr) {
         struct video_desc desc{};
         desc.tile_count = 1;
         desc.interlacing = PROGRESSIVE;
-        char *tmp;
-
-        tmp = strtok_r(*fmt, ":", save_ptr);
-        *fmt = nullptr;
+        char *tmp = strtok_r(*fmt, ":", save_ptr);
         if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing width!\n";
                 return video_desc{};
         }
         desc.width = max<long long>(strtol(tmp, nullptr, 0), 0);
-        tmp = strtok_r(nullptr, ":", save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
+
+        if ((tmp = strtok_r(nullptr, ":", save_ptr)) == nullptr) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing height!\n";
                 return video_desc{};
         }
         desc.height = max<long long>(strtol(tmp, nullptr, 0), 0);
-        tmp = strtok_r(nullptr, ":", save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
-                return video_desc{};
-        }
 
         if (desc.width * desc.height == 0) {
                 fprintf(stderr, "Wrong dimensions for testcard.\n");
                 return video_desc{};
         }
 
+        if ((tmp = strtok_r(nullptr, ":", save_ptr)) == nullptr) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing FPS!\n";
+                return video_desc{};
+        }
         char *endptr;
         desc.fps = strtod(tmp, &endptr);
-        if (endptr[0] != '\0') { // optional interlacing suffix
+        if (strlen(endptr) != 0) { // optional interlacing suffix
                 desc.interlacing = get_interlacing_from_suffix(endptr);
                 if (desc.interlacing != PROGRESSIVE &&
                                 desc.interlacing != SEGMENTED_FRAME &&
@@ -345,15 +341,13 @@ static auto parse_format(char **fmt, char **save_ptr) {
                 }
         }
 
-        tmp = strtok_r(nullptr, ":", save_ptr);
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", *fmt);
+        if ((tmp = strtok_r(nullptr, ":", save_ptr)) != nullptr) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing pixel format!\n";
                 return video_desc{};
         }
-
         desc.color_spec = get_codec_from_name(tmp);
         if (desc.color_spec == VIDEO_CODEC_NONE) {
-                fprintf(stderr, "Unknown codec '%s'\n", tmp);
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown codec '" << tmp << "'\n";
                 return video_desc{};
         }
         {
@@ -368,11 +362,12 @@ static auto parse_format(char **fmt, char **save_ptr) {
                         }
                 }
                 if (!supported) {
-                        log_msg(LOG_LEVEL_ERROR, "Unsupported codec '%s'\n", tmp);
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec '" << tmp << "'\n";
                         return video_desc{};
                 }
         }
 
+        *fmt = nullptr;
         return desc;
 }
 
