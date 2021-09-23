@@ -81,6 +81,7 @@ struct state_aplay_wasapi {
 };
 
 static void show_help();
+string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enumerator); // defined in WASAPI capture
 
 #define SAFE_RELEASE(u) \
     do { if ((u) != NULL) (u)->Release(); (u) = NULL; } while(0)
@@ -181,6 +182,7 @@ static void show_help() {
                                         (void **) &enumerator));
 
                 THROW_IF_FAILED(enumerator->EnumAudioEndpoints(eRender, DEVICE_STATEMASK_ALL, &pEndpoints));
+                string default_dev_id = wasapi_get_default_device_id(eRender, enumerator);
                 UINT count;
                 THROW_IF_FAILED(pEndpoints->GetCount(&count));
                 for (UINT i = 0; i < count; ++i) {
@@ -189,7 +191,8 @@ static void show_help() {
                         try {
                                 THROW_IF_FAILED(pEndpoints->Item(i, &pDevice));
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
-                                cout << "\t" << style::bold << i << style::reset << ") " << style::bold << get_name(pDevice) << style::reset << " (ID: " << wstring_to_string(pwszID) << ")\n";
+                                string dev_id = wstring_to_string(pwszID);
+                                cout << (dev_id == default_dev_id ? "(*)" : "") << "\t" << style::bold << i << style::reset << ") " << style::bold << get_name(pDevice) << style::reset << " (ID: " << dev_id << ")\n";
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
