@@ -359,7 +359,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
 
                 int size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
                 int ret = rtp_set_recv_buf(devices[index], INITIAL_VIDEO_RECV_BUFFER_SIZE);
-                if (ret != 0) {
+                if (ret != TRUE) {
                         display_buf_increase_warning(size);
                 }
 
