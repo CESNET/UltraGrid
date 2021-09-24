@@ -103,15 +103,15 @@
  */
 #define MAX_ENCRYPTION_PAD 16
 
-static int rijndael_initialize(struct rtp *session, u_char * hash,
+static bool rijndael_initialize(struct rtp *session, u_char * hash,
                                int hash_len);
-static int rijndael_decrypt(struct rtp *session, unsigned char *data,
+static bool rijndael_decrypt(struct rtp *session, unsigned char *data,
                             unsigned int size, unsigned char *initVec);
 static int rijndael_encrypt(struct rtp *session, unsigned char *data,
                             unsigned int size, unsigned char *initVec);
 
-static int des_initialize(struct rtp *session, u_char * hash, int hash_len);
-static int des_decrypt(struct rtp *session, unsigned char *data,
+static bool des_initialize(struct rtp *session, u_char * hash, int hash_len);
+static bool des_decrypt(struct rtp *session, unsigned char *data,
                        unsigned int size, unsigned char *initVec);
 static int des_encrypt(struct rtp *session, unsigned char *data,
                        unsigned int size, unsigned char *initVec);
@@ -260,7 +260,7 @@ typedef struct {
  */
 typedef int (*rtp_encrypt_func) (struct rtp *, unsigned char *data,
                                  unsigned int size, unsigned char *initvec);
-typedef int (*rtp_decrypt_func) (struct rtp *, unsigned char *data,
+typedef bool (*rtp_decrypt_func) (struct rtp *, unsigned char *data,
                                  unsigned int size, unsigned char *initvec);
 
 /*
@@ -1314,16 +1314,14 @@ rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, 
  * rtp_init or rtp_init_if.  The intended purpose of this
  * function is to co-ordinate SSRC's between layered sessions, it
  * should not be used otherwise.
- *
- * Returns: TRUE on success, FALSE otherwise.  
  */
-int rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc)
+bool rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc)
 {
         source *s;
         uint32_t h;
 
         if (session->ssrc_count != 1 && session->sender_count != 0) {
-                return FALSE;
+                return false;
         }
         /* Remove existing source */
         h = ssrc_hash(session->my_ssrc);
@@ -1335,7 +1333,7 @@ int rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc)
         h = ssrc_hash(ssrc);
         /* Put source back        */
         session->db[h] = s;
-        return TRUE;
+        return true;
 }
 
 /**
@@ -1346,10 +1344,8 @@ int rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc)
  *
  * Sets the value of a session option.  See #rtp_option for
  * documentation on the options and their legal values.
- *
- * Returns: TRUE on success, else FALSE.
  */
-int rtp_set_option(struct rtp *session, rtp_option optname, int optval)
+bool rtp_set_option(struct rtp *session, rtp_option optname, int optval)
 {
         switch (optname) {
         case RTP_OPT_WEAK_VALIDATION:
@@ -1377,9 +1373,9 @@ int rtp_set_option(struct rtp *session, rtp_option optname, int optval)
                 debug_msg
                     ("Ignoring unknown option (%d) in call to rtp_set_option().\n",
                      optname);
-                return FALSE;
+                return false;
         }
-        return TRUE;
+        return true;
 }
 
 /**
@@ -1391,9 +1387,9 @@ int rtp_set_option(struct rtp *session, rtp_option optname, int optval)
  * Retrieves the value of a session option.  See #rtp_option for
  * documentation on the options and their legal values.
  *
- * Returns: TRUE and the value of the option in optval on success, else FALSE.
+ * @return true and the value of the option in optval on success, else false.
  */
-int rtp_get_option(struct rtp *session, rtp_option optname, int *optval)
+bool rtp_get_option(struct rtp *session, rtp_option optname, int *optval)
 {
         switch (optname) {
         case RTP_OPT_WEAK_VALIDATION:
@@ -1413,9 +1409,9 @@ int rtp_get_option(struct rtp *session, rtp_option optname, int *optval)
                 debug_msg
                     ("Ignoring unknown option (%d) in call to rtp_get_option().\n",
                      optname);
-                return FALSE;
+                return false;
         }
-        return TRUE;
+        return true;
 }
 
 /**
@@ -1448,7 +1444,7 @@ uint32_t rtp_my_ssrc(struct rtp * session)
         return session->my_ssrc;
 }
 
-static int validate_rtp2(rtp_packet * packet, int len, int vlen)
+static bool validate_rtp2(rtp_packet * packet, int len, int vlen)
 {
         /* Check for valid payload types..... 72-76 are RTCP payload type numbers, with */
         /* the high bit missing so we report that someone is running on the wrong port. */
@@ -1458,13 +1454,13 @@ static int validate_rtp2(rtp_packet * packet, int len, int vlen)
                         debug_msg(" (RTCP packet on RTP port?)");
                 }
                 debug_msg("\n");
-                return FALSE;
+                return false;
         }
         /* Check that the length of the packet is sensible... */
         if (len < (vlen + (4 * packet->cc))) {
                 debug_msg
                     ("rtp_header_validation: packet length is smaller than the header\n");
-                return FALSE;
+                return false;
         }
         /* Check that the amount of padding specified is sensible. */
         /* Note: have to include the size of any extension header! */
@@ -1477,21 +1473,21 @@ static int validate_rtp2(rtp_packet * packet, int len, int vlen)
                 if (packet->data[packet->data_len - 1] > payload_len) {
                         debug_msg
                             ("rtp_header_validation: padding greater than payload length\n");
-                        return FALSE;
+                        return false;
                 }
                 if (packet->data[packet->data_len - 1] < 1) {
                         debug_msg("rtp_header_validation: padding zero\n");
-                        return FALSE;
+                        return false;
                 }
         }
-        return TRUE;
+        return true;
 }
 
-static inline int
+static inline bool
 validate_rtp(struct rtp *session, rtp_packet * packet, int len, int vlen)
 {
         /* This function checks the header info to make sure that the packet */
-        /* is valid. We return TRUE if the packet is valid, FALSE otherwise. */
+        /* is valid. We return true if the packet is valid, false otherwise. */
         /* See Appendix A.1 of the RTP specification.                        */
 
         /* We only accept RTPv2 packets... */
@@ -1502,7 +1498,7 @@ validate_rtp(struct rtp *session, rtp_packet * packet, int len, int vlen)
 
         if (!session->opt->wait_for_rtcp) {
                 /* We prefer speed over accuracy... */
-                return TRUE;
+                return true;
         }
         return validate_rtp2(packet, len, vlen);
 }
@@ -2341,11 +2337,10 @@ static void rtp_process_ctrl(struct rtp *session, uint8_t * buffer, int buflen)
  *
  * Receive RTP packets and dispatch them.
  *
- * Returns: TRUE if data received, FALSE if the timeout occurred.
- *
+ * @retval true if data received, false if the timeout occurred.
  * @deprecated Use thread-safe rtp_recv_r() instead.
  */
-int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
+bool rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 {
         check_database(session);
         udp_fd_zero();
@@ -2364,10 +2359,10 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
                         rtp_process_ctrl(session, buffer, buflen);
                 }
                 check_database(session);
-                return TRUE;
+                return true;
         }
         check_database(session);
-        return FALSE;
+        return false;
 }
 
 /**
@@ -2383,19 +2378,19 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
  * @param curr_rtp_ts the current time expressed in units of the media
  * timestamp.
  *
- * @retval TRUE       if data received
- * @retval FALSE      if the timeout occurred
+ * @retval true       if data received
+ * @retval false      if the timeout occurred
  */
-int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
+bool rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 {
         struct udp_fd_r fd;
         
         check_database(session);
         if (session->mt_recv) {
-                int ret = FALSE;
+                bool ret = false;
                 if (udp_not_empty(session->rtp_socket, timeout)) {
                         rtp_recv_data(session, curr_rtp_ts);
-                        ret = TRUE;
+                        ret = true;
                 }
                 udp_fd_zero_r(&fd);
                 udp_fd_set_r(session->rtcp_socket, &fd);
@@ -2410,7 +2405,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                                                 RTP_MAX_PACKET_LEN,
                                                 (struct sockaddr *) &session->rtcp_dest, &session->rtcp_dest_len);
                         rtp_process_ctrl(session, buffer, buflen);
-                        ret = TRUE;
+                        ret = true;
                 }
                 return ret;
         } else {
@@ -2432,11 +2427,11 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
                                 rtp_process_ctrl(session, buffer, buflen);
                         }
                         check_database(session);
-                        return TRUE;
+                        return true;
                 }
         }
         check_database(session);
-        return FALSE;
+        return false;
 }
 
 /**
@@ -2446,7 +2441,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
  * in this context (because RTP packets are usually pushed into PBUF which is
  * not processed by sender and thus it will grow indefinitely).
  */
-int rtcp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
+bool rtcp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 {
         UNUSED(curr_rtp_ts);
         struct udp_fd_r fd;
@@ -2466,10 +2461,10 @@ int rtcp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_
                         rtp_process_ctrl(session, buffer, buflen);
                 }
                 check_database(session);
-                return TRUE;
+                return true;
         }
         check_database(session);
-        return FALSE;
+        return false;
 }
 
 /**
@@ -2524,9 +2519,9 @@ int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t cur
  * Adds @csrc to list of contributing sources used in SDES items.
  * Used by mixers and transcoders.
  * 
- * Return value: TRUE.
+ * Return value: true.
  **/
-int rtp_add_csrc(struct rtp *session, uint32_t csrc)
+bool rtp_add_csrc(struct rtp *session, uint32_t csrc)
 {
         /* Mark csrc as something for which we should advertise RTCP SDES items, */
         /* in addition to our own SDES.                                          */
@@ -2545,7 +2540,7 @@ int rtp_add_csrc(struct rtp *session, uint32_t csrc)
                 debug_msg("Added CSRC 0x%08" PRIx32 " as CSRC %d\n", csrc,
                           session->csrc_count);
         }
-        return TRUE;
+        return true;
 }
 
 /**
@@ -2556,9 +2551,9 @@ int rtp_add_csrc(struct rtp *session, uint32_t csrc)
  * Removes @csrc from list of contributing sources used in SDES items.
  * Used by mixers and transcoders.
  * 
- * Return value: TRUE on success, FALSE if @csrc is not a valid source.
+ * @retval true on success, false if @csrc is not a valid source.
  **/
-int rtp_del_csrc(struct rtp *session, uint32_t csrc)
+bool rtp_del_csrc(struct rtp *session, uint32_t csrc)
 {
         source *s;
 
@@ -2566,7 +2561,7 @@ int rtp_del_csrc(struct rtp *session, uint32_t csrc)
         s = get_source(session, csrc);
         if (s == NULL) {
                 debug_msg("Invalid source 0x%08x\n", csrc);
-                return FALSE;
+                return false;
         }
         check_source(s);
         s->should_advertise_sdes = FALSE;
@@ -2574,7 +2569,7 @@ int rtp_del_csrc(struct rtp *session, uint32_t csrc)
         if (session->last_advertised_csrc >= session->csrc_count) {
                 session->last_advertised_csrc = 0;
         }
-        return TRUE;
+        return true;
 }
 
 /**
@@ -2592,9 +2587,9 @@ int rtp_del_csrc(struct rtp *session, uint32_t csrc)
  * other participants affects the local SDES entries, but are not
  * transmitted onto the network.
  * 
- * Return value: Returns TRUE if participant exists, FALSE otherwise.
+ * @retval returns true if participant exists, false otherwise.
  **/
-int rtp_set_sdes(struct rtp *session, uint32_t ssrc, rtcp_sdes_type type,
+bool rtp_set_sdes(struct rtp *session, uint32_t ssrc, rtcp_sdes_type type,
                  const char *value, int length)
 {
         source *s;
@@ -2605,7 +2600,7 @@ int rtp_set_sdes(struct rtp *session, uint32_t ssrc, rtcp_sdes_type type,
         s = get_source(session, ssrc);
         if (s == NULL) {
                 debug_msg("Invalid source 0x%08x\n", ssrc);
-                return FALSE;
+                return false;
         }
         check_source(s);
 
@@ -2658,10 +2653,10 @@ int rtp_set_sdes(struct rtp *session, uint32_t ssrc, rtcp_sdes_type type,
                 debug_msg("Unknown SDES item (type=%d, value=%s)\n", type, v);
                 free(v);
                 check_database(session);
-                return FALSE;
+                return false;
         }
         check_database(session);
-        return TRUE;
+        return true;
 }
 
 /**
@@ -3801,10 +3796,8 @@ void rtp_done(struct rtp *session)
  * then "string" is the name of the encryption algorithm,  and
  * "key" is the key to be used. If no / is present, then the
  * algorithm is assumed to be (the appropriate variant of) DES.
- *
- * Returns: TRUE on success, FALSE on failure.
  */
-int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
+bool rtp_set_encryption_key(struct rtp *session, const char *passphrase)
 {
         char *canonical_passphrase;
         u_char hash[16];
@@ -3821,7 +3814,7 @@ int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
                 /* A NULL passphrase means disable encryption... */
                 session->encryption_enabled = 0;
                 check_database(session);
-                return TRUE;
+                return true;
         }
 
         debug_msg("Enabling RTP/RTCP encryption\n");
@@ -3874,11 +3867,11 @@ int rtp_set_encryption_key(struct rtp *session, const char *passphrase)
         } else {
                 debug_msg("Encryption algorithm \"%s\" not found\n",
                           session->encryption_algorithm);
-                return FALSE;
+                return false;
         }
 }
 
-static int des_initialize(struct rtp *session, u_char * hash, int hashlen)
+static bool des_initialize(struct rtp *session, u_char * hash, int hashlen)
 {
         char *key;
         int i, j, k;
@@ -3917,7 +3910,7 @@ static int des_initialize(struct rtp *session, u_char * hash, int hashlen)
         }
 
         check_database(session);
-        return TRUE;
+        return true;
 }
 
 static int des_encrypt(struct rtp *session, unsigned char *data,
@@ -3928,15 +3921,15 @@ static int des_encrypt(struct rtp *session, unsigned char *data,
         return TRUE;
 }
 
-static int des_decrypt(struct rtp *session, unsigned char *data,
+static bool des_decrypt(struct rtp *session, unsigned char *data,
                        unsigned int size, unsigned char *initVec)
 {
         qfDES_CBC_d((unsigned char *)session->crypto_state.des.encryption_key,
                     data, size, initVec);
-        return TRUE;
+        return true;
 }
 
-static int rijndael_initialize(struct rtp *session, u_char * hash, int hash_len)
+static bool rijndael_initialize(struct rtp *session, u_char * hash, int hash_len)
 {
         int rc;
 
@@ -3948,23 +3941,23 @@ static int rijndael_initialize(struct rtp *session, u_char * hash, int hash_len)
                      DIR_ENCRYPT, hash_len * 8, (char *)hash);
         if (rc < 0) {
                 debug_msg("makeKey failed: %d\n", rc);
-                return FALSE;
+                return false;
         }
 
         rc = makeKey(&session->crypto_state.rijndael.keyInstDecrypt,
                      DIR_DECRYPT, hash_len * 8, (char *)hash);
         if (rc < 0) {
                 debug_msg("makeKey failed: %d\n", rc);
-                return FALSE;
+                return false;
         }
 
         rc = cipherInit(&session->crypto_state.rijndael.cipherInst,
                         MODE_ECB, NULL);
         if (rc < 0) {
                 debug_msg("cipherInst failed: %d\n", rc);
-                return FALSE;
+                return false;
         }
-        return TRUE;
+        return true;
 }
 
 static int rijndael_encrypt(struct rtp *session, unsigned char *data,
@@ -3984,7 +3977,7 @@ static int rijndael_encrypt(struct rtp *session, unsigned char *data,
         return rc;
 }
 
-static int rijndael_decrypt(struct rtp *session, unsigned char *data,
+static bool rijndael_decrypt(struct rtp *session, unsigned char *data,
                             unsigned int size, unsigned char *initVec)
 {
         int rc;
@@ -4001,27 +3994,21 @@ static int rijndael_decrypt(struct rtp *session, unsigned char *data,
 }
 
 /**
- * rtp_set_recv_buf:
- * Sets  receiver buffer size
- * @session: The RTP Session.
- *
- * Returns: TRUE if succeeded
- *          FALSE otherwise
+ * Sets receiver buffer size
+ * @param session the RTP Session
+ * @param bufsize requested recv network buffer size
  */
-int rtp_set_recv_buf(struct rtp *session, int bufsize)
+bool rtp_set_recv_buf(struct rtp *session, int bufsize)
 {
         return udp_set_recv_buf(session->rtp_socket, bufsize);
 }
 
 /**
- * rtp_set_send_buf:
  * Sets sender buffer size
- * @session: The RTP Session.
- *
- * Returns: TRUE if succeeded
- *          FALSE otherwise
+ * @param session the RTP Session
+ * @param bufsize requested send network buffer size
  */
-int rtp_set_send_buf(struct rtp *session, int bufsize)
+bool rtp_set_send_buf(struct rtp *session, int bufsize)
 {
         return udp_set_send_buf(session->rtp_socket, bufsize);
 }

@@ -246,15 +246,15 @@ rtp_t            rtp_init_with_udp_socket(struct socket_udp_local *l, struct soc
 void		 rtp_send_bye(struct rtp *session);
 void		 rtp_done(struct rtp *session);
 
-int 		 rtp_set_option(struct rtp *session, rtp_option optname, int optval);
-int 		 rtp_get_option(struct rtp *session, rtp_option optname, int *optval);
+bool             rtp_set_option(struct rtp *session, rtp_option optname, int optval);
+bool             rtp_get_option(struct rtp *session, rtp_option optname, int *optval);
 
-int 		 rtp_recv(struct rtp *session, 
-			  struct timeval *timeout, uint32_t curr_rtp_ts) __attribute__((deprecated));
-int 		 rtp_recv_r(struct rtp *session, 
-			  struct timeval *timeout, uint32_t curr_rtp_ts);
-int 		 rtcp_recv_r(struct rtp *session,
-			  struct timeval *timeout, uint32_t curr_rtp_ts);
+bool             rtp_recv(struct rtp *session,
+                          struct timeval *timeout, uint32_t curr_rtp_ts) __attribute__((deprecated));
+bool             rtp_recv_r(struct rtp *session,
+                          struct timeval *timeout, uint32_t curr_rtp_ts);
+bool             rtcp_recv_r(struct rtp *session,
+                          struct timeval *timeout, uint32_t curr_rtp_ts);
 int 		 rtp_recv_poll_r(struct rtp **sessions, 
 			  struct timeval *timeout, uint32_t curr_rtp_ts);
 int 		 rtp_send_raw_rtp_data(struct rtp *session, char *buffer, int buffer_len);
@@ -275,25 +275,25 @@ void 		 rtp_send_ctrl(struct rtp *session, uint32_t rtp_ts,
 void 		 rtp_update(struct rtp *session, struct timeval curr_time);
 
 uint32_t	 rtp_my_ssrc(struct rtp *session);
-int		 rtp_add_csrc(struct rtp *session, uint32_t csrc);
-int		 rtp_del_csrc(struct rtp *session, uint32_t csrc);
+bool             rtp_add_csrc(struct rtp *session, uint32_t csrc);
+bool             rtp_del_csrc(struct rtp *session, uint32_t csrc);
 
-int		 rtp_set_sdes(struct rtp *session, uint32_t ssrc, 
-			      rtcp_sdes_type type, 
-			      const char *value, int length);
+bool             rtp_set_sdes(struct rtp *session, uint32_t ssrc,
+                               rtcp_sdes_type type,
+                               const char *value, int length);
 const char	*rtp_get_sdes(struct rtp *session, uint32_t ssrc, rtcp_sdes_type type);
 
 const rtcp_sr	*rtp_get_sr(struct rtp *session, uint32_t ssrc);
 const rtcp_rr	*rtp_get_rr(struct rtp *session, uint32_t reporter, uint32_t reportee);
 
-int              rtp_set_encryption_key(struct rtp *session, const char *passphrase);
-int              rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc);
+bool             rtp_set_encryption_key(struct rtp *session, const char *passphrase);
+bool             rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc);
 
 uint8_t		*rtp_get_userdata(struct rtp *session);
 void 		 rtp_set_recv_iov(struct rtp *session, struct msghdr *m);
 
-int              rtp_set_recv_buf(struct rtp *session, int bufsize);
-int              rtp_set_send_buf(struct rtp *session, int bufsize);
+bool             rtp_set_recv_buf(struct rtp *session, int bufsize);
+bool             rtp_set_send_buf(struct rtp *session, int bufsize);
 
 void             rtp_flush_recv_buf(struct rtp *session);
 int              rtp_get_udp_rx_port(struct rtp *session);

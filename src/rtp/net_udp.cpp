@@ -362,25 +362,25 @@ int inet_aton(const char *name, struct in_addr *addr)
 /* IPv4 specific functions...                                                */
 /*****************************************************************************/
 
-static int udp_addr_valid4(const char *dst)
+static bool udp_addr_valid4(const char *dst)
 {
         struct in_addr addr4;
         struct hostent *h;
 
         if (inet_pton(AF_INET, dst, &addr4)) {
-                return TRUE;
+                return true;
         }
 
         h = gethostbyname(dst);
         if (h != NULL) {
-                return TRUE;
+                return true;
         }
         socket_herror("Can't resolve IP address for %s", dst);
 
-        return FALSE;
+        return false;
 }
 
-static int udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
+static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
 {
         if (IN_MULTICAST(ntohl(addr))) {
 #ifndef WIN32
@@ -395,14 +395,14 @@ static int udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl
                     (rx_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ip_mreq)) != 0) {
                         socket_error("setsockopt IP_ADD_MEMBERSHIP");
-                        return FALSE;
+                        return false;
                 }
 #ifndef WIN32
                 if (SETSOCKOPT
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
                      sizeof(loop)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_LOOP");
-                        return FALSE;
+                        return false;
                 }
 #endif
                 if (ttl > -1) {
@@ -410,7 +410,7 @@ static int udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl
                             (tx_fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl,
                              sizeof(ttl)) != 0) {
                                 socket_error("setsockopt IP_MULTICAST_TTL");
-                                return FALSE;
+                                return false;
                         }
                 } else {
                         LOG(LOG_LEVEL_WARNING) << "Using IPv4 multicast but not setting TTL.\n";
@@ -419,10 +419,10 @@ static int udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int ttl
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_IF,
                      (char *)&ifindex, sizeof(ifindex)) != 0) {
                         socket_error("setsockopt IP_MULTICAST_IF");
-                        return FALSE;
+                        return false;
                 }
         }
-        return TRUE;
+        return true;
 }
 
 static void udp_leave_mcast_grp4(unsigned long addr, int fd)
@@ -466,16 +466,16 @@ static char *udp_host_addr4(void)
 /* IPv6 specific functions...                                                */
 /*****************************************************************************/
 
-static int udp_addr_valid6(const char *dst)
+static bool udp_addr_valid6(const char *dst)
 {
 #ifdef HAVE_IPv6
         struct in6_addr addr6;
         switch (inet_pton(AF_INET6, dst, &addr6)) {
         case 1:
-                return TRUE;
+                return true;
                 break;
         case 0:
-                return FALSE;
+                return false;
                 break;
         case -1:
                 debug_msg("inet_pton failed\n");
@@ -483,10 +483,10 @@ static int udp_addr_valid6(const char *dst)
         }
 #endif                          /* HAVE_IPv6 */
         UNUSED(dst);
-        return FALSE;
+        return false;
 }
 
-static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
+static bool udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, int ttl, unsigned int ifindex)
 {
 #ifdef HAVE_IPv6
         if (IN6_IS_ADDR_MULTICAST(&sin6_addr)) {
@@ -504,21 +504,21 @@ static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, 
                     (rx_fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (char *)&imr,
                      sizeof(struct ipv6_mreq)) != 0) {
                         socket_error("setsockopt IPV6_ADD_MEMBERSHIP");
-                        return FALSE;
+                        return false;
                 }
 
                 if (SETSOCKOPT
                     (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (char *)&loop,
                      sizeof(loop)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_LOOP");
-                        return FALSE;
+                        return false;
                 }
                 if (ttl > -1) {
                         if (SETSOCKOPT
                             (tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
                              sizeof(ttl)) != 0) {
                                 socket_error("setsockopt IPV6_MULTICAST_HOPS");
-                                return FALSE;
+                                return false;
                         } else {
                                 LOG(LOG_LEVEL_WARNING) << "Using IPv6 multicast but not setting TTL.\n";
                         }
@@ -526,11 +526,11 @@ static int udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, 
                 if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
                                         (char *)&ifindex, sizeof(ifindex)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_IF");
-                        return FALSE;
+                        return false;
                 }
         }
 
-        return TRUE;
+        return true;
 #endif
 }
 
@@ -674,10 +674,10 @@ static char *udp_host_addr6(socket_udp * s)
  * udp_addr_valid:
  * @addr: string representation of IPv4 or IPv6 network address.
  *
- * Returns TRUE if @addr is valid, FALSE otherwise.
+ * @retval true if addr is valid, false otherwise.
  **/
 
-int udp_addr_valid(const char *addr)
+bool udp_addr_valid(const char *addr)
 {
         return udp_addr_valid4(addr) | udp_addr_valid6(addr);
 }
@@ -1415,56 +1415,56 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
         return 0;
 }
 
-int udp_set_recv_buf(socket_udp *s, int size)
+bool udp_set_recv_buf(socket_udp *s, int size)
 {
         int opt = 0;
         socklen_t opt_size;
         if (SETSOCKOPT(s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t) &size,
                         sizeof(size)) != 0) {
                 socket_error("Unable to set socket buffer size");
-                return FALSE;
+                return false;
         }
 
         opt_size = sizeof(opt);
         if(GETSOCKOPT (s->local->rx_fd, SOL_SOCKET, SO_RCVBUF, (sockopt_t)&opt,
                         &opt_size) != 0) {
                 socket_error("Unable to get socket buffer size");
-                return FALSE;
+                return false;
         }
 
         if(opt < size) {
-                return FALSE;
+                return false;
         }
 
         verbose_msg("Socket recv buffer size set to %d B.\n", opt);
 
-        return TRUE;
+        return true;
 }
 
-int udp_set_send_buf(socket_udp *s, int size)
+bool udp_set_send_buf(socket_udp *s, int size)
 {
         int opt = 0;
         socklen_t opt_size;
         if (SETSOCKOPT(s->local->tx_fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t) &size,
                         sizeof(size)) != 0) {
                 socket_error("Unable to set socket buffer size");
-                return FALSE;
+                return false;
         }
 
         opt_size = sizeof(opt);
         if(GETSOCKOPT (s->local->tx_fd, SOL_SOCKET, SO_SNDBUF, (sockopt_t)&opt,
                         &opt_size) != 0) {
                 socket_error("Unable to get socket buffer size");
-                return FALSE;
+                return false;
         }
 
         if(opt < size) {
-                return FALSE;
+                return false;
         }
 
         verbose_msg("Socket send buffer size set to %d B.\n", opt);
 
-        return TRUE;
+        return true;
 }
 
 /*
