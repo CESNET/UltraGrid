@@ -1,9 +1,10 @@
 /**
  * @file   utils/fs.c
  * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Martin Bela      <492789@mail.muni.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -72,4 +73,36 @@ const char *get_temp_dir(void)
 
         return temp_dir;
 }
+
+#ifdef _WIN32
+int get_exec_path(char* path) {
+        return GetModuleFileNameA(NULL, path, MAX_PATH_SIZE) != 0;
+}
+#endif
+
+
+#ifdef __linux__
+int get_exec_path(char* path) {
+        return realpath("/proc/self/exe", path) != NULL;
+}
+#endif
+
+
+#ifdef __APPLE__
+#include <mach-o/dyld.h> //_NSGetExecutablePath
+#include <unistd.h>
+
+int get_exec_path(char* path) {
+        char raw_path_name[MAX_PATH_SIZE];
+        uint32_t raw_path_size = (uint32_t)(sizeof(raw_path_name));
+
+        if (_NSGetExecutablePath(raw_path_name, &raw_path_size) != 0) {
+            return false;
+        }
+        return realpath(raw_path_name, path) != NULL;
+}
+#endif  
+
+
+
 
