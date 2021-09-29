@@ -65,6 +65,16 @@ if [ -n "$SDK_URL" ]; then
         rm -rf VideoMaster
 fi
 
+build_cineform() {
+        (
+        git submodule update --init cineform-sdk
+        cd cineform-sdk
+        cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 -G 'Visual Studio 16 2019' .
+        cmake --build . --config Release --parallel
+        cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig
+        )
+}
+
 # Install SPOUT
 wget --no-verbose https://frakira.fi.muni.cz/~xpulec/SpoutSDK.zip # this is the SDK subdirectory installed by Spout installer
 unzip SpoutSDK.zip -d src
@@ -77,6 +87,4 @@ wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.
 # Install GPUJPEG
 ( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local )
 
-# Build CineForm
-( git submodule update --init cineform-sdk && cd cineform-sdk && cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 && MSBuild.exe CineFormSDK.sln -property:Configuration=Release && cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig )
-
+build_cineform
