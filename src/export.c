@@ -59,6 +59,7 @@
 struct exporter {
         struct module mod;
         char *dir;
+        bool override;
         bool dir_auto;
         struct video_export *video_export;
         struct audio_export *audio_export;
@@ -90,10 +91,14 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
                 if (strcmp(cfg, "help") == 0) {
                         color_out(0, "Usage:\n");
                         color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
-                        color_out(COLOR_OUT_BOLD, "[=<dir>[:paused][:limit=<n>]]\n");
+                        color_out(COLOR_OUT_BOLD, "[=<dir>[:limit=<n>][:override][:paused]]\n");
                         color_out(0, "where\n");
                         color_out(COLOR_OUT_BOLD, "\tlimit=<n>");
                         color_out(0, " - write at most <n> video frames\n");
+                        color_out(COLOR_OUT_BOLD, "\toverride");
+                        color_out(0, " - export even if it would override existing files in the given directory\n");
+                        color_out(COLOR_OUT_BOLD, "\tpaused");
+                        color_out(0, " - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
                         export_destroy(s);
                         return NULL;
                 }
@@ -107,7 +112,9 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
                 s->dir = strdup(s->dir);
                 char *item = NULL;
                 while ((item = strtok_r(NULL, ":", &save_ptr)) != NULL) {
-                        if (strstr(item, "paused") == item) {
+                        if (strstr(item, "override") == item) {
+                                s->override = true;
+                        } else if (strstr(item, "paused") == item) {
                                 should_export = false; // start paused
                         } else if (strstr(item, "limit=") == item) {
                                 s->limit = strtoll(item + strlen("limit="), NULL, 0);
@@ -230,6 +237,8 @@ static bool create_dir(struct exporter *s)
                         }
                         if (dir_is_empty(s->dir)) {
                                 log_msg(LOG_LEVEL_NOTICE, "[Export] Warning: directory %s exists but is an empty directory - using for export.\n", s->dir);
+                        } else if (s->override) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: directory %s exists and is not an empty directory but using as requested.\n", s->dir);
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "[Export] Warning: directory %s exists and is not an empty directory! Trying to create subdir.\n", s->dir);
                                 char *prefix = s->dir;
