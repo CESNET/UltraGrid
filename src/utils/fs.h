@@ -4,7 +4,7 @@
  * @author Martin Bela      <492789@mail.muni.cz>
  */
 /*
- * Copyright (c) 2021 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
