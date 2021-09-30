@@ -341,7 +341,7 @@ static auto parse_format(char **fmt, char **save_ptr) {
                 }
         }
 
-        if ((tmp = strtok_r(nullptr, ":", save_ptr)) != nullptr) {
+        if ((tmp = strtok_r(nullptr, ":", save_ptr)) == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing pixel format!\n";
                 return video_desc{};
         }
