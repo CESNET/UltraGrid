@@ -79,9 +79,10 @@ struct wav_writer_file {
 
 static bool wav_write_header_data(FILE *wav, struct audio_desc fmt) {
 
+        uint32_t max_size = UINT32_MAX;
         CHECK_FWRITE("RIFF", 4, 1, wav);
         // chunk size - to be added
-        CHECK_FWRITE("    ", 4, 1, wav);
+        CHECK_FWRITE(&max_size, 4, 1, wav);
         CHECK_FWRITE("WAVE", 4, 1, wav);
         CHECK_FWRITE("fmt ", 4, 1, wav);
 
@@ -108,7 +109,7 @@ static bool wav_write_header_data(FILE *wav, struct audio_desc fmt) {
 
         CHECK_FWRITE("data", 4, 1, wav);
 
-        CHECK_FWRITE("    ", 1, 4, wav); // data size - to be added
+        CHECK_FWRITE(&max_size, 1, 4, wav); // data size - to be added
 
         return true;
 }
