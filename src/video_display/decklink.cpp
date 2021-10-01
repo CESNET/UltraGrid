@@ -1515,6 +1515,12 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
 
         auto t0 = chrono::high_resolution_clock::now();
 
+        uint32_t buffered = 0;
+        s->state[0].deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
+        if (buffered == 0) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer underflow!\n";
+        }
+
         if (s->low_latency) {
                 HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sampleFrameCount,
                                 &sampleFramesWritten);
@@ -1524,8 +1530,9 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
         } else {
                 s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
                                 0, &sampleFramesWritten);
-                if(sampleFramesWritten != sampleFrameCount)
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "audio buffer underflow!\n");
+                if (sampleFramesWritten != sampleFrameCount) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow!\n";
+                }
         }
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
