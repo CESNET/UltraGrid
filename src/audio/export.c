@@ -63,10 +63,9 @@ static bool configure(struct audio_export *s, struct audio_desc fmt);
 
 struct audio_export {
         char *filename;
-        FILE *output;
+        struct wav_writer_file *wav;
 
         struct audio_desc saved_format;
-        long long total;
 
         ring_buffer_t *ring;
 
@@ -107,14 +106,8 @@ static void *audio_export_thread(void *arg)
 
                 pthread_mutex_unlock(&s->lock);
 
-                if (s->saved_format.bps == 1) {
-                        signed2unsigned(data, data, size);
-                }
-
                 const int sample_size = s->saved_format.bps * s->saved_format.ch_count;
-                res = fwrite(data, sample_size, size / sample_size, s->output);
-                s->total += res;
-                if(res != (size_t) size / sample_size) {
+                if (!wav_writer_write(s->wav, size / sample_size, data)) {
                         fprintf(stderr, "[Audio export] Problem writing audio samples.\n");
                 }
 
@@ -127,7 +120,7 @@ static void *audio_export_thread(void *arg)
 static bool configure(struct audio_export *s, struct audio_desc fmt) {
         s->saved_format = fmt;
 
-        if ((s->output = wav_write_header(s->filename, fmt)) == NULL) {
+        if ((s->wav = wav_writer_create(s->filename, fmt)) == NULL) {
                 fprintf(stderr, "[Audio export] Error writting header!\n");
                 return false;
         }
@@ -158,8 +151,6 @@ struct audio_export * audio_export_init(char *filename)
         s->worker_waiting = false;
         s->should_exit_worker = false;
 
-        s->total = 0;
-
         s->saved_format = (struct audio_desc) { 0, 0, 0, 0 };
 
         return s;
@@ -179,8 +170,10 @@ void audio_export_destroy(struct audio_export *s)
                         pthread_join(s->thread_id, NULL);
                 }
 
-                if(s->total > 0) {
-                        wav_finalize(s->output, s->saved_format.bps, s->saved_format.ch_count, s->total);
+                if (s->wav != NULL) {
+                        wav_writer_close(s->wav);
+                }
+                if (s->ring != NULL) {
                         ring_buffer_destroy(s->ring);
                 }
                 pthread_cond_destroy(&s->worker_cv);

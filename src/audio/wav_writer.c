@@ -51,6 +51,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "audio/utils.h"
 #include "audio/wav_writer.h"
 
 /* Chunk size: 4 + 24 + (8 + M * Nc * Ns + (0 or 1)) */
@@ -65,6 +66,12 @@
 #define NAVG_BYTES_PER_SEC_OFFSET        28 /* F * M * Nc */
 #define NBLOCK_ALIGN_OFFSET              32 /* M * Nc */
 #define NBITS_PER_SAMPLE                 34 /* rounds up to 8 * M */
+
+struct wav_writer_file {
+        FILE *outfile;
+        struct audio_desc fmt;
+        long long samples_written;
+};
 
 #define CHECK_FWRITE(a, b, c, d) do { if (fwrite(a, b, c, d) != (c)) { \
         return false; \
@@ -106,7 +113,7 @@ static bool wav_write_header_data(FILE *wav, struct audio_desc fmt) {
         return true;
 }
 
-FILE *wav_write_header(const char *filename, struct audio_desc fmt) {
+struct wav_writer_file *wav_writer_create(const char *filename, struct audio_desc fmt) {
         FILE *wav = fopen(filename, "wb+");
         if (wav == NULL) {
                 perror("[WAV writer] Output file creating error\n");
@@ -116,54 +123,77 @@ FILE *wav_write_header(const char *filename, struct audio_desc fmt) {
                 fclose(wav);
                 return NULL;
         }
-        return wav;
+        struct wav_writer_file *out = calloc(1, sizeof *out);
+        out->outfile = wav;
+        out->fmt = fmt;
+
+        return out;
 }
 
-bool wav_finalize(FILE *wav, int bps, int ch_count, long long total_samples)
+bool wav_writer_write(struct wav_writer_file *wav, long long sample_count, const char *data)
+{
+        char *tmp = NULL;
+        if (wav->fmt.bps == 1) {
+                long long size = sample_count * wav->fmt.bps;
+                tmp = malloc(size);
+                signed2unsigned(tmp, data, size);
+                data = tmp;
+        }
+        size_t res = fwrite(data, wav->fmt.bps * wav->fmt.ch_count, sample_count, wav->outfile);
+        wav->samples_written += res;
+        free(tmp);
+        if (res != (size_t) sample_count) {
+                return false;
+        }
+        return true;
+}
+
+bool wav_writer_close(struct wav_writer_file *wav)
 {
         int padding_byte_len = 0;
-        if ((ch_count * bps * total_samples) % 2 == 1) {
+        if ((wav->fmt.ch_count * wav->fmt.bps * wav->samples_written) % 2 == 1) {
                 char padding_byte = '\0';
                 padding_byte_len = 1;
-                if (fwrite(&padding_byte, sizeof(padding_byte), 1, wav) != 1) {
+                if (fwrite(&padding_byte, sizeof(padding_byte), 1, wav->outfile) != 1) {
                         goto error;
                 }
         }
 
-
-        int64_t ret = _fseeki64(wav, CK_MASTER_SIZE_OFFSET, SEEK_SET);
+        int64_t ret = _fseeki64(wav->outfile, CK_MASTER_SIZE_OFFSET, SEEK_SET);
         if (ret != 0) {
                 goto error;
         }
-        long long ck_master_size = 4 + FMT_CHUNK_SIZE_BRUT + (DATA_CHUNK_HDR_SIZE + bps *
-                        ch_count * total_samples + padding_byte_len);
+        long long ck_master_size = 4 + FMT_CHUNK_SIZE_BRUT + (DATA_CHUNK_HDR_SIZE + wav->fmt.bps *
+                        wav->fmt.ch_count * wav->samples_written + padding_byte_len);
         if (ck_master_size > UINT32_MAX) {
                 fprintf(stderr, "[WAV writer] Data size exceeding 4 GiB, resulting file may be incompatible!\n");
         }
 
         uint32_t val = ck_master_size < UINT32_MAX ? ck_master_size : UINT32_MAX;
-        size_t res = fwrite(&val, sizeof val, 1, wav);
+        size_t res = fwrite(&val, sizeof val, 1, wav->outfile);
         if(res != 1) {
                 goto error;
         }
 
-        ret = _fseeki64(wav, CK_DATA_SIZE_OFFSET, SEEK_SET);
+        ret = _fseeki64(wav->outfile, CK_DATA_SIZE_OFFSET, SEEK_SET);
         if (ret != 0) {
                 goto error;
         }
-        long long ck_data_size = bps *
-                        ch_count * total_samples;
+        long long ck_data_size = wav->fmt.bps *
+                        wav->fmt.ch_count * wav->samples_written;
         val = ck_data_size < UINT32_MAX ? ck_data_size : UINT32_MAX;
-        res = fwrite(&val, sizeof val, 1, wav);
+        res = fwrite(&val, sizeof val, 1, wav->outfile);
         if(res != 1) {
                 goto error;
         }
 
-        fclose(wav);
+        fclose(wav->outfile);
+        free(wav);
         return true;
 error:
         fprintf(stderr, "[Audio export] Could not finalize file. Audio file may be corrupted.\n");
-        fclose(wav);
+        fclose(wav->outfile);
+        free(wav);
         return false;
 }
 

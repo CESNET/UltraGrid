@@ -51,18 +51,23 @@
 extern "C" {
 #endif
 
+struct wav_writer_file;
+
 /**
  * @retval pointer to output file to which the caller writes output data.
  *         When done, wav_finalize() needs to be called to finish and close
  *         the file.
  */
-FILE *wav_write_header(const char *filename, struct audio_desc fmt);
+struct wav_writer_file *wav_writer_create(const char *filename, struct audio_desc fmt);
+
+bool wav_writer_write(struct wav_writer_file *wav, long long sample_count, const char *data);
+
 /**
  * @param wav file returned by wav_write_header, will be closed by this call
  *            and must not be used after
  * @param total_samples total samples that were written
  */
-bool wav_finalize(FILE *wav, int bps, int ch_count, long long total_samples);
+bool wav_writer_close(struct wav_writer_file *wav);
 
 #ifdef __cplusplus
 }
