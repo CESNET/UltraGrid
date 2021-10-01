@@ -37,8 +37,25 @@
 
 /**
  * @file
- * WAV file format is taken from:
- * http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
+ * References:
+ * [1]: http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/WAVE.html
+ * [2]: http://www-mmsp.ece.mcgill.ca/Documents/AudioFormats/WAVE/Docs/multichaudP.pdf
+ * [3]: https://docs.microsoft.com/en-us/windows/win32/api/mmeapi/ns-mmeapi-waveformatex
+ *
+ * WAV file format is taken from [1].
+ *
+ * Note that this page states that WAVE_FORMAT_EXTENSIBLE should be used if:
+ *
+ * - PCM data has more than 16 bits/sample.
+ * - The number of channels is more than 2.
+ * - The actual number of bits/sample is not equal to the container size.
+ * - The mapping from channels to speakers needs to be specified.
+ *
+ * However, the document [2] doesn't mention this and there is no ambiguity for UG - we do
+ * not specify channel layout, bits per sample matches container size and is never padded.
+ * Resource [3] also suggests this use but strictly speaking this is documentation of system
+ * API, not file format. flac(1) complains if the original format is used, FFmpeg RIFF writter
+ * also follows the above rules.
  */
 
 #ifdef HAVE_CONFIG_H
