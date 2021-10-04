@@ -73,6 +73,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <string>
 
 using std::chrono::duration_cast;
 using std::chrono::seconds;
@@ -82,6 +83,8 @@ using rang::style;
 using std::fixed;
 using std::ostringstream;
 using std::setprecision;
+using std::string;
+using std::to_string;
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 #define MOD_NAME "[audio dec.] "
@@ -419,10 +422,15 @@ struct adec_stats_processing_data {
 
 static void *adec_compute_and_print_stats(void *arg) {
         auto d = (struct adec_stats_processing_data*) arg;
-        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %ld/%ld B, "
+        string loss;
+        if (d->bytes_received < d->bytes_expected) {
+                loss = " (" + to_string(d->bytes_expected - d->bytes_received) + " lost)";
+        }
+        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %ld/%ld B%s, "
                         "decoded %d samples in %.2f sec.\n",
                         d->bytes_received,
                         d->bytes_expected,
+                        loss.c_str(),
                         d->frame.get_sample_count(),
                         d->seconds);
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
