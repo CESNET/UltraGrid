@@ -141,23 +141,41 @@ bool is_addr_private(struct sockaddr *sa)
         }
 }
 
+static struct addrinfo *resolve_host(const char *hostname)
+{
+        int gai_err = 0;
+        struct addrinfo *ai = NULL;
+        struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_DGRAM };
+
+        if ((gai_err = getaddrinfo(hostname, NULL, &hints, &ai)) != 0) {
+                error_msg("getaddrinfo: %s: %s\n", hostname,
+                                gai_strerror(gai_err));
+                return NULL;
+        }
+        return ai;
+}
+
 bool is_host_loopback(const char *hostname)
 {
-	int gai_err;
-	struct addrinfo hints, *ai;
-        bool ret;
+        struct addrinfo *ai = resolve_host(hostname);
+        if (ai == NULL) {
+                return false;
+        }
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
+        bool ret = is_addr_loopback(ai->ai_addr);
+        freeaddrinfo(ai);
 
-	if ((gai_err = getaddrinfo(hostname, NULL, &hints, &ai))) {
-		error_msg("getaddrinfo: %s: %s\n", hostname,
-				gai_strerror(gai_err));
-		return false;
-	}
+        return ret;
+}
 
-        ret = is_addr_loopback(ai->ai_addr);
+bool is_host_private(const char *hostname)
+{
+        struct addrinfo *ai = resolve_host(hostname);
+        if (ai == NULL) {
+                return false;
+        }
+
+        bool ret = is_addr_loopback(ai->ai_addr);
         freeaddrinfo(ai);
 
         return ret;

@@ -1298,7 +1298,7 @@ int main(int argc, char *argv[])
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
 
-        if ((nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.video_rx_port, opt.audio.recv_port)) == nullptr) {
+        if ((nat_traverse = start_nat_traverse(opt.nat_traverse_config, opt.requested_receiver, opt.video_rx_port, opt.audio.recv_port)) == nullptr) {
                 exit_uv(1);
                 goto cleanup;
         }

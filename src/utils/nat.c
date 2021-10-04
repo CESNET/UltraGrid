@@ -477,13 +477,13 @@ static void *nat_traverse_keepalive(void *state) {
  *               other - start with configuration
  * @returns state, NULL on error (or help)
  */
-struct ug_nat_traverse *start_nat_traverse(const char *config, int video_rx_port, int audio_rx_port)
+struct ug_nat_traverse *start_nat_traverse(const char *config, const char *remote_host, int video_rx_port, int audio_rx_port)
 {
         if (config == NULL) {
-                if (video_rx_port != 0 || audio_rx_port != 0) {
+                if ((video_rx_port != 0 || audio_rx_port != 0) && (!is_host_private(remote_host) && !is_host_loopback(remote_host))) {
                         struct sockaddr_in out;
                         if (get_outbound_ip(&out) && is_addr_private((struct sockaddr *) &out)) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Private outbound IPv4 address detected and bound to a non-dynamic port. Consider adding '-N' option for NAT traversal.\n");
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Private outbound IPv4 address detected and binding as a receiver. Consider adding '-N' option for NAT traversal.\n");
                         }
 
                 }
