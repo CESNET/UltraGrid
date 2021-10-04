@@ -795,6 +795,11 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
 void audio_decoder_set_volume(void *state, double val)
 {
     auto s = (struct state_audio_decoder *) state;
-    s->scale->scale = val;
+    int output_channels = s->channel_remapping ?
+            s->channel_map.max_output + 1: s->saved_desc.ch_count;
+    for (int i = 0; i < output_channels; ++i) {
+            s->scale[i].scale = val;
+    }
+    s->muted = val == 0.0;
 }
 
