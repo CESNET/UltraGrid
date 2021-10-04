@@ -579,7 +579,11 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                         }
                         double new_volume = s->muted_receiver ? 0.0 : s->volume;
                         double db = 20.0 * log10(new_volume);
-                        log_msg(LOG_LEVEL_INFO, "Playback volume: %.2f%% (%+.2f dB)\n", new_volume * 100.0, db);
+                        if (msg->type == RECEIVER_MSG_MUTE) {
+                                LOG(LOG_LEVEL_NOTICE) << "Audio receiver " << (s->muted_receiver ? "" : "un") << "muted.\n";
+                        } else {
+                                log_msg(LOG_LEVEL_INFO, "Playback volume: %.2f%% (%+.2f dB)\n", new_volume * 100.0, db);
+                        }
                         struct pdb_e *cp;
                         pdb_iter_t it;
                         cp = pdb_iter_init(s->audio_participants, &it);
