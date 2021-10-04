@@ -886,6 +886,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
 struct asend_stats_processing_data {
         audio_frame2 frame;
         double seconds;
+        bool muted_sender;
 };
 
 static void *asend_compute_and_print_stats(void *arg) {
@@ -897,7 +898,7 @@ static void *asend_compute_and_print_stats(void *arg) {
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms, peak;
                 rms = calculate_rms(&d->frame, i, &peak);
-                LOG(LOG_LEVEL_INFO) << "[Audio sender] Channel " << i << " - volume: " << setprecision(2) << fixed << fg::green << style::bold << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::green << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak.\n";
+                LOG(LOG_LEVEL_INFO) << "[Audio sender] Channel " << i << " - volume: " << setprecision(2) << fixed << fg::green << style::bold << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::green << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak" << BOLD(RED((d->muted_sender ? " (muted)" : ""))) << ".\n" ;
         }
 
         delete d;
@@ -921,6 +922,7 @@ static void process_statistics(struct state_audio *s, audio_frame2 *buffer)
                 auto d = new asend_stats_processing_data;
                 std::swap(d->frame, s->captured);
                 d->seconds = seconds;
+                d->muted_sender = s->muted_sender;
 
                 task_run_async_detached(asend_compute_and_print_stats, d);
                 s->t0 = t;
