@@ -62,6 +62,7 @@
 #include "crypto/crc.h"
 #include "crypto/openssl_decrypt.h"
 #include "rang.hpp"
+#include "utils/color_out.h"
 #include "utils/packet_counter.h"
 #include "utils/worker.h"
 
@@ -413,6 +414,7 @@ struct adec_stats_processing_data {
         double seconds;
         int bytes_received;
         int bytes_expected;
+        bool muted_receiver;
 };
 
 static void *adec_compute_and_print_stats(void *arg) {
@@ -426,7 +428,7 @@ static void *adec_compute_and_print_stats(void *arg) {
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms, peak;
                 rms = calculate_rms(&d->frame, i, &peak);
-                LOG(LOG_LEVEL_INFO) << "[Audio decoder] Channel " << i << " - volume: " << fg::magenta << style::bold << setprecision(2) << fixed << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::magenta << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak.\n";
+                LOG(LOG_LEVEL_INFO) << "[Audio decoder] Channel " << i << " - volume: " << fg::magenta << style::bold << setprecision(2) << fixed << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::magenta << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak" << BOLD(RED((d->muted_receiver ? " (muted)" : ""))) << ".\n";
         }
 
         delete d;
@@ -703,6 +705,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 d->seconds = seconds;
                 d->bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
                 d->bytes_expected = packet_counter_get_all_bytes(decoder->packet_counter);
+                d->muted_receiver = decoder->muted;
 
                 task_run_async_detached(adec_compute_and_print_stats, d);
 
