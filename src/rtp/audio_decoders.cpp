@@ -412,14 +412,14 @@ bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc)
 struct adec_stats_processing_data {
         audio_frame2 frame;
         double seconds;
-        int bytes_received;
-        int bytes_expected;
+        long bytes_received;
+        long bytes_expected;
         bool muted_receiver;
 };
 
 static void *adec_compute_and_print_stats(void *arg) {
         auto d = (struct adec_stats_processing_data*) arg;
-        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %u/%d B, "
+        log_msg(LOG_LEVEL_INFO, "[Audio decoder] Received %ld/%ld B, "
                         "decoded %d samples in %.2f sec.\n",
                         d->bytes_received,
                         d->bytes_expected,
