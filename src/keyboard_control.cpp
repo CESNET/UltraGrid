@@ -592,7 +592,7 @@ void keyboard_control::info()
                         double db = 20.0 * log10(vol);
                         std::streamsize p = cout.precision();
                         ios_base::fmtflags f = cout.flags();
-                        cout << BOLD("Received audio volume: ") << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
+                        cout << BOLD("Playback volume: ") << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
                         cout.precision(p);
                         cout.flags(f);
                 }
@@ -605,9 +605,17 @@ void keyboard_control::info()
                 m->type = SENDER_MSG_GET_STATUS;
                 auto resp = send_message_sync(m_root, path, (struct message *) m, 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(resp) == 200) {
-                        int muted;
-                        sscanf(response_get_text(resp), "%d", &muted);
-                        cout << BOLD("Sended audio status - muted: ") << (muted ? "true" : "false") << "\n";
+                        auto muted_to_string = [](int val) {
+                                switch (val) {
+                                        case 0: return "false";
+                                        case 1: return "true";
+                                        default: return "(unknown)";
+                                }
+                        };
+                        int muted_sender = -1;
+                        int muted_receiver = -1;
+                        sscanf(response_get_text(resp), "%d,%d", &muted_sender, &muted_receiver);
+                        cout << BOLD("Audio muted - sender: ") << muted_to_string(muted_sender) << ", " << BOLD("receiver: ") << muted_to_string(muted_receiver) << "\n";
                 }
                 free_response(resp);
         }
