@@ -335,6 +335,17 @@ static void fec_check_messages(struct tx *tx)
                                 r = new_response(RESPONSE_INT_SERV_ERR, "cannot set FEC");
                                 LOG(LOG_LEVEL_ERROR) << "[Transmit] Unable to reconfiure FEC to: " << text << "\n";
                         }
+                } else if (strstr(text, "rate ") == text) {
+                        text += strlen("rate ");
+                        auto new_rate = unit_evaluate(text);
+                        if (new_rate > 0 || new_rate == RATE_UNLIMITED || new_rate == RATE_AUTO) {
+                                tx->bitrate = new_rate;
+                                r = new_response(RESPONSE_OK, nullptr);
+                                LOG(LOG_LEVEL_NOTICE) << "[Transmit] Bitrate set to: " << text << (new_rate > 0 ? "B" : "") << "\n";
+                        } else {
+                                r = new_response(RESPONSE_BAD_REQUEST, "Wrong value for bitrate");
+                                LOG(LOG_LEVEL_ERROR) << "[Transmit] Wrong bitrate: " << text << "\n";
+                        }
                 } else {
                         r = new_response(RESPONSE_BAD_REQUEST, "Unknown TX message");
                         LOG(LOG_LEVEL_ERROR) << "[Transmit] Unknown TX message: " << text << "\n";
