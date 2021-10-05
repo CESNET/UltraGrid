@@ -499,16 +499,17 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         send_message(s->root_module, path_audio, (struct message *) msg_audio);
                 free_response(resp_audio);
         } else if(prefix_matches(message, "fec ")) {
-                struct msg_change_fec_data *msg = (struct msg_change_fec_data *)
-                        new_message(sizeof(struct msg_change_fec_data));
+                auto *msg = reinterpret_cast<struct msg_universal *>(new_message(sizeof(struct msg_universal)));
                 char *fec = suffix(message, "fec ");
+                enum tx_media_type media_type{};
+                strncpy(msg->text, MSG_UNIVERSAL_TAG_TX "fec ", sizeof(msg->text) - 1);
 
                 if(strncasecmp(fec, "audio ", 6) == 0) {
-                        msg->media_type = TX_MEDIA_AUDIO;
-                        strncpy(msg->fec, fec + 6, sizeof(msg->fec) - 1);
+                        media_type = TX_MEDIA_AUDIO;
+                        strncat(msg->text, fec + 6, sizeof(msg->text) - strlen(msg->text) - 1);
                 } else if(strncasecmp(fec, "video ", 6) == 0) {
-                        msg->media_type = TX_MEDIA_VIDEO;
-                        strncpy(msg->fec, fec + 6, sizeof(msg->fec) - 1);
+                        media_type = TX_MEDIA_VIDEO;
+                        strncat(msg->text, fec + 6, sizeof(msg->text) - strlen(msg->text) - 1);
                 } else {
                         resp = new_response(RESPONSE_NOT_FOUND, "unknown media type");
                         free(msg);
@@ -516,7 +517,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                 }
 
                 if (msg) {
-                        if(msg->media_type == TX_MEDIA_VIDEO) {
+                        if (media_type == TX_MEDIA_VIDEO) {
                                 enum module_class path_tx[] = { MODULE_CLASS_SENDER, MODULE_CLASS_TX, MODULE_CLASS_NONE };
                                 append_message_path(path, sizeof(path),
                                                 path_tx);

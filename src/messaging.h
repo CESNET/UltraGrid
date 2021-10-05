@@ -130,12 +130,6 @@ struct msg_receiver {
         };
 };
 
-struct msg_change_fec_data {
-        struct message m;
-        enum tx_media_type media_type;
-        char fec[128];
-};
-
 enum compress_change_type {
         CHANGE_COMPRESS,
         CHANGE_PARAMS
@@ -153,10 +147,16 @@ struct msg_stats {
         int value;
 };
 
+/**
+ * It is suggested to use a tag at the beginning of
+ * msg_universal::text to identify the receiving module.
+ */
 struct msg_universal {
         struct message m;
         char text[8192];
 };
+
+#define MSG_UNIVERSAL_TAG_TX "TX_msg "
 
 struct response *new_response(int status, const char *optional_message);
 void free_response(struct response *r);

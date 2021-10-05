@@ -317,19 +317,27 @@ static void fec_check_messages(struct tx *tx)
 {
         struct message *msg;
         while ((msg = check_message(&tx->mod))) {
-                struct msg_change_fec_data *data = (struct msg_change_fec_data *) msg;
-                if(tx->media_type != data->media_type) {
-                        fprintf(stderr, "[Transmit] FEC media type mismatch!\n");
-                        free_message(msg, new_response(RESPONSE_BAD_REQUEST, NULL));
+                auto *data = reinterpret_cast<struct msg_universal *>(msg);
+                const char *text = data->text;
+                if (strstr(text, MSG_UNIVERSAL_TAG_TX) != text) {
+                        LOG(LOG_LEVEL_ERROR) << "[Transmit] Unexpected TX message: " << text << "\n";
+                        free_message(msg, new_response(RESPONSE_BAD_REQUEST, "Unexpected message"));
                         continue;
                 }
-                struct response *r;
-                if (set_fec(tx, data->fec)) {
-                        r = new_response(RESPONSE_OK, NULL);
-                        printf("[Transmit] FEC set to new setting.\n");
+                text += strlen(MSG_UNIVERSAL_TAG_TX);
+                struct response *r = nullptr;
+                if (strstr(text, "fec ") == text) {
+                        text += strlen("fec ");
+                        if (set_fec(tx, text)) {
+                                r = new_response(RESPONSE_OK, nullptr);
+                                LOG(LOG_LEVEL_NOTICE) << "[Transmit] FEC set to new setting: " << text << "\n";
+                        } else {
+                                r = new_response(RESPONSE_INT_SERV_ERR, "cannot set FEC");
+                                LOG(LOG_LEVEL_ERROR) << "[Transmit] Unable to reconfiure FEC to: " << text << "\n";
+                        }
                 } else {
-                        r = new_response(RESPONSE_INT_SERV_ERR, NULL);
-                        fprintf(stderr, "[Transmit] Unable to reconfigure FEC!\n");
+                        r = new_response(RESPONSE_BAD_REQUEST, "Unknown TX message");
+                        LOG(LOG_LEVEL_ERROR) << "[Transmit] Unknown TX message: " << text << "\n";
                 }
 
                 free_message(msg, r);
