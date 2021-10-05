@@ -62,12 +62,17 @@ int clampi(long long val, int lo, int hi) {
  *
  * @param   str string to be parsed
  * @returns     positive integral representation of the string
- * @returns     -1 if error
+ * @returns     LLONG_MIN if error
  */
 long long unit_evaluate(const char *str) {
         char *end_ptr;
         char unit_prefix_u;
+        errno = 0;
         double ret = strtod(str, &end_ptr);
+        if (errno != 0) {
+                perror("strtod");
+                return LLONG_MIN;
+        }
         unit_prefix_u = toupper(*end_ptr);
         switch(unit_prefix_u) {
                 case 'G':
@@ -83,11 +88,11 @@ long long unit_evaluate(const char *str) {
                         break;
                 default:
                         log_msg(LOG_LEVEL_ERROR, "Error: unknown unit suffix %c.\n", *end_ptr);
-                        return -1;
+                        return LLONG_MIN;
         }
 
-        if (ret < 0.0 || ret >= nexttoward((double) LLONG_MAX, LLONG_MAX) || strlen(end_ptr) > 1) {
-                return -1;
+        if (ret >= nexttoward((double) LLONG_MAX, LLONG_MAX) || strlen(end_ptr) > 1) {
+                return LLONG_MIN;
         } else {
                 return ret;
         }
@@ -103,7 +108,12 @@ long long unit_evaluate(const char *str) {
 double unit_evaluate_dbl(const char *str) {
         char *end_ptr;
         char unit_prefix_u;
+        errno = 0;
         double ret = strtod(str, &end_ptr);
+        if (errno != 0) {
+                perror("strtod");
+                return NAN;
+        }
         unit_prefix_u = toupper(*end_ptr);
         switch(unit_prefix_u) {
                 case 'G':
@@ -122,11 +132,7 @@ double unit_evaluate_dbl(const char *str) {
                         return NAN;
         }
 
-        if (ret < 0.0) {
-                return NAN;
-        } else {
-                return ret;
-        }
+        return ret;
 }
 
 bool is_wine() {
