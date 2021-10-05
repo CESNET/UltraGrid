@@ -1,6 +1,7 @@
 /**
- * @file   utils/misc.c
+ * @file   utils/misc.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
  * Copyright (c) 2014-2021 CESNET, z. s. p. o.
@@ -310,7 +311,7 @@ size_t urldecode(char *out, size_t max_len, const char *in)
 
 const char *ug_strerror(int errnum)
 {
-        static _Thread_local char strerror_buf[STRERROR_BUF_LEN];
+        static thread_local char strerror_buf[STRERROR_BUF_LEN];
         const char *errstring = strerror_buf;
 #ifdef _WIN32
         strerror_s(strerror_buf, sizeof strerror_buf, errnum); // C11 Annex K (bounds-checking interfaces)
@@ -338,4 +339,23 @@ int get_cpu_core_count(void)
         }
         return MIN(numCPU, INT_MAX);
 #endif
+}
+
+std::string_view tokenize(std::string_view& str, char delim){
+        if(str.empty())
+                return {};
+
+        auto token_begin = str.begin();
+        while(token_begin != str.end() && *token_begin == delim){
+                token_begin++;
+        }
+
+        auto token_end = token_begin;
+        while(token_end != str.end() && *token_end != delim){
+                token_end++;
+        }
+
+        str = std::string_view(token_end, str.end() - token_end);
+
+        return std::string_view(token_begin, token_end - token_begin);
 }

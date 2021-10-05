@@ -89,5 +89,25 @@ int get_cpu_core_count(void);
 }
 #endif
 
+#ifdef __cplusplus
+#include <string_view>
+
+/**
+ * @brief Tokenizer for string_view
+ *
+ * Useful for non-destructive tokenization of strings. Skips empty tokens.
+ * str is modified to view the not yet processed remainder.
+ *
+ * Typical usage (prints lines "Hello", "World", "!"):
+ * ~~~~~~~~~~~~~~~~~~~{.cpp}
+ * std::string_view sv = ":::Hello:World::!::";
+ * while(!sv.empty()){
+ *     cout << tokenize(sv, ':') << "\n";
+ * }
+ * ~~~~~~~~~~~~~~~~~~~
+ */
+std::string_view tokenize(std::string_view& str, char delim);
+#endif //__cplusplus
+
 #endif// UTILS_MISC_H_
 
