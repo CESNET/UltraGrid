@@ -658,7 +658,10 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                         parsed->hosts[host_idx].bitrate = RATE_AUTO;
                     } else {
                         parsed->hosts[host_idx].bitrate = unit_evaluate(argv[i + 1]);
-                        assert(parsed->hosts[host_idx].bitrate > 0);
+                        if (parsed->hosts[host_idx].bitrate <= 0) {
+                            LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Error: wrong bitrate - " << argv[i + 1] << "\n";
+                            exit(EXIT_FAIL_USAGE);
+                        }
                     }
                     break;
                 case '4':

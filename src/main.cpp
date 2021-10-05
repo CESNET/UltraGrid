@@ -538,8 +538,12 @@ static bool parse_audio_capture_format(const char *optarg)
                         }
                         audio_capture_bps = bps / 8;
                 } else if (strncmp(item, "sample_rate=", strlen("sample_rate=")) == 0) {
-                        long long val = unit_evaluate(item + strlen("sample_rate="));
-                        assert(val > 0 && val <= numeric_limits<decltype(audio_capture_sample_rate)>::max());
+                        const char *sample_rate_str = item + strlen("sample_rate=");
+                        long long val = unit_evaluate(sample_rate_str);
+                        if (val <= 0 || val > numeric_limits<decltype(audio_capture_sample_rate)>::max()) {
+                                LOG(LOG_LEVEL_ERROR) << "Invalid sample_rate " << sample_rate_str << "!\n";
+                                return false;
+                        }
                         audio_capture_sample_rate = val;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "Unkonwn format for --audio-capture-format!\n");

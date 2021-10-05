@@ -137,6 +137,9 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
                 audio_codec_direction_t direction, bool silent) {
         audio_codec_t audio_codec = get_audio_codec(audio_codec_cfg);
         int bitrate = get_audio_codec_bitrate(audio_codec_cfg);
+        if (bitrate < 0) {
+                return nullptr;
+        }
         void *state = NULL;
         const struct audio_compress_info *aci = nullptr;
 
@@ -385,7 +388,10 @@ int get_audio_codec_bitrate(const char *audio_codec_cfg)
         char *val = get_val_from_cfg(audio_codec_cfg, "bitrate=");
         if (val) {
                 long long ret =  unit_evaluate(val);
-                assert(ret > 0 && ret <= INT_MAX);
+                if (ret <= 0 && ret > INT_MAX) {
+                        LOG(LOG_LEVEL_ERROR) << "Wrong bitrate: " << val << "\n";
+                        return -1;
+                }
                 free(val);
                 return ret;
         } else {

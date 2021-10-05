@@ -406,7 +406,10 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                         char *bpp_str = item + strlen("bpp=");
                         s->requested_bpp = unit_evaluate_dbl(bpp_str);
-                        assert(!std::isnan(s->requested_bpp));
+                        if (std::isnan(s->requested_bpp)) {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong bitrate: " << bpp_str << "\n";
+                                return -1;
+                        }
                 } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
                         char *crf_str = item + strlen("crf=");
                         s->requested_crf = atof(crf_str);
