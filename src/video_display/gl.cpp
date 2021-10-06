@@ -1964,7 +1964,11 @@ static const struct video_display_info display_gl_info = {
         display_gl_get_property,
         display_gl_put_audio_frame,
         display_gl_reconfigure_audio,
+#ifdef __APPLE__
         DISPLAY_NEEDS_MAINLOOP,
+#else
+        DISPLAY_DOESNT_NEED_MAINLOOP,
+#endif
 };
 
 REGISTER_MODULE(gl, &display_gl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
