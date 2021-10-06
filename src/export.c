@@ -52,6 +52,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
+#include "utils/fs.h" // MAX_PATH_SIZE
 #include "video_export.h"
 
 #define MOD_NAME "[export] "
@@ -64,6 +65,8 @@ struct exporter {
         struct video_export *video_export;
         struct audio_export *audio_export;
         bool exporting;
+        bool noaudio;
+        bool novideo;
         pthread_mutex_t lock;
 
         long long int limit; ///< number of video frames to record, -1 == unlimited (default)
@@ -91,12 +94,14 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
                 if (strcmp(cfg, "help") == 0) {
                         color_out(0, "Usage:\n");
                         color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
-                        color_out(COLOR_OUT_BOLD, "[=<dir>[:limit=<n>][:override][:paused]]\n");
+                        color_out(COLOR_OUT_BOLD, "[=<dir>[:limit=<n>][:noaudio][:novideo][:override][:paused]]\n");
                         color_out(0, "where\n");
                         color_out(COLOR_OUT_BOLD, "\tlimit=<n>");
                         color_out(0, " - write at most <n> video frames\n");
                         color_out(COLOR_OUT_BOLD, "\toverride");
                         color_out(0, " - export even if it would override existing files in the given directory\n");
+                        color_out(COLOR_OUT_BOLD, "\tnoaudio | novideo");
+                        color_out(0, " - do not export audio/video\n");
                         color_out(COLOR_OUT_BOLD, "\tpaused");
                         color_out(0, " - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
                         export_destroy(s);
@@ -112,7 +117,11 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
                 s->dir = strdup(s->dir);
                 char *item = NULL;
                 while ((item = strtok_r(NULL, ":", &save_ptr)) != NULL) {
-                        if (strstr(item, "override") == item) {
+                        if (strstr(item, "noaudio") == item) {
+                                s->noaudio = true;
+                        } else if (strstr(item, "novideo") == item) {
+                                s->novideo = true;
+                        } else if (strstr(item, "override") == item) {
                                 s->override = true;
                         } else if (strstr(item, "paused") == item) {
                                 should_export = false; // start paused
@@ -152,16 +161,20 @@ static bool enable_export(struct exporter *s)
                 goto error;
         }
 
-        s->video_export = video_export_init(s->dir);
-        if (!s->video_export) {
-                goto error;
+        if (!s->novideo) {
+                s->video_export = video_export_init(s->dir);
+                if (!s->video_export) {
+                        goto error;
+                }
         }
 
-        char name[512];
-        snprintf(name, 512, "%s/sound.wav", s->dir);
-        s->audio_export = audio_export_init(name);
-        if (!s->audio_export) {
-                goto error;
+        if (!s->noaudio) {
+                char name[MAX_PATH_SIZE];
+                snprintf(name, sizeof name, "%s/sound.wav", s->dir);
+                s->audio_export = audio_export_init(name);
+                if (!s->audio_export) {
+                        goto error;
+                }
         }
 
         s->exporting = true;
