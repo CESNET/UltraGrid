@@ -998,6 +998,44 @@ static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDi
         return false;
 }
 
+static bool decklink_cap_configure_audio(struct vidcap_decklink_state *s, unsigned int audio_src_flag, BMDAudioConnection *audioConnection) {
+        if (audio_src_flag == 0U) {
+                s->grab_audio = FALSE;
+                return true;
+        }
+
+        s->grab_audio = TRUE;
+        switch (audio_src_flag) {
+                case VIDCAP_FLAG_AUDIO_EMBEDDED:
+                        *audioConnection = bmdAudioConnectionEmbedded;
+                        break;
+                case VIDCAP_FLAG_AUDIO_AESEBU:
+                        *audioConnection = bmdAudioConnectionAESEBU;
+                        break;
+                case VIDCAP_FLAG_AUDIO_ANALOG:
+                        *audioConnection = bmdAudioConnectionAnalog;
+                        break;
+                default:
+                        LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Unexpected audio flag " << audio_src_flag << " encountered.\n";
+                        abort();
+        }
+        s->audio.bps = audio_capture_bps == 0 ? DEFAULT_AUDIO_BPS : audio_capture_bps;
+        if (s->audio.bps != 2 && s->audio.bps != 4) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "[Decklink] Unsupported audio Bps " << audio_capture_bps << "! Supported is 2 or 4 bytes only!\n";
+                return false;
+        }
+        if (audio_capture_sample_rate != 0 && audio_capture_sample_rate != bmdAudioSampleRate48kHz) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported sample rate " << audio_capture_sample_rate << "! Only " << bmdAudioSampleRate48kHz << " is supported.\n";
+                return false;
+        }
+        s->audio.sample_rate = bmdAudioSampleRate48kHz;
+        s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        s->audio.max_size = (s->audio.sample_rate / 10) * s->audio.ch_count * s->audio.bps;
+        s->audio.data = (char *) malloc(s->audio.max_size);
+
+        return true;
+}
+
 static int
 vidcap_decklink_init(struct vidcap_params *params, void **state)
 {
@@ -1072,39 +1110,9 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 s->codec = UYVY; // default one
         }
 
-        if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
-                s->grab_audio = TRUE;
-                switch(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
-                        case VIDCAP_FLAG_AUDIO_EMBEDDED:
-                                audioConnection = bmdAudioConnectionEmbedded;
-                                break;
-                        case VIDCAP_FLAG_AUDIO_AESEBU:
-                                audioConnection = bmdAudioConnectionAESEBU;
-                                break;
-                        case VIDCAP_FLAG_AUDIO_ANALOG:
-                                audioConnection = bmdAudioConnectionAnalog;
-                                break;
-                        default:
-                                fprintf(stderr, "[Decklink capture] Unexpected audio flag encountered.\n");
-                                abort();
-                }
-                s->audio.bps = audio_capture_bps == 0 ? DEFAULT_AUDIO_BPS : audio_capture_bps;
-                if (s->audio.bps != 2 && s->audio.bps != 4) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported audio Bps " << audio_capture_bps << "! Supported is 2 or 4 bytes only!\n";
-                        delete s;
-                        return VIDCAP_INIT_FAIL;
-                }
-                if (audio_capture_sample_rate != 0 && audio_capture_sample_rate != 48000) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported sample rate " << audio_capture_sample_rate << "! Only 48000 is supported.\n";
-                        delete s;
-                        return VIDCAP_INIT_FAIL;
-                }
-                s->audio.sample_rate = 48000;
-                s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
-                s->audio.max_size = (s->audio.sample_rate / 10) * s->audio.ch_count * s->audio.bps;
-                s->audio.data = (char *) malloc(s->audio.max_size);
-        } else {
-                s->grab_audio = FALSE;
+        if (!decklink_cap_configure_audio(s, vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY, &audioConnection)) {
+                delete s;
+                return VIDCAP_INIT_FAIL;
         }
 
         if(s->stereo) {
