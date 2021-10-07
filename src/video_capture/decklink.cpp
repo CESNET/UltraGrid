@@ -75,7 +75,7 @@
 #include "video.h"
 #include "video_capture.h"
 
-#define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
+constexpr const int DEFAULT_AUDIO_BPS = 2;
 constexpr const size_t MAX_AUDIO_PACKETS = 10;
 #define MOD_NAME "[DeckLink capture] "
 
@@ -1088,16 +1088,16 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                 fprintf(stderr, "[Decklink capture] Unexpected audio flag encountered.\n");
                                 abort();
                 }
-                if (audio_capture_bps == 2) {
-                        s->audio.bps = 2;
-                } else {
-                        if (audio_capture_bps != 4 && audio_capture_bps != 0) {
-                                log_msg(LOG_LEVEL_WARNING, "[Decklink] Ignoring unsupported Bps!\n");
-                        }
-                        s->audio.bps = 4;
+                s->audio.bps = audio_capture_bps == 0 ? DEFAULT_AUDIO_BPS : audio_capture_bps;
+                if (s->audio.bps != 2 && s->audio.bps != 4) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported audio Bps " << audio_capture_bps << "! Supported is 2 or 4 bytes only!\n";
+                        delete s;
+                        return VIDCAP_INIT_FAIL;
                 }
                 if (audio_capture_sample_rate != 0 && audio_capture_sample_rate != 48000) {
-                                log_msg(LOG_LEVEL_WARNING, "[Decklink] Ignoring unsupported sample rate!\n");
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported sample rate " << audio_capture_sample_rate << "! Only 48000 is supported.\n";
+                        delete s;
+                        return VIDCAP_INIT_FAIL;
                 }
                 s->audio.sample_rate = 48000;
                 s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
