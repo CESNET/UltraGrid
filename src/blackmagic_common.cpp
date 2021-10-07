@@ -318,7 +318,7 @@ bool decklink_set_duplex(IDeckLink *deckLink, uint32_t profileID)
         }
 
         if (!found && ret) { // no err but not found
-                LOG(LOG_LEVEL_WARNING) << "[DeckLink] didn't found suitable duplex profile!\n";
+                LOG(LOG_LEVEL_WARNING) << "[DeckLink] did not find suitable duplex profile!\n";
                 ret = false;
         }
 
