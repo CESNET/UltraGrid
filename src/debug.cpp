@@ -125,7 +125,8 @@ void log_msg(int level, const char *format, ...)
  */
 void log_perror(int level, const char *msg)
 {
-        std::array<char, 1024> strerror_buf;
+        constexpr int strerror_buf_len = 1024;
+        std::array<char, strerror_buf_len> strerror_buf;
         const char *errstring;
 #ifdef _WIN32
         strerror_s(strerror_buf.data(), strerror_buf.size(), errno); // C11 Annex K (bounds-checking interfaces)
@@ -134,7 +135,7 @@ void log_perror(int level, const char *msg)
         strerror_r(errno, strerror_buf.data(), strerror_buf.size()); // XSI version
         errstring = strerror_buf.data();
 #else // GNU strerror_r version
-        errstring = strerror_r(errno, strerror_buf.data(), strerror_buf.size());
+        errstring = strerror_r(errno, strerror_buf.data(), strerror_buf_len);
 #endif
         log_msg(level, "%s: %s\n", msg, errstring);
 }
