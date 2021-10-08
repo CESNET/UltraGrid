@@ -62,13 +62,27 @@ struct audio_dump_state{
         unsigned file_name_num;
 };
 
+static void usage() {
+        printf("dump usage:\n"
+                        "\t-r dump[:<path>]\n"
+                        "where\n"
+                        "\tpath - path prefix to use (without .wav extension)\n"
+                        "\n");
+}
+
 static void * audio_play_dump_init(const char *cfg){
         struct audio_dump_state *s = new audio_dump_state();
 
-        if(cfg)
+        if (cfg != nullptr) {
+                if (strcmp(cfg, "help") == 0) {
+                        usage();
+                        delete s;
+                        return nullptr;
+                }
                 s->filename = cfg;
-        else
+        } else {
                 s->filename = "audio_dump";
+        }
 
         return s;
 }
