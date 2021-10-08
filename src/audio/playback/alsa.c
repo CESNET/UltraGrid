@@ -425,7 +425,7 @@ static void write_fill(struct state_alsa_playback *s) {
 ADD_TO_PARAM("alsa-playback-buffer", "* alsa-playback-buffer=<len>\n"
                                 "  Buffer length. Can be used to balance robustness and latency, in microseconds.\n");
 ADD_TO_PARAM("alsa-play-period-size", "* alsa-play-period-size=<frames>\n"
-                                    "  ALSA playback period size in frames (default is minimal) .\n");
+                                    "  ALSA playback period size in frames (default is device minimum) .\n");
 /**
  * @todo
  * Consider using snd_pcm_hw_params_set_buffer_time_first() by default, it works fine
