@@ -99,22 +99,25 @@ struct testcard_pixmap {
         void *data;
 };
 
+enum class generator_depth {
+        bits8,
+        bits16
+};
+
 static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color);
 
 class image_pattern {
         public:
                 static unique_ptr<image_pattern> create(string const & config);
-                auto init(int width, int height, int out_bit_depth) {
-                        assert(out_bit_depth == 8 || out_bit_depth == 16);
+                auto init(int width, int height, enum generator_depth depth) {
                         auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
                         size_t data_len = width * height * rg48_bpp + headroom;
                         auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
-                        int actual_bit_depth = fill(width, height, out.get());
-                        assert(actual_bit_depth == 8 || actual_bit_depth == 16);
-                        if (out_bit_depth == 8 && actual_bit_depth == 16) {
+                        auto actual_bit_depth = fill(width, height, out.get());
+                        if (depth == generator_depth::bits8 && actual_bit_depth == generator_depth::bits16) {
                                 convert_rg48_to_rgba(width, height, out.get());
                         }
-                        if (out_bit_depth == 16 && actual_bit_depth == 8) {
+                        if (depth == generator_depth::bits16 && actual_bit_depth == generator_depth::bits8) {
                                 convert_rgba_to_rg48(width, height, out.get());
                         }
                         return out;
@@ -127,7 +130,7 @@ class image_pattern {
                 image_pattern && operator=(image_pattern &&) = delete;
         private:
                 /// @retval bit depth used by the generator (either 8 or 16)
-                virtual int fill(int width, int height, unsigned char *data) = 0;
+                virtual enum generator_depth fill(int width, int height, unsigned char *data) = 0;
 
                 /// @note in-place
                 virtual void convert_rgba_to_rg48(int width, int height, unsigned char *data) {
@@ -160,7 +163,7 @@ class image_pattern {
 };
 
 class image_pattern_bars : public image_pattern {
-        int fill(int width, int height, unsigned char *data) override {
+        enum generator_depth fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
                 int rect_size = COL_NUM;
                 struct testcard_rect r{};
@@ -199,7 +202,7 @@ class image_pattern_bars : public image_pattern {
                                 }
                         }
                 }
-                return 8;
+                return generator_depth::bits8;
         }
 };
 
@@ -215,7 +218,7 @@ class image_pattern_ebu_smpte_bars : public image_pattern {
                 uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | 0U },
                 uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | 0U },
         };
-        int fill(int width, int height, unsigned char *data) override {
+        enum generator_depth fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
                 const int rect_size = (width + bars.size() - 1) / bars.size();
                 struct testcard_rect r{};
@@ -235,7 +238,7 @@ class image_pattern_ebu_smpte_bars : public image_pattern {
                                 col_num = (col_num + 1) % bars.size();
                         }
                 }
-                return 8;
+                return generator_depth::bits8;
         }
 };
 
@@ -244,11 +247,11 @@ class image_pattern_blank : public image_pattern {
                 explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
 
         private:
-                int fill(int width, int height, unsigned char *data) override {
+                enum generator_depth fill(int width, int height, unsigned char *data) override {
                         for (int i = 0; i < width * height; ++i) {
                                 (reinterpret_cast<uint32_t *>(data))[i] = color;
                         }
-                        return 8;
+                        return generator_depth::bits8;
                 }
                 uint32_t color;
 };
@@ -258,7 +261,7 @@ class image_pattern_gradient : public image_pattern {
                 explicit image_pattern_gradient(uint32_t c) : color(c) {}
                 static constexpr uint32_t red = 0xFFU;
         private:
-                int fill(int width, int height, unsigned char *data) override {
+                enum generator_depth fill(int width, int height, unsigned char *data) override {
                         auto *ptr = reinterpret_cast<uint32_t *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 uint8_t r = sin(static_cast<double>(j) / height * M_PI) * (color & 0xFFU);
@@ -269,7 +272,7 @@ class image_pattern_gradient : public image_pattern {
                                         *ptr++ = val;
                                 }
                         }
-                        return 8;
+                        return generator_depth::bits8;
                 }
                 uint32_t color;
 };
@@ -279,7 +282,7 @@ class image_pattern_gradient2 : public image_pattern {
                 explicit image_pattern_gradient2(long maxval = 0XFFFFU) : val_max(maxval) {}
         private:
                 const unsigned int val_max;
-                int fill(int width, int height, unsigned char *data) override {
+                enum generator_depth fill(int width, int height, unsigned char *data) override {
                         width = min(width, 2); // avoid division by zero
                         auto *ptr = reinterpret_cast<uint16_t *>(data);
                         for (int j = 0; j < height; j += 1) {
@@ -290,16 +293,16 @@ class image_pattern_gradient2 : public image_pattern {
                                         *ptr++ = gray;
                                 }
                         }
-                        return 16;
+                        return generator_depth::bits16;
                 }
 };
 
 class image_pattern_noise : public image_pattern {
         default_random_engine rand_gen;
-        int fill(int width, int height, unsigned char *data) override {
+        enum generator_depth fill(int width, int height, unsigned char *data) override {
                 uniform_int_distribution<> dist(0, 0xFFFF);
                 for_each(reinterpret_cast<uint16_t *>(data), reinterpret_cast<uint16_t *>(data) + 3 * width * height, [&](uint16_t & c) { c = dist(rand_gen); });
-                return 16;
+                return generator_depth::bits16;
         }
 };
 
@@ -326,9 +329,9 @@ class image_pattern_raw : public image_pattern {
                         }
                 }
         private:
-                int fill(int width, int height, unsigned char *data) override {
+                enum generator_depth fill(int width, int height, unsigned char *data) override {
                         memset(data, 0, width * height * 3); // placeholder only
-                        return 8;
+                        return generator_depth::bits8;
                 }
                 vector<unsigned char> m_pattern;
 };
@@ -420,13 +423,13 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
                 return {nullptr, free_deleter};
         }
 
-        auto data = generator->init(width, height, 8);
+        auto data = generator->init(width, height, generator_depth::bits8);
 
         codec_t codec_intermediate = color_spec;
 
         /// first step - conversion from RGBA
         if (color_spec == RG48 || color_spec == R12L) {
-                data = generator->init(width, height, 16);
+                data = generator->init(width, height, generator_depth::bits16);
                 if (color_spec == R12L) {
                         codec_intermediate = RG48;
                 }
