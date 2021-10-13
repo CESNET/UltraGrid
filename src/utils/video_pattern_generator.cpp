@@ -206,21 +206,24 @@ class image_pattern_bars : public image_pattern {
         }
 };
 
-template<uint8_t f>
+/**
+ * @todo Proper SMPTE test pattern has different in bottom third.
+ */
+template<uint8_t f, int columns>
 class image_pattern_ebu_smpte_bars : public image_pattern {
         static constexpr array bars{
                 uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | f  },
-                uint32_t{0xFFU << 24U | 0U << 16U | f  << 8U | f  },
-                uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | 0U },
-                uint32_t{0xFFU << 24U | 0U << 16U | f  << 8U | 0U },
-                uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | f  },
-                uint32_t{0xFFU << 24U | 0U << 16U | 0U << 8U | f  },
-                uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | 0U },
-                uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | 0U },
+                        uint32_t{0xFFU << 24U | 0U << 16U | f  << 8U | f  },
+                        uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | 0U },
+                        uint32_t{0xFFU << 24U | 0U << 16U | f  << 8U | 0U },
+                        uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | f  },
+                        uint32_t{0xFFU << 24U | 0U << 16U | 0U << 8U | f  },
+                        uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | 0U },
+                        uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | 0U },
         };
         enum generator_depth fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
-                const int rect_size = (width + bars.size() - 1) / bars.size();
+                const int rect_size = (width + columns - 1) / columns;
                 struct testcard_rect r{};
                 struct testcard_pixmap pixmap{};
                 pixmap.w = width;
@@ -235,7 +238,7 @@ class image_pattern_ebu_smpte_bars : public image_pattern {
                                 printf("Fill rect at %d,%d\n", r.x, r.y);
                                 testcard_fillRect(&pixmap, &r,
                                                 bars.at(col_num));
-                                col_num = (col_num + 1) % bars.size();
+                                col_num = (col_num + 1) % columns;
                         }
                 }
                 return generator_depth::bits8;
@@ -342,6 +345,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
                 cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns for RG48 and R12L\n";
                 cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
+                cout << "\t\t- pattern 'smpte' uses the top bars from top 2 thirds only (doesn't render bottom third differently)\n";
                 return {};
         }
         if (config == "bars") {
@@ -351,7 +355,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 return make_unique<image_pattern_blank>();
         }
         if (config == "ebu_bars") {
-                return make_unique<image_pattern_ebu_smpte_bars<0xFFU>>();
+                return make_unique<image_pattern_ebu_smpte_bars<0xFFU, 8>>();
         }
         if (config.substr(0, "gradient"s.length()) == "gradient") {
                 uint32_t color = image_pattern_gradient::red;
@@ -379,7 +383,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 return make_unique<image_pattern_raw>(config.substr("raw=0x"s.length()));
         }
         if (config == "smpte_bars") {
-                return make_unique<image_pattern_ebu_smpte_bars<0xBFU>>();
+                return make_unique<image_pattern_ebu_smpte_bars<0xBFU, 7>>();
         }
         if (config.substr(0, "0x"s.length()) == "0x") {
                 uint32_t blank_color = 0U;
