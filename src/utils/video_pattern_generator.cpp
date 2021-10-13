@@ -58,6 +58,7 @@
 #include "config_win32.h"
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <random>
 #include <utility>
@@ -75,6 +76,7 @@ constexpr const char *MOD_NAME = "[vid. patt. generator] ";
 constexpr int rg48_bpp = 6;
 
 using namespace std::string_literals;
+using std::array;
 using std::copy;
 using std::cout;
 using std::default_random_engine;
@@ -201,6 +203,41 @@ class image_pattern_bars : public image_pattern {
         }
 };
 
+class image_pattern_ebu_bars : public image_pattern {
+        static constexpr array ebu_bars{
+                uint32_t{0xFFFFFFFFU},
+                uint32_t{0xFF00FFFFU},
+                uint32_t{0xFFFFFF00U},
+                uint32_t{0xFF00FF00U},
+                uint32_t{0xFFFF00FFU},
+                uint32_t{0xFF0000FFU},
+                uint32_t{0xFFFF0000U},
+                uint32_t{0xFF000000U},
+        };
+        int fill(int width, int height, unsigned char *data) override {
+                int col_num = 0;
+                const int rect_size = (width + ebu_bars.size() - 1) / ebu_bars.size();
+                struct testcard_rect r{};
+                struct testcard_pixmap pixmap{};
+                pixmap.w = width;
+                pixmap.h = height;
+                pixmap.data = data;
+                for (int j = 0; j < height; j += rect_size) {
+                        for (int i = 0; i < width; i += rect_size) {
+                                r.x = i;
+                                r.y = j;
+                                r.w = rect_size;
+                                r.h = min<int>(rect_size, height - r.y);
+                                printf("Fill rect at %d,%d\n", r.x, r.y);
+                                testcard_fillRect(&pixmap, &r,
+                                                ebu_bars.at(col_num));
+                                col_num = (col_num + 1) % ebu_bars.size();
+                        }
+                }
+                return 8;
+        }
+};
+
 class image_pattern_blank : public image_pattern {
         public:
                 explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
@@ -298,7 +335,7 @@ class image_pattern_raw : public image_pattern {
 
 unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (config == "help") {
-                cout << "Pattern to use, one of: " << BOLD("bars, blank, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>, raw=0xXX[YYZZ..]\n");
+                cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>, raw=0xXX[YYZZ..]\n");
                 cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns for RG48 and R12L\n";
                 cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
                 return {};
@@ -308,6 +345,9 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         }
         if (config == "blank") {
                 return make_unique<image_pattern_blank>();
+        }
+        if (config == "ebu_bars") {
+                return make_unique<image_pattern_ebu_bars>();
         }
         if (config.substr(0, "gradient"s.length()) == "gradient") {
                 uint32_t color = image_pattern_gradient::red;
