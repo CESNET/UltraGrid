@@ -203,20 +203,21 @@ class image_pattern_bars : public image_pattern {
         }
 };
 
-class image_pattern_ebu_bars : public image_pattern {
-        static constexpr array ebu_bars{
-                uint32_t{0xFFFFFFFFU},
-                uint32_t{0xFF00FFFFU},
-                uint32_t{0xFFFFFF00U},
-                uint32_t{0xFF00FF00U},
-                uint32_t{0xFFFF00FFU},
-                uint32_t{0xFF0000FFU},
-                uint32_t{0xFFFF0000U},
-                uint32_t{0xFF000000U},
+template<uint8_t f>
+class image_pattern_ebu_smpte_bars : public image_pattern {
+        static constexpr array bars{
+                uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | f  },
+                uint32_t{0xFFU << 24U | 0U << 16U | f  << 8U | f  },
+                uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | 0U },
+                uint32_t{0xFFU << 24U | 0U << 16U | f  << 8U | 0U },
+                uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | f  },
+                uint32_t{0xFFU << 24U | 0U << 16U | 0U << 8U | f  },
+                uint32_t{0xFFU << 24U | f  << 16U | f  << 8U | 0U },
+                uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | 0U },
         };
         int fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
-                const int rect_size = (width + ebu_bars.size() - 1) / ebu_bars.size();
+                const int rect_size = (width + bars.size() - 1) / bars.size();
                 struct testcard_rect r{};
                 struct testcard_pixmap pixmap{};
                 pixmap.w = width;
@@ -230,8 +231,8 @@ class image_pattern_ebu_bars : public image_pattern {
                                 r.h = min<int>(rect_size, height - r.y);
                                 printf("Fill rect at %d,%d\n", r.x, r.y);
                                 testcard_fillRect(&pixmap, &r,
-                                                ebu_bars.at(col_num));
-                                col_num = (col_num + 1) % ebu_bars.size();
+                                                bars.at(col_num));
+                                col_num = (col_num + 1) % bars.size();
                         }
                 }
                 return 8;
@@ -335,7 +336,7 @@ class image_pattern_raw : public image_pattern {
 
 unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (config == "help") {
-                cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, 0x<AABBGGRR>, raw=0xXX[YYZZ..]\n");
+                cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
                 cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns for RG48 and R12L\n";
                 cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
                 return {};
@@ -347,7 +348,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 return make_unique<image_pattern_blank>();
         }
         if (config == "ebu_bars") {
-                return make_unique<image_pattern_ebu_bars>();
+                return make_unique<image_pattern_ebu_smpte_bars<0xFFU>>();
         }
         if (config.substr(0, "gradient"s.length()) == "gradient") {
                 uint32_t color = image_pattern_gradient::red;
@@ -373,6 +374,9 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         }
         if (config.substr(0, "raw=0x"s.length()) == "raw=0x") {
                 return make_unique<image_pattern_raw>(config.substr("raw=0x"s.length()));
+        }
+        if (config == "smpte_bars") {
+                return make_unique<image_pattern_ebu_smpte_bars<0xBFU>>();
         }
         if (config.substr(0, "0x"s.length()) == "0x") {
                 uint32_t blank_color = 0U;
