@@ -1017,9 +1017,9 @@ static void r10k_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restr
         }
 }
 
-static void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, bool rgba)
+static void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, int bpp)
 {
-        int src_linesize = vc_get_linesize(width, RGB);
+        int src_linesize = bpp * width;
         for (int y = 0; y < height; ++y) {
                 unsigned char *src = in_data + y * src_linesize;
                 unsigned char *dst_g = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -1027,24 +1027,22 @@ static void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __r
                 unsigned char *dst_r = out_frame->data[2] + out_frame->linesize[2] * y;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        *dst_r++ = *src++;
-                        *dst_g++ = *src++;
-                        *dst_b++ = *src++;
-                        if (rgba) {
-                                src++;
-                        }
+                        *dst_r++ = src[0];
+                        *dst_g++ = src[1];
+                        *dst_b++ = src[2];
+                        src += bpp;
                 }
         }
 }
 
 static void rgb_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
-        rgb_rgba_to_gbrp(out_frame, in_data, width, height, false);
+        rgb_rgba_to_gbrp(out_frame, in_data, width, height, 3);
 }
 
 static void rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
-        rgb_rgba_to_gbrp(out_frame, in_data, width, height, true);
+        rgb_rgba_to_gbrp(out_frame, in_data, width, height, 4);
 }
 
 static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
