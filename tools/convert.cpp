@@ -31,13 +31,16 @@ static void print_conversions() {
 }
 
 int main(int argc, char *argv[]) {
-        if (argc == 2 && string("conversions") == argv[1]) {
+        if (argc == 2 && string("list-conversions") == argv[1]) {
                 print_conversions();
                 return 0;
         }
         if (argc < 7) {
                 cout << "Usage:\n"
-                                "\t" << argv[0] << " <width> <height> <in_codec> <out_codec> <in_file> <out_file> | conversions\n";
+                                "\t" << argv[0] << " <width> <height> <in_codec> <out_codec> <in_file> <out_file> | list-conversions\n"
+                                "\n"
+                                "where\n"
+                                "\t" << "list-conversions - prints valid conversion pairs\n";
                 return 1;
         }
         int width = stoi(argv[1]);
