@@ -1045,7 +1045,7 @@ static void rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restr
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, 4);
 }
 
-static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
@@ -1063,11 +1063,21 @@ static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __r
                         unsigned char w1 = *src++;
                         unsigned char w2 = *src++;
                         unsigned char w3 = *src++;
-                        *dst_r++ = w0 << 2 | w1 >> 6;
-                        *dst_g++ = (w1 & 0x3f) << 4 | w2 >> 4;
-                        *dst_b++ = (w2 & 0xf) << 6 | w3 >> 2;
+                        *dst_r++ = (w0 << 2U | w1 >> 6U) << (depth - 10U);
+                        *dst_g++ = ((w1 & 0x3FU) << 4U | w2 >> 4U) << (depth - 10U);
+                        *dst_b++ = ((w2 & 0xFU) << 6U | w3 >> 2U) << (depth - 10U);
                 }
         }
+}
+
+static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r10k_to_gbrpXXle(out_frame, in_data, width, height, 10U);
+}
+
+static void r10k_to_gbrp16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r10k_to_gbrpXXle(out_frame, in_data, width, height, 16U);
 }
 
 #ifdef WORDS_BIGENDIAN
@@ -2689,6 +2699,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { RGBA, AV_PIX_FMT_GBRP,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgba_to_gbrp },
                 { R10k, AV_PIX_FMT_BGR0,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_bgr0 },
                 { R10k, AV_PIX_FMT_GBRP10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp10le },
+                { R10k, AV_PIX_FMT_GBRP16LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp16le },
                 { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
                 { R12L, AV_PIX_FMT_GBRP12LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r12l_to_gbrp12le },
