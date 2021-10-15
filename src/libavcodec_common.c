@@ -1273,8 +1273,8 @@ static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict fram
         }
 }
 
-static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
@@ -1285,15 +1285,27 @@ static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict 
                 uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
                 uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
+                unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-			*dst++ = *src_r >> 2;
-			*dst++ = (*src_r++ & 0x3) << 6 | *src_g >> 4;
-			*dst++ = (*src_g++ & 0xf) << 4 | *src_b >> 6;
-			*dst++ = (*src_b++ & 0x3f) << 2;
+                        *dst++ = *src_r >> (in_depth - 8U);
+                        *dst++ = ((*src_r++ >> (in_depth - 10U)) & 0x3U) << 6U | *src_g >> (in_depth - 6U);
+                        *dst++ = ((*src_g++ >> (in_depth - 10U)) & 0xFU) << 4U | *src_b >> (in_depth - 4U);
+                        *dst++ = ((*src_b++ >> (in_depth - 10U)) & 0x3FU) << 2U;
                 }
         }
+}
+
+static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 10U);
+}
+
+static void gbrp16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
 }
 
 static void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
@@ -1533,13 +1545,14 @@ static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
         }
 }
 
-#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
-static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
+
+#define S(x) ((x) >> (in_depth - 12))
 
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
@@ -1549,49 +1562,49 @@ static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict 
                 unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
-                        dst[BYTE_SWAP(0)] = *src_r & 0xff;
-                        dst[BYTE_SWAP(1)] = (*src_g & 0xf) << 4 | *src_r++ >> 8;
-                        dst[BYTE_SWAP(2)] = *src_g++ >> 4;
-                        dst[BYTE_SWAP(3)] = *src_b & 0xff;
-                        dst[4 + BYTE_SWAP(0)] = (*src_r & 0xf) << 4 | *src_b++ >> 8;
-                        dst[4 + BYTE_SWAP(1)] = *src_r++ >> 4;
-                        dst[4 + BYTE_SWAP(2)] = *src_g & 0xff;
-                        dst[4 + BYTE_SWAP(3)] = (*src_b & 0xf) << 4 | *src_g++ >> 8;
-                        dst[8 + BYTE_SWAP(0)] = *src_b++ >> 4;
-                        dst[8 + BYTE_SWAP(1)] = *src_r & 0xff;
-                        dst[8 + BYTE_SWAP(2)] = (*src_g & 0xf) << 4 | *src_r++ >> 8;
-                        dst[8 + BYTE_SWAP(3)] = *src_g++ >> 4;
-                        dst[12 + BYTE_SWAP(0)] = *src_b & 0xff;
-                        dst[12 + BYTE_SWAP(1)] = (*src_r & 0xf) << 4 | *src_b++ >> 8;
-                        dst[12 + BYTE_SWAP(2)] = *src_r++ >> 4;
-                        dst[12 + BYTE_SWAP(3)] = *src_g & 0xff;
-                        dst[16 + BYTE_SWAP(0)] = (*src_b & 0xf) << 4 | *src_g++ >> 8;
-                        dst[16 + BYTE_SWAP(1)] = *src_b++ >> 4;
-                        dst[16 + BYTE_SWAP(2)] = *src_r & 0xff;
-                        dst[16 + BYTE_SWAP(3)] = (*src_g & 0xf) << 4 | *src_r++ >> 8;
-                        dst[20 + BYTE_SWAP(0)] = *src_g++ >> 4;
-                        dst[20 + BYTE_SWAP(1)] = *src_b & 0xff;
-                        dst[20 + BYTE_SWAP(2)] = (*src_r & 0xf) << 4 | *src_b++ >> 8;
-                        dst[20 + BYTE_SWAP(3)] = *src_r++ >> 4;;
-                        dst[24 + BYTE_SWAP(0)] = *src_g & 0xff;
-                        dst[24 + BYTE_SWAP(1)] = (*src_b & 0xf) << 4 | *src_g++ >> 8;
-                        dst[24 + BYTE_SWAP(2)] = *src_b++ >> 4;
-                        dst[24 + BYTE_SWAP(3)] = *src_r & 0xff;
-                        dst[28 + BYTE_SWAP(0)] = (*src_g & 0xf) << 4 | *src_r++ >> 8;
-                        dst[28 + BYTE_SWAP(1)] = *src_g++ >> 4;
-                        dst[28 + BYTE_SWAP(2)] = *src_b & 0xff;
-                        dst[28 + BYTE_SWAP(3)] = (*src_r & 0xf) << 4 | *src_b++ >> 8;
-                        dst[32 + BYTE_SWAP(0)] = *src_r++ >> 4;
-                        dst[32 + BYTE_SWAP(1)] = *src_g & 0xff;
-                        dst[32 + BYTE_SWAP(2)] = (*src_b & 0xf) << 4 | *src_g++ >> 8;
-                        dst[32 + BYTE_SWAP(3)] = *src_b++ >> 4;
+                        dst[BYTE_SWAP(0)] = S(*src_r) & 0xff;
+                        dst[BYTE_SWAP(1)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
+                        dst[BYTE_SWAP(2)] = S(*src_g++) >> 4;
+                        dst[BYTE_SWAP(3)] = S(*src_b) & 0xff;
+                        dst[4 + BYTE_SWAP(0)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
+                        dst[4 + BYTE_SWAP(1)] = S(*src_r++) >> 4;
+                        dst[4 + BYTE_SWAP(2)] = S(*src_g) & 0xff;
+                        dst[4 + BYTE_SWAP(3)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
+                        dst[8 + BYTE_SWAP(0)] = S(*src_b++) >> 4;
+                        dst[8 + BYTE_SWAP(1)] = S(*src_r) & 0xff;
+                        dst[8 + BYTE_SWAP(2)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
+                        dst[8 + BYTE_SWAP(3)] = S(*src_g++) >> 4;
+                        dst[12 + BYTE_SWAP(0)] = S(*src_b) & 0xff;
+                        dst[12 + BYTE_SWAP(1)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
+                        dst[12 + BYTE_SWAP(2)] = S(*src_r++) >> 4;
+                        dst[12 + BYTE_SWAP(3)] = S(*src_g) & 0xff;
+                        dst[16 + BYTE_SWAP(0)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
+                        dst[16 + BYTE_SWAP(1)] = S(*src_b++) >> 4;
+                        dst[16 + BYTE_SWAP(2)] = S(*src_r) & 0xff;
+                        dst[16 + BYTE_SWAP(3)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
+                        dst[20 + BYTE_SWAP(0)] = S(*src_g++) >> 4;
+                        dst[20 + BYTE_SWAP(1)] = S(*src_b) & 0xff;
+                        dst[20 + BYTE_SWAP(2)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
+                        dst[20 + BYTE_SWAP(3)] = S(*src_r++) >> 4;;
+                        dst[24 + BYTE_SWAP(0)] = S(*src_g) & 0xff;
+                        dst[24 + BYTE_SWAP(1)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
+                        dst[24 + BYTE_SWAP(2)] = S(*src_b++) >> 4;
+                        dst[24 + BYTE_SWAP(3)] = S(*src_r) & 0xff;
+                        dst[28 + BYTE_SWAP(0)] = (S(*src_g) & 0xf) << 4 | S(*src_r++) >> 8;
+                        dst[28 + BYTE_SWAP(1)] = S(*src_g++) >> 4;
+                        dst[28 + BYTE_SWAP(2)] = S(*src_b) & 0xff;
+                        dst[28 + BYTE_SWAP(3)] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
+                        dst[32 + BYTE_SWAP(0)] = S(*src_r++) >> 4;
+                        dst[32 + BYTE_SWAP(1)] = S(*src_g) & 0xff;
+                        dst[32 + BYTE_SWAP(2)] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
+                        dst[32 + BYTE_SWAP(3)] = S(*src_b++) >> 4;
                         dst += 36;
                 }
         }
 }
 
-static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
@@ -1605,15 +1618,15 @@ static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict f
                 unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        *dst++ = *src_r++ >> 4;
-                        *dst++ = *src_g++ >> 4;
-                        *dst++ = *src_b++ >> 4;
+                        *dst++ = *src_r++ >> (in_depth - 8U);
+                        *dst++ = *src_g++ >> (in_depth - 8U);
+                        *dst++ = *src_b++ >> (in_depth - 8U);
                 }
         }
 }
 
-static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
@@ -1627,12 +1640,49 @@ static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
                 uint32_t *dst = (uint32_t *)(void *) (dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-			*dst++ = (*src_r++ >> 4) << rgb_shift[0] | (*src_g++ >> 4) << rgb_shift[1] |
-                                (*src_b++ >> 4) << rgb_shift[2];
+                        *dst++ = (*src_r++ >> (in_depth - 8U)) << rgb_shift[0] | (*src_g++ >> (in_depth - 8U)) << rgb_shift[1] |
+                                (*src_b++ >> (in_depth - 8U)) << rgb_shift[2];
                 }
         }
 }
+
+#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
+static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_r12l(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
+}
+
+static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
+}
+
+static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
+}
 #endif
+
+static void gbrp16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_r12l(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
+}
+
+static void gbrp16le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
+}
+
+static void gbrp16le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
+}
 
 static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
@@ -2816,6 +2866,10 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
                 {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
 #endif
+                {AV_PIX_FMT_GBRP16LE, R12L, gbrp16le_to_r12l, true},
+                {AV_PIX_FMT_GBRP16LE, R10k, gbrp16le_to_r10k, true},
+                {AV_PIX_FMT_GBRP12LE, RGB, gbrp16le_to_rgb, false},
+                {AV_PIX_FMT_GBRP12LE, RGBA, gbrp16le_to_rgba, false},
                 {AV_PIX_FMT_RGB48LE, RG48, memcpy_data, true},
                 {AV_PIX_FMT_RGB48LE, R12L, rgb48le_to_r12l, false},
                 {AV_PIX_FMT_RGB48LE, RGBA, rgb48le_to_rgba, false},
