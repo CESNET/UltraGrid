@@ -1272,6 +1272,33 @@ static bool display_gl_init_opengl(struct state_gl *s)
         return true;
 }
 
+static void display_gl_cleanup_opengl(struct state_gl *s){
+        if (s->PHandle_uyvy)
+                glDeleteProgram(s->PHandle_uyvy);
+
+        if (s->PHandle_dxt)
+                glDeleteProgram(s->PHandle_dxt);
+
+        if (s->PHandle_dxt5)
+                glDeleteProgram(s->PHandle_dxt5);
+
+        if (s->texture_display)
+                glDeleteTextures(1, &s->texture_display);
+
+        if (s->texture_uyvy)
+                glDeleteTextures(1, &s->texture_uyvy);
+
+        if (s->fbo_id)
+                glDeleteFramebuffersEXT(1, &s->fbo_id);
+
+        if (s->pbo_id)
+                glDeleteBuffersARB(1, &s->pbo_id);
+
+        if(s->window != -1) {
+                glutDestroyWindow(s->window);
+        }
+}
+
 static void display_gl_run(void *arg)
 {
         struct state_gl *s = 
@@ -1290,6 +1317,7 @@ static void display_gl_run(void *arg)
                 glutCheckLoop();
         }
 #endif
+        display_gl_cleanup_opengl(s);
 }
 
 static void gl_change_aspect(struct state_gl *s, int width, int height)
@@ -1823,24 +1851,6 @@ static void display_gl_done(void *state)
         assert(s->magic == MAGIC_GL);
 
         //pthread_join(s->thread_id, NULL);
-        if(s->window != -1) {
-                glutDestroyWindow(s->window);
-        }
-        if (s->PHandle_uyvy)
-                glDeleteProgram(s->PHandle_uyvy);
-        if (s->PHandle_dxt)
-                glDeleteProgram(s->PHandle_dxt);
-        if (s->PHandle_dxt5)
-                glDeleteProgram(s->PHandle_dxt5);
-        if (s->texture_display)
-                glDeleteTextures(1, &s->texture_display);
-        if (s->texture_uyvy)
-                glDeleteTextures(1, &s->texture_uyvy);
-        if (s->fbo_id)
-                glDeleteFramebuffersEXT(1, &s->fbo_id);
-        if (s->pbo_id)
-                glDeleteBuffersARB(1, &s->pbo_id);
-
         while (s->free_frame_queue.size() > 0) {
                 struct video_frame *buffer = s->free_frame_queue.front();
                 s->free_frame_queue.pop();
