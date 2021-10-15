@@ -173,17 +173,22 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
 
 static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
         *internal_codec = VIDEO_CODEC_NONE;
-	struct gpujpeg_image_parameters params = { 0 };
-	if (gpujpeg_decoder_get_image_info(buffer, len, &params, NULL, MAX(0, log_level - LOG_LEVEL_INFO)) != 0) {
+	struct gpujpeg_image_parameters image_params = { 0 };
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 20, 0)
+        struct gpujpeg_parameters params = { .verbose = MAX(0, log_level - LOG_LEVEL_INFO) };
+	if (gpujpeg_decoder_get_image_info(buffer, len, &image_params, &params, NULL) != 0) {
+#else
+	if (gpujpeg_decoder_get_image_info(buffer, len, &image_params, NULL, MAX(0, log_level - LOG_LEVEL_INFO)) != 0) {
+#endif
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - cannot get image info!\n");
 		return DECODER_GOT_FRAME;
 	}
 
-	if (!params.color_space) {
-                params.color_space = GPUJPEG_YCBCR_BT601_256LVLS;
+	if (!image_params.color_space) {
+                image_params.color_space = GPUJPEG_YCBCR_BT601_256LVLS;
 	}
 
-	switch ( params.color_space ) {
+	switch (image_params.color_space) {
 	case GPUJPEG_RGB:
 		*internal_codec = RGB;
 		break;
@@ -191,15 +196,15 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 	case GPUJPEG_YCBCR_BT601:
 	case GPUJPEG_YCBCR_BT601_256LVLS:
 	case GPUJPEG_YCBCR_BT709:
-                *internal_codec = params.pixel_format == GPUJPEG_420_U8_P0P1P2 ? I420 : UYVY;
+                *internal_codec = image_params.pixel_format == GPUJPEG_420_U8_P0P1P2 ? I420 : UYVY;
 		break;
 	default:
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - unhandled color space: %s\n",
-                                gpujpeg_color_space_get_name(params.color_space));
+                                gpujpeg_color_space_get_name(image_params.color_space));
 		return DECODER_GOT_FRAME;
 	}
 
-	log_msg(LOG_LEVEL_VERBOSE, "JPEG color space: %s\n", gpujpeg_color_space_get_name(params.color_space));
+	log_msg(LOG_LEVEL_VERBOSE, "JPEG color space: %s\n", gpujpeg_color_space_get_name(image_params.color_space));
 	return DECODER_GOT_CODEC;
 }
 
