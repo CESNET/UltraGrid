@@ -1273,29 +1273,44 @@ static bool display_gl_init_opengl(struct state_gl *s)
 }
 
 static void display_gl_cleanup_opengl(struct state_gl *s){
-        if (s->PHandle_uyvy)
+        if (s->PHandle_uyvy != 0) {
                 glDeleteProgram(s->PHandle_uyvy);
+                s->PHandle_uyvy = 0;
+        }
 
-        if (s->PHandle_dxt)
+        if (s->PHandle_dxt != 0) {
                 glDeleteProgram(s->PHandle_dxt);
+                s->PHandle_dxt = 0;
+        }
 
-        if (s->PHandle_dxt5)
+        if (s->PHandle_dxt5 != 0) {
                 glDeleteProgram(s->PHandle_dxt5);
+                s->PHandle_dxt5 = 0;
+        }
 
-        if (s->texture_display)
+        if (s->texture_display != 0) {
                 glDeleteTextures(1, &s->texture_display);
+                s->texture_display = 0;
+        }
 
-        if (s->texture_uyvy)
+        if (s->texture_uyvy != 0) {
                 glDeleteTextures(1, &s->texture_uyvy);
+                s->texture_uyvy = 0;
+        }
 
-        if (s->fbo_id)
+        if (s->fbo_id != 0) {
                 glDeleteFramebuffersEXT(1, &s->fbo_id);
+                s->fbo_id = 0;
+        }
 
-        if (s->pbo_id)
+        if (s->pbo_id != 0) {
                 glDeleteBuffersARB(1, &s->pbo_id);
+                s->pbo_id = 0;
+        }
 
-        if(s->window != -1) {
+        if (s->window != -1) {
                 glutDestroyWindow(s->window);
+                s->window = -1;
         }
 }
 
