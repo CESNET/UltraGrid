@@ -1621,6 +1621,12 @@ static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict 
         gbrpXXle_to_r12l(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
 }
 
+static void gbrp12le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
+}
+
 static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift)
 {
@@ -2831,6 +2837,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
                 {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
+                {AV_PIX_FMT_GBRP12LE, R10k, gbrp12le_to_r10k, true},
                 {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
                 {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
 #endif
