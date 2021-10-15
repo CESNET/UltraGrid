@@ -1501,50 +1501,6 @@ static void yuv444p16le_to_rg48(char * __restrict dst_buffer, AVFrame * __restri
         yuv444pXXle_to_rg48(16, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
-
-static void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        assert((uintptr_t) frame->linesize[0] % 2 == 0);
-        assert((uintptr_t) frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) frame->linesize[2] % 2 == 0);
-
-        UNUSED(rgb_shift);
-        for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
-
-                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-			*dst++ = *src_r++ >> 2;
-			*dst++ = *src_g++ >> 2;
-			*dst++ = *src_b++ >> 2;
-                }
-        }
-}
-
-static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
-{
-        assert((uintptr_t) dst_buffer % 4 == 0);
-        assert((uintptr_t) frame->linesize[0] % 2 == 0);
-        assert((uintptr_t) frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) frame->linesize[2] % 2 == 0);
-
-        for (int y = 0; y < height; ++y) {
-                uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_r = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-		uint32_t *dst = (uint32_t *)(void *) (dst_buffer + y * pitch);
-
-                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-			*dst++ = (*src_r++ >> 2) << rgb_shift[0] | (*src_g++ >> 2) << rgb_shift[1] |
-                                (*src_b++ >> 2) << rgb_shift[2];
-                }
-        }
-}
-
 static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
 {
@@ -1644,6 +1600,18 @@ static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __re
                                 (*src_b++ >> (in_depth - 8U)) << rgb_shift[2];
                 }
         }
+}
+
+static void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 10);
+}
+
+static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 10);
 }
 
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
