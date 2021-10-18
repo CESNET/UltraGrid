@@ -59,6 +59,7 @@
 #include "utils/net.h"
 
 #define DEFAULT_ALLOCATION_TIMEOUT_S 1800
+#define DEFAULT_NAT_PMP_TIMEOUT 5
 #define MOD_NAME "[NAT] "
 #define PREALLOCATE_S 30 ///< number of seconds that repeated allocation is performed before timeout
 
@@ -331,17 +332,23 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
         }
 
         natpmpresp_t response;
+        time_t t0 = time(NULL);
         do {
                 fd_set fds;
-                struct timeval timeout;
+                struct timeval timeout = { 0 };
                 FD_ZERO(&fds);
                 FD_SET(natpmp->s, &fds);
-                getnatpmprequesttimeout(natpmp, &timeout);
+                r = getnatpmprequesttimeout(natpmp, &timeout);
+                if (r != 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "NAT PMP - getnatpmprequesttimeout returned %d (%s)\n",
+                                        r, strnatpmperr(r));
+                        break;
+                }
                 select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
                 r = readnatpmpresponseorretry(natpmp, &response);
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "NAT PMP - readnatpmpresponseorretry returned %d (%s)\n",
                                 r, r == 0 ? "OK" : (r == NATPMP_TRYAGAIN ? "TRY AGAIN" : "FAILED"));
-        } while(r==NATPMP_TRYAGAIN);
+        } while (r == NATPMP_TRYAGAIN && time(NULL) - t0 < DEFAULT_NAT_PMP_TIMEOUT);
         if(r<0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "NAT PMP - readnatpmpresponseorretry() failed : %s\n",
                                 strnatpmperr(r));
