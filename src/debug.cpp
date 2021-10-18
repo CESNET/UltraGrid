@@ -257,7 +257,7 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_times
         if (isdigit(optarg[0])) {
                 long val = strtol(optarg, nullptr, 0);
                 if (val < 0 || val > LOG_LEVEL_MAX) {
-                        clog << "Log: wrong value: " << log_level << "\n";
+                        clog << "Log: wrong value: " << optarg << " (allowed range [0.." << LOG_LEVEL_MAX << "])\n";
                         return false;
                 }
                 log_level = val;
