@@ -126,6 +126,13 @@ void log_msg(int level, const char *format, ...)
         LOG(level) << buffer;
 }
 
+void log_msg_once(int level, uint32_t id, const char *msg) {
+        if (log_level < level) {
+                return;
+        }
+        Logger(level).once(id, msg);
+}
+
 /**
  * This function is analogous to perror(). The message is printed using the logger.
  */
@@ -349,6 +356,7 @@ void debug_file_dump(const char *key, void (*serialize)(void *data, FILE *), voi
 #endif
 
 std::atomic<Logger::last_message *> Logger::last_msg{};
+thread_local std::set<uint32_t> Logger::oneshot_messages;
 std::atomic<bool> Logger::skip_repeated{true};
 int Logger::show_timestamps = -1;
 

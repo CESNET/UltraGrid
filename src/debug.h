@@ -40,9 +40,12 @@
 #ifndef _RAT_DEBUG_H
 #define _RAT_DEBUG_H
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+#include <cstdint>
+#else
 #include <stdbool.h>
-#endif // ! defined __cplusplus
+#include <stdint.h>
+#endif // defined __cplusplus
 
 #define UNUSED(x)	(x=x)
 
@@ -82,6 +85,7 @@ void debug_file_dump(const char *key, void (*serialize)(void *data, FILE *), voi
 ///#define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, "[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 #define debug_msg(...) log_msg(LOG_LEVEL_DEBUG, __VA_ARGS__)
 void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
+void log_msg_once(int log_level, uint32_t id, const char *msg);
 void log_perror(int log_level, const char *msg);
 
 bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_timestamps);
@@ -96,6 +100,7 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_times
 #include <atomic>
 #include <iomanip>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <string>
 #include "compat/platform_time.h"
@@ -154,6 +159,13 @@ public:
         inline std::ostream& Get() {
                 return oss;
         }
+        inline void once(uint32_t id, const std::string &msg) {
+                if (oneshot_messages.count(id) > 0) {
+                        return;
+                }
+                oneshot_messages.insert(id);
+                oss << msg;
+        }
 private:
         int level;
         std::ostringstream oss;
@@ -165,12 +177,16 @@ private:
                 int count{0};
         };
         static std::atomic<last_message *> last_msg; // leaks last message upon exit
+        static thread_local std::set<uint32_t> oneshot_messages;
 
         friend class keyboard_control;
 };
 
 #define LOG(level) \
 if (level <= log_level) Logger(level).Get()
+
+#define LOG_ONCE(level, id, msg) \
+if (level <= log_level) Logger(level).once(id, msg)
 
 #endif
 
