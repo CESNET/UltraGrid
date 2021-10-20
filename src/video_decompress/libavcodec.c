@@ -705,6 +705,18 @@ static bool lavd_sws_convert_to_buffer(struct state_libavcodec_decompress_sws *s
 }
 #endif
 
+static void serialize_avframe(void *f, FILE *out) {
+        AVFrame *frame = f;
+        for (int comp = 0; comp < AV_NUM_DATA_POINTERS; ++comp) {
+                if (frame->data[comp] == NULL) {
+                        break;
+                }
+                for (int y = 0; y < frame->height; ++y) {
+                        fwrite(frame->data[comp] + y * frame->linesize[comp], frame->linesize[comp], 1, out);
+                }
+        }
+}
+
 /**
  * Changes pixel format from frame to native
  *
@@ -724,6 +736,8 @@ static bool lavd_sws_convert_to_buffer(struct state_libavcodec_decompress_sws *s
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec_t out_codec, int width, int height,
                 int pitch, int rgb_shift[static restrict 3], struct state_libavcodec_decompress_sws *sws) {
         av_to_uv_convert_p convert = NULL;
+
+        debug_file_dump("lavd-uncompressed", serialize_avframe, frame);
 
         if (get_av_to_ug_pixfmt(av_codec) == out_codec) {
                 if (!codec_is_planar(out_codec)) {

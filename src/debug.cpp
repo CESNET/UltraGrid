@@ -49,6 +49,8 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
+#include <unordered_map>
 
 #include "compat/misc.h" // strdupa
 #include "compat/platform_time.h"
@@ -56,6 +58,9 @@
 #include "host.h"
 #include "rang.hpp"
 #include "utils/color_out.h"
+
+using std::string;
+using std::unordered_map;
 
 volatile int log_level = LOG_LEVEL_INFO;
 
@@ -300,6 +305,59 @@ void Logger::preinit(bool skip_repeated, int show_timestamps)
 #endif
         }
 }
+
+#ifdef DEBUG
+void debug_file_dump(const char *key, void (*serialize)(void *data, FILE *), void *data) {
+        const char *dump_file_val = get_commandline_param("debug-dump");
+        static thread_local unordered_map<string, int> skip_map;
+        if (dump_file_val == nullptr) {
+                return;
+        }
+
+        // check if key is contained
+        string not_first = ",";
+        not_first + key;
+        int skip_n = 0;
+        if (strstr(dump_file_val, key) == dump_file_val) {
+                const char *val = dump_file_val + strlen(key);
+                if (val[0] == '=') {
+                        skip_n = atoi(val + 1);
+                }
+        } else if (strstr(dump_file_val, not_first.c_str()) != NULL) {
+                const char *val = strstr(dump_file_val, not_first.c_str()) + strlen(key);
+                if (val[0] == '=') {
+                        skip_n = atoi(val + 1);
+                }
+        } else {
+                return;
+        }
+
+        if (skip_map.find(key) == skip_map.end()) {
+                skip_map[key] = skip_n;
+        }
+
+        if (skip_map[key] == -1) { // already exported
+                return;
+        }
+
+        if (skip_map[key] > 0) {
+                skip_map[key]--;
+                return;
+        }
+
+        // export
+        string name = string(key) + ".dump";
+        FILE *out = fopen(name.c_str(), "wb");
+        if (out == nullptr) {
+                perror("debug_file_dump fopen");
+                return;
+        }
+        serialize(data, out);
+        fclose(out);
+
+        skip_map[key] = -1;
+}
+#endif
 
 std::atomic<Logger::last_message *> Logger::last_msg{};
 std::atomic<bool> Logger::skip_repeated{true};

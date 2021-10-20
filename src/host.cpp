@@ -692,6 +692,11 @@ ADD_TO_PARAM("audio-cap-frames", "* audio-cap-frames=<f>\n"
                 "  Sets number of audio frames captured at once (CoreAudio)\n");
 ADD_TO_PARAM("audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n"
                 "  Disables audio adaptive playback buffer (CoreAudio/JACK)\n");
+#ifdef DEBUG
+ADD_TO_PARAM("debug-dump", "* debug-dump=<module>[=<n>][,<module2>[=<n>]\n"
+                "  Dumps specified buffer for debugging, n-th buffer may be selected, name is <module>.dump.\n"
+                "  Avaiable modules: lavd-uncompressed\n");
+#endif
 ADD_TO_PARAM("low-latency-audio", "* low-latency-audio[=ultra]\n"
                 "  Try to reduce audio latency at the expense of worse reliability\n"
                 "  Add ultra for even more aggressive setting.\n");
