@@ -1238,9 +1238,14 @@ static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame
 {
         UNUSED(rgb_shift);
         UNUSED(width);
-        for (int y = 0; y < height; ++y) {
-                memcpy(dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
-                                frame->linesize[0]);
+        for (int comp = 0; comp < AV_NUM_DATA_POINTERS; ++comp) {
+                if (frame->data[comp] == NULL) {
+                        break;
+                }
+                for (int y = 0; y < height; ++y) {
+                        memcpy(dst_buffer + y * pitch, frame->data[comp] + y * frame->linesize[comp],
+                                        frame->linesize[comp]);
+                }
         }
 }
 
