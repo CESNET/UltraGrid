@@ -285,6 +285,8 @@ struct frame_msg {
                                         }
                                 }
                         }
+                        stats.corrupted += is_corrupted;
+                        stats.displayed += is_displayed;
                 }
                 vf_free(recv_frame);
                 vf_free(nofec_frame);
