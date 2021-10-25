@@ -496,6 +496,17 @@ fail:
 }
 #endif
 
+#ifdef HWACCEL_RPI4
+int rpi4_hwacc_init(struct AVCodecContext *s,
+                struct hw_accel_state *state,
+                codec_t out_codec)
+{
+        state->type = HWACCEL_RPI4;
+        state->copy = false;
+        return 0;
+}
+#endif
+
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
 {
 #define SELECT_PIXFMT(pixfmt) { log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Selected pixel format: %s\n", av_get_pix_fmt_name(pixfmt)); return pixfmt; }
@@ -527,6 +538,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 #endif
 #ifdef HAVE_MACOSX
                 {AV_PIX_FMT_VIDEOTOOLBOX, HWACCEL_VIDEOTOOLBOX, videotoolbox_init}
+#endif
+#ifdef HWACCEL_RPI4
+                {AV_PIX_FMT_RPI4_8, HWACCEL_RPI4, rpi4_hwacc_init}
 #endif
         };
 
@@ -1126,6 +1140,8 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
                         (struct decode_from_to) {H264, VIDEO_CODEC_NONE, HW_VDPAU, 200};
                 ret[ret_idx++] =
                         (struct decode_from_to) {H265, VIDEO_CODEC_NONE, HW_VDPAU, 200};
+                ret[ret_idx++] =
+                        (struct decode_from_to) {H265, VIDEO_CODEC_NONE, RPI4_8, 200};
         }
         assert(ret_idx < sizeof ret / sizeof ret[0]); // there needs to be at least one zero row
 

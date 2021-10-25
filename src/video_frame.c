@@ -142,6 +142,9 @@ void vf_free(struct video_frame *buf)
 
 void vf_recycle(struct video_frame *buf)
 {
+        if(!buf)
+                return;
+
         if(buf->callbacks.recycle)
                 buf->callbacks.recycle(buf);
 }

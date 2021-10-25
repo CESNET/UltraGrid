@@ -60,6 +60,7 @@ enum hw_accel_type {
         HWACCEL_VDPAU,
         HWACCEL_VAAPI,
         HWACCEL_VIDEOTOOLBOX,
+        HWACCEL_RPI4,
         HWACCEL_COUNT
 };
 

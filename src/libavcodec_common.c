@@ -57,6 +57,7 @@
 
 #include "host.h"
 #include "hwaccel_vdpau.h"
+#include "hwaccel_rpi4.h"
 #include "libavcodec_common.h"
 #include "video.h"
 
@@ -2704,6 +2705,31 @@ static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restr
 }
 #endif
 
+#ifdef HWACC_RPI4
+static void av_rpi4_8_to_ug(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, int * __restrict rgb_shift)
+{
+        UNUSED(width);
+        UNUSED(height);
+        UNUSED(pitch);
+        UNUSED(rgb_shift);
+
+        struct video_frame_callbacks *callbacks = in_frame->opaque;
+
+        av_frame_wrapper *out = (av_frame_wrapper *)(void *) dst_buffer;
+
+        for(int i = 0; i < AV_NUM_DATA_POINTERS; i++){
+            if(in_frame->buf[i])
+                out->buf[i] = av_buffer_ref(in_frame->buf[i]);
+
+            out->data[i] = in_frame->data[i];
+        }
+
+        callbacks->recycle = av_frame_wrapper_recycle;
+        callbacks->copy = av_frame_wrapper_copy;
+}
+#endif
+
 //
 // conversion dispatchers
 //
@@ -2882,6 +2908,9 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
 #ifdef HWACC_VDPAU
                 // HW acceleration
                 {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
+#endif
+#ifdef HWACC_RPI4
+                {AV_PIX_FMT_RPI4_8, RPI4_8, av_rpi4_8_to_ug, false},
 #endif
                 {0, 0, 0, 0}
         };
