@@ -52,29 +52,24 @@ extern "C" {
 #endif
 
 typedef struct av_frame_wrapper{
-        AVBufferRef *buf[AV_NUM_DATA_POINTERS];
-        char *data[AV_NUM_DATA_POINTERS];
+        AVFrame *av_frame;
 } av_frame_wrapper;
 
 static inline void av_frame_wrapper_recycle(struct video_frame *f){
+        log_msg(LOG_LEVEL_NOTICE, "RPI frame recycle\n");
         for(unsigned i = 0; i < f->tile_count; i++){
                 av_frame_wrapper *wrapper = (av_frame_wrapper *)(void *) f->tiles[i].data;
 
-                for(int j = 0; j < AV_NUM_DATA_POINTERS; j++){
-                        av_buffer_unref(&wrapper->buf[j]);
-                        wrapper->data[j] = NULL;
-                }
+                av_frame_unref(wrapper->av_frame);
         }
 }
 
 static inline void av_frame_wrapper_copy(struct video_frame *f){
+        log_msg(LOG_LEVEL_NOTICE, "RPI frame copy\n");
         for(unsigned i = 0; i < f->tile_count; i++){
                 av_frame_wrapper *wrapper = (av_frame_wrapper *)(void *) f->tiles[i].data;
 
-                for(int j = 0; j < AV_NUM_DATA_POINTERS; j++){
-                        if(wrapper->buf[j])
-                                wrapper->buf[j] = av_buffer_ref(wrapper->buf[j]);
-                }
+                wrapper->av_frame = av_frame_clone(wrapper->av_frame);
         }
 }
 

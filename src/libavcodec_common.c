@@ -2714,19 +2714,8 @@ static void av_rpi4_8_to_ug(char * __restrict dst_buffer, AVFrame * __restrict i
         UNUSED(pitch);
         UNUSED(rgb_shift);
 
-        struct video_frame_callbacks *callbacks = in_frame->opaque;
-
         av_frame_wrapper *out = (av_frame_wrapper *)(void *) dst_buffer;
-
-        for(int i = 0; i < AV_NUM_DATA_POINTERS; i++){
-            if(in_frame->buf[i])
-                out->buf[i] = av_buffer_ref(in_frame->buf[i]);
-
-            out->data[i] = in_frame->data[i];
-        }
-
-        callbacks->recycle = av_frame_wrapper_recycle;
-        callbacks->copy = av_frame_wrapper_copy;
+        av_frame_ref(out->av_frame, in_frame);
 }
 #endif
 

@@ -950,6 +950,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                         transfer_frame(&s->hwaccel, s->frame);
                                 }
 #endif
+
                                 if (s->out_codec != VIDEO_CODEC_NONE) {
                                         bool ret = change_pixfmt(s->frame, dst, s->frame->format, s->out_codec, s->desc.width,
                                                         s->desc.height, s->pitch, s->rgb_shift, &s->sws);
