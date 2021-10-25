@@ -1646,6 +1646,7 @@ fi
 lavc_hwacc_common=no
 lavc_hwacc_vdpau=no
 lavc_hwacc_vaapi=no
+lavc_hwacc_rpi4=no
 
 define(lavc_hwacc_common_dep, libavcodec libavutil >= 55.22.1)
 define(lavc_hwacc_vdpau_dep, lavc_hwacc_common_dep vdpau)
@@ -1656,18 +1657,39 @@ AC_ARG_ENABLE(lavc-hw-accel-vdpau,
 [                          Requires: lavc_hwacc_vdpau_dep],
     [lavc_hwacc_vdpau_req=$enableval],
     [lavc_hwacc_vdpau_req=$build_default]
-    )
+)
 
 AC_ARG_ENABLE(lavc-hw-accel-vaapi,
 [  --disable-lavc-hw-accel-vaapi   disable lavc-hw-accel-vaapi (default is auto)]
 [                          Requires: lavc_hwacc_vaapi_dep],
     [lavc_hwacc_vaapi_req=$enableval],
     [lavc_hwacc_vaapi_req=$build_default]
-    )
+)
+
+AC_ARG_ENABLE(lavc-hw-accel-rpi4,
+[  --disable-lavc-hw-accel-rpi4          disable lavc-hw-accel-rpi4 (default is auto)]
+[                          Requires: Raspbian-patched ffmpeg libmmal],
+    [lavc_hwacc_rpi4_req=$enableval],
+    [lavc_hwacc_rpi4_req=$build_default]
+)
+
 
 PKG_CHECK_MODULES([LAVC_HWACC_COMMON], [lavc_hwacc_common_dep], [FOUND_HWACC_COMMON_DEP=yes], [FOUND_HWACC_COMMON_DEP=no])
 PKG_CHECK_MODULES([LAVC_HWACC_VDPAU], [lavc_hwacc_vdpau_dep], [FOUND_HWACC_VDPAU_DEP=yes], [FOUND_HWACC_VDPAU_DEP=no])
 PKG_CHECK_MODULES([LAVC_HWACC_VAAPI], [lavc_hwacc_vaapi_dep], [FOUND_HWACC_VAAPI_DEP=yes], [FOUND_HWACC_VAAPI_DEP=no])
+
+SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
+PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/vc/lib/pkgconfig/"
+export PKG_CONFIG_PATH
+
+PKG_CHECK_MODULES([MMAL], [mmal], [ FOUND_HWACC_RPI4_DEP=yes ], [ FOUND_HWACC_RPI4_DEP=no ])
+PKG_CHECK_MODULES([BCM_HOST], [bcm_host], [ ], [ FOUND_HWACC_RPI4_DEP=no ])
+
+PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
+export PKG_CONFIG_PATH
+
+AC_CHECK_HEADER([libavcodec/rpi_zc.h], [  ], [FOUND_HWACC_RPI4_DEP=no], [#include <libavcodec/avcodec.h>])
+
 
 LAVC_HWACC_FLAGS=
 LAVC_HWACC_LIBS=
@@ -1683,7 +1705,11 @@ then
         lavc_hwacc_vaapi=yes
         lavc_hwacc_common=yes
 fi
-
+if test $lavc_hwacc_rpi4_req != no -a $FOUND_HWACC_RPI4_DEP = yes
+then
+        lavc_hwacc_rpi4=yes
+        lavc_hwacc_common=yes
+fi
 if test $system = MacOSX; then
         lavc_hwacc_common=yes
 fi
@@ -1707,6 +1733,13 @@ then
         HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
 fi
 
+if test $lavc_hwacc_rpi4 = yes
+then
+	LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_RPI4 ${MMAL_CFLAGS} ${BCM_HOST_CFLAGS}"
+	LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${MMAL_LIBS} ${BCM_HOST_LIBS}"
+	ADD_MODULE("rpi4_hw_accel", "src/video_display/rpi4_out.o", "${MMAL_LIBS} ${BCM_HOST_LIBS}")
+fi
+
 COMMON_FLAGS="$COMMON_FLAGS $LAVC_HWACC_FLAGS"
 
 if test $lavc_hwacc_vdpau_req = yes -a $lavc_hwacc_vdpau = no; then
@@ -1715,6 +1748,10 @@ fi
 
 if test $lavc_hwacc_vaapi_req = yes -a $lavc_hwacc_vaapi = no; then
 	AC_MSG_ERROR([Could not find hwacc vaapi dependencies!]);
+fi
+
+if test $lavc_hwacc_rpi4_req = yes -a $lavc_hwacc_rpi4 = no; then
+	AC_MSG_ERROR([Could not find hwacc rpi4 dependencies!]);
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -3410,7 +3447,7 @@ RESULT=`add_column "$RESULT" "Comprimato J2K" $cmpto_j2k $?`
 RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
 RESULT=`add_column "$RESULT" "GPUJPEG" $gpujpeg $?`
 RESULT=`add_column "$RESULT" "GPUJPEG transcode to DXT" $gpujpeg_to_dxt $?`
-RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi)" $libavcodec $?`
+RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi, RPI4 $lavc_hwacc_rpi4)" $libavcodec $?`
 RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
 RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
 RESULT=`end_section "$RESULT"`
