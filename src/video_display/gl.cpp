@@ -87,6 +87,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "rang.hpp"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
@@ -379,28 +380,29 @@ extern "C" void NSApplicationLoad(void);
  * Show help
  */
 static void gl_show_help(void) {
-        cout << "GL options:\n";
+        cout << "usage:\n";
         cout << rang::style::bold << rang::fg::red << "\t-d gl" << rang::fg::reset << "[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:spout[=<name>]|:nodecorate|:fixed_size[=WxH]|:vsync[<x>|single]]* | help\n\n" << rang::style::reset;
-        printf("\t\td\t\tdeinterlace\n");
-        printf("\t\tfs\t\tfullscreen\n");
-        printf("\t\tnodecorate\tdisable window decorations (works with X11 only)\n");
-        printf("\t\tnovsync\t\tdo not turn sync on VBlank\n");
-        printf("\t\tvsync=<x>\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n");
-        printf("\t\tsingle\t\tuse single buffer (instead of double-buffering\n");
-        printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
-        printf("\t\tcursor\t\tshow visible cursor\n");
-        printf("\t\tsize\t\tspecifies desired size of window compared "
-                        "to native resolution (in percents)\n");
-        printf("\t\tsyphon\t\tuse Syphon (optionally with name)\n");
-        printf("\t\tspout\t\tuse Spout (optionally with name)\n");
-        printf("\t\thide-window\tdo not show OpenGL window (useful with Syphon)\n");
-        cout << "\t\t[no]pbo\t\tWhether or not use PBO (ignore if not sure)\n";
+        cout << "options:\n";
+        cout << BOLD("\td")           << "\t\tdeinterlace\n";
+        cout << BOLD("\tfs")          << "\t\tfullscreen\n";
+        cout << BOLD("\tnodecorate")  << "\tdisable window decorations (works with X11 only)\n";
+        cout << BOLD("\tnovsync")     << "\t\tdo not turn sync on VBlank\n";
+        cout << BOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
+        cout << BOLD("\tsingle")      << "\t\tuse single buffer (instead of double-buffering\n";
+        cout << BOLD("\taspect=<w>/<h>") << "\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n";
+        cout << BOLD("\tcursor")      << "\t\tshow visible cursor\n";
+        cout << BOLD("\tsize")        << "\t\tspecifies desired size of window compared "
+                "to native resolution (in percents)\n";
+        cout << BOLD("\tsyphon")      << "\t\tuse Syphon (optionally with name)\n";
+        cout << BOLD("\tspout")       << "\t\tuse Spout (optionally with name)\n";
+        cout << BOLD("\thide-window") << "\tdo not show OpenGL window (useful with Syphon/SPOUT)\n";
+        cout << BOLD("\t[no]pbo")     << "\t\tWhether or not use PBO (ignore if not sure)\n";
 
-        printf("\n\nKeyboard shortcuts:\n");
+        printf("\nkeyboard shortcuts:\n");
         for (auto i : keybindings) {
                 char keyname[50];
                 get_keycode_name(i.first, keyname, sizeof keyname);
-                cout << "\t\t" << keyname << "\t\t" << i.second << "\n";
+                cout << "\t" << BOLD(keyname) << "\t\t" << i.second << "\n";
         }
 }
 
