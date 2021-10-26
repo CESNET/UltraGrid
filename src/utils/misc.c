@@ -47,6 +47,8 @@
 #include "debug.h"
 #include "utils/misc.h"
 
+#define STRERROR_BUF_LEN 1024
+
 int clampi(long long val, int lo, int hi) {
         if (val < lo) {
                 return lo;
@@ -304,4 +306,19 @@ size_t urldecode(char *out, size_t max_len, const char *in)
         len++;
 
         return len;
+}
+
+const char *ug_strerror(int errnum)
+{
+        static _Thread_local char strerror_buf[STRERROR_BUF_LEN];
+        const char *errstring = strerror_buf;
+#ifdef _WIN32
+        strerror_s(strerror_buf, sizeof strerror_buf, errnum); // C11 Annex K (bounds-checking interfaces)
+#elif ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
+        strerror_r(errnum, strerror_buf, sizeof strerror_buf); // XSI version
+#else // GNU strerror_r version
+        errstring = strerror_r(errnum, strerror_buf, sizeof strerror_buf);
+#endif
+
+        return errstring;
 }

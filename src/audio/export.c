@@ -51,6 +51,7 @@
 #include "audio/wav_writer.h"
 #include "debug.h"
 #include "export.h"
+#include "utils/misc.h" // ug_strerror
 #include "utils/ring_buffer.h"
 
 #define CACHE_SECONDS                   10
@@ -109,7 +110,7 @@ static void *audio_export_thread(void *arg)
                 const int sample_size = s->saved_format.bps * s->saved_format.ch_count;
                 int rc = wav_writer_write(s->wav, size / sample_size, data);
                 if (rc != 0) {
-                        fprintf(stderr, "[Audio export] Problem writing audio samples: %s\n", strerror(-rc));
+                        fprintf(stderr, "[Audio export] Problem writing audio samples: %s\n", ug_strerror(-rc));
                 }
 
                 free(data);

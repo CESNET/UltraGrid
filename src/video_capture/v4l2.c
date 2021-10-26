@@ -61,11 +61,8 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/list.h"
+#include "utils/misc.h" // ug_strerror
 #include "video.h"
-
-#ifndef _GNU_SOURCE
-#error "GNU variant of strerror_r is used below!"
-#endif
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
@@ -224,9 +221,8 @@ static void show_help()
                 int fd = open(name, O_RDWR);
                 if (fd == -1) {
                         if (errno != ENOENT) {
-                                char errbuf[1024];
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to open input device %s: %s\n",
-                                                name, strerror_r(errno, errbuf, sizeof errbuf));
+                                                name, ug_strerror(errno));
                         }
                         continue;
                 }

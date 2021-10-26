@@ -68,6 +68,8 @@ int urlencode_rfc3986_eval(int c);
 size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int c), bool space_plus_replace);
 size_t urldecode(char *out, size_t max_len, const char *in);
 
+const char *ug_strerror(int errnum);
+
 /**
  * @brief Creates FourCC word
  *

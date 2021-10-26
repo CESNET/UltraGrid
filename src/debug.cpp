@@ -58,6 +58,7 @@
 #include "host.h"
 #include "rang.hpp"
 #include "utils/color_out.h"
+#include "utils/misc.h" // ug_strerror
 
 using std::string;
 using std::unordered_map;
@@ -130,19 +131,7 @@ void log_msg(int level, const char *format, ...)
  */
 void log_perror(int level, const char *msg)
 {
-        constexpr int strerror_buf_len = 1024;
-        std::array<char, strerror_buf_len> strerror_buf;
-        const char *errstring;
-#ifdef _WIN32
-        strerror_s(strerror_buf.data(), strerror_buf.size(), errno); // C11 Annex K (bounds-checking interfaces)
-        errstring = strerror_buf.data();
-#elif ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
-        strerror_r(errno, strerror_buf.data(), strerror_buf.size()); // XSI version
-        errstring = strerror_buf.data();
-#else // GNU strerror_r version
-        errstring = strerror_r(errno, strerror_buf.data(), strerror_buf_len);
-#endif
-        log_msg(level, "%s: %s\n", msg, errstring);
+        log_msg(level, "%s: %s\n", msg, ug_strerror(errno));
 }
 
 /**
