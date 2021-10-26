@@ -148,7 +148,7 @@ struct wav_writer_file *wav_writer_create(const char *filename, struct audio_des
         return out;
 }
 
-bool wav_writer_write(struct wav_writer_file *wav, long long sample_count, const char *data)
+int wav_writer_write(struct wav_writer_file *wav, long long sample_count, const char *data)
 {
         char *tmp = NULL;
         if (wav->fmt.bps == 1) {
@@ -161,9 +161,9 @@ bool wav_writer_write(struct wav_writer_file *wav, long long sample_count, const
         wav->samples_written += res;
         free(tmp);
         if (res != (size_t) sample_count) {
-                return false;
+                return -errno;
         }
-        return true;
+        return 0;
 }
 
 bool wav_writer_close(struct wav_writer_file *wav)

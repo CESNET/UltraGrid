@@ -107,8 +107,9 @@ static void *audio_export_thread(void *arg)
                 pthread_mutex_unlock(&s->lock);
 
                 const int sample_size = s->saved_format.bps * s->saved_format.ch_count;
-                if (!wav_writer_write(s->wav, size / sample_size, data)) {
-                        fprintf(stderr, "[Audio export] Problem writing audio samples.\n");
+                int rc = wav_writer_write(s->wav, size / sample_size, data);
+                if (rc != 0) {
+                        fprintf(stderr, "[Audio export] Problem writing audio samples: %s\n", strerror(-rc));
                 }
 
                 free(data);
