@@ -582,13 +582,13 @@ void keyboard_control::info()
         cout << BOLD("Locked against changes: ") << (m_locked_against_changes ? "true" : "false") << "\n";
         cout << BOLD("Audio playback delay: " << get_audio_delay()) << " ms\n";
 
-        int muted_sender = -1;
-        int muted_receiver = -1;
         {
-                char path[] = "audio.receiver";
-                auto m = (struct msg_receiver *) new_message(sizeof(struct msg_receiver));
-                m->type = RECEIVER_MSG_GET_AUDIO_STATUS;
-                auto resp = send_message_sync(m_root, path, (struct message *) m, 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                int muted_sender = -1;
+                int muted_receiver = -1;
+                const char *path = "audio.receiver";
+                auto *m_recv = reinterpret_cast<struct msg_receiver *>(new_message(sizeof(struct msg_receiver)));
+                m_recv->type = RECEIVER_MSG_GET_AUDIO_STATUS;
+                auto *resp = send_message_sync(m_root, path, reinterpret_cast<struct message *>(m_recv), 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(resp) == 200) {
                         double vol = 0;
                         sscanf(response_get_text(resp), "%lf,%d", &vol, &muted_receiver);
@@ -600,25 +600,23 @@ void keyboard_control::info()
                         cout.flags(f);
                 }
                 free_response(resp);
-        }
-        {
-                char path[] = "audio.sender";
-                auto m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
-                m->type = SENDER_MSG_GET_STATUS;
-                auto resp = send_message_sync(m_root, path, (struct message *) m, 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
+                path = "audio.sender";
+                auto *m_send = reinterpret_cast<struct msg_sender *>(new_message(sizeof(struct msg_sender)));
+                m_send->type = SENDER_MSG_GET_STATUS;
+                resp = send_message_sync(m_root, path, reinterpret_cast<struct message *>(m_send), 100, SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(resp) == 200) {
                         sscanf(response_get_text(resp), "%d", &muted_sender);
                 }
                 free_response(resp);
+                auto muted_to_string = [](int val) {
+                        switch (val) {
+                                case 0: return "false";
+                                case 1: return "true";
+                                default: return "(unknown)";
+                        }
+                };
+                cout << BOLD("Audio muted - sender: ") << muted_to_string(muted_sender) << ", " << BOLD("receiver: ") << muted_to_string(muted_receiver) << "\n";
         }
-        auto muted_to_string = [](int val) {
-                switch (val) {
-                        case 0: return "false";
-                        case 1: return "true";
-                        default: return "(unknown)";
-                }
-        };
-        cout << BOLD("Audio muted - sender: ") << muted_to_string(muted_sender) << ", " << BOLD("receiver: ") << muted_to_string(muted_receiver) << "\n";
 
 	{
 		struct video_desc desc{};
