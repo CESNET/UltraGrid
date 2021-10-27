@@ -514,7 +514,7 @@ void print_version()
                 is_release = false;
         }
 #endif
-        cout << rang::fg::yellow << rang::style::bold << PACKAGE_STRING <<
+        cout << rang::fg::bright_blue << rang::style::bold << PACKAGE_STRING <<
                 (is_release ? "" : "+") <<
                 rang::fg::reset << rang::style::reset << " (" <<
                 get_version_details() << ")\n";
