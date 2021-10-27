@@ -331,7 +331,7 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
                 return false;
         }
 
-        natpmpresp_t response;
+        natpmpresp_t response = { 0 };
         time_t t0 = time(NULL);
         do {
                 fd_set fds;
