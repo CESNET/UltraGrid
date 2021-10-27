@@ -558,11 +558,11 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
                         }
                         break;
                 }
-        case RECEIVER_MSG_GET_VOLUME:
+        case RECEIVER_MSG_GET_AUDIO_STATUS:
                 {
                         double ret = s->muted_receiver ? 0.0 : s->volume;
                         char volume_str[128] = "";
-                        snprintf(volume_str, sizeof volume_str, "%f", ret);
+                        snprintf(volume_str, sizeof volume_str, "%lf,%d", ret, s->muted_receiver);
                         return new_response(RESPONSE_OK, volume_str);
                         break;
                 }
@@ -840,7 +840,7 @@ static struct response *audio_sender_process_message(struct state_audio *s, stru
                 case SENDER_MSG_GET_STATUS:
                         {
                                 char status[128] = "";
-                                snprintf(status, sizeof status, "%d,%d", (int) s->muted_sender, (int) s->muted_receiver);
+                                snprintf(status, sizeof status, "%d", (int) s->muted_sender);
                                 return new_response(RESPONSE_OK, status);
                                 break;
                         }
