@@ -577,6 +577,7 @@ void keyboard_control::run()
 
 void keyboard_control::info()
 {
+        cout << BOLD("UltraGrid version: ") << get_version_details() << "\n";
         cout << BOLD("Start time: ") << asctime(localtime(&m_start_time));
         cout << BOLD("Verbosity level: ") << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
         cout << BOLD("Locked against changes: ") << (m_locked_against_changes ? "true" : "false") << "\n";

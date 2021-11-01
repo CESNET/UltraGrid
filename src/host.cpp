@@ -493,6 +493,18 @@ void print_capabilities(struct module *root, bool use_vidcap)
         cout.precision(precision);
 }
 
+const char *get_version_details()
+{
+        return
+#ifdef GIT_BRANCH
+                GIT_BRANCH " "
+#endif
+#ifdef GIT_REV
+                "rev " GIT_REV " "
+#endif
+                "built " __DATE__ " " __TIME__;
+}
+
 void print_version()
 {
         bool is_release = true;
@@ -505,13 +517,7 @@ void print_version()
         cout << rang::fg::yellow << rang::style::bold << PACKAGE_STRING <<
                 (is_release ? "" : "+") <<
                 rang::fg::reset << rang::style::reset << " (" <<
-#ifdef GIT_BRANCH
-                GIT_BRANCH << " "
-#endif
-#ifdef GIT_REV
-                "rev " GIT_REV " " <<
-#endif
-                "built " __DATE__ " " __TIME__ ")\n";
+                get_version_details() << ")\n";
 }
 
 void print_configuration()

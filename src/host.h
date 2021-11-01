@@ -127,6 +127,7 @@ void common_cleanup(struct init_data *init_data);
  */
 void print_capabilities(struct module *root, bool use_vidcap);
 
+const char *get_version_details(void);
 void print_version(void);
 void print_configuration(void);
 
