@@ -1,7 +1,18 @@
-next
+1.7
 ====
-* DeckLink capture supports signal bit-depth detection (8-bit capture is
-  no longer default if not explicitly requested)
+* DeckLink - capture supports signal bit-depth detection (8-bit capture is
+  no longer default if not explicitly requested), support for HDR metadata
+  in display
+* Raspberry Pi - support for HW encoding of H.264
+* higher bit depth support for various compressions - Cineform, libavcodec
+  (libx264, VP9, NVENC)
+* libavcodec - new compressions support and inclusion in Linux builds - SVT,
+  rav1e, david; videotoolbox HW accelerated decoding
+* NDI - support for 16-bit video, compatibility with NDI 5
+* added some NAT traversal techniques - PCP, NAT-PMP and the server mode
+* GPUJPEG - improved handling of color spaces - BT.609 and RGB is finally
+  encoded natively allowing faster encode/decode and possibly also better
+  fidelity by avoiding color conversions
 
 1.6
 ====
