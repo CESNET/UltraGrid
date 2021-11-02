@@ -9,7 +9,8 @@ on:
     branches:
       - master
       - ndi-build
-      - 'release/*'
+    tags:
+      - v[0-9]+.*
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ccpp.yml'
@@ -35,18 +36,17 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       id: checkout
-      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
       with:
         persist-credentials: true
-    - name: Retag
-      if: steps.checkout.conclusion != 'skipped'
+    - name: Retag continuous
+      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master'
       run: |
         . .github/scripts/environment.sh
         git fetch --prune --unshallow --tags
         git tag -f $TAG
         git push -f origin refs/tags/$TAG:refs/tags/$TAG
     - name: Update Release
-      if: steps.checkout.conclusion != 'skipped' && (env.VERSION == 'continuous' || startsWith(github.ref, 'refs/heads/release/'))
+      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
       run: .github/scripts/create_release.sh
 
   Ubuntu:
@@ -118,7 +118,7 @@ jobs:
       run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload Release Asset
       id: upload-release
-      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
+      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -205,7 +205,7 @@ jobs:
       run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION.dmg
     - name: Upload Release Asset
       id: upload-release
-      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
+      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -300,7 +300,7 @@ jobs:
           $GITHUB_WORKSPACE/.github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-win64.zip'
     - name: Upload Release Asset
       id: upload-release
-      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
+      if: github.repository == 'CESNET/UltraGrid' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |

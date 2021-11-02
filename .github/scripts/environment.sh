@@ -2,9 +2,9 @@
 
 NDI=--disable-ndi
 
-if expr $GITHUB_REF : 'refs/heads/release/'; then
-  VERSION=${GITHUB_REF#refs/heads/release/}
-  TAG=v$VERSION
+if expr $GITHUB_REF : 'refs/tags/'; then
+  TAG=${GITHUB_REF#refs/tags/}
+  VERSION=${TAG#v}
 elif [ $GITHUB_REF = 'refs/heads/ndi-build' ]; then
   NDI=--enable-ndi
   VERSION=ndi
