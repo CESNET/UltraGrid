@@ -13,6 +13,8 @@
 * GPUJPEG - improved handling of color spaces - BT.609 and RGB is finally
   encoded natively allowing faster encode/decode and possibly also better
   fidelity by avoiding color conversions
+* Support for 360 degree video stitching and playback
+* GUI - now it's possible to select a specific encoder for each codec
 
 1.6
 ====
