@@ -100,7 +100,7 @@ jobs:
     - name: check libc/libstdc++ ABI
       run: .github/scripts/Linux/check_abi.sh 2.27 3.4.22 1.3.9 bin/* lib/ultragrid/*
     - name: Create AppImage
-      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/UltraGrid-$VERSION-x86_64.AppImage.zsync` && mv $APPIMAGE UltraGrid-$VERSION-x86_64.AppImage
+      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/continuous/UltraGrid-$CHANNEL-x86_64.AppImage.zsync` && mv $APPIMAGE UltraGrid-$VERSION-x86_64.AppImage
     - name: Check AppImage
       run: |
         docker build -f .github/scripts/Linux/utils/Dockerfile.ubuntu -t aitest-ubuntu .
@@ -124,8 +124,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         sudo apt install jq zsync
-        zsyncmake -C -u https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/UltraGrid-$VERSION-x86_64.AppImage UltraGrid-$VERSION-x86_64.AppImage
-        .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage.zsync application/x-zsync AppImage%20zsync
+        zsyncmake -C -u https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/UltraGrid-$VERSION-x86_64.AppImage -o UltraGrid-$CHANNEL-x86_64.AppImage.zsync UltraGrid-$VERSION-x86_64.AppImage
+        .github/scripts/replace-asset.sh continuous UltraGrid-$CHANNEL-x86_64.AppImage.zsync application/x-zsync AppImage%20${CHANNEL}%20zsync
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage application/x-appimage Linux%20build
     - name: Upload Build
       if: steps.upload-ndi.conclusion == 'skipped' && steps.upload-release.conclusion == 'skipped'
