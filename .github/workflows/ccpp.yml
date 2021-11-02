@@ -124,7 +124,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         sudo apt install jq zsync
-        zsyncmake -C UltraGrid-$VERSION-x86_64.AppImage
+        zsyncmake -C -u https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/UltraGrid-$VERSION-x86_64.AppImage UltraGrid-$VERSION-x86_64.AppImage
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage.zsync application/x-zsync AppImage%20zsync
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage application/x-appimage Linux%20build
     - name: Upload Build
