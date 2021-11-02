@@ -46,23 +46,8 @@ jobs:
         git tag -f $TAG
         git push -f origin refs/tags/$TAG:refs/tags/$TAG
     - name: Update Release
-      if: steps.checkout.conclusion != 'skipped' && env.VERSION == 'continuous'
-      run: |
-        sudo apt install jq
-        URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous | jq -r '.url')
-        REQ=PATCH
-        if [ $URL = null ]; then # release doesn't yet exist
-          REQ=POST
-          URL=https://api.github.com/repos/$GITHUB_REPOSITORY/releases
-        fi
-        DATE=$(date -Iminutes)
-        curl -S -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
-        {
-          "tag_name": "continuous", "name": "continuous builds",
-          "body": "Last update $DATE\n\nCurrent builds from Git master branch. macOS alternative build is rebuilt daily, Linux ARM builds occasionally. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).",
-          "draft": false, "prerelease": true
-        }
-        EOF
+      if: steps.checkout.conclusion != 'skipped' && (env.VERSION == 'continuous' || startsWith(github.ref, 'refs/heads/release/'))
+      run: .github/scripts/create_release.sh
 
   Ubuntu:
     name: run Ubuntu
