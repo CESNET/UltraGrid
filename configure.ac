@@ -2763,11 +2763,11 @@ fi
 
 if test "$QMAKE" -a "$QMAKE" != ":"
 then
-        QMAKE_VERSION=`$QMAKE -v | sed -n 's/.*Qt version \([^ ]*\).*/\1/p'`
+        QMAKE_VERSION=`$QMAKE -v | sed -n 's/.*Qt version \(@<:@^ @:>@*\).*/\1/p'`
 fi
 
 # Qt deps not found with pkg-config but qmake found (eg. in Qt 6)
-if test $FOUND_QT_DEP = no -a -n "$QMAKE_VERSION" && expr "$QMAKE_VER" \> 6 >/dev/null
+if test $FOUND_QT_DEP = no && test -n "$QMAKE_VERSION" && expr "$QMAKE_VERSION" \>= 6 >/dev/null
 then
         touch qt.pro
         $QMAKE qt.pro -o Make.qt
