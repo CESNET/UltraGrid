@@ -81,7 +81,7 @@ static void audio_play_sdi_probe_aesebu(struct device_info **available_devices, 
 
 static void audio_play_sdi_probe_analog(struct device_info **available_devices, int *count)
 {
-        audio_play_sdi_probe_common(available_devices, count, "", "Analog audio through capture card");
+        audio_play_sdi_probe_common(available_devices, count, "", "Analog audio through playback card");
 }
 
 static void audio_play_sdi_help(const char *driver_name)
