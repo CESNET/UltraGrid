@@ -58,7 +58,7 @@
 #define PT_VIDEO_LDGM   22
 #define PT_ENCRYPT_VIDEO 24
 #define PT_ENCRYPT_AUDIO 25
-#define PT_JPEG          26
+#define PT_JPEG          26   /* standard, RFC 2435 (assigned in RFC 3551) */
 #define PT_VIDEO_RS     27
 #define PT_ENCRYPT_VIDEO_LDGM 29
 #define PT_ENCRYPT_VIDEO_RS   30
