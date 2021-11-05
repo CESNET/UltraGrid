@@ -38,6 +38,7 @@
 #ifndef __RS_H__
 #define __RS_H__
 
+#include <cstdint>
 #include <map>
 #include <memory>
 
@@ -55,7 +56,8 @@ struct rs : public fec {
 
 private:
         int get_ss(int hdr_len, int len);
-        void *state;
+        uint32_t get_buf_len(const char *buf, std::map<int, int> const & c_m);
+        void *state = nullptr;
         unsigned int m_k, m_n;
 };
 

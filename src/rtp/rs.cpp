@@ -43,6 +43,8 @@
 
 #include <bitset>
 #include <stdlib.h>
+
+#include "debug.h"
 #include "rtp/rs.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
@@ -68,6 +70,10 @@ static void usage();
 
 using namespace std;
 
+/**
+ * Constructs RS state. Since this constructor is currently used only for the decoder,
+ * it allows creation of dummy state even if zfec was not compiled in.
+ */
 rs::rs(unsigned int k, unsigned int n)
         : m_k(k), m_n(n)
 {
@@ -78,7 +84,7 @@ rs::rs(unsigned int k, unsigned int n)
         state = fec_new(m_k, m_n);
         assert(state != NULL);
 #else
-        throw ug_runtime_error("zfec support is not compiled in");
+        LOG(LOG_LEVEL_ERROR) << "zfec support is not compiled in, error correction is disabled\n";
 #endif
 }
 
@@ -117,13 +123,17 @@ rs::rs(const char *c_cfg)
 rs::~rs()
 {
 #ifdef HAVE_ZFEC
-        fec_free((fec_t *) state);
+        if (state != nullptr) {
+                fec_free((fec_t *) state);
+        }
 #endif
 }
 
 shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
 {
 #ifdef HAVE_ZFEC
+        assert(state != nullptr);
+
         video_payload_hdr_t hdr;
         format_video_header(in.get(), 0, 0, hdr);
         size_t hdr_len = sizeof(hdr);
@@ -187,12 +197,46 @@ int rs::get_ss(int hdr_len, int len) {
         return ((sizeof(uint32_t) + hdr_len + len) + m_k - 1) / m_k;
 }
 
+/**
+ * @returns stored buffer data length or 0 if first packet (header) is missing
+ */
+uint32_t rs::get_buf_len(const char *buf, std::map<int, int> const & c_m)
+{
+        if (auto it = c_m.find(0); it != c_m.end() && it->second >= 4) {
+                uint32_t out_sz;
+                memcpy(&out_sz, buf, sizeof(out_sz));
+                return out_sz;
+        }
+        return 0U;
+}
+
 bool rs::decode(char *in, int in_len, char **out, int *len,
                 std::map<int, int> const & c_m)
 {
-#ifdef HAVE_ZFEC
         std::map<int, int> m = c_m; // make private copy
         unsigned int ss = in_len / m_n;
+
+        // compact neighbouring segments
+        for (auto it = m.begin(); it != m.end(); ++it) {
+                int start = it->first;
+                int size = it->second;
+
+                auto neighbour = m.end();
+                while ((neighbour = m.find(start + size)) != m.end()) {
+                        it->second += neighbour->second;
+                        size = it->second;
+                        m.erase(neighbour);
+                }
+        }
+
+        if (state == nullptr) { // zfec was not compiled in - dummy mode
+                *len = get_buf_len(in, c_m);
+                *out = (char *) in + sizeof(uint32_t);
+                auto fst_sgmt = m.find(0);
+                return fst_sgmt != m.end() && (unsigned) fst_sgmt->second >= ss * m_k;
+        }
+
+#ifdef HAVE_ZFEC
         void *pkt[m_n];
         unsigned int index[m_n];
         unsigned int i = 0;
@@ -236,19 +280,6 @@ bool rs::decode(char *in, int in_len, char **out, int *len,
         *len = out_sz;
         *out = (char *) in + 4;
 #else
-        // compact neighbouring segments
-        for (auto it = m.begin(); it != m.end(); ++it) {
-                int start = it->first;
-                int size = it->second;
-
-                auto neighbour = m.end();
-                while ((neighbour = m.find(start + size)) != m.end()) {
-                        it->second += neighbour->second;
-                        size = it->second;
-                        m.erase(neighbour);
-                }
-        }
-
         //const unsigned int bitset_size = m_k;
 
         std::bitset<MAX_K> empty_slots;
@@ -289,14 +320,8 @@ bool rs::decode(char *in, int in_len, char **out, int *len,
         //fprintf(stderr, "       %d\n", i);
 
         if (i != m_k) {
-                if (c_m.find(0) != c_m.end() && c_m.at(0) >= 4) {
-                        uint32_t out_sz;
-                        memcpy(&out_sz, in, sizeof(out_sz));
-                        *len = out_sz;
-                        *out = (char *) in + sizeof(uint32_t);
-                } else {
-                        *len = 0;
-                }
+                *len = get_buf_len(in, c_m);
+                *out = (char *) in + sizeof(uint32_t);
                 return false;
         }
 
@@ -326,13 +351,7 @@ bool rs::decode(char *in, int in_len, char **out, int *len,
         //fprintf(stderr, "       %d\n", out_sz);
         *len = out_sz;
         *out = (char *) in + sizeof(uint32_t);
-#endif 
-#else // !defined HAVE_ZFEC
-        (void) in;
-        (void) in_len;
-        (void) out;
-        (void) len;
-        (void) c_m;
+#endif
 #endif // defined HAVE_ZFEC
 
         return true;
