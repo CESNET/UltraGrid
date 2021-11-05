@@ -236,15 +236,16 @@ bool rs::decode(char *in, int in_len, char **out, int *len,
         *len = out_sz;
         *out = (char *) in + 4;
 #else
+        // compact neighbouring segments
         for (auto it = m.begin(); it != m.end(); ++it) {
                 int start = it->first;
                 int size = it->second;
 
-                while (m.find(start + size) != m.end()) {
-                        auto item = m.find(start + size);
-                        it->second += m[start + size];
+                auto neighbour = m.end();
+                while ((neighbour = m.find(start + size)) != m.end()) {
+                        it->second += neighbour->second;
                         size = it->second;
-                        m.erase(item);
+                        m.erase(neighbour);
                 }
         }
 
