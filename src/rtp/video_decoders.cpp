@@ -1413,6 +1413,11 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
 
         desc->fps = compute_fps(fps_pt, fpsd, fd, fi);
 
+        if (desc->fps == -1) {
+                LOG_ONCE(LOG_LEVEL_WARNING, to_fourcc('U', 'F', 'P', 'S'), MOD_NAME "Unsupported FPS received (newer UG?), setting to 30.\n");
+                desc->fps = 30.0;
+        }
+
         return true;
 }
 

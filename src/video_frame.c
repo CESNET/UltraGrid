@@ -344,16 +344,31 @@ void il_merged_to_upper(char *dst, char *src, int linesize, int height, void **s
         free(tmp);
 }
 
+/**
+ * Computes FPS from packet format values:
+ * https://www.cesnet.cz/wp-content/uploads/2013/01/ultragrid-4k.pdf
+ *
+ * @note
+ * Current implementation in UG differs from the above in a sense that fps and fpsd
+ * are not offset by one, so 30 means really 30, not 31. As a consequence a value of
+ * fpsd == 0 is invalid but it can represent some special value in future (undefined,
+ * infinite).
+ *
+ * @retval computed fps on success or -1 on error (fpsd == 0)
+ */
 double compute_fps(int fps, int fpsd, int fd, int fi)
 {
-        double res; 
+        if (fpsd == 0) {
+                return -1;
+        }
 
-        res = fps;
-        if(fd)
+        double res = fps;
+        if (fd) {
                 res /= 1.001;
+        }
         res /= fpsd;
 
-        if(fi) {
+        if (fi) {
                 res = 1.0 / res;
         }
 
