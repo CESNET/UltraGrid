@@ -1622,8 +1622,11 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 				}
                         }
                         break;
+                case PT_Unassign_Type95:
+                        LOG_ONCE(LOG_LEVEL_WARNING, to_fourcc('U', 'V', 'P', 'T'), MOD_NAME "Unassigned PT 95 received, ignoring.\n");
+                        break;
                 default:
-                        log_msg(LOG_LEVEL_WARNING, "[decoder] Unknown packet type: %d.\n", pckt->pt);
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown packet type: " << pckt->pt << ".\n";
                         ret = FALSE;
                         goto cleanup;
                 }

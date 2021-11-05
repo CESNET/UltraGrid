@@ -499,11 +499,13 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
                 unsigned int length;
                 char plaintext[cdata->data->data_len]; // plaintext will be actually shorter
-                if(pt == PT_AUDIO) {
+                switch (pt) {
+                case PT_AUDIO:
                         length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
                         data = cdata->data->data + sizeof(audio_payload_hdr_t);
-                } else {
-                        assert(pt == PT_ENCRYPT_AUDIO);
+                        break;
+                case PT_ENCRYPT_AUDIO:
+                {
                         uint32_t encryption_hdr = ntohl(*(uint32_t *)(void *) (cdata->data->data + sizeof(audio_payload_hdr_t)));
                         crypto_mode = (enum openssl_mode) (encryption_hdr >> 24);
                         if (crypto_mode == MODE_AES128_NONE || crypto_mode > MODE_AES128_MAX) {
@@ -523,6 +525,14 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 return FALSE;
                         }
                         data = plaintext;
+                        break;
+                }
+                case PT_Unassign_Type95:
+                        LOG_ONCE(LOG_LEVEL_WARNING, to_fourcc('U', 'V', 'P', 'T'), MOD_NAME "Unassigned PT 95 received, ignoring.\n");
+                        return FALSE;
+                default:
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown packet type: " << pt << ".\n";
+                        return FALSE;
                 }
 
                 /* we receive last channel first (with m bit, last packet) */

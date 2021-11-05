@@ -4,7 +4,7 @@
  *         Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2018 CESNET z.s.p.o.
+ * Copyright (c) 2005-2021 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -42,6 +42,12 @@
  *
  */
 
+#ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
+#endif
+
 /** @page av_pkt_description UltraGrid packet format
  * Packet formats are described in papers referenced here:<br/>
  * https://github.com/CESNET/UltraGrid/wiki/Developer-Documentation#packet-formats
@@ -62,6 +68,7 @@
 #define PT_VIDEO_RS     27
 #define PT_ENCRYPT_VIDEO_LDGM 29
 #define PT_ENCRYPT_VIDEO_RS   30
+#define PT_Unassign_Type95  95 /* reserved for future, backward compatible use with UG (metadata etc.) */
 #define PT_DynRTP_Type96    96 /* usually H.264 */
 #define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
 /*
