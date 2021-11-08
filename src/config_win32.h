@@ -5,6 +5,7 @@
  *
  * Copyright (c) 1995-2001 University College London
  * Copyright (c) 2001-2002 University of Southern California
+ * Copyright (c) 2004-2021 CESNET, z. s. p. o.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions

@@ -9,7 +9,7 @@
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *          Colin Perkins    <csp@isi.edu>
  *
- * Copyright (c) 2005-2015 CESNET z.s.p.o.
+ * Copyright (c) 2005-2021 CESNET z.s.p.o.
  * Copyright (c) 2001-2003 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without

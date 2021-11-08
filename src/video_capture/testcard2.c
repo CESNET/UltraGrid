@@ -6,7 +6,7 @@
  * Passing grabbed frames from thread is terribly broken. It needs to be reworked.
  */
 /*
- * Copyright (c) 2011-2013 CESNET z.s.p.o.
+ * Copyright (c) 2011-2021 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

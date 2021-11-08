@@ -3,6 +3,7 @@
  * AUTHOR: Colin Perkins <c.perkins@cs.ucl.ac.uk>
  *
  * Copyright (c) 1998-2000 University College London
+ * Copyright (c) 2005-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,10 +32,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
- * 
  */
 
 #ifndef __RTP_H__

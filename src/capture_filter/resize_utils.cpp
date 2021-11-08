@@ -6,7 +6,7 @@
  */
 /*
  * Copyright (c) 2014      Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2015-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2021 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions

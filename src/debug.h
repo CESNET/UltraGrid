@@ -7,6 +7,7 @@
  * $Date: 2007/11/08 09:48:59 $
  *
  * Copyright (c) 1995-2000 University College London
+ * Copyright (c) 2005-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

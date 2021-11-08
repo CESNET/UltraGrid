@@ -3,7 +3,7 @@
  * @author Martin Piatka <piatka@cesnet.cz>
  *
  */
-/* Copyright (c) 2019 CESNET z.s.p.o.
+/* Copyright (c) 2019-2021 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions

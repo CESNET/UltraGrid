@@ -5,7 +5,7 @@
  * Based on AJA samples ntv2framegrabber, ntv2capture and ntv2llburn (Ping-Pong)
  */
 /*
- * Copyright (c) 2015-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

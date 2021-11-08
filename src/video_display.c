@@ -14,7 +14,7 @@
  */
 /*
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2020 CESNET z.s.p.o.
+ * Copyright (c) 2005-2021 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions

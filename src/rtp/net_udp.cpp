@@ -7,7 +7,7 @@
  *           Martin Pulec    <pulec@cesnet.cz>
  * 
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2019 CESNET z.s.p.o.
+ * Copyright (c) 2005-2021 CESNET z.s.p.o.
  * Copyright (c) 1998-2000 University College London
  * All rights reserved.
  *

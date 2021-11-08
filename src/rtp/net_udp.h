@@ -3,6 +3,7 @@
  * AUTHORS: Colin Perkins
  * 
  * Copyright (c) 1998-2000 University College London
+ * Copyright (c) 2005-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

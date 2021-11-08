@@ -8,7 +8,7 @@
  * @brief API for video compress drivers.
  */
 /*
- * Copyright (c) 2009-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2009-2021 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

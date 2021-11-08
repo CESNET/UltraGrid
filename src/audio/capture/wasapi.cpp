@@ -3,7 +3,7 @@
  * @author Martin Pulec <martin.pulec@cesnet.cz>
  */
 /*
- *  Copyright (c) 2019 CESNET, z. s. p. o.
+ *  Copyright (c) 2019-2021 CESNET, z. s. p. o.
  *  All rights reserved.
  *
  *  This program is free software: you can redistribute it and/or modify
