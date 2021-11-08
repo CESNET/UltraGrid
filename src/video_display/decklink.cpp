@@ -779,7 +779,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 if (s->stereo) {
                         outputFlags = (BMDVideoOutputFlags) (outputFlags | bmdVideoOutputDualStream3D);
-                        supportedFlags = (BMDSupportedVideoModeFlags) (outputFlags | bmdSupportedVideoModeDualStream3D);
+                        supportedFlags = (BMDSupportedVideoModeFlags) (supportedFlags | bmdSupportedVideoModeDualStream3D);
                 }
 
                 BMD_BOOL subsampling_444 = codec_is_a_rgb(desc.color_spec); // we don't have pixfmt for 444 YCbCr
