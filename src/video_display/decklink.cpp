@@ -55,7 +55,10 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "messaging.h"
+#include "module.h"
 #include "rang.hpp"
+#include "rtp/audio_decoders.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/misc.h"
@@ -64,6 +67,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cinttypes>
 #include <cstdint>
@@ -72,7 +76,6 @@
 #include <queue>
 #include <string>
 #include <vector>
-#include <algorithm>
 
 #include "DeckLinkAPIVersion.h"
 
@@ -308,6 +311,96 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 };
 } // end of unnamed namespace
 
+/**
+ * @todo
+ * - handle network losses
+ * - handle underruns
+ * - what about jitter - while computing the dst sample rate, the sampling interval (m_total) must be "long"
+ */
+class deck_audio_drift_fixer {
+public:
+        bool m_enabled = false;
+
+        void set_root(module *root) {
+                m_root = root;
+        }
+        void set_fps(double fps) {
+                m_new_fps = fps; // schedule for reinit
+        }
+        /// @retval flag if the audio frame should be written
+        bool update(int buffered_count, int to_be_written) {
+                if (!m_enabled) {
+                        return true;
+                }
+                if (m_new_fps != m_fps) {
+                        m_fps = m_new_fps;
+                        if (!reinit(buffered_count, to_be_written)) {
+                                return false;
+                        }
+                }
+                if (m_fps == 0) { // not initialized
+                        return true;
+                }
+                m_total += to_be_written;
+
+                long long dst_frame_rate = 0;
+                if (m_resample_level < 0 && buffered_count + to_be_written < per_frame_samples) {
+                        dst_frame_rate = bmdAudioSampleRate48kHz * BASE;
+                        m_resample_level = 0;
+                } else if (m_resample_level == 0 && buffered_count + to_be_written > per_frame_samples * soft_buf_ratio_pct / 100) {
+                        // computed in shifted base by 256
+                        long long drift_samples = ((buffered_count + to_be_written) - m_buffered0) * BASE * bmdAudioSampleRate48kHz / m_total;
+                        dst_frame_rate = BASE * bmdAudioSampleRate48kHz - drift_samples;
+                        m_resample_level = -1;
+                } else if (m_resample_level == -1 && buffered_count + to_be_written > per_frame_samples * hard_buf_ratio_pct / 100) {
+                        long long drift_samples = ((buffered_count + to_be_written) - m_buffered0) * BASE * bmdAudioSampleRate48kHz / m_total;
+                        dst_frame_rate = (BASE * bmdAudioSampleRate48kHz - drift_samples) + 128; // slightly 1/2/48000 faster frame rate than computed
+                        m_resample_level = -2;
+                }
+
+                if (dst_frame_rate != 0) {
+                        auto *m = new msg_universal((string(MSG_UNIVERSAL_TAG_AUDIO_DECODER) + to_string(dst_frame_rate << ADEC_CH_RATE_SHIFT | BASE)).c_str());
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Sending resample request " << m_resample_level << ": " << dst_frame_rate << "/" << BASE << "\n";
+                        assert(m_root != nullptr);
+                        auto *response = send_message_sync(m_root, "audio.receiver.decoder", reinterpret_cast<message *>(m), 100, SEND_MESSAGE_FLAG_NO_STORE);
+                        if (!RESPONSE_SUCCESSFUL(response_get_status(response))) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unable to send resample message: " << response_get_text(response) << " (" << response_get_status(response) << ")\n";
+                        }
+                        free_response(response);
+                }
+
+                return true;
+        }
+
+private:
+        static constexpr unsigned long BASE = (1U<<8U);
+        bool reinit(int buffered_count, int to_be_written) {
+                m_total = 0;
+                per_frame_samples = bmdAudioSampleRate48kHz / m_fps;
+                m_resample_level = 0;
+                if (buffered_count + to_be_written > per_frame_samples * max_init_buf_ratio_pct / 100) {
+                        m_buffered0 = buffered_count;
+                        return false;
+                }
+                m_buffered0 = buffered_count + to_be_written;
+                return true;
+        }
+
+        struct module *m_root = nullptr;
+
+        atomic<double> m_new_fps{0.0};
+        double m_fps{0.0};
+        long per_frame_samples{0};
+        int m_buffered0{0}; ///< initial buffer filling
+        long long m_total{};
+        int m_resample_level = 0; // <0 downsampling, 0 none
+
+        /// DeckLink buffers 3 frames of sound
+        constexpr static int soft_buf_ratio_pct = 250;
+        constexpr static int hard_buf_ratio_pct = 280;
+        constexpr static int max_init_buf_ratio_pct = 180;
+};
+
 #define DECKLINK_MAGIC 0x12de326b
 
 struct device_state {
@@ -356,6 +449,8 @@ struct state_decklink {
         bool                low_latency       = true;
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
+
+        deck_audio_drift_fixer audio_drift_fixer;
  };
 
 static void show_help(bool full);
@@ -715,6 +810,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         HRESULT                           result;
 
         unique_lock<mutex> lk(s->reconfiguration_lock);
+        s->audio_drift_fixer.set_fps(desc.fps);
 
         assert(s->magic == DECKLINK_MAGIC);
         
@@ -1036,6 +1132,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                         return false;
                                 }
                         }
+                } else if (strstr(ptr, "drift_fix") == ptr) {
+                        s->audio_drift_fixer.m_enabled = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                         return false;
@@ -1058,7 +1156,6 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
 
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        UNUSED(parent);
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
         vector<string>                                  cardId;
@@ -1080,6 +1177,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
 
         auto *s = new state_decklink();
+        s->audio_drift_fixer.set_root(get_root_module(parent));
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
@@ -1505,6 +1603,9 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
         s->state[0].deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
         if (buffered == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer underflow!\n";
+        }
+        if (!s->audio_drift_fixer.update(buffered, sampleFrameCount)) {
+                return;
         }
 
         if (s->low_latency) {

@@ -61,6 +61,8 @@ struct response;
 #define RESPONSE_INT_SERV_ERR 500
 #define RESPONSE_NOT_IMPL     501
 
+#define RESPONSE_SUCCESSFUL(code) ((code) >= 200 && (code) < 300)
+
 struct message;
 
 struct message {
