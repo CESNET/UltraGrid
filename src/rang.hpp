@@ -1,7 +1,3 @@
-/*
- * Header is obtained from here:
- * https://github.com/agauniyal/rang
- */
 #ifndef RANG_DOT_HPP
 #define RANG_DOT_HPP
 
@@ -74,7 +70,15 @@ enum class fg {
     magenta = 35,
     cyan    = 36,
     gray    = 37,
-    reset   = 39
+    reset   = 39,
+    bright_black = 90,
+    bright_red,
+    bright_green,
+    bright_yellow,
+    bright_blue,
+    bright_magenta,
+    bright_cyan,
+    bright_white,
 };
 
 enum class bg {
@@ -86,7 +90,15 @@ enum class bg {
     magenta = 45,
     cyan    = 46,
     gray    = 47,
-    reset   = 49
+    reset   = 49,
+    bright_black = 100,
+    bright_red,
+    bright_green,
+    bright_yellow,
+    bright_blue,
+    bright_magenta,
+    bright_cyan,
+    bright_white,
 };
 
 enum class fgB {
@@ -356,7 +368,8 @@ namespace rang_implementation {
     inline void setWinSGR(rang::bg col, SGR &state) noexcept
     {
         if (col != rang::bg::reset) {
-            state.bgColor = ansi2attr(static_cast<BYTE>(col) - 40);
+            auto val = static_cast<BYTE>(col);
+            state.bgColor = ansi2attr(val - (val < static_cast<BYTE>(rang::fg::reset) ? 40 : 100));
         } else {
             state.bgColor = defaultState().bgColor;
         }
@@ -365,7 +378,8 @@ namespace rang_implementation {
     inline void setWinSGR(rang::fg col, SGR &state) noexcept
     {
         if (col != rang::fg::reset) {
-            state.fgColor = ansi2attr(static_cast<BYTE>(col) - 30);
+            auto val = static_cast<BYTE>(col);
+            state.fgColor = ansi2attr(val - (val < static_cast<BYTE>(rang::fg::reset) ? 30 : 90));
         } else {
             state.fgColor = defaultState().fgColor;
         }
