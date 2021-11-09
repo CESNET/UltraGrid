@@ -89,7 +89,7 @@ About UltraGrid
        README.md             This file
 
    There are also subdirectories `cuda_dxt`, `dxt_compress` and `ldgm` which contain
-   libraries that are integral part of UltraGrid but are relatively standalone and
+   libraries that are parts of UltraGrid but are relatively standalone and
    self-contained.
 
 Hardware and Software Requirements
@@ -97,17 +97,16 @@ Hardware and Software Requirements
 
    Recommended Hardware Setup:
    - 64-bit CPU with at least 2 cores
-   - **OpenGL** compatible graphics card
+   - **OpenGL** compatible graphics card recommended
      - *DXT* compression on GPU is tested with **OpenGL 3.3**
      - *GPUJPEG* compression requires a **NVidia** card
-     - various other HW accelerations supported with recent cards (**NVENC**,
-       **QuickSync**, **VideoToolbox**)
+     - various HW accelerated compressions supported with recent GPUs (**NVENC**/**NVDEC**,
+       **QuickSync**, **VA-API**, **VideoToolbox**, **VDPAU**)
    - For uncompressed 1.5Gbps streams (either sending or receiving), **10GbE**
      network interface card is needed
      - We test with PCIe Myrinet 10GbE 
    - For *SDI* send/receive capabilities, **AJA**, **Bluefish444**,
      **Blackmagic**, **DELTACAST** or **Magewell** card is required
-     - Magewell module in UG support only capturing
 
    Video capture card should be located on a separate PCI bus from network card if possible.
 
@@ -116,7 +115,6 @@ Hardware and Software Requirements
 
    - AMD/NVidia proprietary drivers for optimal performance
    - AJA/Blackmagic/DELTACAST drivers
-   - For macOS Homebrew or MacPorts are recommended
 
    To compile UltraGrid you will need to prepare build environment and
    install dependencies for various modules. For up-to-date information
