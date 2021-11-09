@@ -42,16 +42,18 @@ ZIP_FILE=uv-qt.zip
 UPLOAD_INFO_PLIST=/tmp/uplinfo.plist
 REQUEST_INFO_PLIST=/tmp/reqinfo.plist
 ditto -c -k --keepParent $APP $ZIP_FILE
+set +x
 DEVELOPER_USERNAME=$(echo "$altool_credentials" | cut -d: -f1)
-DEVELOPER_PASSWORD=$(echo "$altool_credentials" | cut -d: -f2)
-xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt-$(uuidgen | tr A-Z a-z) --username $DEVELOPER_USERNAME --password "$DEVELOPER_PASSWORD" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
+export DEVELOPER_PASSWORD=$(echo "$altool_credentials" | cut -d: -f2)
+set -x
+xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt-$(uuidgen | tr A-Z a-z) --username $DEVELOPER_USERNAME --password "@env:DEVELOPER_PASSWORD" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
 
 # Wait for notarization status
 # Waiting inspired by https://nativeconnect.app/blog/mac-app-notarization-from-the-command-line/
 SLEPT=0
 TIMEOUT=7200
 while true; do
-        /usr/bin/xcrun altool --notarization-info `/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" $UPLOAD_INFO_PLIST` -u $DEVELOPER_USERNAME -p "$DEVELOPER_PASSWORD" --output-format xml | tee $REQUEST_INFO_PLIST
+        /usr/bin/xcrun altool --notarization-info `/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" $UPLOAD_INFO_PLIST` -u $DEVELOPER_USERNAME -p "@env:DEVELOPER_PASSWORD" --output-format xml | tee $REQUEST_INFO_PLIST
         STATUS=`/usr/libexec/PlistBuddy -c "Print :notarization-info:Status" $REQUEST_INFO_PLIST`
         if [ "$STATUS" != "in progress" -o $SLEPT -ge $TIMEOUT ]; then
                 break
@@ -61,7 +63,7 @@ while true; do
 done
 if [ $STATUS != success ]; then
         UUID=`/usr/libexec/PlistBuddy -c "Print :notarization-info:RequestUUID" $REQUEST_INFO_PLIST`
-        xcrun altool --notarization-info $UUID -u $DEVELOPER_USERNAME -p "$DEVELOPER_PASSWORD"
+        xcrun altool --notarization-info $UUID -u $DEVELOPER_USERNAME -p "@env:DEVELOPER_PASSWORD"
         echo "Could not notarize" 2>&1
         exit 1
 fi
