@@ -2103,7 +2103,7 @@ void vc_copylineRGBtoUYVY_SSE(unsigned char * __restrict dst, const unsigned cha
         __m128i yadd = _mm_set1_epi16(2048);
         __m128i uvadd = _mm_set1_epi16(16384);
 
-        while(dst_len >= 16){
+        while(dst_len >= 20){
                 //Load first 4 pixels
                 rgb = _mm_lddqu_si128((__m128i const*)(const void *) src);
 
