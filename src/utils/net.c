@@ -400,7 +400,7 @@ bool is_ipv6_supported(void)
 const char *get_sockaddr_str(struct sockaddr *sa)
 {
         _Thread_local static char addr[IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */] = "";
-        unsigned short port = 0;
+        unsigned port = 0;
         const void *src = NULL;
         if (sa->sa_family == AF_INET6) {
                 strcpy(addr, "[");
@@ -420,7 +420,7 @@ const char *get_sockaddr_str(struct sockaddr *sa)
         if (sa->sa_family == AF_INET6) {
                 strcpy(addr + strlen(addr), "]");
         }
-        sprintf(addr + strlen(addr), ":%hd", port);
+        sprintf(addr + strlen(addr), ":%u", port);
 
         return addr;
 }
