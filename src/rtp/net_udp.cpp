@@ -138,9 +138,17 @@ struct ip_mreq {
 #endif
 
 struct item {
-    inline item(uint8_t *b, int s) :  buf(b), size(s) {}
+    inline item(uint8_t *b, int s, struct sockaddr *src_addr = nullptr,
+                    socklen_t addrlen = 0) :
+        buf(b),
+        size(s),
+        src_addr(src_addr),
+        addrlen(addrlen) {}
+
     uint8_t *buf;
     int size;
+    struct sockaddr *src_addr;
+    socklen_t addrlen;
 };
 
 /*
@@ -1123,11 +1131,11 @@ static void *udp_reader(void *arg)
                 }
                 uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN + sizeof(struct sockaddr_storage));
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
-
+                auto src_addr = (struct sockaddr *)(void *)(packet + RTP_MAX_PACKET_LEN);
                 socklen_t addrlen = sizeof(struct sockaddr_storage);
                 int size = recvfrom(s->local->rx_fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
-                                0, (struct sockaddr *)(void *)(packet + RTP_MAX_PACKET_LEN), &addrlen);
+                                0, src_addr, &addrlen);
 
                 if (size <= 0) {
                         /// @todo
@@ -1146,7 +1154,7 @@ static void *udp_reader(void *arg)
                         break;
                 }
 
-                s->local->packets.emplace(packet, size);
+                s->local->packets.emplace(packet, size, src_addr, addrlen);
 
                 lk.unlock();
                 s->local->boss_cv.notify_one();
@@ -1247,7 +1255,8 @@ int udp_recvfrom(socket_udp *s, char *buffer, int buflen, struct sockaddr *src_a
  * @param[out] buffer data received from socket. Must be freed by caller!
  * @returns           length of the received datagram
  */
-int udp_recv_data(socket_udp * s, char **buffer)
+int udp_recvfrom_data(socket_udp * s, char **buffer,
+                struct sockaddr *src_addr, socklen_t *addrlen)
 {
         assert(s->local->multithreaded);
         int ret;
@@ -1255,6 +1264,14 @@ int udp_recv_data(socket_udp * s, char **buffer)
 
         auto it = s->local->packets.front();
         *buffer = (char *) it.buf;
+        if(src_addr){
+                if(it.src_addr){
+                        memcpy(src_addr, it.src_addr, it.addrlen);
+                        *addrlen = it.addrlen;
+                } else {
+                        *addrlen = 0;
+                }
+        }
         ret = it.size;
         s->local->packets.pop();
 
@@ -1262,6 +1279,9 @@ int udp_recv_data(socket_udp * s, char **buffer)
         s->local->reader_cv.notify_one();
 
         return ret;
+}
+int udp_recv_data(socket_udp * s, char **buffer){
+        return udp_recvfrom_data(s, buffer, nullptr, nullptr);
 }
 
 #ifndef WIN32
@@ -1679,7 +1699,9 @@ int udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_
  * Tries to receive data from socket and if empty, waits at most specified
  * amount of time.
  */
-int udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *timeout)
+int udp_recvfrom_timeout(socket_udp *s, char *buffer, int buflen,
+                struct timeval *timeout,
+                struct sockaddr *src_addr, socklen_t *addrlen)
 {
         struct udp_fd_r fd;
         int len = 0;
@@ -1687,7 +1709,7 @@ int udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *ti
         if (s->local->multithreaded) {
                 if (udp_not_empty(s, timeout)) {
                         char *data = NULL;
-                        len = udp_recv_data(s, (char **) &data);
+                        len = udp_recvfrom_data(s, (char **) &data, src_addr, addrlen);
                         if (len > 0) {
                                 memcpy(buffer, data, len);
                         }
@@ -1698,7 +1720,7 @@ int udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *ti
                 udp_fd_set_r(s, &fd);
                 if (udp_select_r(timeout, &fd) > 0) {
                         if (udp_fd_isset_r(s, &fd)) {
-                                len = udp_recv(s, buffer, buflen);
+                                len = udp_recvfrom(s, buffer, buflen, src_addr, addrlen);
                                 if (len < 0) {
                                         len = 0;
                                 }
@@ -1706,6 +1728,11 @@ int udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *ti
                 }
         }
         return len;
+}
+
+int udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *timeout)
+{
+        return udp_recvfrom_timeout(s, buffer, buflen, timeout, nullptr, nullptr);
 }
 
 struct socket_udp_local *udp_get_local(socket_udp *s)

@@ -65,6 +65,9 @@ void        udp_exit(socket_udp *s);
 int         udp_peek(socket_udp *s, char *buffer, int buflen);
 int         udp_recv(socket_udp *s, char *buffer, int buflen);
 int         udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *timeout);
+int         udp_recvfrom_timeout(socket_udp *s, char *buffer, int buflen,
+                struct timeval *timeout,
+                struct sockaddr *src_addr, socklen_t *addrlen);
 int         udp_recvfrom(socket_udp *s, char *buffer, int buflen, struct sockaddr *src_addr, socklen_t *addrlen);
 int         udp_send(socket_udp *s, char *buffer, int buflen);
 int         udp_sendto(socket_udp *s, char *buffer, int buflen, struct sockaddr *dst_addr, socklen_t addrlen);
@@ -101,6 +104,8 @@ void        udp_fd_set_r(socket_udp *s, struct udp_fd_r *);
 int         udp_fd_isset_r(socket_udp *s, struct udp_fd_r *);
 
 int         udp_recv_data(socket_udp * s, char **buffer);
+int         udp_recvfrom_data(socket_udp * s, char **buffer,
+                struct sockaddr *src_addr, socklen_t *addrlen);
 bool        udp_not_empty(socket_udp *s, struct timeval *timeout);
 int         udp_port_pair_is_free(int force_ip_version, int even_port);
 bool        udp_is_ipv6(socket_udp *s);
