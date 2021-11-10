@@ -397,29 +397,51 @@ bool is_ipv6_supported(void)
         return true;
 }
 
-const char *get_sockaddr_str(struct sockaddr *sa)
-{
-        _Thread_local static char addr[IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */] = "";
+unsigned get_sockaddr_addr_port(struct sockaddr *sa){
         unsigned port = 0;
-        const void *src = NULL;
         if (sa->sa_family == AF_INET6) {
-                strcpy(addr, "[");
-                src = &((struct sockaddr_in6 *)(void *) sa)->sin6_addr;
                 port = ntohs(((struct sockaddr_in6 *)(void *) sa)->sin6_port);
         } else if (sa->sa_family == AF_INET) {
-                src = &((struct sockaddr_in *)(void *) sa)->sin_addr;
                 port = ntohs(((struct sockaddr_in *)(void *) sa)->sin_port);
         } else {
-                return "(unknown)";
+                return UINT_MAX;
         }
-        if (inet_ntop(sa->sa_family, src, addr + strlen(addr), sizeof addr - strlen(addr)) == NULL) {
+
+        return port;
+}
+
+void get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n){
+        assert(n >= IN6_MAX_ASCII_LEN + 3 /* []: */ + 1 /* \0 */);
+        const void *src = NULL;
+        if (sa->sa_family == AF_INET6) {
+                strcpy(buf, "[");
+                src = &((struct sockaddr_in6 *)(void *) sa)->sin6_addr;
+        } else if (sa->sa_family == AF_INET) {
+                src = &((struct sockaddr_in *)(void *) sa)->sin_addr;
+        } else {
+                strcpy(buf, "(unknown)");
+                return;
+        }
+        if (inet_ntop(sa->sa_family, src, buf + strlen(buf), n - strlen(buf)) == NULL) {
                 perror("get_sockaddr_str");
-                return "(error)";
+                strcpy(buf, "(error)");
+                return;
         }
 
         if (sa->sa_family == AF_INET6) {
-                strcpy(addr + strlen(addr), "]");
+                strcat(buf, "]");
         }
+}
+
+const char *get_sockaddr_str(struct sockaddr *sa)
+{
+        _Thread_local static char addr[IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */] = "";
+
+        get_sockaddr_addr_str(sa, addr, sizeof(addr));
+
+        unsigned port = get_sockaddr_addr_port(sa);
+        if(port == UINT_MAX)
+                return addr;
         sprintf(addr + strlen(addr), ":%u", port);
 
         return addr;

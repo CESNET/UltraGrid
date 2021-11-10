@@ -68,6 +68,8 @@ bool is_host_private(const char *hostname);
 uint16_t socket_get_recv_port(int fd);
 bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_version);
 bool is_ipv6_supported(void);
+void get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n);
+unsigned get_sockaddr_addr_port(struct sockaddr *sa);
 const char *get_sockaddr_str(struct sockaddr *sa);
 
 #ifdef WIN32
