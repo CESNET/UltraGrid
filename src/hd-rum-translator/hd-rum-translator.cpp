@@ -70,6 +70,7 @@
 #include "rtp/net_udp.h"
 #include "utils/misc.h"
 #include "tv.h"
+#include "utils/net.h"
 
 #include <cinttypes>
 #include <map>
@@ -86,6 +87,15 @@ struct item;
 
 #define REPLICA_MAGIC 0xd2ff3323
 
+static char *get_replica_mod_name(const char *addr, uint16_t tx_port){
+        char *name = (char *) malloc(strlen(addr) + 2 /* [ ] for IPv6 addr */ + 5 /* port */ + 1 /* '\0' */);
+        bool is_ipv6 = strchr(addr, ':') != NULL;
+        bool add_bracket = is_ipv6 && addr[0] != '[';
+        sprintf(name, "%s%s%s:%" PRIu16, add_bracket ? "[" : "", addr, add_bracket ? "]" : "", tx_port);
+
+        return name;
+}
+
 struct replica {
     replica(const char *addr, uint16_t rx_port, uint16_t tx_port, int bufsize, struct module *parent, int force_ip_version) {
         magic = REPLICA_MAGIC;
@@ -99,9 +109,7 @@ struct replica {
             fprintf(stderr, "Cannot set send buffer!\n");
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_PORT;
-        mod.name = (char *) malloc(strlen(addr) + 2 /* [ ] for IPv6 addr */ + 5 /* port */ + 1 /* '\0' */);
-        bool is_ipv6 = strchr(addr, ':') != NULL;
-        sprintf(mod.name, "%s%s%s:%" PRIu16, is_ipv6 ? "[" : "", addr, is_ipv6 ? "]" : "", tx_port);
+        mod.name = get_replica_mod_name(addr, tx_port);
         mod.priv_data = this;
         module_register(&mod, parent);
         type = replica::type_t::NONE;
@@ -515,6 +523,7 @@ static void usage(const char *progname) {
                 s::bold << "\t\t--control-port <port_number>[:0|:1]" << s::reset << " - control port to connect to, optionally client/server (default)\n" <<
                 s::bold << "\t\t--blend" << s::reset << " - enable blending from original to newly received stream, increases latency\n" <<
                 s::bold << "\t\t--conference <width>:<height>[:fps]" << s::reset << " - enable combining of multiple inputs, increases latency\n" <<
+                s::bold << "\t\t--conference-compression <compression>" << s::reset << " - compression for conference participants\n" <<
                 s::bold << "\t\t--capture-filter <cfg_string>" << s::reset << " - apply video capture filter to incoming video\n" <<
                 s::bold << "\t\t--param" << s::reset << " - additional parameters\n" <<
                 s::bold << "\t\t--help\n" << s::reset <<
@@ -555,6 +564,7 @@ struct cmdline_parameters {
     struct hd_rum_output_conf out_conf = {NORMAL, NULL};
     const char *capture_filter = NULL;
     bool verbose = false;
+    char *conference_compression = nullptr;
 };
 
 /**
@@ -585,6 +595,9 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
             parsed->out_conf.mode = CONFERENCE;
             char *item = argv[++start_index];
             parsed->out_conf.arg = item;
+        } else if(strcmp(argv[start_index], "--conference-compression") == 0) {
+            char *item = argv[++start_index];
+            parsed->conference_compression = item;
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
             parsed->capture_filter = argv[++start_index];
         } else if(strcmp(argv[start_index], "-h") == 0 || strcmp(argv[start_index], "--help") == 0) {
@@ -717,6 +730,35 @@ static void hd_rum_translator_deinit(struct hd_rum_translator_state *s) {
     qdestroy(s->queue);
 }
 
+struct Conf_participant{
+        struct sockaddr_storage addr;
+        socklen_t addrlen;
+        struct timeval last_recv;
+};
+
+static bool sockaddr_equal(struct sockaddr *a, struct sockaddr *b){
+        if(a->sa_family != b->sa_family)
+                return false;
+
+        switch(a->sa_family){
+        case AF_INET:{
+                auto a_in = reinterpret_cast<struct sockaddr_in *>(a);
+                auto b_in = reinterpret_cast<struct sockaddr_in *>(b);
+                return a_in->sin_port == b_in->sin_port
+                        && a_in->sin_addr.s_addr == b_in->sin_addr.s_addr;
+        }
+        case AF_INET6:{
+                auto a_in = reinterpret_cast<struct sockaddr_in6 *>(a);
+                auto b_in = reinterpret_cast<struct sockaddr_in6 *>(b);
+                return a_in->sin6_port == b_in->sin6_port
+                        && memcmp(a_in->sin6_addr.s6_addr, b_in->sin6_addr.s6_addr, sizeof(struct in6_addr)) == 0;
+        }
+        default:
+                assert(false && "Comparison not implemented for address type");
+                abort();
+        }
+}
+
 #define EXIT(retval) { hd_rum_translator_deinit(&state); if (sock_in != nullptr) udp_exit(sock_in); common_cleanup(init); return retval; }
 int main(int argc, char **argv)
 {
@@ -729,7 +771,7 @@ int main(int argc, char **argv)
     pthread_t thread;
     int err = 0;
     int i;
-    struct cmdline_parameters params;
+    struct cmdline_parameters params = {};
 
     if ((init = common_preinit(argc, argv)) == nullptr) {
         EXIT(EXIT_FAILURE);
@@ -858,12 +900,82 @@ int main(int argc, char **argv)
 
     unsigned long long int last_data = 0ull;
 
+    std::vector<Conf_participant> participants;
+
     /* main loop */
     while (!should_exit) {
-        struct timeval timeout = { 1, 0 };
-        while (state.qtail->next != state.qhead
-               && (state.qtail->size = udp_recv_timeout(sock_in, state.qtail->buf, SIZE, &timeout)) > 0
-               && !should_exit) {
+        while (state.qtail->next != state.qhead && !should_exit) {
+            struct timeval timeout = { 1, 0 };
+
+            struct sockaddr_storage sin = {};
+            socklen_t addrlen = sizeof(sin);
+            state.qtail->size = udp_recvfrom_timeout(sock_in, state.qtail->buf, SIZE, &timeout, (sockaddr *) &sin, &addrlen);
+            if(state.qtail->size <= 0)
+                break;
+
+            struct timeval t;
+            gettimeofday(&t, NULL);
+
+            if(params.out_conf.mode == CONFERENCE){
+                    bool seen = false;
+                    for(auto it = participants.begin(); it != participants.end();){
+                            if(addrlen > 0 && sockaddr_equal((sockaddr *) &it->addr, (sockaddr *) &sin)){
+                                    it->last_recv = t;
+                                    seen = true;
+                            }
+                            const double participant_timeout = 10.0;
+                            if(tv_diff(t, it->last_recv) > participant_timeout){
+                                    std::swap(*it, participants.back());
+                                    participants.pop_back();
+                                    log_msg(LOG_LEVEL_NOTICE, "Removing participant\n");
+                                    std::string msg = "delete-port ";
+                                    auto addr = reinterpret_cast<struct sockaddr *>(&it->addr);
+                                    char addr_str[128];
+                                    get_sockaddr_addr_str(addr, addr_str, sizeof(addr_str));
+                                    msg += get_replica_mod_name(addr_str, get_sockaddr_addr_port(addr));
+
+                                    struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                                    strncpy(m->text, msg.c_str(), sizeof(m->text) - 1);
+                                    log_msg(LOG_LEVEL_NOTICE, "Msg: %s\n", m->text);
+                                    struct response *r = send_message_to_receiver(&state.mod, (struct message *) m);
+                                    if (response_get_status(r) != RESPONSE_ACCEPTED) {
+                                            log_msg(LOG_LEVEL_ERROR, "Couldn't remove participant (error %d)!\n", response_get_status(r));
+                                    }
+                                    free_response(r);
+                            } else {
+                                    it++;
+                            }
+                    }
+
+                    if(!seen && addrlen > 0){
+                            Conf_participant p;
+                            p.addr = sin;
+                            p.addrlen = addrlen;
+                            p.last_recv = t;
+
+                            log_msg(LOG_LEVEL_NOTICE, "New participant\n");
+                            std::string msg = "create-port ";
+                            msg += get_sockaddr_str(reinterpret_cast<sockaddr *>(&sin));
+                            if(params.conference_compression){
+                                    msg += " ";
+                                    msg += params.conference_compression;
+                            } else {
+                                    msg += " libavcodec";
+                            }
+
+                            struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                            strncpy(m->text, msg.c_str(), sizeof(m->text) - 1);
+                            log_msg(LOG_LEVEL_NOTICE, "Msg: %s\n", m->text);
+                            struct response *r = send_message_to_receiver(&state.mod, (struct message *) m);
+                            if (response_get_status(r) != RESPONSE_ACCEPTED) {
+                                    log_msg(LOG_LEVEL_ERROR, "Cannot add new participant (error %d)!\n", response_get_status(r));
+                            } else{
+                                participants.push_back(p);
+                            }
+                            free_response(r);
+                    }
+            }
+
             received_data += state.qtail->size;
 
             state.qtail = state.qtail->next;
@@ -873,8 +985,6 @@ int main(int argc, char **argv)
             pthread_cond_signal(&state.qempty_cond);
             pthread_mutex_unlock(&state.qempty_mtx);
 
-            struct timeval t;
-            gettimeofday(&t, NULL);
             double seconds = tv_diff(t, t0);
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
@@ -883,7 +993,6 @@ int main(int argc, char **argv)
                 t0 = t;
                 last_data = received_data;
             }
-            timeout = { 1, 0 };
         }
 
         if (state.qtail->size <= 0)
