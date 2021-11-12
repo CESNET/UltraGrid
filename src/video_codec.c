@@ -1999,6 +1999,27 @@ void vc_copylineRG48toR12L(unsigned char * __restrict dst, const unsigned char *
         }
 }
 
+static void vc_copylineRG48toR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        const uint16_t *in = (const uint16_t *) src;
+        uint32_t *out = (uint32_t *) dst;
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
+#ifdef WORDS_BIGENDIAN
+                *out++ = r << 22U | g << 12U | b << 2U | 0x3FU; /// @todo just a stub
+#else
+                unsigned r = *in++ >> 6;
+                unsigned g = *in++ >> 6;
+                unsigned b = *in++ >> 6;
+                // B5-B0 XX | G3-G0 B9-B6 | R1-R0 G9-G4 | R9-R2
+                *out++ = (b & 0x3FU) << 26U | 0x3000000U | (g & 0xFU) << 20U | (b >> 6U) << 16U | (r & 0x3U) << 14U | (g >> 4U) << 8U | r >> 2U;
+#endif
+        }
+}
+
 void vc_copylineRG48toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -2495,6 +2516,7 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineRGBtoRG48,   RGB,   RG48, false },
         { (decoder_t) vc_copylineUYVYtoRG48,  UYVY,  RG48, true },
         { (decoder_t) vc_copylineRG48toR12L,  RG48,  R12L, false },
+        { (decoder_t) vc_copylineRG48toR10k,  RG48,  R10k, false },
         { (decoder_t) vc_copylineRG48toRGB,   RG48,  RGB, false },
         { (decoder_t) vc_copylineRG48toUYVY,  RG48,  UYVY, true },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
