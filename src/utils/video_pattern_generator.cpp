@@ -344,7 +344,7 @@ class image_pattern_raw : public image_pattern {
 unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (config == "help") {
                 cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
-                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns for RG48 and R12L\n";
+                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns with " << BOLD("RG48") << ", " << BOLD("R12L") << " and " << BOLD("R10k\n");
                 cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
                 cout << "\t\t- pattern 'smpte' uses the top bars from top 2 thirds only (doesn't render bottom third differently)\n";
                 return {};
@@ -437,11 +437,9 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
         codec_t codec_intermediate = color_spec;
 
         /// first step - conversion from RGBA
-        if (color_spec == RG48 || color_spec == R12L) {
+        if (color_spec == RG48 || color_spec == R12L || color_spec == R10k) {
                 data = generator->init(width, height, generator_depth::bits16);
-                if (color_spec == R12L) {
-                        codec_intermediate = RG48;
-                }
+                codec_intermediate = RG48;
         } else if (color_spec != RGBA) {
                 // these codecs do not have direct conversion from RGBA - use @ref second_conversion_step
                 if (color_spec == I420 || color_spec == v210 || color_spec == YUYV || color_spec == Y216) {
