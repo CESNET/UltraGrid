@@ -349,6 +349,12 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 cout << "\t\t- pattern 'smpte' uses the top bars from top 2 thirds only (doesn't render bottom third differently)\n";
                 return {};
         }
+        string pattern = config;
+        string params;
+        if (string::size_type delim = config.find('='); delim != string::npos) {
+                pattern = config.substr(0, delim);
+                params = config.substr(delim + 1);
+        }
         if (config == "bars") {
                 return make_unique<image_pattern_bars>();
         }
@@ -358,23 +364,20 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (config == "ebu_bars") {
                 return make_unique<image_pattern_ebu_smpte_bars<0xFFU, 8>>();
         }
-        if (config.substr(0, "gradient2"s.length()) == "gradient2") {
-                if (config.substr(0, "gradient2="s.length()) == "gradient2=") {
-                        auto val = config.substr("gradient2="s.length());
-                        if (val == "help"s) {
+        if (pattern == "gradient2") {
+                if (!params.empty()) {
+                        if (params == "help"s) {
                                 cout << "Testcard gradient2 usage:\n\t-t testcard:gradient2[=maxval] - maxval is 16-bit resolution\n";
                                 return {};
                         }
-                        return make_unique<image_pattern_gradient2>(stol(val, nullptr, 0));
+                        return make_unique<image_pattern_gradient2>(stol(params, nullptr, 0));
                 }
                 return make_unique<image_pattern_gradient2>();
         }
-        if (config.substr(0, "gradient"s.length()) == "gradient") {
-                assert (config.substr(0, "gradient2"s.length()) == "gradient2");
+        if (pattern == "gradient") {
                 uint32_t color = image_pattern_gradient::red;
-                if (config.substr(0, "gradient="s.length()) == "gradient=") {
-                        auto val = config.substr("gradient="s.length());
-                        color = stol(val, nullptr, 0);
+                if (!params.empty()) {
+                        color = stol(params, nullptr, 0);
                 }
                 return make_unique<image_pattern_gradient>(color);
         }
