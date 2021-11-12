@@ -119,7 +119,7 @@ struct testcard_state {
                 SINE,
         } grab_audio = grab_audio_t::NONE;
 
-        unsigned int still_image;
+        bool still_image = false;
         string pattern{"bars"};
 };
 
@@ -374,7 +374,7 @@ static auto parse_format(char **fmt, char **save_ptr) {
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
         struct testcard_state *s = nullptr;
-        char *filename;
+        char *filename = nullptr;
         const char *strip_fmt = NULL;
         FILE *in = NULL;
         char *save_ptr = NULL;
@@ -392,6 +392,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\tpattern") << " - pattern to use, use \"" << BOLD("pattern=help") << "\" for options\n";
                 cout << BOLD("\tapattern") << " - audio pattern to use - \"sine\" or an included \"midi\"\n";
                 cout << "\n";
+                cout << "alternative format syntax:\n";
+                cout << BOLD("\t-t testcard[:size=<width>x<height>][:fps=<fps>[:codec=<codec>][...]\n");
+                cout << "\n";
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
         }
@@ -407,13 +410,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         if (!desc) {
                 goto error;
         }
-
-        s->still_image = FALSE;
-        s->frame = vf_alloc_desc(desc);
-        vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->frame->tiles[0].data_len * 2));
-        s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
-
-        filename = NULL;
 
         tmp = strtok_r(ptr, ":", &save_ptr);
         while (tmp) {
@@ -458,18 +454,34 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         s->frame->interlacing = SEGMENTED_FRAME;
                         log_msg(LOG_LEVEL_WARNING, "[testcard] Deprecated 'sf' option. Use format testcard:1920:1080:25sf:UYVY instead!\n");
                 } else if (strcmp(tmp, "still") == 0) {
-                        s->still_image = TRUE;
+                        s->still_image = true;
                 } else if (strncmp(tmp, "pattern=", strlen("pattern=")) == 0) {
                         const char *pattern = tmp + strlen("pattern=");
                         s->pattern = pattern;
                 } else if (strstr(tmp, "apattern=") == tmp) {
                         s->grab_audio = strcasecmp(tmp + strlen("apattern="), "sine") == 0 ? testcard_state::grab_audio_t::SINE : testcard_state::grab_audio_t::MIDI;
+                } else if (strstr(tmp, "codec=") == tmp) {
+                        desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
+                } else if (strstr(tmp, "size=") == tmp && strchr(tmp, 'x') != nullptr) {
+                        desc.width = stoi(strchr(tmp, '=') + 1);
+                        desc.height = stoi(strchr(tmp, 'x') + 1);
+                } else if (strstr(tmp, "fps=") == tmp) {
+                        desc.fps = stod(strchr(tmp, '=') + 1);
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
                         goto error;
                 }
                 tmp = strtok_r(NULL, ":", &save_ptr);
         }
+
+        if (desc.color_spec == VIDEO_CODEC_NONE || desc.width <= 0 || desc.height <= 0 || desc.fps <= 0.0) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong video format: " << desc << "\n";
+                goto error;
+        }
+
+        s->frame = vf_alloc_desc(desc);
+        vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->frame->tiles[0].data_len * 2));
+        s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
 
         if (!filename) {
                 auto data = video_pattern_generate(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec);
