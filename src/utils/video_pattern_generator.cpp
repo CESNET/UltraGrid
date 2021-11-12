@@ -314,7 +314,7 @@ class image_pattern_raw : public image_pattern {
         public:
                 explicit image_pattern_raw(string config) {
                         if (config.empty()) {
-                                throw ug_runtime_error("Empty raw pattern is not allowed!\n");
+                                throw ug_runtime_error("Empty raw pattern is not allowed!");
                         }
                         while (!config.empty()) {
                                 unsigned char byte = 0;
@@ -398,7 +398,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong color!\n";
                 }
         }
-        throw ug_runtime_error("Unknown pattern: "s +  config + "!\n"s);
+        throw ug_runtime_error("Unknown pattern: "s +  config + "!"s);
 }
 
 static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color)
@@ -425,7 +425,7 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
         try {
                 generator = image_pattern::create(config);
         } catch (exception const &e) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what();
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
                 return {nullptr, free_deleter};
         }
         if (!generator) {
