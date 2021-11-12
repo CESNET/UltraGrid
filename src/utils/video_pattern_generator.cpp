@@ -83,6 +83,7 @@ using std::default_random_engine;
 using std::exception;
 using std::for_each;
 using std::make_unique;
+using std::max;
 using std::min;
 using std::move;
 using std::string;
@@ -286,7 +287,7 @@ class image_pattern_gradient2 : public image_pattern {
         private:
                 const unsigned int val_max;
                 enum generator_depth fill(int width, int height, unsigned char *data) override {
-                        width = min(width, 2); // avoid division by zero
+                        width = max(width, 2); // avoid division by zero
                         auto *ptr = reinterpret_cast<uint16_t *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 for (int i = 0; i < width; i += 1) {
@@ -357,14 +358,6 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (config == "ebu_bars") {
                 return make_unique<image_pattern_ebu_smpte_bars<0xFFU, 8>>();
         }
-        if (config.substr(0, "gradient"s.length()) == "gradient") {
-                uint32_t color = image_pattern_gradient::red;
-                if (config.substr(0, "gradient="s.length()) == "gradient=") {
-                        auto val = config.substr("gradient="s.length());
-                        color = stol(val, nullptr, 0);
-                }
-                return make_unique<image_pattern_gradient>(color);
-        }
         if (config.substr(0, "gradient2"s.length()) == "gradient2") {
                 if (config.substr(0, "gradient2="s.length()) == "gradient2=") {
                         auto val = config.substr("gradient2="s.length());
@@ -375,6 +368,15 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                         return make_unique<image_pattern_gradient2>(stol(val, nullptr, 0));
                 }
                 return make_unique<image_pattern_gradient2>();
+        }
+        if (config.substr(0, "gradient"s.length()) == "gradient") {
+                assert (config.substr(0, "gradient2"s.length()) == "gradient2");
+                uint32_t color = image_pattern_gradient::red;
+                if (config.substr(0, "gradient="s.length()) == "gradient=") {
+                        auto val = config.substr("gradient="s.length());
+                        color = stol(val, nullptr, 0);
+                }
+                return make_unique<image_pattern_gradient>(color);
         }
         if (config == "noise") {
                 return make_unique<image_pattern_noise>();
