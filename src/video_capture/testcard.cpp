@@ -391,6 +391,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\tstill") << " - send still image\n";
                 cout << BOLD("\tpattern") << " - pattern to use, use \"" << BOLD("pattern=help") << "\" for options\n";
                 cout << BOLD("\tapattern") << " - audio pattern to use - \"sine\" or an included \"midi\"\n";
+                cout << "\n";
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
                 return VIDCAP_INIT_NOERR;
         }

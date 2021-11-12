@@ -259,29 +259,29 @@ static const struct alternative_codec_name codec_name_aliases[] = {
 
 void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs12)
 {
-        printf("\tSupported codecs (%s):\n", module);
+        printf("Supported codecs (%s):\n", module);
 
         if (codecs8) {
-                printf("\t\t8bits\n");
+                printf("\t8bits\n");
 
                 while (*codecs8 != VIDEO_CODEC_NONE) {
-                        printf("\t\t\t'%s' - %s\n", codec_info[*codecs8].name, codec_info[*codecs8].name_long);
+                        printf("\t\t'%s' - %s\n", codec_info[*codecs8].name, codec_info[*codecs8].name_long);
                         codecs8++;
                 }
         }
 
         if (codecs10) {
-                printf("\t\t10bits\n");
+                printf("\t10bits\n");
                 while (*codecs10 != VIDEO_CODEC_NONE) {
-                        printf("\t\t\t'%s' - %s\n", codec_info[*codecs10].name, codec_info[*codecs10].name_long);
+                        printf("\t\t'%s' - %s\n", codec_info[*codecs10].name, codec_info[*codecs10].name_long);
                         codecs10++;
                 }
         }
 
         if (codecs12) {
-                printf("\t\t12bits\n");
+                printf("\t12bits\n");
                 while (*codecs12 != VIDEO_CODEC_NONE) {
-                        printf("\t\t\t'%s' - %s\n", codec_info[*codecs12].name, codec_info[*codecs12].name_long);
+                        printf("\t\t'%s' - %s\n", codec_info[*codecs12].name, codec_info[*codecs12].name_long);
                         codecs12++;
                 }
         }
