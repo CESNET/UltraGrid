@@ -342,6 +342,21 @@ struct state_gl {
         ~state_gl() {
                 module_done(&mod);
         }
+
+        vector<char> scratchpad; ///< scratchpad sized WxHx8
+};
+
+static constexpr array gl_supp_codecs = {
+#ifdef HWACC_VDPAU
+        HW_VDPAU,
+#endif
+        UYVY,
+        R10k,
+        RGBA,
+        RGB,
+        DXT1,
+        DXT1_YUV,
+        DXT5
 };
 
 static struct state_gl *gl;
@@ -568,16 +583,7 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
 {
         struct state_gl	*s = (struct state_gl *) state;
 
-        assert (desc.color_spec == RGBA ||
-                        desc.color_spec == RGB  ||
-                        desc.color_spec == UYVY ||
-                        desc.color_spec == DXT1 ||
-                        desc.color_spec == DXT1_YUV ||
-                        desc.color_spec == DXT5
-#ifdef HWACC_VDPAU
-                        || desc.color_spec == HW_VDPAU
-#endif
-                        );
+        assert (find(gl_supp_codecs.begin(), gl_supp_codecs.end(), desc.color_spec) != gl_supp_codecs.end());
 
         s->current_desc = desc;
 
@@ -768,6 +774,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGB, GL_UNSIGNED_BYTE,
                                 NULL);
+        } else if (desc.color_spec == R10k) {
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2,
+                                desc.width, desc.height, 0,
+                                GL_RGBA, GL_UNSIGNED_INT_10_10_10_2,
+                                nullptr);
         } else if (desc.color_spec == DXT5) {
                 glUseProgram(s->PHandle_dxt5);
 
@@ -824,8 +836,8 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 #endif
 	}
 
+        s->scratchpad.resize(desc.width * desc.height * 8);
         s->current_display_desc = desc;
-
 }
 
 static void gl_render(struct state_gl *s, char *data)
@@ -857,6 +869,7 @@ static void gl_render(struct state_gl *s, char *data)
                 case UYVY:
                         gl_render_uyvy(s, data);
                         break;
+                case R10k:
                 case RGB:
                 case RGBA:
                         upload_texture(s, data);
@@ -1374,26 +1387,38 @@ static void gl_resize(int width, int height)
 static void upload_texture(struct state_gl *s, char *data)
 {
         GLuint format = s->current_display_desc.color_spec == RGB ? GL_RGB : GL_RGBA;
+        GLenum type = s->current_display_desc.color_spec == R10k ? GL_UNSIGNED_INT_10_10_10_2 : GL_UNSIGNED_BYTE;
         GLint width = s->current_display_desc.width;
         if (s->current_display_desc.color_spec == UYVY) {
                 width /= 2;
         }
+        auto byte_swap_r10k = [](uint32_t *out, uint32_t *in, long data_len) {
+                for (int i = 0; i < data_len / 4; i += 1) {
+                        *out++ = ntohl(*in++);
+                }
+        };
+        int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
         if (s->use_pbo) {
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id); // current pbo
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, GL_UNSIGNED_BYTE, 0);
-                int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, type, nullptr);
                 glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
-                void *ptr = (GLubyte*) glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
-                if (ptr)
-                {
+                if (void *ptr = glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB)) {
                         // update data directly on the mapped buffer
-                        memcpy(ptr, data, data_size);
+                        if (s->current_display_desc.color_spec == R10k) { // perform byte swap
+                                byte_swap_r10k(static_cast<uint32_t *>(ptr), reinterpret_cast<uint32_t *>(data), data_size);
+                        } else {
+                                memcpy(ptr, data, data_size);
+                        }
                         glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
                 }
 
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
         } else {
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height,  format, GL_UNSIGNED_BYTE, data);
+                if (s->current_display_desc.color_spec == R10k) { // perform byte swap
+                        byte_swap_r10k(reinterpret_cast<uint32_t *>(s->scratchpad.data()), reinterpret_cast<uint32_t *>(data), data_size);
+                        data = s->scratchpad.data();
+                }
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, type, data);
         }
 }
 
@@ -1812,29 +1837,18 @@ static void glut_close_callback(void)
 static int display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
-        codec_t codecs[] = {
-#ifdef HWACC_VDPAU
-                HW_VDPAU,
-#endif
-                UYVY,
-                RGBA,
-                RGB,
-                DXT1,
-                DXT1_YUV,
-                DXT5
-        };
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if(sizeof(codecs) <= *len) {
-                                memcpy(val, codecs, sizeof(codecs));
+                        if (sizeof gl_supp_codecs <= *len) {
+                                memcpy(val, gl_supp_codecs.data(), sizeof gl_supp_codecs);
                         } else {
                                 return FALSE;
                         }
 
-                        *len = sizeof(codecs);
+                        *len = sizeof gl_supp_codecs;
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
                         if(sizeof(rgb_shift) > *len) {
