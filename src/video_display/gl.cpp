@@ -531,7 +531,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 		free(tmp);
 	}
 
-        s->use_pbo = use_pbo == -1 ? check_rpi_pbo_quirks() : use_pbo; // don't use PBO for Raspberry Pi (better performance)
+        s->use_pbo = use_pbo == -1 ? !check_rpi_pbo_quirks() : use_pbo; // don't use PBO for Raspberry Pi (better performance)
 
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
