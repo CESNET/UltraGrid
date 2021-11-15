@@ -1173,6 +1173,14 @@ static bool display_gl_check_gl_version() {
         return true;
 }
 
+static void display_gl_print_depth() {
+        array<int, 3> bits = {};
+        glGetIntegerv(GL_RED_BITS, &bits[0]);
+        glGetIntegerv(GL_GREEN_BITS, &bits[1]);
+        glGetIntegerv(GL_BLUE_BITS, &bits[2]);
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Buffer depth - R: " << bits[0] << "b, G: " << bits[1] << "b, B: " << bits[2] << "b\n";
+}
+
 static void display_gl_render_last() {
         if (!gl->current_frame) {
                 return;
@@ -1200,7 +1208,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 return false;
         }
 #endif
-        glutInitDisplayMode(GLUT_RGBA | (s->vsync == SINGLE_BUF ? GLUT_SINGLE : GLUT_DOUBLE));
+        string glut_config{"rgba red=10 green=10 blue=10 "s + (s->vsync == SINGLE_BUF ? "single"s : "double"s)};
+        glutInitDisplayString(glut_config.c_str());
 
 #ifdef HAVE_MACOSX
         /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
@@ -1238,6 +1247,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (!display_gl_check_gl_version()) {
                 return false;
         }
+        display_gl_print_depth();
 
 #if defined HAVE_LINUX || defined WIN32
         err = glewInit();
