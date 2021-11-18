@@ -65,7 +65,7 @@ struct dummy_display_state {
         dummy_display_state() : f(nullptr), t0(steady_clock::now()), frames(0) {}
         struct video_frame *f;
         steady_clock::time_point t0;
-        vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R12L, RGBA, RGB, BGR, RG48};
+        vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R10k, R12L, RGBA, RGB, BGR, RG48};
         vector<int> rgb_shift = DEFAULT_RGB_SHIFT_INIT;
         int frames = 0;
 
