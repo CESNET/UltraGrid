@@ -2463,6 +2463,9 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
         assert(subsampling == 422 || subsampling == 420);
+        assert(out_bit_depth == 24 || out_bit_depth == 30 || out_bit_depth == 32);
+        const int bpp = out_bit_depth == 30 ? 10 : 8;
+
         for (int y = 0; y < height / 2; ++y) {
                 uint16_t * __restrict src_y1 = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * 2 * y);
                 uint16_t * __restrict src_y2 = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * (2 * y + 1));
@@ -2485,45 +2488,48 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cr = *src_cr1++ - (1<<9);
                         comp_type_t cb = *src_cb1++ - (1<<9);
-                        comp_type_t rr = YCBCR_TO_R_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
-                        comp_type_t gg = YCBCR_TO_G_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
-                        comp_type_t bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t rr = YCBCR_TO_R_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t gg = YCBCR_TO_G_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
 
 #                       define WRITE_RES_YUV10P_TO_RGB(Y, DST) {\
                                 comp_type_t r = Y + rr;\
                                 comp_type_t g = Y + gg;\
                                 comp_type_t b = Y + bb;\
-                                r = CLAMP_FULL(r, 8);\
-                                g = CLAMP_FULL(g, 8);\
-                                b = CLAMP_FULL(b, 8);\
+                                r = CLAMP_FULL(r, bpp);\
+                                g = CLAMP_FULL(g, bpp);\
+                                b = CLAMP_FULL(b, bpp);\
                                 if (out_bit_depth == 32) {\
                                         *((uint32_t *)(void *) DST) = (r << rgb_shift[R] | g << rgb_shift[G] | b << rgb_shift[B]);\
                                         DST += 4;\
-                                } else {\
+                                } else if (out_bit_depth == 24) {\
                                         *DST++ = r;\
                                         *DST++ = g;\
                                         *DST++ = b;\
+                                } else {\
+                                        *((uint32_t *)(void *) DST) = htonl(r << 22U | g << 12U | b << 2U);\
+                                        DST += 4;\
                                 }\
                         }
 
-                        comp_type_t y1 = (y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + 2);
+                        comp_type_t y1 = (y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y1, dst1)
 
-                        comp_type_t y11 = (y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + 2);
+                        comp_type_t y11 = (y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y11, dst1)
 
                         if (subsampling == 422) {
                                 cr = *src_cr2++ - (1<<9);
                                 cb = *src_cb2++ - (1<<9);
-                                rr = YCBCR_TO_R_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
-                                gg = YCBCR_TO_G_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
-                                bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + 2);
+                                rr = YCBCR_TO_R_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                                gg = YCBCR_TO_G_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
+                                bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
                         }
 
-                        comp_type_t y2 = (y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + 2);
+                        comp_type_t y2 = (y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y2, dst2)
 
-                        comp_type_t y22 = (y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + 2);
+                        comp_type_t y22 = (y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y22, dst2)
                 }
         }
@@ -2537,8 +2543,10 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
 }
 
 MAKE_YUV_TO_RGB_FUNCTION(420, 24)
+MAKE_YUV_TO_RGB_FUNCTION(420, 30)
 MAKE_YUV_TO_RGB_FUNCTION(420, 32)
 MAKE_YUV_TO_RGB_FUNCTION(422, 24)
+MAKE_YUV_TO_RGB_FUNCTION(422, 30)
 MAKE_YUV_TO_RGB_FUNCTION(422, 32)
 
 static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
@@ -2790,10 +2798,12 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV420P10LE, RGBA, yuv420p10le_to_rgb32, false},
+                {AV_PIX_FMT_YUV420P10LE, R10k, yuv420p10le_to_rgb30, false},
                 {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210, true},
                 {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV422P10LE, RGBA, yuv422p10le_to_rgb32, false},
+                {AV_PIX_FMT_YUV422P10LE, R10k, yuv422p10le_to_rgb30, false},
                 {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
                 {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P10LE, R10k, yuv444p10le_to_r10k, false},
