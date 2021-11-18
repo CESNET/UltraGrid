@@ -1011,7 +1011,7 @@ static const codec_t supp_codecs[] = { H264, H265, JPEG, MJPG, J2K, J2KR, VP8, V
         HFYU, FFV1, AV1 };
 /**
  * @todo
- * This should be automatically generated
+ * This should be automatically generated taking into account existing conversions.
  */
 static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 80 }, // for probe
@@ -1034,14 +1034,12 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, v210, UYVY, 500 },
         { VIDEO_CODEC_NONE, v210, v210, 500 },
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, UYVY, 900 }, // provide also generic decoders
-#ifdef HAVE_SWSCALE
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RG48, 900 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGB, 900 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGBA, 900 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R10k, 900 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R12L, 900 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, v210, 900 },
-#endif
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RG48, 950 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGB, 950 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGBA, 950 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R10k, 950 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R12L, 950 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, v210, 950 },
 };
 #define SUPP_CODECS_CNT (sizeof supp_codecs / sizeof supp_codecs[0])
 #define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
