@@ -47,6 +47,7 @@
 
 #define STRINGIFY(A) #A
 #define TOSTRING(A) STRINGIFY(A) // https://stackoverflow.com/questions/240353/convert-a-preprocessor-token-to-a-string
+#define IF_NOT_NULL_ELSE(cond, alt_val) !(cond) ? (cond) : (alt_val)
 
 #ifdef __cplusplus
 extern "C" {

@@ -855,7 +855,6 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
                 int subs_in = get_subsampling(in);
                 int subs_a = get_subsampling(a);
                 int subs_b = get_subsampling(b);
-
                 // check identity first
                 if (a == in || b == in) {
                         return a == in;
@@ -931,14 +930,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
         int bits_per_comp = get_bits_per_component(in_desc.color_spec);
         bool is_rgb = codec_is_a_rgb(in_desc.color_spec);
-        int preferred_subsampling = requested_subsampling;
-        if (requested_subsampling == 0) {
-                if (codec_is_420(in_desc.color_spec)) { /// @todo perhaps better would be take the subs. directly
-                        preferred_subsampling = 420;
-                } else {
-                        preferred_subsampling = 422;
-                }
-        }
+        int preferred_subsampling = IF_NOT_NULL_ELSE(requested_subsampling, get_subsampling(in_desc.color_spec) / 10);
         // sort
         auto compare = [bits_per_comp, is_rgb, preferred_subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
                 const struct AVPixFmtDescriptor *pda = av_pix_fmt_desc_get(a);
