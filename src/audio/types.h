@@ -113,6 +113,7 @@ typedef struct
 
 #ifdef __cplusplus
 #include <memory>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -120,13 +121,13 @@ class audio_frame2;
 
 class audio_frame2_resampler {
 public:
-        audio_frame2_resampler();
         ~audio_frame2_resampler();
 private:
-        void *resampler; // type is (SpeexResamplerState *)
-        int resample_from;
-        size_t resample_ch_count;
-        int resample_to;
+        void *resampler{nullptr}; // type is (SpeexResamplerState *)
+        int resample_from{0};
+        int resample_to_num{0};
+        int resample_to_den{1};
+        size_t resample_ch_count{0};
 
         friend class audio_frame2;
 };
@@ -184,6 +185,9 @@ public:
          * @retval false          if SpeexDSP was not compiled in
          */
         bool resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
+
+        ///@ resamples to new sample rate while keeping nominal sample rate intact
+        std::tuple<bool, audio_frame2> resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den);
 private:
         struct channel {
                 std::unique_ptr<char []> data;

@@ -79,11 +79,6 @@ audio_desc::operator string() const
 }
 
 
-audio_frame2_resampler::audio_frame2_resampler() : resampler(nullptr), resample_from(0),
-        resample_ch_count(0), resample_to(0)
-{
-}
-
 audio_frame2_resampler::~audio_frame2_resampler() {
         if (resampler) {
 #ifdef HAVE_SPEEXDSP
@@ -345,10 +340,10 @@ void  audio_frame2::change_bps(int new_bps)
 ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
                 "  Sets audio resampler quality in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_RESAMPLE_QUALITY) "\n");
 
-bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate)
+tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
 {
-        if (new_sample_rate == sample_rate) {
-                return true;
+        if (new_sample_rate_num / new_sample_rate_den == sample_rate && new_sample_rate_num % new_sample_rate_den == 0) {
+                return {true, audio_frame2()};
         }
 
 #ifdef HAVE_SPEEXDSP
@@ -360,7 +355,9 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
 
         std::vector<channel> new_channels(channels.size());
 
-        if (sample_rate != resampler_state.resample_from || new_sample_rate != resampler_state.resample_to || channels.size() != resampler_state.resample_ch_count) {
+        if (sample_rate != resampler_state.resample_from
+                        || new_sample_rate_num != resampler_state.resample_to_num || new_sample_rate_den != resampler_state.resample_to_den
+                        || channels.size() != resampler_state.resample_ch_count) {
                 if (resampler_state.resampler) {
                         speex_resampler_destroy((SpeexResamplerState *) resampler_state.resampler);
                 }
@@ -371,22 +368,28 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
                         quality = stoi(commandline_params.at("resampler-quality"));
                         assert(quality >= 0 && quality <= 10);
                 }
-                int err;
-                resampler_state.resampler = speex_resampler_init(channels.size(), sample_rate,
-                                new_sample_rate, quality, &err);
-                if(err) {
-                        abort();
+                int err = 0;
+                resampler_state.resampler = speex_resampler_init_frac(channels.size(), sample_rate * new_sample_rate_den,
+                                new_sample_rate_num, sample_rate, new_sample_rate_num, quality, &err);
+                if (err) {
+                        LOG(LOG_LEVEL_ERROR) << "[audio_frame2] Cannot initialize resampler: " << speex_resampler_strerror(err) << "\n";
+                        return {false, audio_frame2{}};
                 }
                 resampler_state.resample_from = sample_rate;
-                resampler_state.resample_to = new_sample_rate;
+                resampler_state.resample_to_num = new_sample_rate_num;
+                resampler_state.resample_to_den = new_sample_rate_den;
                 resampler_state.resample_ch_count = channels.size();
         }
 
         for (size_t i = 0; i < channels.size(); i++) {
                 // allocate new storage + 10 ms headroom
-                size_t new_size = channels[i].len * new_sample_rate / sample_rate + new_sample_rate * sizeof(int16_t) / 100;
+                size_t new_size = (long long) channels[i].len * new_sample_rate_num / sample_rate / new_sample_rate_den
+                        + new_sample_rate_num * sizeof(int16_t) / 100 / new_sample_rate_den;
                 new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size, {}};
         }
+
+        audio_frame2 remainder;
+        remainder.init(get_channel_count(), get_codec(), get_bps(), get_sample_rate());
 
         /// @todo
         /// Consider doing this in parallel - complex resampling requires some milliseconds.
@@ -403,20 +406,38 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
                                 (const spx_int16_t *)(const void *) get_data(i), &in_frames,
                                 (spx_int16_t *)(void *) new_channels[i].data.get(), &write_frames);
                 if (in_frames != in_frames_orig) {
-                        LOG(LOG_LEVEL_WARNING) << "Audio frame resampler: not all samples resampled!\n";
+                        remainder.append(i, get_data(i) + in_frames * sizeof(int16_t), in_frames_orig - in_frames);
                 }
                 new_channels[i].len = write_frames * sizeof(int16_t);
         }
 
-        sample_rate = new_sample_rate;
+        if (remainder.get_data_len() == 0) {
+                remainder = {};
+        }
+
         channels = move(new_channels);
-        return true;
+        return {true, std::move(remainder)};
 #else
         UNUSED(resampler_state.resample_from);
-        UNUSED(resampler_state.resample_to);
+        UNUSED(resampler_state.resample_to_num);
+        UNUSED(resampler_state.resample_to_den);
         UNUSED(resampler_state.resample_ch_count);
         LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
-        return false;
+        return {false, audio_frame2{}};
 #endif
+}
+
+bool audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sample_rate)
+{
+        auto [ret, remainder] = resample_fake(resampler_state, new_sample_rate, 1);
+        if (!ret) {
+                return false;
+        }
+        if (remainder.get_data_len() > 0) {
+                LOG(LOG_LEVEL_WARNING) << "Audio frame resampler: not all samples resampled!\n";
+        }
+        sample_rate = new_sample_rate;
+
+        return true;
 }
 
