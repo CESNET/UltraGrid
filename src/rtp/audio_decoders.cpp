@@ -68,6 +68,7 @@
 #include "utils/worker.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cstring>
@@ -86,6 +87,7 @@ using rang::style;
 using std::fixed;
 using std::hex;
 using std::map;
+using std::move;
 using std::ostringstream;
 using std::pair;
 using std::setprecision;
@@ -188,6 +190,7 @@ public:
 
 struct state_audio_decoder {
         uint32_t magic;
+        struct module mod;
 
         struct timeval t0;
 
@@ -221,6 +224,9 @@ struct state_audio_decoder {
         fec_desc fec_state_desc;
 
         struct state_audio_decoder_summary summary;
+
+        audio_frame2 resample_remainder;
+        std::atomic_uint64_t req_resample_to{0}; // hi 32 - numerator; lo 32 - denominator
 };
 
 constexpr double VOL_UP = 1.1;
@@ -250,6 +256,23 @@ static void compute_scale(struct scale_data *scale_data, double vol_avg, int sam
         }
 }
 
+static void audio_decoder_process_message(struct module *m)
+{
+        auto *s = static_cast<struct state_audio_decoder *>(m->priv_data);
+
+        while (auto *msg = reinterpret_cast<msg_universal *>(check_message(m))) {
+                struct response *r = nullptr;
+                if (strstr(msg->text, MSG_UNIVERSAL_TAG_AUDIO_DECODER) == msg->text) {
+                        s->req_resample_to = strtoull(msg->text + strlen(MSG_UNIVERSAL_TAG_AUDIO_DECODER), nullptr, 0);
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Resampling sound to: " << (s->req_resample_to >> ADEC_CH_RATE_SHIFT) << "/" << (s->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1)) << "\n";
+                        r = new_response(RESPONSE_OK, nullptr);
+                } else {
+                        r = new_response(RESPONSE_NOT_FOUND, nullptr);
+                }
+                free_message(reinterpret_cast<message *>(msg), r);
+        }
+}
+
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, audio_playback_ctl_t c, void *p_state, struct module *parent)
 {
         struct state_audio_decoder *s;
@@ -263,6 +286,12 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->magic = AUDIO_DECODER_MAGIC;
         s->audio_playback_ctl_func = c;
         s->audio_playback_state = p_state;
+
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_DECODER;
+        s->mod.priv_data = s;
+        s->mod.new_message = audio_decoder_process_message;
+        module_register(&s->mod, parent);
 
         gettimeofday(&s->t0, NULL);
         s->packet_counter = packet_counter_init(0);
@@ -403,7 +432,7 @@ void audio_decoder_destroy(void *state)
         }
 
         delete s->fec_state;
-
+        module_done(&s->mod);
         delete s;
 }
 
@@ -511,6 +540,7 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
                 return false;
         }
 
+        decoder->resample_remainder = {};
         return true;
 }
 
@@ -722,13 +752,26 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 return FALSE;
         }
 
-        if (s->buffer.sample_rate != decompressed.get_sample_rate()) {
+        if (decoder->req_resample_to != 0 || s->buffer.sample_rate != decompressed.get_sample_rate()) {
                 if (decompressed.get_bps() != 2) {
                         decompressed.change_bps(2);
                 }
-                if (!decompressed.resample(decoder->resampler, s->buffer.sample_rate)) {
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
-                        return FALSE;
+                if (decoder->req_resample_to != 0) {
+                        if (decoder->resample_remainder) {
+                                decoder->resample_remainder.append(decompressed);
+                                decompressed = move(decoder->resample_remainder);
+                        }
+                        auto [ret, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
+                        if (!ret) {
+                                LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
+                                return FALSE;
+                        }
+                        decoder->resample_remainder = move(remainder);
+                } else {
+                        if (!decompressed.resample(decoder->resampler, s->buffer.sample_rate)) {
+                                LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
+                                return FALSE;
+                        }
                 }
         }
 
