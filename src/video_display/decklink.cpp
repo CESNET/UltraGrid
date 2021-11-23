@@ -1638,7 +1638,7 @@ HRESULT DeckLinkFrame::QueryInterface(REFIID iid, LPVOID *ppv)
         // Initialise the return result
         *ppv = nullptr;
 
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "DecklLinkFrame QueryInterface " << iid << "\n";
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "DeckLinkFrame QueryInterface " << iid << "\n";
         if (iid == iunknown) {
                 *ppv = this;
                 AddRef();
