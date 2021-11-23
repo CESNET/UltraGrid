@@ -306,7 +306,7 @@ static bool audio_play_alsa_query_format(struct state_alsa_playback *s, void *da
         }
 
         /* set sampling rate */
-        val = desc.sample_rate;
+        val = ret.sample_rate;
         dir = 0;
         rc = snd_pcm_hw_params_set_rate_near(s->handle, params,
                 &val, &dir);
