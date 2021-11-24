@@ -781,7 +781,8 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
         set_thread_mode(s->codec_ctx, &s->params);
-        s->codec_ctx->slices = max(s->params.thread_count, MIN_SLICE_COUNT);
+        // currently FFmpeg JPEG encoder produces broken JPEGs if not using encoding threads and slices > 1
+        s->codec_ctx->slices = s->codec_ctx->codec_id != AV_CODEC_ID_MJPEG || s->codec_ctx->thread_count > 1 ? max(s->params.thread_count, MIN_SLICE_COUNT) : 1;
 
         if (!s->params.have_preset) {
                 string preset{};
