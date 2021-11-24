@@ -79,18 +79,6 @@ void parallel_pix_conv(int height, char *out, int out_linesize, const char *in, 
                 }
         }
 
-        if (threads == 1) {
-                parallel_pix_conv_task((void *) &data[0]);
-        } else {
-                task_result_handle_t handle[threads];
-
-                for (int i = 0; i < threads; ++i) {
-                        handle[i] = task_run_async(parallel_pix_conv_task, (void *) &data[i]);
-                }
-
-                for (int i = 0; i < threads; ++i) {
-                        wait_task(handle[i]);
-                }
-        }
+        task_run_parallel(parallel_pix_conv_task, threads, data, sizeof data[0], NULL);
 }
 
