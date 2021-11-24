@@ -322,3 +322,20 @@ const char *ug_strerror(int errnum)
 
         return errstring;
 }
+
+/// @retval number of usable CPU cores or 1 if unknown
+int get_cpu_core_count(void)
+{
+#ifdef _WIN32
+        SYSTEM_INFO sysinfo;
+        GetSystemInfo(&sysinfo);
+        return MIN(sysinfo.dwNumberOfProcessors, INT_MAX);
+#else
+        long numCPU = sysconf(_SC_NPROCESSORS_ONLN);
+        if (numCPU == -1) {
+                perror("sysconf(_SC_NPROCESSORS_ONLN)");
+                return 1;
+        }
+        return MIN(numCPU, INT_MAX);
+#endif
+}

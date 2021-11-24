@@ -70,6 +70,7 @@ size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int
 size_t urldecode(char *out, size_t max_len, const char *in);
 
 const char *ug_strerror(int errnum);
+int get_cpu_core_count(void);
 
 /**
  * @brief Creates FourCC word
