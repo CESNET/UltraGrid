@@ -47,6 +47,7 @@
 #include <algorithm>
 #include <queue>
 #include <set>
+#include <vector>
 
 using namespace std;
 
@@ -265,6 +266,8 @@ task_result_handle_t task_run_async(runnable_t task, void *data)
 /**
  * @brief Runs task asynchronously in a detached state
  *
+ * Detached task should own its resources. Moreover, it must not use any static variables/objects.
+ *
  * @param   task callback to be run
  * @param   data additional data to be passed to the callback
  */
@@ -276,5 +279,34 @@ void task_run_async_detached(runnable_t task, void *data)
 void *wait_task(task_result_handle_t handle)
 {
         return instance.wait_task(handle);
+}
+
+/**
+ * This combines task_run_async() + wait_task()
+ *
+ * @param task         task to be run
+ * @param worker_count number of workers to be run
+ * @param data         pointer to data array to be passed to task
+ * @param data_size    size of element of data
+ * @param res          (optional) pointer to result array, may be NULL
+ */
+void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res)
+{
+        if (worker_count == 1) {
+                task(data);
+                return;
+        }
+
+        vector<task_result_handle_t> tasks(worker_count);
+        for (int i = 0; i < worker_count; ++i) {
+                tasks[i] = task_run_async(task, (void *)((char *) data + i * data_size));
+        }
+        for (int i = 0; i < worker_count; ++i) {
+                if (res != nullptr) {
+                        res[i] = wait_task(tasks[i]);
+                } else {
+                        wait_task(tasks[i]);
+                }
+        }
 }
 
