@@ -46,7 +46,9 @@
 #include "libavcodec_common.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "utils/misc.h" // get_cpu_core_count()
 #include "utils/resource_manager.h"
+#include "utils/worker.h"
 #include "video.h"
 #include "video_decompress.h"
 
@@ -717,6 +719,45 @@ static void serialize_avframe(void *f, FILE *out) {
         }
 }
 
+struct convert_task_data {
+        av_to_uv_convert_p convert;
+        unsigned char *out_data;
+        AVFrame *in_frame;
+        int width;
+        int height;
+        int pitch;
+        const int *rgb_shift;
+};
+
+static void *convert_task(void *arg) {
+        struct convert_task_data *d = arg;
+        d->convert((char *) d->out_data, d->in_frame, d->width, d->height, d->pitch, d->rgb_shift);
+        return NULL;
+}
+
+static void parallel_convert(av_to_uv_convert_p convert, char *dst, AVFrame *in, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
+        int cpu_count = get_cpu_core_count();
+
+        struct convert_task_data d[cpu_count];
+        AVFrame parts[cpu_count];
+        for (int i = 0; i < cpu_count; ++i) {
+                int row_height = (height / cpu_count) & ~1; // needs to be even
+                unsigned char *part_dst = (unsigned char *) dst + i * row_height * pitch;
+                memcpy(parts[i].linesize, in->linesize, sizeof in->linesize);
+                for (int plane = 0; plane < AV_NUM_DATA_POINTERS; ++plane) {
+                        if (in->data[plane] == NULL) {
+                                break;
+                        }
+                        parts[i].data[plane] = in->data[plane] + i * row_height * in->linesize[plane];
+                }
+                if (i == cpu_count - 1) {
+                        row_height = height - row_height * (cpu_count - 1);
+                }
+                d[i] = (struct convert_task_data){convert, part_dst, &parts[i], width, row_height, pitch, rgb_shift};
+        }
+        task_run_parallel(convert_task, cpu_count, d, sizeof d[0], NULL);
+}
+
 /**
  * Changes pixel format from frame to native
  *
@@ -755,7 +796,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         }
 
         if (convert) {
-                convert((char *) dst, frame, width, height, pitch, rgb_shift);
+                parallel_convert(convert, (char *) dst, frame, width, height, pitch, rgb_shift);
                 return TRUE;
         }
 
@@ -792,7 +833,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         if(!lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame))
                 return FALSE;
 
-        convert((char *) dst, sws->frame, width, height, pitch, rgb_shift);
+        parallel_convert(convert, (char *) dst, sws->frame, width, height, pitch, rgb_shift);
         return TRUE;
 #else
         UNUSED(sws);
