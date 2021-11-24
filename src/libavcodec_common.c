@@ -1207,7 +1207,7 @@ static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __r
 // av_to_uv_convert conversions
 //
 static void nv12_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < (int) height; ++y) {
@@ -1225,7 +1225,7 @@ static void nv12_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
 }
 
 static void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
@@ -1234,7 +1234,7 @@ static void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict fra
 }
 
 static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         UNUSED(width);
@@ -1250,7 +1250,7 @@ static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame
 }
 
 static void rgb24_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
                 vc_copylineRGBtoRGBA((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
@@ -1259,7 +1259,7 @@ static void rgb24_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict fr
 }
 
 static void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for (int y = 0; y < height; ++y) {
@@ -1275,7 +1275,7 @@ static void gbrp_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame
 }
 
 static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
 
@@ -1293,7 +1293,7 @@ static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict fram
 }
 
 static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
+                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
@@ -1316,19 +1316,19 @@ static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __re
 }
 
 static void gbrp10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 10U);
 }
 
 static void gbrp16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
 }
 
 static void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
@@ -1364,25 +1364,25 @@ static void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame
 }
 
 static void yuv444p10le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_r10k(10, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static void yuv444p12le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_r10k(12, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static void yuv444p16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_r10k(16, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
@@ -1453,25 +1453,25 @@ static void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame
 }
 
 static void yuv444p10le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_r12l(10, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static void yuv444p12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_r12l(12, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static void yuv444p16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_r12l(16, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         assert((uintptr_t) dst_buffer % 2 == 0);
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
@@ -1503,25 +1503,25 @@ static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, 
 }
 
 static void yuv444p10le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_rg48(10, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static void yuv444p12le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_rg48(12, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static void yuv444p16le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444pXXle_to_rg48(16, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
 static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
+                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
@@ -1580,7 +1580,7 @@ static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __re
 }
 
 static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
+                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
@@ -1602,7 +1602,7 @@ static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __res
 }
 
 static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, unsigned int in_depth)
+                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
@@ -1623,63 +1623,63 @@ static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __re
 }
 
 static void gbrp10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 10);
 }
 
 static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 10);
 }
 
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
 static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_r12l(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
 }
 
 static void gbrp12le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
 }
 
 static void gbrp12le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
 }
 
 static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
 }
 #endif
 
 static void gbrp16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_r12l(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
 }
 
 static void gbrp16le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_rgb(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
 }
 
 static void gbrp16le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
 }
 
 static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
                 vc_copylineRG48toRGBA((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
@@ -1688,7 +1688,7 @@ static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict f
 }
 
 static void rgb48le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         for (int y = 0; y < height; ++y) {
                 vc_copylineRG48toR12L((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
@@ -1697,7 +1697,7 @@ static void rgb48le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict f
 }
 
 static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < (height + 1) / 2; ++y) {
@@ -1799,7 +1799,7 @@ static void yuv420p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
 }
 
 static void yuv420p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height / 2; ++y) {
@@ -1862,7 +1862,7 @@ static void yuv420p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
 }
 
 static void yuv422p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -1881,7 +1881,7 @@ static void yuv422p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
 }
 
 static void yuv422p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -1918,7 +1918,7 @@ static void yuv422p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
 }
 
 static void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -1939,7 +1939,7 @@ static void yuv444p_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict i
 }
 
 static void yuv444p16le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -1962,7 +1962,7 @@ static void yuv444p16le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -2009,7 +2009,7 @@ static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
 static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
+                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
 
@@ -2049,13 +2049,13 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
 }
 
 static void nv12_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         nv12_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
 static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         nv12_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
@@ -2065,7 +2065,7 @@ static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_
  * Color space is assumed ITU-T Rec. 709 limited range.
  */
 static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
+                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
@@ -2125,25 +2125,25 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
 }
 
 static void yuv420p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv8p_to_rgb(420, dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
 static void yuv420p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv8p_to_rgb(420, dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
 static void yuv422p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv8p_to_rgb(422, dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
 static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv8p_to_rgb(422, dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
@@ -2154,7 +2154,7 @@ static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict 
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
 static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
+                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
 
@@ -2185,19 +2185,19 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
 }
 
 static void yuv444p_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
 static void yuv444p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444p_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
 static void yuv420p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height / 2; ++y) {
@@ -2260,7 +2260,7 @@ static void yuv420p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 static void yuv422p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -2297,7 +2297,7 @@ static void yuv422p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 static void yuv444p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -2340,7 +2340,7 @@ static void yuv444p10le_to_v210(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 static void yuv444p16le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -2383,7 +2383,7 @@ static void yuv444p16le_to_v210(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 static void yuv420p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height / 2; ++y) {
@@ -2415,7 +2415,7 @@ static void yuv420p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 static void yuv422p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height; ++y) {
@@ -2434,7 +2434,7 @@ static void yuv422p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < (int) height; ++y) {
@@ -2455,7 +2455,7 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
 }
 
 static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, int out_bit_depth)
+                int width, int height, int pitch, const int * __restrict rgb_shift, int out_bit_depth)
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
@@ -2538,7 +2538,7 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
 #define MAKE_YUV_TO_RGB_FUNCTION_NAME(subs, out_bit_depth) yuv ## subs ## p10le_to_rgb ## out_bit_depth
 
 #define MAKE_YUV_TO_RGB_FUNCTION(subs, out_bit_depth) static void MAKE_YUV_TO_RGB_FUNCTION_NAME(subs, out_bit_depth)(char * __restrict dst_buffer, AVFrame * __restrict in_frame,\
-                int width, int height, int pitch, int * __restrict rgb_shift) {\
+                int width, int height, int pitch, const int * __restrict rgb_shift) {\
         yuvp10le_to_rgb(subs, dst_buffer, in_frame, width, height, pitch, rgb_shift, out_bit_depth);\
 }
 
@@ -2550,7 +2550,7 @@ MAKE_YUV_TO_RGB_FUNCTION(422, 30)
 MAKE_YUV_TO_RGB_FUNCTION(422, 32)
 
 static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift, bool rgba)
+                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
         for (int y = 0; y < height; y++) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
@@ -2578,19 +2578,19 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
 }
 
 static inline void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
 static inline void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
 static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height / 2; ++y) {
@@ -2652,7 +2652,7 @@ static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
 }
 
 static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height / 2; ++y) {
@@ -2684,7 +2684,7 @@ static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
 
 #ifdef HWACC_VDPAU
 static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(width);
         UNUSED(height);
