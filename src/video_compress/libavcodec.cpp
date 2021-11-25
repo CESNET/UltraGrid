@@ -1452,15 +1452,12 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         auto pixfmt_conv_callback = select_pixfmt_callback(s->selected_pixfmt, s->decoded_codec);
         if (pixfmt_conv_callback != nullptr) {
-                vector<task_result_handle_t> handle(s->params.thread_count);
                 vector<struct my_task_data> data(s->params.thread_count);
                 for(int i = 0; i < s->params.thread_count; ++i) {
                         data[i].callback = pixfmt_conv_callback;
                         data[i].out_frame = s->in_frame_part[i];
 
-                        size_t height = tx->tiles[0].height / s->params.thread_count;
-                        // height needs to be even
-                        height = height / 2 * 2;
+                        size_t height = tx->tiles[0].height / s->params.thread_count & ~1; // height needs to be even
                         if (i < s->params.thread_count - 1) {
                                 data[i].height = height;
                         } else { // we are last so we need to do the rest
@@ -1470,14 +1467,8 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         data[i].width = tx->tiles[0].width;
                         data[i].in_data = decoded + i * height *
                                 vc_get_linesize(tx->tiles[0].width, s->decoded_codec);
-
-                        // run !
-                        handle[i] = task_run_async(my_task, (void *) &data[i]);
                 }
-
-                for(int i = 0; i < s->params.thread_count; ++i) {
-                        wait_task(handle[i]);
-                }
+                task_run_parallel(my_task, s->params.thread_count, data.data(), sizeof data[0], NULL);
         } else { // no pixel format conversion needed
                 if (codec_is_planar(s->decoded_codec) && !same_linesizes(s->decoded_codec, s->in_frame)) {
                         assert(get_bits_per_component(s->decoded_codec) == 8);
