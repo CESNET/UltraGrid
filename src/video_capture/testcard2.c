@@ -398,12 +398,12 @@ void * vidcap_testcard2_thread(void *arg)
                 SDL_FillRect(surf, &r, 0xffffffff);
                 
 #ifdef HAVE_LIBSDL_TTF                
-                char frames[20];
+                char frames[64];
                 double since_start = tv_diff(next_frame_time, s->start_time);
-                snprintf(frames, 20, "%02d:%02d:%02d %3d", (int) since_start / 3600 ,
+                snprintf(frames, sizeof frames, "%02d:%02d:%02d %3d", (int) since_start / 3600,
                                 (int) since_start / 60 % 60,
                                 (int) since_start % 60,
-                                 s->count % (int)s->frame->fps);
+                                 s->count % (int) s->frame->fps);
                 text = TTF_RenderText_Solid(font,
                         frames, col);
 #endif

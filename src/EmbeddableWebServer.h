@@ -503,7 +503,7 @@ char* strdupDecodeGETorPOSTParam(const char* paramNameIncludingEquals, const cha
     /* Ok paramStart points at -->"name=" ; let's make it point at "=" */
     paramStart = strstr(paramStart, "=");
     if (NULL == paramStart) {
-        ews_printf("It's very suspicious that we couldn't find an equals sign after searching for '%s' in '%s'\n", paramStart, paramString);
+        ews_printf("It's very suspicious that we couldn't find an equals sign after searching for 'name=' in '%s'\n", paramString);
         return strdupIfNotNull(valueIfNotFound);
     }
     /* We need to skip past the "=" */

@@ -288,7 +288,7 @@ static void crash_signal_handler(int sig)
         append(&ptr, ptr_end, "\n" PACKAGE_NAME " has crashed");
 #ifndef WIN32
         char backtrace_msg[] = "Backtrace:\n";
-        write(2, backtrace_msg, sizeof backtrace_msg);
+        write_all(sizeof backtrace_msg, backtrace_msg);
         array<void *, 256> addresses{};
         int num_symbols = backtrace(addresses.data(), addresses.size());
         backtrace_symbols_fd(addresses.data(), num_symbols, 2);
