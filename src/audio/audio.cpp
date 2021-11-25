@@ -58,6 +58,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdio.h>
+#include <string>
 #include <string.h>
 #include <stdlib.h>
 
@@ -144,7 +145,7 @@ struct state_audio {
         struct module audio_receiver_module;
         struct module audio_sender_module;
 
-        struct audio_codec_state *audio_coder = nullptr;
+        struct audio_codec_state *audio_encoder = nullptr;
         
         struct audio_network_parameters audio_network_parameters{};
         struct rtp *audio_network_device = nullptr;
@@ -272,11 +273,6 @@ struct state_audio * audio_cfg_init(struct module *parent,
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
         s->resample_to = resample_to;
 
-        s->audio_coder = audio_codec_init_cfg(opt->codec_cfg, AUDIO_CODER);
-        if(!s->audio_coder) {
-                goto error;
-        }
-
         s->exporter = exporter;
 
         if (opt->echo_cancellation) {
@@ -382,6 +378,12 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 }
         }
 
+        if ((s->audio_tx_mode & MODE_SENDER) != 0U || "help"s == opt->codec_cfg) {
+                if ((s->audio_encoder = audio_codec_init_cfg(opt->codec_cfg, AUDIO_CODER)) == nullptr) {
+                        goto error;
+                }
+        }
+
         s->proto_cfg = opt->proto_cfg;
 
         if (strcasecmp(opt->proto, "ultragrid_rtp") == 0) {
@@ -413,7 +415,7 @@ error:
                 pdb_destroy(&s->audio_participants);
         }
 
-        audio_codec_done(s->audio_coder);
+        audio_codec_done(s->audio_encoder);
         delete s;
         exit_uv(EXIT_FAIL_AUDIO);
         return NULL;
@@ -496,7 +498,7 @@ void audio_done(struct state_audio *s)
         free(s->audio_network_parameters.addr);
         free(s->audio_network_parameters.mcast_if);
 
-        audio_codec_done(s->audio_coder);
+        audio_codec_done(s->audio_encoder);
 
         delete s;
 }
@@ -1007,7 +1009,7 @@ static void *audio_sender_thread(void *arg)
                         // RESAMPLE
                         int resample_to = s->resample_to;
                         if (resample_to == 0) {
-                                const int *supp_sample_rates = audio_codec_get_supported_samplerates(s->audio_coder);
+                                const int *supp_sample_rates = audio_codec_get_supported_samplerates(s->audio_encoder);
                                 resample_to = find_codec_sample_rate(bf_n.get_sample_rate(),
                                                 supp_sample_rates);
                         }
@@ -1023,13 +1025,13 @@ static void *audio_sender_thread(void *arg)
                         // SEND
                         if(s->sender == NET_NATIVE) {
                                 audio_frame2 *uncompressed = &bf_n;
-                                while (audio_frame2 compressed = audio_codec_compress(s->audio_coder, uncompressed)) {
+                                while (audio_frame2 compressed = audio_codec_compress(s->audio_encoder, uncompressed)) {
                                         audio_tx_send(s->tx_session, s->audio_network_device, &compressed);
                                         uncompressed = NULL;
                                 }
                         }else if(s->sender == NET_STANDARD){
                             audio_frame2 *uncompressed = &bf_n;
-                            while (audio_frame2 compressed = audio_codec_compress(s->audio_coder, uncompressed)) {
+                            while (audio_frame2 compressed = audio_codec_compress(s->audio_encoder, uncompressed)) {
                                     //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
                                     audio_tx_send_standard(s->tx_session, s->audio_network_device, &compressed);
                                     uncompressed = NULL;
