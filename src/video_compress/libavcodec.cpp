@@ -1331,8 +1331,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         if (get_ug_to_av_pixfmt(desc.color_spec) == AV_PIX_FMT_NONE
                         || get_ug_to_av_pixfmt(desc.color_spec) != s->selected_pixfmt) {
                 for(int i = 0; i < s->params.thread_count; ++i) {
-                        int chunk_size = s->codec_ctx->height / s->params.thread_count;
-                        chunk_size = chunk_size / 2 * 2;
+                        int chunk_size = s->codec_ctx->height / s->params.thread_count & ~1;
                         s->in_frame_part[i]->data[0] = s->in_frame->data[0] + s->in_frame->linesize[0] * i *
                                 chunk_size;
 
@@ -1380,7 +1379,7 @@ static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) 
         abort();
 }
 
-struct my_task_data {
+struct pixfmt_conv_task_data {
         void (*callback)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
         AVFrame *out_frame;
         unsigned char *in_data;
@@ -1388,10 +1387,8 @@ struct my_task_data {
         int height;
 };
 
-void *my_task(void *arg);
-
-void *my_task(void *arg) {
-        struct my_task_data *data = (struct my_task_data *) arg;
+static void *pixfmt_conv_task(void *arg) {
+        struct pixfmt_conv_task_data *data = (struct pixfmt_conv_task_data *) arg;
         data->callback(data->out_frame, data->in_data, data->width, data->height);
         return NULL;
 }
@@ -1452,7 +1449,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         auto pixfmt_conv_callback = select_pixfmt_callback(s->selected_pixfmt, s->decoded_codec);
         if (pixfmt_conv_callback != nullptr) {
-                vector<struct my_task_data> data(s->params.thread_count);
+                vector<struct pixfmt_conv_task_data> data(s->params.thread_count);
                 for(int i = 0; i < s->params.thread_count; ++i) {
                         data[i].callback = pixfmt_conv_callback;
                         data[i].out_frame = s->in_frame_part[i];
@@ -1468,7 +1465,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         data[i].in_data = decoded + i * height *
                                 vc_get_linesize(tx->tiles[0].width, s->decoded_codec);
                 }
-                task_run_parallel(my_task, s->params.thread_count, data.data(), sizeof data[0], NULL);
+                task_run_parallel(pixfmt_conv_task, s->params.thread_count, data.data(), sizeof data[0], NULL);
         } else { // no pixel format conversion needed
                 if (codec_is_planar(s->decoded_codec) && !same_linesizes(s->decoded_codec, s->in_frame)) {
                         assert(get_bits_per_component(s->decoded_codec) == 8);
