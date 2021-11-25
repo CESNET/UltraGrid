@@ -1698,14 +1698,8 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param * 
         }
 }
 
-static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
 {
-        if (param->thread_mode == "slice") {
-                // zero should mean count equal to the number of virtual cores
-                codec_ctx->thread_count = 0;
-                codec_ctx->thread_type = FF_THREAD_SLICE;
-        }
-
         if (av_opt_set(codec_ctx->priv_data, "huffman", "default", 0) != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Cannot set default Huffman tables.\n");
         }
