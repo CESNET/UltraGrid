@@ -86,7 +86,9 @@ struct stream_info {
 };
 
 struct sdp {
+#ifdef SDP_HTTP
     struct Server http_server;
+#endif // defined SDP_HTTP
     pthread_t http_server_thr;
     int ip_version;
     char version[STR_LENGTH];
@@ -138,7 +140,9 @@ struct sdp *new_sdp(int ip_version, const char *receiver) {
     snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, connection_address);
     strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
 
+#ifdef SDP_HTTP
     serverInit(&sdp->http_server);
+#endif // defined SDP_HTTP
 
     return sdp;
 }
@@ -271,7 +275,9 @@ void clean_sdp(struct sdp *sdp){
             return;
     }
     free(sdp->sdp_dump);
+#ifdef SDP_HTTP
     serverDeInit(&sdp->http_server);
+#endif // defined SDP_HTTP
     free(sdp);
 }
 
@@ -351,6 +357,7 @@ static void print_http_path(struct sdp *sdp) {
     }
 }
 
+#ifdef SDP_HTTP
 bool sdp_run_http_server(struct sdp *sdp, int port, address_callback_t addr_callback, void *addr_callback_udata)
 {
     assert(port >= 0 && port < 65536);
@@ -375,6 +382,7 @@ void sdp_stop_http_server(struct sdp *sdp)
 
     pthread_join(sdp->http_server_thr, NULL);
 }
+#endif // defined SDP_HTTP
 
 #endif // SDP_HTTP
 

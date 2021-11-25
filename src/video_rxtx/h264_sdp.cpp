@@ -160,6 +160,8 @@ void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
         if (!sdp_run_http_server(m_sdp, m_requested_http_port, h264_sdp_video_rxtx::change_address_callback, this)) {
                 LOG(LOG_LEVEL_ERROR) << "[SDP] Server run failed!\n";
         }
+#else
+        LOG(LOG_LEVEL_WARNING) << "[SDP] HTTP support not enabled - skipping server creation!\n";
 #endif
 }
 
@@ -233,7 +235,9 @@ void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 h264_sdp_video_rxtx::~h264_sdp_video_rxtx()
 {
         if (m_sdp_configured_codec != VIDEO_CODEC_NONE) {
+#ifdef SDP_HTTP
                 sdp_stop_http_server(m_sdp);
+#endif // defined SDP_HTTP
         }
         clean_sdp(m_sdp);
 }
