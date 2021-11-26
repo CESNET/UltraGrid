@@ -739,29 +739,24 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         s->codec_ctx->strict_std_compliance = -2;
 
-        // set bitrate
-        if ((s->requested_bitrate > 0 || s->requested_bpp > 0.0)
-                        || (!is_x264_x265 && s->requested_crf == -1 && s->requested_cqp == -1)) {
+        // set quality
+        if (s->requested_cqp >= 0) {
+                if (int rc = av_opt_set_int(s->codec_ctx->priv_data, "qp", s->requested_cqp, 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set CQP", rc);
+                } else {
+                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CQP to %d.\n", s->requested_cqp);
+                }
+        } else if (s->requested_crf >= 0.0 || (is_x264_x265 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
+                double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
+                if (int rc = av_opt_set_double(s->codec_ctx->priv_data, "crf", crf, 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set CRF", rc);
+                } else {
+                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
+                }
+        } else {
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << bitrate << " bps.\n";
-        } else {
-                // set CRF unless explicitly specified CQP or ABR (bitrate)
-                if (s->requested_crf >= 0.0 || (s->requested_bitrate == 0 && s->requested_bpp == 0.0 && s->requested_cqp == -1)) {
-                        double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
-                        if (int rc = av_opt_set_double(s->codec_ctx->priv_data, "crf", crf, 0)) {
-                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set CRF", rc);
-                        } else {
-                                log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
-                        }
-                }
-                if (s->requested_cqp >= 0) {
-                        if (int rc = av_opt_set_int(s->codec_ctx->priv_data, "qp", s->requested_cqp, 0)) {
-                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set CQP", rc);
-                        } else {
-                                log_msg(LOG_LEVEL_INFO, "[lavc] Setting CQP to %d.\n", s->requested_cqp);
-                        }
-                }
         }
 
         /* resolution must be a multiple of two */
