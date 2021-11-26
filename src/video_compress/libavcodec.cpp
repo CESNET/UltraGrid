@@ -95,6 +95,7 @@ using namespace rang;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
 static constexpr double DEFAULT_X264_X265_CRF = 22.0;
+static constexpr int DEFAULT_CQP = 21;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
 static constexpr int MIN_SLICE_COUNT = 8;
@@ -363,6 +364,7 @@ static void usage() {
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
         cout << style::bold << "\t<bits_per_pixel>" << style::reset << " specifies requested bitrate using compressed bits per pixel\n"
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
+        cout << style::bold << "\t<cqp>" << style::reset << " use constant QP value\n";
         cout << style::bold << "\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
         cout << style::bold << "\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
         cout << style::bold << "\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
@@ -725,8 +727,8 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
 
 bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pix_fmt, struct video_desc desc, codec_t ug_codec)
 {
-        bool is_x264_x265 = strncmp(s->codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 ||
-                strcmp(s->codec_ctx->codec->name, "libx265") == 0;
+        bool is_x264_x265 = strstr(s->codec_ctx->codec->name, "libx26") == s->codec_ctx->codec->name;
+        bool is_vaapi = regex_match(s->codec_ctx->codec->name, regex(".*_vaapi"));
 
         double avg_bpp; // average bit per pixel
         avg_bpp = s->requested_bpp > 0.0 ? s->requested_bpp :
@@ -740,11 +742,12 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->strict_std_compliance = -2;
 
         // set quality
-        if (s->requested_cqp >= 0) {
-                if (int rc = av_opt_set_int(s->codec_ctx->priv_data, "qp", s->requested_cqp, 0)) {
+        if (s->requested_cqp >= 0 || (is_vaapi && s->requested_crf == -1.0 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
+                int cqp = s->requested_cqp >= 0 ? s->requested_cqp : DEFAULT_CQP;
+                if (int rc = av_opt_set_int(s->codec_ctx->priv_data, "qp", cqp, 0)) {
                         print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set CQP", rc);
                 } else {
-                        log_msg(LOG_LEVEL_INFO, "[lavc] Setting CQP to %d.\n", s->requested_cqp);
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting CQP to " << cqp <<  "\n";
                 }
         } else if (s->requested_crf >= 0.0 || (is_x264_x265 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
                 double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
@@ -1777,6 +1780,10 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *para
         // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
 }
 
+static void configure_vaapi(AVCodecContext * /* codec_ctx */, struct setparam_param * /* param */) {
+        // empty now - interesting options: "b_depth" (not used - we are not using B-frames), "idr_interval" - set to 0 by default
+}
+
 void set_forced_idr(AVCodecContext *codec_ctx, int value)
 {
         assert(value <= 9);
@@ -1874,6 +1881,8 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
 {
         if (regex_match(codec_ctx->codec->name, regex(".*_amf"))) {
                 configure_amf(codec_ctx, param);
+        } if (regex_match(codec_ctx->codec->name, regex(".*_vaapi"))) {
+                configure_vaapi(codec_ctx, param);
         } else if (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 || // libx264 and libx264rgb
                         strcmp(codec_ctx->codec->name, "libx265") == 0) {
                 configure_x264_x265(codec_ctx, param);
