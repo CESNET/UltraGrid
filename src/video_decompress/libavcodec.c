@@ -733,11 +733,12 @@ static void parallel_convert(av_to_uv_convert_p convert, char *dst, AVFrame *in,
                 int row_height = (height / cpu_count) & ~1; // needs to be even
                 unsigned char *part_dst = (unsigned char *) dst + i * row_height * pitch;
                 memcpy(parts[i].linesize, in->linesize, sizeof in->linesize);
+                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(in->format);
                 for (int plane = 0; plane < AV_NUM_DATA_POINTERS; ++plane) {
                         if (in->data[plane] == NULL) {
                                 break;
                         }
-                        parts[i].data[plane] = in->data[plane] + i * row_height * in->linesize[plane];
+                        parts[i].data[plane] = in->data[plane] + ((i * row_height * in->linesize[plane]) >> (plane == 0 ? 0 : fmt_desc->log2_chroma_h));
                 }
                 if (i == cpu_count - 1) {
                         row_height = height - row_height * (cpu_count - 1);
