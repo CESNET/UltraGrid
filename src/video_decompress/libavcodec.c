@@ -498,6 +498,7 @@ fail:
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
 {
+#define SELECT_PIXFMT(pixfmt) { log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Selected pixel format: %s\n", av_get_pix_fmt_name(pixfmt)); return pixfmt; }
         if (log_level >= LOG_LEVEL_VERBOSE) {
                 char out[1024] = "[lavd] Available output pixel formats:";
                 const enum AVPixelFormat *it = fmt;
@@ -545,7 +546,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                                                 hwaccel_state_reset(&state->hwaccel);
                                                 break;
                                         }
-                                        return accels[i].pix_fmt;
+                                        SELECT_PIXFMT(accels[i].pix_fmt);
                                 }
                         }
                 }
@@ -567,7 +568,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                         }
                         if (state->out_codec == mapped_pix_fmt) {
                                 state->internal_codec = mapped_pix_fmt;
-                                return *fmt_it;
+                                SELECT_PIXFMT(*fmt_it);
                         }
                 }
         }
@@ -593,7 +594,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                                 } else {
                                         if (state->out_codec == c->uv_codec) { // conversion found
                                                 state->internal_codec = c->uv_codec; // same as out_codec
-                                                return *fmt_it;
+                                                SELECT_PIXFMT(*fmt_it);
                                         }
                                 }
                         }
@@ -606,7 +607,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                 if (fmt_desc && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using swscale to convert - picking first usable codec %s.\n",
                                 av_get_pix_fmt_name(*fmt_it));
-                        return *fmt_it;
+                        SELECT_PIXFMT(*fmt_it);
                 }
         }
 #endif
