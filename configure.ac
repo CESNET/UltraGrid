@@ -1205,8 +1205,9 @@ fi
 sdl=no
 sdl_version=1
 AC_ARG_ENABLE(sdl,
-              [],
-              AC_MSG_ERROR([Use either "--enable-sdl1" or "--enable-sdl2" option.])
+              AS_HELP_STRING([--enable-sdl], [enable SDL (any version; default is auto)]),
+              [sdl_req=$enableval]
+              [sdl_req=$build_default]
               )
 
 AC_ARG_ENABLE(sdl1,
@@ -1238,7 +1239,7 @@ fi
 PKG_CHECK_MODULES([SDL1], [sdl], [found_sdl1=yes], [found_sdl1=no])
 PKG_CHECK_MODULES([SDL2], [sdl2], [found_sdl2=yes], [found_sdl2=no])
 if test $sdl1_req = yes -a $found_sdl1 = no; then
-        AC_MSG_ERROR([SDL not found]);
+        AC_MSG_ERROR([SDL1 not found]);
 fi
 if test $sdl2_req = yes -a $found_sdl2 = no; then
         AC_MSG_ERROR([SDL2 not found]);
@@ -1269,6 +1270,10 @@ then
         INC="$INC $($PKG_CONFIG --cflags-only-I sdl)"
         sdl_version=1
         sdl=yes
+fi
+
+if test $sdl_req = yes -a $sdl = no; then
+        AC_MSG_ERROR([SDL requested but found any version]);
 fi
 
 # ------------------------------------------------------------------------------
