@@ -72,7 +72,7 @@ extern "C" {
 
 void debug_dump(void*lp, int len);
 #ifdef DEBUG
-void debug_file_dump(const char *key, void (*serialize)(void *data, FILE *), void *data);
+void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *), void *data);
 #else
 #define debug_file_dump(key, serialize, data) (void) (key), (void) (serialize), (void) (data)
 #endif

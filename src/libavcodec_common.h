@@ -267,6 +267,8 @@ codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) ATTRIBUTE(const);
 enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) ATTRIBUTE(const);
 const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) ATTRIBUTE(const);
 
+void serialize_avframe(const void *f, FILE *out);
+
 #ifdef HAVE_SWSCALE
 struct SwsContext;
 struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPixelFormat SrcFormat, unsigned int DstW, unsigned int DstH, enum AVPixelFormat DstFormat, int64_t Flags);

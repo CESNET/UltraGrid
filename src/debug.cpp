@@ -304,7 +304,7 @@ void Logger::preinit(bool skip_repeated, int show_timestamps)
 }
 
 #ifdef DEBUG
-void debug_file_dump(const char *key, void (*serialize)(void *data, FILE *), void *data) {
+void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *), void *data) {
         const char *dump_file_val = get_commandline_param("debug-dump");
         static thread_local unordered_map<string, int> skip_map;
         if (dump_file_val == nullptr) {

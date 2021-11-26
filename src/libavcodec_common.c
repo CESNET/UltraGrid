@@ -2940,6 +2940,26 @@ struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPi
 }
 #endif // defined HAVE_SWSCALE
 
+/**
+ * Serializes (prints) AVFrame f to output file out
+ *
+ * @param f   actual (AVFrame *) cast to (void *)
+ * @param out file stream to be written to
+ */
+void serialize_avframe(const void *f, FILE *out) {
+        const AVFrame *frame = f;
+        for (int comp = 0; comp < AV_NUM_DATA_POINTERS; ++comp) {
+                if (frame->data[comp] == NULL) {
+                        break;
+                }
+                for (int y = 0; y < frame->height; ++y) {
+                        if (fwrite(frame->data[comp] + y * frame->linesize[comp], frame->linesize[comp], 1, out) != 1) {
+                                log_msg(LOG_LEVEL_ERROR, "%s fwrite error\n", __func__);
+                        }
+                }
+        }
+}
+
 #pragma GCC diagnostic pop
 
 /* vi: set expandtab sw=8: */
