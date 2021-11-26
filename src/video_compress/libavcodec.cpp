@@ -929,9 +929,9 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
         int bits_per_comp = get_bits_per_component(in_desc.color_spec);
         bool is_rgb = codec_is_a_rgb(in_desc.color_spec);
-        int preferred_subsampling = IF_NOT_NULL_ELSE(requested_subsampling, get_subsampling(in_desc.color_spec) / 10);
+        int subsampling = IF_NOT_NULL_ELSE(requested_subsampling, get_subsampling(in_desc.color_spec) / 10);
         // sort
-        auto compare = [bits_per_comp, is_rgb, preferred_subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
+        auto compare = [bits_per_comp, is_rgb, subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
                 const struct AVPixFmtDescriptor *pda = av_pix_fmt_desc_get(a);
                 const struct AVPixFmtDescriptor *pdb = av_pix_fmt_desc_get(b);
 #if LIBAVUTIL_VERSION_MAJOR >= 56
@@ -966,13 +966,10 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                         return deptha < depthb;
                 }
                 if (subsa != subsb) {
-                        if (subsa == preferred_subsampling) {
-                                return true;
+                        if (subsa < subsampling || subsb < subsampling) {
+                                return subsa > subsb;
                         }
-                        if (subsb == preferred_subsampling) {
-                                return false;
-                        }
-                        return subsa > subsb;
+                        return subsa < subsb;
                 }
                 return a < b;
         };
