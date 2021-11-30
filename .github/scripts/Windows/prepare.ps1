@@ -6,10 +6,13 @@ Remove-Item -Recurse "C:\Program Files (x86)\dotnet"
 
 # Install CUDA
 if (!${env:no_cuda}) {
-  Invoke-WebRequest https://developer.download.nvidia.com/compute/cuda/11.3.0/network_installers/cuda_11.3.0_win10_network.exe -OutFile cuda_inst.exe
-  Start-Process -FilePath "cuda_inst.exe" -ArgumentList "-s cudart_11.3 nvcc_11.3" -Wait -NoNewWindow
+  $url="https://developer.download.nvidia.com/compute/cuda/11.5.1/local_installers/cuda_11.5.1_496.13_windows.exe"
+  $url -match 'cuda/(?<version>[0-9]+.[0-9]+)'
+  $version=$Matches.version
+  Invoke-WebRequest $url -OutFile cuda_inst.exe
+  Start-Process -FilePath "cuda_inst.exe" -ArgumentList "-s cudart_$version nvcc_$version" -Wait -NoNewWindow
   Remove-Item cuda_inst.exe
-  echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.3\bin" >> ${env:GITHUB_PATH}
+  echo "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v$version\bin" >> ${env:GITHUB_PATH}
 }
 
 # Install XIMEA
