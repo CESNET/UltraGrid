@@ -1,8 +1,8 @@
 Set-PSDebug -Trace 1
 
 # Free some space - TODO: regular uninstall would be better
-Remove-Item -Recurse "C:\Program Files (x86)\Android"
-Remove-Item -Recurse "C:\Program Files (x86)\dotnet"
+#Remove-Item -Recurse "C:\Program Files (x86)\Android"
+#Remove-Item -Recurse "C:\Program Files (x86)\dotnet"
 
 # Install CUDA
 if (!${env:no_cuda}) {
