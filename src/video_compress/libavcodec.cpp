@@ -99,7 +99,7 @@ static constexpr int DEFAULT_CQP = 21;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
 static constexpr int MIN_SLICE_COUNT = 8;
-static constexpr string_view DEFER_PRESET_SETTING = "defer";
+static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
 
 namespace {
 
@@ -788,7 +788,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                         preset = codec_params[ug_codec].get_preset(s->codec_ctx->codec->name, desc.width, desc.height, desc.fps);
                 }
 
-                if (!preset.empty() && preset != DEFER_PRESET_SETTING) {
+                if (!preset.empty() && preset != DONT_SET_PRESET) {
                         if (av_opt_set(s->codec_ctx->priv_data, "preset", preset.c_str(), 0) != 0) {
                                 LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to set preset.\n";
                         } else {
@@ -1925,12 +1925,13 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
         } else if (enc_name == "libx265") {
                 return string("ultrafast");
         } else if (regex_match(enc_name, regex(".*nvenc.*"))) { // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
-                return string{DEFER_PRESET_SETTING}; // nvenc preset is handled with configure_nvenc()
+                return string{DONT_SET_PRESET}; // nvenc preset is handled with configure_nvenc()
         } else if (enc_name == "h264_qsv") {
                 return string(DEFAULT_QSV_PRESET);
-        } else {
-                return {};
+        } else if (regex_match(enc_name, regex(".*_vaapi"))) {
+                return string{DONT_SET_PRESET}; // VAAPI doesn't support presets
         }
+        return {};
 }
 
 static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
