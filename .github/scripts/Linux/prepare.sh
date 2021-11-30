@@ -20,6 +20,7 @@ sudo add-apt-repository ppa:savoury1/vlc3 # new x265
 sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
 sudo apt update
 sudo apt -y upgrade
+sudo apt install appstream # appstreamcli for mkappimage AppStream validation
 sudo apt install libcppunit-dev
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
 sudo apt install libglew-dev freeglut3-dev libgl1-mesa-dev

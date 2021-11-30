@@ -115,7 +115,7 @@ jobs:
     - name: check libc/libstdc++ ABI
       run: .github/scripts/Linux/check_abi.sh 2.27 3.4.22 1.3.9 bin/* lib/ultragrid/*
     - name: Create AppImage
-      run: APPIMAGE=`data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/continuous/UltraGrid-$CHANNEL-x86_64.AppImage.zsync` && mv $APPIMAGE UltraGrid-$VERSION-x86_64.AppImage
+      run: data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/continuous/UltraGrid-$CHANNEL-x86_64.AppImage.zsync
     - name: Check AppImage
       run: |
         docker build -f .github/scripts/Linux/utils/Dockerfile.ubuntu -t aitest-ubuntu .
