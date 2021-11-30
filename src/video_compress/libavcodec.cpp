@@ -1777,8 +1777,9 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *para
         // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
 }
 
-static void configure_vaapi(AVCodecContext * /* codec_ctx */, struct setparam_param * /* param */) {
-        // empty now - interesting options: "b_depth" (not used - we are not using B-frames), "idr_interval" - set to 0 by default
+static void configure_vaapi(AVCodecContext * /* codec_ctx */, struct setparam_param *param) {
+        param->thread_mode = "no"; // VA-API doesn't support threads
+        // interesting options: "b_depth" (not used - we are not using B-frames), "idr_interval" - set to 0 by default
 }
 
 void set_forced_idr(AVCodecContext *codec_ctx, int value)
