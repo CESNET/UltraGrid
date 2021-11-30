@@ -649,12 +649,10 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 return FALSE;
                         }
                         data = plaintext;
-                } else if (PT_IS_AUDIO(pt)) {
+                } else {
+                        assert(PT_IS_AUDIO(pt));
                         length = cdata->data->data_len - main_hdr_len;
                         data = cdata->data->data + main_hdr_len;
-                } else {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown packet type: " << pt << ".\n";
-                        return FALSE;
                 }
 
                 /* we receive last channel first (with m bit, last packet) */
