@@ -5,16 +5,14 @@ APPIMAGE=${APPIMAGE-none}
 ARGV0=${ARGV0-$0}
 
 DIR=`dirname $0`
-export LD_LIBRARY_PATH=$DIR/usr/lib${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
+AI_LIB_PATH=$DIR/usr/lib
+export LD_LIBRARY_PATH=$AI_LIB_PATH${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 # there is an issue with running_from_path() which evaluates this executable
 # as being system-installed
 #export PATH=$DIR/usr/bin:$PATH
 export QT_QPA_FONTDIR=$DIR/usr/lib/fonts
 export QT_PLUGIN_PATH=$DIR/usr/lib/qt5/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
-if [ -d "$DIR/usr/lib/va" ] && [ -z "${LIBVA_DRIVERS_PATH:-}" ]; then
-        export LIBVA_DRIVERS_PATH=$DIR/usr/lib/va
-fi
 
 usage() {
         printf "usage:\n"
@@ -86,6 +84,61 @@ handle_updates() {
         printf "Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for automatic update or 0 to suppress the above message.\n"
         printf "\n"
 }
+
+get_dynamic_loader() {
+        LOADER_LIST='/lib64/ld-linux-*so* /lib/ld-linux-*so* /lib*/ld-linux-*so*'
+        for LOADER in $LOADER_LIST; do
+                for n in $LOADER; do
+                        if [ -x "$n" ]; then
+                                echo "$n"
+                                return
+                        fi
+                done
+        done
+}
+
+## Tries to find system libva. If found it is preloaded (+libva-drm+libva-x11)
+## @retval 0 if preloaded; 1 otherwise
+set_libva_ld_preload() {
+        if [ ! -f "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" ]; then
+                return 1
+        fi
+        LOADER=$(get_dynamic_loader)
+        if [ ! -x "$LOADER" ]; then
+                return 1
+        fi
+        AI_LIBAVCODEC_LIB=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" | grep libavcodec.so | grep -v 'not found' | awk '{print $3}')
+        if [ -z "$AI_LIBAVCODEC_LIB" ]; then
+                return 1
+        fi
+        S_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+        LD_LIBRARY_PATH=
+        LIBVA_LIB=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$AI_LIBAVCODEC_LIB" | grep libva.so | grep -v 'not found' | awk '{print $3}')
+        LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
+        if [ -z "$LIBVA_LIB" ]; then
+                return 1
+        fi
+        # add also libva-drm, libva-x11 if present
+        for n in libva-drm libva-x11; do
+                NAME=$(echo "$LIBVA_LIB" | sed s/libva/$n/)
+                if [ -f "$NAME" ]; then
+                        LIBVA_LIB=$LIBVA_LIB:$NAME
+                fi
+        done
+        export LD_PRELOAD=$LIBVA_LIB${LD_PRELOAD:+":$LD_PRELOAD"}
+        return 0
+}
+
+## Tries to set LD_PRELOAD to system libva (see set_libva_ld_preload()). If failed, sets path to bundled libva drivers.
+setup_vaapi() {
+        if ! set_libva_ld_preload; then
+                if [ -d "$DIR/usr/lib/va" ] && [ -z "${LIBVA_DRIVERS_PATH:-}" ]; then
+                        export LIBVA_DRIVERS_PATH=$AI_LIB_PATH/va
+                fi
+        fi
+}
+
+setup_vaapi
 
 RUN=
 if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
