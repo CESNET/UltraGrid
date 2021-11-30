@@ -7,6 +7,7 @@ ARGV0=${ARGV0-$0}
 DIR=`dirname $0`
 AI_LIB_PATH=$DIR/usr/lib
 export LD_LIBRARY_PATH=$AI_LIB_PATH${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
+LD_PRELOAD=${LD_PRELOAD-}
 # there is an issue with running_from_path() which evaluates this executable
 # as being system-installed
 #export PATH=$DIR/usr/bin:$PATH
@@ -155,7 +156,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
-        RUN="firejail --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $FIREJAIL_OPTS "
+        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $FIREJAIL_OPTS "
 fi
 
 if [ $# -eq 0 -o x"${1-}" = x"--gui" ]; then
