@@ -46,10 +46,11 @@ usage() {
 
 usage_aux() {
         printf "environment variables:\n"
-        printf "\tULTRAGRID_AUTOUPDATE:   1 - try to autoupdate; 0 - disable update advice\n"
-        printf "\tULTRAGRID_USE_FIREJAIL: run the UltraGrid executable with firejail. If\n"
-        printf "\t                        the variable contains printf a profile path\n"
-        printf "\t                        (ends with '.profile'), it will be used.\n"
+        printf "\tULTRAGRID_AUTOUPDATE:    1 - try to autoupdate; 0 - disable update advice\n"
+        printf "\tULTRAGRID_BUNDLED_LIBVA: 1 - use bundled libva; 0 - use system libva (if available)\n"
+        printf "\tULTRAGRID_USE_FIREJAIL:  run the UltraGrid executable with firejail. If\n"
+        printf "\t                         the variable contains printf a profile path\n"
+        printf "\t                         (ends with '.profile'), it will be used.\n"
         printf "\n"
 }
 
@@ -132,7 +133,7 @@ set_libva_ld_preload() {
 
 ## Tries to set LD_PRELOAD to system libva (see set_libva_ld_preload()). If failed, sets path to bundled libva drivers.
 setup_vaapi() {
-        if ! set_libva_ld_preload; then
+        if [ ${ULTRAGRID_BUNDLED_LIBVA:-0} -eq 1 ] || ! set_libva_ld_preload; then
                 if [ -d "$DIR/usr/lib/va" ] && [ -z "${LIBVA_DRIVERS_PATH:-}" ]; then
                         export LIBVA_DRIVERS_PATH=$AI_LIB_PATH/va
                 fi
