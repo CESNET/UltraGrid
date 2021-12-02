@@ -57,6 +57,7 @@ done
 
 # Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
 wget https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+cat $(dirname $0)/excludelist.local >> excludelist
 EXCLUDE_LIST=
 while read -r x; do
         if [ "$x" = "" -o $(expr "x$x" : x\#) -eq 2 ]; then
