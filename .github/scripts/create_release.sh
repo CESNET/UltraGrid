@@ -14,7 +14,11 @@ if [ $VERSION = continuous ]; then
         PRERELEASE=true
 else
         TITLE="UltraGrid $VERSION"
-        SUMMARY="**Changes:**$(cat NEWS | sed -e '1,2d' -e '/^$/q' -e 's/^\*/\\n*/' | tr '\n' ' ')\n\n**Full changelog:** https://github.com/MartinPulec/UltraGrid/commits/$TAG"
+        FIXES=
+        if [ -f FIXES.md ]; then
+                FIXES="**Fixes since last release:**$(cat FIXES.md | sed -e 's/^\*/\\n*/' | tr '\n' ' ')\n\n"
+        fi
+        SUMMARY="**Changes:**$(cat NEWS | sed -e '1,2d' -e '/^$/q' -e 's/^\*/\\n*/' | tr '\n' ' ')\n\n$FIXES**Full changelog:** https://github.com/$GITHUB_REPOSITORY/commits/$TAG"
         PRERELEASE=false
 fi
 
