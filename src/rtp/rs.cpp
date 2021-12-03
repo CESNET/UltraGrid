@@ -193,9 +193,9 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
 #endif // defined HAVE_ZFEC
 }
 
-#ifdef HAVE_ZFEC
 audio_frame2 rs::encode(const audio_frame2 &in)
 {
+#ifdef HAVE_ZFEC
         audio_frame2 out;
         out.init(in.get_channel_count(), in.get_codec(), in.get_bps(), in.get_sample_rate());
         out.reserve(3 * in.get_data_len() / in.get_channel_count()); // just an estimate
@@ -235,8 +235,11 @@ audio_frame2 rs::encode(const audio_frame2 &in)
         }
 
         return out;
+#else
+        (void) in;
+        return {};
+#endif // defined HAVE_ZFEC
 }
-#endif
 
 /**
  * Returns symbol size (?) for given headers len and with configured m_k
