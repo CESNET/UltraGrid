@@ -67,7 +67,7 @@ if [ -n "$SDK_URL" ]; then
                 FEATURES="$FEATURES --enable-deltacast"
                 echo "FEATURES=$FEATURES" >> $GITHUB_ENV
                 unzip VideoMaster_SDK_Windows.zip
-                cp Binaries/Lib64/*dll /usr/local/bin
+                cp Binaries/Resources/Lib64/*dll /usr/local/bin
                 cp -r Include/* /usr/local/include
                 cp Library/x64/* /usr/local/lib
         fi
