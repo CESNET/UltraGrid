@@ -10,6 +10,6 @@ if (${env:SDK_URL}) {
   }
   mv c:\ntv2sdk* c:\AJA
   cd c:\AJA
-  MSBuild.exe ntv2_vs12.sln -p:PlatformToolset=v142 -p:Configuration=Release -p:Platform=x64 -t:libajantv2:Rebuild
+  MSBuild.exe (Get-ChildItem ntv2_vs*.sln) -p:PlatformToolset=v142 -p:Configuration=Release -p:Platform=x64 -t:libajantv2:Rebuild
 }
 
