@@ -786,7 +786,10 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         }
 
         if (convert) {
-                parallel_convert(convert, (char *) dst, frame, width, height, pitch, rgb_shift);
+                if(!codec_is_const_size(out_codec))
+                        parallel_convert(convert, (char *) dst, frame, width, height, pitch, rgb_shift);
+                else
+                        convert((char *) dst, frame, width, height, pitch, rgb_shift);
                 return TRUE;
         }
 
