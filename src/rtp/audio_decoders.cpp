@@ -273,6 +273,9 @@ static void audio_decoder_process_message(struct module *m)
         }
 }
 
+ADD_TO_PARAM("soft-resample", "* soft-resample=<num>/<den>\n"
+                "  Resample to specified sampling rate, eg. 12288128/256 for 48000.5 Hz\n");
+
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, audio_playback_ctl_t c, void *p_state, struct module *parent)
 {
         struct state_audio_decoder *s;
@@ -292,6 +295,11 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->mod.priv_data = s;
         s->mod.new_message = audio_decoder_process_message;
         module_register(&s->mod, parent);
+
+        if (const char *val = get_commandline_param("soft-resample")) {
+                assert(strchr(val, '/') != nullptr);
+                s->req_resample_to = atol(val) << 32LLU | atol(strchr(val, '/') + 1);
+        }
 
         gettimeofday(&s->t0, NULL);
         s->packet_counter = packet_counter_init(0);
