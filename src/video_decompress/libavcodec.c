@@ -534,14 +534,15 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
                 {AV_PIX_FMT_VDPAU, HWACCEL_VDPAU, vdpau_init},
 #endif
 #ifdef HWACC_VAAPI
-                {AV_PIX_FMT_VAAPI, HWACCEL_VAAPI, vaapi_init}
+                {AV_PIX_FMT_VAAPI, HWACCEL_VAAPI, vaapi_init},
 #endif
 #ifdef HAVE_MACOSX
-                {AV_PIX_FMT_VIDEOTOOLBOX, HWACCEL_VIDEOTOOLBOX, videotoolbox_init}
+                {AV_PIX_FMT_VIDEOTOOLBOX, HWACCEL_VIDEOTOOLBOX, videotoolbox_init},
 #endif
 #ifdef HWACCEL_RPI4
-                {AV_PIX_FMT_RPI4_8, HWACCEL_RPI4, rpi4_hwacc_init}
+                {AV_PIX_FMT_RPI4_8, HWACCEL_RPI4, rpi4_hwacc_init},
 #endif
+                {AV_PIX_FMT_NONE, HWACCEL_NONE, NULL}
         };
 
         if (hwaccel && state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
