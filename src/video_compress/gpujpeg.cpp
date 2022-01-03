@@ -691,6 +691,17 @@ start:
         }
 }
 
+static auto gpujpeg_get_presets() {
+        return gpujpeg_init_device(cuda_devices[0], TRUE) == 0 ? list<compress_preset>{
+                { "60", 60, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);},
+                        {10, 0.6, 75}, {10, 0.6, 75} },
+                        { "80", 70, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.87);},
+                                {12, 0.6, 90}, {15, 0.6, 100} },
+                        { "90", 80, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);},
+                                {15, 0.6, 100}, {20, 0.6, 150} },
+        } : list<compress_preset>{};
+}
+
 static compress_module_info get_gpujpeg_module_info(){
         compress_module_info module_info;
         module_info.name = "gpujpeg";
@@ -725,23 +736,14 @@ const struct video_compress_info gpujpeg_info = {
         },
         NULL,
         NULL,
-        [] {
-                return gpujpeg_init_device(cuda_devices[0], TRUE) == 0 ? list<compress_preset>{
-                        { "60", 60, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);},
-                                {10, 0.6, 75}, {10, 0.6, 75} },
-                        { "80", 70, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.87);},
-                                {12, 0.6, 90}, {15, 0.6, 100} },
-                        { "90", 80, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);},
-                                {15, 0.6, 100}, {20, 0.6, 150} },
-                } : list<compress_preset>{};
-        },
+        gpujpeg_get_presets,
         get_gpujpeg_module_info
 };
 
 const struct video_compress_info deprecated_jpeg_info = {
         "JPEG",
         [](struct module *parent, const char *opts) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Name \"-c JPEG\" deprecated, use \"-c GPUJPEG\" instead.\n";
+                log_msg(LOG_LEVEL_WARNING, "Name \"-c JPEG\" deprecated, use \"-c GPUJPEG\" instead.\n");
                 return gpujpeg_compress_init(parent, opts);
         },
         NULL,
