@@ -1206,7 +1206,7 @@ sdl=no
 sdl_version=1
 AC_ARG_ENABLE(sdl,
               AS_HELP_STRING([--enable-sdl], [enable SDL (any version; default is auto)]),
-              [sdl_req=$enableval]
+              [sdl_req=$enableval],
               [sdl_req=$build_default]
               )
 
