@@ -33,15 +33,23 @@ apt -y install portaudio19-dev libglib2.0-dev libglew-dev libcurl4-openssl-dev f
 
 # FFmpeg
 if [ $ARCH = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
-        apt -y install libraspberrypi-dev
+        apt -y install libraspberrypi-dev libdrm-dev
         sed -i '/^deb /p;s/deb /deb-src /' /etc/apt/sources.list
         apt -y update && apt -y build-dep ffmpeg
         raspbian_build_sdl2
         apt -y remove libavcodec58 && apt -y autoremove
-        git clone --depth 1 https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg
-        git fetch --depth 2 https://github.com/Serveurperso/FFmpeg.git && git cherry-pick FETCH_HEAD
-        ./configure --enable-gpl --disable-stripping --enable-libaom --enable-libmp3lame --enable-libopenjpeg --enable-libopus --enable-libspeex --enable-libvpx --enable-libwebp --enable-libx265 --enable-omx --enable-neon --enable-libx264 --enable-mmal --enable-omx-rpi --cpu=arm1176jzf-s --enable-shared --disable-static
-        make -j 3 install
+        git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg
+        git checkout n4.3.3
+
+        # apply patches
+        FF_PATCH_DIR=/ffmpeg-arm-patches
+        for n in `ls $FF_PATCH_DIR`; do
+                git apply $FF_PATCH_DIR/$n
+        done
+
+
+        ./configure --enable-gpl --disable-stripping --enable-libaom --enable-libmp3lame --enable-libopenjpeg --enable-libopus --enable-libspeex --enable-libvpx --enable-libwebp --enable-libx265 --enable-omx --enable-neon --enable-libx264 --enable-mmal --enable-omx-rpi --enable-rpi --enable-vout-drm --enable-libdrm --enable-v4l2-request --enable-libudev --cpu=arm1176jzf-s --enable-shared --disable-static
+        make -j3 install
         cd $OLDPWD
 else
         apt -y install libavcodec-dev libavformat-dev libsdl2-dev libswscale-dev

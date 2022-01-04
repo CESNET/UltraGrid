@@ -1,0 +1,39 @@
+From 6e410823e63103342e8fc3407ff6698808d4d1ef Mon Sep 17 00:00:00 2001
+From: Pascal <pascal@serveurperso.com>
+Date: Tue, 10 Dec 2019 17:36:11 +0000
+Subject: [PATCH] avcodec/omx: Enable inline header
+
+---
+ libavcodec/omx.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/libavcodec/omx.c b/libavcodec/omx.c
+index 0a6a308309..06beb4dd02 100644
+--- a/libavcodec/omx.c
++++ b/libavcodec/omx.c
+@@ -28,6 +28,7 @@
+ #include <dlfcn.h>
+ #include <OMX_Core.h>
+ #include <OMX_Component.h>
++#include <OMX_Broadcom.h>
+ #include <pthread.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -516,6 +517,14 @@ static av_cold int omx_component_init(AVCodecContext *avctx, const char *role)
+     if (err != OMX_ErrorNone)
+         av_log(avctx, AV_LOG_WARNING, "Unable to set video bitrate parameter\n");
+ 
++    OMX_CONFIG_PORTBOOLEANTYPE vid_param_inline_header = {0, };
++    INIT_STRUCT(vid_param_inline_header);
++    vid_param_inline_header.nPortIndex = s->out_port;
++    vid_param_inline_header.bEnabled = OMX_TRUE;
++    err = OMX_SetParameter(s->handle, OMX_IndexParamBrcmVideoAVCInlineHeaderEnable, &vid_param_inline_header);
++    if (err != OMX_ErrorNone)
++        av_log(avctx, AV_LOG_WARNING, "Unable to set video inline header parameter\n");
++
+     if (avctx->codec->id == AV_CODEC_ID_H264) {
+         OMX_VIDEO_PARAM_AVCTYPE avc = { 0 };
+         INIT_STRUCT(avc);
+-- 
+2.25.1
+

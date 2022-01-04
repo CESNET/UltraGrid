@@ -40,6 +40,7 @@ jobs:
         wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
         sudo qemu-debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} buster ~/chroot ${{ matrix.repo }}
         sudo cp $GITHUB_WORKSPACE/.github/scripts/Linux/arm/{bootstrap.sh,mksquashfs-compilation-fix.patch} ~/chroot
+        sudo cp -r $GITHUB_WORKSPACE/.github/scripts/Linux/arm/ffmpeg-arm-patches ~/chroot
         sudo chroot ~/chroot /bootstrap.sh ${{ matrix.arch }}
         cd ~ && sudo tar cf chroot.tar chroot # Create archive for caching. Needs to be created as root, therefore created manually.
     - name: Extract Cached Environment
