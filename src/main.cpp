@@ -502,60 +502,6 @@ static void *capture_thread(void *arg)
         return NULL;
 }
 
-static bool parse_audio_capture_format(const char *optarg)
-{
-        if (strcmp(optarg, "help") == 0) {
-                printf("Usage:\n");
-                printf("\t--audio-capture-format {channels=<num>|bps=<bits_per_sample>|sample_rate=<rate>}*\n");
-                printf("\t\tmultiple options can be separated by a colon\n");
-                return false;
-        }
-
-        unique_ptr<char[]> arg_copy(new char[strlen(optarg) + 1]);
-        char *arg = arg_copy.get();
-        strcpy(arg, optarg);
-
-        char *item, *save_ptr, *tmp;
-        tmp = arg;
-        char *endptr;
-
-        while ((item = strtok_r(tmp, ":", &save_ptr))) {
-                if (strncmp(item, "channels=", strlen("channels=")) == 0) {
-                        item += strlen("channels=");
-                        audio_capture_channels = strtol(item, &endptr, 10);
-                        if (audio_capture_channels < 1 || endptr != item + strlen(item)) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %s!\n", item);
-                                return false;
-                        }
-                } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
-                        item += strlen("bps=");
-                        int bps = strtol(item, &endptr, 10);
-                        if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32) || endptr != item + strlen(item)) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid bps %s!\n", item);
-                                log_msg(LOG_LEVEL_ERROR, "Supported values are 8, 16, 24, or 32 bits.\n");
-                                return false;
-
-                        }
-                        audio_capture_bps = bps / 8;
-                } else if (strncmp(item, "sample_rate=", strlen("sample_rate=")) == 0) {
-                        const char *sample_rate_str = item + strlen("sample_rate=");
-                        long long val = unit_evaluate(sample_rate_str);
-                        if (val <= 0 || val > numeric_limits<decltype(audio_capture_sample_rate)>::max()) {
-                                LOG(LOG_LEVEL_ERROR) << "Invalid sample_rate " << sample_rate_str << "!\n";
-                                return false;
-                        }
-                        audio_capture_sample_rate = val;
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "Unkonwn format for --audio-capture-format!\n");
-                        return false;
-                }
-
-                tmp = NULL;
-        }
-
-        return true;
-}
-
 static bool parse_bitrate(char *optarg, long long int *bitrate) {
         if (strcmp(optarg, "auto") == 0) {
                 *bitrate = RATE_AUTO;
