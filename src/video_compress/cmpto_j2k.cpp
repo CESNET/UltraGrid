@@ -84,7 +84,7 @@ constexpr const char *MOD_NAME = "[Cmpto J2K enc.] ";
 #define DEFAULT_POOL_SIZE 4
 /// number of frames that encoder encodes at moment
 #define DEFAULT_TILE_LIMIT 1
-#define DEFAULT_MEM_LIMIT 1000000000llu
+#define DEFAULT_MEM_LIMIT 1000000000LLU
 
 using namespace std;
 
@@ -266,23 +266,35 @@ struct {
         const bool is_boolean;
 } usage_opts[] = {
         {"Bitrate", "quality", "Target bitrate", ":rate=", false},
-        {"Quality", "quant_coeff", "Quality in range [0-1], default:" TOSTRING(DEFAULT_QUAILITY), ":quality=", false},
+        {"Quality", "quant_coeff", "Quality in range [0-1], default: " TOSTRING(DEFAULT_QUALITY), ":quality=", false},
         {"Mem limit", "mem_limit", "CUDA device memory limit (in bytes), default: " TOSTRING(DEFAULT_MEM_LIMIT), ":mem_limit=", false},
         {"Tile limit", "tile_limit", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_TILE_LIMIT), ":tile_limit=", false},
-        {"Pool size", "pool_size", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_POOL_SIZE), ":pool_size=", false},
+        {"Pool size", "pool_size", "Total number of tiles encoder can hold at moment (same meaning as above), default: " TOSTRING(DEFAULT_POOL_SIZE) ", should be greater than <t>", ":pool_size=", false},
         {"Use MCT", "mct", "use MCT", ":mct", true},
 };
 
 static void usage() {
         printf("J2K compress usage:\n");
-        printf("\t-c cmpto_j2k[:rate=<bitrate>][:quality=<q>][:mct][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
+        printf("\t-c cmpto_j2k");
+        for(const auto& opt : usage_opts){
+                assert(strlen(opt.opt_str) > 2);
+                printf("[%s", opt.opt_str);
+                if (!opt.is_boolean) {
+                        printf("<%c>", opt.opt_str[1]);
+                }
+                printf("]");
+        }
+        printf(" [--cuda-device <c_index>]\n");
+
         printf("\twhere:\n");
-        printf("\t\t<bitrate> - target bitrate, must be set\n");
-        printf("\t\t<q> - quality in range [0-1], default %f\n", DEFAULT_QUALITY);
-        printf("\t\t<m> - CUDA device memory limit (in bytes), default %llu\n", DEFAULT_MEM_LIMIT);
-        printf("\t\t<t> - number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default %d\n", DEFAULT_TILE_LIMIT);
-        printf("\t\t<p> - total number of tiles encoder can hold at moment (same meaning as above), default %d, should be greater than <t>\n", DEFAULT_POOL_SIZE);
-        printf("\t\tmct - use MCT\n");
+        for(const auto& opt : usage_opts){
+                if (opt.is_boolean) {
+                        printf("\t\t%s", opt.opt_str + 1);
+                } else {
+                        printf("\t\t<%c>", opt.opt_str[1]);
+                }
+                printf(" - %s\n", opt.description);
+        }
         printf("\t\t<c_index> - CUDA device(s) to use (comma separated)\n");
 }
 
