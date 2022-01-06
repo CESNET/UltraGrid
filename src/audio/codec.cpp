@@ -239,7 +239,7 @@ audio_frame2 audio_codec_compress(struct audio_codec_state *s, const audio_frame
                         continue;
                 }
                 if (!res) {
-                        res.init(s->desc.ch_count, s->desc.codec, s->desc.bps, s->desc.sample_rate);
+                        res.init(s->desc.ch_count, out->codec, out->bps, out->sample_rate);
                         res.set_duration(out->duration);
                 } else {
                         assert(out->bps == res.get_bps()
