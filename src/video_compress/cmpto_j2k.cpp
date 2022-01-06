@@ -257,6 +257,21 @@ start:
         return shared_ptr<video_frame>(out, out->callbacks.dispose);
 }
 
+struct {
+        const char *label;
+        const char *key;
+        const char *description;
+        const char *opt_str;
+        const bool is_boolean;
+} usage_opts[] = {
+        {"Bitrate", "quality", "Target bitrate", ":rate=", false},
+        {"Quality", "quant_coeff", "Quality", ":quality=", false},
+        {"Mem limit", "mem_limit", "CUDA device memory limit (in bytes), default: " TOSTRING(DEFAULT_MEM_LIMIT), ":mem_limit=", false},
+        {"Tile limit", "tile_limit", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_TILE_LIMIT), ":tile_limit=", false},
+        {"Pool size", "pool_size", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_POOL_SIZE), ":pool_size=", false},
+        {"Use MCT", "mct", "use MCT", ":mct", true},
+};
+
 static void usage() {
         printf("J2K compress usage:\n");
         printf("\t-c cmpto_j2k[:rate=<bitrate>][:quality=<q>][:mct][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
@@ -442,6 +457,25 @@ static void j2k_compress_done(struct module *mod)
         delete s;
 }
 
+static compress_module_info get_cmpto_j2k_module_info(){
+        compress_module_info module_info;
+        module_info.name = "cmpto_j2k";
+
+        for(const auto& opt : usage_opts){
+                module_info.opts.emplace_back(module_option{opt.label,
+                                opt.description, opt.key, opt.opt_str, opt.is_boolean});
+        }
+
+        codec codec_info;
+        codec_info.name = "Comprimato jpeg2000";
+        codec_info.priority = 400;
+        codec_info.encoders.emplace_back(encoder{"default", ""});
+
+        module_info.codecs.emplace_back(std::move(codec_info));
+
+        return module_info;
+}
+
 static struct video_compress_info j2k_compress_info = {
         "cmpto_j2k",
         j2k_compress_init,
@@ -452,7 +486,7 @@ static struct video_compress_info j2k_compress_info = {
         j2k_compress_push,
         j2k_compress_pop,
         [] { return list<compress_preset>{}; },
-        NULL
+        get_cmpto_j2k_module_info
 };
 
 REGISTER_MODULE(cmpto_j2k, &j2k_compress_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
