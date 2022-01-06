@@ -299,9 +299,9 @@ static void usage() {
         cout << BOLD("\t\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
 }
 
-#define ASSIGN_CHECK_POSITIVE(var, str) do { long long val = unit_evaluate(str); \
-                                                        if (val <= 0 || val > UINT_MAX) { \
-                                                                LOG(LOG_LEVEL_ERROR) << "[J2K] Wrong value " << str << " for " #var "! Value must be positive.\n"; \
+#define ASSIGN_CHECK_VAL(var, str, minval) do { long long val = unit_evaluate(str); \
+                                                        if (val < minval || val > UINT_MAX) { \
+                                                                LOG(LOG_LEVEL_ERROR) << "[J2K] Wrong value " << str << " for " #var "! Value must be >= " << minval << ".\n"; \
                                                                 return NULL; \
                                                         } \
                                                         var = val; \
@@ -325,17 +325,17 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 tmp = NULL;
                 if (strncasecmp("rate=", item, strlen("rate=")) == 0) {
-                        ASSIGN_CHECK_POSITIVE(bitrate, item + strlen("rate="));
+                        ASSIGN_CHECK_VAL(bitrate, strchr(item, '=') + 1, 1);
                 } else if (strncasecmp("quality=", item, strlen("quality=")) == 0) {
                         quality = stod(strchr(item, '=') + 1);
                 } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
                         mct = strcasecmp("mct", item) ? 1 : 0;
                 } else if (strncasecmp("mem_limit=", item, strlen("mem_limit=")) == 0) {
-                        ASSIGN_CHECK_POSITIVE(mem_limit ,item + strlen("mem_limit="));
+                        ASSIGN_CHECK_VAL(mem_limit, strchr(item, '=') + 1, 1);
                 } else if (strncasecmp("tile_limit=", item, strlen("tile_limit=")) == 0) {
-                        ASSIGN_CHECK_POSITIVE(tile_limit, item + strlen("tile_limit="));
+                        ASSIGN_CHECK_VAL(tile_limit, strchr(item, '=') + 1, 0);
                 } else if (strncasecmp("pool_size=", item, strlen("pool_size=")) == 0) {
-                        ASSIGN_CHECK_POSITIVE(pool_size, item + strlen("pool_size="));
+                        ASSIGN_CHECK_VAL(pool_size, strchr(item, '=') + 1, 1);
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
                         return &compress_init_noerr;
