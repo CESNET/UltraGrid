@@ -78,6 +78,7 @@ constexpr const char *MOD_NAME = "[Cmpto J2K enc.] ";
 } while(0)
 
 #define NOOP ((void) 0)
+#define DEFAULT_QUALITY 0.7
 /// default max size of state_video_compress_j2k::pool and also value
 /// for state_video_compress_j2k::max_in_frames
 #define DEFAULT_POOL_SIZE 4
@@ -265,7 +266,7 @@ struct {
         const bool is_boolean;
 } usage_opts[] = {
         {"Bitrate", "quality", "Target bitrate", ":rate=", false},
-        {"Quality", "quant_coeff", "Quality", ":quality=", false},
+        {"Quality", "quant_coeff", "Quality in range [0-1], default:" TOSTRING(DEFAULT_QUAILITY), ":quality=", false},
         {"Mem limit", "mem_limit", "CUDA device memory limit (in bytes), default: " TOSTRING(DEFAULT_MEM_LIMIT), ":mem_limit=", false},
         {"Tile limit", "tile_limit", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_TILE_LIMIT), ":tile_limit=", false},
         {"Pool size", "pool_size", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_POOL_SIZE), ":pool_size=", false},
@@ -274,10 +275,10 @@ struct {
 
 static void usage() {
         printf("J2K compress usage:\n");
-        printf("\t-c cmpto_j2k[:rate=<bitrate>][:quality=<q>][:mct][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
+        printf("\t-c cmpto_j2k:rate=<bitrate>[:quality=<q>][:mct][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
         printf("\twhere:\n");
-        printf("\t\t<bitrate> - target bitrate\n");
-        printf("\t\t<q> - quality\n");
+        printf("\t\t<bitrate> - target bitrate, must be set\n");
+        printf("\t\t<q> - quality in range [0-1], default %f\n", DEFAULT_QUALITY);
         printf("\t\t<m> - CUDA device memory limit (in bytes), default %llu\n", DEFAULT_MEM_LIMIT);
         printf("\t\t<t> - number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default %d\n", DEFAULT_TILE_LIMIT);
         printf("\t\t<p> - total number of tiles encoder can hold at moment (same meaning as above), default %d, should be greater than <t>\n", DEFAULT_POOL_SIZE);
@@ -285,10 +286,17 @@ static void usage() {
         printf("\t\t<c_index> - CUDA device(s) to use (comma separated)\n");
 }
 
+#define ASSIGN_CHECK_POSITIVE(var, str) do { long long val = unit_evaluate(str); \
+                                                        if (val <= 0 || val > UINT_MAX) { \
+                                                                LOG(LOG_LEVEL_ERROR) << "[J2K] Wrong value " << str << " for " #var "! Value must be positive.\n"; \
+                                                                return NULL; \
+                                                        } \
+                                                        var = val; \
+                                                } while (0)
+
 static struct module * j2k_compress_init(struct module *parent, const char *c_cfg)
 {
-        struct state_video_compress_j2k *s;
-        double quality = 0.7;
+        double quality = DEFAULT_QUALITY;
         int mct = -1;
         long long int bitrate = 0;
         long long int mem_limit = DEFAULT_MEM_LIMIT;
@@ -304,17 +312,17 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         while ((item = strtok_r(tmp, ":", &save_ptr))) {
                 tmp = NULL;
                 if (strncasecmp("rate=", item, strlen("rate=")) == 0) {
-                        bitrate = unit_evaluate(item + strlen("rate="));
+                        ASSIGN_CHECK_POSITIVE(bitrate, item + strlen("rate="));
                 } else if (strncasecmp("quality=", item, strlen("quality=")) == 0) {
-                        quality = atof(item + strlen("quality="));
+                        quality = stod(strchr(item, '=') + 1);
                 } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
                         mct = strcasecmp("mct", item) ? 1 : 0;
                 } else if (strncasecmp("mem_limit=", item, strlen("mem_limit=")) == 0) {
-                        mem_limit = unit_evaluate(item + strlen("mem_limit="));
+                        ASSIGN_CHECK_POSITIVE(mem_limit ,item + strlen("mem_limit="));
                 } else if (strncasecmp("tile_limit=", item, strlen("tile_limit=")) == 0) {
-                        tile_limit = atoi(item + strlen("tile_limit="));
+                        ASSIGN_CHECK_POSITIVE(tile_limit, item + strlen("tile_limit="));
                 } else if (strncasecmp("pool_size=", item, strlen("pool_size=")) == 0) {
-                        pool_size = atoi(item + strlen("pool_size="));
+                        ASSIGN_CHECK_POSITIVE(pool_size, item + strlen("pool_size="));
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
                         return &compress_init_noerr;
@@ -324,12 +332,17 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                 }
         }
 
-        if (bitrate <= 0 || mem_limit <= 0 || tile_limit <= 0) {
-                log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong bitrate, mem_limit or tile_limit!\n");
+        if (quality < 0.0 || quality > 1.0) {
+                LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
+                return nullptr;
+        }
+
+        if (bitrate == 0) {
+                log_msg(LOG_LEVEL_ERROR, "[J2K] Target bitrate is not set and none is default! Please use \"rate=\" option.\n");
                 return NULL;
         }
 
-        s = new state_video_compress_j2k(bitrate, pool_size, mct);
+        auto *s = new state_video_compress_j2k(bitrate, pool_size, mct);
 
         struct cmpto_j2k_enc_ctx_cfg *ctx_cfg;
         CHECK_OK(cmpto_j2k_enc_ctx_cfg_create(&ctx_cfg), "Context configuration create",
