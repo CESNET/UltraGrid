@@ -275,7 +275,7 @@ struct {
 
 static void usage() {
         printf("J2K compress usage:\n");
-        printf("\t-c cmpto_j2k:rate=<bitrate>[:quality=<q>][:mct][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
+        printf("\t-c cmpto_j2k[:rate=<bitrate>][:quality=<q>][:mct][:mem_limit=<m>][:tile_limit=<t>][:pool_size=<p>] [--cuda-device <c_index>]\n");
         printf("\twhere:\n");
         printf("\t\t<bitrate> - target bitrate, must be set\n");
         printf("\t\t<q> - quality in range [0-1], default %f\n", DEFAULT_QUALITY);
@@ -335,11 +335,6 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
         if (quality < 0.0 || quality > 1.0) {
                 LOG(LOG_LEVEL_ERROR) << "[J2K] Quality should be in interval [0-1]!\n";
                 return nullptr;
-        }
-
-        if (bitrate == 0) {
-                log_msg(LOG_LEVEL_ERROR, "[J2K] Target bitrate is not set and none is default! Please use \"rate=\" option.\n");
-                return NULL;
         }
 
         auto *s = new state_video_compress_j2k(bitrate, pool_size, mct);
