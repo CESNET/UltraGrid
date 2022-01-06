@@ -54,6 +54,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "module.h"
+#include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/video_frame_pool.h"
 #include "video_compress.h"
@@ -274,28 +275,28 @@ struct {
 };
 
 static void usage() {
-        printf("J2K compress usage:\n");
-        printf("\t-c cmpto_j2k");
+        cout << "J2K compress usage:\n";
+        cout << rang::style::bold << RED("\t-c cmpto_j2k");
         for(const auto& opt : usage_opts){
                 assert(strlen(opt.opt_str) > 2);
-                printf("[%s", opt.opt_str);
+                cout << "[" << opt.opt_str;
                 if (!opt.is_boolean) {
-                        printf("<%c>", opt.opt_str[1]);
+                        cout << "<" << opt.opt_str[1] << ">";
                 }
-                printf("]");
+                cout << "]";
         }
-        printf(" [--cuda-device <c_index>]\n");
+        cout << " [--cuda-device <c_index>]\n" << rang::style::reset;
 
-        printf("\twhere:\n");
+        cout << "where:\n";
         for(const auto& opt : usage_opts){
                 if (opt.is_boolean) {
-                        printf("\t\t%s", opt.opt_str + 1);
+                        cout << BOLD("\t\t" << opt.opt_str + 1);
                 } else {
-                        printf("\t\t<%c>", opt.opt_str[1]);
+                        cout << BOLD("\t\t<" << opt.opt_str[1] << ">");
                 }
-                printf(" - %s\n", opt.description);
+                cout << " - " << opt.description << "\n";
         }
-        printf("\t\t<c_index> - CUDA device(s) to use (comma separated)\n");
+        cout << BOLD("\t\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
 }
 
 #define ASSIGN_CHECK_POSITIVE(var, str) do { long long val = unit_evaluate(str); \
