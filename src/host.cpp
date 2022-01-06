@@ -220,7 +220,7 @@ bool parse_audio_capture_format(const char *optarg)
         char *endptr = nullptr;
         char *tmp = arg;
 
-        while ((item = strtok_r(tmp, ":", &save_ptr))) {
+        while ((item = strtok_r(tmp, ",:", &save_ptr))) {
                 if (strncmp(item, "channels=", strlen("channels=")) == 0) {
                         item += strlen("channels=");
                         audio_capture_channels = strtol(item, &endptr, 10);
@@ -233,6 +233,9 @@ bool parse_audio_capture_format(const char *optarg)
                         int bps = strtol(item, &endptr, 10);
                         if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32) || endptr != item + strlen(item)) {
                                 log_msg(LOG_LEVEL_ERROR, "Invalid bps %s!\n", item);
+                                if (bps % 8 != 0) {
+                                        LOG(LOG_LEVEL_WARNING) << "bps is in bits per sample but a value not divisible by 8 was given.\n";
+                                }
                                 log_msg(LOG_LEVEL_ERROR, "Supported values are 8, 16, 24, or 32 bits.\n");
                                 return false;
 
@@ -247,7 +250,7 @@ bool parse_audio_capture_format(const char *optarg)
                         }
                         audio_capture_sample_rate = val;
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "Unkonwn format for --audio-capture-format!\n");
+                        LOG(LOG_LEVEL_ERROR) << "Unkonwn option \"" << item << "\" for --audio-capture-format!\n";
                         return false;
                 }
 
