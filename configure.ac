@@ -3247,21 +3247,22 @@ then
         fi
 fi
 
-if test "$FOUND_CINEFORM" = no; then
-        PKG_CHECK_MODULES([CINEFORM], [libcineform], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
-        CINEFORM_INC=$CINEFORM_CFLAGS
-fi
-
-if test "$cineform_req" != no -a "$FOUND_CINEFORM" = yes
-then
-        cineform=yes
+if test "$FOUND_CINEFORM" = yes; then
         CINEFORM_INC="$CINEFORM_INC -I${CINEFORM_PATH}/Common/"
 
         if test $system != Windows
         then
                 CINEFORM_LIB="${CINEFORM_LIB} -luuid"
         fi
+else # if not found, look for libcineform with pkg-config configuration
+        PKG_CHECK_MODULES([CINEFORM], [libcineform], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+        CINEFORM_INC=$CINEFORM_CFLAGS
+        CINEFORM_LIB=$CINEFORM_LIBS
+fi
 
+if test "$cineform_req" != no -a "$FOUND_CINEFORM" = yes
+then
+        cineform=yes
         CINEFORM_COMPRESS_OBJ="src/video_compress/cineform.o"
         CINEFORM_DECOMPRESS_OBJ="src/video_decompress/cineform.o"
 
