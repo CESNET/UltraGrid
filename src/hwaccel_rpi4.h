@@ -56,7 +56,6 @@ typedef struct av_frame_wrapper{
 } av_frame_wrapper;
 
 static inline void av_frame_wrapper_recycle(struct video_frame *f){
-        log_msg(LOG_LEVEL_NOTICE, "RPI frame recycle\n");
         for(unsigned i = 0; i < f->tile_count; i++){
                 av_frame_wrapper *wrapper = (av_frame_wrapper *)(void *) f->tiles[i].data;
 
@@ -65,7 +64,6 @@ static inline void av_frame_wrapper_recycle(struct video_frame *f){
 }
 
 static inline void av_frame_wrapper_copy(struct video_frame *f){
-        log_msg(LOG_LEVEL_NOTICE, "RPI frame copy\n");
         for(unsigned i = 0; i < f->tile_count; i++){
                 av_frame_wrapper *wrapper = (av_frame_wrapper *)(void *) f->tiles[i].data;
 
