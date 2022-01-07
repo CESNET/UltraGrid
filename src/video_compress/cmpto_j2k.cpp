@@ -278,10 +278,10 @@ static void usage() {
         cout << "J2K compress usage:\n";
         cout << rang::style::bold << RED("\t-c cmpto_j2k");
         for(const auto& opt : usage_opts){
-                assert(strlen(opt.opt_str) > 2);
+                assert(strlen(opt.opt_str) >= 2);
                 cout << "[" << opt.opt_str;
                 if (!opt.is_boolean) {
-                        cout << "<" << opt.opt_str[1] << ">";
+                        cout << "<" << opt.opt_str[1] << ">"; // :quality -> <q> (first letter used as ":quality=<q>")
                 }
                 cout << "]";
         }
@@ -290,13 +290,13 @@ static void usage() {
         cout << "where:\n";
         for(const auto& opt : usage_opts){
                 if (opt.is_boolean) {
-                        cout << BOLD("\t\t" << opt.opt_str + 1);
+                        cout << BOLD("\t" << opt.opt_str + 1);
                 } else {
-                        cout << BOLD("\t\t<" << opt.opt_str[1] << ">");
+                        cout << BOLD("\t<" << opt.opt_str[1] << ">");
                 }
                 cout << " - " << opt.description << "\n";
         }
-        cout << BOLD("\t\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
+        cout << BOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
 }
 
 #define ASSIGN_CHECK_VAL(var, str, minval) do { long long val = unit_evaluate(str); \
