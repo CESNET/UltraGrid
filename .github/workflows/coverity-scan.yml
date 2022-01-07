@@ -13,20 +13,25 @@ jobs:
       coverity_token: ${{ secrets.coverity_token }}
 
     steps:
+    - name: Get Coverity tool name # the file name contains version and is used as the cache key
+      id: tool
+      run: |
+        FILENAME=$(curl -LI "https://scan.coverity.com/download/linux64?token=$coverity_token&project=UltraGrid"  | sed -n '/content-disposition/s/.*\"\(.*\)\"/\1/p')
+        echo "::set-output name=filename::$FILENAME"
     - name: Cache Coverity build tool
       id: cache-coverity-tool
       uses: actions/cache@v2
       with:
-        path: '/tmp/cov-analysis'
-        key: cache-coverity-tool
+        path: coverity_tool.tgz
+        key: cache-coverity-tool-${{ steps.tool.outputs.filename }}
     - name: Download Coverity build tool
       if: steps.cache-coverity-tool.outputs.cache-hit != 'true'
       run: |
-        cd /tmp
-        rm -rf cov-analysis
         wget --no-verbose https://scan.coverity.com/download/linux64 --post-data "token=$coverity_token&project=UltraGrid" -O coverity_tool.tgz
+    - name: Extract Coverity build tool
+      run: |
         tar xaf coverity_tool.tgz
-        mv /tmp/cov-analysis* /tmp/cov-analysis
+        mv cov-analysis* /tmp/cov-analysis
     - uses: actions/checkout@v1
       with:
         submodules: true
