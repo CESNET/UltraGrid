@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,26 +48,19 @@
 #include "config_win32.h"
 #endif
 
-#include <Processing.NDI.Lib.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <type_traits> // static_assert
-
-#ifdef _WIN32
-#ifdef _WIN64
-#pragma comment(lib, "Processing.NDI.Lib.x64.lib")
-#else // _WIN64
-#pragma comment(lib, "Processing.NDI.Lib.x86.lib")
-#endif // _WIN64
-#endif // _WIN32
 
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "ndi_common.h"
 #include "rang.hpp"
 #include "video.h"
 #include "video_capture.h"
@@ -87,8 +80,12 @@ using std::string;
 using std::chrono::duration_cast;
 using std::chrono::steady_clock;
 
+static void vidcap_ndi_done(void *state);
+
 struct vidcap_state_ndi {
-        static_assert(NDILIB_CPP_DEFAULT_CONSTRUCTORS == 1, "Use default C++ NDI constructors");
+        static_assert(NDILIB_CPP_DEFAULT_CONSTRUCTORS == 0, "Don't use default C++ NDI constructors - we are using run-time dynamic lib load");
+        LIB_HANDLE lib{};
+        const NDIlib_t *NDIlib{};
         NDIlib_recv_instance_t pNDI_recv = nullptr;
         NDIlib_find_instance_t pNDI_find = nullptr;
         array<struct audio_frame, 2> audio;
@@ -96,7 +93,7 @@ struct vidcap_state_ndi {
         bool capture_audio = false;
         struct video_desc last_desc{};
 
-        NDIlib_video_frame_v2_t field_0; ///< stored to asssemble interleaved interlaced video together with field 1
+        NDIlib_video_frame_v2_t field_0{}; ///< stored to asssemble interleaved interlaced video together with field 1
 
         string requested_name; // if not empty recv from requested NDI name
         string requested_url; // if not empty recv from requested URL (either addr or addr:port)
@@ -124,7 +121,7 @@ struct vidcap_state_ndi {
         }
 };
 
-static void show_help(const NDIlib_find_create_t *find_create_settings) {
+static void show_help(struct vidcap_state_ndi *s) {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-t ndi" << rang::fg::reset <<
                 "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:color=<c>][:extra_ips=<ip>][:progressive]\n" << rang::style::reset <<
@@ -146,7 +143,7 @@ static void show_help(const NDIlib_find_create_t *find_create_settings) {
                 "\n";
 
         cout << "\tavailable sources (tentative, format: name - url):\n";
-        auto *pNDI_find = NDIlib_find_create_v2(find_create_settings);
+        auto *pNDI_find = s->NDIlib->find_create_v2(&s->find_create_settings);
         if (pNDI_find == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot create finder object!\n";
                 return;
@@ -159,7 +156,7 @@ static void show_help(const NDIlib_find_create_t *find_create_settings) {
         // we do not usea NDIlib_find_wait_for_sources() here because: 1) if there is
         // no source, it will still wait requested amount of time and 2) if there are
         // more sources, it will continue after first source found while there can be more
-        p_sources = NDIlib_find_get_current_sources(pNDI_find, &nr_sources);
+        p_sources = s->NDIlib->find_get_current_sources(pNDI_find, &nr_sources);
         for (int i = 0; i < static_cast<int>(nr_sources); ++i) {
                 cout << "\t\t" << p_sources[i].p_ndi_name << " - " << p_sources[i].p_url_address << "\n";
         }
@@ -167,7 +164,7 @@ static void show_help(const NDIlib_find_create_t *find_create_settings) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "No sources found!\n";
         }
         cout << "\n";
-        NDIlib_find_destroy(pNDI_find);
+        s->NDIlib->find_destroy(pNDI_find);
 #ifdef NDI_VERSION
         cout << NDI_VERSION "\n";
 #endif
@@ -178,11 +175,18 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
         using namespace std::string_literals;
         using std::stoi;
         // Not required, but "correct" (see the SDK documentation)
-        if (!NDIlib_initialize()) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize NDI!\n";
+        auto s = new vidcap_state_ndi();
+        s->NDIlib = NDIlib_load(&s->lib);
+        if (s->NDIlib == NULL) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot open NDI library!\n";
+                delete s;
                 return VIDCAP_INIT_FAIL;
         }
-        auto s = new vidcap_state_ndi();
+        if (!s->NDIlib->initialize()) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize NDI!\n";
+                delete s;
+                return VIDCAP_INIT_FAIL;
+        }
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0u) {
                 s->capture_audio = true;
         }
@@ -239,8 +243,8 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
         }
 
         if (req_show_help) {
-                show_help(&s->find_create_settings);
-                delete s;
+                show_help(s);
+                vidcap_ndi_done(s);
                 return VIDCAP_INIT_NOERR;
         }
 
@@ -257,16 +261,17 @@ static void vidcap_ndi_done(void *state)
         }
 
         if (s->field_0.p_data != nullptr) {
-                NDIlib_recv_free_video_v2(s->pNDI_recv, &s->field_0);
+                s->NDIlib->recv_free_video_v2(s->pNDI_recv, &s->field_0);
         }
 
         // Destroy the NDI finder.
-        NDIlib_find_destroy(s->pNDI_find);
+        s->NDIlib->find_destroy(s->pNDI_find);
 
-        NDIlib_recv_destroy(s->pNDI_recv);
+        s->NDIlib->recv_destroy(s->pNDI_recv);
 
         // Not required, but nice
-        NDIlib_destroy();
+        s->NDIlib->destroy();
+        close_ndi_library(s->lib);
 
         delete s;
 }
@@ -389,7 +394,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
 
         if (s->pNDI_find == nullptr) {
                 // Create a finder
-                s->pNDI_find = NDIlib_find_create_v2(&s->find_create_settings);
+                s->pNDI_find = s->NDIlib->find_create_v2(&s->find_create_settings);
                 if (s->pNDI_find == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot create object!\n";
                         return nullptr;
@@ -402,8 +407,8 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 const NDIlib_source_t* p_sources = nullptr;
                 // Wait until the sources on the nwtork have changed
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Looking for source(s)...\n";
-                NDIlib_find_wait_for_sources(s->pNDI_find, 100 /* 100 ms */);
-                p_sources = NDIlib_find_get_current_sources(s->pNDI_find, &nr_sources);
+                s->NDIlib->find_wait_for_sources(s->pNDI_find, 100 /* 100 ms */);
+                p_sources = s->NDIlib->find_get_current_sources(s->pNDI_find, &nr_sources);
                 if (nr_sources == 0) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "No sources.\n";
                         return nullptr;
@@ -415,13 +420,13 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 }
 
                 // We now have at least one source, so we create a receiver to look at it.
-                s->pNDI_recv = NDIlib_recv_create_v3(&s->create_settings);
+                s->pNDI_recv = s->NDIlib->recv_create_v3(&s->create_settings);
                 if (s->pNDI_recv == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to create receiver!\n";
                         return nullptr;
                 }
                 // Connect to our sources
-                NDIlib_recv_connect(s->pNDI_recv, source);
+                s->NDIlib->recv_connect(s->pNDI_recv, source);
 
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Receiving from source: " << source->p_ndi_name << ", URL: " << source->p_url_address << "\n";
         }
@@ -432,7 +437,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         struct video_frame *out = nullptr;
         video_desc out_desc;
 
-        switch (NDIlib_recv_capture_v2(s->pNDI_recv, &video_frame, &audio_frame, nullptr, 200))
+        switch (s->NDIlib->recv_capture_v2(s->pNDI_recv, &video_frame, &audio_frame, nullptr, 200))
         {       // No data
         case NDIlib_frame_type_none:
                 cout << "No data received.\n";
@@ -481,8 +486,8 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Received video changed: " << out_desc << "\n";
                         s->last_desc = out_desc;
                         if (s->field_0.p_data != nullptr) {
-                                NDIlib_recv_free_video_v2(s->pNDI_recv, &s->field_0);
-                                s->field_0 = NDIlib_video_frame_v2_t();
+                                s->NDIlib->recv_free_video_v2(s->pNDI_recv, &s->field_0);
+                                s->field_0 = NDIlib_video_frame_v2_t{};
                         }
                 }
 
@@ -505,14 +510,14 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Missing corresponding field!\n";
                                 } else {
                                         convert(out, s->field_0.p_data, stride, 0, field_count);
-                                        NDIlib_recv_free_video_v2(s->pNDI_recv, &s->field_0);
-                                        s->field_0 = NDIlib_video_frame_v2_t();
+                                        s->NDIlib->recv_free_video_v2(s->pNDI_recv, &s->field_0);
+                                        s->field_0 = NDIlib_video_frame_v2_t{};
                                 }
                                 convert(out, video_frame.p_data, stride, 1, field_count);
                         } else {
                                 convert(out, video_frame.p_data, stride, 0, 1);
                         }
-                        NDIlib_recv_free_video_v2(s->pNDI_recv, &video_frame);
+                        s->NDIlib->recv_free_video_v2(s->pNDI_recv, &video_frame);
                         out->callbacks.dispose = vf_free;
                 } else {
                         out = vf_alloc_desc(out_desc);
@@ -520,13 +525,15 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                         struct dispose_udata_t {
                                 NDIlib_video_frame_v2_t video_frame;
                                 NDIlib_recv_instance_t pNDI_recv;
+                                void(*recv_free_video_v2)(NDIlib_recv_instance_t p_instance, const NDIlib_video_frame_v2_t* p_video_data);
                         };
-                        out->callbacks.dispose_udata = new dispose_udata_t{video_frame, s->pNDI_recv};
-                        out->callbacks.dispose = [](struct video_frame *f) { auto du = static_cast<dispose_udata_t *>(f->callbacks.dispose_udata);
-                                NDIlib_recv_free_video_v2(du->pNDI_recv, &du->video_frame);
+                        out->callbacks.dispose_udata = new dispose_udata_t{video_frame, s->pNDI_recv, s->NDIlib->recv_free_video_v2};
+                        static auto dispose = [](struct video_frame *f) { auto du = static_cast<dispose_udata_t *>(f->callbacks.dispose_udata);
+                                du->recv_free_video_v2(du->pNDI_recv, &du->video_frame);
                                 delete du;
                                 free(f);
                         };
+                        out->callbacks.dispose = dispose;
                 }
                 s->frames += 1;
                 s->print_stats();
@@ -543,7 +550,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 } else {
                         *audio = nullptr;
                 }
-                NDIlib_recv_free_audio_v2(s->pNDI_recv, &audio_frame);
+                s->NDIlib->recv_free_audio_v2(s->pNDI_recv, &audio_frame);
                 break;
 
         case NDIlib_frame_type_metadata:
@@ -577,7 +584,15 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
                 return vt;
         }
 
-        auto pNDI_find = NDIlib_find_create_v2();
+        LIB_HANDLE tmp = nullptr;
+        const NDIlib_t *NDIlib = NDIlib_load(&tmp);
+        if (NDIlib == nullptr) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot open NDI library!\n";
+                return vt;
+        }
+        std::unique_ptr<std::remove_pointer<LIB_HANDLE>::type, void (*)(LIB_HANDLE)> lib(tmp, close_ndi_library);
+
+        auto pNDI_find = NDIlib->find_create_v2(nullptr);
         if (pNDI_find == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot create finder object!\n";
                 return vt;
@@ -590,11 +605,11 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
         // we do not usea NDIlib_find_wait_for_sources() here because: 1) if there is
         // no source, it will still wait requested amount of time and 2) if there are
         // more sources, it will continue after first source found while there can be more
-        p_sources = NDIlib_find_get_current_sources(pNDI_find, &nr_sources);
+        p_sources = NDIlib->find_get_current_sources(pNDI_find, &nr_sources);
 
         vt->cards = (struct device_info *) calloc(nr_sources, sizeof(struct device_info));
         if (vt->cards == nullptr) {
-                NDIlib_find_destroy(pNDI_find);
+                NDIlib->find_destroy(pNDI_find);
                 return vt;
         }
         vt->card_count = nr_sources;
@@ -605,7 +620,7 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
                 vt->cards[i].repeatable = true;
         }
 
-        NDIlib_find_destroy(pNDI_find);
+        NDIlib->find_destroy(pNDI_find);
 
         return vt;
 }

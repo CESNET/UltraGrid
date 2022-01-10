@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,12 +51,12 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include <Processing.NDI.Lib.h>
 
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "ndi_common.h"
 #include "types.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
@@ -67,6 +67,8 @@
 #define MOD_NAME "[NDI disp.] "
 
 struct display_ndi {
+        LIB_HANDLE lib;
+        const NDIlib_t *NDIlib;
         int audio_level; ///< audio reference level - usually 0 or 20
         NDIlib_send_instance_t pNDI_send;
         struct video_desc desc;
@@ -165,7 +167,14 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                         tmp = NULL;
                 }
 
-                if (!NDIlib_initialize()) {
+                s->NDIlib = NDIlib_load(&s->lib);
+                if (s->NDIlib == NULL) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open NDI library!\n");
+                        THROW(FAIL);
+                }
+
+                if (!s->NDIlib->initialize()) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot initialize NDI library!\n");
                         THROW(FAIL);
                 }
 
@@ -173,7 +182,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                 NDI_send_create_desc.clock_video = false;
                 NDI_send_create_desc.clock_audio = false;
                 NDI_send_create_desc.p_ndi_name = ndi_name;
-                s->pNDI_send = NDIlib_send_create(&NDI_send_create_desc);
+                s->pNDI_send = s->NDIlib->send_create(&NDI_send_create_desc);
                 if (s->pNDI_send == NULL) {
                         THROW(FAIL);
                 }
@@ -197,10 +206,11 @@ static void display_ndi_done(void *state)
 {
         struct display_ndi *s = (struct display_ndi *) state;
 
-        NDIlib_send_destroy(s->pNDI_send);
+        s->NDIlib->send_destroy(s->pNDI_send);
         free(s->convert_buffer);
+        s->NDIlib->destroy();
+        close_ndi_library(s->lib);
         free(s);
-        NDIlib_destroy();
 }
 
 static struct video_frame *display_ndi_getf(void *state)
@@ -281,7 +291,7 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
                 NDI_video_frame.p_data = (uint8_t *) frame->tiles[0].data;
         }
 
-        NDIlib_send_send_video_v2(s->pNDI_send, &NDI_video_frame);
+        s->NDIlib->send_send_video_v2(s->pNDI_send, &NDI_video_frame);
         vf_free(frame);
 
         return TRUE;
@@ -354,7 +364,7 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                 NDI_audio_frame.p_data = (int ## bit_depth ## _t *)(void *) (frame)->data; \
                 NDI_audio_frame.no_samples = (frame)->data_len / (frame)->ch_count / ((bit_depth) / 8); \
                 \
-                NDIlib_util_send_send_audio_interleaved_ ## bit_depth ## s(s->pNDI_send, &NDI_audio_frame); \
+                s->NDIlib->util_send_send_audio_interleaved_ ## bit_depth ## s(s->pNDI_send, &NDI_audio_frame); \
         } while(0)
 
 static void display_ndi_put_audio_frame(void *state, struct audio_frame *frame)
