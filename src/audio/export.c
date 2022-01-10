@@ -133,6 +133,29 @@ static bool configure(struct audio_export *s, struct audio_desc fmt) {
         return true;
 }
 
+bool audio_export_configure_raw(struct audio_export *s,
+                int bps, int sample_rate, int ch_count)
+{
+
+        assert(s->saved_format.ch_count == 0 && "Audio export already configured");
+        struct audio_desc fmt;
+
+        fmt.codec = AC_PCM;
+        fmt.bps = bps;
+        fmt.sample_rate = sample_rate;
+        fmt.ch_count = ch_count;
+
+        bool res = configure(s, fmt);
+
+        if(!res) {
+                fprintf(stderr, "[Audio export] Configuration failed.\n");
+                return false;
+        }
+        pthread_create(&s->thread_id, NULL, audio_export_thread, s);
+
+        return true;
+}
+
 struct audio_export * audio_export_init(const char *filename)
 {
         struct audio_export *s = calloc(1, sizeof(struct audio_export));
@@ -183,6 +206,18 @@ void audio_export_destroy(struct audio_export *s)
         }
 }
 
+void audio_export_raw(struct audio_export *s, void *data, unsigned len){
+        assert(s->saved_format.ch_count != 0 && "Export not configured");
+        pthread_mutex_lock(&s->lock);
+        ring_buffer_write(s->ring, data, len);
+        s->new_work_ready = true;
+
+        if(s->worker_waiting) {
+                pthread_cond_signal(&s->worker_cv);
+        }
+        pthread_mutex_unlock(&s->lock);
+}
+
 void audio_export(struct audio_export *s, struct audio_frame *frame)
 {
         if(!s) {
@@ -204,13 +239,6 @@ void audio_export(struct audio_export *s, struct audio_frame *frame)
                 }
         }
 
-        pthread_mutex_lock(&s->lock);
-        ring_buffer_write(s->ring, frame->data, frame->data_len);
-        s->new_work_ready = true;
-
-        if(s->worker_waiting) {
-                pthread_cond_signal(&s->worker_cv);
-        }
-        pthread_mutex_unlock(&s->lock);
+        audio_export_raw(s, frame->data, frame->data_len);
 }
 

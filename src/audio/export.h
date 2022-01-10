@@ -38,6 +38,10 @@
 #ifndef _AUDIO_EXPORT_H_
 #define _AUDIO_EXPORT_H_
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,6 +52,10 @@ struct audio_frame;
 struct audio_export * audio_export_init(const char *filename);
 void audio_export_destroy(struct audio_export *state);
 void audio_export(struct audio_export *state, struct audio_frame *frame);
+
+bool audio_export_configure_raw(struct audio_export *s,
+        int bps, int sample_rate, int ch_count);
+void audio_export_raw(struct audio_export *s, void *data, unsigned len);
 
 #ifdef __cplusplus
 }
