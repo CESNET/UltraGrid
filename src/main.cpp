@@ -409,10 +409,8 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("--audio-scale <factor> | <method> | help",
                                 {"scales received audio"});
         }
-#if 0
-        printf("\t--echo-cancellation      \tapply acoustic echo cancellation to audio\n");
+        printf("\t--echo-cancellation      \tapply acoustic echo cancellation to audio (experimental)\n");
         printf("\n");
-#endif
         print_help_item("--cuda-device <index> | help", {"use specified CUDA device"});
         if (full) {
                 print_help_item("--encryption <passphrase>", {"key material for encryption"});
