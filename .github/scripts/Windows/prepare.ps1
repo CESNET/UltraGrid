@@ -21,15 +21,19 @@ Start-Process -FilePath .\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON
 Remove-Item XIMEA_API_Installer.exe
 
 # Install NDI
-if (${env:SDK_URL} -and ${env:GITHUB_REF} -eq "refs/heads/ndi-build") {
-  Invoke-WebRequest ${env:SDK_URL}/NDI_SDK.exe -OutFile C:\ndi.exe
-  # TODO: NDI installer opens a manual in a browser and doesn't end, thus StartProcess with -Wait
-  # waits infinitely. Therefore, there is a hack with Sleep (and not removint the installer)
-  #Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT" -Wait -NoNewWindow
-  Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT"
-  Sleep 10
-  $sdk=(dir "C:\Program Files\NDI" -Filter *SDK -Name)
-  echo "C:\Program Files\NDI\$sdk\Bin\x64" >> ${env:GITHUB_PATH}
-  #Remove-Item C:\ndi.exe
+if (${env:SDK_URL}) {
+  try {
+    Invoke-WebRequest ${env:SDK_URL}/NDI_SDK.exe -OutFile C:\ndi.exe
+    # TODO: NDI installer opens a manual in a browser and doesn't end, thus StartProcess with -Wait
+    # waits infinitely. Therefore, there is a hack with Sleep (and not removint the installer)
+    #Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT" -Wait -NoNewWindow
+    Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT"
+    Sleep 10
+    $sdk=(dir "C:\Program Files\NDI" -Filter *SDK -Name)
+    echo "C:\Program Files\NDI\$sdk\Bin\x64" >> ${env:GITHUB_PATH}
+    #Remove-Item C:\ndi.exe
+  } catch {
+    Write-Output "Status Code --- $($_.Exception.Response.StatusCode.Value__) "
+  }
 }
 

@@ -8,7 +8,6 @@ on:
   push:
     branches:
       - master
-      - ndi-build
     tags:
       - v[0-9]+.*
     paths:
@@ -93,7 +92,7 @@ jobs:
       if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
       run: .github/scripts/Linux/install_ffmpeg.sh
     - name: configure
-      run: "./autogen.sh --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa $NDI --enable-v4l2"
+      run: "./autogen.sh --with-cuda-host-compiler=$CUDA_HOST_COMPILER --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa --enable-v4l2"
     - name: make
       run: make -j4
     - name: make check
@@ -114,12 +113,6 @@ jobs:
         docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu /AppImage/AppRun --tool uv-qt -h
         docker run --rm -v $PWD/squashfs-root/:/AppImage aitest-ubuntu /AppImage/AppRun --list-modules
         bash appdir-lint.sh squashfs-root
-    - name: Upload NDI Build
-      id: upload-ndi
-      env:
-        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
-      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
-      run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-x86_64.AppImage
     - name: Upload Release Asset
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
@@ -131,7 +124,7 @@ jobs:
         .github/scripts/replace-asset.sh continuous UltraGrid-$CHANNEL-x86_64.AppImage.zsync application/x-zsync AppImage%20${CHANNEL}%20zsync
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-x86_64.AppImage application/x-appimage Linux%20build
     - name: Upload Build
-      if: steps.upload-ndi.conclusion == 'skipped' && steps.upload-release.conclusion == 'skipped'
+      if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI Linux build
@@ -183,7 +176,7 @@ jobs:
         . .github/scripts/environment.sh
         .github/scripts/macOS/prepare.sh
     - name: configure
-      run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio $NDI --enable-syphon"
+      run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio --enable-syphon"
     - name: make bundle
       run: make -j4 gui-bundle
     - name: make check
@@ -201,12 +194,6 @@ jobs:
       run: |
         make osx-gui-dmg
         mv UltraGrid.dmg UltraGrid-$VERSION.dmg
-    - name: Upload NDI Build
-      id: upload-ndi
-      env:
-        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
-      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
-      run: .github/scripts/upload-ndi-build.sh UltraGrid-$VERSION.dmg
     - name: Upload Release Asset
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
@@ -216,7 +203,7 @@ jobs:
         brew install jq
         .github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION.dmg application/x-apple-diskimage macOS%20build
     - name: Upload Build
-      if: steps.upload-ndi.conclusion == 'skipped' && steps.upload-release.conclusion == 'skipped'
+      if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI macOS build
@@ -276,7 +263,7 @@ jobs:
     - name: Install live555
       run: C:\msys64\usr\bin\bash -cel 'make -C /c/live555 install'
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-dshow $NDI --enable-spout --enable-wasapi'
+      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-dshow --enable-spout --enable-wasapi'
     - name: make
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
@@ -294,14 +281,6 @@ jobs:
     - name: make dist-check
       run: C:\msys64\usr\bin\bash -cel 'PATH=
         /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe REFLECTOR_TARGET=build/UltraGrid-$VERSION-win64/hd-rum-transcode.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe'
-    - name: Upload NDI Build
-      id: upload-ndi
-      env:
-        NDI_REMOTE_SSH_KEY: ${{ secrets.NDI_REMOTE_SSH_KEY }}
-      if: github.ref == 'refs/heads/ndi-build' && env.NDI_REMOTE_SSH_KEY != null
-      run: |
-        C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
-          $GITHUB_WORKSPACE/.github/scripts/upload-ndi-build.sh UltraGrid-$VERSION-win64.zip'
     - name: Upload Release Asset
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
@@ -311,7 +290,7 @@ jobs:
         C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
           $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-win64.zip application/zip Windows%20build'
     - name: Upload Build
-      if: steps.upload-ndi.conclusion == 'skipped' && steps.upload-release.conclusion == 'skipped'
+      if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@v1
       with:
         name: UltraGrid CI Windows build
