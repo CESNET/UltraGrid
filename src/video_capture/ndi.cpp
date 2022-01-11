@@ -62,6 +62,7 @@
 #include "lib_common.h"
 #include "ndi_common.h"
 #include "rang.hpp"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -125,24 +126,27 @@ static void show_help(struct vidcap_state_ndi *s) {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-t ndi" << rang::fg::reset <<
                 "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:color=<c>][:extra_ips=<ip>][:progressive]\n" << rang::style::reset <<
-                "\twhere\n"
-                << rang::style::bold << "\t\tname\n" << rang::style::reset <<
-                "\t\t\tname of the NDI source in form "
-                "\"MACHINE_NAME (NDI_SOURCE_NAME)\"\n"
-                << rang::style::bold << "\t\turl\n" << rang::style::reset <<
-                "\t\t\tURL, typically <ip> or <ip>:<port>\n"
-                << rang::style::bold << "\t\taudio_level\n" << rang::style::reset <<
-                "\t\t\taudio headroom above reference level (in dB, or mic/line, default " << 20 * log(DEFAULT_AUDIO_DIVISOR) / log(10) << ")\n"
-                << rang::style::bold << "\t\tcolor\n" << rang::style::reset <<
-                "\t\t\tcolor format, 0 - BGRX/BGRA, 1 - UYVY/BGRA, 2 - RGBX/RGBA, 3 - UYVY/RGBA, 100 - fastest (UYVY), 101 - best (default, P216/UYVY)\n"
-                "\t\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n"
-                << rang::style::bold << "\t\textra_ips\n" << rang::style::reset <<
-                "\t\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\"\n"
-                << rang::style::bold << "\t\tprogressive\n" << rang::style::reset <<
-                "\t\t\tprefer progressive capture for interlaced input\n"
+                "where\n";
+
+        cout << BOLD("\tname\n") <<
+                "\t\tname of the NDI source in form "
+                "\"MACHINE_NAME (NDI_SOURCE_NAME)\"\n";
+        cout << BOLD("\turl\n") <<
+                "\t\tURL, typically <ip> or <ip>:<port>\n";
+        cout << BOLD("\taudio_level\n") <<
+                "\t\taudio headroom above reference level (in dB, or mic/line, default " << 20 * log(DEFAULT_AUDIO_DIVISOR) / log(10) << ")\n";
+        cout << BOLD("\tcolor\n") <<
+                "\t\tcolor format, " << BOLD(NDIlib_recv_color_format_BGRX_BGRA) << " - BGRX/BGRA, " << BOLD(NDIlib_recv_color_format_UYVY_BGRA)  << " - UYVY/BGRA, " <<
+                BOLD(NDIlib_recv_color_format_RGBX_RGBA) << " - RGBX/RGBA, " << BOLD(NDIlib_recv_color_format_UYVY_RGBA)  << " - UYVY/RGBA, " << BOLD(NDIlib_recv_color_format_fastest) <<
+                " - fastest (UYVY), " << BOLD(NDIlib_recv_color_format_best) << " - best (default, P216/UYVY)\n"
+                "\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n";
+        cout << BOLD("\textra_ips\n") <<
+                "\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\"\n";
+        cout << BOLD("\tprogressive\n") <<
+                "\t\tprefer progressive capture for interlaced input\n"
                 "\n";
 
-        cout << "\tavailable sources (tentative, format: name - url):\n";
+        cout << "available sources (tentative, format: name - url):\n";
         auto *pNDI_find = s->NDIlib->find_create_v2(&s->find_create_settings);
         if (pNDI_find == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot create finder object!\n";
@@ -158,7 +162,7 @@ static void show_help(struct vidcap_state_ndi *s) {
         // more sources, it will continue after first source found while there can be more
         p_sources = s->NDIlib->find_get_current_sources(pNDI_find, &nr_sources);
         for (int i = 0; i < static_cast<int>(nr_sources); ++i) {
-                cout << "\t\t" << p_sources[i].p_ndi_name << " - " << p_sources[i].p_url_address << "\n";
+                cout << "\t" << p_sources[i].p_ndi_name << " - " << p_sources[i].p_url_address << "\n";
         }
         if (nr_sources == 0) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "No sources found!\n";
@@ -440,7 +444,7 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         switch (s->NDIlib->recv_capture_v2(s->pNDI_recv, &video_frame, &audio_frame, nullptr, 200))
         {       // No data
         case NDIlib_frame_type_none:
-                cout << "No data received.\n";
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << "No data received.\n";
                 break;
 
                 // Video data
@@ -488,6 +492,10 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                         if (s->field_0.p_data != nullptr) {
                                 s->NDIlib->recv_free_video_v2(s->pNDI_recv, &s->field_0);
                                 s->field_0 = NDIlib_video_frame_v2_t{};
+                        }
+                        if (out_desc.color_spec == Y216) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Receiving 16-bit YCbCr, if not needed, consider using \"color=\" "
+                                        "option to reduce required processing power.\n";
                         }
                 }
 
