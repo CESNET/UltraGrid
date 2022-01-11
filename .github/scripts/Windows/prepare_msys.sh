@@ -20,7 +20,6 @@ if test -d /c/Program\ Files/NDI; then
         export CPATH=$CPATH:$NDI_D/Include
         export LIBRARY_PATH=$LIBRARY_PATH:$NDI_D/Lib/x64
         cat $NDI_D/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | tee /usr/local/include/ndi_version.h
-        FEATURES="$FEATURES --enable-ndi"
 fi
 
 JACK_D=/c/Program\ Files/JACK2

@@ -76,18 +76,17 @@ if [ -n "$SDK_URL" ]; then
 fi
 
 # Install NDI
-if [ -n "$SDK_URL" ]; then
-        if curl -f -S $SDK_URL/NDISDK_Linux.tar.gz -O; then
-                tar -C /var/tmp -xzf NDISDK_Linux.tar.gz
-                yes | PAGER=cat /var/tmp/Install*NDI*sh
-                sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
-                cat NDI\ SDK\ for\ Linux/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
-                sudo cp -r NDI\ SDK\ for\ Linux/lib/x86_64-linux-gnu/* /usr/local/lib
-                FEATURES="${FEATURES:+$FEATURES }--enable-ndi"
-                echo "FEATURES=$FEATURES" >> $GITHUB_ENV
-                sudo ldconfig
-        fi
-fi
+install_ndi() {
+(
+        cd /var/tmp
+        tar -xzf Install_NDI_SDK_Linux.tar.gz
+        yes | PAGER=cat ./Install*NDI*sh
+        sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
+        cat NDI\ SDK\ for\ Linux/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
+        sudo cp -r NDI\ SDK\ for\ Linux/lib/x86_64-linux-gnu/* /usr/local/lib
+        sudo ldconfig
+)
+}
 
 # Install live555
 git clone https://github.com/xanview/live555/
@@ -97,6 +96,8 @@ git checkout 35c375
 make -j $(nproc) CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
 sudo make install
 cd ..
+
+install_ndi
 
 # Install cross-platform deps
 $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh

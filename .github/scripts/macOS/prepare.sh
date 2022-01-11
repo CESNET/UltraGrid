@@ -53,8 +53,8 @@ if [ -d $DELTA_CACHE_INST ]; then
 fi
 
 # Install NDI
-if [ -f $SDK_NONFREE_PATH/NDISDK_Apple.pkg  ]; then
-        sudo installer -pkg $SDK_NONFREE_PATH/NDISDK_Apple.pkg -target /
+install_ndi() {
+        sudo installer -pkg /private/var/tmp/Install_NDI_SDK_Apple.pkg -target /
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
         cat /Library/NDI/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
         if [ -d /Library/NDI/lib/x64 ]; then # NDI 4
@@ -70,12 +70,10 @@ if [ -f $SDK_NONFREE_PATH/NDISDK_Apple.pkg  ]; then
         export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}$NDI_LIB"
         echo "CPATH=$CPATH" >> $GITHUB_ENV
         echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> $GITHUB_ENV
-        FEATURES="$FEATURES --enable-ndi"
-        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV
         echo "MY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH" >> $GITHUB_ENV
         cd $TEMP_INST
-fi
+}
 
 # Install live555
 git clone https://github.com/xanview/live555/
@@ -89,6 +87,8 @@ cd ..
 wget --no-verbose https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
 unzip Syphon.SDK.5.zip
 sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
+
+install_ndi
 
 # Install cross-platform deps
 $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
