@@ -1,5 +1,11 @@
 #!/bin/sh -eu
 
+# Joins line that starts with space to previous:
+# https://www.gnu.org/software/sed/manual/html_node/Joining-lines.html
+MERG_LN=':a ; $!N ; s/\n\s+/ / ; ta ; P ; D'
+# https://unix.stackexchange.com/questions/114943/can-sed-replace-new-line-characters
+REPL_NL=':a;N;$!ba;s/\n/\\n/g'
+
 sudo apt install jq
 URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG | jq -r '.url')
 REQ=PATCH
@@ -16,9 +22,17 @@ else
         TITLE="UltraGrid $VERSION"
         FIXES=
         if [ -f FIXES.md ]; then
-                FIXES="**Fixes since last release:**$(cat FIXES.md | sed -e 's/^\*/\\n*/' | tr '\n' ' ')\n\n"
+                TMP=$(mktemp)
+                sed -E "$MERG_LN" < FIXES.md | sed -e "$REPL_NL" > "$TMP"
+                F=$(cat "$TMP")
+                FIXES="### Fixes since last release:\n$F\n"
+                rm "$TMP"
         fi
-        SUMMARY="**Changes:**$(cat NEWS | sed -e '1,2d' -e '/^$/q' -e 's/^\*/\\n*/' | tr '\n' ' ')\n\n$FIXES**Full changelog:** https://github.com/$GITHUB_REPOSITORY/commits/$TAG"
+        TMP=$(mktemp)
+        sed -e '1,2d' -e '/^$/q' < NEWS | sed -E "$MERG_LN" | sed -e "$REPL_NL" > "$TMP"
+        N=$(cat "$TMP")
+        SUMMARY="### Changes:\n$N\n$FIXES\n**Full changelog:** https://github.com/$GITHUB_REPOSITORY/commits/$TAG"
+        rm "$TMP"
         PRERELEASE=false
 fi
 
@@ -28,3 +42,4 @@ curl -S -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
   "body": "Built $DATE\n\n$SUMMARY",
   "draft": false, "prerelease": $PRERELEASE
 }
+EOF
