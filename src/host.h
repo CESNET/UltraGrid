@@ -51,7 +51,9 @@
 #ifndef __host_h
 #define __host_h
 
+#ifndef __cplusplus
 #include <stdbool.h>
+#endif
 
 #define EXIT_FAIL_USAGE        2
 #define EXIT_FAIL_UI           3
