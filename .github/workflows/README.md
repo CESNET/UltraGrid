@@ -26,20 +26,17 @@ Further subsection briefly describe individual assets and how to obtain them.  A
 are unmodified files downloaded from vendor website. However, rename may be required.
 
 ### Linux
-- **NDISDK\_Linux.tar.gz** - [NDI SDK](https://ndi.tv/sdk/) installer for Linux
 - **ntv2sdklinux.zip** - Linux NTV2 SDK ([AJA](https://sdksupport.aja.com/))
 
 **Note:** _VideoMaster SDK_ is not used because DELTACAST doesn't provide redistributable
 libraries for Linux (as does for macOS and Windows).
 
 ### macOS
-- **NDISDK\_Apple.pkg** - NDI SDK for macOS from NewTek
 - **ntv2sdkmac.zip** - NTV2 SDK downloaded from AJA
 - **VideoMaster\_SDK\_MacOSX.zip** - VideoMaster SDK for Mac from
   [DELTACAST](https://www.deltacast.tv/support/download-center)
 
 ### Windows
-- **NDI\_SDK.exe** - Windows NDI installer downloaded from NewTek
 - **ntv2sdkwin.zip** - NTV2 SDK downloaded from AJA
 - **VideoMaster\_SDK\_Windows.zip** - VideoMaster SDK from DELTACAST for Windows
 
