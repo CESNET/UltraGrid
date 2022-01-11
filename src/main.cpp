@@ -1179,7 +1179,7 @@ static int adjust_params(struct ug_options *opt) {
                 }
         }
 
-        char punched_host[1024];
+        static char punched_host[512];
         if(opt->nat_traverse_config && strncmp(opt->nat_traverse_config, "holepunch", strlen("holepunch")) == 0){
 #ifndef HAVE_LIBJUICE
                 log_msg(LOG_LEVEL_ERROR, "Ultragrid was compiled without holepunch support\n");
