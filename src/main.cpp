@@ -553,7 +553,7 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         return true;
 }
 
-static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
+[[maybe_unused]] static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
 
         char *token = strchr(conf, ':');
         while(token){
@@ -1179,12 +1179,12 @@ static int adjust_params(struct ug_options *opt) {
                 }
         }
 
-        static char punched_host[512];
         if(opt->nat_traverse_config && strncmp(opt->nat_traverse_config, "holepunch", strlen("holepunch")) == 0){
 #ifndef HAVE_LIBJUICE
                 log_msg(LOG_LEVEL_ERROR, "Ultragrid was compiled without holepunch support\n");
                 return EXIT_FAILURE;
 #else
+                static char punched_host[512];
                 Holepunch_config punch_c = {};
 
                 if(!parse_holepunch_conf(opt->nat_traverse_config, &punch_c)){
