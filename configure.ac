@@ -982,8 +982,8 @@ LIBJUICE_LIB=
 libjuice=no
 
 AC_ARG_ENABLE(holepunch,
-[  --disable-holepunch           disable holepunch suppport (default is auto)]
-[                          Requires: libjuice],
+        AS_HELP_STRING([--disable-holepunch], [disable holepunch suppport (default is auto)]
+        [Requires: libjuice]),
 [libjuice_req=$enableval],
 [libjuice_req=$build_default])
 
@@ -3482,7 +3482,7 @@ RESULT=`add_column "$RESULT" "Comprimato J2K" $cmpto_j2k $?`
 RESULT=`add_column "$RESULT" "CUDA DXT" $cuda_dxt $?`
 RESULT=`add_column "$RESULT" "GPUJPEG" $gpujpeg $?`
 RESULT=`add_column "$RESULT" "GPUJPEG transcode to DXT" $gpujpeg_to_dxt $?`
-RESULT=`add_column "$RESULT" "Libavcodec (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi, RPI4 $lavc_hwacc_rpi4)" $libavcodec $?`
+RESULT=`add_column "$RESULT" "Lavc (VDP $lavc_hwacc_vdpau, VA $lavc_hwacc_vaapi, RPI4 $lavc_hwacc_rpi4)" $libavcodec $?`
 RESULT=`add_column "$RESULT" "Realtime DXT" $rtdxt $?`
 RESULT=`add_column "$RESULT" "UYVY dummy compression" $uyvy $?`
 RESULT=`end_section "$RESULT"`
