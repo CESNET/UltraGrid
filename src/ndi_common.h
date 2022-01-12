@@ -54,6 +54,7 @@
 
 #include "debug.h"
 #include "lib_common.h" // LIB_HANDLE, dlclose/dlerror abstraction
+#include "utils/color_out.h"
 
 #define NDILIB_NDI_LOAD "NDIlib_v5_load"
 typedef NDIlib_v5 NDIlib_t;
@@ -149,6 +150,10 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
         }
         dlclose(hNDILib);
 }
+
+#define NDI_PRINT_COPYRIGHT \
+        color_out(COLOR_OUT_BOLD | COLOR_OUT_BLUE, "This application uses NDI® available from http://ndi.tv/\n" \
+                        "NDI®is a registered trademark of NewTek, Inc.\n\n");
 
 #endif // defined NDI_COMMON_H_1A76D048_695C_4247_A24A_583C29010FC4
 
