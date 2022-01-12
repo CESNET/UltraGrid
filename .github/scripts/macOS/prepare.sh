@@ -27,10 +27,12 @@ mkdir $TEMP_INST
 cd $TEMP_INST
 
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
-hdiutil mount $SDK_FREE_PATH/XIMEA_OSX_SP.dmg
-sudo cp -a /Volumes/XIMEA/m3api.framework $(xcrun --show-sdk-path)/System/Library/Frameworks
-sudo xattr -dr com.apple.quarantine $(xcrun --show-sdk-path)/System/Library/Frameworks
-umount /Volumes/XIMEA
+install_ximea() {
+        hdiutil mount /private/var/tmp/XIMEA_OSX_SP.dmg
+        sudo cp -a /Volumes/XIMEA/m3api.framework $(xcrun --show-sdk-path)/System/Library/Frameworks
+        sudo xattr -dr com.apple.quarantine $(xcrun --show-sdk-path)/System/Library/Frameworks
+        umount /Volumes/XIMEA
+}
 
 # Install AJA
 AJA_DIRECTORY=$SDK_NONFREE_PATH/ntv2sdk
@@ -89,6 +91,7 @@ unzip Syphon.SDK.5.zip
 sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
 
 install_ndi
+install_ximea
 
 # Install cross-platform deps
 $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh

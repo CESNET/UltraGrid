@@ -148,7 +148,6 @@ jobs:
     needs: prepare
     runs-on: macos-latest
     env:
-      SDK_FREE_PATH: /private/var/tmp/sdks-free
       SDK_NONFREE_PATH: /private/var/tmp/sdks-nonfree
       altool_credentials: ${{ secrets.altool_credentials }}
       apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
@@ -159,9 +158,9 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "::set-output name=free::$($GITHUB_WORKSPACE/.github/scripts/macOS/prepare_free_sdks.sh -e)"
         echo "::set-output name=nonfree::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkmac.zip $SDK_URL/VideoMaster_SDK_MacOSX.zip $SDK_URL/NDISDK_Apple.pkg)"
         echo "::set-output name=ndi::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg)"
+        echo "::set-output name=ximea::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)"
     - name: Cache Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@v2
@@ -176,15 +175,15 @@ jobs:
         cd ${{ env.SDK_NONFREE_PATH }}
         curl -S -f -O $SDK_URL/ntv2sdkmac.zip --next -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip || true
         $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
-    - name: Cache Free SDKs
-      id: cache-macos-free-sdks
+    - name: Cache XIMEA
+      id: cache-macos-ximea
       uses: actions/cache@v2
       with:
-        path: ${{ env.SDK_FREE_PATH }}
-        key: cache-free-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_free_sdks.sh') }}-${{ steps.etags.outputs.free }}
-    - name: Download Free SDKs
-      if: steps.cache-macos-free-sdks.outputs.cache-hit != 'true'
-      run: $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_free_sdks.sh
+        path: /var/tmp/XIMEA_OSX_SP.dmg
+        key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
+    - name: Download XIMEA
+      if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
+      run: curl -S -L https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg -o /private/var/tmp/XIMEA_OSX_SP.dmg
     - name: Cache NDI
       id: cache-ndi
       uses: actions/cache@v2
