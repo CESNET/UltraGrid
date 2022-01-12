@@ -10,6 +10,17 @@ case "$(uname -s)" in
                 ;;
 esac
 
+install_juice() {
+(
+        git clone https://github.com/paullouisageneau/libjuice.git
+        mkdir libjuice/build
+        cd libjuice/build
+        cmake ..
+        make -j $(nproc)
+        ${SUDO}make install
+)
+}
+
 install_pcp() {
         git clone https://github.com/MartinPulec/pcp.git
         (
@@ -26,6 +37,7 @@ install_zfec() {
         ( cd $GITHUB_WORKSPACE && git submodule update --init ext-deps/zfec || exit 1 )
 }
 
+install_juice
 install_pcp
 install_zfec
 
