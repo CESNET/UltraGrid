@@ -54,6 +54,7 @@
 
 #include "debug.h"
 #include "lib_common.h" // LIB_HANDLE, dlclose/dlerror abstraction
+#include "utils/color_out.h" // MERGE, TOSTRING
 #include "utils/misc.h" // MERGE, TOSTRING
 
 #ifndef USE_NDI_VERSION
