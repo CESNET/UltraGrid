@@ -1215,13 +1215,22 @@ static int adjust_params(struct ug_options *opt) {
                 punch_c.host_addr = punched_host;
                 punch_c.host_addr_len = sizeof(punched_host);
 
-                if(!punch_udp(punch_c)){
+                auto punch_fcn = reinterpret_cast<bool(*)(Holepunch_config)>(
+                                const_cast<void *>(
+                                        load_library("udp_holepunch", LIBRARY_CLASS_UNDEFINED, HOLEPUNCH_ABI_VERSION)));
+
+                if(!punch_fcn){
+                        log_msg(LOG_LEVEL_ERROR, "Failed to load holepunching module\n");
+                        return EXIT_FAILURE;
+                }
+
+                if(!punch_fcn(punch_c)){
                         log_msg(LOG_LEVEL_ERROR, "Hole punching failed.\n");
                         return EXIT_FAILURE;
                 }
 
                 log_msg(LOG_LEVEL_INFO, "[holepunch] remote: %s\n rx: %d\n tx: %d\n",
-						punched_host, opt->video_rx_port, opt->video_tx_port);
+                                punched_host, opt->video_rx_port, opt->video_tx_port);
                 opt->requested_receiver = punched_host;
                 opt->audio.host = punched_host;
 #endif //HAVE_LIBJUICE

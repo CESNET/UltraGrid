@@ -35,6 +35,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif
+
 #include <juice/juice.h>
 #include <string.h>
 #include <assert.h>
@@ -47,6 +53,7 @@
 #include "utils/udp_holepunch.h"
 
 #include "debug.h"
+#include "lib_common.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -382,3 +389,5 @@ bool punch_udp(struct Holepunch_config c){
 
         return true;
 }
+
+REGISTER_MODULE(udp_holepunch, punch_udp, LIBRARY_CLASS_UNDEFINED, HOLEPUNCH_ABI_VERSION);

@@ -46,6 +46,8 @@
 extern "C" {
 #endif
 
+#define HOLEPUNCH_ABI_VERSION 1
+
 struct Holepunch_config{
         const char *client_name;
         const char *room_name;
