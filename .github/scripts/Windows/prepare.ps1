@@ -26,7 +26,13 @@ Remove-Item XIMEA_API_Installer.exe
 #Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT" -Wait -NoNewWindow
 Start-Process -FilePath "C:\ndi.exe" -ArgumentList "/VERYSILENT"
 Sleep 10
-$sdk=(dir "C:\Program Files\NDI" -Filter *SDK -Name)
+try {
+  $sdk=(dir "C:\Program Files\NDI" -Filter *SDK -Name -ErrorAction Stop)
+} catch [System.Exception] { # not (yet?) ready -> sleep some more time
+  Sleep 30
+  $sdk=(dir "C:\Program Files\NDI" -Filter *SDK -Name)
+}
 echo "C:\Program Files\NDI\$sdk\Bin\x64" >> ${env:GITHUB_PATH}
 #Remove-Item C:\ndi.exe
 
+# vim: set sw=2:
