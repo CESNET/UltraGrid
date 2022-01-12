@@ -176,9 +176,9 @@ static void show_help(struct vidcap_state_ndi *s) {
 
 static int vidcap_ndi_init(struct vidcap_params *params, void **state)
 {
+        NDI_PRINT_COPYRIGHT
         using namespace std::string_literals;
         using std::stoi;
-        // Not required, but "correct" (see the SDK documentation)
         auto s = new vidcap_state_ndi();
         s->NDIlib = NDIlib_load(&s->lib);
         if (s->NDIlib == NULL) {
@@ -186,6 +186,7 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                 delete s;
                 return VIDCAP_INIT_FAIL;
         }
+        // Not required, but "correct" (see the SDK documentation)
         if (!s->NDIlib->initialize()) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot initialize NDI!\n";
                 delete s;

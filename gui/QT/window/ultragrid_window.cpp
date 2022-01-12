@@ -183,7 +183,8 @@ void UltragridWindow::about(){
 	aboutBox.setText( "UltraGrid from CESNET is a software "
 			"implementation of high-quality low-latency video and audio transmissions using commodity PC and Mac hardware.<br><br>"
 			"More information can be found at <a href='http://www.ultragrid.cz'>http://www.ultragrid.cz</a><br><br>"
-			"Please read documents distributed with the product to find out current and former developers."
+			"Please read documents distributed with the product to find out current and former developers.<br><br>"
+			"UltraGrid uses <a href=\"http:://ndi.tv\">NDI&#174;</a>, NDI&#174; is a registered trademark of NewTek, Inc."
 			);
 	aboutBox.setStandardButtons(QMessageBox::Ok);
 	aboutBox.exec();
@@ -490,3 +491,4 @@ QString UltragridWindow::findUltragridExecutable() {
 #endif
 	}
 }
+// vim: set noet:
