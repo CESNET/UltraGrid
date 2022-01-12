@@ -158,7 +158,7 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "::set-output name=nonfree::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkmac.zip $SDK_URL/VideoMaster_SDK_MacOSX.zip $SDK_URL/NDISDK_Apple.pkg)"
+        echo "::set-output name=nonfree::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkmac.zip $SDK_URL/VideoMaster_SDK_MacOSX.zip)"
         echo "::set-output name=ndi::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg)"
         echo "::set-output name=ximea::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)"
     - name: Cache Non-Free SDKs
