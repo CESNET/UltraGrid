@@ -5,6 +5,8 @@ next
 * added support for RPI4 hw. acceleration
 * added holepunching support for where both hosts are behind NAT
 * added experimental echo canceller support
+* testcard (audio) - file playback now respects bps from --audio-capture-format
+* converting sound samples to a lower bit depth now uses dithering
 
 1.7
 ====
