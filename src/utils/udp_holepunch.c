@@ -320,7 +320,7 @@ static bool run_punch(struct Punch_ctx *ctx, char *local, char *remote){
                                         remote,
                                         JUICE_MAX_CANDIDATE_SDP_STRING_LEN) != 0))
         {
-                error_msg(MOD_NAME, "Failed to read selected addresses\n");
+                error_msg(MOD_NAME "Failed to read selected addresses\n");
                 return false;
         }
 
