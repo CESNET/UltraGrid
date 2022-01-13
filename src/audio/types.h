@@ -128,7 +128,7 @@ private:
         size_t resample_ch_count;
         int resample_to;
 
-        friend class audio_frame2;
+        friend struct audio_frame2;
 };
 
 /**
