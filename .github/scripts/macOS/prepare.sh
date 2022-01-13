@@ -3,6 +3,7 @@
 TEMP_INST=/tmp/install
 
 CPATH=/usr/local/include:/usr/local/opt/qt/include
+DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
 LIBRARY_PATH=/usr/local/lib:/usr/local/opt/qt/lib
 echo "UG_SKIP_NET_TESTS=1" >> $GITHUB_ENV
 echo "CPATH=$CPATH" >> $GITHUB_ENV
@@ -10,6 +11,7 @@ echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV
 # libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
 echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig" >> $GITHUB_ENV
 echo "/usr/local/opt/qt/bin" >> $GITHUB_PATH
+echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> $GITHUB_ENV
 
 brew install autoconf automake cppunit libtool pkg-config
 brew install speexdsp
