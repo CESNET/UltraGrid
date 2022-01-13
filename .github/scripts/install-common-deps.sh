@@ -15,7 +15,7 @@ install_juice() {
         git clone https://github.com/paullouisageneau/libjuice.git
         mkdir libjuice/build
         cd libjuice/build
-        cmake ..
+        cmake -DCMAKE_INSTALL_PREFIX=/usr/local -G "Unix Makefiles" ..
         make -j $(nproc)
         ${SUDO}make install
 )
