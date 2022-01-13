@@ -602,7 +602,7 @@ $(BUNDLE)/Contents/libs: $(BUNDLE)
 	rm -rf $(BUNDLE)/Contents/Frameworks
 	$(MKDIR_P) $(BUNDLE)/Contents/Frameworks
 	cp -R $$(xcrun --show-sdk-path)/System/Library/Frameworks/VideoMasterHD*.framework $(BUNDLE)/Contents/Frameworks
-	rm -rf /VideoMasterHD*.framework Frameworks/VideoMasterHD*.framework/Versions/Current/Headers
+	rm -rf $(BUNDLE)/Contents/Frameworks/VideoMasterHD*.framework/Versions/Current/Headers
 	$(CP) -R data/redists/Syphon.framework $(BUNDLE)/Contents/Frameworks
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
