@@ -40,9 +40,6 @@
  * Although the NDI SDK provides a C interface, there are constructors for the
  * NDI structs when invoked from C++. So it is needed at least to zero-initialize
  * the structs and check the original constructors.
- *
- * There is also async NDI API - it may improve the throughput if needed
- * (NDIlib_send_send_video_async_v2).
  */
 
 #ifdef HAVE_CONFIG_H
@@ -66,14 +63,20 @@
 #define DEFAULT_AUDIO_LEVEL 0
 #define MOD_NAME "[NDI disp.] "
 
+typedef void ndi_disp_convert_t(const struct video_frame *f, char *out);
+static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out);
+
 struct display_ndi {
         LIB_HANDLE lib;
         const NDIlib_t *NDIlib;
         int audio_level; ///< audio reference level - usually 0 or 20
         NDIlib_send_instance_t pNDI_send;
+        NDIlib_video_frame_v2_t NDI_video_frame;
         struct video_desc desc;
         struct audio_desc audio_desc;
+        struct video_frame *send_frame; ///< frame that is just being asynchronously sent
 
+        ndi_disp_convert_t *convert;
         char *convert_buffer; ///< for codecs that need conversion (eg. Y216->P216)
 };
 
@@ -93,6 +96,17 @@ static void display_ndi_run(void *arg)
         UNUSED(arg);
 }
 
+static const struct {
+        codec_t ug_codec;
+        NDIlib_FourCC_video_type_e ndi_fourcc;
+        ndi_disp_convert_t *convert;
+} codec_mapping[] = {
+        { RGBA, NDIlib_FourCC_type_RGBA, NULL },
+        { UYVY, NDIlib_FourCC_type_UYVY, NULL },
+        { I420, NDIlib_FourCC_video_type_I420, NULL },
+        { Y216, NDIlib_FourCC_type_P216, ndi_disp_convert_Y216_to_P216 },
+};
+
 static int display_ndi_reconfigure(void *state, struct video_desc desc)
 {
         struct display_ndi *s = (struct display_ndi *) state;
@@ -100,6 +114,20 @@ static int display_ndi_reconfigure(void *state, struct video_desc desc)
         s->desc = desc;
         free(s->convert_buffer);
         s->convert_buffer = malloc(MAX_BPS * desc.width * desc.height + MAX_PADDING);
+
+        s->NDI_video_frame.xres = s->desc.width;
+        s->NDI_video_frame.yres = s->desc.height;
+        for (size_t i = 0; i < sizeof codec_mapping / sizeof codec_mapping[0]; ++i) {
+                if (codec_mapping[i].ug_codec == desc.color_spec) {
+                        s->NDI_video_frame.FourCC = codec_mapping[i].ndi_fourcc;
+                        s->convert = codec_mapping[i].convert;
+                }
+        }
+        assert(s->NDI_video_frame.FourCC != 0);
+        s->NDI_video_frame.frame_rate_N = get_framerate_n(desc.fps);
+        s->NDI_video_frame.frame_rate_D = get_framerate_d(desc.fps);
+        s->NDI_video_frame.frame_format_type = desc.interlacing == PROGRESSIVE ? NDIlib_frame_format_type_progressive : NDIlib_frame_format_type_interleaved;
+        s->NDI_video_frame.timecode = NDIlib_send_timecode_synthesize;
 
         return TRUE;
 }
@@ -211,6 +239,7 @@ static void display_ndi_done(void *state)
         free(s->convert_buffer);
         s->NDIlib->destroy();
         close_ndi_library(s->lib);
+        vf_free(s->send_frame);
         free(s);
 }
 
@@ -220,8 +249,6 @@ static struct video_frame *display_ndi_getf(void *state)
 
         return vf_alloc_desc_data(s->desc);
 }
-
-typedef void ndi_disp_convert_t(const struct video_frame *f, char *out);
 
 static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out)
 {
@@ -241,17 +268,6 @@ static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out
         }
 }
 
-static const struct {
-        codec_t ug_codec;
-        NDIlib_FourCC_video_type_e ndi_fourcc;
-        ndi_disp_convert_t *convert;
-} codec_mapping[] = {
-        { RGBA, NDIlib_FourCC_type_RGBA, NULL },
-        { UYVY, NDIlib_FourCC_type_UYVY, NULL },
-        { I420, NDIlib_FourCC_video_type_I420, NULL },
-        { Y216, NDIlib_FourCC_type_P216, ndi_disp_convert_Y216_to_P216 },
-};
-
 /**
  * flag = PUTF_NONBLOCK is not implemented
  */
@@ -268,32 +284,20 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
                 return TRUE;
         }
 
-        ndi_disp_convert_t *convert = NULL;
+        s->NDIlib->send_send_video_v2(s->pNDI_send, NULL); // wait for the async frame to be processed
+        vf_free(s->send_frame);
+        s->send_frame = NULL;
 
-        NDIlib_video_frame_v2_t NDI_video_frame = { 0 };
-        NDI_video_frame.xres = s->desc.width;
-        NDI_video_frame.yres = s->desc.height;
-        for (size_t i = 0; i < sizeof codec_mapping / sizeof codec_mapping[0]; ++i) {
-                if (codec_mapping[i].ug_codec == frame->color_spec) {
-                        NDI_video_frame.FourCC = codec_mapping[i].ndi_fourcc;
-                        convert = codec_mapping[i].convert;
-                }
-        }
-        assert(NDI_video_frame.FourCC != 0);
-        NDI_video_frame.frame_rate_N = get_framerate_n(frame->fps);
-        NDI_video_frame.frame_rate_D = get_framerate_d(frame->fps);
-        NDI_video_frame.frame_format_type = frame->interlacing == PROGRESSIVE ? NDIlib_frame_format_type_progressive : NDIlib_frame_format_type_interleaved;
-        NDI_video_frame.timecode = NDIlib_send_timecode_synthesize;
-
-        if (convert != NULL) {
-                convert(frame, s->convert_buffer);
-                NDI_video_frame.p_data = (uint8_t *) s->convert_buffer;
+        if (s->convert != NULL) {
+                s->convert(frame, s->convert_buffer);
+                s->NDI_video_frame.p_data = (uint8_t *) s->convert_buffer;
+                vf_free(frame);
         } else {
-                NDI_video_frame.p_data = (uint8_t *) frame->tiles[0].data;
+                s->NDI_video_frame.p_data = (uint8_t *) frame->tiles[0].data;
+                s->send_frame = frame;
         }
 
-        s->NDIlib->send_send_video_v2(s->pNDI_send, &NDI_video_frame);
-        vf_free(frame);
+        s->NDIlib->send_send_video_async_v2(s->pNDI_send, &s->NDI_video_frame);
 
         return TRUE;
 }
