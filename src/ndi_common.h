@@ -162,8 +162,8 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
 }
 
 #define NDI_PRINT_COPYRIGHT \
-        color_out(COLOR_OUT_BOLD | COLOR_OUT_BLUE, "This application uses NDI® available from http://ndi.tv/\n" \
-                        "NDI®is a registered trademark of NewTek, Inc.\n\n");
+        color_out(COLOR_OUT_BOLD | COLOR_OUT_BLUE, u8"This application uses NDI® available from http://ndi.tv/\n" \
+                        u8"NDI® is a registered trademark of NewTek, Inc.\n\n"); int not_defined_function
 
 #endif // defined NDI_COMMON_H_1A76D048_695C_4247_A24A_583C29010FC4
 
