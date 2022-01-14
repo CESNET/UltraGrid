@@ -111,12 +111,12 @@ typedef struct
         double duration;
 } audio_channel;
 
-struct audio_frame2;
-
 #ifdef __cplusplus
 #include <memory>
 #include <utility>
 #include <vector>
+
+class audio_frame2;
 
 class audio_frame2_resampler {
 public:
@@ -128,7 +128,7 @@ private:
         size_t resample_ch_count;
         int resample_to;
 
-        friend struct audio_frame2;
+        friend class audio_frame2;
 };
 
 /**
