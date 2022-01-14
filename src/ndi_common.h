@@ -56,6 +56,8 @@
 #include "lib_common.h" // LIB_HANDLE, dlclose/dlerror abstraction
 #include "utils/color_out.h"
 
+#define NDILIB_DEFAULT_PATH "/usr/local/lib"
+
 #define NDILIB_NDI_LOAD "NDIlib_v5_load"
 typedef NDIlib_v5 NDIlib_t;
 typedef const NDIlib_t* NDIlib_load_f(void);
@@ -100,7 +102,9 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
         }
 #else
         const char* p_NDI_runtime_folder = getenv(NDILIB_REDIST_FOLDER);
-        char *ndi_path = (char *) alloca((p_NDI_runtime_folder != NULL ? strlen(p_NDI_runtime_folder) + 1 : 0)+ strlen(NDILIB_LIBRARY_NAME) + 1);
+        size_t path_len = MAX((p_NDI_runtime_folder != NULL ? strlen(p_NDI_runtime_folder) : 0), strlen(NDILIB_DEFAULT_PATH))
+                + 1 + strlen(NDILIB_LIBRARY_NAME) + 1;
+        char *ndi_path = (char *) alloca(path_len);
         if (p_NDI_runtime_folder) {
                 strcpy(ndi_path, p_NDI_runtime_folder); // NOLINT (security.insecureAPI.strcpy)
                 strcat(ndi_path, "/"); // NOLINT (security.insecureAPI.strcpy)
@@ -111,6 +115,12 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
 
         // Try to load the library
         void *hNDILib = dlopen(ndi_path, RTLD_LOCAL | RTLD_LAZY);
+        if (!hNDILib) {
+                log_msg(LOG_LEVEL_WARNING, "[NDI] Failed to open the library: %s\n", dlerror());
+                log_msg(LOG_LEVEL_INFO, "[NDI] Trying to load from fallback location: %s\n", NDILIB_DEFAULT_PATH);
+                strcpy(ndi_path, NDILIB_DEFAULT_PATH "/" NDILIB_LIBRARY_NAME); // NOLINT (security.insecureAPI.strcpy)
+                hNDILib = dlopen(ndi_path, RTLD_LOCAL | RTLD_LAZY);
+        }
 
         // The main NDI entry point for dynamic loading if we got the library
         const NDIlib_t* (*NDIlib_load)(void) = NULL;
