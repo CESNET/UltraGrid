@@ -176,7 +176,7 @@ static void show_help(struct vidcap_state_ndi *s) {
 
 static int vidcap_ndi_init(struct vidcap_params *params, void **state)
 {
-        NDI_PRINT_COPYRIGHT
+        NDI_PRINT_COPYRIGHT(void);
         using namespace std::string_literals;
         using std::stoi;
         auto s = new vidcap_state_ndi();

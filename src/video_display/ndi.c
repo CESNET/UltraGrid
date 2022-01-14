@@ -127,7 +127,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
 {
         UNUSED(flags);
         UNUSED(parent);
-        NDI_PRINT_COPYRIGHT
+        NDI_PRINT_COPYRIGHT();
 
         char *fmt_copy = NULL;
         struct display_ndi *s = calloc(1, sizeof(struct display_ndi));
