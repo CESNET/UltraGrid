@@ -46,10 +46,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <poll.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include "utils/udp_holepunch.h"
 
 #include "debug.h"
@@ -58,8 +54,11 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <winsock.h>
-static void sleep(unsigned int secs) { Sleep(secs * 1000); }
 #else
+#include <sys/socket.h>
+#include <poll.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 #include <unistd.h>
 #endif
 
@@ -238,13 +237,17 @@ static void exchange_coord_desc(juice_agent_t *agent, int coord_sock){
 static void discover_and_xchg_candidates(juice_agent_t *agent, int coord_sock) {
         juice_gather_candidates(agent);
 
-        struct pollfd fds;
-        fds.fd = coord_sock;
-        fds.events = POLLIN;
+        fd_set rfds;
+        FD_ZERO(&rfds);
+
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 300000;
 
         while(1){
-                poll(&fds, 1, 300);
-                if(fds.revents & POLLIN){
+                FD_SET(coord_sock, &rfds);
+                select(coord_sock + 1, &rfds, NULL, NULL, &tv);
+                if(FD_ISSET(coord_sock, &rfds)){
                         char msg_buf[MAX_MSG_LEN];
                         recv_msg(coord_sock, msg_buf, sizeof(msg_buf));
                         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received remote candidate\n");
