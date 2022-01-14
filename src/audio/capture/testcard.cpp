@@ -307,7 +307,7 @@ static void * audio_cap_testcard_init(const char *cfg)
 
                 char *read_to;
                 char *tmp = NULL;
-                if(s->audio.bps == metadata.bits_per_sample / 8){
+                if ((unsigned) s->audio.bps == metadata.bits_per_sample / 8) {
                     read_to = s->audio_samples;
                 } else {
                     tmp = (char *) calloc(1, metadata.data_size);
@@ -321,7 +321,7 @@ static void * audio_cap_testcard_init(const char *cfg)
                 }
                 fclose(wav);
 
-                if(s->audio.bps != metadata.bits_per_sample / 8){
+                if ((unsigned) s->audio.bps != metadata.bits_per_sample / 8){
                     change_bps(s->audio_samples, s->audio.bps, tmp, metadata.bits_per_sample / 8, bytes);
                     free(tmp);
                 }
