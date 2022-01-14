@@ -297,6 +297,8 @@ struct init_data *common_preinit(int argc, char *argv[])
                 WSACleanup();
                 return nullptr;
         }
+
+        SetConsoleOutputCP(CP_UTF8); // see also https://stackoverflow.com/questions/1660492/utf-8-output-on-windows-console
 #endif
 
         init = new init_data{};
