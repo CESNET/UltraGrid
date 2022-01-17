@@ -1241,8 +1241,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
         s->selected_pixfmt = pix_fmt;
-        if(pixfmt_has_422_subsampling(pix_fmt)){
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Selected pixfmt has 4:2:2 subsampling, "
+        if (!pixfmt_has_420_subsampling(pix_fmt)) {
+                log_msg(LOG_LEVEL_WARNING, "[lavc] Selected pixfmt has not 4:2:0 subsampling, "
                                 "which is usually not supported by hw. decoders\n");
         }
 

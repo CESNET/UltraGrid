@@ -547,9 +547,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
 
         if (hwaccel && state->out_codec != VIDEO_CODEC_NONE) { // not probing internal format
                 struct state_libavcodec_decompress *state = (struct state_libavcodec_decompress *) s->opaque; 
-                if(pixfmt_list_has_422_subsasmpling(fmt)){
+                if (pixfmt_list_has_420_subsampling(fmt)){
                         log_msg(LOG_LEVEL_WARNING, "[lavd] Hw. acceleration requested "
-                                        "but incoming video has 4:2:2 subsampling, "
+                                        "but incoming video has not 4:2:0 subsampling, "
                                         "which is usually not supported by hw. accelerators\n");
                 }
                 for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
