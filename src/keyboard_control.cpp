@@ -318,7 +318,7 @@ static bool is_utf8(int64_t ch) {
                 return false;
         }
 
-        unsigned char first_byte;
+        unsigned char first_byte = 0U;
         while (ch != 0) {
                 first_byte = ch & 0xff;
                 ch >>= 8;

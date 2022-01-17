@@ -1494,7 +1494,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         rtp_packet *pckt = NULL;
         int prints=0;
         int max_substreams = decoder->max_substreams;
-        uint32_t ssrc;
+        uint32_t ssrc = 0U;
         unsigned int frame_size = 0;
 
         vector<uint32_t> buffer_num(max_substreams);
@@ -1506,9 +1506,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         unique_ptr<map<int, int>[]> pckt_list(new map<int, int>[max_substreams]);
 
         int k = 0, m = 0, c = 0, seed = 0; // LDGM
-        int buffer_number, buffer_length;
-
-        int pt;
+        int buffer_number = 0;
+        int buffer_length = 0;
+        int pt = 0;
         bool buffer_swapped = false;
 
         perf_record(UVP_DECODEFRAME, cdata);

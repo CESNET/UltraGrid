@@ -186,7 +186,7 @@ static int
 display_deltacast_reconfigure(void *state, struct video_desc desc)
 {
         struct state_deltacast            *s = (struct state_deltacast *)state;
-        int VideoStandard;
+        int VideoStandard = 0;
         int i;
         ULONG Result;
         

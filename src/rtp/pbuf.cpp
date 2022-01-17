@@ -243,12 +243,10 @@ void pbuf_destroy(struct pbuf *playout_buf) {
  */
 static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
 {
-        struct coded_data *tmp, *curr, *prv;
-
         assert(node->rtp_timestamp == pkt->ts);
         assert(node->cdata != NULL);
 
-        tmp = (struct coded_data *) malloc(sizeof(struct coded_data));
+        struct coded_data *tmp = (struct coded_data *) malloc(sizeof(struct coded_data));
         if (tmp == NULL) {
                 /* this is bad, out of memory, drop the packet... */
                 free(pkt);
@@ -264,7 +262,8 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
                 node->cdata->prv = tmp;
                 node->cdata = tmp;
         } else {
-                curr = node->cdata;
+                struct coded_data *curr = node->cdata;
+                struct coded_data *prv = NULL;
                 while (curr != NULL &&  ((int16_t)(tmp->seqno - curr->seqno) < 0)){
                         prv = curr;
                         curr = curr->nxt;
