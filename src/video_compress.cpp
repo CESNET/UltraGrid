@@ -325,11 +325,16 @@ static bool check_state_count(unsigned tile_count, struct compress_state *proxy)
 }
 
 /**
- * @brief Compressses frame
+ * Puts frame for compression to queue and returns, result must be queried by
+ * compress_pop().
+ *
+ * In case of error, no frame is returned.
+ *
+ * Accepts poison pill (shared_ptr<video_frame>{nullptr}) and passes it over the queue
+ * to compress_pop().
  *
  * @param proxy        compress state
  * @param frame        uncompressed frame to be compressed
- * @return             compressed frame, may be NULL if compression failed
  */
 void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
 {
@@ -590,6 +595,11 @@ void compress_state_real::async_consumer(struct compress_state *s)
 }
 } // end of anonymous namespace
 
+/**
+ * @returns compressed frame previously enqueued by compress_frame(). If an error
+ * occurs function doesn't return.
+ * @retval shared_ptr<video_frame>{} poison pill passed previously to compress_frame()
+ */
 shared_ptr<video_frame> compress_pop(struct compress_state *proxy)
 {
         if(!proxy)

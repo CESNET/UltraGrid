@@ -79,6 +79,9 @@ struct module;
 
 extern struct module compress_init_noerr;
 
+//
+// Begins external API for video compression use
+//
 /**
  * @brief Initializes video compression
  * 
@@ -88,18 +91,26 @@ extern struct module compress_init_noerr;
  */
 typedef struct module *(*compress_init_t)(struct module *parent,
                 const char *cfg);
-
+// documented at definition
 void show_compress_help(bool full);
+// documented at definition
 int compress_init(struct module *parent, const char *config_string, struct compress_state **);
+// documented at definition
 const char *get_compress_name(struct compress_state *);
-
 #ifdef __cplusplus
 }
 #endif
-
 #ifdef __cplusplus
-#include <list>
 #include <memory>
+// documented at definition
+void compress_frame(struct compress_state *, std::shared_ptr<video_frame>);
+// documented at definition
+std::shared_ptr<video_frame> compress_pop(struct compress_state *);
+
+//
+// Begins API for individual video compression modules
+//
+#include <list>
 #include <string>
 #include <vector>
 
@@ -159,7 +170,6 @@ typedef void (*compress_tile_async_push_t)(struct module *state, std::shared_ptr
  */
 typedef  std::shared_ptr<video_frame> (*compress_tile_async_pop_t)(struct module *state);
 
-void compress_frame(struct compress_state *, std::shared_ptr<video_frame>);
 
 struct compress_preset {
         struct compress_prop {
@@ -238,8 +248,6 @@ struct video_compress_info {
 
         compress_module_info (*get_module_info)();
 };
-
-std::shared_ptr<video_frame> compress_pop(struct compress_state *);
 
 #endif // __cplusplus
 
