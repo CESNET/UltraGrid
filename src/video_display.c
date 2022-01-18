@@ -95,6 +95,9 @@ void list_video_display_devices(bool full)
 {
         printf("Available display devices:\n");
         list_modules(LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION, full);
+        if (!full) {
+                printf("(use \"fullhelp\" to show hidden displays)\n");
+        }
 }
 
 /*
