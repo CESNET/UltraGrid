@@ -1858,7 +1858,6 @@ if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = y
 then
         LIBAVCODEC_COMMON="src/libavcodec_common.o"
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
-        AC_DEFINE([HAVE_LAVC_AUDIO], [1], [Build with LAVC audio support])
         LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
 
         LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON src/video_compress/libavcodec.o"
