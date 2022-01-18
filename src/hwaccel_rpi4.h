@@ -45,15 +45,23 @@
 #ifndef HWACCEL_RPI4_H
 #define HWACCEL_RPI4_H
 
-#include "libavcodec_common.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif // defind HAVE_CONFIG_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+struct AVFrame;
+
 typedef struct av_frame_wrapper{
-        AVFrame *av_frame;
+        struct AVFrame *av_frame;
 } av_frame_wrapper;
+
+#ifdef HAVE_LAVC
+
+#include "libavcodec_common.h"
 
 static inline void av_frame_wrapper_recycle(struct video_frame *f){
         for(unsigned i = 0; i < f->tile_count; i++){
@@ -70,6 +78,7 @@ static inline void av_frame_wrapper_copy(struct video_frame *f){
                 wrapper->av_frame = av_frame_clone(wrapper->av_frame);
         }
 }
+#endif // HAVE_LAVC
 
 #ifdef __cplusplus
 }
