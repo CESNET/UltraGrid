@@ -1,10 +1,10 @@
 /**
  * @file   hd-rum-translator/hd-rum-decompress.h
- * @author Martin Piatka     <piatka@cesnet.cz>
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2016 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@ extern "C" {
 #endif
 
 struct module;
+struct state_recompress;
 
 enum hd_rum_mode_t {NORMAL, BLEND, CONFERENCE};
 struct hd_rum_output_conf{
@@ -49,12 +50,8 @@ struct hd_rum_output_conf{
 };
 
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count);
-void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf conf, const char *capture_filter);
+void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf conf, const char *capture_filter, struct state_recompress *recompress);
 void hd_rum_decompress_done(void *state);
-void hd_rum_decompress_set_active(void *decompress_state, void *recompress_state, bool active);
-void hd_rum_decompress_remove_port(void *decompress_state, int index);
-void hd_rum_decompress_append_port(void *decompress_state, void *recompress_state);
-int hd_rum_decompress_get_num_active_ports(void *decompress_state);
 
 #ifdef __cplusplus
 }
