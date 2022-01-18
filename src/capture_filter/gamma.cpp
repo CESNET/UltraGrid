@@ -154,7 +154,7 @@ static auto init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
 
-        if (cfg == nullptr || strcmp(cfg, "help") == 0) {
+        if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
                 cout << "Performs gamma transformation.\n\n"
                        "usage:\n";
                 cout << style::bold << "\t--capture-filter gamma:value[:8|:16]\n" << style::reset;

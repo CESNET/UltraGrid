@@ -49,7 +49,7 @@ struct module;
 struct capture_filter_info {
         /// @brief Initializes capture filter
         /// @param      parent parent module
-        /// @param      cfg    configuration string from cmdline
+        /// @param      cfg    configuration string from cmdline, not-NULL
         /// @param[out] state  output state
         /// @retval     0      if initialized successfully
         /// @retval     <0     if error

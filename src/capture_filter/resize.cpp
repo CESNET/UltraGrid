@@ -116,48 +116,48 @@ static int init(struct module * /* parent */, const char *cfg, void **state)
 {
     struct resize_param param{};
 
-    if(cfg) {
-        char *endptr;
-        if(strcasecmp(cfg, "help") == 0) {
-            usage();
-            return 1;
-        }
-        if (strchr(cfg, 'x')) {
-            param.mode = resize_param::resize_mode::USE_DIMENSIONS;
-            param.target_width = strtol(cfg, &endptr, 10);
-            errno = 0;
-            param.target_height = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
-            if (errno != 0) {
-                perror("strtol");
-                usage();
-                return -1;
-            }
-        } else {
-            param.mode = resize_param::resize_mode::USE_FRACTION;
-            param.num = strtol(cfg, &endptr, 10);
-            if(strchr(cfg, '/')) {
-                param.denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
-            } else {
-                param.denom = 1;
-            }
-        }
+    if (strlen(cfg) == 0) {
+        log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] No configuration!\n");
+        usage();
+        return -1;
+    }
 
-        if (*endptr == 'i' || *endptr == 'p') {
-                if (*endptr == 'i') {
-                        param.force_interlaced = true;
-                } else {
-                        param.force_progressive = true;
-                }
-                endptr += 1;
-        }
-
-        if (*endptr != '\0') {
-            log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] Unrecognized part of config string: %s\n", endptr);
+    if(strcasecmp(cfg, "help") == 0) {
+        usage();
+        return 1;
+    }
+    char *endptr;
+    if (strchr(cfg, 'x')) {
+        param.mode = resize_param::resize_mode::USE_DIMENSIONS;
+        param.target_width = strtol(cfg, &endptr, 10);
+        errno = 0;
+        param.target_height = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
+        if (errno != 0) {
+            perror("strtol");
             usage();
             return -1;
         }
     } else {
-        log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] No configuration!\n");
+        param.mode = resize_param::resize_mode::USE_FRACTION;
+        param.num = strtol(cfg, &endptr, 10);
+        if(strchr(cfg, '/')) {
+            param.denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
+        } else {
+            param.denom = 1;
+        }
+    }
+
+    if (*endptr == 'i' || *endptr == 'p') {
+        if (*endptr == 'i') {
+            param.force_interlaced = true;
+        } else {
+            param.force_progressive = true;
+        }
+        endptr += 1;
+    }
+
+    if (*endptr != '\0') {
+        log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] Unrecognized part of config string: %s\n", endptr);
         usage();
         return -1;
     }

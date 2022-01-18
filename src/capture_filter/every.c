@@ -75,22 +75,21 @@ static int init(struct module *parent, const char *cfg, void **state)
 
         int n;
         int denom = 1;;
-        if(cfg) {
-                if(strcasecmp(cfg, "help") == 0) {
-                        usage();
-                        return 1;
-                }
-                n = atoi(cfg);
-                if(strchr(cfg, '/')) {
-                        denom = atoi(strchr(cfg, '/') + 1);
-                }
-                if (denom > n && n != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Currently, numerator has to be greater "
-                               "(or equal, which, however, has a little use) than denominator.\n");
-                        return -1;
-                }
-        } else {
+        if (strlen(cfg) == 0) {
                 usage();
+                return -1;
+        }
+        if(strcasecmp(cfg, "help") == 0) {
+                usage();
+                return 1;
+        }
+        n = atoi(cfg);
+        if(strchr(cfg, '/')) {
+                denom = atoi(strchr(cfg, '/') + 1);
+        }
+        if (denom > n && n != 0) {
+                log_msg(LOG_LEVEL_ERROR, "Currently, numerator has to be greater "
+                       "(or equal, which, however, has a little use) than denominator.\n");
                 return -1;
         }
 

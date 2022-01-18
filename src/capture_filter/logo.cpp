@@ -107,7 +107,7 @@ static int init(struct module *parent, const char *cfg, void **state)
 
         s->x = s->y = -1;
 
-        if (!cfg || strcasecmp(cfg, "help") == 0) {
+        if (strlen(cfg) == 0 || strcasecmp(cfg, "help") == 0) {
                 printf("Draws overlay logo over video:\n\n");
                 printf("'logo' usage:\n");
                 printf("\tlogo:<file>[:<x>[:<y>]]\n");

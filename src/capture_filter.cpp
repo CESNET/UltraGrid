@@ -64,7 +64,7 @@ struct capture_filter_instance {
 static int create_filter(struct capture_filter *s, char *cfg)
 {
         bool found = false;
-        char *options = NULL;
+        const char *options = "";
         char *filter_name = cfg;
         if(strchr(filter_name, ':')) {
                 options = strchr(filter_name, ':') + 1;

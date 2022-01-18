@@ -60,7 +60,7 @@ static int init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
 
-        if (!cfg || strcmp(cfg, "help") == 0) {
+        if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
                 printf("Performs pixel format change transformation.\n\n"
                        "usage:\n");
                 color_out(COLOR_OUT_BOLD, "\t--capture-filter change_pixfmt:<name>\n");
