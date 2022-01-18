@@ -45,7 +45,7 @@
 
 #include "debug.h"
 #include "lib_common.h"
-
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -64,7 +64,10 @@ struct state_preview_filter{
 
 static int init(struct module *parent, const char *cfg, void **state){
         UNUSED(parent);
-        UNUSED(cfg);
+        if (strlen(cfg) > 0) {
+                std::cout << RED(BOLD("preview")) << " capture filter serves as a proxy for passing frames to GUI\n";
+                return strcmp(cfg, "help") == 0 ? 1 : -1;
+        }
 
         struct state_preview_filter *s = new state_preview_filter();
         s->shared_mem.setKey("ultragrid_preview_capture");
@@ -94,5 +97,5 @@ static const struct capture_filter_info capture_filter_preview = {
         .filter = filter,
 };
 
-REGISTER_MODULE(preview, &capture_filter_preview, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(preview, &capture_filter_preview, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 

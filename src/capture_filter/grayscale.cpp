@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
-
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_codec.h"
 #include "vo_postprocess/capture_filter_wrapper.h"
@@ -57,8 +57,12 @@ struct state_grayscale {
         char *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
 };
 
-static int init(struct module *, const char *, void **state)
+static int init(struct module *, const char *cfg, void **state)
 {
+        if (strlen(cfg) > 0) {
+                std::cout << RED(BOLD("grayscale")) << " converts image to grayscale, takes no arguments\n";
+                return strcmp(cfg, "help") == 0 ? 1 : -1;
+        }
         *state = static_cast<state_grayscale *>(calloc(1, sizeof(state_grayscale)));
         return 0;
 }

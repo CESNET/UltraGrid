@@ -107,6 +107,9 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
                 printf(" -t <capture>\n\n");
                 printf("Available capture filters:\n");
                 list_modules(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION, strcasecmp(cfg, "fullhelp") == 0);
+                if (strcasecmp(cfg, "fullhelp") != 0) {
+                        printf("(use \"fullhelp\" to show hidden filters)\n");
+                }
                 return 1;
         }
 

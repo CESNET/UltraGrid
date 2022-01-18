@@ -44,6 +44,7 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -58,8 +59,13 @@ int capture_filter_state_none;
 static int init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
-        UNUSED(cfg);
         UNUSED(state);
+
+        if (strlen(cfg) > 0) {
+                color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "none");
+                color_out(0, " capture filter - dummy (noop) filter, no options\n");
+                return strcmp(cfg, "help") == 0 ? 1 : -1;
+        }
 
         *state = &capture_filter_state_none;
         return 0;
@@ -82,5 +88,5 @@ static const struct capture_filter_info capture_filter_none = {
         .filter = filter,
 };
 
-REGISTER_MODULE(none, &capture_filter_none, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(none, &capture_filter_none, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
