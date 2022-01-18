@@ -46,6 +46,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "utils/fs.h"
 #include "video.h"
 #include "video_capture.h"
 #include "testcard_common.h"
@@ -74,6 +75,7 @@
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 s->audio.ch_count * BUFFER_SEC)
+#define FONT_DIR "/usr/share/fonts"
 
 void * vidcap_testcard2_thread(void *args);
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
@@ -340,7 +342,7 @@ void * vidcap_testcard2_thread(void *arg)
 #ifdef HAVE_LIBSDL_TTF
         SDL_Surface *text;
         SDL_Color col = { 0, 0, 0, 0 };
-        TTF_Font * font;
+        TTF_Font * font = NULL;
         
         if(TTF_Init() == -1)
         {
@@ -348,10 +350,18 @@ void * vidcap_testcard2_thread(void *arg)
             TTF_GetError());
           exit(128);
         }
-        
-        font = TTF_OpenFont("/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf", 108);
-        if(!font) {
-                font = TTF_OpenFont("/usr/share/fonts/truetype/DejaVuSansMono.ttf", 108);
+
+        static const char *font_candidates[] = { "truetype/freefont/FreeMonoBold.ttf",
+                "truetype/DejaVuSansMono.ttf",
+                "TTF/DejaVuSansMono.ttf", "liberation/LiberationMono-Regular.ttf", // Arch
+        };
+
+        for (unsigned i = 0; font == NULL && i < sizeof font_candidates / sizeof font_candidates[0]; ++i) {
+                char font_path[MAX_PATH_SIZE] = "";
+                strncpy(font_path, FONT_DIR, sizeof font_path - 1); // NOLINT (security.insecureAPI.strcpy)
+                strncat(font_path, "/", sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
+                strncat(font_path, font_candidates[i], sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
+                font = TTF_OpenFont(font_path, 108);
         }
         if(!font) {
                 fprintf(stderr, "Unable to load any usable font (last font tryied: %s)!\n", TTF_GetError());
