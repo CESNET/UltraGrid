@@ -56,6 +56,7 @@ extern "C" {
 
 int clampi(long long val, int lo, int hi);
 
+bool is_prefix_of(const char *haystack, const char *needle);
 bool is_wine(void);
 long long unit_evaluate(const char *str);
 double unit_evaluate_dbl(const char *str);

@@ -382,3 +382,35 @@ std::ostream &operator<<(std::ostream &output, REFIID iid)
         return output;
 }
 
+/**
+ * @note
+ * Returns true also for empty/NULL val - this allow specifying the flag without explicit value
+ */
+int parse_bmd_flag(const char *val)
+{
+        if (val == nullptr || val == static_cast<char *>(nullptr) + 1 // allow constructions like parse_bmd_flag(strstr(opt, '=') + 1)
+                        || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
+                return BMD_OPT_TRUE;
+        }
+        if (strcasecmp(val, "false") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "off") == 0  || strcasecmp(val, "no") == 0) {
+                return BMD_OPT_FALSE;
+        }
+        if (strcasecmp(val, "keep") == 0) {
+                return BMD_OPT_KEEP;
+        }
+
+        LOG(LOG_LEVEL_ERROR) << "Value " << val << " not recognized for a flag, use one of: " R"_("false", "true" or "keep")_" "\n";
+        return -1;
+}
+
+int invert_bmd_flag(int val)
+{
+        if (val == BMD_OPT_TRUE) {
+                return BMD_OPT_FALSE;
+        }
+        if (val == BMD_OPT_FALSE) {
+                return BMD_OPT_TRUE;
+        }
+        return val;
+}
+

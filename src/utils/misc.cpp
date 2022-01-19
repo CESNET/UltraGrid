@@ -341,6 +341,13 @@ int get_cpu_core_count(void)
 #endif
 }
 
+/**
+ * Checks if needle is prefix in haystack, case _insensitive_.
+ */
+bool is_prefix_of(const char *haystack, const char *needle) {
+        return strncasecmp(haystack, needle, strlen(needle)) == 0;
+}
+
 std::string_view tokenize(std::string_view& str, char delim){
         if(str.empty())
                 return {};

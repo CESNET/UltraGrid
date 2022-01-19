@@ -398,7 +398,7 @@ static void show_help(bool full)
                                 style::bold << "\t\tup1i" << style::reset << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
                 cout << style::bold << "\tHDMI3DPacking" << style::reset << " can be:\n" <<
 				style::bold << "\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n" << style::reset;
-                cout << style::bold << "\tUse1080PsF[=true|false]" << style::reset << " flag tells whether to use a progressive frame instead of PsF on output\n";
+                cout << style::bold << "\tUse1080PsF[=true|false|keep]" << style::reset << " flag sets use of PsF on output instead of progressive (default is false)\n";
                 cout << style::bold << "\tprofile=<P>\n" << style::reset;
                 cout << "\t\tUse desired device profile: " << style::bold << "1dfd" << style::reset << ", "
                         << style::bold << "1dhd" << style::reset << ", "
@@ -1018,15 +1018,12 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "conversion=",
                                         strlen("conversion=")) == 0) {
                         s->conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
-                } else if (strstr(ptr, "Use1080pNotPsF=") == ptr
-                                || strstr(ptr, "Use1080PsF") == ptr) {
-                        if (strstr(ptr, "Use1080pNotPsF=") == ptr) { // compat
-                                *use1080psf = strcasecmp(ptr + strlen("Use1080pNotPsF="), "false") == 0 ? 1 : 0;
-                        } else {
-                                *use1080psf = 1;
-                                if (strcasecmp(ptr + strlen("Use1080PsF"), "=false") == 0) {
-                                        *use1080psf = 0;
-                                }
+                } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
+                        if ((*use1080psf = parse_bmd_flag(strchr(ptr, '=') + 1)) == -1) {
+                                return false;
+                        }
+                        if (strncasecmp(ptr, "Use1080pNotPsF", strlen("Use1080pNotPsF")) == 0) { // compat, inverse
+                                *use1080psf = invert_bmd_flag(*use1080psf);
                         }
                 } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
@@ -1077,7 +1074,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
         int audio_consumer_levels = -1;
-        int use1080psf = BMD_OPT_KEEP;
+        int use1080psf = BMD_OPT_DEFAULT;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 show_help(strcmp(fmt, "fullhelp") == 0);
@@ -1225,7 +1222,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 BMD_CONFIG_SET_INT(s->conversion_mode, BMDVideoOutputConversionMode, bmdDeckLinkConfigVideoOutputConversionMode, "conversion mode");
 
 		if (use1080psf != BMD_OPT_KEEP) {
-                        result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, use1080psf != 0);
+                        if (use1080psf == BMD_OPT_DEFAULT) {
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output signal as progressive, see option \"Use1080PsF\" to use PsF or keep default.\n";
+                        }
+                        BMD_BOOL val = use1080psf == BMD_OPT_DEFAULT || use1080psf == BMD_OPT_FALSE ? BMD_FALSE : BMD_TRUE;
+                        result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, val);
                         if (result != S_OK) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to set 1080p P/PsF mode.\n";
                         }

@@ -76,7 +76,11 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 #define BMD_FALSE false
 #endif
 
-#define BMD_OPT_DEFAULT 0
+#define BMD_OPT_DEFAULT 0 ///< default is set to 0 to allow zero-initialization
+// below are special values not known to BMD that must be interpreted by UG
+// and *must*not*be*passed*to*BMD*API !
+#define BMD_OPT_FALSE   to_fourcc('T', 'R', 'U', 'E')
+#define BMD_OPT_TRUE    to_fourcc('F', 'A', 'L', 'S')
 #define BMD_OPT_KEEP    to_fourcc('K', 'E', 'E', 'P')
 
 #ifdef HAVE_MACOSX
@@ -97,6 +101,8 @@ void print_decklink_version(void);
 bool decklink_set_duplex(IDeckLink *decklink, uint32_t profileID);
 std::string bmd_get_device_name(IDeckLink *decklink);
 uint32_t bmd_read_fourcc(const char *);
+int parse_bmd_flag(const char *val);
+int invert_bmd_flag(int val);
 
 std::ostream &operator<<(std::ostream &output, REFIID iid);
 
