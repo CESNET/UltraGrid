@@ -42,7 +42,7 @@ PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 MSYS_REPO=mingw-w64-ucrt-x86_64
 $PACMAN_INSTALL automake autoconf git make pkgconf ${MSYS_REPO}-toolchain ${MSYS_REPO}-cppunit unzip zip
 $PACMAN_INSTALL ${MSYS_REPO}-speexdsp
-$PACMAN_INSTALL ${MSYS_REPO}-glew ${MSYS_REPO}-SDL2 ${MSYS_REPO}-freeglut
+$PACMAN_INSTALL ${MSYS_REPO}-glew ${MSYS_REPO}-SDL2 ${MSYS_REPO}-SDL2_mixer ${MSYS_REPO}-SDL2_ttf ${MSYS_REPO}-freeglut
 $PACMAN_INSTALL ${MSYS_REPO}-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 $PACMAN_INSTALL ${MSYS_REPO}-glib2 ${MSYS_REPO}-curl # RTSP capture
 pacman -Scc --noconfirm # make some free space
