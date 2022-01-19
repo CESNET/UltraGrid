@@ -231,6 +231,10 @@ const char *get_interlacing_suffix(enum interlacing_t interlacing)
                 return NULL;
 }
 
+/**
+ * @returns interlacing_t member
+ * @retval INTERLACING_MAX+1 on error
+ */
 enum interlacing_t get_interlacing_from_suffix(const char *suffix)
 {
         for (size_t i = 0; i < sizeof interlacing_suffixes / sizeof interlacing_suffixes[0]; ++i) {
@@ -239,9 +243,8 @@ enum interlacing_t get_interlacing_from_suffix(const char *suffix)
                 }
         }
 
-        return PROGRESSIVE;
+        return INTERLACING_MAX + 1;
 }
-
 
 /**
  * @todo
