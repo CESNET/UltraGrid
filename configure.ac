@@ -1608,7 +1608,8 @@ fi
 # Testcard stuff
 # -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(testcard-extras,
-      AS_HELP_STRING([--disable-testcard-extras], [enable testcard addons - audio and testcard2 (default is auto)]),
+      AS_HELP_STRING([--enable-testcard-extras[=all]], [enable testcard addons - audio and testcard2 (default is auto)]
+      [Requires: SDL(2) SDL(2)_mixer (optional) SDL(2)_ttf (optional)]),
     [testcard_extras_req=$enableval],
     [testcard_extras_req=$build_default]
     )
@@ -1617,6 +1618,8 @@ TESTCARD_OBJ="src/video_capture/testcard.o"
 TESTCARD_LIB=
 TESTCARD2_OBJ=
 TESTCARD2_LIB=
+
+testcard_extras=no
 
 if test $testcard_extras_req != no
 then
@@ -1649,17 +1652,16 @@ then
                 fi
                 AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
                 ADD_MODULE("vidcap_testcard2", "$TESTCARD2_OBJ", "$TESTCARD2_LIB")
+                testcard_extras=yes
         fi
-        testcard_extras=yes
-else
-        testcard_extras=no
 fi
 
 TESTCARD_OBJ="src/video_capture/testcard.o"
 ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
 
-if test $testcard_extras_req = yes -a $testcard_extras = no; then
-        AC_MSG_ERROR([Testcard2 not found]);
+if ( test $testcard_extras_req = yes && test testcard_extras = no ) \
+                || ( test $testcard_extras_req = all && ( test $testcard_extras = no || test $FOUND_SDL_MIXER = no ||  test $FOUND_SDL_TTF = no ) ); then
+        AC_MSG_ERROR([Testcard2 dependencies not found])
 fi
 
 
