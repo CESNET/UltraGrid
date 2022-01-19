@@ -70,11 +70,11 @@
 #include <time.h>
 #include <limits.h>
 
-#define AUDIO_SAMPLE_RATE 48000
-#define AUDIO_BPS 2
-#define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 s->audio.ch_count * BUFFER_SEC)
+#define AUDIO_BPS 2
+#define AUDIO_SAMPLE_RATE 48000
+#define BUFFER_SEC 1
 #define FONT_DIR "/usr/share/fonts"
 
 void * vidcap_testcard2_thread(void *args);
@@ -84,7 +84,6 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 struct testcard_state2 {
         int count;
         int size;
-        int pan;
         SDL_Surface *surface;
         struct timeval t0;
         struct video_frame *frame;
@@ -128,12 +127,6 @@ static int configure_audio(struct testcard_state2 *s)
 
 static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 {
-        struct testcard_state2 *s;
-        const char *strip_fmt = NULL;
-        unsigned int i, j;
-        unsigned int rect_size = COL_NUM;
-        codec_t codec=0;
-
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard2 options:\n");
                 printf("\t-t testcard2:<width>:<height>:<fps>:<codec>\n");
@@ -143,17 +136,16 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR;
         }
 
-        s = calloc(1, sizeof(struct testcard_state2));
+        struct testcard_state2 *s = calloc(1, sizeof(struct testcard_state2));
         if (!s)
                 return VIDCAP_INIT_FAIL;
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
-        char *tmp;
 
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
         
-        tmp = strtok(fmt, ":");
+        char *tmp = strtok(fmt, ":");
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 free(s);
@@ -190,7 +182,7 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 
         double bpp = 0;
 
-        codec = get_codec_from_name(tmp);
+        codec_t codec = get_codec_from_name(tmp);
         if (codec == VIDEO_CODEC_NONE) {
                 codec = UYVY;
         }
@@ -205,19 +197,18 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 
         s->aligned_x = vc_get_linesize(s->tile->width, codec) / bpp;
 
-        rect_size = (s->tile->width + rect_size - 1) / rect_size;
-
         s->frame->interlacing = PROGRESSIVE;
         s->size = s->aligned_x * s->tile->height * bpp;
 
         {
+                unsigned int rect_size = (s->tile->width + COL_NUM - 1) / COL_NUM;
                 SDL_Rect r;
                 int col_num = 0;
                 s->surface =
                     SDL_CreateRGBSurface(SDL_SWSURFACE, s->aligned_x, s->tile->height * 2,
                                          32, 0xff, 0xff00, 0xff0000,
                                          0xff000000);
-                for (j = 0; j < s->tile->height; j += rect_size) {
+                for (unsigned j = 0; j < s->tile->height; j += rect_size) {
                         if (j == rect_size * 2) {
                                 r.w = s->tile->width;
                                 r.h = rect_size / 4;
@@ -227,7 +218,7 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                                 r.y = j + rect_size * 3 / 4;
                                 SDL_FillRect(s->surface, &r, 0);
                         }
-                        for (i = 0; i < s->tile->width; i += rect_size) {
+                        for (unsigned i = 0; i < s->tile->width; i += rect_size) {
                                 r.w = rect_size;
                                 r.h = rect_size;
                                 r.x = i;
@@ -247,18 +238,6 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                 }
         }
 
-        tmp = strtok(NULL, ":");
-        if (tmp) {
-                if (tmp[0] == 'p') {
-                        s->pan = 48;
-                } else if (tmp[0] == 's') {
-                        strip_fmt = tmp;
-                }
-        }
-
-        // we cannot generate tiles by now
-        UNUSED(strip_fmt);
-        
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
