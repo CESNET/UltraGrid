@@ -502,8 +502,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         s->last_frame_time = std::chrono::steady_clock::now();
 
-        printf("Testcard capture set to %dx%d, bpp %f\n", vf_get_tile(s->frame, 0)->width,
-                        vf_get_tile(s->frame, 0)->height, get_bpp(s->frame->color_spec));
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << "capture set to " << desc << ", bpp "
+                << get_bpp(s->frame->color_spec) << ", pattern: " << s->pattern
+                << ", audio " << (s->grab_audio == testcard_state::grab_audio_t::NONE ? "off" : "on") << "\n";
 
         if(strip_fmt != NULL) {
                 if(configure_tiling(s, strip_fmt) != 0) {
