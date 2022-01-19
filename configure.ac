@@ -1614,9 +1614,9 @@ fi
 # Testcard stuff
 # -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(testcard-extras,
-      AS_HELP_STRING([--enable-testcard-extras], [enable testcard addons - audio and testcard2 (default is disabled)]),
+      AS_HELP_STRING([--disable-testcard-extras], [enable testcard addons - audio and testcard2 (default is auto)]),
     [testcard_extras_req=$enableval],
-    [testcard_extras_req=no]
+    [testcard_extras_req=$build_default]
     )
 
 TESTCARD_OBJ="src/video_capture/testcard.o"

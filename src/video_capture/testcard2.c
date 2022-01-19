@@ -129,6 +129,9 @@ static int configure_audio(struct testcard_state2 *s)
 static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+                printf("testcard2 is an alternative implementation of testing signal source.\n");
+                printf("It is less maintained than mainline testcard and has less features but has some extra ones, i. a. a timer (if SDL(2)_ttf is found.\n");
+                printf("\n");
                 printf("testcard2 options:\n");
                 printf("\t-t testcard2[:<width>:<height>:<fps>:<codec>]\n");
                 show_codec_help("testcard2", (codec_t[]){RGBA, RGB, UYVY, VIDEO_CODEC_NONE},
