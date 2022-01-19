@@ -75,6 +75,7 @@
 #define AUDIO_BPS 2
 #define AUDIO_SAMPLE_RATE 48000
 #define BUFFER_SEC 1
+#define DEFAULT_FORMAT "1920:1080:24:UYVY"
 #define FONT_DIR "/usr/share/fonts"
 
 void * vidcap_testcard2_thread(void *args);
@@ -129,7 +130,7 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard2 options:\n");
-                printf("\t-t testcard2:<width>:<height>:<fps>:<codec>\n");
+                printf("\t-t testcard2[:<width>:<height>:<fps>:<codec>]\n");
                 show_codec_help("testcard2", (codec_t[]){RGBA, RGB, UYVY, VIDEO_CODEC_NONE},
                                 (codec_t[]){R10k, v210, VIDEO_CODEC_NONE}, NULL);
 
@@ -140,7 +141,7 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         if (!s)
                 return VIDCAP_INIT_FAIL;
 
-        char *fmt = strdup(vidcap_params_get_fmt(params));
+        char *fmt = strdup(strlen(vidcap_params_get_fmt(params)) != 0 ? vidcap_params_get_fmt(params) : DEFAULT_FORMAT);
 
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
