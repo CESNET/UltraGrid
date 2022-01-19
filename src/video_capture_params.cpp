@@ -194,11 +194,17 @@ void vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags)
         params->flags = flags;
 }
 
+/**
+ * @returns capture driver name (eg. decklink), not NULL if vidcap_params_set_device() called
+ */
 const char *vidcap_params_get_driver(const struct vidcap_params *params)
 {
         return params->driver;
 }
 
+/**
+ * @returns capture configuration, not NULL if vidcap_params_set_device() called
+ */
 const char *vidcap_params_get_fmt(const struct vidcap_params *params)
 {
         return params->fmt;
@@ -209,6 +215,10 @@ unsigned int vidcap_params_get_flags(const struct vidcap_params *params)
         return params->flags;
 }
 
+/**
+ * @returns <driver>[:<configuration>] as given on command-line
+ * @see vidcap_params_get_driver, vidcap_params_get_fmt
+ */
 const char *vidcap_params_get_name(const struct vidcap_params *params)
 {
         return params->name;
