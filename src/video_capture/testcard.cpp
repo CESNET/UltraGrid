@@ -300,10 +300,28 @@ static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NON
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
 static const codec_t codecs_12b[] = {Y216, RG48, R12L, VIDEO_CODEC_NONE};
 
+static bool parse_fps(const char *fps, struct video_desc *desc) {
+        char *endptr = nullptr;
+        desc->fps = strtod(fps, &endptr);
+        desc->interlacing = PROGRESSIVE;
+        if (strlen(endptr) != 0) { // optional interlacing suffix
+                desc->interlacing = get_interlacing_from_suffix(endptr);
+                if (desc->interlacing != PROGRESSIVE &&
+                                desc->interlacing != SEGMENTED_FRAME &&
+                                desc->interlacing != INTERLACED_MERGED) { // tff or bff
+                        log_msg(LOG_LEVEL_ERROR, "Unsuppored interlacing format: %s!\n", endptr);
+                        return false;
+                }
+                if (desc->interlacing == INTERLACED_MERGED) {
+                        desc->fps /= 2;
+                }
+        }
+        return true;
+}
+
 static auto parse_format(char **fmt, char **save_ptr) {
         struct video_desc desc{};
         desc.tile_count = 1;
-        desc.interlacing = PROGRESSIVE;
         char *tmp = strtok_r(*fmt, ":", save_ptr);
         if (!tmp) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing width!\n";
@@ -326,19 +344,8 @@ static auto parse_format(char **fmt, char **save_ptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing FPS!\n";
                 return video_desc{};
         }
-        char *endptr;
-        desc.fps = strtod(tmp, &endptr);
-        if (strlen(endptr) != 0) { // optional interlacing suffix
-                desc.interlacing = get_interlacing_from_suffix(endptr);
-                if (desc.interlacing != PROGRESSIVE &&
-                                desc.interlacing != SEGMENTED_FRAME &&
-                                desc.interlacing != INTERLACED_MERGED) { // tff or bff
-                        log_msg(LOG_LEVEL_ERROR, "Unsuppored interlacing format!\n");
-                        return video_desc{};
-                }
-                if (desc.interlacing == INTERLACED_MERGED) {
-                        desc.fps /= 2;
-                }
+        if (!parse_fps(tmp, &desc)) {
+                return video_desc{};
         }
 
         if ((tmp = strtok_r(nullptr, ":", save_ptr)) == nullptr) {
@@ -466,7 +473,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         desc.width = stoi(strchr(tmp, '=') + 1);
                         desc.height = stoi(strchr(tmp, 'x') + 1);
                 } else if (strstr(tmp, "fps=") == tmp) {
-                        desc.fps = stod(strchr(tmp, '=') + 1);
+                        if (!parse_fps(strchr(tmp, '=') + 1, &desc)) {
+                                goto error;
+                        }
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
                         goto error;
