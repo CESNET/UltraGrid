@@ -16,9 +16,7 @@ if (!${env:no_cuda}) {
 }
 
 # Install XIMEA
-Invoke-WebRequest https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe -OutFile XIMEA_API_Installer.exe
-Start-Process -FilePath .\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON" -Wait
-Remove-Item XIMEA_API_Installer.exe
+Start-Process -FilePath C:\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON" -Wait
 
 # Install NDI
 # TODO: NDI installer opens a manual in a browser and doesn't end, thus StartProcess with -Wait
