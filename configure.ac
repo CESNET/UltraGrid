@@ -216,19 +216,13 @@ LDFLAGS="$LDFLAGS $ARCH"
 
 AC_CHECK_HEADERS([termios.h])
 
-# @param $1 name of the module
-function MODULE_NAME() {
-        echo "lib/ultragrid/ultragrid_"$1".so"
-}
-
 # Adds the module to UltraGrid build system.
 # @param $1 name of the module, should be in format <class>_<name> unless
 #           sure that the modular build won't take place
 # @param $2 object files
 # @param $3 libraries
-# @param $4 static libraries (?)
 AC_DEFUN([ADD_MODULE], [
-          TARGET=$(MODULE_NAME "$1")
+          TARGET="lib/ultragrid/ultragrid_"$1".so"
           LIB_OBJS=$LIB_OBJS" "$2
           LIB_MODULES=$LIB_MODULES" "$3
 	  AM_CONDITIONAL([IS_TARGET], [test x$1 != x])
@@ -236,9 +230,9 @@ AC_DEFUN([ADD_MODULE], [
 		                [
 				 MODULES="$MODULES $TARGET"
 				 TARGETS="$TARGETS
-$TARGET: "$2" $4
+$TARGET: "$2"
 	\$(MKDIR_P) lib/ultragrid
-	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,ultragrid_"$1.so" "$2" -o lib/ultragrid/ultragrid_"$1".so "$3" $4
+	\$(LINKER) \$(LDFLAGS) -shared -Wl,-soname,ultragrid_"$1.so" "$2" -o lib/ultragrid/ultragrid_"$1".so "$3"
 "
 				 ])
           ])
