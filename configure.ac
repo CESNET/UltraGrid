@@ -237,6 +237,13 @@ $TARGET: "$2"
 				 ])
           ])
 
+# remove "-mwindows" from lib flags obtained with pkg-config
+# because it causes output to be scratched by cmd/pwsh (but
+# not MSYS2 terminal)
+remove_mwindows() {
+        echo "$1" | sed 's/ *-mwindows//'
+}
+
 # ---------------------------------------------------------------------
 # Dylib bundler
 # ---------------------------------------------------------------------
@@ -1276,9 +1283,7 @@ then
         # on Win override libs from pkg-config because those contain
         # "-mwindows" which causes output to be scratched by cmd.exe
         # (but not MSYS2!)
-        if test $system = Windows; then
-                SDL2_LIBS="-lSDL2"
-        fi
+        SDL2_LIBS=$(remove_mwindows "$SDL2_LIBS")
         ADD_MODULE("display_sdl2", "$SDL2_OBJ", "$SDL2_LIBS")
         SDL_LIB=$SDL2_LIBS
         INC="$INC $($PKG_CONFIG --cflags-only-I sdl2)"
@@ -1654,6 +1659,7 @@ then
         else
                 PKG_CHECK_MODULES([SDL_MIXER], [SDL2_mixer], [FOUND_SDL_MIXER=yes], [FOUND_SDL_MIXER=no])
         fi
+        SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
 
         if test "$FOUND_SDL_MIXER" = yes
         then
@@ -1671,6 +1677,7 @@ then
                 else
                         PKG_CHECK_MODULES([SDL_TTF], [SDL2_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
                 fi
+                SDL_TTF_LIBS=$(remove_mwindows "$SDL_TTF_LIBS")
                 if test "$FOUND_SDL_TTF" = yes
                 then
                         TESTCARD2_LIB="$TESTCARD2_LIB $SDL_TTF_LIBS"
