@@ -1608,7 +1608,8 @@ fi
 # Testcard stuff
 # -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(testcard-extras,
-      AS_HELP_STRING([--enable-testcard-extras[=all]], [enable testcard addons - audio and testcard2 (default is auto)]
+      AS_HELP_STRING([--enable-testcard-extras[=mixer|ttf|all]], [enable testcard addons - audio and testcard2 (default is auto)]
+      [This includes testcard2 (optionally with TTF) and sound support (mixer) for normal testcard.]
       [Requires: SDL(2) SDL(2)_mixer (optional) SDL(2)_ttf (optional)]),
     [testcard_extras_req=$enableval],
     [testcard_extras_req=$build_default]
@@ -1619,9 +1620,34 @@ TESTCARD_LIB=
 TESTCARD2_OBJ=
 TESTCARD2_LIB=
 
-testcard_extras=no
+testcard2_req=auto
+testcard_sdl_mixer_req=auto
+testcard_sdl_ttf_req=auto
 
-if test $testcard_extras_req != no
+testcard2=no
+testcard_sdl_mixer=no
+testcard_sdl_ttf=no
+
+if test $testcard_extras_req = "no"; then
+        testcard2_req=no
+        testcard_sdl2_mixer_req=no
+        testcard_sdl2_ttf_req=no
+fi
+if test $testcard_extras_req = "yes"; then
+        testcard2_req=yes
+fi
+if expr $testcard_extras_req : '.*all' >/dev/null; then
+        testcard_sdl_mixer_req=yes
+        testcard_sdl_ttf_req=yes
+fi
+if expr $testcard_extras_req : '.*mixer' >/dev/null; then
+        testcard_sdl_mixer_req=yes
+fi
+if expr $testcard_extras_req : '.*ttf' >/dev/null; then
+        testcard_sdl_ttf_req=yes
+fi
+
+if test $testcard2_req != no
 then
         if test $sdl_version -eq 1; then
                 PKG_CHECK_MODULES([SDL_MIXER], [SDL_mixer], [FOUND_SDL_MIXER=yes], [FOUND_SDL_MIXER=no])
@@ -1652,15 +1678,16 @@ then
                 fi
                 AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
                 ADD_MODULE("vidcap_testcard2", "$TESTCARD2_OBJ", "$TESTCARD2_LIB")
-                testcard_extras=yes
+                testcard2=yes
         fi
 fi
 
 TESTCARD_OBJ="src/video_capture/testcard.o"
 ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
 
-if ( test $testcard_extras_req = yes && test testcard_extras = no ) \
-                || ( test $testcard_extras_req = all && ( test $testcard_extras = no || test $FOUND_SDL_MIXER = no ||  test $FOUND_SDL_TTF = no ) ); then
+if { test $testcard2_req = yes && test $testcard2 = no ;} \
+                || { test $testcard_sdl_mixer_req = yes && test $FOUND_SDL_MIXER = no ;} \
+                || { test $testcard_sdl_ttf_req = yes && test $FOUND_SDL_TTF = no ;} ; then
         AC_MSG_ERROR([Testcard2 dependencies not found])
 fi
 
@@ -3488,7 +3515,7 @@ RESULT=`add_column "$RESULT" "Scale postprocessor" $scale $?`
 RESULT=`add_column "$RESULT" "SDP over HTTP" $sdp_http $?`
 RESULT=`add_column "$RESULT" "Spout" $spout $?`
 RESULT=`add_column "$RESULT" "Syphon" $syphon $?`
-RESULT=`add_column "$RESULT" "Testcard extras" $testcard_extras $?`
+RESULT=`add_column "$RESULT" "Testcard extras" $testcard2 $?`
 RESULT=`add_column "$RESULT" "Text postprocess and filter" $text $?`
 RESULT=`add_column "$RESULT" "Swscale support" $libswscale $?`
 RESULT=`end_section "$RESULT"`
