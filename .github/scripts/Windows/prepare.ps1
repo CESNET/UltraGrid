@@ -16,7 +16,13 @@ if (!${env:no_cuda}) {
 }
 
 # Install XIMEA
-Start-Process -FilePath C:\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON" -Wait
+$proc = Start-Process -FilePath C:\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON" -PassThru
+$proc | Wait-Process -Timeout 300 -ErrorAction SilentlyContinue -ErrorVariable timeouted
+if ($timeouted) {
+  # terminate the process
+  $proc | kill
+  throw "XIMEA install timeout"
+}
 
 # Install NDI
 # TODO: NDI installer opens a manual in a browser and doesn't end, thus StartProcess with -Wait
