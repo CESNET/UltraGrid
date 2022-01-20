@@ -76,6 +76,7 @@
 #define AUDIO_SAMPLE_RATE 48000
 #define BUFFER_SEC 1
 #define DEFAULT_FORMAT "1920:1080:24:UYVY"
+#define MOD_NAME "[testcard2] "
 
 #ifdef _WIN32
 #define FONT_DIR "C:\\windows\\fonts"
@@ -340,7 +341,7 @@ void * vidcap_testcard2_thread(void *arg)
         
         if(TTF_Init() == -1)
         {
-          fprintf(stderr, "Unable to initialize SDL_ttf: %s\n",
+          log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize SDL_ttf: %s\n",
             TTF_GetError());
           exit(128);
         }
@@ -353,7 +354,7 @@ void * vidcap_testcard2_thread(void *arg)
                 font = TTF_OpenFont(font_path, 108);
         }
         if(!font) {
-                fprintf(stderr, "Unable to load any usable font (last font tryied: %s)!\n", TTF_GetError());
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to load any usable font (last font tried: %s)!\n", TTF_GetError());
                 exit(128);
         }
 
