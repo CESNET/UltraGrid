@@ -310,13 +310,13 @@ void * vidcap_testcard2_thread(void *arg)
         s = (struct testcard_state2 *)arg;
         struct timeval curr_time;
         struct timeval next_frame_time;
-        unsigned int seed = time(NULL);
-        int prev_x1 = rand_r(&seed) % (s->tile->width - 300);
-        int prev_y1 = rand_r(&seed) % (s->tile->height - 300);
-        int down1 = rand_r(&seed) % 2, right1 = rand_r(&seed) % 2;
-        int prev_x2 = rand_r(&seed) % (s->tile->width - 100);
-        int prev_y2 = rand_r(&seed) % (s->tile->height - 100);
-        int down2 = rand_r(&seed) % 2, right2 = rand_r(&seed) % 2;
+        srand(time(NULL));
+        int prev_x1 = rand() % (s->tile->width - 300);
+        int prev_y1 = rand() % (s->tile->height - 300);
+        int down1 = rand() % 2, right1 = rand() % 2;
+        int prev_x2 = rand() % (s->tile->width - 100);
+        int prev_y2 = rand() % (s->tile->height - 100);
+        int down2 = rand() % 2, right2 = rand() % 2;
         
         int stat_count_prev = 0;
         
