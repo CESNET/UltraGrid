@@ -16,7 +16,7 @@ if (!${env:no_cuda}) {
 }
 
 # Install XIMEA
-$proc = Start-Process -FilePath C:\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON" -PassThru
+$proc = Start-Process -FilePath C:\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON /SecDrivers=OFF /SecXiApiNET=OFF /SecGenTL=OFF /SecPython=OFF /SecxiCamTool=OFF /SecxiCamToolExamples=OFF /SecxiCOP=OFF /SecXiLib=OFF /SecExamples=OFF /SecxiXiapiDNG=OFF" -PassThru # /SecDrivers=OFF doesn't actually disable drivers, see also https://www.ximea.com/support/wiki/apis/Unattended_Installation_XIMEA_API_Installer
 $proc | Wait-Process -Timeout 300 -ErrorAction SilentlyContinue -ErrorVariable timeouted
 if ($timeouted) {
   # terminate the process
