@@ -444,10 +444,9 @@ void * vidcap_testcard2_thread(void *arg)
                 }
                 SDL_FreeSurface(surf);
                 
-                int since_start_usec;
 next_frame:
-                since_start_usec = (s->count) * (1000000 / s->frame->fps);
                 next_frame_time = s->start_time;
+                long long since_start_usec = (s->count * 1000000LLU) / s->frame->fps;
                 tv_add_usec(&next_frame_time, since_start_usec);
                 
                 gettimeofday(&curr_time, NULL);
