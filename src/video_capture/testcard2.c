@@ -76,7 +76,18 @@
 #define AUDIO_SAMPLE_RATE 48000
 #define BUFFER_SEC 1
 #define DEFAULT_FORMAT "1920:1080:24:UYVY"
+
+#ifdef _WIN32
+#define FONT_DIR "C:\\windows\\fonts"
+static const char * const font_candidates[] = { "cour.ttf", };
+#elif defined __APPLE__
+#define FONT_DIR "/System/Library/Fonts"
+static const char * const font_candidates[] = { "Monaco.ttf", "Geneva.ttf", "Keyboard.ttf", };
+#else
 #define FONT_DIR "/usr/share/fonts"
+static const char * const font_candidates[] = { "truetype/freefont/FreeMonoBold.ttf", "truetype/DejaVuSansMono.ttf",
+        "TTF/DejaVuSansMono.ttf", "liberation/LiberationMono-Regular.ttf", }; // Arch
+#endif
 
 void * vidcap_testcard2_thread(void *args);
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
@@ -333,11 +344,6 @@ void * vidcap_testcard2_thread(void *arg)
             TTF_GetError());
           exit(128);
         }
-
-        static const char *font_candidates[] = { "truetype/freefont/FreeMonoBold.ttf",
-                "truetype/DejaVuSansMono.ttf",
-                "TTF/DejaVuSansMono.ttf", "liberation/LiberationMono-Regular.ttf", // Arch
-        };
 
         for (unsigned i = 0; font == NULL && i < sizeof font_candidates / sizeof font_candidates[0]; ++i) {
                 char font_path[MAX_PATH_SIZE] = "";
