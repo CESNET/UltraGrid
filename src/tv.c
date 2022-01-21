@@ -102,15 +102,11 @@ uint32_t tv_diff_usec(struct timeval curr_time, struct timeval prev_time)
         return tmp;
 }
 
+inline void tv_add_usec(struct timeval *ts, long long offset) ATTRIBUTE(always_inline); // to allow tv_add inline this function
+
 void tv_add(struct timeval *ts, double offset_secs)
 {
-        unsigned int offset = (unsigned long)(offset_secs * 1000000.0);
-
-        ts->tv_usec += offset;
-        while (ts->tv_usec >= 1000000) {
-                ts->tv_sec++;
-                ts->tv_usec -= 1000000;
-        }
+        tv_add_usec(ts, offset_secs * 1000000.0);
 }
 
 void tv_add_usec(struct timeval *ts, long long offset)
