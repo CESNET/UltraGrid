@@ -88,7 +88,7 @@ static const char * const font_candidates[] = { "cour.ttf", };
 static const char * const font_candidates[] = { "Monaco.ttf", "Geneva.ttf", "Keyboard.ttf", };
 #else
 #define DEFAULT_FONT_DIR "/usr/share/fonts"
-static const char * const font_candidates[] = { "truetype/freefont/FreeMonoBold.ttf", "truetype/DejaVuSansMono.ttf",
+static const char * const font_candidates[] = { "DejaVuSansMono.ttf", "truetype/freefont/FreeMonoBold.ttf", "truetype/DejaVuSansMono.ttf",
         "TTF/DejaVuSansMono.ttf", "liberation/LiberationMono-Regular.ttf", }; // Arch
 #endif
 
