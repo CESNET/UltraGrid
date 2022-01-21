@@ -11,7 +11,7 @@ LD_PRELOAD=${LD_PRELOAD-}
 # there is an issue with running_from_path() which evaluates this executable
 # as being system-installed
 #export PATH=$DIR/usr/bin:$PATH
-export QT_QPA_FONTDIR=$DIR/usr/lib/fonts
+export QT_QPA_FONTDIR=$DIR/usr/share/fonts
 export QT_PLUGIN_PATH=$DIR/usr/lib/qt5/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
 

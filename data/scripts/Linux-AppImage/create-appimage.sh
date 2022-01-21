@@ -43,8 +43,8 @@ if [ -n "$QT_DIR" ]; then
         PLUGIN_LIBS=$(find $DST_PLUGIN_DIR -type f)
 
         # add DejaVu font
-        mkdir $APPPREFIX/lib/fonts
-        cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPPREFIX/lib/fonts
+        mkdir $APPPREFIX/share/fonts
+        cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPPREFIX/share/fonts
 fi
 
 # copy dependencies
