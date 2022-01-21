@@ -16,7 +16,7 @@ if (!${env:no_cuda}) {
 }
 
 # Install XIMEA
-$proc = Start-Process -FilePath C:\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON /SecDrivers=OFF /SecXiApiNET=OFF /SecGenTL=OFF /SecPython=OFF /SecxiCamTool=OFF /SecxiCamToolExamples=OFF /SecxiCOP=OFF /SecXiLib=OFF /SecExamples=OFF /SecxiXiapiDNG=OFF" -PassThru # /SecDrivers=OFF doesn't actually disable drivers, see also https://www.ximea.com/support/wiki/apis/Unattended_Installation_XIMEA_API_Installer
+$proc = Start-Process -FilePath C:\XIMEA_API_Installer.exe -ArgumentList "/S /SecXiApi=ON /SecDriversIeee1394=OFF /SecDriversUsb=OFF /SecDriversPCIe=OFF /SecXiApiNET=OFF /SecNETCore22=OFF /SecNETCore31=OFF /SecGenTL=OFF /SecPython=OFF /SecxiCamTool=OFF /SecxiCamToolExamples=OFF /SecxiCOP=OFF /SecXiLib=OFF /SecExamples=OFF /SecxiXiapiDNG=OFF" -PassThru # https://www.ximea.com/support/wiki/apis/Unattended_Installation_XIMEA_API_Installer, https://nsis.sourceforge.io/Can_I_decompile_an_existing_installer
 $proc | Wait-Process -Timeout 300 -ErrorAction SilentlyContinue -ErrorVariable timeouted
 if ($timeouted) {
   # terminate the process
