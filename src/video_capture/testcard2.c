@@ -4,6 +4,8 @@
  *
  * @todo
  * Passing grabbed frames from thread is terribly broken. It needs to be reworked.
+ * @todo
+ * Merge to mainline testcard.
  */
 /*
  * Copyright (c) 2011-2021 CESNET z.s.p.o.
@@ -227,31 +229,15 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                                          32, 0xff, 0xff00, 0xff0000,
                                          0xff000000);
                 for (unsigned j = 0; j < s->tile->height; j += rect_size) {
-                        if (j == rect_size * 2) {
-                                r.w = s->tile->width;
-                                r.h = rect_size / 4;
-                                r.x = 0;
-                                r.y = j;
-                                SDL_FillRect(s->surface, &r, 0xffffffff);
-                                r.y = j + rect_size * 3 / 4;
-                                SDL_FillRect(s->surface, &r, 0);
-                        }
                         for (unsigned i = 0; i < s->tile->width; i += rect_size) {
                                 r.w = rect_size;
                                 r.h = rect_size;
                                 r.x = i;
                                 r.y = j;
                                 printf("Fill rect at %d,%d\n", r.x, r.y);
-                                //if (j != rect_size * 2) {
-                                        SDL_FillRect(s->surface, &r,
-                                                     rect_colors[col_num]);
-                                        col_num = (col_num + 1) % COL_NUM;
-                                /*} else {
-                                        r.h = rect_size / 2;
-                                        r.y += rect_size / 4;
-                                        SDL_FillRect(s->surface, &r, grey);
-                                        grey += 0x00010101 * (255 / COL_NUM);
-                                }*/
+                                SDL_FillRect(s->surface, &r,
+                                                rect_colors[col_num]);
+                                col_num = (col_num + 1) % COL_NUM;
                         }
                 }
         }
@@ -402,7 +388,7 @@ void * vidcap_testcard2_thread(void *arg)
                 r.y = s->tile->height - r.h - 30;
                 SDL_FillRect(surf, &r, 0xffffffff);
                 
-#ifdef HAVE_LIBSDL_TTF                
+#ifdef HAVE_LIBSDL_TTF
                 char frames[64];
                 double since_start = tv_diff(next_frame_time, s->start_time);
                 snprintf(frames, sizeof frames, "%02d:%02d:%02d %3d", (int) since_start / 3600,
@@ -411,12 +397,10 @@ void * vidcap_testcard2_thread(void *arg)
                                  s->count % (int) s->frame->fps);
                 text = TTF_RenderText_Solid(font,
                         frames, col);
-#endif
-#ifdef HAVE_LIBSDL_TTF
                 SDL_Rect src_rect;
                 src_rect.x=0;
                 src_rect.y=0;
-                
+
                 r.y += (r.h - text->h) / 2;
                 r.x = (s->tile->width - src_rect.w) / 2;
                 src_rect.w=text->w;
