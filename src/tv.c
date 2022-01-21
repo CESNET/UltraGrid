@@ -51,6 +51,8 @@
 #include "crypto/random.h"
 #include "tv.h"
 
+#define MS_IN_SEC 1000000LL
+
 uint32_t get_local_mediatime(void)
 {
         static struct timeval start_time;
@@ -111,13 +113,21 @@ void tv_add(struct timeval *ts, double offset_secs)
         }
 }
 
-void tv_add_usec(struct timeval *ts, double offset)
+void tv_add_usec(struct timeval *ts, long long offset)
 {
-        ts->tv_usec += offset;
-        while (ts->tv_usec >= 1000000) {
-                ts->tv_sec++;
-                ts->tv_usec -= 1000000;
+        long long new_usec = ts->tv_usec + offset;
+
+        if (new_usec < MS_IN_SEC) {
+                ts->tv_usec = new_usec;
+                return;
         }
+        if (new_usec < 2 * MS_IN_SEC) {
+                ts->tv_sec++;
+                ts->tv_usec = new_usec - MS_IN_SEC;
+                return;
+        }
+        ts->tv_usec = new_usec % MS_IN_SEC;
+        ts->tv_sec += new_usec / MS_IN_SEC;
 }
 
 int tv_gt(struct timeval a, struct timeval b)
