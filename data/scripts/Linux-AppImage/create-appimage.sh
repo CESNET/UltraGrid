@@ -8,11 +8,11 @@
 
 APPDIR=UltraGrid.AppDir
 APPPREFIX=$APPDIR/usr
-ARCH=`uname -m`
-DATE=`date +%Y%m%d`
-GLIBC_VERSION=`ldd --version | sed -n '1s/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/p'`
+ARCH=$(uname -m)
+DATE=$(date +%Y%m%d)
+GLIBC_VERSION=$(ldd --version | sed -n '1s/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/p')
 APPNAME=UltraGrid-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
-eval $(cat Makefile  | grep 'srcdir *=' | tr -d \  )
+eval "$(grep 'srcdir *=' < Makefile | tr -d \  )"
 
 # redirect the whole output to stderr, output of this script is a created AppName only
 (
@@ -23,7 +23,7 @@ make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local $APPPREFIX
 
 # add packet reflector
-make -f $srcdir/hd-rum-multi/Makefile SRCDIR=$srcdir/hd-rum-multi
+make -f "${srcdir?srcdir not found}/hd-rum-multi/Makefile" "SRCDIR=$srcdir/hd-rum-multi"
 cp hd-rum $APPPREFIX/bin
 
 # add platform and other Qt plugins if using dynamic libs
@@ -31,7 +31,7 @@ cp hd-rum $APPPREFIX/bin
 # @todo use https://github.com/probonopd/linuxdeployqt
 PLUGIN_LIBS=
 if [ -f $APPPREFIX/bin/uv-qt ]; then
-        QT_DIR=$(dirname $(ldd $APPPREFIX/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }'))
+        QT_DIR=$(dirname "$(ldd $APPPREFIX/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }')")
 else
         QT_DIR=
 fi
@@ -49,33 +49,34 @@ fi
 
 # copy dependencies
 mkdir -p $APPPREFIX/lib
-for n in $APPPREFIX/bin/* $APPPREFIX/lib/ultragrid/* $PLUGIN_LIBS; do
-        for lib in `ldd $n | awk '{ print $3 }'`; do
-                [ ! -f $lib ] || cp $lib $APPPREFIX/lib
+for n in "$APPPREFIX"/bin/* "$APPPREFIX"/lib/ultragrid/* $PLUGIN_LIBS; do
+        for lib in $(ldd "$n" | awk '{ print $3 }'); do
+                [ ! -f "$lib" ] || cp "$lib" $APPPREFIX/lib
         done
 done
 
 # Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
 wget https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
-cat $(dirname $0)/excludelist.local >> excludelist
+DIRNAME=$(dirname "$0")
+cat "$DIRNAME/excludelist.local" >> excludelist
 EXCLUDE_LIST=
 while read -r x; do
-        if [ "$x" = "" -o $(expr "x$x" : x\#) -eq 2 ]; then
+        if [ -z "$x" ] || expr "x$x" : x\# > /dev/null; then
                 continue
         fi
         NAME=$(echo "$x" | awk '{ print $1 }')
         EXCLUDE_LIST="$EXCLUDE_LIST $NAME"
 done < excludelist
 for n in $EXCLUDE_LIST; do
-        if [ -f $APPPREFIX/lib/$n ]; then
-                rm $APPPREFIX/lib/$n
+        if [ -f "$APPPREFIX/lib/$n" ]; then
+                rm "$APPPREFIX/lib/$n"
         fi
 done
 
 ( cd $APPPREFIX/lib; rm -f libcmpto* ) # remove non-free components
 
 # ship VA-API drivers if have libva
-if [ -f $(echo $APPPREFIX/lib/libva.so.* | cut -d\  -f 1) ]; then
+if [ -f "$(echo $APPPREFIX/lib/libva.so.* | cut -d\  -f 1)" ]; then
         for n in ${LIBVA_DRIVERS_PATH:-} /usr/lib/x86_64-linux-gnu/dri /usr/lib/dri; do
                 if [ -d "$n" ]; then
                         cp -r "$n" $APPPREFIX/lib/va
@@ -84,11 +85,11 @@ if [ -f $(echo $APPPREFIX/lib/libva.so.* | cut -d\  -f 1) ]; then
         done
 fi
 
-cp $srcdir/data/scripts/Linux-AppImage/AppRun $srcdir/data/ultragrid.png $APPDIR
-cp $srcdir/data/uv-qt.desktop $APPDIR/ultragrid.desktop
+cp "$srcdir/data/scripts/Linux-AppImage/AppRun" "$srcdir/data/ultragrid.png" $APPDIR
+cp "$srcdir/data/uv-qt.desktop" $APPDIR/ultragrid.desktop
 APPIMAGEUPDATETOOL=$(command -v appimageupdatetool-x86_64.AppImage || true)
 if [ -n "$APPIMAGEUPDATETOOL" ]; then
-        cp $APPIMAGEUPDATETOOL $APPDIR/appimageupdatetool
+        cp "$APPIMAGEUPDATETOOL" $APPDIR/appimageupdatetool
 else
         wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool # use AppImageUpdate for GUI updater
 fi
@@ -109,10 +110,11 @@ UPDATE_INFORMATION=
 if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
-$APPIMAGETOOL ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR $APPNAME
+# shellcheck disable=SC2086 # word spliting of $UPDATE_INFORMATION is requested behavior
+$APPIMAGETOOL ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR "$APPNAME"
 
 rm -rf $APPDIR tmpinstall
 )
 
-echo $APPNAME
+echo "$APPNAME"
 
