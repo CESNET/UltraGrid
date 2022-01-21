@@ -47,6 +47,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/fs.h"
+#include "utils/thread.h"
 #include "video.h"
 #include "video_capture.h"
 #include "testcard_common.h"
@@ -318,6 +319,8 @@ static void vidcap_testcard2_done(void *state)
 
 void * vidcap_testcard2_thread(void *arg)
 {
+        set_thread_name(__func__);
+
         struct testcard_state2 *s;
         s = (struct testcard_state2 *)arg;
         struct timeval curr_time;
