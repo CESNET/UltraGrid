@@ -12,6 +12,7 @@ LD_PRELOAD=${LD_PRELOAD-}
 # as being system-installed
 #export PATH=$DIR/usr/bin:$PATH
 export QT_QPA_FONTDIR=$DIR/usr/share/fonts
+export UG_FONT_DIR=$DIR/usr/share/fonts
 export QT_PLUGIN_PATH=$DIR/usr/lib/qt5/plugins
 export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
 
@@ -157,7 +158,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
-        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH} $FIREJAIL_OPTS "
+        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH} --env=UG_FONT_DIR=${UG_FONT_DIR} $FIREJAIL_OPTS "
 fi
 
 if [ $# -eq 0 -o x"${1-}" = x"--gui" ]; then

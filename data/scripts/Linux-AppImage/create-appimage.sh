@@ -41,11 +41,19 @@ if [ -n "$QT_DIR" ]; then
         mkdir -p $DST_PLUGIN_DIR
         cp -r $SRC_PLUGIN_DIR/* $DST_PLUGIN_DIR
         PLUGIN_LIBS=$(find $DST_PLUGIN_DIR -type f)
+fi
 
+add_fonts() { # for GUI+testcard2
         # add DejaVu font
         mkdir $APPPREFIX/share/fonts
-        cp $(fc-list "DejaVu Sans" | sed 's/:.*//') $APPPREFIX/share/fonts
-fi
+        for family in "DejaVu Sans" "DejaVu Sans Mono"; do
+                for style in "Book" "Bold"; do
+                        FONT_PATH=$(fc-match "$family:style=$style" file | sed 's/.*=//')
+                        cp "$FONT_PATH" $APPPREFIX/share/fonts
+                done
+        done
+}
+add_fonts
 
 # copy dependencies
 mkdir -p $APPPREFIX/lib
