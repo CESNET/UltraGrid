@@ -47,6 +47,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/fs.h"
+#include "utils/misc.h"
 #include "utils/thread.h"
 #include "video.h"
 #include "video_capture.h"
@@ -80,13 +81,13 @@
 #define MOD_NAME "[testcard2] "
 
 #ifdef _WIN32
-#define FONT_DIR "C:\\windows\\fonts"
+#define DEFAULT_FONT_DIR "C:\\windows\\fonts"
 static const char * const font_candidates[] = { "cour.ttf", };
 #elif defined __APPLE__
-#define FONT_DIR "/System/Library/Fonts"
+#define DEFAULT_FONT_DIR "/System/Library/Fonts"
 static const char * const font_candidates[] = { "Monaco.ttf", "Geneva.ttf", "Keyboard.ttf", };
 #else
-#define FONT_DIR "/usr/share/fonts"
+#define DEFAULT_FONT_DIR "/usr/share/fonts"
 static const char * const font_candidates[] = { "truetype/freefont/FreeMonoBold.ttf", "truetype/DejaVuSansMono.ttf",
         "TTF/DejaVuSansMono.ttf", "liberation/LiberationMono-Regular.ttf", }; // Arch
 #endif
@@ -349,9 +350,10 @@ void * vidcap_testcard2_thread(void *arg)
           exit(128);
         }
 
+        const char *font_dir = IF_NOT_NULL_ELSE(getenv("UG_FONT_DIR"), DEFAULT_FONT_DIR);
         for (unsigned i = 0; font == NULL && i < sizeof font_candidates / sizeof font_candidates[0]; ++i) {
                 char font_path[MAX_PATH_SIZE] = "";
-                strncpy(font_path, FONT_DIR, sizeof font_path - 1); // NOLINT (security.insecureAPI.strcpy)
+                strncpy(font_path, font_dir, sizeof font_path - 1); // NOLINT (security.insecureAPI.strcpy)
                 strncat(font_path, "/", sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
                 strncat(font_path, font_candidates[i], sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
                 font = TTF_OpenFont(font_path, 108);
