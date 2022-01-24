@@ -92,20 +92,10 @@ using std::unique_ptr;
 using std::uniform_int_distribution;
 using std::vector;
 
-struct testcard_rect {
-        int x, y, w, h;
-};
-struct testcard_pixmap {
-        int w, h;
-        void *data;
-};
-
 enum class generator_depth {
         bits8,
         bits16
 };
-
-static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color);
 
 class image_pattern {
         public:
@@ -399,19 +389,6 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 }
         }
         throw ug_runtime_error("Unknown pattern: "s +  config + "!"s);
-}
-
-static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color)
-{
-        auto *data = static_cast<uint32_t *>(s->data);
-
-        for (int cur_x = r->x; cur_x < r->x + r->w; ++cur_x) {
-                for (int cur_y = r->y; cur_y < r->y + r->h; ++cur_y) {
-                        if (cur_x < s->w) {
-                                *(data + s->w * cur_y + cur_x) = color;
-                        }
-                }
-        }
 }
 
 unique_ptr<unsigned char [],void (*)(unsigned char*)>

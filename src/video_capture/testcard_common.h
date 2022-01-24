@@ -47,6 +47,15 @@ extern const int rect_colors[COL_NUM];
 extern "C" {
 #endif
 
+struct testcard_rect {
+        int x, y, w, h;
+};
+struct testcard_pixmap {
+        int w, h;
+        void *data;
+};
+
+void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color);
 void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, const unsigned char *in, int width, int height);
 
 #ifdef __cplusplus

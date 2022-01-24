@@ -53,6 +53,19 @@ const int rect_colors[] = {
         0xffff00ff
 };
 
+void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color)
+{
+        uint32_t *data = s->data;
+
+        for (int cur_x = r->x; cur_x < r->x + r->w; ++cur_x) {
+                for (int cur_y = r->y; cur_y < r->y + r->h; ++cur_y) {
+                        if (cur_x < s->w) {
+                                *(data + (long) s->w * cur_y + cur_x) = color;
+                        }
+                }
+        }
+}
+
 /**
  * @param[in] in buffer in UYVY
  * @retval       buffer in I420 (must be deallocated by the caller)
