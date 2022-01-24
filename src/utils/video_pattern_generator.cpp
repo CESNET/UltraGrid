@@ -464,7 +464,8 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
         /// @anchor second_conversion_step for some codecs
         if (color_spec == I420) {
                 auto src = move(data);
-                data = decltype(data)(reinterpret_cast<unsigned char *>((toI420(reinterpret_cast<char *>(src.get()), width, height))), free_deleter);
+                data = decltype(data)(reinterpret_cast<unsigned char *>(malloc(width * height + 2 * ((width + 1) / 2) * ((height + 1) / 2))), free_deleter);
+                toI420(data.get(), src.get(), width, height);
         } else if (color_spec == YUYV) {
                 for (int i = 0; i < width * height * 2; i += 2) {
                         swap(data[i], data[i + 1]);

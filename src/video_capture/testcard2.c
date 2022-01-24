@@ -401,36 +401,16 @@ void * vidcap_testcard2_thread(void *arg)
                 src_rect.x=0;
                 src_rect.y=0;
 
-                r.y += (r.h - text->h) / 2;
+                r.w = s->tile->width;
+                r.h = 150;
+                r.y = s->tile->height - r.h / 2 - 30 - text->h / 2;
                 r.x = (s->tile->width - src_rect.w) / 2;
                 src_rect.w=text->w;
                 src_rect.h=text->h;
                 SDL_BlitSurface(text,  &src_rect,  surf, &r);
                 SDL_FreeSurface(text);
 #endif
-                char *data = surf->pixels;
-                            
-                if (s->frame->color_spec == UYVY || s->frame->color_spec == v210) {
-                        char *tmp = (char *) malloc(s->size * 2);
-                        vc_copylineRGBAtoUYVY((unsigned char *) tmp, (unsigned char *) surf->pixels,
-                                        s->frame->tiles[0].height * vc_get_linesize(s->frame->tiles[0].width, UYVY), 0, 0, 0);
-                        data = tmp;
-                }
-
-                if (s->frame->color_spec == v210) {
-                        surf->pixels =
-                            (char *)tov210((unsigned char *) surf->pixels, s->tile->width, s->tile->height);
-                }
-
-                if (s->frame->color_spec == R10k) {
-                        toR10k((unsigned char *) surf->pixels, s->tile->width, s->tile->height);
-                }
-                
-                memcpy(s->tile->data, data, s->tile->data_len);
-
-                if (data != surf->pixels) {
-                        free(data);
-                }
+                testcard_convert_buffer(RGBA, s->frame->color_spec, (unsigned char *) s->tile->data, surf->pixels, s->frame->tiles[0].width, s->frame->tiles[0].height);
                 SDL_FreeSurface(surf);
                 
 next_frame:
