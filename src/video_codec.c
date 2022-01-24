@@ -2510,6 +2510,7 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineDVS10,       DVS10, UYVY, false },
         { (decoder_t) vc_copylinev210,        v210,  UYVY, false },
         { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY, false },
+        { (decoder_t) vc_copylineYUYV,        UYVY,  YUYV, false },
         { (decoder_t) vc_copyliner10k,        R10k,  RGBA, false },
         { (decoder_t) vc_copylineR12L,        R12L,  RGBA, false },
         { (decoder_t) vc_copylineR12LtoRGB,   R12L,  RGB, false },
