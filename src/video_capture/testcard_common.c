@@ -59,7 +59,7 @@ const int rect_colors[] = {
  * @note
  * Caller must deallocate returned buffer
  */
-void toI420(unsigned char *out, const unsigned char *input, int width, int height)
+static void toI420(unsigned char *out, const unsigned char *input, int width, int height)
 {
         const unsigned char *in = (const unsigned char *) input;
         int w_ch = (width + 1) / 2;

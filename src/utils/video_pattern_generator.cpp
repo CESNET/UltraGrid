@@ -433,56 +433,15 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
         }
 
         auto data = generator->init(width, height, generator_depth::bits8);
-
-        codec_t codec_intermediate = color_spec;
-
-        /// first step - conversion from RGBA
+        codec_t codec_src = RGBA;
         if (color_spec == RG48 || color_spec == R12L || color_spec == R10k) {
                 data = generator->init(width, height, generator_depth::bits16);
-                codec_intermediate = RG48;
-        } else if (color_spec != RGBA) {
-                // these codecs do not have direct conversion from RGBA - use @ref second_conversion_step
-                if (color_spec == I420 || color_spec == v210 || color_spec == YUYV || color_spec == Y216) {
-                        codec_intermediate = UYVY;
-                }
-
-                auto decoder = get_decoder_from_to(RGBA, codec_intermediate, true);
-                assert(decoder != nullptr);
-                auto src = move(data);
-                data = decltype(data)(new unsigned char [height * vc_get_linesize(width, codec_intermediate) + headroom], delarr_deleter);
-                size_t src_linesize = vc_get_linesize(width, RGBA);
-                size_t dst_linesize = vc_get_linesize(width, codec_intermediate);
-                auto *in = src.get();
-                auto *out = data.get();
-                for (int i = 0; i < height; ++i) {
-                        decoder(out, in, dst_linesize, 0, 0, 0);
-                        in += src_linesize;
-                        out += dst_linesize;
-                }
+                codec_src = RG48;
         }
 
-        /// @anchor second_conversion_step for some codecs
-        if (color_spec == I420) {
-                auto src = move(data);
-                data = decltype(data)(reinterpret_cast<unsigned char *>(malloc(width * height + 2 * ((width + 1) / 2) * ((height + 1) / 2))), free_deleter);
-                toI420(data.get(), src.get(), width, height);
-        } else if (color_spec == YUYV) {
-                for (int i = 0; i < width * height * 2; i += 2) {
-                        swap(data[i], data[i + 1]);
-                }
-        } else if (codec_intermediate != color_spec) {
-                auto src = move(data);
-                data = decltype(data)(new unsigned char[vc_get_datalen(width, height, color_spec)], delarr_deleter);
-                auto decoder = get_decoder_from_to(codec_intermediate, color_spec, true);
-                assert(decoder != nullptr);
-
-                int src_linesize = vc_get_linesize(width, codec_intermediate);
-                int dst_linesize = vc_get_linesize(width, color_spec);
-                for (int i = 0; i < height; ++i) {
-                        decoder(data.get() + i * dst_linesize,
-                                        src.get() + i * src_linesize, dst_linesize, 0, 8, 16);
-                }
-        }
+        auto src = move(data);
+        data = decltype(data)(new unsigned char[vc_get_datalen(width, height, color_spec)], delarr_deleter);
+        testcard_convert_buffer(codec_src, color_spec, data.get(), src.get(), width, height);
 
         if (auto *raw_generator = dynamic_cast<image_pattern_raw *>(generator.get())) {
                 raw_generator->raw_fill(data.get(), vc_get_datalen(width, height, color_spec));

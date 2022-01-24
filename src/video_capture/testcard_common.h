@@ -47,7 +47,6 @@ extern const int rect_colors[COL_NUM];
 extern "C" {
 #endif
 
-void toI420(unsigned char *out, const unsigned char *input, int width, int height);
 void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, const unsigned char *in, int width, int height);
 
 #ifdef __cplusplus
