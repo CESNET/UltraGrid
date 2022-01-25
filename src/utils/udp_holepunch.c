@@ -111,9 +111,12 @@ static void send_msg(int sock, const char *msg){
         memset(header, ' ', sizeof(header));
         snprintf(header, sizeof(header), "%lu", msg_size);
 
-        send(sock, header, sizeof(header), 0);
+        ssize_t ret = send(sock, header, sizeof(header), 0);
 
-        send(sock, msg, msg_size, 0);
+        if(ret == -1)
+                return;
+
+        ret = send(sock, msg, msg_size, 0);
 }
 
 static void on_candidate(juice_agent_t *agent, const char *sdp, void *user_ptr) {
@@ -167,12 +170,13 @@ static juice_agent_t *create_agent(const struct Holepunch_config *c, void *usr_p
 }
 
 
-static size_t recv_msg(int sock, char *buf, size_t buf_len){
+static void recv_msg(int sock, char *buf, size_t buf_len){
         char header[MSG_HEADER_LEN + 1];
+        buf[0] = '\0';
 
         int bytes = recv(sock, header, MSG_HEADER_LEN, MSG_WAITALL);
         if(bytes != MSG_HEADER_LEN){
-                return 0;
+                return;
         }
         header[MSG_HEADER_LEN] = '\0';
 
@@ -180,7 +184,7 @@ static size_t recv_msg(int sock, char *buf, size_t buf_len){
         char *end;
         expected_len = strtol(header, &end, 10);
         if(header == end){
-                return 0;
+                return;
         }
 
         if(expected_len > buf_len - 1)
@@ -188,16 +192,12 @@ static size_t recv_msg(int sock, char *buf, size_t buf_len){
 
         bytes = recv(sock, buf, expected_len, MSG_WAITALL);
         buf[bytes] = '\0';
-
-        return bytes;
 }
 
 static bool connect_to_coordinator(const char *coord_srv_addr,
                 int coord_srv_port,
                 int *sock)
 {
-        int s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-
         struct sockaddr_in sockaddr;
         memset(&sockaddr, 0, sizeof(sockaddr));
         sockaddr.sin_family = AF_INET;
@@ -208,9 +208,15 @@ static bool connect_to_coordinator(const char *coord_srv_addr,
                 return false;
         }
 
+        int s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if(s == -1){
+                error_msg(MOD_NAME "Failed to open socket\n");
+                return false;
+        }
         memcpy(&sockaddr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
         if (connect(s, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) < 0){
                 error_msg(MOD_NAME "Failed to connect to coordination server\n");
+                close(s);
                 return false;
         }
 
