@@ -68,7 +68,9 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
         auto test_pattern = [&](AVPixelFormat avfmt) {
                 vector <unsigned char> r10k_buf(width * height * 4);
                 copy(rgba_buf.begin(), rgba_buf.end(), r10k_buf.begin());
-                toR10k(r10k_buf.data(), width, height);
+                auto vc_copylineRGBAtoR10k = get_decoder_from_to(RGBA, R10k, true);
+                assert(vc_copylineRGBAtoR10k != nullptr);
+                vc_copylineRGBAtoR10k(r10k_buf.data(), r10k_buf.data(), 4L * width * height, 0, 8, 16);
 
                 AVFrame frame;
                 frame.format = avfmt;

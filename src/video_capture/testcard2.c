@@ -90,8 +90,6 @@ static const char * const font_candidates[] = { "DejaVuSansMono.ttf", "truetype/
 #endif
 
 void * vidcap_testcard2_thread(void *args);
-void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
-void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 
 struct testcard_state2 {
         int count;
