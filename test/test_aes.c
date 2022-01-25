@@ -247,6 +247,7 @@ static void rijndaelIVKAT(FILE * fp, int keyLength)
         cipherInit(&cipherInst, MODE_ECB, NULL);
         for (i = 1; i < keyInst.Nr; i++) {
                 cipherUpdateRounds(&cipherInst, &keyInst, pt, 16, ct, i);
+                assert(i <= 99999);
                 sprintf(format, "CT%d", i);
                 blockPrint(fp, ct, format);
         }
@@ -259,6 +260,7 @@ static void rijndaelIVKAT(FILE * fp, int keyLength)
         cipherInit(&cipherInst, MODE_ECB, NULL);
         for (i = 1; i < keyInst.Nr; i++) {
                 cipherUpdateRounds(&cipherInst, &keyInst, ct, 16, pt, i);
+                assert(i <= 99999);
                 sprintf(format, "PT%d", i);
                 blockPrint(fp, pt, format);
         }

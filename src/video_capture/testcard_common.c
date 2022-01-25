@@ -44,13 +44,13 @@
 #include "video.h"
 #include "video_capture/testcard_common.h"
 
-const int rect_colors[] = {
-        0xff0000ff,
-        0xff00ff00,
-        0xffff0000,
-        0xff00ffff,
-        0xffffff00,
-        0xffff00ff
+const uint32_t rect_colors[] = {
+        0xff0000ffLU,
+        0xff00ff00LU,
+        0xffff0000LU,
+        0xff00ffffLU,
+        0xffffff00LU,
+        0xffff00ffLU
 };
 
 void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color)
@@ -115,7 +115,7 @@ void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, un
         unsigned char *tmp_buffer = NULL;
         if (out_c == I420 || out_c == v210 || out_c == YUYV || out_c == Y216) {
                 decoder_t decoder = get_decoder_from_to(in_c, UYVY, true);
-                tmp_buffer = malloc((long) width * height * 2);
+                tmp_buffer =  malloc((long) width * height * 2);
                 decoder(tmp_buffer, in, width * 2 * height, 0, 0, 0);
                 in = tmp_buffer;
                 in_c = UYVY;

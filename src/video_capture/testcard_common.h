@@ -38,10 +38,16 @@
 #ifndef TESTCARD_COMMON_H_EC35539A_7D1B_11EC_9CF0_F0DEF1A0ACC9
 #define TESTCARD_COMMON_H_EC35539A_7D1B_11EC_9CF0_F0DEF1A0ACC9
 
+#ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
+#endif
+
 #include "types.h"
 
 #define COL_NUM 6
-extern const int rect_colors[COL_NUM];
+extern const uint32_t rect_colors[COL_NUM];
 
 #ifdef __cplusplus
 extern "C" {

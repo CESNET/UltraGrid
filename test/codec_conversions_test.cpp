@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "codec_conversions_test.h"
+#include "video_codec.h"
 #include "video_capture/testcard_common.h"
 
 using std::list;
@@ -52,14 +53,14 @@ codec_conversions_test::test_testcard_uyvy_to_i420()
                 /// @todo Check also if chroma is horizontally interpolated in UV planes
                 unsigned char uyvy_pattern[4] = { 'u', 'y', 'v', 'Y' };
                 size_t uyvy_buf_size = ((size_x + 1) & ~1) * 2 * size_y;
-                //size_t i420_buf_size = size_x * size_y + 2 * ((size_x + 1) / 2) * ((size_y + 1) / 2);
 
                 unsigned char uyvy_buf[uyvy_buf_size];
                 for (size_t i = 0; i < size_y * 2 * ((size_x + 1) & ~1); ++i) {
                         uyvy_buf[i] = uyvy_pattern[i % 4];
                 }
 
-                auto i420_buf = (unsigned char *) toI420((char *) uyvy_buf, size_x, size_y);
+                auto *i420_buf = (unsigned char *) malloc(vc_get_datalen(size_x, size_y, I420));
+                testcard_convert_buffer(UYVY, I420, i420_buf, uyvy_buf, size_x, size_y);
                 unsigned char *y_ptr = i420_buf;
                 for (size_t i = 0; i < size_y; ++i) {
                         for (size_t j = 0; j < size_x; ++j) {
