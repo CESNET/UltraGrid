@@ -101,7 +101,7 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 struct testcard_state2 {
         int count;
         int size;
-        SDL_Surface *surface;
+        struct testcard_pixmap surface;
         struct timeval t0;
         struct video_frame *frame;
         struct tile *tile;
@@ -222,23 +222,20 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
 
         {
                 unsigned int rect_size = (s->tile->width + COL_NUM - 1) / COL_NUM;
-                SDL_Rect r;
                 int col_num = 0;
-                s->surface =
-                    SDL_CreateRGBSurface(SDL_SWSURFACE, s->aligned_x, s->tile->height * 2,
-                                         32, 0xff, 0xff00, 0xff0000,
-                                         0xff000000);
-                for (unsigned j = 0; j < s->tile->height; j += rect_size) {
-                        for (unsigned i = 0; i < s->tile->width; i += rect_size) {
-                                r.w = rect_size;
-                                r.h = rect_size;
-                                r.x = i;
-                                r.y = j;
-                                printf("Fill rect at %d,%d\n", r.x, r.y);
-                                SDL_FillRect(s->surface, &r,
-                                                rect_colors[col_num]);
-                                col_num = (col_num + 1) % COL_NUM;
-                        }
+                s->surface.data = malloc(s->tile->width * 4L * s->tile->height);
+                s->surface.w = s->tile->width;
+                s->surface.h = s->tile->height;
+                for (unsigned i = 0; i < s->tile->width; i += rect_size) {
+                        struct testcard_rect r;
+                        r.w = MIN(rect_size, s->tile->width - i);
+                        r.h = s->tile->height;
+                        r.x = i;
+                        r.y = 0;
+                        printf("Fill rect at %d,%d\n", r.x, r.y);
+                        testcard_fillRect(&s->surface, &r,
+                                        rect_colors[col_num]);
+                        col_num = (col_num + 1) % COL_NUM;
                 }
         }
 
@@ -352,40 +349,41 @@ void * vidcap_testcard2_thread(void *arg)
         
         while(!s->should_exit)
         {
-                SDL_Rect r;
-                SDL_Surface *surf = SDL_ConvertSurface(s->surface, s->surface->format, SDL_SWSURFACE);
+                struct testcard_rect r;
+                struct testcard_pixmap surf;
+                memcpy(&surf, &s->surface, sizeof surf);
+                surf.data = malloc(4L * surf.w * surf.h);
+                memcpy(surf.data, s->surface.data, 4 * surf.w * surf.h);
                 
                 r.w = 300;
                 r.h = 300;
                 r.x = prev_x1 + (right1 ? 1 : -1) * 4;
                 r.y = prev_y1 + (down1 ? 1 : -1) * 4;
-                if(r.x < 0) right1 = 1;
-                if(r.y < 0) down1 = 1;
-                if((unsigned int) r.x + r.w > s->tile->width) right1 = 0;
-                if((unsigned int) r.y + r.h > s->tile->height) down1 = 0;
+                if(r.x < 0) { right1 = 1; r.x = 0; }
+                if(r.y < 0) { down1 = 1; r.y = 0; }
+                if((unsigned int) r.x + r.w > s->tile->width) { right1 = 0; r.w = s->tile->width - r.x; }
+                if((unsigned int) r.y + r.h > s->tile->height) { down1 = 0; r.h = s->tile->height - r.y; }
                 prev_x1 = r.x;
                 prev_y1 = r.y;
-                
-                SDL_FillRect(surf, &r, 0x00000000);
+                testcard_fillRect(&surf, &r, 0x00000000);
                 
                 r.w = 100;
                 r.h = 100;
                 r.x = prev_x2 + (right2 ? 1 : -1) * 12;
                 r.y = prev_y2 + (down2 ? 1 : -1) * 9;
-                if(r.x < 0) right2 = 1;
-                if(r.y < 0) down2 = 1;
-                if((unsigned int) r.x + r.w > s->tile->width) right2 = 0;
-                if((unsigned int) r.y + r.h > s->tile->height) down2 = 0;
+                if(r.x < 0) { right2 = 1; r.x = 0; }
+                if(r.y < 0) { down2 = 1; r.y = 0; }
+                if((unsigned int) r.x + r.w > s->tile->width)  { right2 = 0; r.w = s->tile->width - r.x; }
+                if((unsigned int) r.y + r.h > s->tile->height)  { down2 = 0; r.h = s->tile->height - r.y; }
                 prev_x2 = r.x;
                 prev_y2 = r.y;
-                
-                SDL_FillRect(surf, &r, 0xffff00aa);
+                testcard_fillRect(&surf, &r, 0xffff00aa);
                 
                 r.w = s->tile->width;
                 r.h = 150;
                 r.x = 0;
                 r.y = s->tile->height - r.h - 30;
-                SDL_FillRect(surf, &r, 0xffffffff);
+                testcard_fillRect(&surf, &r, 0xffffffff);
                 
 #ifdef HAVE_LIBSDL_TTF
                 char frames[64];
@@ -396,21 +394,20 @@ void * vidcap_testcard2_thread(void *arg)
                                  s->count % (int) s->frame->fps);
                 text = TTF_RenderText_Solid(font,
                         frames, col);
-                SDL_Rect src_rect;
-                src_rect.x=0;
-                src_rect.y=0;
-
-                r.w = s->tile->width;
-                r.h = 150;
-                r.y = s->tile->height - r.h / 2 - 30 - text->h / 2;
-                r.x = (s->tile->width - src_rect.w) / 2;
-                src_rect.w=text->w;
-                src_rect.h=text->h;
-                SDL_BlitSurface(text,  &src_rect,  surf, &r);
-                SDL_FreeSurface(text);
+                long xoff = (s->tile->width - text->w) / 2;
+                long yoff = (s->tile->height - 150 / 2 - 30 - text->h / 2);
+                for (int i = 0 ; i < text->h; i++) {
+                        uint32_t *d = (uint32_t*)surf.data + xoff + (i + yoff) * s->frame->tiles[0].width;
+                        for (int j = 0 ; j < text->w; j++) {
+                                if (((char *)text->pixels) [i * text->pitch + j]) {
+                                        *d = 0x00000000U;
+                                }
+                                d++;
+                        }
+                }
 #endif
-                testcard_convert_buffer(RGBA, s->frame->color_spec, (unsigned char *) s->tile->data, surf->pixels, s->frame->tiles[0].width, s->frame->tiles[0].height);
-                SDL_FreeSurface(surf);
+                testcard_convert_buffer(RGBA, s->frame->color_spec, (unsigned char *) s->tile->data, surf.data, s->frame->tiles[0].width, s->frame->tiles[0].height);
+                free(surf.data);
                 
 next_frame:
                 next_frame_time = s->start_time;
