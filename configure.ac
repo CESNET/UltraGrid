@@ -3369,6 +3369,9 @@ fi
 # ---------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------
+AC_ARG_ENABLE(plugins, AS_HELP_STRING([--disable-cppunit], [disable cppunit tests (default is auto)]),
+	[cppunit_req=$enableval])
+
 PKG_CHECK_MODULES([CPPUNIT], [cppunit], [cppunit=yes], [cppunit=no])
 if test "$cppunit" = yes; then
         AC_DEFINE([HAVE_CPPUNIT], [1], [Build with CppUnit tests])
@@ -3378,6 +3381,10 @@ else
         cppunit=no
 fi
 AC_SUBST(CPPUNIT_LIBS)
+
+if test $cppunit_req = yes -a $cppunit = no; then
+        AC_MSG_ERROR([cppunit not found]);
+fi
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
