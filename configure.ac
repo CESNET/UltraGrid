@@ -1615,7 +1615,7 @@ fi
 AC_ARG_ENABLE(testcard-extras,
       AS_HELP_STRING([--enable-testcard-extras[=mixer|ttf|all]], [enable testcard addons - audio and testcard2 (default is auto)]
       [This includes testcard2 (optionally with TTF) and sound support (mixer) for normal testcard.]
-      [Requires: SDL(2) SDL(2)_mixer (optional) SDL(2)_ttf (optional)]),
+      [Requires: SDL(2)_mixer (optional) SDL(2)_ttf (optional)]),
     [testcard_extras_req=$enableval],
     [testcard_extras_req=$build_default]
     )
@@ -1652,7 +1652,7 @@ if expr $testcard_extras_req : '.*ttf' >/dev/null; then
         testcard_sdl_ttf_req=yes
 fi
 
-if test $testcard2_req != no
+if test $testcard_sdl_mixer_req != no
 then
         if test $sdl_version -eq 1; then
                 PKG_CHECK_MODULES([SDL_MIXER], [SDL_mixer], [FOUND_SDL_MIXER=yes], [FOUND_SDL_MIXER=no])
@@ -1666,31 +1666,29 @@ then
                 AC_DEFINE([HAVE_LIBSDL_MIXER], [1], [Build testcard with SDL Mixer support])
                 TESTCARD_LIB="$SDL_MIXER_LIBS"
         fi
-
-        TESTCARD2_OBJ=
-        if test $sdl = yes
-        then
-                TESTCARD2_OBJ="src/video_capture/testcard2.o"
-                TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB"
-                if test $sdl_version -eq 1; then
-                        PKG_CHECK_MODULES([SDL_TTF], [SDL_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
-                else
-                        PKG_CHECK_MODULES([SDL_TTF], [SDL2_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
-                fi
-                SDL_TTF_LIBS=$(remove_mwindows "$SDL_TTF_LIBS")
-                if test "$FOUND_SDL_TTF" = yes
-                then
-                        TESTCARD2_LIB="$TESTCARD2_LIB $SDL_TTF_LIBS"
-                        AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
-                fi
-                AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
-                ADD_MODULE("vidcap_testcard2", "$TESTCARD2_OBJ", "$TESTCARD2_LIB")
-                testcard2=yes
-        fi
 fi
 
 TESTCARD_OBJ="src/video_capture/testcard.o"
 ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
+
+if test $testcard2_req != no
+then
+        TESTCARD2_OBJ="src/video_capture/testcard2.o"
+        if test $sdl_version -eq 1; then
+                PKG_CHECK_MODULES([SDL_TTF], [SDL_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+        else
+                PKG_CHECK_MODULES([SDL_TTF], [SDL2_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+                fi
+                SDL_TTF_LIBS=$(remove_mwindows "$SDL_TTF_LIBS")
+        if test "$FOUND_SDL_TTF" = yes
+        then
+                TESTCARD2_LIB="$TESTCARD2_LIB $SDL_TTF_LIBS"
+                AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
+        fi
+        AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
+        ADD_MODULE("vidcap_testcard2", "$TESTCARD2_OBJ", "$TESTCARD2_LIB")
+        testcard2=yes
+fi
 
 if { test $testcard2_req = yes && test $testcard2 = no ;} \
                 || { test $testcard_sdl_mixer_req = yes && test $FOUND_SDL_MIXER = no ;} \

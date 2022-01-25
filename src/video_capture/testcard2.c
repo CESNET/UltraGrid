@@ -57,11 +57,6 @@
 #include "compat/platform_semaphore.h"
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef HAVE_SDL2
-#include <SDL2/SDL.h>
-#else
-#include <SDL/SDL.h>
-#endif
 #ifdef HAVE_LIBSDL_TTF
 #ifdef HAVE_SDL2
 #include <SDL2/SDL_ttf.h>
