@@ -310,8 +310,7 @@ void * vidcap_testcard2_thread(void *arg)
 
         struct testcard_state2 *s;
         s = (struct testcard_state2 *)arg;
-        struct timeval curr_time;
-        struct timeval next_frame_time;
+        struct timeval next_frame_time = { 0 };
         srand(time(NULL));
         int prev_x1 = rand() % (s->tile->width - 300);
         int prev_y1 = rand() % (s->tile->height - 300);
@@ -417,9 +416,8 @@ next_frame:
                 next_frame_time = s->start_time;
                 long long since_start_usec = (s->count * 1000000LLU) / s->frame->fps;
                 tv_add_usec(&next_frame_time, since_start_usec);
-                
+                struct timeval curr_time;
                 gettimeofday(&curr_time, NULL);
-                
                 if(tv_gt(next_frame_time, curr_time)) {
                         int sleep_time = tv_diff_usec(next_frame_time, curr_time);
                         usleep(sleep_time);
