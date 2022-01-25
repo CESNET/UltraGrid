@@ -80,6 +80,7 @@ fi
 install_ndi() {
 (
         cd /var/tmp
+        [ -f Install_NDI_SDK_Linux.tar.gz ] || return 0
         tar -xzf Install_NDI_SDK_Linux.tar.gz
         yes | PAGER=cat ./Install*NDI*sh
         sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
