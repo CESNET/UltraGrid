@@ -72,6 +72,7 @@
 #include "lib_common.h"
 #include "rang.hpp"
 #include "tv.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -415,6 +416,36 @@ static map<BMDVideoConnection, string> connection_string_map =  {
         { bmdVideoConnectionSVideo, "SVideo"}
 };
 
+static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
+
+        // ** List the video input display modes supported by the card
+        print_input_modes(deckLink);
+
+        IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
+
+        HRESULT result = deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes);
+        if (result != S_OK) {
+                cout << "Could not query device attributes.\n\n";
+                return;
+        }
+        int64_t connections = 0;
+        if (deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not get connections.\n";
+        } else {
+                cout << "\n\tConnection can be one of following:\n";
+                for (auto it : connection_string_map) {
+                        if (connections & it.first) {
+                                cout << style::bold << "\t\t" <<
+                                        it.second << style::reset << "\n";
+                        }
+                }
+        }
+        cout << "\n";
+
+        // Release the IDeckLink instance when we've finished with it to prevent leaks
+        RELEASE_IF_NOT_NULL(deckLinkAttributes);
+}
+
 /* HELP */
 static int
 decklink_help(bool full)
@@ -422,7 +453,6 @@ decklink_help(bool full)
 	IDeckLinkIterator*		deckLinkIterator;
 	IDeckLink*			deckLink;
 	int				numDevices = 0;
-	HRESULT				result;
 
 	printf("\nDecklink options:\n");
         cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]\n" << style::reset;
@@ -506,12 +536,20 @@ decklink_help(bool full)
                 cout << "\n";
         }
 
-        printf("Available color spaces:\n");
+        cout << "Available color spaces:";
         for (auto & i : uv_to_bmd_codec_map) {
-                cout << "\t" << style::bold << get_codec_name(i.first)
-                        << style::reset << "\n";
+                if (i != *uv_to_bmd_codec_map.begin()) {
+                        cout << ",";
+                }
+
+                cout << " " << style::bold << get_codec_name(i.first)
+                        << style::reset;
         }
-        printf("\n");
+        cout << "\n";
+        if (!full) {
+                cout << "Possible connections: " << BOLD("SDI") << ", " << BOLD("HDMI") << ", " << BOLD("OpticalSDI") << ", " << BOLD("Component") << ", " << BOLD("Composite") << ", " << BOLD("SVideo") << "\n";
+        }
+        cout << "\n";
 
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = create_decklink_iterator();
@@ -519,6 +557,7 @@ decklink_help(bool full)
 		return 0;
 	}
 	
+        cout << "Devices:\n";
 	// Enumerate all cards in this system
 	while (deckLinkIterator->Next(&deckLink) == S_OK)
 	{
@@ -528,42 +567,19 @@ decklink_help(bool full)
                 }
 		
 		// *** Print the model name of the DeckLink card
-                cout << "device: " << style::bold << numDevices << style::reset << ") " << style::bold <<  deviceName << style::reset << "\n";
+                cout << "\t" << style::bold << numDevices << style::reset << ") " << style::bold <<  deviceName << style::reset << "\n";
 		
 		// Increment the total number of DeckLink cards found
 		numDevices++;
 	
-		// ** List the video input display modes supported by the card
-		print_input_modes(deckLink);
-
-                IDeckLinkProfileAttributes *deckLinkAttributes = nullptr;
-
-                result = deckLink->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes);
-                if (result != S_OK)
-                {
-                        printf("Could not query device attributes.\n");
-                } else {
-                        int64_t connections;
-                        if(deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
-                                fprintf(stderr, "[DeckLink] Could not get connections.\n");
-                        } else {
-                                printf("\n");
-                                cout << "\tConnection can be one of following:\n";
-                                for (auto it : connection_string_map) {
-                                        if (connections & it.first) {
-                                                cout << style::bold << "\t\t" <<
-                                                        it.second << style::reset << "\n";
-                                        }
-                                }
-                        }
+                if (full) {
+                        vidcap_decklink_print_card_info(deckLink);
                 }
-				
-                printf("\n");
-
-		// Release the IDeckLink instance when we've finished with it to prevent leaks
-                RELEASE_IF_NOT_NULL(deckLinkAttributes);
 		deckLink->Release();
 	}
+        if (!full) {
+                cout << "(use \"-t decklink:fullhelp\" to see full list of device modes and available connections)\n\n";
+        }
 	
 	deckLinkIterator->Release();
 
