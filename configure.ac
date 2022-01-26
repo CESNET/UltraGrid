@@ -1396,31 +1396,28 @@ AC_ARG_ENABLE(opencv,
               AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]),
               [opencv_req=$enableval],
               [opencv_req=$build_default])
-
-PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
-		AC_DEFINE([HAVE_OPENCV_3], [1], [Use OpenCV version 3])
-		OPENCV_MAJOR=3
-		OPENCV_LIBS=$OPENCV_3_LIBS
-		OPENCV_CFLAGS=$OPENCV_3_CFLAGS
-	], [
-		PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
-			AC_DEFINE([HAVE_OPENCV_2], [1], [Use OpenCV version 2])
-			OPENCV_MAJOR=2
-			OPENCV_LIBS=$OPENCV_2_LIBS
-			OPENCV_CFLAGS=$OPENCV_2_CFLAGS
-			], [
-				PKG_CHECK_MODULES([OPENCV_4], [opencv4], [
-					AC_DEFINE([HAVE_OPENCV_4], [1], [Use OpenCV version 4])
-					OPENCV_MAJOR=4
-					OPENCV_LIBS=$OPENCV_4_LIBS
-					OPENCV_CFLAGS=$OPENCV_4_CFLAGS
-					], [OPENCV_MAJOR=]
-					)
-			]
-		)
-	]
-)
-
+PKG_CHECK_MODULES([OPENCV_4], [opencv4], [
+                   AC_DEFINE([HAVE_OPENCV_4], [1], [Use OpenCV version 4])
+                   OPENCV_MAJOR=4
+                   OPENCV_LIBS=$OPENCV_4_LIBS
+                   OPENCV_CFLAGS=$OPENCV_4_CFLAGS
+                   ], [OPENCV_MAJOR=])
+if test -z "$OPENCV_MAJOR"; then
+        PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
+                           AC_DEFINE([HAVE_OPENCV_3], [1], [Use OpenCV version 3])
+                           OPENCV_MAJOR=3
+                           OPENCV_LIBS=$OPENCV_3_LIBS
+                           OPENCV_CFLAGS=$OPENCV_3_CFLAGS
+                           ], [OPENCV_MAJOR=])
+fi
+if test -z "$OPENCV_MAJOR"; then
+        PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
+                           AC_DEFINE([HAVE_OPENCV_2], [1], [Use OpenCV version 2])
+                           OPENCV_MAJOR=2
+                           OPENCV_LIBS=$OPENCV_2_LIBS
+                           OPENCV_CFLAGS=$OPENCV_2_CFLAGS
+                           ], [OPENCV_MAJOR=])
+fi
 if test -n "$OPENCV_MAJOR" -a $opencv_req != "no"; then
         HAVE_OPENCV=yes
         opencv="yes"
