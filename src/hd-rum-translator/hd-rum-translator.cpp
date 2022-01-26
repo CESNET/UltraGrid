@@ -158,7 +158,7 @@ struct hd_rum_translator_state {
 
     vector<replica *> replicas;
     void *decompress;
-	struct state_recompress *recompress;
+    struct state_recompress *recompress;
 };
 
 /*
@@ -262,6 +262,7 @@ static void qdestroy(struct item *queue)
     free(queue);
 }
 
+#define prefix_matches(x,y) strncasecmp(x, y, strlen(y)) == 0
 static struct response *change_replica_type(struct hd_rum_translator_state *s,
         struct module *mod, struct message *msg, int index)
 {
@@ -275,6 +276,12 @@ static struct response *change_replica_type(struct hd_rum_translator_state *s,
     } else if (strcasecmp(data->text, "recompress") == 0) {
         r->type = replica::type_t::RECOMPRESS;
         log_msg(LOG_LEVEL_NOTICE, "Output port %d is now transcoding.\n", index);
+    } else if (prefix_matches(data->text, "compress ")) {
+        if(recompress_port_change_compress(s->recompress, index, data->text + strlen("compress "))){
+            log_msg(LOG_LEVEL_NOTICE, "Output port %d compression changed.\n", index);
+        } else {
+            log_msg(LOG_LEVEL_ERROR, "Failed to change port %d compression. Port removed.\n", index);
+        }
     } else {
         fprintf(stderr, "Unknown replica type \"%s\"\n", data->text);
         return new_response(RESPONSE_BAD_REQUEST, NULL);
@@ -391,7 +398,7 @@ static void *writer(void *arg)
                 if (compress) {
                     rep->type = replica::type_t::RECOMPRESS;
                     char *fec = NULL;
-                    int idx = recompress_add_port(s->recompress,
+                    int idx = recompress_add_port(s->recompress, &rep->mod,
                             host, compress,
                             0, tx_port, 1500, fec, RATE_UNLIMITED);
                     if (idx < 0) {
@@ -408,7 +415,7 @@ static void *writer(void *arg)
                     rep->type = replica::type_t::USE_SOCK;
                     char compress[] = "none";
                     char *fec = NULL;
-                    int idx = recompress_add_port(s->recompress,
+                    int idx = recompress_add_port(s->recompress, &rep->mod,
                             host, compress,
                             0, tx_port, 1500, fec, RATE_UNLIMITED);
                     if (idx < 0) {
@@ -840,7 +847,7 @@ int main(int argc, char **argv)
             state.replicas[i]->type = replica::type_t::USE_SOCK;
             char compress[] = "none";
             char *fec = NULL;
-            int idx = recompress_add_port(state.recompress,
+            int idx = recompress_add_port(state.recompress, &state.replicas[i]->mod,
                     params.hosts[i].addr, compress,
                     0, tx_port, params.hosts[i].mtu, fec, params.hosts[i].bitrate);
             if(idx < 0) {
@@ -853,7 +860,7 @@ int main(int argc, char **argv)
         } else {
             state.replicas[i]->type = replica::type_t::RECOMPRESS;
 
-            int idx = recompress_add_port(state.recompress,
+            int idx = recompress_add_port(state.recompress, &state.replicas[i]->mod,
                     params.hosts[i].addr, params.hosts[i].compression,
                     0, tx_port, params.hosts[i].mtu, params.hosts[i].fec, params.hosts[i].bitrate);
             if(idx < 0) {

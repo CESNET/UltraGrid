@@ -57,7 +57,7 @@ void recompress_done(struct state_recompress *state);
 uint32_t recompress_get_port_ssrc(struct state_recompress *s, int idx);
 
 
-int recompress_add_port(struct state_recompress *s,
+int recompress_add_port(struct state_recompress *s, struct module *parent_rep,
 		const char *host, const char *compress, unsigned short rx_port,
 		unsigned short tx_port, int mtu, const char *fec, long long bitrate);
 
@@ -65,6 +65,9 @@ void recompress_remove_port(struct state_recompress *s, int index);
 
 void recompress_port_set_active(struct state_recompress *s,
                 int index, bool active);
+
+bool recompress_port_change_compress(struct state_recompress *s, int index,
+                const char *new_compress);
 
 int recompress_get_num_active_ports(struct state_recompress *s);
 
