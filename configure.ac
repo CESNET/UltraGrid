@@ -3382,8 +3382,8 @@ fi
 # ---------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------
-AC_ARG_ENABLE(plugins, AS_HELP_STRING([--disable-cppunit], [disable cppunit tests (default is auto)]),
-	[cppunit_req=$enableval])
+AC_ARG_ENABLE(cppunit, AS_HELP_STRING([--disable-cppunit], [disable cppunit tests (default is auto)]),
+	[cppunit_req=$enableval], [cppunit_req=$build_default])
 
 PKG_CHECK_MODULES([CPPUNIT], [cppunit], [cppunit=yes], [cppunit=no])
 if test "$cppunit" = yes; then
