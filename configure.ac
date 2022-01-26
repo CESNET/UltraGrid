@@ -237,13 +237,6 @@ $TARGET: "$2"
 				 ])
           ])
 
-# remove "-mwindows" from lib flags obtained with pkg-config
-# because it causes output to be scratched by cmd/pwsh (but
-# not MSYS2 terminal)
-remove_mwindows() {
-        echo "$1" | sed 's/ *-mwindows//'
-}
-
 # ---------------------------------------------------------------------
 # Dylib bundler
 # ---------------------------------------------------------------------
@@ -324,6 +317,21 @@ if test $ac_cv_func_drand48 = no
 then
 	AC_DEFINE([NEED_DRAND48], 1, [We need custom implementation of drand48.])
 fi
+
+# ---------------------------------------------------------------------
+# Common shell utility functions
+# ---------------------------------------------------------------------
+# Be careful about [] m4 processing - either use quadrigraphs or enclose macro with additional []
+
+# remove redundant spaces from argument (multiplied, leading, trailing)
+[compact_spaces_pipe() { sed -e 's/  */ /g' -e 's/^ //' -e 's/ $//' ;}]
+[compact_spaces() { echo "$1" | compact_spaces_pipe ;}]
+# remove "-mwindows" from lib flags obtained with pkg-config
+# because it causes output to be scratched by cmd/pwsh (but
+# not MSYS2 terminal)
+remove_mwindows() {
+        echo "$1" | sed 's/-mwindows//' | compact_spaces_pipe
+}
 
 # -------------------------------------------------------------------------------------------------
 # Check for standard size types.  The defaults are only valid on some
@@ -1391,7 +1399,7 @@ fi
 # -------------------------------------------------------------------------------------------------
 # OpenCV version detection
 # -------------------------------------------------------------------------------------------------
-
+[remove_all_libs_but_opencv_core() { echo "$1" | sed -e 's/-lopencv_[a-z0-9_]*//g' -e 's/$/ -lopencv_core/' | compact_spaces_pipe ; } ]
 AC_ARG_ENABLE(opencv,
               AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]),
               [opencv_req=$enableval],
@@ -1419,9 +1427,17 @@ if test -z "$OPENCV_MAJOR"; then
                            ], [OPENCV_MAJOR=])
 fi
 if test -n "$OPENCV_MAJOR" -a $opencv_req != "no"; then
+        OPENCV_LIBS=$(remove_all_libs_but_opencv_core $OPENCV_LIBS)
         HAVE_OPENCV=yes
         opencv="yes"
         opencv_version=" (version: $OPENCV_MAJOR)"
+
+        # opencv_imgproc is commonly needed so make the check here
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $OPENCV_LIBS"
+        AC_CHECK_LIB(opencv_imgproc, cvAcc)
+        FOUND_OPENCV_IMGPROC=$ac_cv_lib_opencv_imgproc_cvAcc
+        LIBS=$SAVED_LIBS
 else
         HAVE_OPENCV=no
         opencv="no"
@@ -1554,12 +1570,12 @@ AC_ARG_ENABLE(resize,
     [resize_req=$build_default]
     )
 
-if test $resize_req != no -a $HAVE_OPENCV = yes
+if test $resize_req != no && test "$HAVE_OPENCV" = yes && test "$FOUND_OPENCV_IMGPROC" = yes
 then
         CFLAGS="$CFLAGS ${OPENCV_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${OPENCV_CFLAGS}"
         RESIZE_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
-        ADD_MODULE("vcapfilter_resize", "$RESIZE_OBJ", "$OPENCV_LIBS")
+        ADD_MODULE("vcapfilter_resize", "$RESIZE_OBJ", "$OPENCV_LIBS -lopencv_imgproc")
         resize=yes
 fi
 
@@ -3136,9 +3152,9 @@ AC_ARG_ENABLE(video-mixer,
     [video_mix_req=$build_default]
     )
 
-if test x$HAVE_OPENCV != xno; then
+if test x$HAVE_OPENCV != xno && test "$FOUND_OPENCV_IMGPROC" = yes; then
 	FOUND_VIDEO_MIX_DEP=yes
-	VIDEO_MIX_LIBS=$OPENCV_LIBS
+	VIDEO_MIX_LIBS="$OPENCV_LIBS -lopencv_imgproc"
 	VIDEO_MIX_CFLAGS=$OPENCV_CFLAGS
 else
 	FOUND_VIDEO_MIX_DEP=no
