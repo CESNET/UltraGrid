@@ -567,7 +567,7 @@ decklink_help(bool full)
                 }
 		
 		// *** Print the model name of the DeckLink card
-                cout << "\t" << style::bold << numDevices << style::reset << ") " << style::bold <<  deviceName << style::reset << "\n";
+                cout << "\t" << BOLD(numDevices) << ") " << BOLD(GREEN(deviceName)) << "\n";
 		
 		// Increment the total number of DeckLink cards found
 		numDevices++;
