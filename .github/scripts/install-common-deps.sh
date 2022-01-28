@@ -10,6 +10,10 @@ case "$(uname -s)" in
                 ;;
 esac
 
+install_ews() {
+        ${SUDO}curl -LS https://raw.githubusercontent.com/MartinPulec/EmbeddableWebServer/master/EmbeddableWebServer.h -o /usr/local/include/EmbeddableWebServer.h
+}
+
 install_juice() {
 (
         git clone https://github.com/paullouisageneau/libjuice.git
@@ -37,6 +41,7 @@ install_zfec() {
         ( cd $GITHUB_WORKSPACE && git submodule update --init ext-deps/zfec || exit 1 )
 }
 
+install_ews
 install_juice
 install_pcp
 install_zfec
