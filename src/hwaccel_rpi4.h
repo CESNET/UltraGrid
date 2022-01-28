@@ -59,27 +59,6 @@ typedef struct av_frame_wrapper{
         struct AVFrame *av_frame;
 } av_frame_wrapper;
 
-#ifdef HAVE_LAVC
-
-#include "libavcodec_common.h"
-
-static inline void av_frame_wrapper_recycle(struct video_frame *f){
-        for(unsigned i = 0; i < f->tile_count; i++){
-                av_frame_wrapper *wrapper = (av_frame_wrapper *)(void *) f->tiles[i].data;
-
-                av_frame_unref(wrapper->av_frame);
-        }
-}
-
-static inline void av_frame_wrapper_copy(struct video_frame *f){
-        for(unsigned i = 0; i < f->tile_count; i++){
-                av_frame_wrapper *wrapper = (av_frame_wrapper *)(void *) f->tiles[i].data;
-
-                wrapper->av_frame = av_frame_clone(wrapper->av_frame);
-        }
-}
-#endif // HAVE_LAVC
-
 #ifdef __cplusplus
 }
 #endif

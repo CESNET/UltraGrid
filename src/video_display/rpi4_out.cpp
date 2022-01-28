@@ -443,6 +443,22 @@ static void frame_data_deleter(struct video_frame *buf){
         delete wrapper;
 }
 
+static inline void av_frame_wrapper_recycle(struct video_frame *f){
+        for(unsigned i = 0; i < f->tile_count; i++){
+                av_frame_wrapper *wrapper = (av_frame_wrapper *)(void *) f->tiles[i].data;
+
+                av_frame_unref(wrapper->av_frame);
+        }
+}
+
+static inline void av_frame_wrapper_copy(struct video_frame *f){
+        for(unsigned i = 0; i < f->tile_count; i++){
+                av_frame_wrapper *wrapper = (av_frame_wrapper *)(void *) f->tiles[i].data;
+
+                wrapper->av_frame = av_frame_clone(wrapper->av_frame);
+        }
+}
+
 static struct video_frame *alloc_new_frame(rpi4_display_state *s){
         auto new_frame = vf_alloc_desc(s->current_desc);
 
