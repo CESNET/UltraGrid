@@ -337,6 +337,16 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                         while (isspace(message[0]) && message[0] != '\0')
                                 message++;
                 }
+
+                /* "port n compress" messages get forwarded to
+                 * port[n].sender.compress, but that is wrong, because frames
+                 * are now compressed before they are passed to the sender
+                 * (sender compression is now always set to "none").
+                 */
+                if (prefix_matches(message, "compress ")){
+                    log_msg(LOG_LEVEL_ERROR, "\"port n compress\" was deprecated. Use \"port[n] compress\" instead\n");
+                    return ret;
+                }
         }
 
         if(strcasecmp(message, "quit") == 0) {

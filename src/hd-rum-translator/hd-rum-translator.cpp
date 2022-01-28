@@ -287,8 +287,8 @@ static struct response *change_replica_type(struct hd_rum_translator_state *s,
         return new_response(RESPONSE_BAD_REQUEST, NULL);
     }
 
-	recompress_port_set_active(s->recompress, index,
-			r->type == replica::type_t::RECOMPRESS);
+    recompress_port_set_active(s->recompress, index,
+            r->type == replica::type_t::RECOMPRESS);
 
     return new_response(RESPONSE_OK, NULL);
 }
@@ -855,7 +855,7 @@ int main(int argc, char **argv)
                         params.hosts[i].addr);
                 EXIT(EXIT_FAILURE);
             }
-			assert(idx == i);
+            assert(idx == i);
             recompress_port_set_active(state.recompress, i, false);
         } else {
             state.replicas[i]->type = replica::type_t::RECOMPRESS;
@@ -868,7 +868,7 @@ int main(int argc, char **argv)
                         params.hosts[i].addr);
                 EXIT(EXIT_FAILURE);
             }
-			assert(idx == i);
+            assert(idx == i);
             // we don't care about this clients, we only tell recompressor to
             // take care about them
             recompress_port_set_active(state.recompress, i, true);
