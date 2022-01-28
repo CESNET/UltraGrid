@@ -1539,14 +1539,15 @@ fi
 # ----------------------------------------------------------------------
 # SDP over HTTP
 # ----------------------------------------------------------------------
-sdp_http=no
 AC_ARG_ENABLE(sdp-http,
-[  --enable-sdp-http       enables SDP/HTTP transport (default is enabled)],
+[  --enable-sdp-http       enables SDP/HTTP transport (default is auto)],
     [sdp_http_req=$enableval],
     [sdp_http_req=$build_default]
     )
 
-if test $sdp_http_req != no
+AC_CHECK_HEADERS([EmbeddableWebServer.h])
+
+if test $sdp_http_req != no && test $ac_cv_header_EmbeddableWebServer_h = yes
 then
         AC_DEFINE([SDP_HTTP], 1, [Add support for SDP over HTTP])
         sdp_http=yes
