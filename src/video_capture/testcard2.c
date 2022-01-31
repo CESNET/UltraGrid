@@ -73,9 +73,14 @@
                 s->audio.ch_count * BUFFER_SEC)
 #define AUDIO_BPS 2
 #define AUDIO_SAMPLE_RATE 48000
+#define BANNER_HEIGHT 150L
+#define BANNER_MARGIN_BOTTOM 75L
 #define BUFFER_SEC 1
 #define DEFAULT_FORMAT "1920:1080:24:UYVY"
+#define EPS_PLUS_1 1.0001
+#define FONT_HEIGHT 108
 #define MOD_NAME "[testcard2] "
+
 
 #ifdef _WIN32
 #define DEFAULT_FONT_DIR "C:\\windows\\fonts"
@@ -94,7 +99,7 @@ void * vidcap_testcard2_thread(void *args);
 struct testcard_state2 {
         int count;
         int size;
-        struct testcard_pixmap surface;
+        unsigned char *bg; ///< bars coverted to dest color_spec
         struct timeval t0;
         struct video_frame *frame;
         struct tile *tile;
@@ -216,9 +221,10 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         {
                 unsigned int rect_size = (s->tile->width + COL_NUM - 1) / COL_NUM;
                 int col_num = 0;
-                s->surface.data = malloc(s->tile->width * 4L * s->tile->height);
-                s->surface.w = s->tile->width;
-                s->surface.h = s->tile->height;
+                struct testcard_pixmap surface;
+                surface.data = malloc(vc_get_datalen(s->tile->width, s->tile->height, RGBA));
+                surface.w = s->tile->width;
+                surface.h = s->tile->height;
                 for (unsigned i = 0; i < s->tile->width; i += rect_size) {
                         struct testcard_rect r;
                         r.w = MIN(rect_size, s->tile->width - i);
@@ -226,10 +232,13 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                         r.x = i;
                         r.y = 0;
                         printf("Fill rect at %d,%d\n", r.x, r.y);
-                        testcard_fillRect(&s->surface, &r,
+                        testcard_fillRect(&surface, &r,
                                         rect_colors[col_num]);
                         col_num = (col_num + 1) % COL_NUM;
                 }
+                s->bg = malloc(vc_get_datalen(s->tile->width, s->tile->height, s->frame->color_spec));
+                testcard_convert_buffer(RGBA, s->frame->color_spec, s->bg, surface.data, s->frame->tiles[0].width, s->frame->tiles[0].height);
+                free(surface.data);
         }
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
@@ -291,9 +300,15 @@ static void vidcap_testcard2_done(void *state)
         
         free(s->audio_tone);
         free(s->audio_silence);
+        free(s->bg);
         free(s);
 }
 
+/**
+ * Only text banner is rendered in RGBA, other elements (background, squares) are already
+ * converted to destination color space. Keep in mind that the regions should be aligned
+ * to 6 (v210 block size), won't work for R12L
+ */
 void * vidcap_testcard2_thread(void *arg)
 {
         set_thread_name(__func__);
@@ -302,11 +317,11 @@ void * vidcap_testcard2_thread(void *arg)
         s = (struct testcard_state2 *)arg;
         struct timeval next_frame_time = { 0 };
         srand(time(NULL));
-        int prev_x1 = rand() % (s->tile->width - 300);
-        int prev_y1 = rand() % (s->tile->height - 300);
+        int prev_x1 = rand() % ((s->tile->width - 300) / 6) * 6;
+        int prev_y1 = rand() % ((s->tile->height - 300) / 6) * 6;
         int down1 = rand() % 2, right1 = rand() % 2;
-        int prev_x2 = rand() % (s->tile->width - 100);
-        int prev_y2 = rand() % (s->tile->height - 100);
+        int prev_x2 = rand() % ((s->tile->width - 96) / 6) * 6;
+        int prev_y2 = rand() % ((s->tile->height - 96) / 6) * 6;
         int down2 = rand() % 2, right2 = rand() % 2;
         
         int stat_count_prev = 0;
@@ -314,10 +329,8 @@ void * vidcap_testcard2_thread(void *arg)
         gettimeofday(&s->last_audio_time, NULL);
         
 #ifdef HAVE_LIBSDL_TTF
-        SDL_Surface *text;
-        SDL_Color col = { 0, 0, 0, 0 };
         TTF_Font * font = NULL;
-        
+        unsigned char *banner = malloc(vc_get_datalen(s->tile->width, BANNER_HEIGHT, RGBA));
         if(TTF_Init() == -1)
         {
           log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize SDL_ttf: %s\n",
@@ -331,7 +344,7 @@ void * vidcap_testcard2_thread(void *arg)
                 strncpy(font_path, font_dir, sizeof font_path - 1); // NOLINT (security.insecureAPI.strcpy)
                 strncat(font_path, "/", sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
                 strncat(font_path, font_candidates[i], sizeof font_path - strlen(font_path) - 1); // NOLINT (security.insecureAPI.strcpy)
-                font = TTF_OpenFont(font_path, 108);
+                font = TTF_OpenFont(font_path, FONT_HEIGHT);
         }
         if(!font) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to load any usable font (last font tried: %s)!\n", TTF_GetError());
@@ -339,29 +352,41 @@ void * vidcap_testcard2_thread(void *arg)
         }
 
 #endif
-        
+        unsigned char square_cols[2][48];
+        uint32_t src[6] = { 0 };
+        testcard_convert_buffer(RGBA, s->frame->color_spec, square_cols[0], (unsigned char *) src, 6, 1);
+        for (int i = 0; i < 6; ++i) src[i] = 0xffff00aa;
+        testcard_convert_buffer(RGBA, s->frame->color_spec, square_cols[1], (unsigned char *) src, 6, 1);
+
+        unsigned char *tmp = malloc(s->tile->data_len);
+        ptrdiff_t block_size = 6 * EPS_PLUS_1 * get_bpp(s->frame->color_spec);
+
         while(!s->should_exit)
         {
+                memcpy(tmp, s->bg, s->tile->data_len);
+
                 struct testcard_rect r;
-                struct testcard_pixmap surf;
-                memcpy(&surf, &s->surface, sizeof surf);
-                surf.data = malloc(4L * surf.w * surf.h);
-                memcpy(surf.data, s->surface.data, 4 * surf.w * surf.h);
-                
                 r.w = 300;
                 r.h = 300;
-                r.x = prev_x1 + (right1 ? 1 : -1) * 4;
-                r.y = prev_y1 + (down1 ? 1 : -1) * 4;
+                r.x = prev_x1 + (right1 ? 1 : -1) * 6;
+                r.y = prev_y1 + (down1 ? 1 : -1) * 6;
                 if(r.x < 0) { right1 = 1; r.x = 0; }
                 if(r.y < 0) { down1 = 1; r.y = 0; }
                 if((unsigned int) r.x + r.w > s->tile->width) { right1 = 0; r.w = s->tile->width - r.x; }
                 if((unsigned int) r.y + r.h > s->tile->height) { down1 = 0; r.h = s->tile->height - r.y; }
                 prev_x1 = r.x;
                 prev_y1 = r.y;
-                testcard_fillRect(&surf, &r, 0x00000000);
-                
-                r.w = 100;
-                r.h = 100;
+
+                unsigned char *ptr = tmp + r.y * vc_get_linesize(s->tile->width, s->frame->color_spec) + (int) (r.x * EPS_PLUS_1 * get_bpp(s->frame->color_spec));
+                for (int y = 0; y < r.h; ++y) {
+                        for (int x = 0; x < r.w / 6; x += 1) {
+                                memcpy(ptr + block_size * x, square_cols[0], block_size);
+                        }
+                        ptr += vc_get_linesize(s->tile->width, s->frame->color_spec);
+                }
+
+                r.w = 96;
+                r.h = 96;
                 r.x = prev_x2 + (right2 ? 1 : -1) * 12;
                 r.y = prev_y2 + (down2 ? 1 : -1) * 9;
                 if(r.x < 0) { right2 = 1; r.x = 0; }
@@ -370,38 +395,43 @@ void * vidcap_testcard2_thread(void *arg)
                 if((unsigned int) r.y + r.h > s->tile->height)  { down2 = 0; r.h = s->tile->height - r.y; }
                 prev_x2 = r.x;
                 prev_y2 = r.y;
-                testcard_fillRect(&surf, &r, 0xffff00aa);
-                
-                r.w = s->tile->width;
-                r.h = 150;
-                r.x = 0;
-                r.y = s->tile->height - r.h - 30;
-                testcard_fillRect(&surf, &r, 0xffffffff);
-                
+
+                ptr = tmp + (long) r.y * vc_get_linesize(s->tile->width, s->frame->color_spec) + (long) (r.x * EPS_PLUS_1 * get_bpp(s->frame->color_spec));
+                for (int y = 0; y < r.h; ++y) {
+                        for (int x = 0; x < r.w / 6; x += 1) {
+                                memcpy(ptr + block_size * x, square_cols[1], block_size);
+                        }
+                        ptr += vc_get_linesize(s->tile->width, s->frame->color_spec);
+                }
+
 #ifdef HAVE_LIBSDL_TTF
+                memset(banner, 0xFF, 4L * s->tile->width * BANNER_HEIGHT);
+
+                SDL_Color col = { 0, 0, 0, 0 };
+
                 char frames[64];
                 double since_start = tv_diff(next_frame_time, s->start_time);
                 snprintf(frames, sizeof frames, "%02d:%02d:%02d %3d", (int) since_start / 3600,
                                 (int) since_start / 60 % 60,
                                 (int) since_start % 60,
                                  s->count % (int) s->frame->fps);
-                text = TTF_RenderText_Solid(font,
+                SDL_Surface *text = TTF_RenderText_Solid(font,
                         frames, col);
-                long xoff = (s->tile->width - text->w) / 2;
-                long yoff = (s->tile->height - 150 / 2 - 30 - text->h / 2);
+                long xoff = ((long) s->tile->width - text->w) / 2;
+                long yoff = (BANNER_HEIGHT - text->h) / 2;
                 for (int i = 0 ; i < text->h; i++) {
-                        uint32_t *d = (uint32_t*)surf.data + xoff + (i + yoff) * s->frame->tiles[0].width;
-                        for (int j = 0 ; j < text->w; j++) {
+                        uint32_t *d = (uint32_t*)banner + xoff + (i + yoff) * s->frame->tiles[0].width;
+                        for (int j = 0 ; j < MIN(text->w, s->tile->width - xoff); j++) {
                                 if (((char *)text->pixels) [i * text->pitch + j]) {
                                         *d = 0x00000000U;
                                 }
                                 d++;
                         }
                 }
+                testcard_convert_buffer(RGBA, s->frame->color_spec, tmp + (s->tile->height - BANNER_MARGIN_BOTTOM - BANNER_HEIGHT) * vc_get_linesize(s->tile->width, s->frame->color_spec), banner, s->frame->tiles[0].width, BANNER_HEIGHT);
+                SDL_FreeSurface(text);
 #endif
-                testcard_convert_buffer(RGBA, s->frame->color_spec, (unsigned char *) s->tile->data, surf.data, s->frame->tiles[0].width, s->frame->tiles[0].height);
-                free(surf.data);
-                
+
 next_frame:
                 next_frame_time = s->start_time;
                 long long since_start_usec = (s->count * 1000000LLU) / s->frame->fps;
@@ -422,6 +452,9 @@ next_frame:
                 if((++s->count) % ((int) s->frame->fps * 5) == 0) {
                         s->play_audio_frame = TRUE;
                 }
+                unsigned char *old_data = (unsigned char *) s->tile->data;
+                s->tile->data = (char *) tmp;
+                tmp = old_data;
                 platform_sem_post(&s->semaphore);
                 
                 
@@ -434,6 +467,9 @@ next_frame:
                         stat_count_prev = s->count;
                 }
         }
+
+        free(tmp);
+        free(banner);
 
         return NULL;
 }
