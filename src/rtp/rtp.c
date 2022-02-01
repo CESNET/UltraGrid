@@ -2807,7 +2807,7 @@ rtp_send_data_hdr(struct rtp *session,
         rtp_packet *packet = NULL;
         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 #ifdef WIN32
-        WSABUF *send_vector;
+        WSABUF *send_vector = NULL;
 #else
         struct iovec send_vector[3];
 #endif
@@ -2856,18 +2856,16 @@ rtp_send_data_hdr(struct rtp *session,
         pad_len = 0;
 
         /* Allocate memory for the packet... */
-        if (buffer == NULL) {
-                assert(buffer_len < RTP_MAX_PACKET_LEN);
-                /* we dont always need 20 (12|16) but this seems to work. LG */
+        assert(buffer_len < RTP_MAX_PACKET_LEN);
+        /* we dont always need 20 (12|16) but this seems to work. LG */
 #ifdef WIN32
-                d = buffer = (uint8_t *) malloc(3 * sizeof(WSABUF) + 20 + RTP_PACKET_HEADER_SIZE);
-                send_vector = d;
-                buffer = (uint8_t *) d + 3 * sizeof(WSABUF);
+        d = (uint8_t *) malloc(3 * sizeof(WSABUF) + 20 + RTP_PACKET_HEADER_SIZE);
+        send_vector = d;
+        buffer = (uint8_t *) d + 3 * sizeof(WSABUF);
 #else
-                d = buffer = (uint8_t *) malloc(20 + RTP_PACKET_HEADER_SIZE);
+        d = buffer = (uint8_t *) malloc(20 + RTP_PACKET_HEADER_SIZE);
 #endif
-                packet = (rtp_packet *) buffer;
-        }
+        packet = (rtp_packet *) buffer;
 
 #ifdef WIN32
         send_vector[0].buf = (char *) (buffer + RTP_PACKET_HEADER_SIZE);
