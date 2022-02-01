@@ -67,6 +67,8 @@
 #include "video_display/pipe.hpp"
 #include "video_rxtx/ultragrid_rtp.h"
 
+#include "utils/profile_timer.hpp"
+
 static constexpr int MAX_QUEUE_SIZE = 2;
 
 using namespace std;
@@ -100,6 +102,7 @@ struct state_transcoder_decompress : public frame_recv_delegate {
 
 void state_transcoder_decompress::frame_arrived(struct video_frame *f, struct audio_frame *a)
 {
+        PROFILE_FUNC;
         if (a) {
                 LOG(LOG_LEVEL_WARNING) << "Unexpectedly receiving audio!\n";
                 AUDIO_FRAME_DISPOSE(a);
@@ -131,6 +134,7 @@ using namespace hd_rum_decompress;
 
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
+        PROFILE_FUNC;
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         return rtp_send_raw_rtp_data(s->video_rxtx->m_network_devices[0],
@@ -139,13 +143,16 @@ ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 
 void state_transcoder_decompress::worker()
 {
+        PROFILE_FUNC;
         bool should_exit = false;
         while (!should_exit) {
                 unique_lock<mutex> l(lock);
+                PROFILE_DETAIL("wait for received frame");
                 have_frame_cv.wait(l, [this]{return !received_frame.empty();});
 
                 auto frame = std::move(received_frame.front());
                 l.unlock();
+                PROFILE_DETAIL("");
 
                 if(!frame){
                         should_exit = true;

@@ -61,6 +61,7 @@
 #include "video_compress.h"
 
 #include "video_rxtx/ultragrid_rtp.h"
+#include "utils/profile_timer.hpp"
 
 namespace {
 struct compress_state_deleter{
@@ -152,6 +153,8 @@ recompress_output_port::recompress_output_port(struct module *parent,
 
 static void recompress_port_write(recompress_output_port& port, shared_ptr<video_frame> frame)
 {
+        PROFILE_FUNC;
+
         port.frames += 1;
 
         auto now = chrono::steady_clock::now();
@@ -172,6 +175,7 @@ static void recompress_port_write(recompress_output_port& port, shared_ptr<video
 }
 
 static void recompress_worker(struct recompress_worker_ctx *ctx){
+        PROFILE_FUNC;
         assert(ctx->compress);
 
         while(auto frame = compress_pop(ctx->compress.get())){
@@ -180,11 +184,13 @@ static void recompress_worker(struct recompress_worker_ctx *ctx){
                         break;
                 }
 
+                PROFILE_DETAIL("port lock");
                 std::lock_guard<std::mutex> lock(ctx->ports_mut);
                 for(auto& port : ctx->ports){
                         if(port.active)
                                 recompress_port_write(port, frame);
                 }
+                PROFILE_DETAIL("compress_pop");
         }
 }
 
@@ -338,6 +344,7 @@ struct state_recompress *recompress_init(struct module *parent) {
 }
 
 void recompress_process_async(state_recompress *s, std::shared_ptr<video_frame> frame){
+        PROFILE_FUNC;
         std::lock_guard<std::mutex> lock(s->mut);
         for(const auto& worker : s->workers){
                 if(worker_get_num_active_ports(worker.second) > 0)
