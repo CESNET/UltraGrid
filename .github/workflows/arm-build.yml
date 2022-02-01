@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - arm-build
+  schedule:
+    - cron:  '0 4 * 20 *' # 20th at 4:00 UTC
 
 jobs:
   Build:
+    if: github.repository == 'CESNET/UltraGrid' || github.event.schedule != null
     runs-on: ubuntu-latest
     strategy:
       matrix:
