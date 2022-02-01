@@ -44,12 +44,15 @@
 #include <libgen.h>
 #ifdef HAVE_SETTHREADDESCRIPTION
 #include <processthreadsapi.h>
+// TODO: not yet present in MinGW headers - remove when available
+HRESULT SetThreadDescription( HANDLE hThread, PCWSTR lpThreadDescription);
 #endif
 
 #include "debug.h"
 #include "host.h"
 #include "utils/thread.h"
 
+#if ! defined  WIN32 || defined HAVE_SETTHREADDESCRIPTION
 static inline char *get_argv_program_name(void) {
         if (uv_argv != NULL && uv_argv[0] != NULL) {
                 char *prog_name = (char *) malloc(strlen(uv_argv[0]) + 2);
@@ -61,6 +64,7 @@ static inline char *get_argv_program_name(void) {
         }
         return strdup("uv-");
 }
+#endif
 
 void set_thread_name(const char *name) {
 #ifdef HAVE_LINUX
@@ -79,16 +83,18 @@ void set_thread_name(const char *name) {
         free(prog_name);
         strcat(tmp, name);
         pthread_setname_np(tmp);
-#elif defined NDEF // WIN32
-// supported from Windows 10, not yet working
-//#ifdef HAVE_SETTHREADDESCRIPTION
-        const char *prefix = "uv-";
-        size_t dst_len = (mbstowcs(NULL, prefix, 0) + mbstowcs(NULL, name, 0) + 1) * sizeof(wchar_t);
+#elif defined  WIN32
+// supported from Windows 10, not yet in headers
+#ifdef HAVE_SETTHREADDESCRIPTION
+        const char *prog_name = get_argv_program_name();
+        size_t dst_len = (mbstowcs(NULL, prog_name, 0) + mbstowcs(NULL, name, 0) + 1) * sizeof(wchar_t);
         wchar_t *tmp = (wchar_t *) alloca(dst_len);
-        mbstowcs(tmp, prefix, dst_len / sizeof(wchar_t));
+        mbstowcs(tmp, prog_name, dst_len / sizeof(wchar_t));
         mbstowcs(tmp + wcslen(tmp), name, dst_len / sizeof(wchar_t) - wcslen(tmp));
         SetThreadDescription(GetCurrentThread(), tmp);
-#endif
+#else
 	UNUSED(name);
+#endif
+#endif
 }
 
