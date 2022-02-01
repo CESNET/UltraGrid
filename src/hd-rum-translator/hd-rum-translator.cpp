@@ -290,7 +290,7 @@ static struct response *change_replica_type(struct hd_rum_translator_state *s,
 static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
         DWORD /* dwNumberOfBytesTransfered */,
         LPOVERLAPPED lpOverlapped, long unsigned int) {
-    struct wsa_aux_storage *aux = (struct wsa_aux_storage *) ((char *) lpOverlapped->hEvent + OFFSET);
+    struct wsa_aux_storage *aux = (struct wsa_aux_storage *)(void *) ((char *) lpOverlapped->hEvent + OFFSET);
     if (--aux->ref == 0) {
         free(aux->overlapped);
         free(lpOverlapped->hEvent);
@@ -446,7 +446,7 @@ static void *writer(void *arg)
                     ref++;
                 }
             }
-            struct wsa_aux_storage *aux = (struct wsa_aux_storage *) ((char *) s->qhead->buf + OFFSET);
+            struct wsa_aux_storage *aux = (struct wsa_aux_storage *)(void *) ((char *) s->qhead->buf + OFFSET);
             memset(aux, 0, sizeof *aux);
             aux->overlapped = (WSAOVERLAPPED *) calloc(ref, sizeof(WSAOVERLAPPED));
             aux->ref = ref;
@@ -852,7 +852,6 @@ int main(int argc, char **argv)
     }
 
     uint64_t received_data = 0;
-    uint64_t received_pkts = 0;
     struct timeval t0;
     gettimeofday(&t0, NULL);
 
@@ -865,7 +864,6 @@ int main(int argc, char **argv)
                && (state.qtail->size = udp_recv_timeout(sock_in, state.qtail->buf, SIZE, &timeout)) > 0
                && !should_exit) {
             received_data += state.qtail->size;
-            received_pkts += 1;
 
             state.qtail = state.qtail->next;
 

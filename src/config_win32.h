@@ -277,6 +277,7 @@ void ShowMessage(int level, char *msg);
 
 #define CLOSESOCKET closesocket
 
+#undef ATTRIBUTE
 #ifdef _MSC_VER
 #define ATTRIBUTE(a)
 #else

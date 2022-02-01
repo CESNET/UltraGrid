@@ -2865,7 +2865,7 @@ rtp_send_data_hdr(struct rtp *session,
 #else
         d = buffer = (uint8_t *) malloc(20 + RTP_PACKET_HEADER_SIZE);
 #endif
-        packet = (rtp_packet *) buffer;
+        packet = (rtp_packet *)(void *) buffer;
 
 #ifdef WIN32
         send_vector[0].buf = (char *) (buffer + RTP_PACKET_HEADER_SIZE);

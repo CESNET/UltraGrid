@@ -50,10 +50,10 @@ struct rs : public fec {
         rs(unsigned int k, unsigned int n);
         rs(const char *cfg);
         virtual ~rs();
-        std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame> frame);
+        std::shared_ptr<video_frame> encode(std::shared_ptr<video_frame> frame) override;
         virtual audio_frame2 encode(audio_frame2 const &) override;
         bool decode(char *in, int in_len, char **out, int *len,
-                const std::map<int, int> &);
+                const std::map<int, int> &) override;
 
 private:
         int get_ss(int hdr_len, int len);

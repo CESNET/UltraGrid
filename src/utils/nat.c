@@ -337,7 +337,7 @@ static bool nat_pmp_add_mapping(natpmp_t *natpmp, int privateport, int publicpor
                 fd_set fds;
                 struct timeval timeout = { 0 };
                 FD_ZERO(&fds);
-                FD_SET(natpmp->s, &fds);
+                FD_SET((fd_t) natpmp->s, &fds);
                 r = getnatpmprequesttimeout(natpmp, &timeout);
                 if (r != 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "NAT PMP - getnatpmprequesttimeout returned %d (%s)\n",
@@ -398,7 +398,7 @@ static bool setup_nat_pmp(struct ug_nat_traverse *state, int video_rx_port, int 
                 fd_set fds;
                 struct timeval timeout;
                 FD_ZERO(&fds);
-                FD_SET(natpmp.s, &fds);
+                FD_SET((fd_t) natpmp.s, &fds);
                 getnatpmprequesttimeout(&natpmp, &timeout);
                 r = select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
                 if(r<0) {

@@ -2008,8 +2008,10 @@ static void vc_copylineRG48toR10k(unsigned char * __restrict dst, const unsigned
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        const uint16_t *in = (const uint16_t *) src;
-        uint32_t *out = (uint32_t *) dst;
+        assert((uintptr_t) src % sizeof(uint16_t) == 0);
+        assert((uintptr_t) dst % sizeof(uint32_t) == 0);
+        const uint16_t *in = (const uint16_t *)(const void *) src;
+        uint32_t *out = (uint32_t *)(void *) dst;
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
 #ifdef WORDS_BIGENDIAN
                 *out++ = r << 22U | g << 12U | b << 2U | 0x3FU; /// @todo just a stub

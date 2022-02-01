@@ -403,6 +403,9 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
         channels = move(new_channels);
         return true;
 #else
+        UNUSED(resampler_state.resample_from);
+        UNUSED(resampler_state.resample_to);
+        UNUSED(resampler_state.resample_ch_count);
         LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
         return false;
 #endif

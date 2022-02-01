@@ -321,7 +321,7 @@ void * vidcap_testcard2_thread(void *arg)
         
 #ifdef HAVE_LIBSDL_TTF
         TTF_Font * font = NULL;
-        unsigned char *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
+        uint32_t *banner = malloc(vc_get_datalen(s->desc.width, BANNER_HEIGHT, RGBA));
         if(TTF_Init() == -1)
         {
           log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize SDL_ttf: %s\n",
@@ -412,15 +412,15 @@ void * vidcap_testcard2_thread(void *arg)
                 long xoff = ((long) s->desc.width - text->w) / 2;
                 long yoff = (BANNER_HEIGHT - text->h) / 2;
                 for (int i = 0 ; i < text->h; i++) {
-                        uint32_t *d = (uint32_t*)banner + xoff + (i + yoff) * s->desc.width;
-                        for (int j = 0 ; j < MIN(text->w, s->desc.width - xoff); j++) {
+                        uint32_t *d = banner + xoff + (i + yoff) * s->desc.width;
+                        for (int j = 0 ; j < MIN(text->w, (int) s->desc.width - xoff); j++) {
                                 if (((char *)text->pixels) [i * text->pitch + j]) {
                                         *d = 0x00000000U;
                                 }
                                 d++;
                         }
                 }
-                testcard_convert_buffer(RGBA, s->desc.color_spec, tmp + (s->desc.height - BANNER_MARGIN_BOTTOM - BANNER_HEIGHT) * vc_get_linesize(s->desc.width, s->desc.color_spec), banner, s->desc.width, BANNER_HEIGHT);
+                testcard_convert_buffer(RGBA, s->desc.color_spec, tmp + (s->desc.height - BANNER_MARGIN_BOTTOM - BANNER_HEIGHT) * vc_get_linesize(s->desc.width, s->desc.color_spec), (unsigned char *) banner, s->desc.width, BANNER_HEIGHT);
                 SDL_FreeSurface(text);
 #endif
 

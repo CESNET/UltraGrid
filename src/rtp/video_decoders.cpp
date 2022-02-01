@@ -214,7 +214,7 @@ struct reported_statistics_cumul {
         ~reported_statistics_cumul() {
                 print();
         }
-        long int last_buffer_number = -1; ///< last received buffer ID
+        long long int last_buffer_number = -1; ///< last received buffer ID
         chrono::steady_clock::time_point t_last = chrono::steady_clock::now();
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
         atomic_ulong fec_ok = 0, fec_corrected = 0, fec_nok = 0;
@@ -242,7 +242,7 @@ struct reported_statistics_cumul {
         }
         void update(int buffer_number) {
                 if (last_buffer_number != -1) {
-                        long int diff = buffer_number -
+                        long long int diff = buffer_number -
                                 ((last_buffer_number + 1) & ((1U<<BUFNUM_BITS) - 1));
                         diff = (diff + (1U<<BUFNUM_BITS)) % (1U<<BUFNUM_BITS);
                         if (diff < (1U<<BUFNUM_BITS) / 2) {

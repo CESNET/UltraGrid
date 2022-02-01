@@ -449,9 +449,17 @@ static int read_sos(struct jpeg_info *param, uint8_t** image)
         int length = (int)read_2byte(*image);
         length -= 2;
 
+        if (length == 0) {
+                log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] Wrong SOS length: %d\n", length);
+                return -1;
+        }
         int comp_count = (int)read_byte(*image);
         if ( comp_count != param->comp_count ) {
                 param->interleaved = false;
+        }
+        if (length < 1 + comp_count * 2 + 3) {
+                log_msg(LOG_LEVEL_ERROR, "[JPEG] [Error] Wrong SOS length: %d\n", length);
+                return -1;
         }
 
         // Collect the component-spec parameters
