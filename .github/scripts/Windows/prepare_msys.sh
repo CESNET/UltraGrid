@@ -78,6 +78,7 @@ fi
 build_cineform() {
         (
         cd cineform-sdk
+        sed -i 's/GetProcessorCount/_&/'  ConvertLib/ImageScaler.cpp # workaround for needless Win GetProcessorCount definition
         cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 . # assume "-G 'Visual Studio 16 2019'"
         cmake --build . --config Release --parallel
         cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig
