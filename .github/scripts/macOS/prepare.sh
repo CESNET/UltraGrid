@@ -18,7 +18,6 @@ brew install speexdsp
 brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
 brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
-( cd cineform-sdk && cmake -DBUILD_TOOLS=OFF . && make -j $(sysctl -n hw.ncpu) CFHDCodecStatic || exit 1 )
 brew install qt@5
 
 sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt
@@ -28,6 +27,12 @@ sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt
 mkdir $TEMP_INST
 cd $TEMP_INST
 
+build_cineform() {(
+        cd $GITHUB_WORKSPACE/cineform-sdk
+        cmake -DBUILD_TOOLS=OFF .
+        make -j $(sysctl -n hw.ncpu) CFHDCodecStatic
+)}
+
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
 install_ximea() {
         hdiutil mount /private/var/tmp/XIMEA_OSX_SP.dmg
@@ -36,9 +41,11 @@ install_ximea() {
         umount /Volumes/XIMEA
 }
 
-# Install AJA
-AJA_DIRECTORY=$SDK_NONFREE_PATH/ntv2sdk
-if [ -d $AJA_DIRECTORY ]; then
+install_aja() {
+        AJA_DIRECTORY=$SDK_NONFREE_PATH/ntv2sdk
+        if [ ! -d $AJA_DIRECTORY ]; then
+                return 0
+        fi
         echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> $GITHUB_ENV
         FEATURES="$FEATURES --enable-aja"
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
@@ -46,15 +53,17 @@ if [ -d $AJA_DIRECTORY ]; then
         sudo cp $AJA_DIRECTORY/bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
         sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
         cd $TEMP_INST
-fi
+}
 
-# DELTACAST
-DELTA_CACHE_INST=$SDK_NONFREE_PATH/VideoMasterHD_inst
-if [ -d $DELTA_CACHE_INST ]; then
+install_deltacast() {
+        DELTA_CACHE_INST=$SDK_NONFREE_PATH/VideoMasterHD_inst
+        if [ ! -d $DELTA_CACHE_INST ]; then
+                return 0
+        fi
         FEATURES="$FEATURES --enable-deltacast"
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         sudo cp -a $DELTA_CACHE_INST/* $(xcrun --show-sdk-path)/System/Library/Frameworks
-fi
+}
 
 # Install NDI
 install_ndi() {
@@ -81,23 +90,30 @@ install_ndi() {
         cd $TEMP_INST
 }
 
+install_live555() {
+        git clone https://github.com/xanview/live555/
+        cd live555
+        git checkout 35c375
+        ./genMakefiles macosx
+        make -j $(sysctl -n hw.ncpu) install
+        cd ..
+}
+
+install_syphon() {
+        wget --no-verbose https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
+        unzip Syphon.SDK.5.zip
+        sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
+}
+
 # Install cross-platform deps
 $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 
-# Install live555
-git clone https://github.com/xanview/live555/
-cd live555
-git checkout 35c375
-./genMakefiles macosx
-make -j $(sysctl -n hw.ncpu) install
-cd ..
-
-# Install Syphon
-wget --no-verbose https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
-unzip Syphon.SDK.5.zip
-sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
-
+build_cineform
+install_aja
+install_deltacast
+install_live555
 install_ndi
+install_syphon
 install_ximea
 
 # Remove installation files
