@@ -4,6 +4,8 @@
 # TODO: add sections EXAMPLES, DESCRIPTION etc.
 # use '-d' parameter to keep source AsciiDoc files (for debugging)
 
+UV_PATH=${UV_PATH-}${UV_PATH+/}
+
 bugreport_and_resources() {
 	cat <<-'EOF'
 	== ENVIRONMENT VARIABLES ==
@@ -42,7 +44,7 @@ uv_man() {
 	== OPTIONS ==
 	EOF
 
-	uv --fullhelp | sed '0,/Options:/d' >> $ASCIIDOC
+	"${UV_PATH}uv" --fullhelp | sed '0,/Options:/d' >> $ASCIIDOC
 
 	bugreport_and_resources >> $ASCIIDOC
 	cat <<-'EOF' >> $ASCIIDOC
@@ -84,10 +86,10 @@ hd_rum_transcode_man() {
 	== OPTIONS ==
 	EOF
 
-	hd-rum-transcode -h | sed '0,/where/{/where/!d};/Please/,$d' >> $ASCIIDOC
+	"${UV_PATH}hd-rum-transcode" -h | sed '0,/where/{/where/!d};/Please/,$d' >> $ASCIIDOC
 
 	printf '\n== NOTES ==\n' >> $ASCIIDOC
-	hd-rum-transcode -h | outdent_output | escape_apostrophe | sed '0,/Please/{/Please/!d}' >> $ASCIIDOC
+	"${UV_PATH}hd-rum-transcode" -h | outdent_output | escape_apostrophe | sed '0,/Please/{/Please/!d}' >> $ASCIIDOC
 
 	# below heredoc contains contiunation of NOTES section
 	cat <<-'EOF' >> $ASCIIDOC
@@ -128,6 +130,9 @@ usage() {
 	printf "\t-n - do not generate manpages (can be useful with -k)\n"
 	printf "\n"
 	printf "\tname of man page - specify 'all' generate all manual pages\n"
+	printf "\n"
+	printf "environment\n"
+	printf "\tUG_PATH - path to executables to generate man from (or must be present in \$PATH)\n"
 }
 
 DRY_RUN=
@@ -195,7 +200,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -t 1 ]; then
-	printf '\e[1mNote: \e[mDo not forget to check the generated manpages!\n'
+	printf "$(tput bold)Note:$(tput sgr0) Do not forget to check the generated manpages!\n"
 fi
 
 # vim: set noexpandtab tw=0:
