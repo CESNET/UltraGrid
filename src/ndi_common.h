@@ -63,6 +63,7 @@
 #define USE_NDI_VERSION 5
 #endif
 
+#define FALLBACK_WIN_NDI_PATH "C:\\Program Files\\NDI\\NDI " TOSTRING(USE_NDI_VERSION) " Runtime\\v" TOSTRING(USE_NDI_VERSION)
 #define NDILIB_NDI_LOAD "NDIlib_v" TOSTRING(USE_NDI_VERSION) "_load"
 #define MAKE_NDI_LIB_NAME(ver) MERGE(NDIlib_v,ver)
 typedef MAKE_NDI_LIB_NAME(USE_NDI_VERSION) NDIlib_t;
@@ -72,12 +73,10 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
 #ifdef _WIN32
         // We check whether the NDI run-time is installed
         const char* p_ndi_runtime = getenv(NDILIB_REDIST_FOLDER);
-        if (!p_ndi_runtime) {       // The NDI run-time is not yet installed. Let the user know and take them to the download URL.
-                //MessageBoxA(NULL, "Please install the NewTek NDI Runtimes to use this application from " NDILIB_REDIST_URL ".", "Runtime Warning.", MB_OK);
-                //ShellExecuteA(NULL, "open", NDILIB_REDIST_URL, 0, 0, SW_SHOWNORMAL);
+        if (!p_ndi_runtime) {
+                p_ndi_runtime = FALLBACK_WIN_NDI_PATH;
                 log_msg(LOG_LEVEL_WARNING, "[NDI] " NDILIB_REDIST_FOLDER " environment variable not defined. "
-                                "Please install the NewTek NDI Runtimes to use this application from " NDILIB_REDIST_URL ".\n");
-                return 0;
+                                "Trying fallback folder: %s\n" , FALLBACK_WIN_NDI_PATH);
         }
 
         // We now load the DLL as it is installed
@@ -99,7 +98,7 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
         if (!NDIlib_load) {       // Unload the DLL if we loaded it
                 // The NDI run-time is not installed correctly. Let the user know and take them to the download URL.
                 log_msg(LOG_LEVEL_ERROR, "[NDI] Failed to load " NDILIB_NDI_LOAD " from NDI: %s.\n"
-                                "Try to reinstall the NewTek NDI Runtimes to use this application from " NDILIB_REDIST_URL ".\n", dlerror());
+                                "Please install the NewTek NDI Runtimes to use this module from " NDILIB_REDIST_URL ".\n", dlerror());
                 if (hNDILib) {
                         FreeLibrary(hNDILib);
                 }
