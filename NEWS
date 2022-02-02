@@ -7,6 +7,8 @@ next
 * added experimental echo canceller support
 * testcard (audio) - file playback now respects bps from --audio-capture-format
 * converting sound samples to a lower bit depth now uses dithering
+* transcoding reflector - ports with same the compression now reuse compressed
+  frames instead of doing the same work
 
 1.7
 ====
