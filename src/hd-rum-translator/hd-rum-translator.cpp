@@ -128,8 +128,7 @@ struct replica {
 };
 
 struct hd_rum_translator_state {
-    hd_rum_translator_state() : mod(), control_state(nullptr), queue(nullptr), qhead(nullptr),
-            qtail(nullptr), qempty(1), qfull(0), decompress(nullptr) {
+    hd_rum_translator_state() {
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_ROOT;
         pthread_mutex_init(&qempty_mtx, NULL);
@@ -145,20 +144,20 @@ struct hd_rum_translator_state {
         module_done(&mod);
     }
     struct module mod;
-    struct control_state *control_state;
-    struct item *queue;
-    struct item *qhead;
-    struct item *qtail;
-    int qempty;
-    int qfull;
+    struct control_state *control_state = nullptr;
+    struct item *queue = nullptr;
+    struct item *qhead = nullptr;
+    struct item *qtail = nullptr;
+    int qempty = 1;
+    int qfull = 0;
     pthread_mutex_t qempty_mtx;
     pthread_mutex_t qfull_mtx;
     pthread_cond_t qempty_cond;
     pthread_cond_t qfull_cond;
 
     vector<replica *> replicas;
-    void *decompress;
-    struct state_recompress *recompress;
+    void *decompress = nullptr;
+    struct state_recompress *recompress = nullptr;
 };
 
 /*
