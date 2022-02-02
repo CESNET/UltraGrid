@@ -305,6 +305,40 @@ static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
 }
 #endif
 
+static int create_output_port(struct hd_rum_translator_state *s,
+        const char *addr, int rx_port, int tx_port, int bufsize, bool force_ip_version,
+        const char *compression, int mtu, const char *fec, int bitrate)
+{
+        struct replica *rep;
+        try {
+            rep = new replica(addr, rx_port, tx_port, bufsize, &s->mod, force_ip_version);
+        } catch (string const & s) {
+            fputs(s.c_str(), stderr);
+            const char *err_msg = "cannot create output port (wrong address?)";
+            log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
+            return -1;
+        }
+        s->replicas.push_back(rep);
+
+        rep->type = compression ? replica::type_t::RECOMPRESS : replica::type_t::USE_SOCK;
+        int idx = recompress_add_port(s->recompress, &rep->mod,
+                addr, compression ? compression : "none",
+                0, tx_port, mtu, fec, bitrate);
+        if (idx < 0) {
+            fprintf(stderr, "Initializing output port '%s' compression failed!\n", addr);
+
+            delete s->replicas.back();
+            s->replicas.pop_back();
+
+            return -1;
+        }
+
+        assert((unsigned) idx == s->replicas.size() - 1);
+        recompress_port_set_active(s->recompress, idx, compression != nullptr);
+
+        return idx;
+}
+
 static void *writer(void *arg)
 {
     struct hd_rum_translator_state *s =
@@ -383,52 +417,21 @@ static void *writer(void *arg)
                     continue;
                 }
                 char *compress = strtok_r(NULL, " ", &save_ptr);
-                struct replica *rep;
-                try {
-                    rep = new replica(host, 0, tx_port, 100*1000, &s->mod, false);
-                } catch (string const & s) {
-                    fputs(s.c_str(), stderr);
-                    const char *err_msg = "cannot create output port (wrong address?)";
-                    log_msg(LOG_LEVEL_ERROR, "%s\n", err_msg);
-                    free_message((struct message *) msg, new_response(RESPONSE_INT_SERV_ERR, err_msg));
+
+                int idx = create_output_port(s,
+                        host, 0, tx_port, 100*1000, false,
+                        compress, 1500, nullptr, RATE_UNLIMITED);
+
+                if(idx < 0) {
+                    free_message((struct message *) msg, new_response(RESPONSE_INT_SERV_ERR, "Cannot create output port."));
                     continue;
                 }
-                s->replicas.push_back(rep);
 
-                if (compress) {
-                    rep->type = replica::type_t::RECOMPRESS;
-                    char *fec = NULL;
-                    int idx = recompress_add_port(s->recompress, &rep->mod,
-                            host, compress,
-                            0, tx_port, 1500, fec, RATE_UNLIMITED);
-                    if (idx < 0) {
-                        delete s->replicas[s->replicas.size() - 1];
-                        s->replicas.erase(s->replicas.end() - 1);
+                if(compress)
+                    log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port %s:%d:0x%08" PRIx32 ".\n", host, tx_port, recompress_get_port_ssrc(s->recompress, idx));
+                else
+                    log_msg(LOG_LEVEL_NOTICE, "Created new forwarding output port %s:%d.\n", host, tx_port);
 
-                        log_msg(LOG_LEVEL_ERROR, "Unable to create recompress!\n");
-                    } else {
-                        assert((unsigned) idx == s->replicas.size() - 1);
-                        recompress_port_set_active(s->recompress, idx, true);
-                        log_msg(LOG_LEVEL_NOTICE, "Created new transcoding output port %s:%d:0x%08" PRIx32 ".\n", host, tx_port, recompress_get_port_ssrc(s->recompress, idx));
-                    }
-                } else {
-                    rep->type = replica::type_t::USE_SOCK;
-                    char compress[] = "none";
-                    char *fec = NULL;
-                    int idx = recompress_add_port(s->recompress, &rep->mod,
-                            host, compress,
-                            0, tx_port, 1500, fec, RATE_UNLIMITED);
-                    if (idx < 0) {
-                        delete s->replicas[s->replicas.size() - 1];
-                        s->replicas.erase(s->replicas.end() - 1);
-
-                        log_msg(LOG_LEVEL_ERROR, "Unable to create recompress!\n");
-                    } else {
-                        assert((unsigned) idx == s->replicas.size() - 1);
-                        recompress_port_set_active(s->recompress, idx, false);
-                        log_msg(LOG_LEVEL_NOTICE, "Created new forwarding output port %s:%d.\n", host, tx_port);
-                    }
-                }
             } else {
                 r = new_response(RESPONSE_BAD_REQUEST, NULL);
             }
@@ -806,7 +809,6 @@ int main(int argc, char **argv)
 
     printf("listening on *:%d\n", params.port);
 
-    state.replicas.resize(params.host_count);
 
     if (params.control_port != -1) {
         if (control_init(params.control_port, params.control_connection_type, &state.control_state, &state.mod, 0) != 0) {
@@ -836,42 +838,13 @@ int main(int argc, char **argv)
             tx_port = params.hosts[i].tx_port;
         }
 
-        try {
-            state.replicas[i] = new replica(params.hosts[i].addr, rx_port, tx_port, bufsize, &state.mod, params.hosts[i].force_ip_version);
-        } catch (string const &s) {
-            fputs(s.c_str(), stderr);
+        const auto& h = params.hosts[i];
+
+        int idx = create_output_port(&state,
+                h.addr, rx_port, tx_port, bufsize, h.force_ip_version,
+                h.compression, h.mtu, h.compression ? h.fec : nullptr, h.bitrate);
+        if(idx < 0) {
             EXIT(EXIT_FAILURE);
-        }
-
-        if(params.hosts[i].compression == NULL) {
-            state.replicas[i]->type = replica::type_t::USE_SOCK;
-            char compress[] = "none";
-            char *fec = NULL;
-            int idx = recompress_add_port(state.recompress, &state.replicas[i]->mod,
-                    params.hosts[i].addr, compress,
-                    0, tx_port, params.hosts[i].mtu, fec, params.hosts[i].bitrate);
-            if(idx < 0) {
-                fprintf(stderr, "Initializing output port '%s' failed!\n",
-                        params.hosts[i].addr);
-                EXIT(EXIT_FAILURE);
-            }
-            assert(idx == i);
-            recompress_port_set_active(state.recompress, i, false);
-        } else {
-            state.replicas[i]->type = replica::type_t::RECOMPRESS;
-
-            int idx = recompress_add_port(state.recompress, &state.replicas[i]->mod,
-                    params.hosts[i].addr, params.hosts[i].compression,
-                    0, tx_port, params.hosts[i].mtu, params.hosts[i].fec, params.hosts[i].bitrate);
-            if(idx < 0) {
-                fprintf(stderr, "Initializing output port '%s' failed!\n",
-                        params.hosts[i].addr);
-                EXIT(EXIT_FAILURE);
-            }
-            assert(idx == i);
-            // we don't care about this clients, we only tell recompressor to
-            // take care about them
-            recompress_port_set_active(state.recompress, i, true);
         }
     }
 
