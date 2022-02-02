@@ -45,12 +45,16 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
+#include "host.h"
+#include "utils/misc.h"
 #ifdef HAVE_SPEEXDSP
 #include <speex/speex_resampler.h>
 #endif
 
 #include <sstream>
 #include <stdexcept>
+
+#define DEFAULT_RESAMPLE_QUALITY 10 // in range [0,10] - 10 best
 
 using namespace std;
 
@@ -338,6 +342,9 @@ void  audio_frame2::change_bps(int new_bps)
         channels = move(new_channels);
 }
 
+ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
+                "  Sets audio resampler quality in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_RESAMPLE_QUALITY) "\n");
+
 bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate)
 {
         if (new_sample_rate == sample_rate) {
@@ -359,12 +366,14 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
                 }
                 resampler_state.resampler = nullptr;
 
+                int quality = DEFAULT_RESAMPLE_QUALITY;
+                if (commandline_params.find("resampler-quality") != commandline_params.end()) {
+                        quality = stoi(commandline_params.at("resampler-quality"));
+                        assert(quality >= 0 && quality <= 10);
+                }
                 int err;
-                /// @todo
-                /// Consider lower quality than 10 (max). This will improve both latency and
-                /// performance.
                 resampler_state.resampler = speex_resampler_init(channels.size(), sample_rate,
-                                new_sample_rate, 10, &err);
+                                new_sample_rate, DEFAULT_RESAMPLE_QUALITY, &err);
                 if(err) {
                         abort();
                 }
