@@ -4,43 +4,44 @@
 APPIMAGE=${APPIMAGE-none}
 ARGV0=${ARGV0-$0}
 
-DIR=`dirname $0`
+DIR=$(dirname "$0")
 AI_LIB_PATH=$DIR/usr/lib
-export LD_LIBRARY_PATH=$AI_LIB_PATH${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
+export LD_LIBRARY_PATH="$AI_LIB_PATH"${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 LD_PRELOAD=${LD_PRELOAD-}
 # there is an issue with running_from_path() which evaluates this executable
 # as being system-installed
 #export PATH=$DIR/usr/bin:$PATH
-export QT_QPA_FONTDIR=$DIR/usr/share/fonts
-export UG_FONT_DIR=$DIR/usr/share/fonts
-export QT_PLUGIN_PATH=$DIR/usr/lib/qt5/plugins
-export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_PLUGIN_PATH/platforms
+export QT_QPA_FONTDIR="$DIR/usr/share/fonts"
+export UG_FONT_DIR="$DIR/usr/share/fonts"
+export QT_PLUGIN_PATH="$DIR/usr/lib/qt5/plugins"
+export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
 
 usage() {
         printf "usage:\n"
-        printf "\t$ARGV0 [--gui [args]]\n"
+        printf "\t%s [--gui [args]]\n" "$ARGV0"
         printf "\t\tinvokes GUI\n"
         printf "\n"
-        printf "\t$ARGV0 --appimage-help\n"
+        printf "\t%s --appimage-help\n" "$ARGV0"
         printf "\t\tprints AppImage related options\n"
         printf "\n"
-        printf "\t$ARGV0 -h|--help|--fullhelp\n"
+        printf "\t%s -h|--help|--fullhelp\n" "$ARGV0"
         printf "\t\tprints this help (extended version with --fullhelp)\n"
         printf "\n"
-        printf "\t$ARGV0 -m|--man [uv|hd-rum-transcode]\n"
+        printf "\t%s -m|--man [uv|hd-rum-transcode]\n" "$ARGV0"
         printf "\t\tprints manual page\n"
         printf "\n"
-        printf "\t$ARGV0 -u|--update [args]\n"
+        printf "\t%s -u|--update [args]\n" "$ARGV0"
         printf "\t\tupdates AppImage (args will be passed to appimageupdatetool)\n"
         printf "\n"
-        printf "\t$ARGV0 --tool uv --help\n"
+        printf "\t%s --tool uv --help\n" "$ARGV0"
         printf "\t\tprints command-line UltraGrid help\n"
         printf "\n"
-        printf "\t$ARGV0 --tool <t> [args]\n"
+        printf "\t%s --tool <t> [args]\n" "$ARGV0"
         printf "\t\tinvokes specified tool\n"
-        printf "\t\ttool may be: $(ls $DIR/usr/bin | tr '\n' ' ')\n"
+        TOOLS=$(find "$DIR/usr/bin" -exec basename {} \; | tr '\n' ' ')
+        printf "\t\ttool may be: %s\n" "$TOOLS"
         printf "\n"
-        printf "\t$ARGV0 args\n"
+        printf "\t%s args\n" "$ARGV0"
         printf "\t\tinvokes command-line UltraGrid\n"
         printf "\n"
 }
@@ -58,30 +59,30 @@ usage_aux() {
 update_notify_days=90
 ## Print update hint if UG binary is older than $update_notify_days days, if $ULTRAGRID_AUTOUPDATE=1 triggers update.
 handle_updates() {
-        if [ $APPIMAGE = none ]; then
+        if [ "$APPIMAGE" = none ]; then
                 return
         fi
-        if [ -n ${ULTRAGRID_AUTOUPDATE-""} ]; then
-                if [ $ULTRAGRID_AUTOUPDATE -eq 1 ]; then
-                        $DIR/appimageupdatetool $APPIMAGE
+        if [ -n "${ULTRAGRID_AUTOUPDATE-}" ]; then
+                if [ "$ULTRAGRID_AUTOUPDATE" -eq 1 ]; then
+                        "$DIR/appimageupdatetool" "$APPIMAGE"
                 fi
                 return
         fi
-        if expr $APPIMAGE : '.*continuous' > /dev/null; then
+        if expr "$APPIMAGE" : '.*continuous' > /dev/null; then
                 update_notify_days=30
         fi
-        APPIMAGE_MTIME=$(stat --format=%Y $APPIMAGE)
+        APPIMAGE_MTIME=$(stat -c %Y "$APPIMAGE")
         CURR_TIMESTAMP=$(date +%s)
-        if [ $CURR_TIMESTAMP -lt $(($APPIMAGE_MTIME + $update_notify_days * 24 * 60 * 60)) ]; then
+        if [ "$CURR_TIMESTAMP" -lt $((APPIMAGE_MTIME + update_notify_days * 24 * 60 * 60)) ]; then
                 return
         fi
-        printf "UltraGrid binary older than $update_notify_days days, consider checking updates:\n"
+        printf "UltraGrid binary older than %d days, consider checking updates:\n" $update_notify_days
         printf "\n"
-        printf "$ARGV0 -u\n"
+        printf "%s -u\n" "$ARGV0"
         printf "\t- updates AppImage\n"
-        printf "$ARGV0 -u -j; [ \$? -eq 1 ] && echo Update available || echo No update available\n"
+        printf "%s -u -j; [ \$? -eq 1 ] && echo Update available || echo No update available\n" "$ARGV0"
         printf "\t- check for update without actually updating\n"
-        printf "$ARGV0 -u -h\n"
+        printf "%s -u -h\n" "$ARGV0"
         printf "\t- prints update options\n"
         printf "\n"
         printf "Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for automatic update or 0 to suppress the above message.\n"
@@ -128,15 +129,15 @@ set_libva_ld_preload() {
                         LIBVA_LIB=$LIBVA_LIB:$NAME
                 fi
         done
-        export LD_PRELOAD=$LIBVA_LIB${LD_PRELOAD:+":$LD_PRELOAD"}
+        export LD_PRELOAD="$LIBVA_LIB${LD_PRELOAD:+:$LD_PRELOAD}"
         return 0
 }
 
 ## Tries to set LD_PRELOAD to system libva (see set_libva_ld_preload()). If failed, sets path to bundled libva drivers.
 setup_vaapi() {
-        if [ ${ULTRAGRID_BUNDLED_LIBVA:-0} -eq 1 ] || ! set_libva_ld_preload; then
+        if [ "${ULTRAGRID_BUNDLED_LIBVA:-0}" -eq 1 ] || ! set_libva_ld_preload; then
                 if [ -d "$DIR/usr/lib/va" ] && [ -z "${LIBVA_DRIVERS_PATH:-}" ]; then
-                        export LIBVA_DRIVERS_PATH=$AI_LIB_PATH/va
+                        export LIBVA_DRIVERS_PATH="$AI_LIB_PATH/va"
                 fi
         fi
 }
@@ -146,7 +147,7 @@ setup_vaapi
 RUN=
 if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
         command -v firejail >/dev/null || { echo "Firejail not present in system!"; exit 1; }
-        if expr $ULTRAGRID_USE_FIREJAIL : '.*\.profile' >/dev/null; then
+        if expr "$ULTRAGRID_USE_FIREJAIL" : '.*\.profile' >/dev/null; then
                 FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
         else
                 FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --private --read-only=/tmp --writable-var"
@@ -161,38 +162,40 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
         RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH} --env=UG_FONT_DIR=${UG_FONT_DIR} $FIREJAIL_OPTS "
 fi
 
-if [ $# -eq 0 -o x"${1-}" = x"--gui" ]; then
+if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
         handle_updates
-        [ $# -eq 0 ] && usage || shift
-        if [ -x $DIR/usr/bin/uv-qt ]; then
-                $DIR/usr/bin/uv-qt --with-uv $DIR/usr/bin/uv "$@"
+        if [ $# -eq 0 ]; then usage; else shift; fi
+        if [ -x "$DIR/usr/bin/uv-qt" ]; then
+                "$DIR/usr/bin/uv-qt" --with-uv "$DIR/usr/bin/uv" "$@"
         else
                 echo "GUI was not compiled in!" >&2
                 exit 1
         fi
-elif [ x"$1" = x"--tool" ]; then
+elif [ "$1" = "--tool" ]; then
         handle_updates
         TOOL=$2
         shift 2
-        ${RUN}$DIR/usr/bin/$TOOL "$@"
-elif [ x"$1" = x"-h" -o x"$1" = x"--help" ]; then
+        # shellcheck disable=SC2086
+        ${RUN}"$DIR/usr/bin/$TOOL" "$@"
+elif [ "$1" = x"-h" ] || [ "$1" = "--help" ]; then
         usage
         exit 0
-elif [ x"$1" = x"--fullhelp" ]; then
+elif [ "$1" = "--fullhelp" ]; then
         usage
         usage_aux
         exit 0
-elif [ x"$1" = x"-m" -o x"$1" = x"--man" ]; then
+elif [ "$1" = "-m" ] || [ "$1" = "--man" ]; then
         PAGE=${2:-uv}
-        cat $DIR/usr/share/man/man1/$PAGE.1 | man -l -
-elif [ x"$1" = x"-u" -o x"$1" = x"--update" ]; then
+        man -l "$DIR/usr/share/man/man1/$PAGE.1"
+elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
         shift
         unset LD_LIBRARY_PATH
-        touch $APPIMAGE # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
-        $DIR/appimageupdatetool ${1+"$@" }$APPIMAGE
+        touch "$APPIMAGE" # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
+        "$DIR/appimageupdatetool" ${1+"$@" }"$APPIMAGE"
 else
         handle_updates
-        ${RUN}$DIR/usr/bin/uv "$@"
+        # shellcheck disable=SC2086
+        ${RUN}"$DIR/usr/bin/uv" "$@"
 fi
 
 exit $?
