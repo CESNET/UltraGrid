@@ -21,10 +21,8 @@ on:
       - '**.m'
       - '**.mm'
       - 'autogen.sh'
-      - 'cineform-sdk'
       - 'configure.ac'
       - 'data/scripts/**'
-      - 'gpujpeg'
       - 'Makefile.in'
 
 jobs:

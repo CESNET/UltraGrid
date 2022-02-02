@@ -18,7 +18,7 @@ brew install speexdsp
 brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
 brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
-( git submodule update --init cineform-sdk && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make -j $(sysctl -n hw.ncpu) CFHDCodecStatic || exit 1 )
+( cd cineform-sdk && cmake -DBUILD_TOOLS=OFF . && make -j $(sysctl -n hw.ncpu) CFHDCodecStatic || exit 1 )
 brew install qt@5
 
 sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt
@@ -81,6 +81,9 @@ install_ndi() {
         cd $TEMP_INST
 }
 
+# Install cross-platform deps
+$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
+
 # Install live555
 git clone https://github.com/xanview/live555/
 cd live555
@@ -96,9 +99,6 @@ sudo cp -R 'Syphon SDK 5/Syphon.framework' /Library/Frameworks
 
 install_ndi
 install_ximea
-
-# Install cross-platform deps
-$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 
 # Remove installation files
 cd

@@ -77,13 +77,15 @@ fi
 
 build_cineform() {
         (
-        git submodule update --init cineform-sdk
         cd cineform-sdk
         cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 . # assume "-G 'Visual Studio 16 2019'"
         cmake --build . --config Release --parallel
         cp Release/CFHDCodec.dll /usr/local/bin && cp Release/CFHDCodec.lib /usr/local/lib && cp Common/* /usr/local/include && cp libcineformsdk.pc /usr/local/lib/pkgconfig
         )
 }
+
+# Install cross-platform deps
+$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 
 $GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh
 $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
@@ -95,7 +97,4 @@ wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.
 ( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local || exit 1 )
 
 build_cineform
-
-# Install cross-platform deps
-$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 

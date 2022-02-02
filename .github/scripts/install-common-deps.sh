@@ -10,6 +10,11 @@ case "$(uname -s)" in
                 ;;
 esac
 
+# only download here, compilation is handled per-platform
+download_cineform() {
+        ( cd $GITHUB_WORKSPACE && git clone --depth 1 https://github.com/gopro/cineform-sdk || exit 1 )
+}
+
 install_ews() {
         ${SUDO}curl -LS https://raw.githubusercontent.com/MartinPulec/EmbeddableWebServer/master/EmbeddableWebServer.h -o /usr/local/include/EmbeddableWebServer.h
 }
@@ -38,9 +43,10 @@ install_pcp() {
 }
 
 install_zfec() {
-        ( cd $GITHUB_WORKSPACE && git submodule update --init ext-deps/zfec || exit 1 )
+        ( cd $GITHUB_WORKSPACE && git clone --depth 1 https://github.com/tahoe-lafs/zfec ext-deps/zfec || exit 1 )
 }
 
+download_cineform
 install_ews
 install_juice
 install_pcp
