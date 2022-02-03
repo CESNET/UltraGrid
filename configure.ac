@@ -2646,6 +2646,9 @@ if test $cross_compile = no; then
                         ZFEC_PREFIX=$(ls -d /usr/lib/python* | tail -n 1)/site-packages/zfec
                 fi
                 if test ! -d "$ZFEC_PREFIX"; then
+                        ZFEC_PREFIX=/usr/local/src/zfec
+                fi
+                if test ! -d "$ZFEC_PREFIX"; then
                         ZFEC_PREFIX=/usr/src/zfec
                 fi
                 AC_CHECK_FILES([$ZFEC_PREFIX/fec.c $ZFEC_PREFIX/fec.h], [found_zfec=yes])

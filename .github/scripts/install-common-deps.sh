@@ -46,7 +46,8 @@ install_pcp() {
 
 install_zfec() {(
         git clone --depth 1 https://github.com/tahoe-lafs/zfec zfec
-        ${SUDO}mv zfec /usr/src
+        ${SUDO}mkdir -p /usr/local/src
+        ${SUDO}mv zfec/zfec /usr/local/src
 )}
 
 download_cineform
