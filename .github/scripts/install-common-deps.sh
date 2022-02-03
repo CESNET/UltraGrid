@@ -11,9 +11,11 @@ case "$(uname -s)" in
 esac
 
 # only download here, compilation is handled per-platform
-download_cineform() {
-        ( cd $GITHUB_WORKSPACE && git clone --depth 1 https://github.com/gopro/cineform-sdk || exit 1 )
-}
+download_cineform() {(
+        cd $GITHUB_WORKSPACE
+        git clone --depth 1 https://github.com/gopro/cineform-sdk
+        mkdir cineform-sdk/build
+)}
 
 install_ews() {
         ${SUDO}curl -LS https://raw.githubusercontent.com/MartinPulec/EmbeddableWebServer/master/EmbeddableWebServer.h -o /usr/local/include/EmbeddableWebServer.h

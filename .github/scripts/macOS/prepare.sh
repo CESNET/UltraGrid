@@ -28,9 +28,10 @@ mkdir $TEMP_INST
 cd $TEMP_INST
 
 build_cineform() {(
-        cd $GITHUB_WORKSPACE/cineform-sdk
-        cmake -DBUILD_TOOLS=OFF .
-        make -j $(sysctl -n hw.ncpu) CFHDCodecStatic
+        cd $GITHUB_WORKSPACE/cineform-sdk/build
+        cmake -DBUILD_TOOLS=OFF ..
+        cmake --build . --parallel
+        sudo cmake --install .
 )}
 
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)

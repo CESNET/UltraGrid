@@ -56,7 +56,6 @@ sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 
 ( ./bootstrap_gpujpeg.sh -d && mkdir ext-deps/gpujpeg/build && cd ext-deps/gpujpeg/build && CUDA_FLAGS=-D_FORCE_INLINES CXXFLAGS=-std=c++11 CC=$CUDA_HOST_COMPILER ../autogen.sh && make && sudo make install && sudo ldconfig || exit 1 )
-( sudo apt install uuid-dev && cd cineform-sdk/ && cmake -DBUILD_TOOLS=OFF . && make CFHDCodecStatic || exit 1 )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
 
@@ -78,6 +77,14 @@ if [ -n "$SDK_URL" ]; then
                 make -j $(nproc)
         fi
 fi
+
+install_cineform() {(
+        sudo apt install uuid-dev
+        cd $GITHUB_WORKSPACE/cineform-sdk/build
+        cmake -DBUILD_TOOLS=OFF ..
+        cmake --build . --parallel
+        sudo cmake --install .
+)}
 
 # Install NDI
 install_ndi() {
@@ -102,5 +109,6 @@ make -j $(nproc) CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
 sudo make install
 cd ..
 
+install_cineform
 install_ndi
 
