@@ -3322,7 +3322,10 @@ if test "$FOUND_CINEFORM" = yes; then
                 CINEFORM_LIB="${CINEFORM_LIB} -luuid"
         fi
 else # if not found, look for libcineform with pkg-config configuration
-        PKG_CHECK_MODULES([CINEFORM], [libcineform], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+        PKG_CHECK_MODULES([CINEFORM], [libcineformsdk], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+        if test "$FOUND_CINEFORM" = no; then
+                PKG_CHECK_MODULES([CINEFORM], [libcineform], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+        fi
         CINEFORM_INC=$CINEFORM_CFLAGS
         CINEFORM_LIB=$CINEFORM_LIBS
 fi
