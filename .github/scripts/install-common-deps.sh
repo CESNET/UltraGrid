@@ -44,9 +44,10 @@ install_pcp() {
         rm -rf pcp
 }
 
-install_zfec() {
-        ( cd $GITHUB_WORKSPACE && git clone --depth 1 https://github.com/tahoe-lafs/zfec ext-deps/zfec || exit 1 )
-}
+install_zfec() {(
+        git clone --depth 1 https://github.com/tahoe-lafs/zfec zfec
+        ${SUDO}mv zfec /usr/src
+)}
 
 download_cineform
 install_ews
