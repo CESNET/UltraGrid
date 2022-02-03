@@ -988,6 +988,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 
         // codec doesn't call get_format_callback (J2K, 10-bit RGB HEVC)
         if (s->out_codec == VIDEO_CODEC_NONE && res == DECODER_GOT_FRAME) {
+                log_msg(LOG_LEVEL_VERBOSE, "[lavd] Available output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
                 if (has_conversion(s->codec_ctx->pix_fmt, internal_codec)) {
                         s->internal_codec = *internal_codec;
                         return DECODER_GOT_CODEC;
