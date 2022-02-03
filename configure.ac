@@ -2633,7 +2633,7 @@ AC_ARG_ENABLE(zfec,
               [zfec_req=$enableval],
               [zfec_req=$build_default])
 AC_ARG_WITH(zfec,
-        AS_HELP_STRING([--with-zfec], [path to zfec sources]),
+        AS_HELP_STRING([--with-zfec=DIR], [path to zfec sources]),
         [ZFEC_PREFIX=$withval],
         [ZFEC_PREFIX=$srcdir/ext-deps/zfec/zfec]
 )
