@@ -1191,6 +1191,11 @@ static void display_gl_render_last() {
         glutSwapBuffers();
 }
 
+#define GL_DISABLE_10B_OPT "gl-disable-10b"
+ADD_TO_PARAM(GL_DISABLE_10B_OPT ,
+         "* " GL_DISABLE_10B_OPT "\n"
+         "  Disable 10 bit codec processing to improve performance\n");
+
 static bool display_gl_init_opengl(struct state_gl *s)
 {
 #if defined HAVE_LINUX || defined WIN32
@@ -1208,7 +1213,10 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 return false;
         }
 #endif
-        string glut_config{"rgba red=10 green=10 blue=10 "s + (s->vsync == SINGLE_BUF ? "single"s : "double"s)};
+        string glut_config = s->vsync == SINGLE_BUF ? "single" : "double";
+        if (commandline_params.find(GL_DISABLE_10B_OPT) == commandline_params.end()) {
+                glut_config += " rgba red=10 green=10 blue=10";
+        }
         glutInitDisplayString(glut_config.c_str());
 
 #ifdef HAVE_MACOSX
@@ -1853,7 +1861,10 @@ static int display_gl_get_property(void *state, int property, void *val, size_t 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
                         if (sizeof gl_supp_codecs <= *len) {
-                                memcpy(val, gl_supp_codecs.data(), sizeof gl_supp_codecs);
+                                auto filter_codecs = [](codec_t c) {
+                                        return c != R10k || commandline_params.find(GL_DISABLE_10B_OPT) == commandline_params.end(); // option to disable 10-bit processing
+                                };
+                                copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(), (codec_t *) val, filter_codecs);
                         } else {
                                 return FALSE;
                         }
