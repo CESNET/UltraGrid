@@ -231,26 +231,25 @@ int32_t downshift_with_dither(int32_t val, int shift){
 
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
 {
-        int i;
-
         assert ((unsigned int) out_bps <= sizeof(int32_t));
 
-        for(i = 0; i < in_len / in_bps; i++) {
-                int32_t in_value = format_from_in_bps(in, in_bps);
-
-                int32_t out_value;
-
-                if(in_bps > out_bps) {
-                        const int downshift = in_bps * 8 - out_bps * 8;
-                        out_value = downshift_with_dither(in_value, downshift);
-                } else {
-                        out_value = in_value << (out_bps * 8 - in_bps * 8);
+        if (in_bps > out_bps) {
+                const int downshift = in_bps * 8 - out_bps * 8;
+                for (int i = 0; i < in_len / in_bps; i++) {
+                        int32_t in_value = format_from_in_bps(in, in_bps);
+                        int32_t out_value = downshift_with_dither(in_value, downshift);
+                        format_to_out_bps(out, out_bps, out_value);
+                        in += in_bps;
+                        out += out_bps;
                 }
-
-                format_to_out_bps(out, out_bps, out_value);
-
-                in += in_bps;
-                out += out_bps;
+        } else {
+                for (int i = 0; i < in_len / in_bps; i++) {
+                        int32_t in_value = format_from_in_bps(in, in_bps);
+                        int32_t out_value = in_value << (out_bps * 8 - in_bps * 8);
+                        format_to_out_bps(out, out_bps, out_value);
+                        in += in_bps;
+                        out += out_bps;
+                }
         }
 }
 
