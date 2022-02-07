@@ -109,18 +109,15 @@ static void audio_cap_testcard_help(const char *driver_name)
 static char *get_sine_signal(int sample_rate, int bps, int channels, int frequency, double volume) {
         char *data = (char *) calloc(1, sample_rate * channels * bps);
         double scale = pow(10.0, volume / 20.0) * sqrt(2.0);
+        bool dither = sample_rate % frequency != 0 && commandline_params.find("no-dither") == commandline_params.end();
 
         for (int i = 0; i < (int) sample_rate; i += 1)
         {
                 for (int channel = 0; channel < channels; ++channel) {
                         double sine = sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. );
                         int32_t val = std::clamp(sine * INT32_MAX * scale, (double) INT32_MIN, (double) INT32_MAX);
-
-                        const int downshift = 4 * 8 - bps * 8;
-                        val = downshift_with_dither(val, downshift);
-
-                        format_to_out_bps(data + i * bps * channels + bps * channel,
-                                        bps, val);
+                        change_bps2(data + static_cast<ptrdiff_t>(i) * bps * channels + static_cast<ptrdiff_t>(bps) * channel,
+                                        bps, reinterpret_cast<char *>(&val), sizeof val, 1 * sizeof val, dither);
                 }
         }
 
