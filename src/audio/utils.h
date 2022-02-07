@@ -70,6 +70,8 @@ void audio_frame_write_desc(struct audio_frame *f, struct audio_desc desc);
  * The memory areas shouldn't (supposedly) overlap.
  */
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
+/// @brief changes bps with option to specify whether or not do the dithering
+void change_bps2(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */, bool dither);
 
 /**
  * Bit-shifts val down by shift bits with a triangular dither noise.

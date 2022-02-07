@@ -43,17 +43,16 @@
 #endif // HAVE_CONFIG_H
 
 
+#include <cassert>
+#include <climits>
+#include <cmath>
+#include <cstring>
+
 #include "audio/codec.h"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
-#include <assert.h>
-#include <limits.h>
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <random>
-
+#include "host.h" // ADD_TO_PARAM
 
 #ifdef WORDS_BIGENDIAN
 #error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
@@ -229,11 +228,32 @@ int32_t downshift_with_dither(int32_t val, int shift){
         return (val + triangle_dither) >> shift;
 }
 
-void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
+#define NO_DITHER_PARAM "no-dither"
+ADD_TO_PARAM(NO_DITHER_PARAM, "* " NO_DITHER_PARAM "\n"
+                "  Disable audio dithering when resampling\n");
+
+void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */) {
+        static const bool dither = commandline_params.find(NO_DITHER_PARAM) == commandline_params.end();
+        change_bps2(out, out_bps, in, in_bps, in_len, dither);
+}
+
+void change_bps2(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */, bool dither)
 {
         assert ((unsigned int) out_bps <= sizeof(int32_t));
 
-        if (in_bps > out_bps) {
+        if (in_bps < out_bps ) {
+                for (int i = 0; i < in_len / in_bps; i++) {
+                        int32_t in_value = format_from_in_bps(in, in_bps);
+                        int32_t out_value = in_value << (out_bps * 8 - in_bps * 8);
+                        format_to_out_bps(out, out_bps, out_value);
+                        in += in_bps;
+                        out += out_bps;
+                }
+                return;
+        }
+
+        // downsampling
+        if (dither) {
                 const int downshift = in_bps * 8 - out_bps * 8;
                 for (int i = 0; i < in_len / in_bps; i++) {
                         int32_t in_value = format_from_in_bps(in, in_bps);
@@ -242,14 +262,15 @@ void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /
                         in += in_bps;
                         out += out_bps;
                 }
-        } else {
-                for (int i = 0; i < in_len / in_bps; i++) {
-                        int32_t in_value = format_from_in_bps(in, in_bps);
-                        int32_t out_value = in_value << (out_bps * 8 - in_bps * 8);
-                        format_to_out_bps(out, out_bps, out_value);
-                        in += in_bps;
-                        out += out_bps;
-                }
+                return;
+        }
+        // no dithering
+        for (int i = 0; i < in_len / in_bps; i++) {
+                int32_t in_value = format_from_in_bps(in, in_bps);
+                int32_t out_value = in_value >> (in_bps * 8 - out_bps * 8);
+                format_to_out_bps(out, out_bps, out_value);
+                in += in_bps;
+                out += out_bps;
         }
 }
 
