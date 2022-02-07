@@ -240,6 +240,12 @@ void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /
 void change_bps2(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */, bool dither)
 {
         assert ((unsigned int) out_bps <= sizeof(int32_t));
+        static_assert(-2>>1 == -1, "Implementation-defined behavior doesn't work as expected by the implementation.");
+
+        if (in_bps == out_bps ) {
+                memcpy(out, in, in_len);
+                return;
+        }
 
         if (in_bps < out_bps ) {
                 for (int i = 0; i < in_len / in_bps; i++) {
