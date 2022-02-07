@@ -52,13 +52,12 @@
 #include "host.h"
 #include "lib_common.h"
 
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <chrono>
-#include <string>
 #include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
+#include <string>
 
 using namespace std::chrono;
 using std::string;
