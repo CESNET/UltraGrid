@@ -18,7 +18,7 @@ download_cineform() {(
 )}
 
 install_ews() {
-        ${SUDO}curl -LS https://raw.githubusercontent.com/MartinPulec/EmbeddableWebServer/master/EmbeddableWebServer.h -o /usr/local/include/EmbeddableWebServer.h
+        ${SUDO}curl -LS https://raw.githubusercontent.com/hellerf/EmbeddableWebServer/master/EmbeddableWebServer.h -o /usr/local/include/EmbeddableWebServer.h
 }
 
 install_juice() {
