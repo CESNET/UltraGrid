@@ -9,6 +9,7 @@ next
 * converting sound samples to a lower bit depth now uses dithering
 * transcoding reflector - ports with same the compression now reuse compressed
   frames instead of doing the same work
+* conference mode now automatically sends back video to all participants
 
 1.7
 ====
