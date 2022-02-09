@@ -206,15 +206,14 @@ void audio_frame_write_desc(struct audio_frame *f, struct audio_desc desc)
 }
 
 int32_t downshift_with_dither(int32_t val, int shift){
-        static thread_local std::uint_fast32_t last_rand = 1;
+        static thread_local uint32_t last_rand = 0;
 
-        const int mask = (1 << shift) - 1;
-
-        //Pseudorandom number generation, same parameters as std::minstd_rand
-        last_rand = (last_rand * 48271) % 2147483647;
-        int triangle_dither = last_rand & mask;
-        last_rand = (last_rand * 48271) % 2147483647;
-        triangle_dither -= last_rand & mask; //triangle probability distribution
+        //Quick and dirty random number generation (ranqd1)
+        //Numerical Recipes in C, page 284
+        last_rand = (last_rand * 1664525) + 1013904223L;
+        int triangle_dither = last_rand >> (32 - shift);
+        last_rand = (last_rand * 1664525) + 1013904223L;
+        triangle_dither -= last_rand >> (32 - shift); //triangle probability distribution
 
         /* Prevent over/underflow when val is big.
          *
@@ -222,15 +221,20 @@ int32_t downshift_with_dither(int32_t val, int shift){
          * 32-bit pcm is rare and should not contain the value INT32_MIN
          * anyway because of symmetry, as specified by AES17 and IEC 61606-3
          */
-        if(INT32_MAX - abs(val) < mask)
-                return val >> shift;
+        if(INT32_MAX - abs(val) < (1 << shift) - 1 + (1 << (shift - 1)))
+                return val / (1 << shift);
 
-        return (val + triangle_dither) >> shift;
+        if(val > 0)
+                val += 1 << (shift - 1);
+        else
+                val -= 1 << (shift - 1);
+
+        return (val + triangle_dither) / (1 << shift);
 }
 
 #define NO_DITHER_PARAM "no-dither"
 ADD_TO_PARAM(NO_DITHER_PARAM, "* " NO_DITHER_PARAM "\n"
-                "  Disable audio dithering when resampling\n");
+                "  Disable audio dithering when reducing bit depth\n");
 
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */) {
         static const bool dither = commandline_params.find(NO_DITHER_PARAM) == commandline_params.end();
