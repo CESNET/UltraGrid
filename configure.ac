@@ -2076,6 +2076,38 @@ if test $screen_cap_req = yes -a $screen_cap = no; then
         AC_MSG_ERROR([Screen capture not found]);
 fi
 
+SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/screen_pipewire.o"
+
+# SCREEN_CAP_PIPEWIRE_LIBS="$LIBS -lpipewire-0.3 -lglib-2.0  -lgobject-2.0 -lgio -lgio-unix-2.0"
+
+SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs libpipewire-0.3)"
+SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs glib-2.0)"
+SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gobject-2.0)"
+SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gio)"
+SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gio-unix-2.0)"
+
+SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I libpipewire-0.3)"
+SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I glib-2.0)"
+SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gobject-2.0)"
+SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-2.0)"
+SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
+
+screen_cap_pipewire=yes
+
+AC_ARG_ENABLE(screen_pipewire,
+[  --disable-screen-pipewire        disable pipewire capture (default is auto)]
+[                                   Requires: TODO],
+[screen_cap_pipewire_req=$enableval],
+[screen_cap_pipewire_req=$build_default]
+)
+
+INC="$INC $INCSCREEN_CAP_PIPEWIRE_INC"
+CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
+
+#BLANK_OBJ="$BLANK_OBJ src/libavcodec_common.o" # get_ug_to_av_pixfmt()
+ADD_MODULE("vidcap_screen_pipewire", "$SCREEN_CAP_PIPEWIRE_OBJ", "$SCREEN_CAP_PIPEWIRE_LIBS")
+
+
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
 # -------------------------------------------------------------------------------------------------
@@ -3473,6 +3505,7 @@ RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
+RESULT=`add_column "$RESULT" "Screen capture pipewire" $screen_cap_pipewire $?`
 RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
