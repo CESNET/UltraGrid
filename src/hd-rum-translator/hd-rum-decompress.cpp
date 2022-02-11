@@ -132,7 +132,6 @@ using namespace hd_rum_decompress;
 
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
-        PROFILE_FUNC;
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         return rtp_send_raw_rtp_data(s->video_rxtx->m_network_devices[0],
