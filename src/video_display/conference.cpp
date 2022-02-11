@@ -1,10 +1,10 @@
 /**
  * @file   video_display/conference.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
- * @author Martin Piatka    <445597@mail.muni.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 #include "video.h"
 #include "video_display.h"
 #include "video_codec.h"
+#include "utils/misc.h"
 
 #include <cinttypes>
 #include <condition_variable>
@@ -54,335 +55,339 @@
 #include <memory>
 #include <mutex>
 #include <queue>
-#include <unordered_map>
-
-#include <sys/time.h>
+#include <thread>
+#include <string_view>
+#include <charconv>
 
 #pragma GCC diagnostic push
-#pragma GCC diagnostic warning "-Wcast-align"
-#pragma GCC diagnostic warning "-Wcast-qual"
-#include <opencv2/opencv.hpp>
+#pragma GCC diagnostic ignored "-Wcast-align"
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#include <opencv2/core/mat.hpp>
+#include <opencv2/imgproc.hpp>
 #pragma GCC diagnostic pop
 
-#ifdef HAVE_OPENCV_CUDA
-#ifdef HAVE_OPENCV_2
-#include <opencv2/gpu/gpu.hpp>
-using GpuMat = cv::gpu::GpuMat;
-using Stream = cv::gpu::Stream;
-#define gpu_resize(...) cv::gpu::resize(__VA_ARGS__)
-#elif defined HAVE_OPENCV_3
-#include <opencv2/cudawarping.hpp>
-using GpuMat = cv::cuda::GpuMat;
-using Stream = cv::cuda::Stream;
-#define gpu_resize(...) cv::cuda::resize(__VA_ARGS__)
-#endif
+#ifdef __SSSE3__
+#include "tmmintrin.h"
 #endif
 
+#include "utils/profile_timer.hpp"
 
-struct Tile{
-        cv::Mat img;
-#ifdef HAVE_OPENCV_CUDA
-        GpuMat gpuImg;
-#endif
-        int width, height;
-        int posX, posY;
+#define MOD_NAME "[conference] "
 
-        uint32_t ssrc;
+namespace{
+using clock = std::chrono::steady_clock;
 
-        //If true, it idicates that the tile image was changed
-        //and needs to be scaled and/or uploaded to the gpu again
-        bool dirty;
+struct frame_deleter{ void operator()(video_frame *f){ vf_free(f); } };
+using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
+
+struct Participant{
+        void to_cv_frame();
+        void frame_recieved(unique_frame &&f);
+        void set_pos_keep_aspect(int x, int y, int w, int h);
+
+        unique_frame frame;
+        clock::time_point last_time_recieved;
+        unsigned src_w = 0;
+        unsigned src_h = 0;
+
+        unsigned x = 0;
+        unsigned y = 0;
+        unsigned width = 0;
+        unsigned height = 0;
+
+        cv::Mat luma;
+        cv::Mat chroma;
 };
 
-class TiledImage{
-        public:
-                TiledImage(int width, int height);
-                virtual ~TiledImage() {}
+void Participant::frame_recieved(unique_frame &&f){
+        frame = std::move(f);
+        last_time_recieved = clock::now();
 
-                void computeLayout();
-                virtual cv::Mat getImg() = 0;
-
-                void addTile(unsigned width, unsigned height, uint32_t ssrc);
-                void removeTile(uint32_t ssrc);
-                struct Tile *getTile(uint32_t ssrc);
-                cv::Mat *getMat(uint32_t ssrc);
-                void updateTile(uint32_t ssrc, bool scaleNow = true);
-                virtual void processTile(struct Tile *) = 0;
-
-                virtual void resetImg() = 0;
-
-                int width, height;
-
-                //In Normal layout every tile covers equal space
-                //In OneBig layout the primary tile takes 2/3 of space
-                enum Layout{
-                        Normal, OneBig
-                };
-
-                Layout layout;
-                unsigned primary = 0; //The biggest tile in the OneBig layout
-
-        protected:
-                std::vector<struct Tile> imgs;
-};
-
-#ifdef HAVE_OPENCV_CUDA
-class TiledImageGpu : public TiledImage{
-        public:
-                TiledImageGpu(int width, int height) : TiledImage(width, height){
-                        image.create(height, width, CV_8UC3);
-                }
-                cv::Mat getImg() override;
-                void processTile(struct Tile *) override;
-                void resetImg() override { image.setTo(cv::Scalar::all(0)); }
-        private:
-                GpuMat image;
-                Stream stream;
-};
-#endif
-
-class TiledImageCpu : public TiledImage{
-        public:
-                TiledImageCpu(int width, int height) : TiledImage(width, height){
-                        image.create(height, width, CV_8UC3);
-                }
-                cv::Mat getImg() override;
-                void processTile(struct Tile *) override;
-                void resetImg() override { image.setTo(cv::Scalar::all(0)); }
-        private:
-                cv::Mat image;
-};
-
-TiledImage::TiledImage(int width, int height) : width(width), height(height){
-        layout = Normal;
+        src_w = frame->tiles[0].width;
+        src_h = frame->tiles[0].height;
 }
 
-void TiledImage::addTile(unsigned width, unsigned height, uint32_t ssrc){
-        struct Tile t;
-        t.width = width;
-        t.height = height;
-        t.posX = 0;
-        t.posY = 0;
-        t.ssrc = ssrc;
-        t.dirty = 1;
+void Participant::set_pos_keep_aspect(int x, int y, int w, int h){
+        double fx = static_cast<double>(w) / src_w;
+        double fy = static_cast<double>(h) / src_h;
 
-        t.img.create(height, width, CV_8UC3);
-
-        imgs.push_back(std::move(t));
-}
-
-void TiledImage::removeTile(uint32_t ssrc){
-        auto it = imgs.begin();
-
-        while(it != imgs.end()){
-                if(it->ssrc == ssrc){
-                        it = imgs.erase(it);
-                } else {
-                        it++;
-                }
+        if(fx > fy){
+                height = h;
+                width = src_w * fy;
+                x += (w - width) / 2;
+        } else {
+                height = src_h * fx;
+                width = w;
+                y += (h - height) / 2;
         }
+
+        this->x = x;
+        this->y = y;
 }
 
-#ifdef HAVE_OPENCV_CUDA
-//Uploads the tile to the gpu, resizes it and puts it in the correct position
-void TiledImageGpu::processTile(struct Tile *t){
-#ifdef HAVE_OPENCV_2
-        stream.enqueueUpload(t->img, t->gpuImg);
-#elif defined HAVE_OPENCV_3
-        t->gpuImg.upload(t->img, stream);
-#endif
-        GpuMat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
-        gpu_resize(t->gpuImg, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST, stream);
-        t->dirty = 0;
-}
-#endif
-
-void TiledImageCpu::processTile(struct Tile *t){
-        cv::Mat rect = image(cv::Rect(t->posX, t->posY, t->width, t->height));
-        cv::resize(t->img, rect, cv::Size(t->width, t->height), 0, 0, cv::INTER_NEAREST);
-        t->dirty = 0;
-}
-
-void TiledImage::updateTile(uint32_t ssrc, bool scaleNow){
-        struct Tile *t = getTile(ssrc);
-        if(!scaleNow){
-                t->dirty = true;
+void Participant::to_cv_frame(){
+        if(!frame)
                 return;
+
+        assert(frame->color_spec == UYVY);
+        assert(frame->tile_count == 1);
+
+        PROFILE_FUNC;
+
+        auto& frame_tile = frame->tiles[0];
+        luma.create(cv::Size(frame_tile.width, frame_tile.height), CV_8UC1);
+        chroma.create(cv::Size(frame_tile.width / 2, frame_tile.height), CV_8UC2);
+
+        assert(luma.isContinuous() && chroma.isContinuous());
+        unsigned char *src = reinterpret_cast<unsigned char *>(frame_tile.data);
+        unsigned char *luma_dst = luma.ptr(0);
+        unsigned char *chroma_dst = chroma.ptr(0);
+
+        unsigned src_len = frame_tile.data_len;
+
+#ifdef __SSSE3__
+        __m128i uv_shuff = _mm_set_epi8(255, 255, 255, 255, 255, 255, 255, 255, 14, 12, 10, 8, 6, 4, 2, 0);
+        __m128i y_shuff = _mm_set_epi8(255, 255, 255, 255, 255, 255, 255, 255, 15, 13, 11, 9, 7, 5, 3, 1);
+        while(src_len >= 32){
+                __m128i uyvy = _mm_lddqu_si128((__m128i *)(void *) src);
+                src += 16;
+
+                __m128i y_low = _mm_shuffle_epi8(uyvy, y_shuff);
+                __m128i uv_low = _mm_shuffle_epi8(uyvy, uv_shuff);
+                
+                uyvy = _mm_lddqu_si128((__m128i *)(void *) src);
+                src += 16;
+
+                __m128i y_high = _mm_shuffle_epi8(uyvy, y_shuff);
+                __m128i uv_high = _mm_shuffle_epi8(uyvy, uv_shuff);
+
+                _mm_store_si128((__m128i *)(void *) luma_dst, _mm_or_si128(y_low, _mm_bslli_si128(y_high, 8)));
+                luma_dst += 16;
+                _mm_store_si128((__m128i *)(void *) chroma_dst, _mm_or_si128(uv_low, _mm_bslli_si128(uv_high, 8)));
+                chroma_dst += 16;
+
+                src_len -= 32;
         }
-        processTile(t);
+#endif
+
+        while(src_len >= 4){
+                *chroma_dst++ = *src++;
+                *luma_dst++ = *src++;
+                *chroma_dst++ = *src++;
+                *luma_dst++ = *src++;
+
+                src_len -= 4;
+        }
 }
 
-struct Tile *TiledImage::getTile(uint32_t ssrc){
-        for(auto& t : imgs){
-                if(t.ssrc == ssrc){
-                        return &t;
-                }
-        }
+class Video_mixer{
+public:
+        enum class Layout{ Tiled, One_big };
 
-        return nullptr;
+        Video_mixer(int width, int height, codec_t color_space, Layout l = Layout::Tiled);
+
+        void process_frame(unique_frame&& f);
+        void get_mixed(video_frame *result);
+
+private:
+        void recompute_layout();
+        void tiled_layout();
+        void one_big_layout();
+
+        unsigned width;
+        unsigned height;
+        codec_t color_space;
+        Layout layout = Layout::Tiled;
+
+        uint32_t primary_ssrc = 0;
+
+        cv::Mat mixed_luma;
+        cv::Mat mixed_chroma;
+
+        std::map<uint32_t, Participant> participants;
+};
+
+Video_mixer::Video_mixer(int width, int height, codec_t color_space, Layout layout):
+        width(width),
+        height(height),
+        color_space(color_space),
+        layout(layout)
+{
+        mixed_luma.create(cv::Size(width, height), CV_8UC1);
+        mixed_chroma.create(cv::Size(width / 2, height), CV_8UC2);
 }
 
-cv::Mat *TiledImage::getMat(uint32_t ssrc){
-        return &getTile(ssrc)->img;
-}
+void Video_mixer::tiled_layout(){
+        const unsigned rows = (unsigned) ceil(sqrt(participants.size()));
+        const unsigned tile_width = width / rows;
+        const unsigned tile_height = height / rows;
 
-static void setTileSize(struct Tile *t, unsigned width, unsigned height){
-        float scaleFactor = std::min((float) width / t->img.size().width, (float) height / t->img.size().height);
-
-        t->width = t->img.size().width * scaleFactor;
-        t->height = t->img.size().height * scaleFactor;
-
-        //Center tile
-        t->posX += (width - t->width) / 2;
-        t->posY += (height - t->height) / 2;
-} 
-
-void TiledImage::computeLayout(){
-        unsigned tileW;
-        unsigned tileH;
-
-        if(imgs.size() == 1){
-                Tile& t = imgs[0];
-                t.posX = 0;
-                t.posY = 0;
-                setTileSize(&t, width, height);
-                t.dirty = 1;
-                resetImg();
-                return;
-        }
-
-        unsigned smallH = height / 3;
-        unsigned bigH = smallH * 2;
-
-        unsigned rows;
-        switch(layout){
-                case OneBig:
-                        rows = imgs.size() - 1;
-                        if(rows < 1) rows = 1;
-                        tileW = width / rows;
-                        tileH = smallH;
-                        break;
-                case Normal:
-                default:
-                        rows = (unsigned) ceil(sqrt(imgs.size()));
-                        tileW = width / rows;
-                        tileH = height / rows;
-                        break;
-        }
-
-        unsigned i = 0;
         int pos = 0;
-        for(struct Tile& t: imgs){
-                unsigned curW = tileW;
-                unsigned curH = tileH;
-                t.posX = (pos % rows) * curW;
-                t.posY = (pos / rows) * curH;
-                if(layout == OneBig){
-                        t.posY += bigH;
-                        if(i == primary){
-                                t.posX = 0;
-                                t.posY = 0;
-                                curW = width;
-                                curH = bigH;
-                                pos--;
-                        }
-                }
+        for(auto& [ssrc, t]: participants){
+                t.set_pos_keep_aspect((pos % rows) * tile_width,
+                                (pos / rows) * tile_height,
+                                tile_width, tile_height);
 
-                setTileSize(&t, curW, curH);
-                t.dirty = 1;
-
-                i++;
                 pos++;
         }
-
-        resetImg();
 }
 
-#ifdef HAVE_OPENCV_CUDA
-cv::Mat TiledImageGpu::getImg(){
-        stream.waitForCompletion();
+void Video_mixer::one_big_layout(){
+        const unsigned small_height = height / 4;
+        const unsigned big_height = small_height * 3;
+        const unsigned tile_width = width / 4;
 
-        for(struct Tile& t: imgs){
-                if(t.dirty){
-                        processTile(&t);
+        int pos = 0;
+        for(auto& [ssrc, t]: participants){
+                if(ssrc == primary_ssrc){
+                        t.set_pos_keep_aspect(0, 0, width, big_height);
+                        continue;
                 }
+
+                if(pos * tile_width > width)
+                        continue;
+
+                t.set_pos_keep_aspect(pos * tile_width, big_height, tile_width, small_height);
+                pos++;
+        }
+}
+
+void Video_mixer::recompute_layout(){
+        mixed_luma.setTo(16);
+        mixed_chroma.setTo(128);
+
+        if(!primary_ssrc && !participants.empty()){
+                primary_ssrc = participants.begin()->first;
         }
 
-        cv::Mat result;
-        stream.waitForCompletion();
-        image.download(result);
-        return result;
+        if(participants.size() == 1){
+                participants.begin()->second.set_pos_keep_aspect(0, 0, width, height);
+                return;
+        }
+
+        switch(layout){
+        case Layout::Tiled:
+                tiled_layout();
+                break;
+        case Layout::One_big:
+                one_big_layout();
+                break;
+        }
 }
+
+void Video_mixer::process_frame(unique_frame&& f){
+        auto iter = participants.find(f->ssrc);
+        auto& p = participants[f->ssrc];
+        p.frame_recieved(std::move(f));
+
+        if(iter == participants.end()){
+                recompute_layout();
+        }
+}
+
+void Video_mixer::get_mixed(video_frame *result){
+        PROFILE_FUNC;
+
+        auto now = clock::now();
+
+        bool recompute = false;
+        for(auto it = participants.begin(); it != participants.end();){
+                auto& p = it->second;
+                if(now - p.last_time_recieved > std::chrono::seconds(2)){
+                        if(it->first == primary_ssrc)
+                                primary_ssrc = 0;
+
+                        it = participants.erase(it);
+                        recompute = true;
+                        continue;
+                }
+                it++;
+        }
+        if(recompute)
+                recompute_layout();
+
+        for(auto&& [ssrc, p] : participants){
+                p.to_cv_frame();
+
+                PROFILE_DETAIL("resize participant");
+                cv::Size l_size(p.width, p.height);
+                cv::Size c_size(p.width / 2, p.height);
+                cv::resize(p.luma, mixed_luma(cv::Rect(p.x, p.y, p.width, p.height)), l_size, 0, 0);
+                cv::resize(p.chroma, mixed_chroma(cv::Rect(p.x / 2, p.y, p.width / 2, p.height)), c_size, 0, 0);
+                PROFILE_DETAIL("");
+        }
+
+        unsigned char *dst = reinterpret_cast<unsigned char *>(result->tiles[0].data);
+        unsigned char *chroma_src = mixed_chroma.ptr(0);
+        unsigned char *luma_src = mixed_luma.ptr(0);
+        assert(mixed_luma.isContinuous() && mixed_chroma.isContinuous());
+        PROFILE_DETAIL("Convert to ug frame");
+        unsigned dst_len = result->tiles[0].data_len;
+
+#ifdef __SSSE3__
+        __m128i y_shuff = _mm_set_epi8(7, 0xFF, 6, 0xFF, 5, 0xFF, 4, 0xFF, 3, 0xFF, 2, 0xFF, 1, 0xFF, 0, 0xFF);
+        __m128i uv_shuff = _mm_set_epi8(0xFF, 7, 0xFF, 6, 0xFF, 5, 0xFF, 4, 0xFF, 3, 0xFF, 2, 0xFF, 1, 0xFF, 0);
+        while(dst_len >= 32){
+               __m128i luma = _mm_load_si128((__m128i const*)(const void *) luma_src); 
+               luma_src += 16;
+               __m128i chroma = _mm_load_si128((__m128i const*)(const void *) chroma_src); 
+               chroma_src += 16;
+
+               __m128i res = _mm_or_si128(_mm_shuffle_epi8(luma, y_shuff), _mm_shuffle_epi8(chroma, uv_shuff));
+               _mm_storeu_si128((__m128i *)(void *) dst, res);
+               dst += 16;
+
+               luma = _mm_bsrli_si128(luma, 8);
+               chroma = _mm_bsrli_si128(chroma, 8);
+
+               res = _mm_or_si128(_mm_shuffle_epi8(luma, y_shuff), _mm_shuffle_epi8(chroma, uv_shuff));
+               _mm_storeu_si128((__m128i *)(void *) dst, res);
+               dst += 16;
+
+               dst_len -= 32;
+        }
 #endif
 
-cv::Mat TiledImageCpu::getImg(){
-        for(struct Tile& t: imgs){
-                if(t.dirty){
-                        processTile(&t);
-                }
-        }
+        while(dst_len >= 4){
+                *dst++ = *chroma_src++;
+                *dst++ = *luma_src++;
+                *dst++ = *chroma_src++;
+                *dst++ = *luma_src++;
 
-        return image;
+                dst_len -= 4;
+        }
 }
 
-using namespace std;
+struct display_deleter{ void operator()(display *d){ display_done(d); } };
+using unique_disp = std::unique_ptr<display, display_deleter>;
+}//anon namespace
 
-static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
+static constexpr std::chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 
-struct state_conference_common {
-        state_conference_common(int width, int height, int fps, bool gpu) : width(width), 
-                                                              height(height),
-                                                              fps(fps),
-                                                              gpu(gpu)
-        {
-                autofps = fps <= 0;
-#ifdef HAVE_OPENCV_CUDA
-                if(gpu){
-                        output = std::unique_ptr<TiledImage>(new TiledImageGpu(width, height));
-                }else{
-                        output = std::unique_ptr<TiledImage>(new TiledImageCpu(width, height));
-                }
-#else
-                output = std::unique_ptr<TiledImage>(new TiledImageCpu(width, height));
-#endif
-        }
+struct state_conference_common{
+        struct module *parent = nullptr;
 
-        ~state_conference_common() {
-                display_done(real_display);
-        }
-        struct display *real_display = {};
+        struct video_desc desc = {};
+        Video_mixer::Layout layout = Video_mixer::Layout::Tiled;
+
+        unique_disp real_display;
         struct video_desc display_desc = {};
 
-        queue<struct video_frame *> incoming_queue;
-        condition_variable in_queue_decremented_cv;
-        unordered_map<uint32_t, chrono::system_clock::time_point> ssrc_list;
-
-        int width = 0;
-        int height = 0;
-        double fps = 0.0;
-        bool autofps;
-        bool gpu;
-        std::unique_ptr<TiledImage> output;
-
-        chrono::system_clock::time_point next_frame;
-
-        pthread_t thread_id = {};
-
-        mutex lock;
-        condition_variable cv;
-
-        struct module *parent = NULL;
+        std::mutex incoming_frames_lock;
+        std::condition_variable incoming_frame_consumed;
+        std::condition_variable new_incoming_frame_cv;
+        std::queue<unique_frame> incoming_frames;
 };
 
 struct state_conference {
-        shared_ptr<struct state_conference_common> common;
+        std::shared_ptr<state_conference_common> common;
         struct video_desc desc;
 };
 
 static struct display *display_conference_fork(void *state)
 {
-        shared_ptr<struct state_conference_common> s = ((struct state_conference *)state)->common;
+        auto s = ((struct state_conference *)state)->common;
         struct display *out;
         char fmt[2 + sizeof(void *) * 2 + 1] = "";
         snprintf(fmt, sizeof fmt, "%p", state);
@@ -397,274 +402,162 @@ static struct display *display_conference_fork(void *state)
 static void show_help(){
         printf("Conference display\n");
         printf("Usage:\n");
-#ifdef HAVE_OPENCV_CUDA
-        printf("\t-d conference:<display_config>#<width>:<height>:[fps]:[{CPU|GPU}]\n");
-#else 
-        printf("\t-d conference:<display_config>#<width>:<height>:[fps]:[{CPU}]\n");
-#endif
-}
-
-static void *display_run_worker(void *arg) {
-        struct display *d = (struct display *) arg;
-        display_run_this_thread(d);
-        return NULL;
+        printf("\t-d conference:<display_config>#<width>:<height>:[fps]:[layout]\n");
 }
 
 static void *display_conference_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        struct state_conference *s;
-        char *fmt_copy = NULL;
-        const char *requested_display = "gl";
-        const char *cfg = NULL;
-        int ret;
+        auto s = std::make_unique<state_conference>();
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "init fmt: %s\n", fmt);
 
-        printf("FMT: %s\n", fmt);
-
-        s = new state_conference();
-
-        int width, height;
-        double fps = 0;
-#ifdef HAVE_OPENCV_CUDA
-        bool gpu = true;
-#else
-        bool gpu = false;
-#endif
-
-
-        if (fmt && strlen(fmt) > 0) {
-                if (isdigit(fmt[0])) { // fork
-                        struct state_conference *orig;
-                        sscanf(fmt, "%p", &orig);
-                        s->common = orig->common;
-                        return s;
-                } else {
-                        char *tmp = strdup(fmt);
-                        char *save_ptr = NULL;
-                        char *item;
-
-                        item = strtok_r(tmp, "#", &save_ptr);
-                        if(!item || strlen(item) == 0){
-                                show_help();
-                                free(tmp);
-                                delete s;
-                                return &display_init_noerr;
-                        }
-                        //Display configuration
-                        fmt_copy = strdup(item);
-                        requested_display = fmt_copy;
-                        char *delim = strchr(fmt_copy, ':');
-                        if (delim) {
-                                *delim = '\0';
-                                cfg = delim + 1;
-                        }
-                        item = strtok_r(NULL, "#", &save_ptr);
-                        //Conference configuration
-                        if(!item || strlen(item) == 0){
-                                show_help();
-                                free(fmt_copy);
-                                free(tmp);
-                                delete s;
-                                return &display_init_noerr;
-                        }
-                        width = atoi(item);
-                        item = strchr(item, ':');
-                        if(!item || strlen(item + 1) == 0){
-                                show_help();
-                                free(fmt_copy);
-                                free(tmp);
-                                delete s;
-                                return &display_init_noerr;
-                        }
-                        height = atoi(++item);
-                        if((item = strchr(item, ':'))){
-                                fps = atoi(++item);
-                        }
-                        if((item && (item = strchr(item, ':')))){
-                                ++item;
-                                if(strcasecmp(item, "cpu") == 0){
-                                        gpu = false;
-#ifndef HAVE_OPENCV_CUDA
-                                } else if(strcasecmp(item, "gpu") == 0){
-                                        gpu = false;
-                                        fprintf(stderr, "GPU videomixing requested, but ultragrid was built without CUDA support for OpenCV; CPU implementation in service\n");
-#endif
-                                }
-                        }
-                        free(tmp);
-                }
-        } else {
+        if(!fmt){
                 show_help();
-                delete s;
                 return &display_init_noerr;
         }
-        s->common = shared_ptr<state_conference_common>(new state_conference_common(width, height, fps, gpu));
-        ret = initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display);
-        assert(ret == 0 && "Unable to intialize conference display");
-        free(fmt_copy);
 
-        ret = pthread_create(&s->common->thread_id, NULL, (void *(*)(void *)) display_run_worker,
-                        s->common->real_display);
-        assert (ret == 0);
+        if (isdigit(fmt[0])){ // fork
+                struct state_conference *orig;
+                sscanf(fmt, "%p", &orig);
+                s->common = orig->common;
+                return s.release();
+        }
 
+        std::string requested_display = "gl";
+        std::string disp_conf;
+
+        s->common = std::make_shared<state_conference_common>();
         s->common->parent = parent;
 
-        return s;
+        auto& desc = s->common->desc;
+        desc.color_spec = UYVY;
+        desc.interlacing = PROGRESSIVE;
+        desc.tile_count = 1;
+        desc.fps = 0;
+
+        std::string_view param = fmt;
+        auto disp_cfg = tokenize(param, '#');
+        auto conf_cfg = tokenize(param, '#');
+
+        auto parseNum = [](std::string_view sv, auto& res){
+                if(sv.empty())
+                        return false;
+                return std::from_chars(sv.begin(), sv.end(), res).ec == std::errc();
+        };
+
+#define FAIL_IF(x, msg) \
+        do {\
+                if(x){\
+                        log_msg(LOG_LEVEL_ERROR, msg);\
+                        show_help();\
+                        return &display_init_noerr;\
+                }\
+        } while(0)\
+
+        requested_display = tokenize(disp_cfg, ':');
+        FAIL_IF(requested_display.empty(), "Requested display cannot be empty\n");
+        disp_conf = tokenize(disp_cfg, ':');
+        FAIL_IF(!parseNum(tokenize(conf_cfg, ':'), desc.width), "Failed to parse width\n");
+        FAIL_IF(!parseNum(tokenize(conf_cfg, ':'), desc.height), "Failed to parse height\n");
+
+        int fps;
+        FAIL_IF(!parseNum(tokenize(conf_cfg, ':'), fps), "Failed to parse fps\n");
+        desc.fps = fps;
+
+        auto tok = tokenize(conf_cfg, ':');
+        if(tok == "one_big"){
+                s->common->layout = Video_mixer::Layout::One_big;
+        }
+
+        struct display *d_ptr;
+        int ret = initialize_video_display(parent, requested_display.c_str(), disp_conf.c_str(),
+                        flags, nullptr, &d_ptr);
+
+        if(ret != 0){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to init real display\n");
+                return nullptr;
+        }
+
+        s->common->real_display.reset(d_ptr);
+
+        return s.release();
 }
 
 static void check_reconf(struct state_conference_common *s, struct video_desc desc)
 {
         if (!video_desc_eq(desc, s->display_desc)) {
                 s->display_desc = desc;
-                fprintf(stderr, "RECONFIGURED\n");
-                display_reconfigure(s->real_display, s->display_desc, VIDEO_NORMAL);
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "reconfiguring real display\n");
+                display_reconfigure(s->real_display.get(), s->display_desc, VIDEO_NORMAL);
         }
 }
 
-static video_desc get_video_desc(std::shared_ptr<struct state_conference_common> s){
-        video_desc desc;
-        desc.width = s->width;
-        desc.height = s->height;
-        desc.fps = s->fps;
-        desc.color_spec = UYVY;
-        desc.interlacing = PROGRESSIVE;
-        desc.tile_count = 1;
+static void display_conference_worker(std::shared_ptr<state_conference_common> s){
+        PROFILE_FUNC;
+        Video_mixer mixer(s->desc.width, s->desc.height, UYVY, s->layout);
 
-        return desc;
+        auto next_frame_time = clock::now() + std::chrono::hours(1); //workaround for gcc bug 58931
+        auto last_frame_time = clock::time_point::min();
+        for(;;){
+                unique_frame frame;
+
+                auto wait_p = [s]{ return !s->incoming_frames.empty(); };
+                std::unique_lock<std::mutex> lock(s->incoming_frames_lock);
+                bool have_frame = s->new_incoming_frame_cv.wait_until(lock, next_frame_time, wait_p);
+                if(have_frame){
+                        frame = std::move(s->incoming_frames.front());
+                        s->incoming_frames.pop();
+                }
+                lock.unlock();
+
+                if(have_frame){
+                        s->incoming_frame_consumed.notify_one();
+                        if(!frame){
+                                display_put_frame(s->real_display.get(), nullptr, PUTF_BLOCKING);
+                                break;
+                        }
+                        mixer.process_frame(std::move(frame));
+                }
+
+                auto now = clock::now();
+                if(next_frame_time <= now){
+                        check_reconf(s.get(), s->desc);
+                        auto disp_frame = display_get_frame(s->real_display.get());
+
+                        mixer.get_mixed(disp_frame);
+
+                        display_put_frame(s->real_display.get(), disp_frame, PUTF_BLOCKING);
+
+                        last_frame_time = next_frame_time;
+                        next_frame_time = now + std::chrono::hours(1);
+                } else {
+                        if(!have_frame)
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Woke up without new frame and before render time. This should not happen.\n");
+                        using namespace std::chrono_literals;
+                        next_frame_time = last_frame_time + std::chrono::duration_cast<clock::duration>(1s / s->desc.fps);
+                        if(next_frame_time <= now){
+                                next_frame_time = now;
+                        }
+                }
+        }
+
+        return;
 }
 
 static void display_conference_run(void *state)
 {
-        shared_ptr<struct state_conference_common> s = ((struct state_conference *)state)->common;
-        uint32_t last_ssrc = 0;
+        PROFILE_FUNC;
+        auto s = static_cast<state_conference *>(state)->common;
 
-        while (1) {
-                //get frame
-                struct video_frame *frame;
-                {
-                        unique_lock<mutex> lg(s->lock);
-                        s->cv.wait(lg, [s]{return s->incoming_queue.size() > 0;});
-                        frame = s->incoming_queue.front();
-                        s->incoming_queue.pop();
-                        s->in_queue_decremented_cv.notify_one();
-                }
+        std::thread worker = std::thread(display_conference_worker, s);
 
-                if (!frame) {
-                        display_put_frame(s->real_display, NULL, PUTF_BLOCKING);
-                        break;
-                }
+        display_run_this_thread(s->real_display.get());
 
-                chrono::system_clock::time_point now = chrono::system_clock::now();
-
-                //Check if any source timed out
-                auto it = s->ssrc_list.begin();
-                while (it != s->ssrc_list.end()) {
-                        if (chrono::duration_cast<chrono::milliseconds>(now - it->second) > SOURCE_TIMEOUT) {
-                                verbose_msg("Source 0x%08" PRIx32 " timeout. Deleting from conference display.\n", it->first);
-
-                                s->output->removeTile(it->first);
-                                it = s->ssrc_list.erase(it);
-
-                                if(!s->ssrc_list.empty()){
-                                        s->output->computeLayout();
-                                }
-
-                        } else {
-                                ++it;
-                        }
-                }
-
-                it = s->ssrc_list.find(frame->ssrc);
-                if (it == s->ssrc_list.end()) {
-                        //Received frame from new source
-                        s->output->addTile(frame->tiles[0].width, frame->tiles[0].height, frame->ssrc);
-                        s->output->computeLayout();
-                        last_ssrc = frame->ssrc;
-                        if(frame->fps > s->fps && s->autofps){
-                                s->fps = frame->fps;
-                                s->next_frame = now;
-                        }
-                        //If this is the first source we need to schedule
-                        //the next output frame now
-                        if(s->ssrc_list.empty()){
-                                s->next_frame = now;
-                        }
-                }
-                s->ssrc_list[frame->ssrc] = now;
-
-                //Convert the tile to RGB and then upload to gpu
-                for(unsigned i = 0; i < frame->tiles[0].height; i++){
-                        int width = frame->tiles[0].width;
-                        int elemSize = s->output->getMat(frame->ssrc)->elemSize();
-                        vc_copylineUYVYtoRGB_SSE(s->output->getMat(frame->ssrc)->data + i*width*elemSize, (const unsigned char*)frame->tiles[0].data + i*width*2, width*elemSize, 0, 0, 0);
-                }
-                s->output->updateTile(frame->ssrc);
-
-                vf_free(frame);
-
-                now = chrono::system_clock::now();
-
-                //If it's time to send next frame downlaod it from gpu,
-                //convert to UYVY and send
-                if (now >= s->next_frame){
-                        cv::Mat result = s->output->getImg();
-                        check_reconf(s.get(), get_video_desc(s));
-                        struct video_frame *outFrame = display_get_frame(s->real_display);
-                        for(int i = 0; i < result.size().height; i++){
-                                int width = result.size().width;
-                                int elemSize = result.elemSize();
-                                vc_copylineRGBtoUYVY_SSE((unsigned char*)outFrame->tiles[0].data + i*width*2, result.data + i*width*elemSize, width*2, 0, 0, 0);
-                        }
-                        outFrame->ssrc = last_ssrc;
-
-                        display_put_frame(s->real_display, outFrame, PUTF_BLOCKING);
-                        s->next_frame += chrono::milliseconds((int) (1000 / s->fps));
-                }
-        }
-
-        pthread_join(s->thread_id, NULL);
-}
-
-static void display_conference_done(void *state)
-{
-        struct state_conference *s = (struct state_conference *)state;
-        delete s;
-}
-
-static struct video_frame *display_conference_getf(void *state)
-{
-        struct state_conference *s = (struct state_conference *)state;
-
-        return vf_alloc_desc_data(s->desc);
-}
-
-static int display_conference_putf(void *state, struct video_frame *frame, int flags)
-{
-        shared_ptr<struct state_conference_common> s = ((struct state_conference *)state)->common;
-
-        if (flags == PUTF_DISCARD) {
-                vf_free(frame);
-        } else {
-                unique_lock<mutex> lg(s->lock);
-                if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
-                        fprintf(stderr, "Conference: queue full!\n");
-                        //vf_free(frame);
-                }
-                if (flags == PUTF_NONBLOCK && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
-                        vf_free(frame);
-                        return 1;
-                }
-                s->in_queue_decremented_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
-                s->incoming_queue.push(frame);
-                lg.unlock();
-                s->cv.notify_one();
-        }
-
-        return 0;
+        worker.join();
 }
 
 static int display_conference_get_property(void *state, int property, void *val, size_t *len)
 {
-        shared_ptr<struct state_conference_common> s = ((struct state_conference *)state)->common;
+        auto s = ((struct state_conference *)state)->common;
         if (property == DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES) {
                 ((struct multi_sources_supp_info *) val)->val = true;
                 ((struct multi_sources_supp_info *) val)->fork_display = display_conference_fork;
@@ -672,9 +565,17 @@ static int display_conference_get_property(void *state, int property, void *val,
                 *len = sizeof(struct multi_sources_supp_info);
                 return TRUE;
 
-        } else {
-                return display_ctl_property(s->real_display, property, val, len);
+        } else if(property == DISPLAY_PROPERTY_CODECS) {
+                codec_t codecs[] = {UYVY};
+
+                memcpy(val, codecs, sizeof(codecs));
+
+                *len = sizeof(codecs);
+
+                return TRUE;
         }
+        
+        return display_ctl_property(s->real_display.get(), property, val, len);
 }
 
 static int display_conference_reconfigure(void *state, struct video_desc desc)
@@ -703,6 +604,54 @@ static int display_conference_reconfigure_audio(void *state, int quant_samples, 
         return FALSE;
 }
 
+static void display_conference_done(void *state)
+{
+        auto s = static_cast<state_conference *>(state);
+
+        delete s;
+}
+
+static struct video_frame *display_conference_getf(void *state)
+{
+        PROFILE_FUNC;
+        auto s = static_cast<state_conference *>(state);
+
+        return vf_alloc_desc_data(s->desc);
+}
+
+static int display_conference_putf(void *state, struct video_frame *frame, int flags)
+{
+        auto s = static_cast<state_conference *>(state)->common;
+
+        if (flags == PUTF_DISCARD) {
+                vf_free(frame);
+        } else {
+                std::unique_lock<std::mutex> lg(s->incoming_frames_lock);
+                if (s->incoming_frames.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
+                        log_msg(LOG_LEVEL_WARNING, "[conference] queue full!\n");
+                        if(flags == PUTF_NONBLOCK){
+                                vf_free(frame);
+                                return 1;
+                        }
+                }
+                s->incoming_frame_consumed.wait(lg,
+                                [s]{
+                                return s->incoming_frames.size() < IN_QUEUE_MAX_BUFFER_LEN;
+                                });
+                s->incoming_frames.emplace(frame);
+                lg.unlock();    
+                s->new_incoming_frame_cv.notify_one();
+        }
+
+        return 0;
+}
+
+static auto display_conference_needs_mainloop(void *state)
+{
+        auto s = static_cast<struct state_conference *>(state)->common;
+        return display_needs_mainloop(s->real_display.get());
+}
+
 static const struct video_display_info display_conference_info = {
         [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
                 UNUSED(deleter);
@@ -718,7 +667,7 @@ static const struct video_display_info display_conference_info = {
         display_conference_get_property,
         display_conference_put_audio_frame,
         display_conference_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
+        display_conference_needs_mainloop
 };
 
 REGISTER_HIDDEN_MODULE(conference, &display_conference_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
