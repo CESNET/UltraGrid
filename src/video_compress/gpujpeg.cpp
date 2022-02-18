@@ -279,36 +279,15 @@ bool encoder_state::configure_with(struct video_desc desc)
                                 m_encoder_param.quality);
         }
 
-        if (m_parent_state->m_restart_interval != -1) {
-                m_encoder_param.restart_interval = m_parent_state->m_restart_interval;
-        } else {
-                m_encoder_param.restart_interval = codec_is_a_rgb(m_enc_input_codec) ? 8 : 4;
-        }
-
+        m_encoder_param.restart_interval = IF_NOT_UNDEF_ELSE(m_parent_state->m_restart_interval,
+                codec_is_a_rgb(m_enc_input_codec) ? 8 : 4);
 	m_encoder_param.verbose = max<int>(0, log_level - LOG_LEVEL_INFO);
 	m_encoder_param.segment_info = 1;
-
-        /* LUMA */
-        if (m_parent_state->m_subsampling == 0) {
-                m_encoder_param.sampling_factor[0].vertical = m_enc_input_codec == I420 ? 2 : 1;
-                m_encoder_param.sampling_factor[0].horizontal = codec_is_a_rgb(m_enc_input_codec) ? 1 : 2;
-        } else {
-                m_encoder_param.sampling_factor[0].vertical = m_parent_state->m_subsampling == 420 ? 2 : 1;
-                m_encoder_param.sampling_factor[0].horizontal = m_parent_state->m_subsampling == 444 ? 1 : 2;
-        }
-        /* Cb and Cr */
-        m_encoder_param.sampling_factor[1].horizontal = 1;
-        m_encoder_param.sampling_factor[1].vertical = 1;
-        m_encoder_param.sampling_factor[2].horizontal = 1;
-        m_encoder_param.sampling_factor[2].vertical = 1;
-
+        int subsampling = IF_NOT_NULL_ELSE(m_parent_state->m_subsampling, get_subsampling(m_enc_input_codec) / 10);
+        gpujpeg_parameters_chroma_subsampling(&m_encoder_param, subsampling);
         m_encoder_param.interleaved = (codec_is_a_rgb(m_enc_input_codec) && !m_parent_state->m_force_interleaved) ? 0 : 1;
-        if (m_parent_state->m_use_internal_codec == GPUJPEG_NONE) {
-                m_encoder_param.color_space_internal = codec_is_a_rgb(m_enc_input_codec)
-                        ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
-        } else {
-                m_encoder_param.color_space_internal = m_parent_state->m_use_internal_codec;
-        }
+        m_encoder_param.color_space_internal = IF_NOT_NULL_ELSE(m_parent_state->m_use_internal_codec, codec_is_a_rgb(m_enc_input_codec)
+                        ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709);
 
         gpujpeg_image_set_default_parameters(&m_param_image);
 
@@ -398,7 +377,7 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
 state_video_compress_gpujpeg::state_video_compress_gpujpeg(struct module *parent, const char *opts) :
         m_uses_worker_threads{}, m_in_seq{},
         m_out_seq{}, m_ended_count{},
-        m_module_data{}, m_restart_interval(-1), m_quality(-1)
+        m_module_data{}, m_restart_interval(UNDEF), m_quality(-1)
 {
         if(opts && opts[0] != '\0') {
                 char *fmt = strdup(opts);

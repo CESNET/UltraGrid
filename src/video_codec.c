@@ -301,6 +301,7 @@ int get_bits_per_component(codec_t codec)
         }
 }
 
+/// @returns subsampling in format (int) JabA (A is alpha), eg 4440
 int get_subsampling(codec_t codec)
 {
         if (codec < sizeof codec_info / sizeof(struct codec_info_t)) {
