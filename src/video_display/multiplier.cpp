@@ -218,24 +218,24 @@ static void display_multiplier_run(void *state)
 {
         shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
 
+        assert(!s->displays.empty());
+
         auto run_and_join = [](display *d) {
                 display_run(d);
                 display_join(d);
         };
 
-        for (int i = 1; i < (int) s->displays.size(); i++) {
+        for (size_t i = 1; i < s->displays.size(); i++) {
                 s->displays[i].disp_thread = thread(run_and_join, s->displays[i].real_display.get());
         }
 
         s->worker_thread = thread(display_multiplier_worker, state);
 
-        // run the displays[0] worker
-        if (s->displays.size() > 0) {
-                run_and_join(s->displays[0].real_display.get());
-        }
+        //Run the first display in this thread
+        run_and_join(s->displays[0].real_display.get());
 
         s->worker_thread.join();
-        for (int i = 1; i < (int) s->displays.size(); i++) {
+        for (size_t i = 1; i < s->displays.size(); i++) {
                 s->displays[i].disp_thread.join();
         }
 }
