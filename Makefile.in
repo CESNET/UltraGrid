@@ -215,6 +215,7 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/get_framerate_test.o \
 	    test/gpujpeg_test.o \
 	    test/libavcodec_test.o \
+	    test/misc_test.o \
 	    test/video_desc_test.o \
 	    test/test_bitstream.o \
 	    test/test_aes.o \

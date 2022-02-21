@@ -188,6 +188,7 @@ int get_framerate_d(double fps) {
  */
 void replace_all(char *in, const char *from, const char *to) {
         assert(strlen(from) >= strlen(to) && "Longer dst pattern than src!");
+        assert(strlen(from) > 0 && "From pattern should be non-empty!");
         char *tmp = in;
         while ((tmp = strstr(tmp, from)) != NULL) {
                 memcpy(tmp, to, strlen(to));
@@ -198,7 +199,7 @@ void replace_all(char *in, const char *from, const char *to) {
                         memmove(dst, src, len);
                         dst[len] = '\0';
                 }
-                tmp += strlen(from);
+                tmp += strlen(to);
         }
 }
 
