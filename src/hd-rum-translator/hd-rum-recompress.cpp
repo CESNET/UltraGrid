@@ -142,10 +142,10 @@ recompress_output_port::recompress_output_port(struct module *parent,
         params["display_device"].ptr = NULL;
 
         auto rxtx = video_rxtx::create("ultragrid_rtp", params);
-        if (host.find(':') != std::string::npos) {
-                rxtx->m_port_id = "[" + host + "]:" + to_string(tx_port);
+        if (this->host.find(':') != std::string::npos) {
+                rxtx->m_port_id = "[" + this->host + "]:" + to_string(tx_port);
         } else {
-                rxtx->m_port_id = host + ":" + to_string(tx_port);
+                rxtx->m_port_id = this->host + ":" + to_string(tx_port);
         }
 
         video_rxtx.reset(dynamic_cast<ultragrid_rtp_video_rxtx *>(rxtx));
@@ -179,12 +179,6 @@ static void recompress_worker(struct recompress_worker_ctx *ctx){
         assert(ctx->compress);
 
         while(auto frame = compress_pop(ctx->compress.get())){
-                if(!frame){
-                        //poisoned
-                        break;
-                }
-
-                PROFILE_DETAIL("port lock");
                 std::lock_guard<std::mutex> lock(ctx->ports_mut);
                 for(auto& port : ctx->ports){
                         if(port.active)
@@ -353,12 +347,14 @@ void recompress_process_async(state_recompress *s, std::shared_ptr<video_frame> 
 }
 
 void recompress_done(struct state_recompress *s) {
-        std::lock_guard<std::mutex> lock(s->mut);
-        for(auto& worker : s->workers){
-                //poison compress
-                compress_frame(worker.second.compress.get(), nullptr);
+        {
+                std::lock_guard<std::mutex> lock(s->mut);
+                for(auto& worker : s->workers){
+                        //poison compress
+                        compress_frame(worker.second.compress.get(), nullptr);
 
-                worker.second.thread.join();
+                        worker.second.thread.join();
+                }
         }
         delete s;
 }
