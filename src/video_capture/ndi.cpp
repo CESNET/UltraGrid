@@ -167,6 +167,8 @@ static void show_help(struct vidcap_state_ndi *s) {
         s->NDIlib->find_destroy(pNDI_find);
 #ifdef NDI_VERSION
         cout << NDI_VERSION "\n";
+#elif defined USE_NDI_VERSION
+        cout << "NDI version " << USE_NDI_VERSION << "\n";
 #endif
 }
 

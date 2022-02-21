@@ -1,4 +1,6 @@
-#!/bin/sh -eux
+#!/bin/bash
+
+set -ex
 
 mkdir -p /usr/local/lib /usr/local/bin /usr/local/include
 cat >> ~/.bash_profile <<'EOF'
@@ -17,7 +19,6 @@ if test -d /c/Program\ Files/NDI; then
         NDI_D=$(ls -d /c/Program\ Files/NDI/*SDK)
         export CPATH=$CPATH:$NDI_D/Include
         export LIBRARY_PATH=$LIBRARY_PATH:$NDI_D/Lib/x64
-        cat $NDI_D/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | tee /usr/local/include/ndi_version.h
 fi
 
 JACK_D=/c/Program\ Files/JACK2
