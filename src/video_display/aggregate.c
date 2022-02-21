@@ -56,7 +56,6 @@
 
 struct display_aggregate_state {
         struct display        **devices;
-        pthread_t              *threads;
         unsigned int            devices_cnt;
         struct video_frame     *frame;
         struct video_frame     **dev_frames;
@@ -70,14 +69,6 @@ struct display_aggregate_state {
 };
 
 static void show_help(void);
-static void *aggregate_thread(void *);
-
-static void *aggregate_thread(void *arg)
-{
-        display_run((struct display *) arg);
-        return NULL;
-}
-
 static void show_help() {
         printf("Aggregate display\n");
         printf("Usage:\n");
@@ -91,11 +82,10 @@ static void display_aggregate_run(void *state)
         unsigned int i;
 
         for (i = 0; i < s->devices_cnt; i++) {
-                pthread_create(&s->threads[i], NULL,
-                                  aggregate_thread, s->devices[i]);
+                display_run_new_thread(s->devices[i]);
         }
         for (i = 0; i < s->devices_cnt; i++) {
-                pthread_join(s->threads[i], NULL);
+                display_join(s->devices[i]);
         }
 }
 
@@ -168,7 +158,6 @@ static void *display_aggregate_init(struct module *parent, const char *fmt, unsi
 
         s->frame = vf_alloc(s->devices_cnt);
         s->dev_frames = calloc(s->devices_cnt, sizeof(struct video_frame *));
-        s->threads = calloc(s->devices_cnt, sizeof(pthread_t));
 
         return (void *)s;
 

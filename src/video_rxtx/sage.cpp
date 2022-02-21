@@ -54,12 +54,6 @@
 
 using namespace std;
 
-static void *display_run_worker(void *arg) {
-        struct display *d = (struct display *) arg;
-        display_run(d);
-        return NULL;
-}
-
 sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
         video_rxtx(params)
 {
@@ -76,9 +70,7 @@ sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
         if(ret != 0) {
                 throw string("Unable to initialize SAGE TX.");
         }
-        ret = pthread_create(&m_thread_id, NULL, display_run_worker,
-                        &m_sage_tx_device);
-        assert(ret == 0);
+        display_run_new_thread(m_sage_tx_device);
         memset(&m_saved_video_desc, 0, sizeof(m_saved_video_desc));
 }
 
@@ -101,8 +93,8 @@ sage_video_rxtx::~sage_video_rxtx()
 {
         // poisoned pill to exit thread
         display_put_frame(m_sage_tx_device, NULL, PUTF_NONBLOCK);
-        pthread_join(m_thread_id, NULL);
 
+        display_join(m_sage_tx_device);
         display_done(m_sage_tx_device);
 }
 

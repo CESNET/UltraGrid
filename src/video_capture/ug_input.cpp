@@ -70,7 +70,6 @@ struct ug_input_state  : public frame_recv_delegate {
 
         void frame_arrived(struct video_frame *f, struct audio_frame *a);
         thread         receiver_thread;
-        thread             display_thread;
         unique_ptr<ultragrid_rtp_video_rxtx> video_rxtx;
         struct state_audio *audio;
 
@@ -176,7 +175,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         s->t0 = steady_clock::now();
 
         s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx.get());
-        s->display_thread = thread(display_run, s->display);
+        display_run_new_thread(s->display);
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -190,7 +189,7 @@ static void vidcap_ug_input_done(void *state)
         s->receiver_thread.join();
 
         display_put_frame(s->display, NULL, 0);
-        s->display_thread.join();
+        display_join(s->display);
         display_done(s->display);
 
         s->video_rxtx->join();

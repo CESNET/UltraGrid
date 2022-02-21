@@ -59,15 +59,11 @@ static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
 namespace{
 struct disp_deleter{ void operator()(display *d){ display_done(d); } };
+using unique_disp = std::unique_ptr<struct display, disp_deleter>;
 }
 
-struct sub_display {
-        std::unique_ptr<struct display, disp_deleter> real_display;
-        thread disp_thread;
-};
-
 struct state_multiplier_common {
-        std::vector<struct sub_display> displays;
+        std::vector<unique_disp> displays;
 
         struct video_desc display_desc;
 
@@ -121,8 +117,6 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
         }
         s->common = shared_ptr<state_multiplier_common>(new state_multiplier_common());
 
-        struct sub_display disp;
-
         char *saveptr;
         for(char *token = strtok_r(fmt_copy, "#", &saveptr); token; token = strtok_r(NULL, "#", &saveptr)){
                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Initializing display " << token << "\n";
@@ -138,8 +132,8 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                         LOG(LOG_LEVEL_FATAL) << "[multiplier] Unable to initialize a display " << requested_display << "!\n";
                         abort();
                 }
-                disp.real_display.reset(d_ptr);
-                if (display_needs_mainloop(disp.real_display.get()) && !s->common->displays.empty()) {
+                unique_disp disp(d_ptr);
+                if (display_needs_mainloop(disp.get()) && !s->common->displays.empty()) {
                         LOG(LOG_LEVEL_FATAL) << "[multiplier] Display " << requested_display << " needs mainloop but is not given first!\n";
                         free(fmt_copy);
                         delete s;
@@ -161,7 +155,7 @@ static void check_reconf(struct state_multiplier_common *s, struct video_desc de
                 s->display_desc = desc;
                 fprintf(stderr, "RECONFIGURED\n");
                 for(auto& disp : s->displays){
-                        display_reconfigure(disp.real_display.get(), s->display_desc, VIDEO_NORMAL);
+                        display_reconfigure(disp.get(), s->display_desc, VIDEO_NORMAL);
                 }
         }
 }
@@ -183,7 +177,7 @@ static void display_multiplier_worker(void *state)
 
                 if (!frame) {
                         for (auto& disp : s->displays) {
-                                display_put_frame(disp.real_display.get(), NULL, PUTF_BLOCKING);
+                                display_put_frame(disp.get(), NULL, PUTF_BLOCKING);
                         }
                         break;
                 }
@@ -197,9 +191,9 @@ static void display_multiplier_worker(void *state)
                 check_reconf(s.get(), video_desc_from_frame(frame));
 
                 for (auto& disp : s->displays) {
-                        struct video_frame *real_display_frame = display_get_frame(disp.real_display.get());
+                        struct video_frame *real_display_frame = display_get_frame(disp.get());
                         memcpy(real_display_frame->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
-                        display_put_frame(disp.real_display.get(), real_display_frame, PUTF_BLOCKING);
+                        display_put_frame(disp.get(), real_display_frame, PUTF_BLOCKING);
                 }
 
                 vf_free(frame);
@@ -220,23 +214,17 @@ static void display_multiplier_run(void *state)
 
         assert(!s->displays.empty());
 
-        auto run_and_join = [](display *d) {
-                display_run(d);
-                display_join(d);
-        };
-
         for (size_t i = 1; i < s->displays.size(); i++) {
-                s->displays[i].disp_thread = thread(run_and_join, s->displays[i].real_display.get());
+                display_run_new_thread(s->displays[i].get());
         }
 
         s->worker_thread = thread(display_multiplier_worker, state);
 
-        //Run the first display in this thread
-        run_and_join(s->displays[0].real_display.get());
+        display_run_this_thread(s->displays[0].get());
 
         s->worker_thread.join();
         for (size_t i = 1; i < s->displays.size(); i++) {
-                s->displays[i].disp_thread.join();
+                display_join(s->displays[i].get());
         }
 }
 
@@ -293,7 +281,7 @@ static int display_multiplier_get_property(void *state, int property, void *val,
 
         }
         //TODO Find common properties, for now just return properties of the first display
-        return display_ctl_property(s->displays[0].real_display.get(), property, val, len);
+        return display_ctl_property(s->displays[0].get(), property, val, len);
 }
 
 static int display_multiplier_reconfigure(void *state, struct video_desc desc)
@@ -309,7 +297,7 @@ static void display_multiplier_put_audio_frame(void *state, struct audio_frame *
 {
         auto *s = static_cast<struct state_multiplier *>(state);
 
-        display_put_audio_frame(s->common->displays.at(0).real_display.get(), frame);
+        display_put_audio_frame(s->common->displays.at(0).get(), frame);
 }
 
 static int display_multiplier_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -317,13 +305,13 @@ static int display_multiplier_reconfigure_audio(void *state, int quant_samples, 
 {
         auto *s = static_cast<struct state_multiplier *>(state);
 
-        return display_reconfigure_audio(s->common->displays.at(0).real_display.get(), quant_samples, channels, sample_rate);
+        return display_reconfigure_audio(s->common->displays.at(0).get(), quant_samples, channels, sample_rate);
 }
 
 static auto display_multiplier_needs_mainloop(void *state)
 {
         auto s = static_cast<struct state_multiplier *>(state)->common;
-        return !s->displays.empty() && display_needs_mainloop(s->displays[0].real_display.get());
+        return !s->displays.empty() && display_needs_mainloop(s->displays[0].get());
 }
 
 static const struct video_display_info display_multiplier_info = {

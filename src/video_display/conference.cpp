@@ -406,7 +406,7 @@ static void show_help(){
 
 static void *display_run_worker(void *arg) {
         struct display *d = (struct display *) arg;
-        display_run(d);
+        display_run_this_thread(d);
         return NULL;
 }
 

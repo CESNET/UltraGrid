@@ -58,7 +58,7 @@
  * Thread #1 (main thread)
  * @code{.c}
  * d = ininitalize_video_display(...);
- * display_run(d);
+ * display_run_this_thread(d);
  * display_done(d);
  *
  * Thread #2
@@ -175,7 +175,8 @@ int                      initialize_video_display(struct module *parent,
                 /* not_null */ const char *requested_display, /* not_null */ const char *fmt,
                 unsigned int flags, const char *postprocess, /* not_null */ struct display **out);
 bool                     display_needs_mainloop(struct display *d);
-void                     display_run(struct display *d);
+void                     display_run_this_thread(struct display *d);
+void                     display_run_new_thread(struct display *d);
 void                     display_join(struct display *d);
 void 	                 display_done(struct display *d);
 struct video_frame      *display_get_frame(struct display *d);

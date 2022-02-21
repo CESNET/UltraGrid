@@ -1594,15 +1594,18 @@ int main(int argc, char *argv[])
                         goto cleanup;
                 }
 
-                if (display_needs_mainloop(uv.display_device) && mainloop) {
-                        throw string("Cannot run display when "
-                                        "another mainloop registered!\n");
-                }
-                display_run(uv.display_device);
-                if (mainloop) {
+                if(mainloop) {
+                        if (display_needs_mainloop(uv.display_device)) {
+                                throw string("Cannot run display when "
+                                                "another mainloop registered!\n");
+                        }
+                        display_run_new_thread(uv.display_device);
                         mainloop(mainloop_udata);
+                        display_join(uv.display_device);
+                } else {
+                        display_run_this_thread(uv.display_device);
                 }
-                display_join(uv.display_device);
+
         } catch (ug_no_error const &e) {
                 exit_uv(0);
         } catch (ug_runtime_error const &e) {

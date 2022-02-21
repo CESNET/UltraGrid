@@ -79,7 +79,7 @@ struct display {
         uint32_t magic;    ///< For debugging. Conatins @ref DISPLAY_MAGIC
         const struct video_display_info *funcs;
         void *state;       ///< state of the created video capture driver
-        pthread_t thread_id; ///< thread ID of the display thread (@see display_run)
+        pthread_t thread_id; ///< thread ID of the display thread (@see display_run_new_thread)
 
         struct vo_postprocess_state *postprocess;
         int pp_output_frames_count, display_pitch;
@@ -185,7 +185,6 @@ ADD_TO_PARAM("override-mainloop-req", "* override-mainloop-req\n"
 
 /**
  * Returns true if display has a run routine that needs to be run in a main thread
- * (@see display_run).
  */
 bool display_needs_mainloop(struct display *d)
 {
@@ -223,29 +222,53 @@ static void *display_run_helper(void *args)
 /**
  * @brief Display mainloop function.
  *
- * This call is entered in main thread and the display is either run in
- * a separate thread or directly here.
+ * This function runs the display in the thread it is called from
+ * and blocks until the display stops.
  *
- * The later variant is mainly for GUI displays (GL/SDL), which usually need
+ * It is mainly intended for GUI displays (GL/SDL), which usually need
  * to be run from main thread of the * program (OS X).
  *
- * The function must quit after receiving a poisoned pill (frame == NULL) to
- * a display_put_frame() call.
-
+ * The function blocks while the display runs.
+ * The display can be terminated by passing a poisoned pill (frame == NULL)
+ * using the display_put_frame() call.
+ *
  * @param d display to be run
  */
-void display_run(struct display *d)
+void display_run_this_thread(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        if (display_needs_mainloop(d)) {
-                d->funcs->run(d->state);
-        } else {
-                CHECK(pthread_create(&d->thread_id, NULL, display_run_helper, d));
-        }
+        d->funcs->run(d->state);
 }
 
 /**
- * Joins the display task if run in a separate thread (@see display_run and @see display_needs_mainloop).
+ * @brief Display mainloop function.
+ *
+ * This function runs the display in a new thread and does not block.
+ *
+ * It should not be used for GUI displays (GL/SDL), which usually need
+ * to be run from main thread of the * program (OS X).
+ *
+ * Displays started with this functions need to be waited on (@see display_join)
+ * before they are destroyed.
+ *
+ * @param d display to be run
+ */
+void display_run_new_thread(struct display *d)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        if (display_needs_mainloop(d)) {
+                log_msg(LOG_LEVEL_WARNING, "Display requires mainloop, but is "
+                                "being run in a new thread!\n");
+        }
+        CHECK(pthread_create(&d->thread_id, NULL, display_run_helper, d));
+}
+
+/**
+ * Joins the display task if run in a separate thread (@see display_run_new_thread).
+ *
+ * The function blocks while the display runs.
+ * The display can be terminated by passing a poisoned pill (frame == NULL)
+ * using the display_put_frame() call.
  */
 void display_join(struct display *d)
 {

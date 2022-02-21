@@ -95,8 +95,6 @@ struct state_transcoder_decompress : public frame_recv_delegate {
         virtual ~state_transcoder_decompress() {}
         void worker();
 
-        thread             display_thread;
-
         struct capture_filter *capture_filter_state;
 };
 
@@ -231,7 +229,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
 
                 s->worker_thread = thread(&state_transcoder_decompress::worker, s);
                 s->receiver_thread = thread(&video_rxtx::receiver_thread, s->video_rxtx);
-                s->display_thread = thread(display_run, s->display);
+                display_run_new_thread(s->display);
 
                 if (capture_filter_init(parent, capture_filter, &s->capture_filter_state) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter!\n");
@@ -261,11 +259,11 @@ void hd_rum_decompress_done(void *state) {
         s->worker_thread.join();
 
         display_put_frame(s->display, NULL, 0);
-        s->display_thread.join();
         s->video_rxtx->join();
 
         delete s->video_rxtx;
 
+        display_join(s->display);
         display_done(s->display);
         capture_filter_destroy(s->capture_filter_state);
 

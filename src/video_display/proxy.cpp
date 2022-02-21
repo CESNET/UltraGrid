@@ -90,8 +90,6 @@ struct state_proxy_common {
         map<uint32_t, list<struct video_frame *> > frames;
         unordered_map<uint32_t, chrono::system_clock::time_point> disabled_ssrc;
 
-        pthread_t thread_id;
-
         mutex lock;
         condition_variable cv;
 
@@ -115,12 +113,6 @@ static struct display *display_proxy_fork(void *state)
         if (rc == 0) return out; else return NULL;
 
         return out;
-}
-
-static void *display_run_worker(void *arg) {
-        struct display *d = (struct display *) arg;
-        display_run(d);
-        return NULL;
 }
 
 static void *display_proxy_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -156,9 +148,7 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
         assert(ret == 0 && "Unable to initialize real display for proxy");
         free(fmt_copy);
 
-        ret = pthread_create(&s->common->thread_id, NULL, display_run_worker,
-                        s->common->real_display);
-        assert (ret == 0);
+        display_run_new_thread(s->common->real_display);
 
         s->common->parent = parent;
 
@@ -330,7 +320,7 @@ static void display_proxy_run(void *state)
                 }
         }
 
-        pthread_join(s->thread_id, NULL);
+        display_join(s->real_display);
 }
 
 static void display_proxy_done(void *state)
