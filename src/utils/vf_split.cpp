@@ -134,7 +134,7 @@ using namespace std;
 
 vector<shared_ptr<video_frame>> vf_separate_tiles(shared_ptr<video_frame> frame)
 {
-        vector<shared_ptr<video_frame>> ret(frame->tile_count, 0);
+        vector<shared_ptr<video_frame>> ret(frame->tile_count);
         struct video_desc desc = video_desc_from_frame(frame.get());
         desc.tile_count = 1;
 

@@ -470,7 +470,7 @@ static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy
                 task_handle[i] = task_run_async(compress_tile_callback, data);
         }
 
-        vector<shared_ptr<video_frame>> compressed_tiles(separate_tiles.size(), nullptr);
+        vector<shared_ptr<video_frame>> compressed_tiles(separate_tiles.size());
 
         bool failed = false;
         for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
