@@ -36,8 +36,6 @@ jobs:
         tar xaf coverity_tool.tgz
         mv cov-analysis* /tmp/cov-analysis
     - uses: actions/checkout@v1
-      with:
-        submodules: true
     - name: bootstrap
       run: .github/scripts/Linux/prepare.sh
     - name: configure
