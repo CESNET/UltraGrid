@@ -26,16 +26,16 @@ jobs:
       id: cache-coverity-tool
       uses: actions/cache@v2
       with:
-        path: coverity_tool.tgz
+        path: ~/coverity_tool.tgz
         key: cache-coverity-tool-${{ steps.tool.outputs.filename }}
     - name: Download Coverity build tool
       if: steps.cache-coverity-tool.outputs.cache-hit != 'true'
       run: |
-        wget --no-verbose https://scan.coverity.com/download/linux64 --post-data "token=$coverity_token&project=UltraGrid" -O coverity_tool.tgz
+        wget --no-verbose https://scan.coverity.com/download/linux64 --post-data "token=$coverity_token&project=UltraGrid" -O ~/coverity_tool.tgz
     - name: Extract Coverity build tool
       if: ${{ env.coverity_token }}
       run: |
-        tar xaf coverity_tool.tgz
+        tar xaf ~/coverity_tool.tgz
         mv cov-analysis* /tmp/cov-analysis
     - uses: actions/checkout@v1
       if: ${{ env.coverity_token }}
