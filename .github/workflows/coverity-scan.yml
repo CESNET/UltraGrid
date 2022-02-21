@@ -9,7 +9,6 @@ on:
 
 jobs:
   Coverity:
-    if: secrets.coverity_token != null
     runs-on: ubuntu-latest
     env:
       SDK_URL: ${{ secrets.SDK_URL }}
@@ -17,11 +16,13 @@ jobs:
 
     steps:
     - name: Get Coverity tool name # the file name contains version and is used as the cache key
+      if: ${{ env.coverity_token }}
       id: tool
       run: |
         FILENAME=$(curl -LI "https://scan.coverity.com/download/linux64?token=$coverity_token&project=UltraGrid"  | sed -n '/content-disposition/s/.*\"\(.*\)\"/\1/p')
         echo "::set-output name=filename::$FILENAME"
     - name: Cache Coverity build tool
+      if: ${{ env.coverity_token }}
       id: cache-coverity-tool
       uses: actions/cache@v2
       with:
@@ -32,18 +33,24 @@ jobs:
       run: |
         wget --no-verbose https://scan.coverity.com/download/linux64 --post-data "token=$coverity_token&project=UltraGrid" -O coverity_tool.tgz
     - name: Extract Coverity build tool
+      if: ${{ env.coverity_token }}
       run: |
         tar xaf coverity_tool.tgz
         mv cov-analysis* /tmp/cov-analysis
     - uses: actions/checkout@v1
+      if: ${{ env.coverity_token }}
     - name: bootstrap
+      if: ${{ env.coverity_token }}
       run: .github/scripts/Linux/prepare.sh
     - name: configure
+      if: ${{ env.coverity_token }}
       run: ./autogen.sh --enable-qt --enable-plugins --with-live555=/usr/local
     - name: Build with cov-build
+      if: ${{ env.coverity_token }}
       run: |
         /tmp/cov-analysis/bin/cov-build --dir cov-int make -j4
     - name: Submit the result to Coverity Scan
+      if: ${{ env.coverity_token }}
       run: |
         tar caf ultragrid.tar.xz cov-int
         curl -S --form token=$coverity_token \
