@@ -334,10 +334,11 @@ bool module_get_path_str(struct module *mod, char *buf, size_t buflen) {
                 if (sizeof(buf) + 1 + sizeof(cur_name) >= buflen) {
                         return false;
                 }
+                // move content of buf strlen(cur_name) right
                 if (strlen(buf) > 0) {
                         memmove(buf + strlen(cur_name) + 1, buf, strlen(buf) + 1);
-                        buf[strlen(cur_name)] = '.';
-                } else {
+                        buf[strlen(cur_name)] = '.'; // and separate with '.'
+                } else { // rightmost (first written) element
                         buf[strlen(cur_name)] = '\0';
                 }
                 memcpy(buf, cur_name, strlen(cur_name));
