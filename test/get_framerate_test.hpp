@@ -1,5 +1,5 @@
-#ifndef VIDEO_DESC_TEST_H
-#define VIDEO_DESC_TEST_H
+#ifndef GET_FRAMERATE_TEST_HPP
+#define GET_FRAMERATE_TEST_HPP
 
 #include <cppunit/extensions/HelperMacros.h>
 #include <list>
@@ -25,4 +25,4 @@ public:
   void test_free();
 };
 
-#endif //  VIDEO_DESC_TEST_H
+#endif // !defined GET_FRAMERATE_TEST_HPP

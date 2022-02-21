@@ -9,7 +9,7 @@
 #include <cppunit/config/SourcePrefix.h>
 #include <cmath>
 #include <string>
-#include "get_framerate_test.h"
+#include "get_framerate_test.hpp"
 #include "utils/misc.h"
 
 /// for 10 FPS the difference between 10000/1000 and 10000/1001 is ~0.001
