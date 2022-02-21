@@ -904,7 +904,7 @@ void keycontrol_send_key(struct module *root, int64_t key) {
  * @param[in] description optional decription that will be displayed in keyboard control help (may be NULL)
  */
 bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const char *message, const char *description) {
-        assert(strchr(message, '#') == nullptr && strchr(description, '#') == nullptr);
+        assert(strchr(message, '#') == nullptr && (description == nullptr || strchr(description, '#') == nullptr));
         char receiver_path[1024];
         if (!module_get_path_str(receiver_mod, receiver_path, sizeof receiver_path)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot format format path for sender!\n");
