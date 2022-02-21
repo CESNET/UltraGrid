@@ -4,7 +4,13 @@ if (Test-Path 'C:\Program Files\JACK2') {
   Remove-Item -Recurse 'C:\Program Files\JACK2'
 }
 
-choco install -y --no-progress jack
+# latest release grab inspired by https://gist.github.com/MarkTiedemann/c0adc1701f3f5c215fc2c2d5b1d5efd3
+$repo = "jackaudio/jack2-releases"
+$releases = "https://api.github.com/repos/$repo/releases"
+$tag = (Invoke-WebRequest $releases | ConvertFrom-Json)[0].tag_name
+$download = "https://github.com/$repo/releases/download/$tag/jack2-win64-$tag.exe"
+Invoke-WebRequest $download -o jack2.exe
+Start-Process -FilePath '.\jack2.exe' -ArgumentList '/SILENT' -Wait -NoNewWindow
 
 # The lib is moved to the JACK library for 2 reasons:
 # 1. it will be cached here
