@@ -12,7 +12,7 @@
  */
 /*
  * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2022 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -135,11 +135,6 @@ static void midi_audio_callback(int chan, void *stream, int len, void *udata)
 
 static auto configure_sdl_mixer_audio(struct testcard_state *s) {
 #if defined HAVE_LIBSDL_MIXER && ! defined HAVE_MACOSX
-        char filename[1024] = "";
-        int fd;
-        Mix_Music *music;
-        ssize_t bytes_written = 0l;
-
         SDL_Init(SDL_INIT_AUDIO);
 
         if( Mix_OpenAudio( AUDIO_SAMPLE_RATE, AUDIO_S16LSB,
@@ -147,22 +142,19 @@ static auto configure_sdl_mixer_audio(struct testcard_state *s) {
                 fprintf(stderr,"[testcard] error initalizing sound\n");
                 return false;
         }
-        strncpy(filename, "/tmp/uv.midiXXXXXX", sizeof filename - 1);
-        fd = mkstemp(filename);
-        if (fd < 0) {
-                perror("mkstemp");
+        const char *filename = tmpnam(nullptr);
+        FILE *f = fopen(filename, "wb");
+        if (f == nullptr) {
+                perror("fopen midi");
                 return false;
         }
-
-        do {
-                ssize_t ret;
-                ret = write(fd, song1 + bytes_written,
-                                sizeof(song1) - bytes_written);
-                if(ret < 0) return false;
-                bytes_written += ret;
-        } while (bytes_written < (ssize_t) sizeof(song1));
-        close(fd);
-        music = Mix_LoadMUS(filename);
+        size_t nwritten = fwrite(song1, sizeof song1, 1, f);
+        fclose(f);
+        if (nwritten != 1) {
+                return false;
+        }
+        Mix_Music *music = Mix_LoadMUS(filename);
+        unlink(filename);
 
         // register grab as a postmix processor
         if (!Mix_RegisterEffect(MIX_CHANNEL_POST, midi_audio_callback, nullptr, s)) {
