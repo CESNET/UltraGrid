@@ -239,6 +239,8 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
                         s->audio_divisor = pow(10.0, ref_level / 20.0); // NOLINT
                 } else if (strstr(item, "extra_ips=") == item) {
                         s->find_create_settings.p_extra_ips = strdup(item + "extra_ips="s.length());
+                } else if (strstr(item, "bandwidth=") == item) {
+                        s->create_settings.bandwidth = static_cast<NDIlib_recv_bandwidth_e>(stoi(strchr(item, '=') + 1));
                 } else if (strstr(item, "color=") == item) {
                         s->create_settings.color_format = static_cast<NDIlib_recv_color_format_e>(stoi(item + "color="s.length()));
                 } else if (strstr(item, "progressive") == item) {
