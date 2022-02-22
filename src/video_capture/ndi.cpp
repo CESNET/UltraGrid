@@ -125,7 +125,7 @@ struct vidcap_state_ndi {
 static void show_help(struct vidcap_state_ndi *s) {
         cout << "Usage:\n"
                 "\t" << rang::style::bold << rang::fg::red << "-t ndi" << rang::fg::reset <<
-                "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:color=<c>][:extra_ips=<ip>][:progressive]\n" << rang::style::reset <<
+                "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:progressive]\n" << rang::style::reset <<
                 "where\n";
 
         cout << BOLD("\tname\n") <<
@@ -135,6 +135,8 @@ static void show_help(struct vidcap_state_ndi *s) {
                 "\t\tURL, typically <ip> or <ip>:<port>\n";
         cout << BOLD("\taudio_level\n") <<
                 "\t\taudio headroom above reference level (in dB, or mic/line, default " << 20 * log(DEFAULT_AUDIO_DIVISOR) / log(10) << ")\n";
+        cout << BOLD("\tbandwidth\n") <<
+                "\t\trequired bandwidth, " << BOLD(NDIlib_recv_bandwidth_audio_only) << " - audio only, " << BOLD(NDIlib_recv_bandwidth_lowest) << " - lowest, " << BOLD(NDIlib_recv_bandwidth_highest) << " - highest (default)\n";
         cout << BOLD("\tcolor\n") <<
                 "\t\tcolor format, " << BOLD(NDIlib_recv_color_format_BGRX_BGRA) << " - BGRX/BGRA, " << BOLD(NDIlib_recv_color_format_UYVY_BGRA)  << " - UYVY/BGRA, " <<
                 BOLD(NDIlib_recv_color_format_RGBX_RGBA) << " - RGBX/RGBA, " << BOLD(NDIlib_recv_color_format_UYVY_RGBA)  << " - UYVY/RGBA, " << BOLD(NDIlib_recv_color_format_fastest) <<
