@@ -98,7 +98,7 @@ struct vidcap_state_ndi {
         string requested_name; // if not empty recv from requested NDI name
         string requested_url; // if not empty recv from requested URL (either addr or addr:port)
         NDIlib_find_create_t find_create_settings{true, nullptr, nullptr};
-        NDIlib_recv_create_v3_t create_settings{};
+        NDIlib_recv_create_v3_t create_settings{NDIlib_source_t(), NDIlib_recv_color_format_best, NDIlib_recv_bandwidth_highest, true, NULL};
 
         std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         int frames = 0;
@@ -193,7 +193,6 @@ static int vidcap_ndi_init(struct vidcap_params *params, void **state)
         if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0u) {
                 s->capture_audio = true;
         }
-        s->create_settings.color_format = NDIlib_recv_color_format_best;
 
         const char *fmt = vidcap_params_get_fmt(params);
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
