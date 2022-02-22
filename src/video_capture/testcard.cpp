@@ -151,10 +151,17 @@ static auto configure_sdl_mixer_audio(struct testcard_state *s) {
         size_t nwritten = fwrite(song1, sizeof song1, 1, f);
         fclose(f);
         if (nwritten != 1) {
+                unlink(filename);
                 return false;
         }
         Mix_Music *music = Mix_LoadMUS(filename);
         unlink(filename);
+        if (music == nullptr) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error loading MIDI: %s\n", Mix_GetError());
+                return false;
+        }
+
+        s->midi_buf = ring_buffer_init(AUDIO_BUFFER_SIZE(s->audio.ch_count) /* 1 sec */);
 
         // register grab as a postmix processor
         if (!Mix_RegisterEffect(MIX_CHANNEL_POST, midi_audio_callback, nullptr, s)) {
@@ -163,12 +170,10 @@ static auto configure_sdl_mixer_audio(struct testcard_state *s) {
         }
 
         if(Mix_PlayMusic(music,-1)==-1){
-                fprintf(stderr, "[testcard] error playing midi\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error playing MIDI: %s\n", Mix_GetError());
                 return false;
         }
         Mix_Volume(-1, 0);
-
-        s->midi_buf = ring_buffer_init(AUDIO_BUFFER_SIZE(s->audio.ch_count) /* 1 sec */);
 
         cout << MOD_NAME << "Initialized MIDI\n";
 
