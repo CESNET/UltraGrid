@@ -91,6 +91,7 @@
 #include "crypto/md5.h"
 #include "ntp.h"
 #include "rtp.h"
+#include "utils/misc.h"
 #include "utils/net.h"
 
 #undef max
@@ -2964,7 +2965,7 @@ rtp_send_data_hdr(struct rtp *session,
 
         rc = udp_sendv(session->rtp_socket, send_vector, send_vector_len, d);
         if (rc == -1) {
-                perror("sending RTP packet");
+                log_msg(LOG_LEVEL_WARNING, "sending RTP packet: %s", ug_strerror(errno));
         }
 
         /* Update the RTCP statistics... */
@@ -3311,14 +3312,14 @@ static void rtcp_udp_send(struct rtp *session, int len, char *buffer)
         if (!session->send_rtcp_to_origin) {
                 int rc = udp_send(session->rtcp_socket, buffer, len);
                 if (rc == -1) {
-                        perror("sending RTCP packet");
+                        log_msg(LOG_LEVEL_WARNING, "sending RTCP packet: %s", ug_strerror(errno));
                 }
         } else {
                 if (session->rtcp_dest_len > 0) {
                         int rc = udp_sendto(session->rtcp_socket, buffer, len,
                                         (struct sockaddr *) &session->rtcp_dest, session->rtcp_dest_len);
                         if (rc == -1) {
-                                perror("sending RTCP packet");
+                                log_msg(LOG_LEVEL_WARNING, "sending RTCP packet: %s", ug_strerror(errno));
                         }
                 }
         }
