@@ -184,25 +184,22 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 		return DECODER_GOT_FRAME;
 	}
 
-	if (!image_params.color_space) {
-                image_params.color_space = GPUJPEG_YCBCR_BT601_256LVLS;
-	}
-
-	switch (image_params.color_space) {
-	case GPUJPEG_RGB:
-		*internal_codec = RGB;
-		break;
-	case GPUJPEG_YUV:
-	case GPUJPEG_YCBCR_BT601:
-	case GPUJPEG_YCBCR_BT601_256LVLS:
-	case GPUJPEG_YCBCR_BT709:
-                *internal_codec = image_params.pixel_format == GPUJPEG_420_U8_P0P1P2 ? I420 : UYVY;
-		break;
-	default:
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - unhandled color space: %s\n",
-                                gpujpeg_color_space_get_name(image_params.color_space));
-		return DECODER_GOT_FRAME;
-	}
+        if (image_params.pixel_format == GPUJPEG_444_U8_P012A) {
+                *internal_codec =  RGBA; // may be also in YCbCr internally but we want to decode alpha and thus RGBA is needed
+        } else {
+                switch (image_params.color_space) {
+                case GPUJPEG_RGB:
+                        *internal_codec = RGB;
+                        break;
+                case GPUJPEG_YUV:
+                case GPUJPEG_YCBCR_BT601:
+                case GPUJPEG_YCBCR_BT601_256LVLS:
+                case GPUJPEG_YCBCR_BT709:
+                default:
+                        *internal_codec = image_params.pixel_format == GPUJPEG_420_U8_P0P1P2 ? I420 : UYVY;
+                        break;
+                }
+        }
 
 	log_msg(LOG_LEVEL_VERBOSE, "JPEG color space: %s\n", gpujpeg_color_space_get_name(image_params.color_space));
 	return DECODER_GOT_CODEC;
@@ -298,12 +295,14 @@ static void gpujpeg_decompress_done(void *state)
 static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
         static const struct decode_from_to ret[] = {
 		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 }, // for probe
-		{ JPEG, RGB, RGB, 300 },
-		{ JPEG, RGB, RGBA, 300  },
-		{ JPEG, UYVY, UYVY, 300 },
-		{ JPEG, I420, I420, 300 },
+		{ JPEG, RGB, RGB, 200 },
+		{ JPEG, RGBA, RGBA, 200 },
+                { JPEG, UYVY, UYVY, 200 },
+                { JPEG, I420, I420, 200 },
+		{ JPEG, RGB, RGBA, 300 },
 		{ JPEG, I420, UYVY, 500 },
 		{ JPEG, RGB, UYVY, 700 },
+		{ JPEG, RGBA, UYVY, 700 },
 		{ JPEG, UYVY, RGB, 700 },
 		{ JPEG, UYVY, RGBA, 700 },
 		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
