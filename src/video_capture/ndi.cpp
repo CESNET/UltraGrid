@@ -286,7 +286,7 @@ static void vidcap_ndi_done(void *state)
         delete s;
 }
 
-static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *frame)
+static void audio_append_pcm(struct vidcap_state_ndi *s, NDIlib_audio_frame_v3_t *frame)
 {
         struct audio_desc d{4, frame->sample_rate, static_cast<int>(audio_capture_channels > 0 ? audio_capture_channels : frame->no_channels), AC_PCM};
 
@@ -307,7 +307,7 @@ static void audio_append(struct vidcap_state_ndi *s, NDIlib_audio_frame_v2_t *fr
         }
 
         for (int i = 0; i < frame->no_samples; ++i) {
-                float *in = frame->p_data + i;
+                float *in = (float *) frame->p_data + i;
                 int32_t *out = (int32_t *)(void *) s->audio[s->audio_buf_idx].data + i * d.ch_count;
                 int j = 0;
                 for (; j < min(d.ch_count, frame->no_channels); ++j) {
@@ -442,12 +442,12 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         }
 
         NDIlib_video_frame_v2_t video_frame;
-        NDIlib_audio_frame_v2_t audio_frame;
+        NDIlib_audio_frame_v3_t audio_frame;
 
         struct video_frame *out = nullptr;
         video_desc out_desc;
 
-        switch (s->NDIlib->recv_capture_v2(s->pNDI_recv, &video_frame, &audio_frame, nullptr, 200))
+        switch (s->NDIlib->recv_capture_v3(s->pNDI_recv, &video_frame, &audio_frame, nullptr, 200))
         {       // No data
         case NDIlib_frame_type_none:
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "No data received.\n";
@@ -485,12 +485,16 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                 out_desc.color_spec = RGBA;
                                 break;
                         default:
-                        {
-                                array<char, sizeof(uint32_t) + 1> fcc_s{};
-                                memcpy(fcc_s.data(), &video_frame.FourCC, sizeof(uint32_t));
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec '" << fcc_s.data() << "', please report to " PACKAGE_BUGREPORT "!\n";
-                                return {};
-                        }
+                                if (video_frame.FourCC == to_fourcc('H', '2', '6', '4') || video_frame.FourCC == to_fourcc('h', '2', '6', '4')) {
+                                        out_desc.color_spec = H264;
+                                } else if (video_frame.FourCC == to_fourcc('H', 'E', 'V', 'C') || video_frame.FourCC == to_fourcc('h', 'e', 'v', 'c')) {
+                                        out_desc.color_spec = H265;
+                                } else {
+                                        array<char, sizeof(uint32_t) + 1> fcc_s{};
+                                        memcpy(fcc_s.data(), &video_frame.FourCC, sizeof(uint32_t));
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec '" << fcc_s.data() << "', please report to " PACKAGE_BUGREPORT "!\n";
+                                        return {};
+                                }
                 }
                 if (s->last_desc != out_desc) {
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Received video changed: " << out_desc << "\n";
@@ -536,6 +540,9 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                 } else {
                         out = vf_alloc_desc(out_desc);
                         out->tiles[0].data = reinterpret_cast<char*>(video_frame.p_data);
+                        if (is_codec_opaque(out_desc.color_spec)) {
+                                out->tiles[0].data_len = video_frame.data_size_in_bytes;
+                        }
                         struct dispose_udata_t {
                                 NDIlib_video_frame_v2_t video_frame;
                                 NDIlib_recv_instance_t pNDI_recv;
@@ -556,15 +563,18 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         }
                 // Audio data
         case NDIlib_frame_type_audio:
+                *audio = nullptr;
                 if (s->capture_audio) {
-                        audio_append(s, &audio_frame);
-                        *audio = &s->audio[s->audio_buf_idx];
-                        s->audio_buf_idx = (s->audio_buf_idx + 1) % 2;
-                        s->audio[s->audio_buf_idx].data_len = 0;
-                } else {
-                        *audio = nullptr;
+                        if (audio_frame.FourCC == NDIlib_FourCC_audio_type_FLTP) {
+                                audio_append_pcm(s, &audio_frame);
+                                *audio = &s->audio[s->audio_buf_idx];
+                                s->audio_buf_idx = (s->audio_buf_idx + 1) % 2;
+                                s->audio[s->audio_buf_idx].data_len = 0;
+                        } else {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported audio codec 0x" << std::hex << audio_frame.FourCC << std::dec << ", please report!\n";
+                        }
                 }
-                s->NDIlib->recv_free_audio_v2(s->pNDI_recv, &audio_frame);
+                s->NDIlib->recv_free_audio_v3(s->pNDI_recv, &audio_frame);
                 break;
 
         case NDIlib_frame_type_metadata:
