@@ -33,7 +33,7 @@ install_juice() {
 }
 
 install_pcp() {
-        git clone https://github.com/MartinPulec/pcp.git
+        git clone https://github.com/libpcp/pcp.git
         (
                 cd pcp
                 ./autogen.sh || true # autogen exits with 1
