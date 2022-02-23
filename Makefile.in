@@ -555,7 +555,7 @@ clean:
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@
 	-rm -rf $(DEP_FILES)
-	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
+	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ distclean; fi
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h cscope.out tags
