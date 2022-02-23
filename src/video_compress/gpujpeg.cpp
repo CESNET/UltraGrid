@@ -145,6 +145,7 @@ public:
         int                     m_restart_interval;
         int                     m_quality;
         bool                    m_force_interleaved = false;
+        bool                    m_compress_alpha = false;
         int                     m_subsampling = 0; // 444, 422 or 420; 0 -> autoselect
         enum gpujpeg_color_space m_use_internal_codec = GPUJPEG_NONE; // requested internal codec
 
@@ -295,6 +296,14 @@ bool encoder_state::configure_with(struct video_desc desc)
         m_param_image.height = desc.height;
 
         m_param_image.comp_count = 3;
+        if (m_parent_state->m_compress_alpha) {
+                if (desc.color_spec == RGBA) {
+                        m_param_image.comp_count = 4;
+                } else {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Requested alpha encode but input codec is unsupported pixel format: "
+                                << get_codec_name(desc.color_spec) << "\n";
+                }
+        }
         m_param_image.color_space = codec_is_a_rgb(m_enc_input_codec) ? GPUJPEG_RGB : GPUJPEG_YCBCR_BT709;
 
         switch (m_enc_input_codec) {
@@ -363,6 +372,12 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                         } else if (strstr(tok, "subsampling=") == tok) {
                                 m_subsampling = atoi(tok + strlen("subsampling="));
                                 assert(set<int>({444, 422, 420}).count(m_subsampling) == 1);
+                        } else if (strcmp(tok, "alpha") == 0) {
+#if GPUJPEG_VERSION_INT < GPUJPEG_MK_VERSION_INT(0, 20, 2)
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "GPUJPEG v0.20.2 is required for alpha support, %s found.\n",
+                                                gpujpeg_version_to_string(gpujpeg_version()));
+#endif
+                                m_compress_alpha = true;
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameters.\n");
                         }
@@ -425,7 +440,7 @@ state_video_compress_gpujpeg *state_video_compress_gpujpeg::create(struct module
         return ret;
 }
 
-struct {
+static const struct {
         const char *label;
         const char *key;
         const char *help_name;
@@ -454,6 +469,9 @@ struct {
         {"Subsampling", "subsampling", "sub",
                 "\t\tUse specified JPEG subsampling (444, 422 or 420).\n",
                 ":sub=", false},
+        {"Alpha", "alpha", "alpha",
+                "\t\tCompress (keep) alpha channel of RGBA.\n",
+                ":alpha", true},
 };
 
 struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
@@ -467,7 +485,7 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 
         if(opts && strcmp(opts, "help") == 0) {
                 cout << "GPUJPEG comperssion usage:\n";
-                cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|Y601|Y601full|Y709]][:subsampling=<sub>]\n");
+                cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|Y601|Y601full|Y709]][:subsampling=<sub>][:alpha]\n");
                 cout << "where\n";
 
                 for(const auto& i : usage_opts){
