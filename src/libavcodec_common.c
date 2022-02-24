@@ -1293,6 +1293,36 @@ static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict fram
         }
 }
 
+static inline void gbrap_to_rgb_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, int comp_count)
+{
+        assert(rgb_shift[R] == DEFAULT_R_SHIFT && rgb_shift[G] == DEFAULT_G_SHIFT && rgb_shift[B] == DEFAULT_B_SHIFT);
+        for (int y = 0; y < height; ++y) {
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        uint8_t *buf = (uint8_t *) dst_buffer + y * pitch + x * comp_count;
+                        int src_idx = y * frame->linesize[0] + x;
+                        buf[0] = frame->data[2][src_idx]; // R
+                        buf[1] = frame->data[0][src_idx]; // G
+                        buf[2] = frame->data[1][src_idx]; // B
+                        if (comp_count == 4) {
+                                buf[3] = frame->data[3][src_idx]; // B
+                        }
+                }
+        }
+}
+
+static void gbrap_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        gbrap_to_rgb_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 4);
+}
+
+static void gbrap_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        gbrap_to_rgb_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 3);
+}
+
 static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
@@ -2873,6 +2903,8 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, false},
                 // RGB
+                {AV_PIX_FMT_GBRAP, RGB, gbrap_to_rgb, false},
+                {AV_PIX_FMT_GBRAP, RGBA, gbrap_to_rgba, true},
                 {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
                 {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
                 {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
