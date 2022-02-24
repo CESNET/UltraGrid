@@ -81,6 +81,49 @@ static void new_msg(struct module *mod) {
         process_messages(mod->priv_data);
 }
 
+static void usage() {
+        color_out(0, "Usage:\n");
+        color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
+        color_out(COLOR_OUT_BOLD, "[=<dir>[:limit=<n>][:noaudio][:novideo][:override][:paused]]\n");
+        color_out(0, "where\n");
+        color_out(COLOR_OUT_BOLD, "\tlimit=<n>");
+        color_out(0, " - write at most <n> video frames\n");
+        color_out(COLOR_OUT_BOLD, "\toverride");
+        color_out(0, " - export even if it would override existing files in the given directory\n");
+        color_out(COLOR_OUT_BOLD, "\tnoaudio | novideo");
+        color_out(0, " - do not export audio/video\n");
+        color_out(COLOR_OUT_BOLD, "\tpaused");
+        color_out(0, " - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
+}
+
+static bool parse_options(struct exporter *s, char *save_ptr, bool *should_export) {
+        char *item = NULL;
+        while ((item = strtok_r(NULL, ":", &save_ptr)) != NULL) {
+                if (strstr(item, "help") == item) {
+                        usage();
+                        return false;
+                } else if (strstr(item, "noaudio") == item) {
+                        s->noaudio = true;
+                } else if (strstr(item, "novideo") == item) {
+                        s->novideo = true;
+                } else if (strstr(item, "override") == item) {
+                        s->override = true;
+                } else if (strstr(item, "paused") == item) {
+                        *should_export = false; // start paused
+                } else if (strstr(item, "limit=") == item) {
+                        s->limit = strtoll(item + strlen("limit="), NULL, 0);
+                        if (s->limit < 0) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong limit: %s!\n", item + strlen("limit="));
+                                return false;
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
+                        return false;
+                }
+        }
+        return true;
+}
+
 #define HANDLE_ERROR export_destroy(s); return NULL;
 #define OPTLEN_MAX 40 ///< max length of cmdline options
 
@@ -92,18 +135,7 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
 
         if (cfg) {
                 if (strcmp(cfg, "help") == 0) {
-                        color_out(0, "Usage:\n");
-                        color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
-                        color_out(COLOR_OUT_BOLD, "[=<dir>[:limit=<n>][:noaudio][:novideo][:override][:paused]]\n");
-                        color_out(0, "where\n");
-                        color_out(COLOR_OUT_BOLD, "\tlimit=<n>");
-                        color_out(0, " - write at most <n> video frames\n");
-                        color_out(COLOR_OUT_BOLD, "\toverride");
-                        color_out(0, " - export even if it would override existing files in the given directory\n");
-                        color_out(COLOR_OUT_BOLD, "\tnoaudio | novideo");
-                        color_out(0, " - do not export audio/video\n");
-                        color_out(COLOR_OUT_BOLD, "\tpaused");
-                        color_out(0, " - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
+                        usage();
                         export_destroy(s);
                         return NULL;
                 }
@@ -115,26 +147,8 @@ struct exporter *export_init(struct module *parent, const char *cfg, bool should
                         HANDLE_ERROR
                 }
                 s->dir = strdup(s->dir);
-                char *item = NULL;
-                while ((item = strtok_r(NULL, ":", &save_ptr)) != NULL) {
-                        if (strstr(item, "noaudio") == item) {
-                                s->noaudio = true;
-                        } else if (strstr(item, "novideo") == item) {
-                                s->novideo = true;
-                        } else if (strstr(item, "override") == item) {
-                                s->override = true;
-                        } else if (strstr(item, "paused") == item) {
-                                should_export = false; // start paused
-                        } else if (strstr(item, "limit=") == item) {
-                                s->limit = strtoll(item + strlen("limit="), NULL, 0);
-                                if (s->limit < 0) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong limit: %s!\n", item + strlen("limit="));
-                                        HANDLE_ERROR
-                                }
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
-                                HANDLE_ERROR
-                        }
+                if (!parse_options(s, save_ptr, &should_export)) {
+                        HANDLE_ERROR
                 }
         } else {
                 s->dir_auto = true;
