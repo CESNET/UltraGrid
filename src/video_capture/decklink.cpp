@@ -153,7 +153,7 @@ struct vidcap_decklink_state {
         struct audio_frame      audio;
         queue<IDeckLinkAudioInputPacket *> audioPackets;
         codec_t                 codec;
-        BMDVideoInputFlags enable_flags;
+        BMDVideoInputFlags enable_flags{0};
         BMDSupportedVideoModeFlags supported_flags = bmdSupportedVideoModeDefault;
 
         mutex                   lock;
@@ -161,11 +161,11 @@ struct vidcap_decklink_state {
 
         int                     frames;
         unsigned int            grab_audio:1; /* wheather we process audio or not */
-        bool                    stereo; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
-        unsigned int            sync_timecode:1; /* use timecode when grabbing from multiple inputs */
-        BMDVideoConnection      connection;
-        int                     audio_consumer_levels; ///< 0 false, 1 true, -1 default
-        BMDVideoInputConversionMode conversion_mode;
+        bool                    stereo{false}; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
+        bool                    sync_timecode{false}; /* use timecode when grabbing from multiple inputs */
+        BMDVideoConnection      connection = bmdVideoConnectionUnspecified;
+        int                     audio_consumer_levels{-1}; ///< 0 false, 1 true, -1 default
+        BMDVideoInputConversionMode conversion_mode{bmdNoVideoInputConversion};
         BMDDeckLinkCapturePassthroughMode passthrough; // 0 means don't set
 
         struct timeval          t0;
@@ -1089,13 +1089,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 	}
 
         gettimeofday(&s->t0, NULL);
-
-        s->stereo = false;
-        s->sync_timecode = FALSE;
-        s->connection = bmdVideoConnectionUnspecified;
-        s->enable_flags = 0;
-        s->audio_consumer_levels = -1;
-        s->conversion_mode = bmdNoVideoInputConversion;
 
 	// SET UP device and mode
         char *tmp_fmt = strdup(fmt);
