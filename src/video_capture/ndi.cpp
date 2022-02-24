@@ -468,6 +468,8 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                 1};
                 switch (video_frame.FourCC) {
                         case NDIlib_FourCC_type_UYVA:
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Detected input format UYVA, dropping alpha! Please report if not desired.\n";
+                                // fall through
                         case NDIlib_FourCC_type_UYVY:
                                 out_desc.color_spec = UYVY;
                                 break;
