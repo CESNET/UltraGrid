@@ -1056,6 +1056,7 @@ static int64_t translate_glut_to_ug(int key, bool is_special) {
 
 static bool display_gl_process_key(struct state_gl *s, long long int key)
 {
+        verbose_msg(MOD_NAME "Key %lld pressed\n", key);
         switch (key) {
                 case 'f':
                         s->fs = !s->fs;
