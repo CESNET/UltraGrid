@@ -132,6 +132,18 @@ using std::mutex;
 
 #define CALL_AND_CHECK(cmd, ...) CALL_AND_CHECK_CHOOSER(__VA_ARGS__)(cmd, __VA_ARGS__)
 
+#define BMD_CONFIG_SET_INT(key, val, fatal) do {\
+        if (val != (decltype(val)) BMD_OPT_DEFAULT) {\
+                HRESULT result = deckLinkConfiguration->SetInt(key, val);\
+                if (result != S_OK) {\
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
+                        if (fatal) goto error;\
+                } else { \
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: " << val << "\n";\
+                } \
+        }\
+} while (0)
+
 class VideoDelegate;
 
 struct device_state {
@@ -163,9 +175,9 @@ struct vidcap_decklink_state {
         unsigned int            grab_audio:1; /* wheather we process audio or not */
         bool                    stereo{false}; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         bool                    sync_timecode{false}; /* use timecode when grabbing from multiple inputs */
-        BMDVideoConnection      connection = bmdVideoConnectionUnspecified;
+        BMDVideoConnection      connection{};
         int                     audio_consumer_levels{-1}; ///< 0 false, 1 true, -1 default
-        BMDVideoInputConversionMode conversion_mode{bmdNoVideoInputConversion};
+        BMDVideoInputConversionMode conversion_mode{};
         BMDDeckLinkCapturePassthroughMode passthrough; // 0 means don't set
 
         struct timeval          t0;
@@ -1201,19 +1213,9 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
                 s->state[i].deckLinkAttributes = deckLinkAttributes;
 
-                if (s->connection != bmdVideoConnectionUnspecified) {
-                        CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection, s->connection),
-                                        "bmdDeckLinkConfigVideoInputConnection",
-                                        "Input set to: " << s->connection);
-                }
-
-                if (s->conversion_mode) {
-                        CALL_AND_CHECK(deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode), "Unable to set conversion mode");
-                }
-
-                if (s->passthrough) {
-                        EXIT_IF_FAILED(deckLinkConfiguration->SetInt(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough), "Unable to set passthrough mode");
-                }
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConnection, s->connection, false);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, false);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, true);
 
                 if (s->link == 0) {
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
