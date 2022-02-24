@@ -352,7 +352,7 @@ struct state_decklink {
         uint32_t            profile_req; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
-        BMDVideoOutputConversionMode conversion_mode{bmdNoVideoOutputConversion};
+        BMDVideoOutputConversionMode conversion_mode{BMD_OPT_DEFAULT};
         HDRMetadata         requested_hdr_mode;
 
         buffer_pool_t       buffer_pool;
@@ -812,8 +812,8 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                                         "Quad-link SDI Square Division Quad Split mode");
                 }
 
-                EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, s->conversion_mode, supportedFlags, nullptr, &supported),
-                                "DoesSupportVideoMode");
+                EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat,
+                                        s->conversion_mode ? s->conversion_mode : static_cast<BMDVideoOutputConversionMode>(bmdNoVideoOutputConversion), supportedFlags, nullptr, &supported), "DoesSupportVideoMode");
                 if (!supported) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
                                         "combination not supported - %d * %dx%d@%f, timecode %s.\n",
