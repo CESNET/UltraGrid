@@ -352,7 +352,7 @@ struct state_decklink {
         uint32_t            profile_req; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         char                level; // 0 - undefined, 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
-        BMDVideoOutputConversionMode conversion_mode{BMD_OPT_DEFAULT};
+        BMDVideoOutputConversionMode conversion_mode{};
         HDRMetadata         requested_hdr_mode;
 
         buffer_pool_t       buffer_pool;
