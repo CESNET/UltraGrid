@@ -16,6 +16,7 @@ LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
 INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
                 @CUDA_INC@ @INC@
+OFAST         = @OFAST@
 DECKLINK_PATH = @DECKLINK_PATH@
 DYLIBBUNDLER  = @DYLIBBUNDLER@
 DYLIBBUNDLER_FLAGS += @DYLIBBUNDLER_FLAGS@
@@ -306,12 +307,12 @@ POSTPROCESS_DEPS = \
 
 src/libavcodec_common.o: src/libavcodec_common.c
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) -Ofast $(INC) -MD -c $< -o $@
+	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 src/video_codec.o: src/video_codec.c
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) -Ofast $(INC) -MD -c $< -o $@
+	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
 # Important for this target is inclusion of cuda_wrapper that has patched cuda_runtime.h header (wrapper)

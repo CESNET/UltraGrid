@@ -214,6 +214,13 @@ CFLAGS="$CFLAGS $ARCH"
 CXXFLAGS="$CXXFLAGS $ARCH"
 LDFLAGS="$LDFLAGS $ARCH"
 
+if expr "$CFLAGS" : '.*-O' >/dev/null; then
+        OFAST=""
+else
+        OFAST="-Ofast"
+fi
+AC_SUBST(OFAST)
+
 AC_CHECK_HEADERS([termios.h])
 
 # Adds the module to UltraGrid build system.
