@@ -181,7 +181,7 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 	if (gpujpeg_decoder_get_image_info(buffer, len, &image_params, NULL, MAX(0, log_level - LOG_LEVEL_INFO)) != 0) {
 #endif
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "probe - cannot get image info!\n");
-		return DECODER_GOT_FRAME;
+                return DECODER_NO_FRAME;
 	}
 
         if (image_params.pixel_format == GPUJPEG_444_U8_P012A) {
