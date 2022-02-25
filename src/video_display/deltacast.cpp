@@ -145,7 +145,7 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, int no
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
                 if (Result != VHDERR_BUFFERTOOSMALL)
                 {
-                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08" PRIX32 "\n", Result);
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08" PRIX_ULONG "\n", Result);
                 } else {
                         for(i = 0; i < s->audio_desc.ch_count; ++i) {
                                 int ret;
@@ -160,7 +160,7 @@ static int display_deltacast_putf(void *state, struct video_frame *frame, int no
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
                 if (Result != VHDERR_NOERROR)
                 {
-                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08" PRIX32 "\n",Result);
+                        log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08" PRIX_ULONG "\n",Result);
                 }
         }
         pthread_mutex_unlock(&s->lock);
@@ -361,7 +361,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
                 log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
-                                " information. Result = 0x%08" PRIX32 "\n",
+                                " information. Result = 0x%08" PRIX_ULONG "\n",
                                 Result);
                 goto error;
         }
@@ -371,7 +371,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         }
         
         if(BrdId >= NbBoards) {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Wrong index %" PRIu32 ". Found %" PRIu32 " cards.\n", BrdId, NbBoards);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] Wrong index %" PRIu_ULONG ". Found %" PRIu_ULONG " cards.\n", BrdId, NbBoards);
                 goto error;
         }
 
@@ -379,7 +379,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
         Result = VHD_OpenBoardHandle(BrdId,&s->BoardHandle,NULL,0);
         if (Result != VHDERR_NOERROR)
         {
-                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot open DELTA board %" PRIu32 " handle. Result = 0x%08" PRIX32 "\n", BrdId, Result);
+                log_msg(LOG_LEVEL_ERROR, "[DELTACAST] ERROR : Cannot open DELTA board %" PRIu_ULONG " handle. Result = 0x%08" PRIX_ULONG "\n", BrdId, Result);
                 goto error;
         }
 
