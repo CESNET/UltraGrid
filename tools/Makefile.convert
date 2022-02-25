@@ -1,2 +1,2 @@
 all:
-	$(CXX) -D_GNU_SOURCE -I../src/ -xc ../src/video_codec.c ../src/compat/platform_time.c -xc++ convert.cpp ../src/debug.cpp -o convert
+	$(CXX) -std=gnu++17 -D_GNU_SOURCE -I../src/ -xc ../src/video_codec.c ../src/compat/platform_time.c -xc++ convert.cpp ../src/debug.cpp ../src/misc.cpp -o convert

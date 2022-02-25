@@ -42,11 +42,16 @@
 #include "config_win32.h"
 #endif
 
+#include <assert.h>
 #include <limits.h>
 #include <math.h>
 
 #include "debug.h"
 #include "utils/misc.h"
+
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
 
 #define STRERROR_BUF_LEN 1024
 
