@@ -67,6 +67,7 @@
 #include "video_capture.h"
 #include "song1.h"
 #include "utils/color_out.h"
+#include "utils/misc.h"
 #include "utils/ring_buffer.h"
 #include "utils/vf_split.h"
 #include <stdio.h>
@@ -375,12 +376,48 @@ static auto parse_format(char **fmt, char **save_ptr) {
         return desc;
 }
 
+static bool testcard_load_from_file(const char *filename, long data_len, char *data) {
+        bool ret = true;
+        FILE *in = fopen(filename, "r");
+        if (in == nullptr) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "fopen: " << ug_strerror(errno) << "\n";
+                return false;
+        }
+        fseek(in, 0L, SEEK_END);
+        long filesize = ftell(in);
+        if (filesize == -1) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "ftell: " << ug_strerror(errno) << "\n";
+                filesize = data_len;
+        }
+        fseek(in, 0L, SEEK_SET);
+
+        do {
+                if (data_len != filesize) {
+                        int level = data_len < filesize ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR;
+                        LOG(level) << MOD_NAME  << "Wrong file size for selected "
+                                "resolution and codec. File size " << filesize << ", "
+                                "computed size " << data_len << "\n";
+                        filesize = data_len;
+                        if (level == LOG_LEVEL_ERROR) {
+                                ret = false; break;
+                        }
+                }
+
+                if (fread(data, filesize, 1, in) != 1) {
+                        log_msg(LOG_LEVEL_ERROR, "Cannot read file %s\n", filename);
+                        ret = false; break;
+                }
+        } while (false);
+
+        fclose(in);
+        return ret;
+}
+
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
         struct testcard_state *s = nullptr;
         char *filename = nullptr;
         const char *strip_fmt = NULL;
-        FILE *in = NULL;
         char *save_ptr = NULL;
         char *tmp;
 
@@ -421,34 +458,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         s->pan = 48;
                 } else if (strncmp(tmp, "filename=", strlen("filename=")) == 0) {
                         filename = tmp + strlen("filename=");
-                        in = fopen(filename, "r");
-                        if (!in) {
-                                perror("fopen");
-                                goto error;
-                        }
-                        fseek(in, 0L, SEEK_END);
-                        long filesize = ftell(in);
-                        assert(filesize >= 0);
-                        fseek(in, 0L, SEEK_SET);
-
-                        if (s->frame->tiles[0].data_len != static_cast<unsigned>(filesize)) {
-                                int level = s->frame->tiles[0].data_len < static_cast<unsigned>(filesize) ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR;
-                                LOG(level) << MOD_NAME  << "Wrong file size for selected "
-                                        "resolution and codec. File size " << filesize << ", "
-                                        "computed size " << s->frame->tiles[0].data_len << "\n";
-                                filesize = s->frame->tiles[0].data_len;
-                                if (level == LOG_LEVEL_ERROR) {
-                                        goto error;
-                                }
-                        }
-
-                        if (in == nullptr || fread(vf_get_tile(s->frame, 0)->data, filesize, 1, in) != 1) {
-                                log_msg(LOG_LEVEL_ERROR, "Cannot read file %s\n", filename);
-                                goto error;
-                        }
-
-                        fclose(in);
-                        in = NULL;
                 } else if (strncmp(tmp, "s=", 2) == 0) {
                         strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
@@ -489,7 +498,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->frame->tiles[0].data_len * 2));
         s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
 
-        if (!filename) {
+        if (filename) {
+                if (!testcard_load_from_file(filename, s->frame->tiles[0].data_len, s->frame->tiles[0].data)) {
+                        goto error;
+                }
+        } else {
                 auto data = video_pattern_generate(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec);
                 if (!data) {
                          goto error;
@@ -541,8 +554,6 @@ error:
         free(fmt);
         free(s->data);
         vf_free(s->frame);
-        if (in)
-                fclose(in);
         delete s;
         return VIDCAP_INIT_FAIL;
 }
