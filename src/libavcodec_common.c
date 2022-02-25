@@ -2104,10 +2104,10 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                 unsigned char *dst1 = (unsigned char *) dst_buffer + pitch * (y * 2);
                 unsigned char *dst2 = (unsigned char *) dst_buffer + pitch * (y * 2 + 1);
 
-                unsigned char *src_cb1;
-                unsigned char *src_cr1;
-                unsigned char *src_cb2;
-                unsigned char *src_cr2;
+                unsigned char *src_cb1 = NULL;
+                unsigned char *src_cr1 = NULL;
+                unsigned char *src_cb2 = NULL;
+                unsigned char *src_cr2 = NULL;
                 if (subsampling == 420) {
                         src_cb1 = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
                         src_cr1 = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
