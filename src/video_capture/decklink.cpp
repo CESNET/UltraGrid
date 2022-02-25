@@ -132,12 +132,12 @@ using std::mutex;
 
 #define CALL_AND_CHECK(cmd, ...) CALL_AND_CHECK_CHOOSER(__VA_ARGS__)(cmd, __VA_ARGS__)
 
-#define BMD_CONFIG_SET_INT(key, val, fatal) do {\
+#define BMD_CONFIG_SET_INT(key, val) do {\
         if (val != (decltype(val)) BMD_OPT_DEFAULT) {\
                 HRESULT result = deckLinkConfiguration->SetInt(key, val);\
                 if (result != S_OK) {\
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
-                        if (fatal) goto error;\
+                        goto error;\
                 } else { \
                         LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: " << val << "\n";\
                 } \
@@ -1213,9 +1213,9 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
                 s->state[i].deckLinkAttributes = deckLinkAttributes;
 
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConnection, s->connection, false);
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, false);
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, true);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConnection, s->connection);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough);
 
                 if (s->link == 0) {
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
