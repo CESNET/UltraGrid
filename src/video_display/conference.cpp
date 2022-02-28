@@ -45,6 +45,7 @@
 #include "video_display.h"
 #include "video_codec.h"
 #include "utils/misc.h"
+#include "utils/sv_parse_num.hpp"
 
 #include <cinttypes>
 #include <condition_variable>
@@ -57,7 +58,6 @@
 #include <queue>
 #include <thread>
 #include <string_view>
-#include <charconv>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
@@ -438,12 +438,6 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
         auto disp_cfg = tokenize(param, '#');
         auto conf_cfg = tokenize(param, '#');
 
-        auto parseNum = [](std::string_view sv, auto& res){
-                if(sv.empty())
-                        return false;
-                return std::from_chars(sv.begin(), sv.end(), res).ec == std::errc();
-        };
-
 #define FAIL_IF(x, msg) \
         do {\
                 if(x){\
@@ -456,12 +450,9 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
         requested_display = tokenize(disp_cfg, ':');
         FAIL_IF(requested_display.empty(), "Requested display cannot be empty\n");
         disp_conf = tokenize(disp_cfg, ':');
-        FAIL_IF(!parseNum(tokenize(conf_cfg, ':'), desc.width), "Failed to parse width\n");
-        FAIL_IF(!parseNum(tokenize(conf_cfg, ':'), desc.height), "Failed to parse height\n");
-
-        int fps;
-        FAIL_IF(!parseNum(tokenize(conf_cfg, ':'), fps), "Failed to parse fps\n");
-        desc.fps = fps;
+        FAIL_IF(!parse_num(tokenize(conf_cfg, ':'), desc.width), "Failed to parse width\n");
+        FAIL_IF(!parse_num(tokenize(conf_cfg, ':'), desc.height), "Failed to parse height\n");
+        FAIL_IF(!parse_num(tokenize(conf_cfg, ':'), desc.fps), "Failed to parse fps\n");
 
         auto tok = tokenize(conf_cfg, ':');
         if(tok == "one_big"){
