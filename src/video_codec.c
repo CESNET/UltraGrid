@@ -81,13 +81,6 @@
 
 #ifdef __SSSE3__
 #include "tmmintrin.h"
-// compat with older Clang compiler
-#ifndef _mm_bslli_si128
-#define _mm_bslli_si128 _mm_slli_si128
-#endif
-#ifndef _mm_bsrli_si128
-#define _mm_bsrli_si128 _mm_srli_si128
-#endif
 #endif
 
 #ifdef __cplusplus
