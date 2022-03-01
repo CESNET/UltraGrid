@@ -3468,13 +3468,14 @@ end_section() {
 # params: <result> <feature> <bool> 0|1
 # 0 - print left column; 1 - print right column
 add_column() {
+        PAD_DOTS=31
         # left column
         if [ test $4 = 0 ]; then
-                printf "$1\n  $2 $(for n in `seq ${#2} 27`; do printf .; done) $(printf %-3s $3)"
+                printf "$1\n  $2 $(for n in `seq ${#2} $PAD_DOTS`; do printf .; done) $(printf %-3s $3)"
                 return 1
         else
                 # right column
-                printf "$1   $2 $(for n in `seq ${#2} 27`; do printf .; done) $(printf %-3s $3)\n"
+                printf "$1   $2 $(for n in `seq ${#2} $PAD_DOTS`; do printf .; done) $(printf %-3s $3)\n"
                 return 0
         fi
 }
