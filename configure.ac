@@ -1551,6 +1551,7 @@ AC_ARG_ENABLE(sdp-http,
     [sdp_http_req=$enableval],
     [sdp_http_req=$build_default]
     )
+sdp_http=no
 
 AC_CHECK_HEADERS([EmbeddableWebServer.h])
 
