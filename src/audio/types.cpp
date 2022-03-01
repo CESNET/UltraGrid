@@ -373,7 +373,7 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
                 }
                 int err;
                 resampler_state.resampler = speex_resampler_init(channels.size(), sample_rate,
-                                new_sample_rate, DEFAULT_RESAMPLE_QUALITY, &err);
+                                new_sample_rate, quality, &err);
                 if(err) {
                         abort();
                 }
