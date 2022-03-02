@@ -440,11 +440,20 @@ static void *adec_compute_and_print_stats(void *arg) {
                         loss.c_str(),
                         d->frame.get_sample_count(),
                         d->seconds);
+
+        using namespace std::string_literals;
+        ostringstream volume_rms, volume_peak;
+        volume_rms << fixed << setprecision(2);
+        volume_peak << fixed << setprecision(2);
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
-                double rms, peak;
+                double rms = 0.0;
+                double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                LOG(LOG_LEVEL_INFO) << "[Audio decoder] Channel " << i << " - volume: " << fg::magenta << style::bold << setprecision(2) << fixed << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::magenta << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak" << BOLD(RED((d->muted_receiver ? " (muted)" : ""))) << ".\n";
+                volume_rms << (i > 0 ? " "s : ""s) << 20.0 * log(rms) / log(10.0);
+                volume_peak << (i > 0 ? " "s : ""s) << 20.0 * log(peak) / log(10.0);
         }
+
+        LOG(LOG_LEVEL_INFO) << "[Audio decoder] Volume: " << fg::magenta << style::bold << volume_rms.str() << style::reset << fg::reset << " dBFS RMS, " << fg::magenta << style::bold << volume_peak.str() << style::reset << fg::reset << " dBFS peak" << BOLD(RED((d->muted_receiver ? " (muted)" : ""))) << ".\n";
 
         delete d;
 

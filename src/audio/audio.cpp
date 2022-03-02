@@ -914,16 +914,25 @@ struct asend_stats_processing_data {
 };
 
 static void *asend_compute_and_print_stats(void *arg) {
-        auto d = (struct asend_stats_processing_data*) arg;
+        auto *d = (struct asend_stats_processing_data*) arg;
 
         log_msg(LOG_LEVEL_INFO, "[Audio sender] Sent %d samples in last %f seconds.\n",
                         d->frame.get_sample_count(),
                         d->seconds);
+
+        ostringstream volume_rms, volume_peak;
+        volume_rms << fixed << setprecision(2);
+        volume_peak << fixed << setprecision(2);
+        using namespace std::string_literals;
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
-                double rms, peak;
+                double rms = 0.0;
+                double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                LOG(LOG_LEVEL_INFO) << "[Audio sender] Channel " << i << " - volume: " << setprecision(2) << fixed << fg::green << style::bold << 20 * log(rms) / log(10) << style::reset << fg::reset << " dBFS RMS, " << fg::green << style::bold << 20 * log(peak) / log(10) << style::reset << fg::reset << " dBFS peak" << BOLD(RED((d->muted_sender ? " (muted)" : ""))) << ".\n" ;
+                volume_rms << (i > 0 ? " "s : ""s) << 20.0 * log(rms) / log(10.0);
+                volume_peak << (i > 0 ? " "s : ""s) << 20.0 * log(peak) / log(10.0);
         }
+
+        LOG(LOG_LEVEL_INFO) << "[Audio sender] Volume: " << fg::green << style::bold << volume_rms.str() << style::reset << fg::reset << " dBFS RMS, " << fg::green << style::bold << volume_peak.str() << style::reset << fg::reset << " dBFS peak" << BOLD(RED((d->muted_sender ? " (muted)" : ""))) << ".\n" ;
 
         delete d;
 
