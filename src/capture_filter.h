@@ -80,8 +80,6 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
 void capture_filter_destroy(struct capture_filter *state);
 struct video_frame *capture_filter(struct capture_filter *state, struct video_frame *frame);
 
-void register_video_capture_filter(struct capture_filter_info *filter);
-
 #ifdef __cplusplus
 }
 #endif
