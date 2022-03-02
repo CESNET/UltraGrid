@@ -37,6 +37,11 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#ifndef WIN32
+#include <sys/wait.h>
+#endif
+
 #include "debug.h"
 #include "rtp/net_udp.h"
 #include "test_net_udp.h"

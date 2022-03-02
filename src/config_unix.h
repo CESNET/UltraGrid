@@ -70,11 +70,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/select.h>
-#include <sys/types.h>
 
-#ifdef HAVE_SYS_WAIT_H
-#include <sys/wait.h>
-#endif
 #ifndef WEXITSTATUS
 #define WEXITSTATUS(stat_val) ((unsigned)(stat_val) >> 8)
 #endif
@@ -82,13 +78,8 @@
 #define WIFEXITED(stat_val) (((stat_val) & 255) == 0)
 #endif
 
-#ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
-#endif
-
-#ifdef HAVE_STDINT_H
 #include <stdint.h>
-#endif
 
 #include <limits.h>
 #include <pwd.h>
@@ -111,20 +102,11 @@
 #include <bstring.h>
 #endif
 
-#ifdef HAVE_STROPTS_H
-#include <stropts.h>
-#endif
-
-#ifdef HAVE_SYS_FILIO_H
-#include <sys/filio.h>  
-#endif 
-
 #ifdef HAVE_SYS_SOCK_IO_H
 #include <sys/sockio.h>
 #endif
 
 #include <sys/time.h>
-#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -135,7 +117,6 @@
 #include <sys/param.h>
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
-#include <sys/utsname.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/mman.h>

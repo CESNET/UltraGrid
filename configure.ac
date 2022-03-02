@@ -23,10 +23,7 @@ AC_C_CONST
 AC_TYPE_SIZE_T
 AC_C_BIGENDIAN
 AC_C_CHAR_UNSIGNED
-AC_HEADER_STDBOOL
 PKG_PROG_PKG_CONFIG
-
-AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
@@ -341,53 +338,12 @@ remove_mwindows() {
 }
 
 # -------------------------------------------------------------------------------------------------
-# Check for standard size types.  The defaults are only valid on some
-# systems so we hope that <inttypes.h> exists when they're wrong.
-
-AC_CHECK_TYPE(int8_t,  signed char)
-AC_CHECK_TYPE(int16_t, short)
-AC_CHECK_TYPE(int32_t, long)
-AC_CHECK_TYPE(int64_t, long long)
-
-# Some systems have these in <stdint.h>, just to be difficult...
-AC_CACHE_CHECK(for uint8_t in <stdint.h>, ucl_cv_uint8_t_in_stdint_h,
-	AC_EGREP_HEADER(uint8_t,
-			stdint.h,
-			ucl_cv_uint8_t_in_stdint_h=yes,
-			ucl_cv_uint8_t_in_stdint_h=no))
-if test $ucl_cv_uint8_t_in_stdint_h = "no"
-then
-	 AC_CHECK_TYPE(uint8_t,  unsigned char)
-fi
-
-AC_CACHE_CHECK(for uint16_t in <stdint.h>, ucl_cv_uint16_t_in_stdint_h,
-	AC_EGREP_HEADER(uint16_t,
-			stdint.h,
-			ucl_cv_uint16_t_in_stdint_h=yes,
-			ucl_cv_uint16_t_in_stdint_h=no))
-if test $ucl_cv_uint16_t_in_stdint_h = "no"
-then
-	 AC_CHECK_TYPE(uint16_t,  unsigned short)
-fi
-
-AC_CACHE_CHECK(for uint32_t in <stdint.h>, ucl_cv_uint32_t_in_stdint_h,
-	AC_EGREP_HEADER(uint32_t,
-			stdint.h,
-			ucl_cv_uint32_t_in_stdint_h=yes,
-			ucl_cv_uint32_t_in_stdint_h=no))
-if test $ucl_cv_uint32_t_in_stdint_h = "no"
-then
-	 AC_CHECK_TYPE(uint32_t,  unsigned int)
-fi
-
-# -------------------------------------------------------------------------------------------------
 # GCC-specific warning flags
 if test "$GCC" = yes
 then
     CFLAGS="$CFLAGS -pipe -W -Wcast-qual -Wcast-align -Wbad-function-cast -Wmissing-prototypes -Wmissing-declarations"
     CXXFLAGS="$CXXFLAGS -pipe -W -Wcast-qual -Wcast-align -Wmissing-declarations"
 fi
-
 
 # ------------------------------------------------------------------------------------------------
 # Dynamic libraries stuff
@@ -418,18 +374,17 @@ AC_SEARCH_LIBS(inet_addr, nsl)
 AC_CHECK_LIB(rt, timer_create)
 
 AC_CHECK_FUNC(sin, MATHLIBS="", MATHLIBS="-lm")
-AC_CHECK_LIB(ieee, main, [MATHLIBS="-lieee $MATHLIBS"])
 AC_SUBST(MATHLIBS)
 
 # -------------------------------------------------------------------------------------------------
 # See if this system supports sched_setscheduler()
 
-AC_CHECK_FUNCS(sched_setscheduler)
 use_rt=no
 AC_ARG_ENABLE(rt,
               AS_HELP_STRING([--enable-rt], [enable RT priority]),
 	[use_rt=$enableval])
 if test "$use_rt" = "yes"; then
+        AC_CHECK_FUNCS(sched_setscheduler)
         AC_DEFINE([USE_RT], [1], [We use RT priority])
 fi
 
