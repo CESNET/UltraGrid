@@ -190,6 +190,7 @@ struct state_audio_decoder {
         struct channel_map channel_map;
 
         struct scale_data *scale; ///< contains scaling metadata if we want to perform audio scaling
+        int scale_count; ///< count of @ref state_audio_decoder::scale
         bool fixed_scale;
 
         struct audio_codec_state *audio_decompress;
@@ -369,8 +370,8 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         }
 
         s->fixed_scale = scale_auto ? false : true;
-        s->scale = (struct scale_data *) malloc(sizeof(struct scale_data));
-        s->scale->samples = 0;
+        s->scale_count = 1;
+        s->scale = (struct scale_data *) calloc(s->scale_count, sizeof(struct scale_data));
         s->scale->vol_avg = 1.0;
         s->scale->scale = scale_factor;
 
@@ -580,10 +581,10 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
                         if(!decoder->fixed_scale) {
                                 free(decoder->scale);
-                                decoder->scale = (struct scale_data *) malloc(output_channels * sizeof(struct scale_data));
+                                decoder->scale_count = decoder->channel_remapping ? decoder->channel_map.max_output + 1: decoder->saved_desc.ch_count;
+                                decoder->scale = (struct scale_data *) calloc(decoder->scale_count, sizeof(struct scale_data));
 
-                                for(int i = 0; i < output_channels; ++i) {
-                                        decoder->scale[i].samples = 0;
+                                for(int i = 0; i < decoder->scale_count; ++i) {
                                         decoder->scale[i].vol_avg = 1.0;
                                         decoder->scale[i].scale = 1.0;
                                 }
@@ -817,9 +818,7 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
 void audio_decoder_set_volume(void *state, double val)
 {
     auto s = (struct state_audio_decoder *) state;
-    int output_channels = s->channel_remapping ?
-            s->channel_map.max_output + 1: s->saved_desc.ch_count;
-    for (int i = 0; i < output_channels; ++i) {
+    for (int i = 0; i < s->scale_count; ++i) {
             s->scale[i].scale = val;
     }
     s->muted = val == 0.0;
