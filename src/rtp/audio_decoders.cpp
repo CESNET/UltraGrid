@@ -97,10 +97,10 @@ using std::vector;
 #define MOD_NAME "[audio dec.] "
 
 struct scale_data {
-        double vol_avg;
-        int samples;
+        double vol_avg = 1.0;
+        int samples = 0;
 
-        double scale;
+        double scale = 1.0;
 };
 
 struct channel_map {
@@ -196,8 +196,7 @@ struct state_audio_decoder {
         unsigned int channel_remapping:1;
         struct channel_map channel_map;
 
-        struct scale_data *scale; ///< contains scaling metadata if we want to perform audio scaling
-        int scale_count; ///< count of @ref state_audio_decoder::scale
+        vector<struct scale_data> scale = vector<scale_data>(1); ///< contains scaling metadata if we want to perform audio scaling
         bool fixed_scale;
 
         struct audio_codec_state *audio_decompress;
@@ -379,10 +378,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         }
 
         s->fixed_scale = scale_auto ? false : true;
-        s->scale_count = 1;
-        s->scale = (struct scale_data *) calloc(s->scale_count, sizeof(struct scale_data));
-        s->scale->vol_avg = 1.0;
-        s->scale->scale = scale_factor;
+        s->scale.at(0).scale = scale_factor;
 
         return s;
 
@@ -399,7 +395,6 @@ void audio_decoder_destroy(void *state)
         assert(s != NULL);
         assert(s->magic == AUDIO_DECODER_MAGIC);
 
-        free(s->scale);
         packet_counter_destroy(s->packet_counter);
         audio_codec_done(s->audio_decompress);
 
@@ -487,14 +482,9 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
         s->buffer.sample_rate = device_desc.sample_rate;
 
         if(!decoder->fixed_scale) {
-                free(decoder->scale);
-                decoder->scale_count = decoder->channel_remapping ? decoder->channel_map.max_output + 1: decoder->saved_desc.ch_count;
-                decoder->scale = (struct scale_data *) calloc(decoder->scale_count, sizeof(struct scale_data));
-
-                for(int i = 0; i < decoder->scale_count; ++i) {
-                        decoder->scale[i].vol_avg = 1.0;
-                        decoder->scale[i].scale = 1.0;
-                }
+                decoder->scale.clear();
+                int scale_count = decoder->channel_remapping ? decoder->channel_map.max_output + 1: decoder->saved_desc.ch_count;
+                decoder->scale.resize(scale_count);
         }
         decoder->saved_desc.ch_count = input_channels;
         decoder->saved_desc.bps = bps;
@@ -760,7 +750,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                                                 decompressed.get_data(channel),
                                                                 decompressed.get_bps(), decompressed.get_data_len(channel),
                                                                 s->buffer.ch_count, new_position,
-                                                                decoder->scale[decoder->fixed_scale ? 0 : new_position].scale);
+                                                                decoder->scale.at(decoder->fixed_scale ? 0 : new_position).scale);
                                         }
                                 }
                         } else {
@@ -769,7 +759,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 mux_and_mix_channel(s->buffer.data + s->buffer.data_len, decompressed.get_data(channel),
                                                 decompressed.get_bps(),
                                                 decompressed.get_data_len(channel), s->buffer.ch_count, channel,
-                                                decoder->scale[decoder->fixed_scale ? 0 : input_channels].scale);
+                                                decoder->scale.at(decoder->fixed_scale ? 0 : input_channels).scale);
                         }
                 }
         }
@@ -829,7 +819,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         }
                         double avg = get_avg_volume(s->buffer.data, s->buffer.bps,
                                         s->buffer.data_len / output_channels / s->buffer.bps, output_channels, i);
-                        compute_scale(&decoder->scale[i], avg,
+                        compute_scale(&decoder->scale.at(i), avg,
                                         s->buffer.data_len / output_channels / s->buffer.bps, s->buffer.sample_rate);
                 }
         }
@@ -906,8 +896,8 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
 void audio_decoder_set_volume(void *state, double val)
 {
     auto s = (struct state_audio_decoder *) state;
-    for (int i = 0; i < s->scale_count; ++i) {
-            s->scale[i].scale = val;
+    for (auto & i : s->scale) {
+            i.scale = val;
     }
     s->muted = val == 0.0;
 }
