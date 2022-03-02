@@ -237,38 +237,30 @@ struct ci_less : std::binary_function<std::string, std::string, bool>
         }
 };
 
-static map<enum library_class, map<string, lib_info, ci_less>> *libraries = nullptr;
-
-/**
- * The purpose of this initializor instead of ordinary static initialization is that register_video_capture_filter()
- * may be called before static members are initialized (it is __attribute__((constructor)))
- */
-struct init_libraries {
-        init_libraries() {
-                if (libraries == nullptr) {
-                        libraries = new remove_pointer<decltype(libraries)>::type();
-                }
-        }
-};
-
-static struct init_libraries loader;
+static auto& get_libmap(){
+        /* This is needed because register_library() may be called before global
+         * static members are initialized (it is __attribute__((constructor)))
+         */
+        static map<enum library_class, map<string, lib_info, ci_less>> libraries;
+        return libraries;
+}
 
 void register_library(const char *name, const void *data, enum library_class cls, int abi_version, int hidden)
 {
-        struct init_libraries loader;
-        if ((*libraries)[cls].find(name) != (*libraries)[cls].end()) {
+        auto& map = get_libmap()[cls];
+        if (map.find(name) != map.end()) {
                 LOG(LOG_LEVEL_ERROR) << "Module \"" << name << "\" multiple initialization!\n";
         }
-        (*libraries)[cls][name] = {data, abi_version, static_cast<bool>(hidden)};
+        map[name] = {data, abi_version, static_cast<bool>(hidden)};
 }
 
 const void *load_library(const char *name, enum library_class cls, int abi_version)
 {
-        if (libraries->find(cls) != libraries->end()) {
-                auto it_cls = libraries->find(cls)->second;
-                auto it_module = it_cls.find(name);
-                if (it_module != it_cls.end()) {
-                        auto mod_pair = it_cls.find(name)->second;
+        auto it_cls = get_libmap().find(cls);
+        if (it_cls != get_libmap().end()) {
+                auto it_module = it_cls->second.find(name);
+                if (it_module != it_cls->second.end()) {
+                        const auto& mod_pair = it_module->second;
                         if (mod_pair.abi_version == abi_version) {
                                 return mod_pair.data;
                         } else {
@@ -314,11 +306,12 @@ void list_modules(enum library_class cls, int abi_version, bool full) {
 bool list_all_modules() {
         bool ret = true;
 
+        auto& libraries = get_libmap();
         for (auto cls_it = library_class_info.begin(); cls_it != library_class_info.end();
                         ++cls_it) {
                 cout << cls_it->second.class_name << "\n";
-                auto it = libraries->find(cls_it->first);
-                if (it != libraries->end()) {
+                auto it = libraries.find(cls_it->first);
+                if (it != libraries.end()) {
                         for (auto && item : it->second) {
                                 cout << rang::style::bold << "\t" << item.first << "\n" << rang::style::reset;
                         }
@@ -341,8 +334,9 @@ bool list_all_modules() {
 map<string, const void *> get_libraries_for_class(enum library_class cls, int abi_version, bool include_hidden)
 {
         map<string, const void *> ret;
-        auto it = libraries->find(cls);
-        if (it != libraries->end()) {
+        auto& libraries = get_libmap();
+        auto it = libraries.find(cls);
+        if (it != libraries.end()) {
                 for (auto && item : it->second) {
                         if (abi_version == item.second.abi_version) {
                                 if (include_hidden || !item.second.hidden) {
