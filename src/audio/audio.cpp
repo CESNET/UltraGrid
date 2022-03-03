@@ -315,7 +315,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
         free(tmp);
 
         if (strcmp(opt->send_cfg, "none") != 0) {
-                char *cfg = NULL;
+                const char *cfg = "";
                 char *device = strdup(opt->send_cfg);
 		if(strchr(device, ':')) {
 			char *delim = strchr(device, ':');
@@ -345,7 +345,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
         }
         
         if (strcmp(opt->recv_cfg, "none") != 0) {
-                char *cfg = NULL;
+                const char *cfg = "";
                 char *device = strdup(opt->recv_cfg);
 		if(strchr(device, ':')) {
 			char *delim = strchr(device, ':');

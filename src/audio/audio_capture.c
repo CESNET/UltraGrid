@@ -64,8 +64,9 @@ struct state_audio_capture {
         void *state;
 };
 
-int audio_capture_init(const char *driver, char *cfg, struct state_audio_capture **state)
+int audio_capture_init(const char *driver, const char *cfg, struct state_audio_capture **state)
 {
+        assert(cfg != NULL);
         struct state_audio_capture *s = calloc(1, sizeof(struct state_audio_capture));
         assert(s != NULL);
 
@@ -101,7 +102,7 @@ error:
 struct state_audio_capture *audio_capture_init_null_device()
 {
         struct state_audio_capture *device = NULL;
-        int ret = audio_capture_init("none", NULL, &device);
+        int ret = audio_capture_init("none", "", &device);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize null audio capture: %d\n", ret);
         }

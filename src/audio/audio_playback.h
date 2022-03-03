@@ -80,7 +80,7 @@ extern int audio_init_state_ok;
 struct audio_playback_info {
         void (*probe)(struct device_info **available_devices, int *count);
         void (*help)(const char *driver_name);
-        void *(*init)(const char *cfg);
+        void *(*init)(const char *cfg); ///< @param cfg is not NULL
         void (*write)(void *state, struct audio_frame *frame);
         /** Returns device supported format that matches best with propsed audio desc */
         bool (*ctl)(void *state, int request, void *data, size_t *len);
