@@ -61,6 +61,7 @@
 
 using namespace std::chrono;
 using std::setprecision;
+using std::stoi;
 using std::string;
 
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
@@ -90,6 +91,8 @@ struct state_audio_capture_testcard {
         unsigned int samples_played;
 
         unsigned int total_samples;
+
+        int crescendo_speed = 1;
 };
 
 static void audio_cap_testcard_probe(struct device_info **available_devices, int *count)
@@ -106,15 +109,19 @@ static void audio_cap_testcard_help(const char *driver_name)
         printf("\ttestcard : Testing sound signal\n");
 }
 
-static char *get_sine_signal(int sample_rate, int bps, int channels, int frequency, double volume) {
+/// @param if crescendo_spd >= 1, amplitude of sound is increasing
+static char *get_sine_signal(int sample_rate, int bps, int channels, int frequency, double volume, int crescendo_spd) {
         char *data = (char *) calloc(1, sample_rate * channels * bps);
         double scale = pow(10.0, volume / 20.0) * sqrt(2.0);
         bool dither = sample_rate % frequency != 0 && commandline_params.find("no-dither") == commandline_params.end();
 
-        for (int i = 0; i < (int) sample_rate; i += 1)
-        {
+        for (int i = 0; i < (int) sample_rate; i += 1) {
                 for (int channel = 0; channel < channels; ++channel) {
                         double sine = sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. );
+                        if (crescendo_spd != 0) {
+                                double multiplier = ((double) ((i * crescendo_spd) % sample_rate) / sample_rate);
+                                sine *= 2 * multiplier; // up to 2x amplitude
+                        }
                         int32_t val = std::clamp(sine * INT32_MAX * scale, (double) INT32_MIN, (double) INT32_MAX);
                         change_bps2(data + static_cast<ptrdiff_t>(i) * bps * channels + static_cast<ptrdiff_t>(bps) * channel,
                                         bps, reinterpret_cast<char *>(&val), sizeof val, 1 * sizeof val, dither);
@@ -176,13 +183,14 @@ static void * audio_cap_testcard_init(const char *cfg)
                 SINE,
                 EBU,
                 WAV,
-                SILENCE
+                SILENCE,
+                CRESCENDO,
         } pattern = SINE;
 
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available testcard capture:\n");
                 audio_cap_testcard_help(NULL);
-                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:frequency=<f>][:silence|:ebu]\n");
+                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:frequency=<f>][:ebu|:silence|:crescendo=<spd>]\n");
                 printf("\t\t\t<vol> is a volume in dBFS (default %.2f dBFS)\n", DEFAULT_VOLUME);
                 printf("\t\t\t<wav> is a wav file to be played\n");
                 printf("\t\t\t<nf> sets number of audio frames per packet\n");
@@ -190,10 +198,18 @@ static void * audio_cap_testcard_init(const char *cfg)
                 return &audio_init_state_ok;
         }
 
-        if(cfg) {
-                char *tmp, *fmt;
-                tmp = fmt = strdup(cfg);
-                while((item = strtok_r(fmt, ":", &save_ptr))) {
+        auto *s = new state_audio_capture_testcard();
+        assert(s != nullptr);
+        bool failed = false;
+        char *tmp = nullptr;
+
+        do {
+                if (cfg == NULL) {
+                        break;
+                }
+                tmp = strdup(cfg);
+                char *fmt = tmp;
+                while ((item = strtok_r(fmt, ":", &save_ptr))) {
                         if(strncasecmp(item, "vol=", strlen("vol=")) == 0 ||
                                         strncasecmp(item, "volume=", strlen("volume=")) == 0) {
                                 volume = atof(strchr(item, '=') + 1);
@@ -204,29 +220,35 @@ static void * audio_cap_testcard_init(const char *cfg)
                                 chunk_size = atoi(item + strlen("frames="));
                         } else if (strncasecmp(item, "frequency=", strlen("frequency=")) == 0) {
                                 frequency = atoi(item + strlen("frequency="));
+                        } else if(strstr(item, "crescendo") == item) {
+                                pattern = CRESCENDO;
+                                if (char *val = strchr(item, '=')) {
+                                        val += 1;
+                                        if (strcmp(val, "help") == 0) {
+                                                printf("-s testcard:crescendo=<val>\n\t<val> - crescendo duration multiplier (default 1)\n");
+                                                failed = true; break;
+                                        }
+                                        s->crescendo_speed = stoi(val);
+                                }
                         } else if(strcasecmp(item, "ebu") == 0) {
                                 pattern = EBU;
                         } else if(strcasecmp(item, "silence") == 0) {
                                 pattern = SILENCE;
                         } else {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown option: " << item << "\n";
-                                free(tmp);
-                                return nullptr;
+                                failed = true; break;
                         }
 
                         fmt = NULL;
                 }
-                free(tmp);
+        } while(false);
+        free(tmp);
+        if (failed) {
+                delete s;
+                return nullptr;
         }
 
-        auto *s = new state_audio_capture_testcard();
-        assert(s != nullptr);
-
-        switch (pattern) {
-        case SINE:
-        case EBU:
-        case SILENCE:
-        {
+        if (pattern != WAV) {
                 s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
                 s->audio.sample_rate = audio_capture_sample_rate ? audio_capture_sample_rate :
                         DEFAULT_AUDIO_SAMPLE_RATE;
@@ -234,9 +256,10 @@ static void * audio_cap_testcard_init(const char *cfg)
                 s->chunk_size = chunk_size ? chunk_size : s->audio.sample_rate / CHUNKS_PER_SEC;
                 assert(s->chunk_size > 0);
                 switch (pattern) {
+                case CRESCENDO:
                 case SINE:
                         s->audio_samples = get_sine_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                        frequency, volume);
+                                        frequency, volume, pattern == CRESCENDO ? s->crescendo_speed : 0);
                         s->total_samples = s->audio.sample_rate;
                         break;
                 case EBU:
@@ -256,16 +279,12 @@ static void * audio_cap_testcard_init(const char *cfg)
                         << (pattern == SINE ? "sine" : pattern == EBU ? "EBU tone" : "silence") << " "
                         << "(" << audio_desc_from_frame(&s->audio) << ", frames per packet: " << s->chunk_size << ").\n";
 
-                if (pattern == EBU || pattern == SINE) {
-                        s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
-                                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
-                        memcpy(s->audio_samples + s->total_samples * s->audio.bps * s->audio.ch_count,
-                                        s->audio_samples, s->chunk_size - 1);
-                }
-                break;
-        }
-        case WAV:
-        {
+                // add padding if s->total_samples % s->chunk_size != 0
+                s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
+                                        s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
+                memcpy(s->audio_samples + s->total_samples * s->audio.bps * s->audio.ch_count,
+                                s->audio_samples, s->chunk_size - 1);
+        } else {
                 FILE *wav = fopen(wav_file.c_str(), "r");
                 if(!wav) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open WAV file: " << wav_file << ".\n";
@@ -317,8 +336,6 @@ static void * audio_cap_testcard_init(const char *cfg)
 
 
                 memcpy(s->audio_samples + samples_data_size, s->audio_samples, headroom);
-                break;
-        }
         }
 
         s->audio.data_len = s->chunk_size * s->audio.bps * s->audio.ch_count;
