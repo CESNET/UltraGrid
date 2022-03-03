@@ -60,6 +60,7 @@
 #include <string>
 
 using namespace std::chrono;
+using std::setprecision;
 using std::string;
 
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
@@ -75,7 +76,7 @@ using std::string;
 constexpr const char *MOD_NAME = "[Audio testc.] ";
 
 struct state_audio_capture_testcard {
-        uint32_t magic;
+        uint32_t magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
 
         unsigned long long int chunk_size;
         struct audio_frame audio;
@@ -165,7 +166,6 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
 
 static void * audio_cap_testcard_init(const char *cfg)
 {
-        struct state_audio_capture_testcard *s;
         string wav_file;
         char *item, *save_ptr;
 
@@ -219,9 +219,8 @@ static void * audio_cap_testcard_init(const char *cfg)
                 free(tmp);
         }
 
-        s = new state_audio_capture_testcard();
-        assert(s != 0);
-        s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
+        auto *s = new state_audio_capture_testcard();
+        assert(s != nullptr);
 
         switch (pattern) {
         case SINE:
@@ -236,38 +235,32 @@ static void * audio_cap_testcard_init(const char *cfg)
                 assert(s->chunk_size > 0);
                 switch (pattern) {
                 case SINE:
+                        s->audio_samples = get_sine_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
+                                        frequency, volume);
+                        s->total_samples = s->audio.sample_rate;
+                        break;
                 case EBU:
-                        log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) %s ", frequency,
-                                        volume, pattern == SINE ? "sine" : "EBU tone");
+                        s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
+                                        frequency, volume, &s->total_samples);
                         break;
                 case SILENCE:
-                        log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Generating silence ");
+                        s->total_samples = s->audio.sample_rate;
+                        s->audio_samples = (char *) calloc(1, (s->total_samples *
+                                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
                         break;
                 default:
                         abort();
                 }
 
-                LOG(LOG_LEVEL_NOTICE) << "(" << audio_desc_from_frame(&s->audio) << ", frames per packet: " << s->chunk_size << ").\n";
+                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME "Generating " << frequency << " Hz (" << setprecision(2) << volume << " RMS dBFS) "
+                        << (pattern == SINE ? "sine" : pattern == EBU ? "EBU tone" : "silence") << " "
+                        << "(" << audio_desc_from_frame(&s->audio) << ", frames per packet: " << s->chunk_size << ").\n";
 
                 if (pattern == EBU || pattern == SINE) {
-                        if (pattern == EBU) {
-                                s->audio_samples = get_ebu_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                                frequency, volume, &s->total_samples);
-                        } else {
-                                s->audio_samples = get_sine_signal(s->audio.sample_rate, s->audio.bps, s->audio.ch_count,
-                                                frequency, volume);
-                                s->total_samples = s->audio.sample_rate;
-                        }
-
                         s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
                                                 s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
                         memcpy(s->audio_samples + s->total_samples * s->audio.bps * s->audio.ch_count,
                                         s->audio_samples, s->chunk_size - 1);
-                } else {
-                        s->total_samples = s->audio.sample_rate;
-                        s->audio_samples = (char *) calloc(1, (s->total_samples *
-                                                s->audio.ch_count * s->audio.bps) + s->chunk_size - 1);
-
                 }
                 break;
         }
