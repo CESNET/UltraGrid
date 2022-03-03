@@ -1740,7 +1740,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
                 if ("libx264"s == codec_ctx->codec->name || "libx264rgb"s == codec_ctx->codec->name) {
                         ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
                 } else if ("libx265"s == codec_ctx->codec->name) {
-                        x265_params += ":intra-refresh=1";
+                        x265_params += ":intra-refresh=1:constrained-intra=1:no-open-gop=1";
                         ret = av_opt_set(codec_ctx->priv_data, "x265-params", x265_params.c_str(), 0);
                 }
                 if (ret != 0) {
