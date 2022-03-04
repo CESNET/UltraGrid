@@ -145,7 +145,7 @@ setup_vaapi() {
 setup_vaapi
 
 RUN=
-if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ]; then
+if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && [ "$ULTRAGRID_USE_FIREJAIL" != no ]; then
         command -v firejail >/dev/null || { echo "Firejail not present in system!"; exit 1; }
         if expr "$ULTRAGRID_USE_FIREJAIL" : '.*\.profile' >/dev/null; then
                 FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
