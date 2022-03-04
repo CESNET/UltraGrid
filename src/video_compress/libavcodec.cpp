@@ -1699,15 +1699,10 @@ ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
                  "  Use interlaced DCT for H.264\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        const char *tune;
-        if (codec_ctx->codec->id == AV_CODEC_ID_H264) {
-                tune = "zerolatency,fastdecode";
-        } else { // x265 supports only single tune parameter
-                tune = "zerolatency";
-        }
-        int ret = av_opt_set(codec_ctx->priv_data, "tune", tune, 0);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set tune %s.\n", tune);
+        const char *tune = codec_ctx->codec->id == AV_CODEC_ID_H264 ? "zerolatency,fastdecode" : "zerolatency"; // x265 supports only single tune parameter
+        if (int ret = av_opt_set(codec_ctx->priv_data, "tune", tune, 0)) {
+                string error = string(MOD_NAME) + "Unable to set tune to " + tune;
+                print_libav_error(LOG_LEVEL_WARNING, error.c_str(), ret);
         }
 
         // try to keep frame sizes as even as possible
