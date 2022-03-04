@@ -107,8 +107,8 @@ char **uv_argv;
 char *export_dir = NULL;
 volatile bool should_exit = false;
 
-volatile int audio_offset;
-volatile int video_offset;
+volatile int audio_offset; ///< added audio delay in ms (non-negative), can be used to tune AV sync
+volatile int video_offset; ///< added video delay in ms (non-negative), can be used to tune AV sync
 
 std::unordered_map<std::string, std::string> commandline_params;
 
