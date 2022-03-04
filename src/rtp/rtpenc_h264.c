@@ -71,6 +71,8 @@ struct rtpenc_h264_state {
 	bool haveSeenEOF;
 };
 
+_Static_assert(sizeof(struct rtpenc_h264_state) <= RTPENC_STATE_SIZE, "RTPENC_STATE_SIZE needs to be increased!");
+
 //UTILS DECLARATIONS
 static uint32_t test4Bytes(struct rtpenc_h264_state *rtpench264state);
 static unsigned char* startOfFrame(struct rtpenc_h264_state *rtpench264state);
@@ -84,13 +86,10 @@ static void skipBytes(struct rtpenc_h264_state *rtpench264state, unsigned numByt
 static unsigned curNALSize(struct rtpenc_h264_state *rtpench264state);
 
 
-struct rtpenc_h264_state * rtpenc_h264_init_state() {
-	return calloc(1, sizeof(struct rtpenc_h264_state));
-}
-
-void rtpenc_h264_reset(struct rtpenc_h264_state *rtpench264state) {
-	rtpench264state->haveSeenEOF = false;
-	rtpench264state->haveSeenFirstStartCode = false;
+/// Initializes rtpenc_h264 state in memory pointed by buf (allows creation on stack), should be reasonably aligned (eg. 8)
+struct rtpenc_h264_state * rtpenc_h264_init_state(void *buf) {
+        memset(buf, 0, sizeof(struct rtpenc_h264_state));
+        return buf;
 }
 
 unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint8_t *buf_in, int size) {

@@ -145,7 +145,6 @@ struct tx {
         struct openssl_encrypt *encryption;
         long long int bitrate;
 		
-        struct rtpenc_h264_state *rtpenc_h264_state;
         char tmp_packet[RTP_MAX_MTU];
 };
 
@@ -234,15 +233,8 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 }
 
                 tx->bitrate = bitrate;
-                tx->rtpenc_h264_state = rtpenc_h264_init_state();
         }
 		return tx;
-}
-
-struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                const char *fec, const char *encryption, long long int bitrate)
-{
-  return tx_init(parent, mtu, media_type, fec, encryption, bitrate);
 }
 
 static bool set_fec(struct tx *tx, const char *fec_const)
@@ -354,7 +346,6 @@ static void tx_done(struct module *mod)
 {
         struct tx *tx = (struct tx *) mod->priv_data;
         assert(tx->magic == TRANSMIT_MAGIC);
-        free(tx->rtpenc_h264_state);
         free(tx);
 }
 
@@ -1046,9 +1037,10 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	int data_len = tile->data_len;
 	unsigned maxPacketSize = tx->mtu - 40;
 
-        rtpenc_h264_reset(tx->rtpenc_h264_state);
+        alignas(8) char rtpenc_h264_state_buf[RTPENC_STATE_SIZE];
+        auto *rtpenc_h264_state = rtpenc_h264_init_state(rtpenc_h264_state_buf);
 
-        while ((nalsize = rtpenc_h264_frame_parse(tx->rtpenc_h264_state, data, data_len)) > 0) {
+        while ((nalsize = rtpenc_h264_frame_parse(rtpenc_h264_state, data, data_len)) > 0) {
                 bool lastNALUnitFragment = false; // by default
                 unsigned curNALOffset = 0;
 
@@ -1066,9 +1058,9 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 			if (curNALOffset == 0) { // case 1 or 2
 				if (nalsize	<= maxPacketSize) { // case 1
 
-					if (rtpenc_h264_have_seen_eof(tx->rtpenc_h264_state)) m = 1;
+					if (rtpenc_h264_have_seen_eof(rtpenc_h264_state)) m = 1;
 					if (rtp_send_data(rtp_session, ts, pt, m, cc, &csrc,
-							(char *) rtpenc_h264_get_from_state(tx->rtpenc_h264_state), nalsize,
+							(char *) rtpenc_h264_get_from_state(rtpenc_h264_state), nalsize,
 							extn, extn_len, extn_type) < 0) {
 						error_msg("There was a problem sending the RTP packet\n");
 					}
@@ -1077,12 +1069,12 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 					// We need to send the NAL unit data as FU packets.  Deliver the first
 					// packet now.  Note that we add "NAL header" and "FU header" bytes to the front
 					// of the packet (overwriting the existing "NAL header").
-					hdr[0] = (rtpenc_h264_get_from_state(tx->rtpenc_h264_state)[0] & 0xE0) | 28; //FU indicator
-					hdr[1] = 0x80 | (rtpenc_h264_get_from_state(tx->rtpenc_h264_state)[0] & 0x1F); // FU header (with S bit)
+					hdr[0] = (rtpenc_h264_get_from_state(rtpenc_h264_state)[0] & 0xE0) | 28; //FU indicator
+					hdr[1] = 0x80 | (rtpenc_h264_get_from_state(rtpenc_h264_state)[0] & 0x1F); // FU header (with S bit)
 
 					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
 									(char *) hdr, 2,
-									(char *) rtpenc_h264_get_from_state(tx->rtpenc_h264_state) + 1, maxPacketSize - 2,
+									(char *) rtpenc_h264_get_from_state(rtpenc_h264_state) + 1, maxPacketSize - 2,
 									extn, extn_len, extn_type) < 0) {
 										error_msg("There was a problem sending the RTP packet\n");
 					}
@@ -1102,7 +1094,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 					// We can't send all of the remaining data this time:
 					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
 							(char *) hdr, 2,
-							(char *) rtpenc_h264_get_from_state(tx->rtpenc_h264_state) + curNALOffset,
+							(char *) rtpenc_h264_get_from_state(rtpenc_h264_state) + curNALOffset,
 							maxPacketSize - 2, extn, extn_len,
 							extn_type) < 0) {
 								error_msg("There was a problem sending the RTP packet\n");
@@ -1113,13 +1105,13 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 
 				} else {
 					// This is the last fragment:
-					if (rtpenc_h264_have_seen_eof(tx->rtpenc_h264_state)) m = 1;
+					if (rtpenc_h264_have_seen_eof(rtpenc_h264_state)) m = 1;
 
 					hdr[1] |= 0x40;// set the E bit in the FU header
 
 					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
 									(char *) hdr, 2,
-									(char *) rtpenc_h264_get_from_state(tx->rtpenc_h264_state) + curNALOffset,
+									(char *) rtpenc_h264_get_from_state(rtpenc_h264_state) + curNALOffset,
 									nalsize, extn, extn_len, extn_type) < 0) {
 										error_msg("There was a problem sending the RTP packet\n");
 					}
@@ -1128,7 +1120,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 			}
 		}
 
-		if (rtpenc_h264_have_seen_eof(tx->rtpenc_h264_state)){
+		if (rtpenc_h264_have_seen_eof(rtpenc_h264_state)){
 			return;
 		}
 	}
