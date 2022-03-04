@@ -1051,8 +1051,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         opt->print_capabilities_req = true;
                         break;
                 case OPT_AUDIO_DELAY:
-                        audio_offset = max(atoi(optarg), 0);
-                        video_offset = atoi(optarg) < 0 ? abs(atoi(optarg)) : 0;
+                        set_audio_delay(stoi(optarg));
                         break;
                 case OPT_LIST_MODULES:
                         return list_all_modules() ? EXIT_SUCCESS : EXIT_FAILURE;
