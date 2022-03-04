@@ -59,30 +59,38 @@
 #include "compat/platform_spin.h"
 #include "video_frame.h"
 
+struct rtpenc_h264_state {
+	bool haveSeenFirstStartCode;
+	uint8_t firstByteOfNALUnit;
+	unsigned char* startOfFrame;
+	unsigned char* to;
+	unsigned char* from;
+	unsigned curParserIndex; // <= inputFrameSize
+	unsigned curParserIndexOffset;
+	unsigned inputFrameSize;
+	bool haveSeenEOF;
+};
+
 //UTILS DECLARATIONS
-uint32_t test4Bytes(struct rtpenc_h264_state *rtpench264state);
-unsigned char* startOfFrame(struct rtpenc_h264_state *rtpench264state);
-unsigned char* nextToParse(struct rtpenc_h264_state *rtpench264state);
-void checkEndOfFrame(struct rtpenc_h264_state *rtpench264state,
-		unsigned numBytesNeeded);
-uint8_t get1Byte(struct rtpenc_h264_state *rtpench264state);
-void setFromState(struct rtpenc_h264_state *rtpench264state);
-void setToState(struct rtpenc_h264_state *rtpench264state);
-void skipBytes(struct rtpenc_h264_state *rtpench264state, unsigned numBytes);
-bool haveSeenEOF(struct rtpenc_h264_state *rtpench264state); //EndOfFrame
-unsigned curNALSize(struct rtpenc_h264_state *rtpench264state);
+static uint32_t test4Bytes(struct rtpenc_h264_state *rtpench264state);
+static unsigned char* startOfFrame(struct rtpenc_h264_state *rtpench264state);
+static unsigned char* nextToParse(struct rtpenc_h264_state *rtpench264state);
+static void checkEndOfFrame(struct rtpenc_h264_state *rtpench264state,
+                unsigned numBytesNeeded);
+static uint8_t get1Byte(struct rtpenc_h264_state *rtpench264state);
+static void setFromState(struct rtpenc_h264_state *rtpench264state);
+static void setToState(struct rtpenc_h264_state *rtpench264state);
+static void skipBytes(struct rtpenc_h264_state *rtpench264state, unsigned numBytes);
+static unsigned curNALSize(struct rtpenc_h264_state *rtpench264state);
+
 
 struct rtpenc_h264_state * rtpenc_h264_init_state() {
-	struct rtpenc_h264_state *rtpench264state;
+	return calloc(1, sizeof(struct rtpenc_h264_state));
+}
 
-	rtpench264state = calloc(1, sizeof(struct rtpenc_h264_state));
-	rtpench264state->curParserIndex = 0;
-	rtpench264state->curParserIndexOffset = 0;
-	rtpench264state->haveSeenFirstStartCode = false;
-	rtpench264state->inputFrameSize = 0;
+void rtpenc_h264_reset(struct rtpenc_h264_state *rtpench264state) {
 	rtpench264state->haveSeenEOF = false;
-
-	return rtpench264state;
+	rtpench264state->haveSeenFirstStartCode = false;
 }
 
 unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint8_t *buf_in, int size) {
@@ -99,7 +107,7 @@ unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint
 		// Skip over any input bytes that precede the first 0x00000001 and assert it
 		while (test4Bytes(rtpench264state) != 0x00000001) {
 			get1Byte(rtpench264state);
-			if(haveSeenEOF(rtpench264state)){
+			if(rtpenc_h264_have_seen_eof(rtpench264state)){
 				error_msg("No NAL found!\n");
 				return 0; //this shouldn't happen -> this would mean that we got new frame but no start code was found inside....
 			}
@@ -117,7 +125,7 @@ unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint
 		} else {
 			skipBytes(rtpench264state, 3);
 		}
-		if(haveSeenEOF(rtpench264state)){
+		if(rtpenc_h264_have_seen_eof(rtpench264state)){
 			error_msg("No NAL found!\n");
 			return 0; //this shouldn't happen -> this would mean that we got more to parse but we run out of space....
 		}
@@ -130,7 +138,7 @@ unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint
 	next4Bytes = test4Bytes(rtpench264state);
 	rtpench264state->firstByteOfNALUnit = next4Bytes >> 24;
 
-	while (next4Bytes != 0x00000001 && (next4Bytes & 0xFFFFFF00) != 0x00000100 && !haveSeenEOF(rtpench264state)) {
+	while (next4Bytes != 0x00000001 && (next4Bytes & 0xFFFFFF00) != 0x00000100 && !rtpenc_h264_have_seen_eof(rtpench264state)) {
 		// We save at least some of "next4Bytes".
 		if ((unsigned) (next4Bytes & 0xFF) > 1) {
 			// Common case: 0x00000001 or 0x000001 definitely doesn't begin anywhere in "next4Bytes", so we save all of it:
@@ -146,20 +154,28 @@ unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state,	uint
 	return curNALSize(rtpench264state);
 }
 
+bool rtpenc_h264_have_seen_eof(struct rtpenc_h264_state *rtpench264state) {
+	return rtpench264state->haveSeenEOF;
+}
+
+unsigned char *rtpenc_h264_get_from_state(struct rtpenc_h264_state *rtpench264state) {
+        return rtpench264state->from;
+}
+
 //UTILS
-uint32_t test4Bytes(struct rtpenc_h264_state *rtpench264state) {
+static uint32_t test4Bytes(struct rtpenc_h264_state *rtpench264state) {
 	checkEndOfFrame(rtpench264state, 4);
 
 	unsigned char const* ptr = nextToParse(rtpench264state);
 	return (ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3];
 }
-unsigned char* startOfFrame(struct rtpenc_h264_state *rtpench264state) {
+static unsigned char* startOfFrame(struct rtpenc_h264_state *rtpench264state) {
 	return rtpench264state->startOfFrame;
 }
-unsigned char* nextToParse(struct rtpenc_h264_state *rtpench264state) {
+static unsigned char* nextToParse(struct rtpenc_h264_state *rtpench264state) {
 	return &startOfFrame(rtpench264state)[rtpench264state->curParserIndex];
 }
-void checkEndOfFrame(struct rtpenc_h264_state *rtpench264state,
+static void checkEndOfFrame(struct rtpenc_h264_state *rtpench264state,
 		unsigned numBytesNeeded) {
 	// assure EOF check
 	if (rtpench264state->curParserIndex + numBytesNeeded
@@ -167,30 +183,27 @@ void checkEndOfFrame(struct rtpenc_h264_state *rtpench264state,
 		rtpench264state->haveSeenEOF = true;
 	}
 }
-uint8_t get1Byte(struct rtpenc_h264_state *rtpench264state) { // byte-aligned
+static uint8_t get1Byte(struct rtpenc_h264_state *rtpench264state) { // byte-aligned
 	checkEndOfFrame(rtpench264state, 1);
 	return startOfFrame(rtpench264state)[rtpench264state->curParserIndex++];
 }
-void setFromState(struct rtpenc_h264_state *rtpench264state) {
+static void setFromState(struct rtpenc_h264_state *rtpench264state) {
 	rtpench264state->from = rtpench264state->startOfFrame
 			+ rtpench264state->curParserIndex;
 	rtpench264state->curParserIndexOffset = rtpench264state->curParserIndex;
 }
-void setToState(struct rtpenc_h264_state *rtpench264state) {
-	if(haveSeenEOF(rtpench264state)) {
+static void setToState(struct rtpenc_h264_state *rtpench264state) {
+	if(rtpenc_h264_have_seen_eof(rtpench264state)) {
 		rtpench264state->to = rtpench264state->startOfFrame + rtpench264state->inputFrameSize;
 	} else {
 		rtpench264state->to = rtpench264state->from
 			+ (rtpench264state->curParserIndex - rtpench264state->curParserIndexOffset);
 	}
 }
-void skipBytes(struct rtpenc_h264_state *rtpench264state, unsigned numBytes) {
+static void skipBytes(struct rtpenc_h264_state *rtpench264state, unsigned numBytes) {
 	checkEndOfFrame(rtpench264state, numBytes);
 	rtpench264state->curParserIndex += numBytes;
 }
-bool haveSeenEOF(struct rtpenc_h264_state *rtpench264state) {
-	return rtpench264state->haveSeenEOF;
-}
-unsigned curNALSize(struct rtpenc_h264_state *rtpench264state) {
+static unsigned curNALSize(struct rtpenc_h264_state *rtpench264state) {
 	return (rtpench264state->to - rtpench264state->from);
 }
