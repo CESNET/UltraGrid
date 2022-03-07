@@ -85,6 +85,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <vector>
 
 #define TRANSMIT_MAGIC	0xe80ab15f
 
@@ -105,6 +106,8 @@
 #endif
 
 #define DEFAULT_CIPHER_MODE MODE_AES128_CFB
+
+using std::vector;
 
 static void tx_update(struct tx *tx, struct video_frame *frame, int substream);
 static void tx_done(struct module *tx);
@@ -635,16 +638,16 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         int fec_symbol_offset = 0;
 
         // calculate number of packets
-        int packet_count = 0;
+        vector<int> packet_sizes;
+
         do {
-                pos += get_data_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
+                int len = get_data_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
                                 fec_symbol_size, &fec_symbol_offset,
                                 get_pf_block_size(frame->color_spec));
-                packet_count += 1;
+                pos += len;
+                packet_sizes.push_back(len);
         } while (pos < (unsigned int) tile->data_len);
-        if(tx->fec_scheme == FEC_MULT) {
-                packet_count *= tx->mult_count;
-        }
+        long packet_count = packet_sizes.size() * (tx->fec_scheme == FEC_MULT ? tx->mult_count : 1);
         pos = 0;
         fec_symbol_offset = 0;
 
@@ -687,6 +690,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 rtp_async_start(rtp_session, packet_count);
         }
 
+        int packet_idx = 0;
         do {
                 GET_STARTTIME;
                 if(tx->fec_scheme == FEC_MULT) {
@@ -698,9 +702,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 rtp_hdr_packet[1] = htonl(offset);
 
                 data = tile->data + pos;
-                data_len = get_data_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
-                                fec_symbol_size, &fec_symbol_offset,
-                                get_pf_block_size(frame->color_spec));
+                data_len = packet_sizes.at(packet_idx);
                 if (pos + data_len >= (unsigned int) tile->data_len) {
                         if (send_m) {
                                 m = 1;
@@ -724,6 +726,10 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
                                   (char *) rtp_hdr_packet, rtp_hdr_len,
                                   data, data_len, 0, 0, 0);
+                }
+
+                if (mult_index + 1 == tx->mult_count) {
+                        ++packet_idx;
                 }
 
                 if(tx->fec_scheme == FEC_MULT) {
