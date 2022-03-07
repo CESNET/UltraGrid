@@ -80,6 +80,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "utils/jpeg_reader.h"
+#include "utils/math.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -477,32 +478,6 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
         tmp |= fd << 14;
         tmp |= fi << 13;
         return htonl(tmp);
-}
-
-static auto gcd(int a, int b)
-{
-        // Everything divides 0
-        if (a == 0) {
-                return b;
-        }
-        if (b == 0) {
-                return a;
-        }
-
-        // base case
-        if (a == b) {
-                return a;
-        }
-
-        // a is greater
-        if (a > b) {
-                return gcd(a-b, b);
-        }
-        return gcd(a, b-a);
-}
-
-static auto lcm(int a, int b) {
-        return a * b / gcd(a, b);
 }
 
 static inline int get_video_pkt_len(bool with_fec, int mtu, int hdrs_len,
