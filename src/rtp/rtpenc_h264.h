@@ -44,18 +44,19 @@
 #ifndef _RTP_ENC_H264_H
 #define _RTP_ENC_H264_H
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif // ! defined __cplusplus
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#define RTPENC_STATE_SIZE 64
 struct rtpenc_h264_state;
 
-#define RTPENC_STATE_SIZE 64
-
-struct rtpenc_h264_state * rtpenc_h264_init_state(void *buf);
-unsigned char *rtpenc_h264_get_from_state(struct rtpenc_h264_state *rtpench264state);
-unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state, uint8_t *buf_in, int size);
-bool rtpenc_h264_have_seen_eof(struct rtpenc_h264_state *rtpench264state); //EndOfFrame
+struct rtpenc_h264_state *rtpenc_h264_init_state(void *buf, unsigned char *buf_in, long size);
+long rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state, unsigned char **start, bool *last);
 
 #ifdef __cplusplus
 }
