@@ -550,7 +550,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         uint32_t tmp;
         array <int, FEC_MAX_MULT> mult_pos{};
         int mult_index = 0;
-        int mult_first_sent = 0;
 
         int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12; // IP hdr size + UDP hdr size + RTP hdr size
         unsigned int fec_symbol_size = frame->fec_params.symbol_size;
@@ -693,15 +692,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
                 if(tx->fec_scheme == FEC_MULT) {
                         mult_pos[mult_index] = pos;
-                        mult_first_sent ++;
-                        if(mult_index != 0 || mult_first_sent >= (tx->mult_count - 1))
-                                        mult_index = (mult_index + 1) % tx->mult_count;
+                        mult_index = (mult_index + 1) % tx->mult_count;
                 }
 
-                /* when trippling, we need all streams goes to end */
-                if(tx->fec_scheme == FEC_MULT) {
-                        pos = mult_pos[tx->mult_count - 1];
-                }
                 rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
 
                 // TRAFFIC SHAPER
@@ -713,7 +706,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         overslept = -(packet_rate - delta - overslept);
                         //fprintf(stdout, "%ld ", overslept);
                 }
-        } while (pos < (unsigned int) tile->data_len);
+        } while (pos < (unsigned int) tile->data_len || mult_index != 0); // when multiplying, we need all streams go to the end
 
         if (!tx->encryption) {
                 rtp_async_wait(rtp_session);
