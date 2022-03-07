@@ -480,24 +480,29 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
         return htonl(tmp);
 }
 
-static inline int get_video_pkt_len(bool with_fec, int mtu, int hdrs_len,
+/**
+ * Adjusts size/alignment mtu to given constraints
+ * @note
+ * Except when with_fec==true and symbol is longer than mtu, the aligned packet
+ * size is always the same.
+ */
+static inline int get_video_pkt_len(bool with_fec, int mtu,
                 int fec_symbol_size, int *fec_symbol_offset, int pf_block_size)
 {
-        int data_len = mtu - hdrs_len;
         int alignment = pf_block_size;
         if (with_fec) {
-                if (fec_symbol_size > mtu - hdrs_len) {
-                        if (fec_symbol_size - *fec_symbol_offset <= mtu - hdrs_len) {
-                                data_len = fec_symbol_size - *fec_symbol_offset;
+                if (fec_symbol_size > mtu) {
+                        if (fec_symbol_size - *fec_symbol_offset <= mtu) {
+                                mtu = fec_symbol_size - *fec_symbol_offset;
                                 *fec_symbol_offset = 0;
                         } else {
-                                *fec_symbol_offset += data_len;
+                                *fec_symbol_offset += mtu;
                         }
-                        return data_len;
+                        return mtu;
                 }
                 alignment = fec_symbol_size;
         }
-        return data_len / alignment * alignment;
+        return mtu / alignment * alignment;
 }
 
 static inline void check_symbol_size(int fec_symbol_size, int payload_len)
@@ -519,6 +524,28 @@ static inline void check_symbol_size(int fec_symbol_size, int payload_len)
         status_printed = true;
 }
 
+/// @param mtu is tx->mtu - hdrs_len
+static vector<int> get_packet_sizes(struct video_frame *frame, int substream, int mtu) {
+        unsigned int fec_symbol_size = frame->fec_params.symbol_size;
+        vector<int> ret;
+
+        if (frame->fec_params.type != FEC_NONE) {
+                check_symbol_size(fec_symbol_size, mtu);
+        }
+
+        int fec_symbol_offset = 0;
+        int pf_block_size = is_codec_opaque(frame->color_spec) ? 1 : lcm(get_pf_block_size(frame->color_spec), 48); // 6/8 -> RGB/A convertible to UYVY (multiple of 2 pixs)
+                                                                                                                    // 48 -> RG48 to R12L; @todo figure out better solution
+        unsigned pos = 0;
+        do {
+                int len = get_video_pkt_len(frame->fec_params.type != FEC_NONE, mtu,
+                                        fec_symbol_size, &fec_symbol_offset, pf_block_size);
+                pos += len;
+                ret.push_back(len);
+        } while (pos < frame->tiles[substream].data_len);
+        return ret;
+}
+
 static void
 tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
@@ -531,14 +558,12 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         struct tile *tile = &frame->tiles[substream];
 
-        int m, data_len;
+        int data_len;
         // see definition in rtp_callback.h
 
         uint32_t rtp_hdr[100];
         int rtp_hdr_len;
-        int pt;            /* A value specified in our packet format */
-        char *data;
-        unsigned int pos;
+        int pt = fec_pt_from_fec_type(TX_MEDIA_VIDEO, frame->fec_params.type, tx->encryption);            /* A value specified in our packet format */
 #ifdef HAVE_LINUX
         struct timespec start, stop;
 #elif defined HAVE_MACOSX
@@ -547,23 +572,16 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 	LARGE_INTEGER start, stop, freq;
 #endif
         long delta, overslept = 0;
-        uint32_t tmp;
         array <int, FEC_MAX_MULT> mult_pos{};
         int mult_index = 0;
 
         int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12; // IP hdr size + UDP hdr size + RTP hdr size
-        unsigned int fec_symbol_size = frame->fec_params.symbol_size;
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
         tx_update(tx, frame, substream);
 
         perf_record(UVP_SEND, ts);
-
-        m = 0;
-        pos = 0;
-
-        pt = fec_pt_from_fec_type(TX_MEDIA_VIDEO, frame->fec_params.type, tx->encryption);
 
         if (frame->fec_params.type == FEC_NONE) {
                 hdrs_len += (sizeof(video_payload_hdr_t));
@@ -572,7 +590,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         } else {
                 hdrs_len += (sizeof(fec_payload_hdr_t));
                 rtp_hdr_len = sizeof(fec_payload_hdr_t);
-                tmp = substream << 22;
+                uint32_t tmp = substream << 22;
                 tmp |= 0x3fffff & tx->buffer;
                 // see definition in rtp_callback.h
                 rtp_hdr[0] = htonl(tmp);
@@ -590,24 +608,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
-        if (frame->fec_params.type != FEC_NONE) {
-                check_symbol_size(fec_symbol_size, tx->mtu - hdrs_len);
-        }
-
-        int fec_symbol_offset = 0;
-        vector<int> packet_sizes;
-        int pf_block_size = is_codec_opaque(frame->color_spec) ? 1 : lcm(get_pf_block_size(frame->color_spec), 48); // 6/8 -> RGB/A convertible to UYVY (multiple of 2 pixs)
-                                                                                                                    // 48 -> RG48 to R12L; @todo figure out better solution
-        do {
-                int len = get_video_pkt_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
-                                fec_symbol_size, &fec_symbol_offset,
-                                pf_block_size);
-                pos += len;
-                packet_sizes.push_back(len);
-        } while (pos < (unsigned int) tile->data_len);
+        vector<int> packet_sizes = get_packet_sizes(frame, substream, tx->mtu - hdrs_len);
         long packet_count = packet_sizes.size() * (tx->fec_scheme == FEC_MULT ? tx->mult_count : 1);
-        pos = 0;
-        fec_symbol_offset = 0;
 
         long packet_rate;
         if (tx->bitrate == RATE_UNLIMITED) {
@@ -649,8 +651,10 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         int packet_idx = 0;
+        unsigned pos = 0;
         do {
                 GET_STARTTIME;
+                int m = 0;
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[mult_index];
                 }
@@ -659,7 +663,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
                 rtp_hdr_packet[1] = htonl(offset);
 
-                data = tile->data + pos;
+                char *data = tile->data + pos;
                 data_len = packet_sizes.at(packet_idx);
                 if (pos + data_len >= (unsigned int) tile->data_len) {
                         if (send_m) {
@@ -706,7 +710,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         overslept = -(packet_rate - delta - overslept);
                         //fprintf(stdout, "%ld ", overslept);
                 }
-        } while (pos < (unsigned int) tile->data_len || mult_index != 0); // when multiplying, we need all streams go to the end
+        } while (pos < tile->data_len || mult_index != 0); // when multiplying, we need all streams go to the end
 
         if (!tx->encryption) {
                 rtp_async_wait(rtp_session);
