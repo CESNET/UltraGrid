@@ -484,7 +484,7 @@ static inline int get_video_pkt_len(bool with_fec, int mtu, int hdrs_len,
                 int fec_symbol_size, int *fec_symbol_offset, int pf_block_size)
 {
         int data_len = mtu - hdrs_len;
-        int alignment = 1;
+        int alignment = pf_block_size;
         if (with_fec) {
                 if (fec_symbol_size > mtu - hdrs_len) {
                         if (fec_symbol_size - *fec_symbol_offset <= mtu - hdrs_len) {
@@ -496,14 +496,6 @@ static inline int get_video_pkt_len(bool with_fec, int mtu, int hdrs_len,
                         return data_len;
                 }
                 alignment = fec_symbol_size;
-        } else {
-                if (pf_block_size == 0) {
-                        alignment = 1; // compressed formats have usually 0
-                } else {
-                        alignment = lcm(pf_block_size, 48); // 6/8 -> RGB/A convertible to UYVY (multiple of 2 pixs)
-                                                                // 48 -> RG48 to R12L
-                                                                // @todo figure out better solution
-                }
         }
         return data_len / alignment * alignment;
 }
@@ -604,14 +596,13 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         int fec_symbol_offset = 0;
-
-        // calculate number of packets
         vector<int> packet_sizes;
-
+        int pf_block_size = is_codec_opaque(frame->color_spec) ? 1 : lcm(get_pf_block_size(frame->color_spec), 48); // 6/8 -> RGB/A convertible to UYVY (multiple of 2 pixs)
+                                                                                                                    // 48 -> RG48 to R12L; @todo figure out better solution
         do {
                 int len = get_video_pkt_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
                                 fec_symbol_size, &fec_symbol_offset,
-                                get_pf_block_size(frame->color_spec));
+                                pf_block_size);
                 pos += len;
                 packet_sizes.push_back(len);
         } while (pos < (unsigned int) tile->data_len);
