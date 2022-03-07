@@ -505,33 +505,32 @@ static auto lcm(int a, int b) {
         return a * b / gcd(a, b);
 }
 
-static inline int get_data_len(bool with_fec, int mtu, int hdrs_len,
+static inline int get_video_pkt_len(bool with_fec, int mtu, int hdrs_len,
                 int fec_symbol_size, int *fec_symbol_offset, int pf_block_size)
 {
-        int data_len;
-        data_len = mtu - hdrs_len;
+        int data_len = mtu - hdrs_len;
+        int alignment = 1;
         if (with_fec) {
-                if (fec_symbol_size <= mtu - hdrs_len) {
-                        data_len = data_len / fec_symbol_size * fec_symbol_size;
-                } else {
+                if (fec_symbol_size > mtu - hdrs_len) {
                         if (fec_symbol_size - *fec_symbol_offset <= mtu - hdrs_len) {
                                 data_len = fec_symbol_size - *fec_symbol_offset;
                                 *fec_symbol_offset = 0;
                         } else {
                                 *fec_symbol_offset += data_len;
                         }
+                        return data_len;
                 }
+                alignment = fec_symbol_size;
         } else {
                 if (pf_block_size == 0) {
-                        pf_block_size = 1; // compressed formats have usually 0
+                        alignment = 1; // compressed formats have usually 0
                 } else {
-                        pf_block_size = lcm(pf_block_size, 48); // 6/8 -> RGB/A convertible to UYVY (multiple of 2 pixs)
+                        alignment = lcm(pf_block_size, 48); // 6/8 -> RGB/A convertible to UYVY (multiple of 2 pixs)
                                                                 // 48 -> RG48 to R12L
                                                                 // @todo figure out better solution
                 }
-                data_len = (data_len / pf_block_size) * pf_block_size;
         }
-        return data_len;
+        return data_len / alignment * alignment;
 }
 
 static inline void check_symbol_size(int fec_symbol_size, int payload_len)
@@ -635,7 +634,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         vector<int> packet_sizes;
 
         do {
-                int len = get_data_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
+                int len = get_video_pkt_len(frame->fec_params.type != FEC_NONE, tx->mtu, hdrs_len,
                                 fec_symbol_size, &fec_symbol_offset,
                                 get_pf_block_size(frame->color_spec));
                 pos += len;
