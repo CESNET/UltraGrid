@@ -84,6 +84,7 @@
 #include "video_codec.h"
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <vector>
 
@@ -107,6 +108,7 @@
 
 #define DEFAULT_CIPHER_MODE MODE_AES128_CFB
 
+using std::array;
 using std::vector;
 
 static void tx_update(struct tx *tx, struct video_frame *frame, int substream);
@@ -580,7 +582,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 #endif
         long delta, overslept = 0;
         uint32_t tmp;
-        int mult_pos[FEC_MAX_MULT];
+        array <int, FEC_MAX_MULT> mult_pos{};
         int mult_index = 0;
         int mult_first_sent = 0;
 
@@ -592,14 +594,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         tx_update(tx, frame, substream);
 
         perf_record(UVP_SEND, ts);
-
-        if(tx->fec_scheme == FEC_MULT) {
-                int i;
-                for (i = 0; i < tx->mult_count; ++i) {
-                        mult_pos[i] = 0;
-                }
-                mult_index = 0;
-        }
 
         m = 0;
         pos = 0;
@@ -772,12 +766,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                 return;
         }
 
-        int pt; /* PT set for audio in our packet format */
-        unsigned int pos = 0u,
-                     m = 0u;
+        int pt = fec_pt_from_fec_type(TX_MEDIA_AUDIO, buffer->get_fec_params(0).type, tx->encryption); /* PT set for audio in our packet format */
+        unsigned m = 0u;
         const char *chan_data;
-        int data_len;
-        const char *data;
         // see definition in rtp_callback.h
         uint32_t rtp_hdr[100];
         uint32_t timestamp;
@@ -789,16 +780,12 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
 	LARGE_INTEGER start, stop, freq;
 #endif
         long delta;
-        int mult_pos[FEC_MAX_MULT];
-        int mult_index = 0;
         int mult_first_sent = 0;
 
         fec_check_messages(tx);
 
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);
-
-        pt = fec_pt_from_fec_type(TX_MEDIA_AUDIO, buffer->get_fec_params(0).type, tx->encryption);
 
         for (int channel = 0; channel < buffer->get_channel_count(); ++channel)
         {
@@ -807,15 +794,10 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                 unsigned int fec_symbol_size = buffer->get_fec_params(channel).symbol_size;
 
                 chan_data = buffer->get_data(channel);
-                pos = 0u;
+                unsigned pos = 0u;
 
-                if(tx->fec_scheme == FEC_MULT) {
-                        int i;
-                        for (i = 0; i < tx->mult_count; ++i) {
-                                mult_pos[i] = 0;
-                        }
-                        mult_index = 0;
-                }
+                array <int, FEC_MAX_MULT> mult_pos{};
+                int mult_index = 0;
 
                 if (buffer->get_fec_params(0).type == FEC_NONE) {
                         hdrs_len += (sizeof(audio_payload_hdr_t));
@@ -881,8 +863,8 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                                 pos = mult_pos[mult_index];
                         }
 
-                        data = chan_data + pos;
-                        data_len = tx->mtu - hdrs_len;
+                        const char *data = chan_data + pos;
+                        int data_len = tx->mtu - hdrs_len;
                         if(pos + data_len >= (unsigned int) buffer->get_data_len(channel)) {
                                 data_len = buffer->get_data_len(channel) - pos;
                                 if(channel == buffer->get_channel_count() - 1)
