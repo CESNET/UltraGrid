@@ -89,6 +89,7 @@ struct state_ca_playback {
         steady_clock::time_point last_audio_read;
         bool quiet; ///< do not report buffer underruns if we do not receive data at all for a long period
         bool initialized;
+        int buf_len_ms = DEFAULT_BUFLEN_MS;
 };
 
 static OSStatus theRenderProc(void *inRefCon,
@@ -190,20 +191,15 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         }
 
         {
-                int buf_len_ms = DEFAULT_BUFLEN_MS;
-                if (get_commandline_param("audio-buffer-len")) {
-                        buf_len_ms = atoi(get_commandline_param("audio-buffer-len"));
-                        assert(buf_len_ms > 0 && buf_len_ms < 10000);
-                }
                 if (get_commandline_param("audio-disable-adaptive-buffer") != nullptr || get_commandline_param("ca-disable-adaptive-buf") != nullptr) {
                         if (get_commandline_param("ca-disable-adaptive-buf") != nullptr) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Param \"ca-disable-adaptive-buf\" is deprecated, use audio-disable-adaptive-bufer instead.\n";
                         }
-                        int buf_len = desc.bps * desc.ch_count * (desc.sample_rate * buf_len_ms / 1000);
+                        int buf_len = desc.bps * desc.ch_count * (desc.sample_rate * s->buf_len_ms / 1000);
                         s->buffer = ring_buffer_init(buf_len);
                         s->buffer_fns = &ring_buffer_fns;
                 } else {
-                        s->buffer = audio_buffer_init(desc.sample_rate, desc.bps, desc.ch_count, buf_len_ms);
+                        s->buffer = audio_buffer_init(desc.sample_rate, desc.bps, desc.ch_count, s->buf_len_ms);
                         s->buffer_fns = &audio_buffer_fns;
                 }
         }
@@ -366,7 +362,6 @@ static void audio_play_ca_help(const char *driver_name)
 
 static void * audio_play_ca_init(const char *cfg)
 {
-        struct state_ca_playback *s;
         OSErr ret = noErr;
 #ifndef __MAC_10_9
         Component comp;
@@ -378,7 +373,15 @@ static void * audio_play_ca_init(const char *cfg)
         UInt32 size;
         AudioDeviceID device;
 
-        s = new struct state_ca_playback();
+        struct state_ca_playback *s = new struct state_ca_playback();
+
+        if (const char *val = get_commandline_param("audio-buffer-len")) {
+                s->buf_len_ms = atoi(val);
+                if (s->buf_len_ms <= 0 || s->buf_len_ms >= 10000) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong value \"" <<  val << "\" given to \"audio-buffer-len\", allowed range (0, 10000).\n";
+                        goto error;
+                }
+        }
 
         //There are several different types of Audio Units.
         //Some audio units serve as Outputs, Mixers, or DSP
