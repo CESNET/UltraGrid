@@ -406,7 +406,7 @@ static void * audio_cap_ca_init(const char *cfg)
                 }
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance, kAudioDevicePropertyBufferFrameSize,
                                         kAudioUnitScope_Global, 0, &numFrames, sizeof(numFrames)),
-                                        "[CoreAudio] Error setting frames.", NOOP);
+                                        "Error setting frames.", NOOP);
         }
 
         ret = AudioUnitInitialize(s->auHALComponentInstance);
