@@ -41,10 +41,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <memory>
 #include <atomic>
 
 struct ring_buffer {
-        char *data;
+        std::unique_ptr<char[]> data;
         int len;
         /* Start and end markers for the buffer.
          *
@@ -63,20 +64,18 @@ struct ring_buffer {
 };
 
 struct ring_buffer *ring_buffer_init(int size) {
-        struct ring_buffer *buf;
+        auto ring = new ring_buffer();
         
-        buf = (struct ring_buffer *) malloc(sizeof(struct ring_buffer));
-        buf->data = (char *) malloc(size);
-        buf->len = size;
-        buf->start = 0;
-        buf->end = 0;
-        return buf;
+        ring->data = std::make_unique<char[]>(size);
+        ring->len = size;
+        ring->start = 0;
+        ring->end = 0;
+        return ring;
 }
 
 void ring_buffer_destroy(struct ring_buffer *ring) {
         if(ring) {
-                free(ring->data);
-                free(ring);
+                delete ring;
         }
 }
 
@@ -110,14 +109,14 @@ int ring_get_read_regions(struct ring_buffer *ring, int max_len,
 
         int start_idx = start % ring->len;
         int to_end = ring->len - start_idx;
-        *ptr1 = ring->data + start_idx;
+        *ptr1 = ring->data.get() + start_idx;
         if(read_len <= to_end) {
                 *size1 = read_len;
                 *ptr2 = nullptr;
                 *size2 = 0;
         } else {
                 *size1 = to_end;
-                *ptr2 = ring->data;
+                *ptr2 = ring->data.get();
                 *size2 = read_len - to_end;
         }
 
@@ -179,10 +178,10 @@ int ring_get_write_regions(struct ring_buffer *ring, int requested_len,
 
         int end_idx = end % ring->len;
         int to_end = ring->len - end_idx;
-        *ptr1 = ring->data + end_idx;
+        *ptr1 = ring->data.get() + end_idx;
         *size1 = requested_len < to_end ? requested_len : to_end;
         if(*size1 < requested_len){
-                *ptr2 = ring->data;
+                *ptr2 = ring->data.get();
                 *size2 = requested_len - *size1;
         }
 
