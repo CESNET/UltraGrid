@@ -920,19 +920,17 @@ static void *asend_compute_and_print_stats(void *arg) {
                         d->frame.get_sample_count(),
                         d->seconds);
 
-        ostringstream volume_rms, volume_peak;
-        volume_rms << fixed << setprecision(2);
-        volume_peak << fixed << setprecision(2);
+        ostringstream volume;
+        volume << fixed << setprecision(2);
         using namespace std::string_literals;
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms = 0.0;
                 double peak = 0.0;
                 rms = calculate_rms(&d->frame, i, &peak);
-                volume_rms << (i > 0 ? " "s : ""s) << 20.0 * log(rms) / log(10.0);
-                volume_peak << (i > 0 ? " "s : ""s) << 20.0 * log(peak) / log(10.0);
+                volume << (i > 0 ? " "s : ""s) << 20.0 * log(rms) / log(10.0) << "/" << 20.0 * log(peak) / log(10.0);
         }
 
-        LOG(LOG_LEVEL_INFO) << "[Audio sender] Volume: " << fg::green << style::bold << volume_rms.str() << style::reset << fg::reset << " dBFS RMS, " << fg::green << style::bold << volume_peak.str() << style::reset << fg::reset << " dBFS peak" << BOLD(RED((d->muted_sender ? " (muted)" : ""))) << ".\n" ;
+        LOG(LOG_LEVEL_INFO) << "[Audio sender] Volume: " << fg::green << style::bold << volume.str() << style::reset << fg::reset << " dBFS RMS/peak" << BOLD(RED((d->muted_sender ? " (muted)" : ""))) << "\n" ;
 
         delete d;
 
