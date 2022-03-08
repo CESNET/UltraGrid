@@ -64,6 +64,7 @@ struct ring_buffer {
 };
 
 struct ring_buffer *ring_buffer_init(int size) {
+        assert(size > 0);
         auto ring = new ring_buffer();
         
         ring->data = std::make_unique<char[]>(size);
