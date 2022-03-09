@@ -180,8 +180,10 @@ static void audio_cap_ca_help(const char *driver_name)
         free(available_devices);
 }
 
+#define CA_STRINGIFY(A) #A
+
 #define CHECK_OK(cmd, msg, action_failed) do { OSErr ret = cmd; if (ret != noErr) {\
-        log_msg(strlen(#action_failed) == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR, MODULE_NAME "%s\n", (msg));\
+        log_msg(strlen(CA_STRINGIFY(action_failed)) == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR, MODULE_NAME "%s: %d\n", (msg), ret);\
         action_failed;\
 }\
 } while(0)
@@ -296,7 +298,7 @@ static void * audio_cap_ca_init(const char *cfg)
                         break;
                 }
                 CHECK_OK(AudioComponentInstanceNew(comp, &s->auHALComponentInstance),
-                                "Error opening AUHAL component.",
+                                "Error opening AUHAL component",
                                 break);
 #else
                 comp = FindNextComponent(NULL, &desc);
@@ -305,7 +307,7 @@ static void * audio_cap_ca_init(const char *cfg)
                         break;
                 }
                 CHECK_OK(OpenAComponent(comp, &s->auHALComponentInstance),
-                                "Error opening AUHAL component.",
+                                "Error opening AUHAL component",
                                 break);
 #endif
 
@@ -320,7 +322,7 @@ static void * audio_cap_ca_init(const char *cfg)
                                         1, // input element
                                         &enableIO,
                                         sizeof(enableIO)),
-                                "Error enabling input on AUHAL.", break);
+                                "Error enabling input on AUHAL", break);
 
                 enableIO = 0;
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance,
@@ -329,7 +331,7 @@ static void * audio_cap_ca_init(const char *cfg)
                                         0,   //output element
                                         &enableIO,
                                         sizeof(enableIO)),
-                                "Error disabling output on AUHAL.", break);
+                                "Error disabling output on AUHAL", break);
 
                 size=sizeof(device);
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance,
@@ -338,13 +340,13 @@ static void * audio_cap_ca_init(const char *cfg)
                                         0,
                                         &device,
                                         sizeof(device)),
-                                "Error setting device to AUHAL instance.", break);
+                                "Error setting device to AUHAL instance", break);
 
                 AudioStreamBasicDescription desc;
 
                 size = sizeof(desc);
                 CHECK_OK(AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
-                                1, &desc, &size), "Error getting default device properties.", break);
+                                1, &desc, &size), "Error getting default device properties", break);
 
                 desc.mChannelsPerFrame = s->frame.ch_count;
                 desc.mSampleRate = (double) s->frame.sample_rate;
@@ -363,24 +365,24 @@ static void * audio_cap_ca_init(const char *cfg)
                 s->audio_packet_size = desc.mBytesPerPacket;
 
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output,
-                                1, &desc, sizeof(desc)), "Error setting device properties.", break);
+                                1, &desc, sizeof(desc)), "Error setting device properties", break);
 
                 AURenderCallbackStruct input;
                 input.inputProc = InputProc;
                 input.inputProcRefCon = s;
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance, kAudioOutputUnitProperty_SetInputCallback,
                                 kAudioUnitScope_Global, 0, &input, sizeof(input)),
-                                "Error setting input callback.", break);
+                                "Error setting input callback", break);
                 uint32_t numFrames = 128;
                 if (get_commandline_param("audio-cap-frames")) {
                         numFrames = atoi(get_commandline_param("audio-cap-frames"));
                 }
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance, kAudioDevicePropertyBufferFrameSize,
                                         kAudioUnitScope_Global, 0, &numFrames, sizeof(numFrames)),
-                                        "Error setting frames.", NOOP);
+                                        "Error setting frames", NOOP);
 
-                CHECK_OK(AudioUnitInitialize(s->auHALComponentInstance), "Error initializing device.", break);
-                CHECK_OK(AudioOutputUnitStart(s->auHALComponentInstance), "Error starting device.", break);
+                CHECK_OK(AudioUnitInitialize(s->auHALComponentInstance), "Error initializing device", break);
+                CHECK_OK(AudioOutputUnitStart(s->auHALComponentInstance), "Error starting device", break);
                 failed = false;
         } while(0);
 
