@@ -2766,12 +2766,16 @@ fi
 if test $FOUND_QT_DEP = no && test -n "$QMAKE_VERSION" && expr "$QMAKE_VERSION" \>= 6 >/dev/null
 then
         touch qt.pro
-        $QMAKE qt.pro -o Make.qt
-        printf 'print-libs:\n\t@echo $(LIBS)\n\n' >> Make.qt
-        printf 'print-cflags:\n\t@echo $(INCPATH) $(CFLAGS)\n\n' >> Make.qt
-        QT_CFLAGS=$(make -f Make.qt print-cflags)
-        QT_LIBS=$(make -f Make.qt print-libs)
-        rm qt.pro Make.qt
+        MAKEFILE=Make.qt
+        $QMAKE qt.pro -o $MAKEFILE
+        if test -f Make.qt.Release; then
+                MAKEFILE=Make.qt.Release
+        fi
+        printf 'print-libs:\n\t@echo $(LIBS)\n\n' >> $MAKEFILE
+        printf 'print-cflags:\n\t@echo $(INCPATH) $(CFLAGS)\n\n' >> $MAKEFILE
+        QT_CFLAGS=$(make -f $MAKEFILE print-cflags)
+        QT_LIBS=$(make -f $MAKEFILE print-libs)
+        rm qt.pro Make.qt*
         FOUND_QT_DEP=yes
 fi
 
