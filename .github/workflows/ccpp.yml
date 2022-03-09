@@ -316,7 +316,7 @@ jobs:
           export DESTDIR=build/UltraGrid-$VERSION-win64
           make install
           IFS=\"|\"; for exe in $DESTDIR/*exe; do for n in `data/scripts/get_dll_depends.sh \"$exe\" | tr \"\n\" \"|\"`; do cp \"$n\" $DESTDIR; done; done
-          windeployqt $DESTDIR/uv-qt.exe
+          if $(command -v windeployqt-qt6 >/dev/null); then windeployqt-qt6 $DESTDIR/uv-qt.exe; else windeployqt $DESTDIR/uv-qt.exe; fi
           cp data/update.ps1 $DESTDIR'
     - name: make dist-check
       run: C:\msys64\usr\bin\bash -cel 'PATH=

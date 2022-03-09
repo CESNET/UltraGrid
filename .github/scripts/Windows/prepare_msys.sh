@@ -1,6 +1,4 @@
-#!/bin/bash
-
-set -ex
+#!/bin/sh -eux
 
 mkdir -p /usr/local/lib /usr/local/bin /usr/local/include
 cat >> ~/.bash_profile <<'EOF'
@@ -45,7 +43,7 @@ $PACMAN_INSTALL ${MSYS_REPO}-glew ${MSYS_REPO}-SDL2 ${MSYS_REPO}-SDL2_mixer ${MS
 $PACMAN_INSTALL ${MSYS_REPO}-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 $PACMAN_INSTALL ${MSYS_REPO}-glib2 ${MSYS_REPO}-curl # RTSP capture
 pacman -Scc --noconfirm # make some free space
-$PACMAN_INSTALL ${MSYS_REPO}-qt6-base
+$PACMAN_INSTALL ${MSYS_REPO}-qt6-base ${MSYS_REPO}-qt6-tools
 $PACMAN_INSTALL ${MSYS_REPO}-imagemagick ${MSYS_REPO}-opencv
 $PACMAN_INSTALL p7zip
 $PACMAN_INSTALL libtool # PCP
