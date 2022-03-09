@@ -287,65 +287,64 @@ static void * audio_cap_ca_init(const char *cfg)
         desc.componentFlags = 0;
         desc.componentFlagsMask = 0;
 
+        bool failed = true;
+        do {
 #ifdef __MAC_10_9
-        comp = AudioComponentFindNext(NULL, &desc);
-        if(!comp) {
-                fprintf(stderr, "Error finding AUHAL component.\n");
-                goto error;
-        }
-        CHECK_OK(AudioComponentInstanceNew(comp, &s->auHALComponentInstance),
-                "Error opening AUHAL component.",
-                goto error);
+                comp = AudioComponentFindNext(NULL, &desc);
+                if(!comp) {
+                        fprintf(stderr, "Error finding AUHAL component.\n");
+                        break;
+                }
+                CHECK_OK(AudioComponentInstanceNew(comp, &s->auHALComponentInstance),
+                                "Error opening AUHAL component.",
+                                break);
 #else
-        comp = FindNextComponent(NULL, &desc);
-        if(!comp) {
-                fprintf(stderr, "Error finding AUHAL component.\n");
-                goto error;
-        }
-        CHECK_OK(OpenAComponent(comp, &s->auHALComponentInstance),
-                "Error opening AUHAL component.",
-                goto error);
+                comp = FindNextComponent(NULL, &desc);
+                if(!comp) {
+                        fprintf(stderr, "Error finding AUHAL component.\n");
+                        break;
+                }
+                CHECK_OK(OpenAComponent(comp, &s->auHALComponentInstance),
+                                "Error opening AUHAL component.",
+                                break);
 #endif
-        UInt32 enableIO;
 
-        //When using AudioUnitSetProperty the 4th parameter in the method
-        //refer to an AudioUnitElement. When using an AudioOutputUnit
-        //the input element will be '1' and the output element will be '0'.
+                //When using AudioUnitSetProperty the 4th parameter in the method
+                //refer to an AudioUnitElement. When using an AudioOutputUnit
+                //the input element will be '1' and the output element will be '0'.
 
+                UInt32 enableIO = 1;
+                CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance,
+                                        kAudioOutputUnitProperty_EnableIO,
+                                        kAudioUnitScope_Input,
+                                        1, // input element
+                                        &enableIO,
+                                        sizeof(enableIO)),
+                                "Error enabling input on AUHAL.", break);
 
-        enableIO = 1;
-        CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance,
-                kAudioOutputUnitProperty_EnableIO,
-                kAudioUnitScope_Input,
-                1, // input element
-                &enableIO,
-                sizeof(enableIO)),
-                "Error enabling input on AUHAL.", goto error);
+                enableIO = 0;
+                CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance,
+                                        kAudioOutputUnitProperty_EnableIO,
+                                        kAudioUnitScope_Output,
+                                        0,   //output element
+                                        &enableIO,
+                                        sizeof(enableIO)),
+                                "Error disabling output on AUHAL.", break);
 
-        enableIO = 0;
-        CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance,
-                kAudioOutputUnitProperty_EnableIO,
-                kAudioUnitScope_Output,
-                0,   //output element
-                &enableIO,
-                sizeof(enableIO)),
-                "Error disabling output on AUHAL.", goto error);
+                size=sizeof(device);
+                CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance,
+                                        kAudioOutputUnitProperty_CurrentDevice,
+                                        kAudioUnitScope_Global,
+                                        0,
+                                        &device,
+                                        sizeof(device)),
+                                "Error setting device to AUHAL instance.", break);
 
-        size=sizeof(device);
-        CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance,
-                         kAudioOutputUnitProperty_CurrentDevice, 
-                         kAudioUnitScope_Global, 
-                         0, 
-                         &device, 
-                         sizeof(device)),
-                        "Error setting device to AUHAL instance.", goto error);
-
-        {
                 AudioStreamBasicDescription desc;
 
                 size = sizeof(desc);
                 CHECK_OK(AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
-                                1, &desc, &size), "Error getting default device properties.", goto error);
+                                1, &desc, &size), "Error getting default device properties.", break);
 
                 desc.mChannelsPerFrame = s->frame.ch_count;
                 desc.mSampleRate = (double) s->frame.sample_rate;
@@ -364,14 +363,14 @@ static void * audio_cap_ca_init(const char *cfg)
                 s->audio_packet_size = desc.mBytesPerPacket;
 
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output,
-                                1, &desc, sizeof(desc)), "Error setting device properties.", goto error);
+                                1, &desc, sizeof(desc)), "Error setting device properties.", break);
 
                 AURenderCallbackStruct input;
                 input.inputProc = InputProc;
                 input.inputProcRefCon = s;
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance, kAudioOutputUnitProperty_SetInputCallback,
                                 kAudioUnitScope_Global, 0, &input, sizeof(input)),
-                                "Error setting input callback.", goto error);
+                                "Error setting input callback.", break);
                 uint32_t numFrames = 128;
                 if (get_commandline_param("audio-cap-frames")) {
                         numFrames = atoi(get_commandline_param("audio-cap-frames"));
@@ -379,14 +378,17 @@ static void * audio_cap_ca_init(const char *cfg)
                 CHECK_OK(AudioUnitSetProperty(s->auHALComponentInstance, kAudioDevicePropertyBufferFrameSize,
                                         kAudioUnitScope_Global, 0, &numFrames, sizeof(numFrames)),
                                         "Error setting frames.", NOOP);
+
+                CHECK_OK(AudioUnitInitialize(s->auHALComponentInstance), "Error initializing device.", break);
+                CHECK_OK(AudioOutputUnitStart(s->auHALComponentInstance), "Error starting device.", break);
+                failed = false;
+        } while(0);
+
+        if (!failed) {
+                return s;
         }
 
-        CHECK_OK(AudioUnitInitialize(s->auHALComponentInstance), "Error initializing device.", goto error);
-        CHECK_OK(AudioOutputUnitStart(s->auHALComponentInstance), "Error starting device.", goto error);
-
-        return s;
-
-error:
+        // error accured
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->cv);
         DestroyAudioBufferList(s->theBufferList);
