@@ -77,8 +77,6 @@ install_ndi() {
                 NDI_LIB=/Library/NDI/lib/x64
         else # NDI 5
                 NDI_LIB=/Library/NDI/lib/macOS
-                # TODO: remove - workaround for not using struct keyword causing C code fail
-                sudo sed -i -e 's/typedef \([^ ]*_instance_type\)/typedef struct \1/' /Library/NDI/include/*
         fi
         export CPATH=${CPATH:+"$CPATH:"}/Library/NDI/include
         export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $NDI_LIB"
