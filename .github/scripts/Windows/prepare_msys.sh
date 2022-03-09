@@ -45,7 +45,7 @@ $PACMAN_INSTALL ${MSYS_REPO}-glew ${MSYS_REPO}-SDL2 ${MSYS_REPO}-SDL2_mixer ${MS
 $PACMAN_INSTALL ${MSYS_REPO}-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 $PACMAN_INSTALL ${MSYS_REPO}-glib2 ${MSYS_REPO}-curl # RTSP capture
 pacman -Scc --noconfirm # make some free space
-$PACMAN_INSTALL ${MSYS_REPO}-qt5
+$PACMAN_INSTALL ${MSYS_REPO}-qt6-base
 $PACMAN_INSTALL ${MSYS_REPO}-imagemagick ${MSYS_REPO}-opencv
 $PACMAN_INSTALL p7zip
 $PACMAN_INSTALL libtool # PCP
