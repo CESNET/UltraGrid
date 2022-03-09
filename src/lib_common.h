@@ -55,7 +55,7 @@ static char *dlerror(void) ATTRIBUTE(unused);
 
 static char *dlerror(void) {
         thread_local static char buf[1024] = "(unknown)";
-        FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
+        FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
                         NULL,                // lpsource
                         GetLastError(),                   // message id
                         MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
