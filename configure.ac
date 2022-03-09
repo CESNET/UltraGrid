@@ -2772,8 +2772,8 @@ then
                 MAKEFILE=Make.qt.Release
         fi
         printf 'print-libs:\n\t@echo $(LIBS)\n\n' >> $MAKEFILE
-        printf 'print-cflags:\n\t@echo $(INCPATH) $(CFLAGS)\n\n' >> $MAKEFILE
-        QT_CFLAGS=$(make -f $MAKEFILE print-cflags)
+        printf 'print-cxxflags:\n\t@echo $(INCPATH) $(CXXFLAGS)\n\n' >> $MAKEFILE
+        QT_CFLAGS=$(make -f $MAKEFILE print-cxxflags)
         QT_LIBS=$(make -f $MAKEFILE print-libs)
         rm qt.pro Make.qt*
         FOUND_QT_DEP=yes
