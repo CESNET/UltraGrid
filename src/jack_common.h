@@ -39,16 +39,12 @@
 #ifndef JACK_COMMON_H
 #define JACK_COMMON_H
 
-#ifndef _WIN32
-#include <dlfcn.h>
-#endif
-
 #include <jack/jack.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "compat/dlfunc.h"
 #include "debug.h"
-#include "lib_common.h"
 
 #include "types.h"
 

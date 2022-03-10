@@ -188,12 +188,4 @@ struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
 #define OPTIMIZED_FOR for
 #endif
 
-#ifndef EXTERN_C
-#ifdef __cplusplus
-#define EXTERN_C extern "C"
-#else
-#define EXTERN_C
-#endif
-#endif // defined EXTERN_C
-
 #endif

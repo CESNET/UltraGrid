@@ -43,18 +43,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif
-
 #define NDILIB_CPP_DEFAULT_CONSTRUCTORS 0
 #include <Processing.NDI.Lib.h>
 
+#include "compat/dlfunc.h"
 #include "config_common.h" // MAX
 #include "debug.h"
-#include "lib_common.h" // LIB_HANDLE, dlclose/dlerror abstraction
 #include "utils/color_out.h" // MERGE, TOSTRING
 #include "utils/misc.h" // MERGE, TOSTRING
 

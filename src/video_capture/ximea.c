@@ -47,11 +47,8 @@
 #include <xiApi.h>
 #endif
 
-#ifndef WIN32
-#include <dlfcn.h>
-#endif
-
 #include "debug.h"
+#include "compat/dlfunc.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
