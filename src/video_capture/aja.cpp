@@ -64,10 +64,14 @@
 #include "video_capture.h"
 
 #include "ajatypes.h"
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wcast-qual"
+#endif // defined __GNUC__
 #include "ntv2devicescanner.h"
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif // defined __GNUC__
 #include "ntv2democommon.h"
 #include "ntv2capture.h"
 #if AJA_NTV2_SDK_VERSION_MAJOR >= 13
