@@ -66,6 +66,13 @@ AC_DEFUN([HM_VERSION_WARNING], [
                                ])
           ])
 
+WARNINGS=
+# variant of AC_MSG_WARN that in addition stores the message for repost at the end
+m4_defun([UG_MSG_WARN], [
+          AC_MSG_WARN([$1])
+          WARNINGS="${WARNINGS}$1\n"
+          ])
+
 m4_defun([MY_CHECK_FRAMEWORK],
         [AC_CACHE_CHECK([if -framework ]$1[ works],[my_cv_framework_]$1,
                 [save_LIBS="$LIBS"
@@ -247,14 +254,14 @@ $TARGET: "$2"
 if test $system = MacOSX; then
         AC_PATH_PROGS(DYLIBBUNDLER, dylibbundler, [true])
         if test "$DYLIBBUNDLER" = true; then
-                AC_MSG_WARN([*** echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."])
+                UG_MSG_WARN([Cannot find dylibbundler. We cannot put libraries into a bundle so it probably will not be portable.])
         else
                 AC_MSG_CHECKING([dylibbundler version])
                 dyl_ver=$($DYLIBBUNDLER -V >/dev/null 2>&1 && dylibbundler -V | cut -d\  -f2 || echo unknown)
                 AC_MSG_RESULT($dyl_ver);
 
                 if test $dyl_ver = unknown || expr "$dyl_ver" \<= 2 >/dev/null; then
-                        AC_MSG_WARN([*** Original dylib bundler detected, recommending v2 instead (https://github.com/SCG82/macdylibbundler)])
+                        UG_MSG_WARN([Original dylib bundler detected, recommending v2 instead (https://github.com/SCG82/macdylibbundler)])
                 fi
         fi
 fi
@@ -359,7 +366,7 @@ then
                 LIBS="$LIBS -ldl"
                 LDFLAGS="$LDFLAGS -rdynamic"
         else
-                AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
+                UG_MSG_WARN([Building libraries is not supported with other system than Linux])
                 build_libraries=no
         fi
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
@@ -2039,18 +2046,8 @@ AC_ARG_ENABLE(screen,
 
 case "$system" in
 	MacOSX)
-		if test $screen_cap_req != no -a $os_version_major -ge 10
-		then
-                        screen_cap=yes
-                        SCREEN_CAP_LIB="-framework CoreFoundation"
-		else
-                        if test $screen_cap_req != no
-                        then
-                                AC_MSG_WARN([*** Screen capture supported for Mac version 10.6 and higher.])
-                        fi
-                        screen_cap=no
-		fi
-
+                screen_cap=yes
+                SCREEN_CAP_LIB="-framework CoreFoundation"
 	;;
         Windows)
                 screen_cap=$dshow
@@ -2282,7 +2279,7 @@ case "$CUDA_COMPILER" in
 	"")
 		;;
 	*)
-		AC_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
+		UG_MSG_WARN([Unsupported cuda compiler $CUDA_COMPILER])
 		;;
 esac
 HOST_CC_REPORT="$HOST_CC_REPORT"$(basename "$CUDA_COMPILER")
@@ -2339,7 +2336,7 @@ PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.12.0], [ found_gpujpeg=yes ], [
 PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
 
 if test "$found_gpujpeg_any" = yes -a "$found_gpujpeg" = no; then
-        AC_MSG_WARN([Old GPUJPEG version found, please upgrade]);
+        UG_MSG_WARN([Old GPUJPEG version found, please upgrade])
 fi
 
 # try to find without pkg-config (but only if old version was not detected - to avoid side-loading
@@ -2584,7 +2581,7 @@ if test "$found_speexdsp" = yes -a "$speexdsp_req" != no; then
 elif test "$speexdsp_req" = yes; then
         AC_MSG_ERROR([SpeexDSP not found]);
 elif test "$found_speexdsp" = no -a "$speexdsp_req" != no; then
-        AC_MSG_WARN([SpeexDSP was not found. Strongly recommending installing that, otherwise audio part of UG will be crippled.])
+        UG_MSG_WARN([SpeexDSP was not found. Strongly recommending installing that, otherwise audio part of UG will be crippled.])
 fi
 
 # ---------------------------------------------------------------------------
@@ -2994,7 +2991,7 @@ if test "$FOUND_CRYPTO_PC" = yes; then
         CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
         AC_CHECK_HEADER(openssl/aes.h, FOUND_CRYPTO_H=yes, FOUND_CRYPTO_H=no)
         if test $FOUND_CRYPTO_H = no; then
-                AC_MSG_WARN([libcrypto.pc found but openssl/aes.h is not present. This is usually caused by presence of /usr/lib/pkgconfig/libcrypto.pc on macOS. If encryption is requested, install openssl from Homebrew and set PKG_CONFIG_PATH accordingly (see 'brew ln openssl').])
+                UG_MSG_WARN([libcrypto.pc found but openssl/aes.h is not present. This is usually caused by presence of /usr/lib/pkgconfig/libcrypto.pc on macOS. If encryption is requested, install openssl from Homebrew and set PKG_CONFIG_PATH accordingly (see 'brew ln openssl').])
         fi
         CFLAGS=$SAVED_CFLAGS
 fi
@@ -3136,6 +3133,7 @@ if test x$HAVE_OPENCV != xno && test "$FOUND_OPENCV_IMGPROC" = yes; then
 else
 	FOUND_VIDEO_MIX_DEP=no
 fi
+MIXER_CPU_ONLY=no
 
 if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes -a x$OPENCV_MAJOR = x3
 then
@@ -3143,7 +3141,7 @@ then
 		VIDEO_MIX_LIBS="$VIDEO_MIX_LIBS -lopencv_cudawarping "
 		AC_DEFINE([HAVE_OPENCV_CUDA], [1], [Whether the opencv installation supports cuda modules])
 	], [
-		AC_MSG_WARN([Video mixer will be compiled as CPU-only])
+		MIXER_CPU_ONLY=yes
 	], [
 		$VIDEO_MIX_LIBS
 	])
@@ -3151,11 +3149,18 @@ elif test x$OPENCV_MAJOR != x3
 then
 	AC_CHECK_HEADER(opencv2/gpu/gpu.hpp, AC_DEFINE([HAVE_OPENCV_CUDA], [1],
 			[Whether the opencv installation supports cuda modules]),
-			AC_MSG_WARN([Video mixer will be compiled as CPU-only]))
+			MIXER_CPU_ONLY=yes)
 fi
 
 if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes
 then
+        if test $MIXER_CPU_ONLY = yes; then
+            if test $video_mix_req = yes; then
+		UG_MSG_WARN([Video mixer will be compiled as CPU-only])
+            else
+		AC_MSG_WARN([Video mixer will be compiled as CPU-only])
+            fi
+        fi
         CFLAGS="$CFLAGS ${VIDEO_MIX_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${VIDEO_MIX_CFLAGS}"
         VIDEO_MIX_OBJ="src/video_display/conference.o"
@@ -3531,6 +3536,10 @@ AC_MSG_RESULT(
 UltraGrid configuration summary
 ===============================])
 AC_MSG_RESULT([$RESULT])
+
+if test -n "$WARNINGS"; then
+        printf "*** Following WARNINGS were issued:\n$WARNINGS\n"
+fi
 
 RES_STR=`printf "$RESULT" | sed 's/$/\\\\n/' | tr -d '\n'`
 
