@@ -45,6 +45,7 @@
 #define _RTP_ENC_H264_H
 
 #ifndef __cplusplus
+#include <stdalign.h>
 #include <stdbool.h>
 #endif // ! defined __cplusplus
 
@@ -52,9 +53,12 @@
 extern "C" {
 #endif
 
+#define RTPENC_STATE_ALIGN alignof(unsigned char *)
 #define RTPENC_STATE_SIZE 64
+#define RTPENC_STATE_DECLARE(var) alignas(RTPENC_STATE_ALIGN) char (var)[RTPENC_STATE_SIZE]
 struct rtpenc_h264_state;
 
+// functions documented at definition
 struct rtpenc_h264_state *rtpenc_h264_init_state(void *buf, unsigned char *buf_in, long size);
 long rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state, unsigned char **start, bool *last);
 

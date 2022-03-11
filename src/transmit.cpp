@@ -987,7 +987,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	int data_len = tile->data_len;
 	unsigned maxPacketSize = tx->mtu - 40;
 
-        alignas(8) char rtpenc_h264_state_buf[RTPENC_STATE_SIZE];
+        RTPENC_STATE_DECLARE(rtpenc_h264_state_buf);
         auto *rtpenc_h264_state = rtpenc_h264_init_state(rtpenc_h264_state_buf, data, data_len);
         if (rtpenc_h264_state == nullptr) {
                 return;
