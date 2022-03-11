@@ -142,6 +142,19 @@ setup_vaapi() {
         fi
 }
 
+## Parse params to get whitelists that may be needed to add
+get_firejail_whitelist() {
+        TESTCARD_FILENAME=$(echo "$@" | sed 's/.*filename=\([^ :]*\).*/\1/')
+        PLAYBACK_PATH=$(echo "$@" | sed 's/.*--playback \([^ :]*\).*/\1/')
+        if [ -n "$TESTCARD_FILENAME" ]; then
+                printf -- "--whitelist=%s" "$TESTCARD_FILENAME"
+        elif [ -n "$PLAYBACK_PATH" ]; then
+                printf -- "--whitelist=%s" "$PLAYBACK_PATH"
+        else
+                printf -- "--private"
+        fi
+}
+
 setup_vaapi
 
 RUN=
@@ -150,8 +163,8 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
         if expr "$ULTRAGRID_USE_FIREJAIL" : '.*\.profile' >/dev/null; then
                 FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
         else
-                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --private --read-only=/tmp --writable-var"
-                FIREJAIL_OPTS="$FIREJAIL_OPTS --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf"
+                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --read-only=/tmp --writable-var"
+                FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_firejail_whitelist "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf"
         fi
         if firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --dbus-user=none --dbus-system=none"
