@@ -369,7 +369,7 @@ static void audio_play_decklink_put_frame(void *state, struct audio_frame *frame
 	s->deckLinkOutput->ScheduleAudioSamples (data, sampleFrameCount, 0,
                 0, &sampleFramesWritten);
         if(sampleFramesWritten != sampleFrameCount)
-                fprintf(stderr, "[decklink] audio buffer underflow!\n");
+                LOG(LOG_LEVEL_ERROR) << "[decklink] audio buffer overflow! (" << sampleFramesWritten << " written, " << sampleFrameCount - sampleFramesWritten << "\n";
 
         free(tmp_frame.data);
 

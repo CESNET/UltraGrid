@@ -1532,7 +1532,7 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
                 s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
                                 0, &sampleFramesWritten);
                 if (sampleFramesWritten != sampleFrameCount) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow!\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! (" << sampleFramesWritten << " written, " << sampleFrameCount - sampleFramesWritten << " dropped)\n";
                 }
         }
 

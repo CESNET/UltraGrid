@@ -110,14 +110,13 @@ static OSStatus theRenderProc(void *inRefCon,
 
         struct state_ca_playback * s = (struct state_ca_playback *) inRefCon;
         int write_bytes = inNumFrames * s->audio_packet_size;
-        int ret;
 
-        ret = s->buffer_fns->read(s->buffer, (char *) ioData->mBuffers[0].mData, write_bytes);
+        int ret = s->buffer_fns->read(s->buffer, (char *) ioData->mBuffers[0].mData, write_bytes);
         ioData->mBuffers[0].mDataByteSize = ret;
 
         if(ret < write_bytes) {
                 if (!s->quiet) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Audio buffer underflow.\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Audio buffer underflow (" << write_bytes << " requested, " << ret << " written).\n";
                 }
                 //memset(ioData->mBuffers[0].mData, 0, write_bytes);
                 ioData->mBuffers[0].mDataByteSize = ret;
