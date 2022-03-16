@@ -192,7 +192,7 @@ typedef struct _rtcp_rr_wrapper {
         uint32_t reporter_ssrc;
         rtcp_rr *rr;
         rtcp_rx *rx;
-        struct timeval *ts;     /* Arrival time of this RR */
+        struct timeval ts;     /* Arrival time of this RR */
 } rtcp_rr_wrapper;
 
 /*
@@ -403,13 +403,11 @@ static void insert_rr(struct rtp *session, uint32_t reporter_ssrc, rtcp_rr * rr,
                     && cur->rr->ssrc == rr->ssrc) {
                         /* Replace existing entry in the database  */
                         free(cur->rr);
-                        free(cur->ts);
                         if (cur->rx)
                                 free(cur->rx);
                         cur->rr = rr;
                         cur->rx = rx;
-                        cur->ts = malloc(sizeof(struct timeval));
-                        gettimeofday(cur->ts, NULL);
+                        gettimeofday(&cur->ts, NULL);
                         return;
                 }
                 cur = cur->next;
@@ -420,8 +418,7 @@ static void insert_rr(struct rtp *session, uint32_t reporter_ssrc, rtcp_rr * rr,
         cur->reporter_ssrc = reporter_ssrc;
         cur->rr = rr;
         cur->rx = rx;
-        cur->ts = malloc(sizeof(struct timeval));
-        gettimeofday(cur->ts, NULL);
+        gettimeofday(&cur->ts, NULL);
         /* Fix links */
         cur->next = start->next;
         cur->next->prev = cur;
@@ -450,7 +447,6 @@ static void remove_rr(struct rtp *session, uint32_t ssrc)
                                 cur = cur->prev;
                                 tmp->prev->next = tmp->next;
                                 tmp->next->prev = tmp->prev;
-                                free(tmp->ts);
                                 free(tmp->rr);
                                 free(tmp);
                         }
@@ -468,7 +464,6 @@ static void remove_rr(struct rtp *session, uint32_t ssrc)
                                 cur = cur->prev;
                                 tmp->prev->next = tmp->next;
                                 tmp->next->prev = tmp->prev;
-                                free(tmp->ts);
                                 free(tmp->rr);
                                 free(tmp);
                         }
@@ -490,7 +485,7 @@ static void timeout_rr(struct rtp *session, struct timeval *curr_ts)
                         start = &session->rr[i][j];
                         cur = start->next;
                         while (cur != start) {
-                                if (tv_diff(*curr_ts, *(cur->ts)) >
+                                if (tv_diff(*curr_ts, cur->ts) >
                                     (session->rtcp_interval * 3)) {
                                         /* Signal the application... */
                                         if (!filter_event
@@ -506,7 +501,6 @@ static void timeout_rr(struct rtp *session, struct timeval *curr_ts)
                                         cur = cur->prev;
                                         tmp->prev->next = tmp->next;
                                         tmp->next->prev = tmp->prev;
-                                        free(tmp->ts);
                                         free(tmp->rr);
                                         free(tmp);
                                 }
