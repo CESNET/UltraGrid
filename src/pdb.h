@@ -52,6 +52,8 @@
  *
  */
 
+#include "tv.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -81,7 +83,7 @@ struct pdb_e {
 	uint8_t			 pt;	/* Last seen RTP payload type for this participant */
 	struct pbuf		*playout_buffer;
 	struct tfrc		*tfrc_state;
-	struct timeval		 creation_time;	/* Time this entry was created */
+	time_ns_t		 creation_time;	/* Time this entry was created */
 };
 
 struct pdb;	/* The participant database */

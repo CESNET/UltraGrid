@@ -46,6 +46,8 @@
 #include <stdint.h>
 #endif
 
+#include "tv.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -268,8 +270,8 @@ int 		 rtp_send_data_hdr(struct rtp *session,
                                char *data, int data_len,
 			       char *extn, uint16_t extn_len, uint16_t extn_type);
 void 		 rtp_send_ctrl(struct rtp *session, uint32_t rtp_ts, 
-			       rtcp_app_callback appcallback, struct timeval curr_time);
-void 		 rtp_update(struct rtp *session, struct timeval curr_time);
+			       rtcp_app_callback appcallback, time_ns_t curr_time);
+void 		 rtp_update(struct rtp *session, time_ns_t curr_time);
 
 uint32_t	 rtp_my_ssrc(struct rtp *session);
 bool             rtp_add_csrc(struct rtp *session, uint32_t csrc);

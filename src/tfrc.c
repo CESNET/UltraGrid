@@ -71,10 +71,10 @@ struct tfrc {
         int ooo;
         int cycles;             /* number of times seq number cycles 65535 */
         uint32_t RTT;           /* received from sender in app packet */
-        struct timeval feedback_timer;  /* indicates points in time when p should be computed */
+        time_ns_t feedback_timer;  /* indicates points in time when p should be computed */
         double p, p_prev;
         int s;
-        struct timeval start_time;
+        time_ns_t start_time;
         int loss_count;
         int interval_count;
         int gap[20];
@@ -130,10 +130,10 @@ static double transfer_rate(double p)
 static void compute_transfer_rate(void)
 {
         double t1;
-        struct timeval now;
+        time_ns_t now;
 
         t1 = transfer_rate(p);
-        gettimeofday(&now, NULL);
+        now = get_time_in_ns()
 }
 #endif
 
@@ -245,7 +245,7 @@ record_loss(struct tfrc *state, uint32_t s1, uint32_t s2, uint32_t ts1,
 }
 
 static void
-save_arrival(struct tfrc *state, struct timeval curr_time, uint16_t seq)
+save_arrival(struct tfrc *state, time_ns_t curr_time, uint16_t seq)
 {
         int kk, inc, last_jj;
         uint16_t udelta;
@@ -255,8 +255,8 @@ save_arrival(struct tfrc *state, struct timeval curr_time, uint16_t seq)
         static uint32_t ext_last_ack;
         static int last_ack_jj = 0;
 
-        gettimeofday(&curr_time, NULL);
-        now = tv_diff_usec(curr_time, state->start_time);
+        curr_time = get_time_in_ns();
+        now = (curr_time - state->start_time) / 1000;
 
         if (state->jj == -1) {
                 /* first packet arrival */
@@ -330,7 +330,6 @@ static double compute_loss_event(struct tfrc *state)
         int i;
         uint32_t t __attribute__((unused));
         uint32_t temp, I_tot0 = 0, I_tot1 = 0, I_tot = 0;
-        struct timeval now;
         double I_mean, p;
 
         if (state->ii < N) {
@@ -352,8 +351,7 @@ static double compute_loss_event(struct tfrc *state)
         I_mean = I_tot / state->W_tot;
         p = 1 / I_mean;
 
-        gettimeofday(&now, NULL);
-        t = tv_diff_usec(now, state->start_time);
+        t = (get_time_in_ns() - state->start_time) / 1000;
 
         return p;
 
@@ -364,7 +362,7 @@ static double compute_loss_event(struct tfrc *state)
  *
  */
 
-struct tfrc *tfrc_init(struct timeval curr_time)
+struct tfrc *tfrc_init(time_ns_t curr_time)
 {
         struct tfrc *state;
         int i;
@@ -435,7 +433,7 @@ void tfrc_done(struct tfrc *state)
 }
 
 void
-tfrc_recv_data(struct tfrc *state, struct timeval curr_time, uint16_t seqnum,
+tfrc_recv_data(struct tfrc *state, time_ns_t curr_time, uint16_t seqnum,
                unsigned length)
 {
         /* This is called each time an RTP packet is received. Accordingly, */
@@ -459,7 +457,7 @@ tfrc_recv_data(struct tfrc *state, struct timeval curr_time, uint16_t seqnum,
         state->s = length;      /* packet size is needed transfer_rate */
 }
 
-void tfrc_recv_rtt(struct tfrc *state, struct timeval curr_time, uint32_t rtt)
+void tfrc_recv_rtt(struct tfrc *state, time_ns_t curr_time, uint32_t rtt)
 {
         /* Called whenever the receiver gets an RTCP APP packet telling */
         /* it the RTT to the sender. Not performance critical.          */
@@ -468,25 +466,24 @@ void tfrc_recv_rtt(struct tfrc *state, struct timeval curr_time, uint32_t rtt)
         validate_tfrc_state(state);
 
         if (state->RTT == 0) {
-                state->feedback_timer = curr_time;
-                tv_add(&(state->feedback_timer), rtt);
+                state->feedback_timer = curr_time + rtt * NS_IN_SEC;
         }
         state->RTT = rtt;
 }
 
-int tfrc_feedback_is_due(struct tfrc *state, struct timeval curr_time)
+int tfrc_feedback_is_due(struct tfrc *state, time_ns_t curr_time)
 {
         /* Determine if it is time to send feedback to the sender */
         validate_tfrc_state(state);
 
-        if ((state->RTT == 0) || tv_gt(state->feedback_timer, curr_time)) {
+        if ((state->RTT == 0) || state->feedback_timer > curr_time) {
                 /* Not yet time to send feedback to the sender... */
                 return FALSE;
         }
         return TRUE;
 }
 
-double tfrc_feedback_txrate(struct tfrc *state, struct timeval curr_time)
+double tfrc_feedback_txrate(struct tfrc *state, time_ns_t curr_time)
 {
         /* Calculate the appropriate transmission rate, to be included */
         /* in a feedback message to the sender.                        */
@@ -495,9 +492,7 @@ double tfrc_feedback_txrate(struct tfrc *state, struct timeval curr_time)
 
         assert(tfrc_feedback_is_due(state, curr_time));
 
-        state->feedback_timer.tv_sec = curr_time.tv_sec;
-        state->feedback_timer.tv_usec = curr_time.tv_usec;
-        tv_add(&(state->feedback_timer), state->RTT);
+        state->feedback_timer = curr_time + state->RTT * NS_IN_SEC;
         state->p = compute_loss_event(state);
         //compute_transfer_rate ();
         if (state->ii >= N) {

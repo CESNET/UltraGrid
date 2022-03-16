@@ -91,9 +91,8 @@ void h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
                 }
         }
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
-                uint32_t ts = (get_time_in_ns() - m_start_time) / 100'000 * 9; // at 90000 Hz
-                struct timeval curr_time;
-                gettimeofday(&curr_time, NULL);
+                time_ns_t curr_time = get_time_in_ns();
+                uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 

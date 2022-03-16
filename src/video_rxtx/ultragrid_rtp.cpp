@@ -171,9 +171,8 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
         }
 
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
-                struct timeval curr_time;
-                gettimeofday(&curr_time, NULL);
-                uint32_t ts = (get_time_in_ns() - m_start_time) / 100'000 * 9; // at 90000 Hz
+                time_ns_t curr_time = get_time_in_ns();
+                uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 
@@ -296,11 +295,10 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 {
         set_thread_name(__func__);
         struct pdb_e *cp;
-        struct timeval curr_time;
         int fr;
         int ret;
         int tiles_post = 0;
-        struct timeval last_tile_received = {0, 0};
+        time_ns_t last_tile_received = 0;
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
 
 #ifdef SHARED_DECODER
@@ -319,9 +317,8 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         while (!should_exit) {
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
-                gettimeofday(&curr_time, NULL);
-                time_ns_t time_ns = get_time_in_ns();
-                uint32_t ts = (m_start_time - time_ns) / 100'000 * 9; // at 90000 Hz
+                time_ns_t curr_time = get_time_in_ns();
+                uint32_t ts = (m_start_time - curr_time) / 100'000 * 9; // at 90000 Hz
 
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
@@ -329,7 +326,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 /* Receive packets from the network... The timeout is adjusted */
                 /* to match the video capture rate, so the transmitter works.  */
                 if (fr) {
-                        gettimeofday(&curr_time, NULL);
+                        curr_time = get_time_in_ns();
                         receiver_process_messages();
                         fr = 0;
                 }
@@ -337,7 +334,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 timeout.tv_sec = 0;
                 //timeout.tv_usec = 999999 / 59.94;
                 // use longer timeout when we are not receivng any data
-                if ((last_not_timeout - time_ns) > NS_IN_SEC) {
+                if ((last_not_timeout - curr_time) > NS_IN_SEC) {
                         timeout.tv_usec = 100000;
                 } else {
                         timeout.tv_usec = 1000;
@@ -350,7 +347,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                         receiver_process_messages();
                         //printf("Failed to receive data\n");
                 } else {
-                        last_not_timeout = time_ns;
+                        last_not_timeout = curr_time;
                 }
 
                 /* Decode and render for each participant in the conference... */
@@ -404,13 +401,13 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, time_ns, decode_video_frame, vdecoder_state)) {
+                            (cp->playout_buffer, curr_time, decode_video_frame, vdecoder_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == m_connections_count)
                                 {
                                         tiles_post = 0;
-                                        gettimeofday(&curr_time, NULL);
+                                        curr_time = get_time_in_ns();
                                         fr = 1;
 #if 0
                                         display_put_frame(uv->display_device,
@@ -423,10 +420,10 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                         }
 
                         /* dual-link TIMEOUT - we won't wait for next tiles */
-                        if(tiles_post > 1 && tv_diff(curr_time, last_tile_received) >
+                        if(tiles_post > 1 && (last_tile_received - curr_time) / (double) NS_IN_SEC >
                                         999999 / 59.94 / m_connections_count) {
                                 tiles_post = 0;
-                                gettimeofday(&curr_time, NULL);
+                                curr_time = get_time_in_ns();
                                 fr = 1;
 #if 0
                                 display_put_frame(uv->display_device,
@@ -453,7 +450,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                 }
                         }
 
-                        pbuf_remove(cp->playout_buffer, time_ns);
+                        pbuf_remove(cp->playout_buffer, curr_time);
                         cp = pdb_iter_next(&it);
                 }
                 pdb_iter_done(&it);

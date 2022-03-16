@@ -218,9 +218,8 @@ void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
                 }
         }
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
-                struct timeval curr_time;
                 uint32_t ts = get_std_video_local_mediatime();
-                gettimeofday(&curr_time, NULL);
+                time_ns_t curr_time = get_time_in_ns();
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 

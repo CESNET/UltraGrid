@@ -278,7 +278,7 @@ static struct pdb_e *pdb_create_item(uint32_t ssrc, volatile int *delay_ms)
 {
         struct pdb_e *p = malloc(sizeof(struct pdb_e));
         if (p != NULL) {
-                gettimeofday(&(p->creation_time), NULL);
+                p->creation_time = get_time_in_ns();
                 p->ssrc = ssrc;
                 p->sdes_cname = NULL;
                 p->sdes_name = NULL;

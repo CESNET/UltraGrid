@@ -192,7 +192,7 @@ typedef struct _rtcp_rr_wrapper {
         uint32_t reporter_ssrc;
         rtcp_rr *rr;
         rtcp_rx *rx;
-        struct timeval ts;     /* Arrival time of this RR */
+        time_ns_t ts;     /* Arrival time of this RR */
 } rtcp_rr_wrapper;
 
 /*
@@ -215,7 +215,7 @@ typedef struct _source {
         rtcp_sr *sr;
         uint32_t last_sr_sec;
         uint32_t last_sr_frac;
-        struct timeval last_active;
+        time_ns_t last_active;
         int should_advertise_sdes;      /* TRUE if this source is a CSRC which we need to advertise SDES for */
         int sender;
         int got_bye;            /* TRUE if we've received an RTCP bye from this source */
@@ -292,10 +292,10 @@ struct rtp {
         double avg_rtcp_size;
         int we_sent;
         double rtcp_bw;         /* RTCP bandwidth fraction, in octets per second. */
-        struct timeval last_update;
-        struct timeval last_rtp_send_time;
-        struct timeval last_rtcp_send_time;
-        struct timeval next_rtcp_send_time;
+        time_ns_t last_update;
+        time_ns_t last_rtp_send_time;
+        time_ns_t last_rtcp_send_time;
+        time_ns_t next_rtcp_send_time;
         double rtcp_interval;
         int sdes_count_pri;
         int sdes_count_sec;
@@ -407,7 +407,7 @@ static void insert_rr(struct rtp *session, uint32_t reporter_ssrc, rtcp_rr * rr,
                                 free(cur->rx);
                         cur->rr = rr;
                         cur->rx = rx;
-                        gettimeofday(&cur->ts, NULL);
+                        cur->ts = get_time_in_ns();
                         return;
                 }
                 cur = cur->next;
@@ -418,7 +418,7 @@ static void insert_rr(struct rtp *session, uint32_t reporter_ssrc, rtcp_rr * rr,
         cur->reporter_ssrc = reporter_ssrc;
         cur->rr = rr;
         cur->rx = rx;
-        gettimeofday(&cur->ts, NULL);
+        cur->ts = get_time_in_ns();
         /* Fix links */
         cur->next = start->next;
         cur->next->prev = cur;
@@ -472,7 +472,7 @@ static void remove_rr(struct rtp *session, uint32_t ssrc)
         }
 }
 
-static void timeout_rr(struct rtp *session, struct timeval *curr_ts)
+static void timeout_rr(struct rtp *session, time_ns_t curr_ts)
 {
         /* Timeout any reception reports which have been in the database for more than 3 */
         /* times the RTCP reporting interval without refresh.                            */
@@ -485,8 +485,8 @@ static void timeout_rr(struct rtp *session, struct timeval *curr_ts)
                         start = &session->rr[i][j];
                         cur = start->next;
                         while (cur != start) {
-                                if (tv_diff(*curr_ts, cur->ts) >
-                                    (session->rtcp_interval * 3)) {
+                                if (curr_ts - cur->ts >
+                                    session->rtcp_interval * 3 * NS_IN_SEC) {
                                         /* Signal the application... */
                                         if (!filter_event
                                             (session, cur->reporter_ssrc)) {
@@ -633,7 +633,7 @@ static source *really_create_source(struct rtp *session, uint32_t ssrc,
                 s->probation = 0;
         }
 
-        gettimeofday(&(s->last_active), NULL);
+        s->last_active = get_time_in_ns();
         /* Now, add it to the database... */
         if (session->db[h] != NULL) {
                 session->db[h]->prev = s;
@@ -667,7 +667,7 @@ static inline source *create_source(struct rtp *session, uint32_t ssrc,
         }
         /* Source is already in the database... Mark it as */
         /* active and exit (this is the common case...)    */
-        gettimeofday(&(s->last_active), NULL);
+        s->last_active = get_time_in_ns();
         return s;
 }
 
@@ -677,11 +677,9 @@ static void delete_source(struct rtp *session, uint32_t ssrc)
         source *s = get_source(session, ssrc);
         int h = ssrc_hash(ssrc);
         rtp_event event;
-        struct timeval event_ts;
+        time_ns_t event_ts = get_time_in_ns();
 
         assert(s != NULL);      /* Deleting a source which doesn't exist is an error... */
-
-        gettimeofday(&event_ts, NULL);
 
         check_source(s);
         check_database(session);
@@ -735,14 +733,14 @@ static void delete_source(struct rtp *session, uint32_t ssrc)
         /* o  The value of pmembers is set equal to members.                      */
         session->ssrc_count--;
         if (session->ssrc_count < session->ssrc_count_prev) {
-                gettimeofday(&(session->next_rtcp_send_time), NULL);
-                gettimeofday(&(session->last_rtcp_send_time), NULL);
-                tv_add(&(session->next_rtcp_send_time),
+                session->next_rtcp_send_time =
+                        session->last_rtcp_send_time = get_time_in_ns();
+                session->next_rtcp_send_time +=
                        (session->ssrc_count / session->ssrc_count_prev)
-                       * tv_diff(session->next_rtcp_send_time, event_ts));
-                tv_add(&(session->last_rtcp_send_time),
-                       -((session->ssrc_count / session->ssrc_count_prev)
-                         * tv_diff(event_ts, session->last_rtcp_send_time)));
+                       * (session->next_rtcp_send_time - event_ts) * NS_IN_SEC;
+                session->last_rtcp_send_time -=
+                       ((session->ssrc_count / session->ssrc_count_prev)
+                         * (event_ts - session->last_rtcp_send_time)) * NS_IN_SEC;
                 session->ssrc_count_prev = session->ssrc_count;
         }
 
@@ -1170,14 +1168,14 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->tfrc_on = tfrc_on;
         session->rtp_bcount = 0;
         session->rtp_bytes_sent = 0;
-        gettimeofday(&(session->last_update), NULL);
-        gettimeofday(&(session->last_rtcp_send_time), NULL);
-        gettimeofday(&(session->next_rtcp_send_time), NULL);
+        session->last_update =
+                session->last_rtcp_send_time =
+                session->next_rtcp_send_time = get_time_in_ns();
         session->encryption_enabled = 0;
         session->encryption_algorithm = NULL;
 
         /* Calculate when we're supposed to send our first RTCP packet... */
-        tv_add(&(session->next_rtcp_send_time), rtcp_interval(session));
+        session->next_rtcp_send_time += rtcp_interval(session) * NS_IN_SEC;
 
         /* Initialise the source database... */
         for (i = 0; i < RTP_DB_SIZE; i++) {
@@ -1263,14 +1261,14 @@ rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, 
         session->tfrc_on = tfrc_on;
         session->rtp_bcount = 0;
         session->rtp_bytes_sent = 0;
-        gettimeofday(&(session->last_update), NULL);
-        gettimeofday(&(session->last_rtcp_send_time), NULL);
-        gettimeofday(&(session->next_rtcp_send_time), NULL);
+        session->last_update =
+                session->last_rtcp_send_time =
+                session->next_rtcp_send_time = get_time_in_ns();
         session->encryption_enabled = 0;
         session->encryption_algorithm = NULL;
 
         /* Calculate when we're supposed to send our first RTCP packet... */
-        tv_add(&(session->next_rtcp_send_time), rtcp_interval(session));
+        session->next_rtcp_send_time += NS_IN_SEC * rtcp_interval(session);
 
         /* Initialise the source database... */
         for (i = 0; i < RTP_DB_SIZE; i++) {
@@ -2967,7 +2965,7 @@ rtp_send_data_hdr(struct rtp *session,
         session->rtp_pcount += 1;
         session->rtp_bcount += buffer_len;
         session->rtp_bytes_sent += buffer_len + data_len;
-        gettimeofday(&session->last_rtp_send_time, NULL);
+        session->last_rtp_send_time = get_time_in_ns();
 
         check_database(session);
         return rc;
@@ -3445,31 +3443,25 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
  * frequently.  
  */
 void rtp_send_ctrl(struct rtp *session, uint32_t rtp_ts,
-                   rtcp_app_callback appcallback, struct timeval curr_time)
+                   rtcp_app_callback appcallback, time_ns_t curr_time)
 {
         /* Send an RTCP packet, if one is due... */
 
         check_database(session);
-        if (tv_gt(curr_time, session->next_rtcp_send_time)) {
+        if (curr_time > session->next_rtcp_send_time) {
                 /* The RTCP transmission timer has expired. The following */
                 /* implements draft-ietf-avt-rtp-new-02.txt section 6.3.6 */
                 int h;
                 source *s;
-                struct timeval new_send_time;
-                double new_interval;
-
-                new_interval =
+                double new_interval =
                     rtcp_interval(session) / (session->csrc_count + 1);
-                new_send_time = session->last_rtcp_send_time;
-                tv_add(&new_send_time, new_interval);
-                if (tv_gt(curr_time, new_send_time)) {
+                time_ns_t new_send_time = session->last_rtcp_send_time + new_interval * NS_IN_SEC;
+                if (curr_time > new_send_time) {
                         send_rtcp(session, rtp_ts, appcallback);
                         session->initial_rtcp = FALSE;
                         session->last_rtcp_send_time = curr_time;
-                        session->next_rtcp_send_time = curr_time;
-                        tv_add(&(session->next_rtcp_send_time),
-                               rtcp_interval(session) / (session->csrc_count +
-                                                         1));
+                        session->next_rtcp_send_time = curr_time + (rtcp_interval(session) / (session->csrc_count +
+                                                         1)) * NS_IN_SEC;
                         /* We're starting a new RTCP reporting interval, zero out */
                         /* the per-interval statistics.                           */
                         session->sender_count = 0;
@@ -3497,22 +3489,21 @@ void rtp_send_ctrl(struct rtp *session, uint32_t rtp_ts,
  * through the data structures to once per second, it can be safely
  * called more frequently.
  */
-void rtp_update(struct rtp *session, struct timeval curr_time)
+void rtp_update(struct rtp *session, time_ns_t curr_time)
 {
         /* Perform housekeeping on the source database... */
         int h;
         source *s, *n;
-        double delay;
 
-        if (tv_diff(curr_time, session->last_update) < 1.0) {
+        if (curr_time - session->last_update < 1 * NS_IN_SEC) {
                 /* We only perform housekeeping once per second... */
                 return;
         }
         session->last_update = curr_time;
 
         /* Update we_sent (section 6.3.8 of RTP spec) */
-        delay = tv_diff(curr_time, session->last_rtp_send_time);
-        if (delay >= 2 * rtcp_interval(session)) {
+        time_ns_t delay = curr_time - session->last_rtp_send_time;
+        if (delay >= 2 * NS_IN_SEC * rtcp_interval(session)) {
                 session->we_sent = FALSE;
         }
 
@@ -3526,24 +3517,24 @@ void rtp_update(struct rtp *session, struct timeval curr_time)
                         /* Section 6.2.1 of the RTP specification details the timers used. */
 
                         /* How int since we last heard from this source?  */
-                        delay = tv_diff(curr_time, s->last_active);
+                        delay = curr_time - s->last_active;
 
                         /* Check if we've received a BYE packet from this source.    */
                         /* If we have, and it was received more than 2 seconds ago   */
                         /* then the source is deleted. The arbitrary 2 second delay  */
                         /* is to ensure that all delayed packets are received before */
                         /* the source is timed out.                                  */
-                        if (s->got_bye && (delay > 2.0)) {
+                        if (s->got_bye && (delay > 2 * NS_IN_SEC)) {
                                 debug_msg
                                     ("Deleting source 0x%08" PRIx32 " due to reception of BYE %f seconds ago...\n",
-                                     s->ssrc, delay);
+                                     s->ssrc, (double) delay / NS_IN_SEC);
                                 delete_source(session, s->ssrc);
                         }
 
                         /* Sources are marked as inactive if they haven't been heard */
                         /* from for more than 2 intervals (RTP section 6.3.5)        */
                         if ((s->ssrc != rtp_my_ssrc(session))
-                            && (delay > (session->rtcp_interval * 2))) {
+                            && (delay > (session->rtcp_interval * 2 * NS_IN_SEC))) {
                                 if (s->sender) {
                                         s->sender = FALSE;
                                         session->sender_count--;
@@ -3553,7 +3544,7 @@ void rtp_update(struct rtp *session, struct timeval curr_time)
                         /* If a source hasn't been heard from for more than 5 RTCP   */
                         /* reporting intervals, we delete it from our database...    */
                         if ((s->ssrc != rtp_my_ssrc(session))
-                            && (delay > (session->rtcp_interval * 5))) {
+                            && (delay > (session->rtcp_interval * 5 * NS_IN_SEC))) {
                                 debug_msg
                                     ("Deleting source 0x%08" PRIx32 " due to timeout...\n",
                                      s->ssrc);
@@ -3563,7 +3554,7 @@ void rtp_update(struct rtp *session, struct timeval curr_time)
         }
 
         /* Timeout those reception reports which haven't been refreshed for a int time */
-        timeout_rr(session, &curr_time);
+        timeout_rr(session, curr_time);
         check_database(session);
 }
 
@@ -3642,7 +3633,6 @@ static void rtp_send_bye_now(struct rtp *session)
  */
 void rtp_send_bye(struct rtp *session)
 {
-        struct timeval curr_time, timeout, new_send_time;
         uint8_t buffer[RTP_MAX_PACKET_LEN];
         int buflen;
         double new_interval;
@@ -3661,28 +3651,25 @@ void rtp_send_bye(struct rtp *session)
         if (session->ssrc_count < 50) {
                 rtp_send_bye_now(session);
         } else {
-                gettimeofday(&curr_time, NULL);
+                time_ns_t curr_time = get_time_in_ns();
                 session->sending_bye = TRUE;
-                session->last_rtcp_send_time = curr_time;
-                session->next_rtcp_send_time = curr_time;
+                session->last_rtcp_send_time =
+                        session->next_rtcp_send_time = curr_time;
                 session->bye_count = 1;
                 session->initial_rtcp = TRUE;
                 session->we_sent = FALSE;
                 session->sender_count = 0;
                 session->avg_rtcp_size = 70.0 + RTP_LOWER_LAYER_OVERHEAD;       /* FIXME */
-                tv_add(&session->next_rtcp_send_time,
-                       rtcp_interval(session) / (session->csrc_count + 1));
+                session->next_rtcp_send_time += (rtcp_interval(session) / (session->csrc_count + 1)) * NS_IN_SEC;
 
                 debug_msg("Preparing to send BYE...\n");
                 while (1) {
                         /* Schedule us to block in udp_select() until the time we are due to send our */
                         /* BYE packet. If we receive an RTCP packet from another participant before   */
                         /* then, we are woken up to handle it...                                      */
-                        timeout.tv_sec = 0;
-                        timeout.tv_usec = 0;
-                        tv_add(&timeout,
-                               tv_diff(session->next_rtcp_send_time,
-                                       curr_time));
+                        long long ms = (session->next_rtcp_send_time - curr_time) / NS_IN_MS;
+                        lldiv_t d = lldiv(ms, MS_IN_SEC);
+                        struct timeval timeout = { .tv_sec = d.quot, .tv_usec = d.rem };
                         udp_fd_zero();
                         udp_fd_set(session->rtcp_socket);
                         if ((udp_select(&timeout) > 0)
@@ -3695,12 +3682,11 @@ void rtp_send_bye(struct rtp *session)
                                 rtp_process_ctrl(session, buffer, buflen);
                         }
                         /* Is it time to send our BYE? */
-                        gettimeofday(&curr_time, NULL);
+                        time_ns_t curr_time = get_time_in_ns();
                         new_interval =
                             rtcp_interval(session) / (session->csrc_count + 1);
-                        new_send_time = session->last_rtcp_send_time;
-                        tv_add(&new_send_time, new_interval);
-                        if (tv_gt(curr_time, new_send_time)) {
+                        time_ns_t new_send_time = session->last_rtcp_send_time + new_interval * NS_IN_SEC;
+                        if (curr_time > new_send_time) {
                                 debug_msg("Sent BYE...\n");
                                 rtp_send_bye_now(session);
                                 break;
@@ -3708,8 +3694,7 @@ void rtp_send_bye(struct rtp *session)
                         /* No, we reconsider... */
                         session->next_rtcp_send_time = new_send_time;
                         debug_msg("Reconsidered sending BYE... delay = %f\n",
-                                  tv_diff(session->next_rtcp_send_time,
-                                          curr_time));
+                                  (session->next_rtcp_send_time - curr_time) / (double) NS_IN_SEC);
                         /* ...and perform housekeeping in the usual manner */
                         rtp_update(session, curr_time);
                 }

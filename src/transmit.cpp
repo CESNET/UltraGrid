@@ -894,7 +894,6 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 	int pt;
 	uint32_t ts;
 	static uint32_t ts_prev = 0;
-	struct timeval curr_time;
 
 	// Configure the right Payload type,
 	// 8000 Hz, 1 channel and 2 bps is the ITU-T G.711 standard (should be 1 bps...)
@@ -952,8 +951,7 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                 } else {
                         ts = get_std_audio_local_mediatime((double) pkt_len / (double) buffer->get_channel_count() / (double) buffer->get_sample_rate(), buffer->get_sample_rate());
                 }
-                gettimeofday(&curr_time, NULL);
-                rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
+                rtp_send_ctrl(rtp_session, ts_prev, 0, get_time_in_ns()); //send RTCP SR
                 ts_prev = ts;
                 // Send the packet
                 rtp_send_data(rtp_session, ts, pt, 0, 0, /* contributing sources 		*/

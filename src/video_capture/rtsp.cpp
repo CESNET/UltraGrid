@@ -292,10 +292,8 @@ vidcap_rtsp_thread(void *arg) {
     struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
 
     while (!s->should_exit) {
-        struct timeval curr_time;
-        gettimeofday(&curr_time, NULL);
-        time_ns_t time_ns = get_time_in_ns();
-        uint32_t timestamp = (time_ns - start_time) / 100'000 * 9; // at 90000 Hz
+        time_ns_t curr_time = get_time_in_ns();
+        uint32_t timestamp = (curr_time - start_time) / 100'000 * 9; // at 90000 Hz
 
         rtp_update(s->vrtsp_state.device, curr_time);
 
@@ -312,7 +310,7 @@ vidcap_rtsp_thread(void *arg) {
                 d.frame = frame;
                 d.offset_len = s->vrtsp_state.h264_offset_len;
                 d.video_pt = s->vrtsp_state.pt;
-                if (pbuf_decode(cp->playout_buffer, time_ns,
+                if (pbuf_decode(cp->playout_buffer, curr_time,
                             decode_frame_by_pt, &d))
                 {
                     pthread_mutex_lock(&s->vrtsp_state.lock);
@@ -331,7 +329,7 @@ vidcap_rtsp_thread(void *arg) {
                         pthread_mutex_unlock(&s->vrtsp_state.lock);
                     }
                 }
-                pbuf_remove(cp->playout_buffer, time_ns);
+                pbuf_remove(cp->playout_buffer, curr_time);
                 cp = pdb_iter_next(&it);
             }
 

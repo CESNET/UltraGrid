@@ -51,8 +51,6 @@
 #include "crypto/random.h"
 #include "tv.h"
 
-#define MS_IN_SEC 1000000LL
-
 uint32_t get_local_mediatime(void)
 {
         static struct timeval start_time;

@@ -204,12 +204,10 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
         rtp_packet *pckt_rtp = (rtp_packet *) e->data;
         struct pdb *participants = (struct pdb *)rtp_get_userdata(session);
         struct pdb_e *state = pdb_get(participants, e->ssrc);
-        struct timeval curr_time;
 
         switch (e->type) {
         case RX_RTP:
-                gettimeofday(&curr_time, NULL);
-                tfrc_recv_data(state->tfrc_state, curr_time, pckt_rtp->seq,
+                tfrc_recv_data(state->tfrc_state, get_time_in_ns(), pckt_rtp->seq,
                                pckt_rtp->data_len + 40);
                 if (pckt_rtp->data_len > 0) {   /* Only process packets that contain data... */
                         pbuf_insert(state->playout_buffer, pckt_rtp);
@@ -237,8 +235,7 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
                 if (strncmp(pckt_app->name, "RTT_", 4) == 0) {
                         assert(pckt_app->length == 3);
                         assert(pckt_app->subtype == 0);
-                        gettimeofday(&curr_time, NULL);
-//                      tfrc_recv_rtt(state->tfrc_state, curr_time, ntohl(*((int *) pckt_app->data)));
+//                      tfrc_recv_rtt(state->tfrc_state, get_time_in_ns(), ntohl(*((int *) pckt_app->data)));
                 }
                 break;
         case RX_BYE:
