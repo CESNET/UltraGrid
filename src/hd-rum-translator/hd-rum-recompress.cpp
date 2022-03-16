@@ -57,7 +57,7 @@
 #include "debug.h"
 #include "host.h"
 #include "rtp/rtp.h"
-
+#include "tv.h"
 #include "video_compress.h"
 
 #include "video_rxtx/ultragrid_rtp.h"
@@ -113,7 +113,6 @@ recompress_output_port::recompress_output_port(struct module *parent,
         active(true)
 {
         int force_ip_version = 0;
-        auto start_time = std::chrono::steady_clock::now();
 
         std::map<std::string, param_u> params;
 
@@ -134,7 +133,7 @@ recompress_output_port::recompress_output_port(struct module *parent,
         params["fec"].str = fec;
         params["encryption"].str = NULL;
         params["bitrate"].ll = bitrate;
-        params["start_time"].cptr = (const void *) &start_time;
+        params["start_time"].ll = get_time_in_ns();
         params["video_delay"].vptr = 0;
 
         // UltraGrid RTP

@@ -63,6 +63,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/ptime.h"
 #include "rtp/pbuf.h"
+#include "tv.h"
 
 #include <algorithm>
 #include <climits>
@@ -91,9 +92,9 @@ struct pbuf_node {
         struct pbuf_node *nxt;
         struct pbuf_node *prv;
         uint32_t rtp_timestamp; /* RTP timestamp for the frame           */
-        std::chrono::high_resolution_clock::time_point arrival_time;    /* Arrival time of first packet in frame */
-        std::chrono::high_resolution_clock::time_point playout_time;    /* Playout time for the frame            */
-        std::chrono::high_resolution_clock::time_point deletion_time;   /* Deletion time for the frame            */
+        time_ns_t arrival_time;    /* Arrival time of first packet in frame */
+        time_ns_t playout_time;    /* Playout time for the frame            */
+        time_ns_t deletion_time;   /* Deletion time for the frame            */
         struct coded_data *cdata;       /*                                       */
         int decoded;            /* Non-zero if we've decoded this frame  */
         int mbit;               /* determines if mbit of frame had been seen */
@@ -297,9 +298,9 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, long long playout_de
                 tmp->rtp_timestamp = pkt->ts;
                 tmp->mbit = pkt->m;
                 tmp->playout_time =
-                        tmp->arrival_time = std::chrono::high_resolution_clock::now();
-                tmp->playout_time += std::chrono::microseconds(playout_delay_us);
-                tmp->deletion_time = tmp->playout_time + std::chrono::microseconds(playout_delay_us);
+                        tmp->arrival_time = get_time_in_ns();
+                tmp->playout_time += playout_delay_us * 1000;
+                tmp->deletion_time = tmp->playout_time + playout_delay_us * 1000;
 
                 tmp->cdata = (struct coded_data *) malloc(sizeof(struct coded_data));
                 if (tmp->cdata != NULL) {
@@ -488,7 +489,7 @@ static void free_cdata(struct coded_data *head)
         }
 }
 
-void pbuf_remove(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_point const & curr_time)
+void pbuf_remove(struct pbuf *playout_buf, time_ns_t curr_time)
 {
         /* Remove previously decoded frames that have passed their playout  */
         /* time from the playout buffer. Incomplete frames that have passed */
@@ -552,10 +553,9 @@ int pbuf_is_empty(struct pbuf *playout_buf)
 }
 
 int
-pbuf_decode(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_point const & curr_time,
+pbuf_decode(struct pbuf *playout_buf, time_ns_t curr_time,
                              decode_frame_t decode_func, void *data)
 {
-        using namespace std::chrono_literals;
         /* Find the first complete frame that has reached it's playout */
         /* time, and decode it into the framebuffer. Mark the frame as */
         /* decoded, but otherwise leave it in the playout buffer.      */
@@ -575,7 +575,7 @@ pbuf_decode(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_p
                                 curr->decoded = 1;
                                 return ret;
                         } else {
-                                if (curr_time > curr->playout_time + 1s) {
+                                if (curr_time > curr->playout_time + 1 * NS_IN_SEC) {
                                         curr->completed = true;
                                 }
                                 debug_msg

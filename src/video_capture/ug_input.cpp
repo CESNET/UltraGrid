@@ -44,6 +44,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "tv.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -111,7 +112,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         int ret = initialize_video_display(vidcap_params_get_parent(cap_params), "pipe", cfg, 0, NULL, &s->display);
         assert(ret == 0 && "Unable to initialize proxy display");
 
-        auto start_time = std::chrono::steady_clock::now();
+        time_ns_t start_time = get_time_in_ns();
         map<string, param_u> params;
 
         // common
@@ -132,7 +133,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
         params["fec"].str = "none";
         params["encryption"].str = NULL;
         params["bitrate"].ll = 0;
-        params["start_time"].cptr = (const void *) &start_time;
+        params["start_time"].ll = start_time;
         params["video_delay"].vptr = 0;
 
         // UltraGrid RTP
@@ -158,7 +159,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
                         .codec_cfg = "PCM"
                 };
                 s->audio = audio_cfg_init(vidcap_params_get_parent(cap_params), &opt, nullptr, 0, nullptr, RATE_UNLIMITED,
-                                nullptr, &start_time, 1500, -1, nullptr);
+                                nullptr, start_time, 1500, -1, nullptr);
                 if (s->audio == nullptr) {
                         delete s;
                         return VIDCAP_INIT_FAIL;

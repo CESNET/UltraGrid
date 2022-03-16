@@ -172,9 +172,8 @@ void ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame
 
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
                 struct timeval curr_time;
-                uint32_t ts;
                 gettimeofday(&curr_time, NULL);
-                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - std::chrono::steady_clock::now()).count() * 90000;
+                uint32_t ts = (get_time_in_ns() - m_start_time) / 100'000 * 9; // at 90000 Hz
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 
@@ -296,7 +295,6 @@ struct vcodec_state *ultragrid_rtp_video_rxtx::new_video_decoder(struct display 
 void *ultragrid_rtp_video_rxtx::receiver_loop()
 {
         set_thread_name(__func__);
-        uint32_t ts;
         struct pdb_e *cp;
         struct timeval curr_time;
         int fr;
@@ -316,15 +314,14 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
         fr = 1;
 
-        auto last_not_timeout = std::chrono::steady_clock::time_point::min();
+        time_ns_t last_not_timeout = 0;
 
         while (!should_exit) {
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 gettimeofday(&curr_time, NULL);
-                auto curr_time_st = std::chrono::steady_clock::now();
-                auto curr_time_hr = std::chrono::high_resolution_clock::now();
-                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - curr_time_st).count() * 90000;
+                time_ns_t time_ns = get_time_in_ns();
+                uint32_t ts = (m_start_time - time_ns) / 100'000 * 9; // at 90000 Hz
 
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
@@ -340,7 +337,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 timeout.tv_sec = 0;
                 //timeout.tv_usec = 999999 / 59.94;
                 // use longer timeout when we are not receivng any data
-                if (std::chrono::duration_cast<std::chrono::duration<double>>(last_not_timeout - curr_time_st).count() > 1.0) {
+                if ((last_not_timeout - time_ns) > NS_IN_SEC) {
                         timeout.tv_usec = 100000;
                 } else {
                         timeout.tv_usec = 1000;
@@ -353,7 +350,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                         receiver_process_messages();
                         //printf("Failed to receive data\n");
                 } else {
-                        last_not_timeout = curr_time_st;
+                        last_not_timeout = time_ns;
                 }
 
                 /* Decode and render for each participant in the conference... */
@@ -407,7 +404,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, curr_time_hr, decode_video_frame, vdecoder_state)) {
+                            (cp->playout_buffer, time_ns, decode_video_frame, vdecoder_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == m_connections_count)
@@ -456,7 +453,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                 }
                         }
 
-                        pbuf_remove(cp->playout_buffer, curr_time_hr);
+                        pbuf_remove(cp->playout_buffer, time_ns);
                         cp = pdb_iter_next(&it);
                 }
                 pdb_iter_done(&it);

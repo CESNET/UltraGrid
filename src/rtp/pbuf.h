@@ -61,6 +61,7 @@
 
 #include "audio/types.h"
 #include "rtp/rtp.h"
+#include "tv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -109,28 +110,19 @@ struct pbuf_audio_data {
 typedef int decode_frame_t(struct coded_data *cdata, void *decode_data, struct pbuf_stats *stats);
 
 /* 
- * External C interface: 
+ * External interface:
  */
 struct pbuf	*pbuf_init(volatile int *delay_ms);
 void             pbuf_destroy(struct pbuf *);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
+int 	 	 pbuf_is_empty(struct pbuf *playout_buf);
+int 	 	 pbuf_decode(struct pbuf *playout_buf, time_ns_t curr_time,
+                             decode_frame_t decode_func, void *data);
+                             //struct video_frame *framebuffer, int i, struct state_decoder *decoder);
+void		 pbuf_remove(struct pbuf *playout_buf, time_ns_t curr_time);
+void		 pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay);
 
 #ifdef __cplusplus
 }
-#endif
-
-#ifdef __cplusplus
-#include <chrono>
-
-/* 
- * External C++ interface: 
- */
-int 	 	 pbuf_is_empty(struct pbuf *playout_buf);
-int 	 	 pbuf_decode(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_point const & curr_time,
-                             decode_frame_t decode_func, void *data);
-                             //struct video_frame *framebuffer, int i, struct state_decoder *decoder);
-void		 pbuf_remove(struct pbuf *playout_buf, std::chrono::high_resolution_clock::time_point const & curr_time);
-void		 pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay);
-
 #endif
 

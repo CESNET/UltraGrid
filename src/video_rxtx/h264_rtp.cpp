@@ -55,6 +55,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "transmit.h"
+#include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/rtpenc_h264.h"
 #include "video_rxtx.h"
@@ -90,10 +91,9 @@ void h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
                 }
         }
         if ((m_rxtx_mode & MODE_RECEIVER) == 0) { // send RTCP (receiver thread would otherwise do this
+                uint32_t ts = (get_time_in_ns() - m_start_time) / 100'000 * 9; // at 90000 Hz
                 struct timeval curr_time;
-                uint32_t ts;
                 gettimeofday(&curr_time, NULL);
-                ts = std::chrono::duration_cast<std::chrono::duration<double>>(m_start_time - std::chrono::steady_clock::now()).count() * 90000;
                 rtp_update(m_network_devices[0], curr_time);
                 rtp_send_ctrl(m_network_devices[0], ts, 0, curr_time);
 

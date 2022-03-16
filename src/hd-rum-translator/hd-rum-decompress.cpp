@@ -61,7 +61,7 @@
 #include "debug.h"
 #include "host.h"
 #include "rtp/rtp.h"
-
+#include "tv.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/pipe.hpp"
@@ -171,7 +171,6 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         int force_ip_version = 0;
 
         s = new state_transcoder_decompress();
-        chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
 
         s->recompress = recompress;
 
@@ -215,7 +214,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params["fec"].str = "none";
         params["encryption"].str = NULL;
         params["bitrate"].ll = 0;
-        params["start_time"].ptr = (void *) &start_time;
+        params["start_time"].ll = get_time_in_ns();
         params["video_delay"].vptr = 0;
 
         // UltraGrid RTP

@@ -4,6 +4,7 @@
  * MODIFIED: Ladan Gharai <ladan@isi.edu>
  *
  * Copyright (c) 2001-2003 University of Southern California
+ * Copyright (c) 2005-2022 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -44,6 +45,15 @@
  *
  */
 
+#ifndef TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
+#define TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
+
+#ifdef __cplusplus
+#include <ctime>
+#else
+#include <time.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -57,7 +67,16 @@ int      tv_gt(struct timeval a, struct timeval b);
 uint32_t get_std_audio_local_mediatime(double samples, int rate);
 uint32_t get_std_video_local_mediatime(void);
 
+typedef long long time_ns_t;
+#define NS_IN_SEC 1000000000LL
+static inline time_ns_t get_time_in_ns() {
+        struct timespec ts = { 0, 0 };
+        timespec_get(&ts, TIME_UTC);
+        return ts.tv_sec * NS_IN_SEC + ts.tv_nsec;
+}
+
 #ifdef __cplusplus
 }
 #endif
 
+#endif // ! defined TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013

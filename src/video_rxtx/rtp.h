@@ -38,9 +38,9 @@
 #ifndef VIDEO_RXTX_RTP_H_
 #define VIDEO_RXTX_RTP_H_
 
+#include "tv.h"
 #include "video_rxtx.h"
 
-#include <chrono>
 #include <mutex>
 #include <string>
 
@@ -80,7 +80,7 @@ protected:
         const char      *m_requested_mcast_if;
         int              m_requested_ttl;
         fec             *m_fec_state;
-        const std::chrono::steady_clock::time_point m_start_time;
+        time_ns_t        m_start_time;
         video_desc       m_video_desc;
 private:
         struct response *process_sender_message(struct msg_sender *i, int *status);

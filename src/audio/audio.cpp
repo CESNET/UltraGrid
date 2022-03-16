@@ -158,7 +158,7 @@ struct state_audio {
         enum audio_transport_device sender = NET_NATIVE;
         enum audio_transport_device receiver = NET_NATIVE;
         
-        std::chrono::steady_clock::time_point start_time;
+        time_ns_t start_time;
 
         struct timeval t0; // for statistics
         audio_frame2 captured;
@@ -242,7 +242,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 const char *encryption,
                 int force_ip_version, const char *mcast_iface,
                 long long int bitrate, volatile int *audio_delay,
-                const std::chrono::steady_clock::time_point *start_time,
+                time_ns_t start_time,
                 int mtu, int ttl, struct exporter *exporter)
 {
         struct state_audio *s = NULL;
@@ -269,7 +269,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
         }
         
         s = new state_audio(parent);
-        s->start_time = *start_time;
+        s->start_time = start_time;
 
         s->audio_channel_map = opt->channel_map;
         s->audio_scale = opt->scale;
@@ -634,8 +634,6 @@ static void *audio_receiver_thread(void *arg)
         set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
         // rtp variables
-        struct timeval timeout, curr_time;
-        uint32_t ts;
         struct pdb_e *cp;
         struct audio_desc device_desc{};
         bool playback_supports_multiple_streams;
@@ -664,11 +662,13 @@ static void *audio_receiver_thread(void *arg)
                 bool decoded = false;
 
                 if (s->receiver == NET_NATIVE || s->receiver == NET_STANDARD) {
+                        time_ns_t time_ns = get_time_in_ns();
+                        uint32_t ts = (time_ns - s->start_time) / 100'000 * 9; // at 90000 Hz
+                        struct timeval curr_time;
                         gettimeofday(&curr_time, NULL);
-                        auto curr_time_hr = std::chrono::high_resolution_clock::now();
-                        ts = std::chrono::duration_cast<std::chrono::duration<double>>(s->start_time - std::chrono::steady_clock::now()).count() * 90000;
                         rtp_update(s->audio_network_device, curr_time);
                         rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
+                        struct timeval timeout;
                         timeout.tv_sec = 0;
                         // timeout.tv_usec = 999999 / 59.94; // audio goes almost always at the same rate
                                                              // as video frames
@@ -713,14 +713,14 @@ static void *audio_receiver_thread(void *arg)
                                         // We iterate in loop since there can be more than one frmae present in
                                         // the playout buffer and it would be discarded by following pbuf_remove()
                                         // call.
-                                        while (pbuf_decode(cp->playout_buffer, curr_time_hr, s->receiver == NET_NATIVE ? decode_audio_frame : decode_audio_frame_mulaw, &dec_state->pbuf_data)) {
+                                        while (pbuf_decode(cp->playout_buffer, time_ns, s->receiver == NET_NATIVE ? decode_audio_frame : decode_audio_frame_mulaw, &dec_state->pbuf_data)) {
 
                                                 current_pbuf = &dec_state->pbuf_data;
                                                 decoded = true;
                                         }
                                 }
 
-                                pbuf_remove(cp->playout_buffer, curr_time_hr);
+                                pbuf_remove(cp->playout_buffer, time_ns);
                                 cp = pdb_iter_next(&it);
 
                                 if (decoded && !playback_supports_multiple_streams)
@@ -1002,10 +1002,9 @@ static void *audio_sender_thread(void *arg)
                 }
 
                 if ((s->audio_tx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
+                        uint32_t ts = (get_time_in_ns() - s->start_time) / 10'0000 * 9; // at 90000 Hz
                         struct timeval curr_time;
-                        uint32_t ts;
                         gettimeofday(&curr_time, NULL);
-                        ts = std::chrono::duration_cast<std::chrono::duration<double>>(s->start_time - std::chrono::steady_clock::now()).count() * 90000;
                         rtp_update(s->audio_network_device, curr_time);
                         rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
 

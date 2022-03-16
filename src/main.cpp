@@ -90,6 +90,7 @@
 #include "playback.h"
 #include "rtp/rtp.h"
 #include "rtsp/rtsp_utils.h"
+#include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/misc.h"
@@ -1331,7 +1332,7 @@ int main(int argc, char *argv[])
         struct exporter *exporter = NULL;
         int ret;
 
-        const chrono::steady_clock::time_point start_time(chrono::steady_clock::now());
+        time_ns_t start_time = get_time_in_ns();
 
         struct ug_nat_traverse *nat_traverse = nullptr;
 
@@ -1398,7 +1399,7 @@ int main(int argc, char *argv[])
         uv.audio = audio_cfg_init (&uv.root_module, &opt.audio,
                         opt.requested_encryption,
                         opt.force_ip_version, opt.requested_mcast_if,
-                        opt.bitrate, &audio_offset, &start_time,
+                        opt.bitrate, &audio_offset, start_time,
                         opt.requested_mtu, opt.requested_ttl, exporter);
         if(!uv.audio) {
                 exit_uv(EXIT_FAIL_AUDIO);
@@ -1504,7 +1505,7 @@ int main(int argc, char *argv[])
                 params["fec"].str = opt.requested_video_fec;
                 params["encryption"].str = opt.requested_encryption;
                 params["bitrate"].ll = opt.bitrate;
-                params["start_time"].cptr = (const void *) &start_time;
+                params["start_time"].ll = start_time;
                 params["video_delay"].vptr = (volatile void *) &video_offset;
 
                 // UltraGrid RTP

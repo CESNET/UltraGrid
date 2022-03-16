@@ -209,7 +209,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
 }
 
 rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
-        video_rxtx(params), m_fec_state(NULL), m_start_time(*(const std::chrono::steady_clock::time_point *) params.at("start_time").cptr), m_video_desc{}
+        video_rxtx(params), m_fec_state(NULL), m_start_time(params.at("start_time").ll), m_video_desc{}
 {
         m_participants = pdb_init((volatile int *) params.at("video_delay").vptr);
         m_requested_receiver = params.at("receiver").str;
