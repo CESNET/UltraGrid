@@ -35,6 +35,9 @@ misc_test::tearDown()
 {
 }
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wstring-concatenation"
+#endif
 void
 misc_test::test_replace_all()
 {
