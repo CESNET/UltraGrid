@@ -360,7 +360,9 @@ struct init_data *common_preinit(int argc, char *argv[])
 #endif
 
         init = new init_data{};
-        open_all("ultragrid_*.so", init->opened_libs); // load modules
+        if (strstr(argv[0], "run_tests") == nullptr) {
+                open_all("ultragrid_*.so", init->opened_libs); // load modules
+        }
 
 #ifdef USE_MTRACE
         mtrace();
