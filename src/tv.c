@@ -120,8 +120,9 @@ void tv_add_usec(struct timeval *ts, long long offset)
                 ts->tv_usec = new_usec - MS_IN_SEC;
                 return;
         }
-        ts->tv_usec = new_usec % MS_IN_SEC;
-        ts->tv_sec += new_usec / MS_IN_SEC;
+        lldiv_t d = lldiv(new_usec, MS_IN_SEC);
+        ts->tv_sec += d.quot;
+        ts->tv_usec = d.rem;
 }
 
 int tv_gt(struct timeval a, struct timeval b)
