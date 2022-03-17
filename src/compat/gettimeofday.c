@@ -7,68 +7,19 @@
 
 #ifdef WIN32
 
-#include <assert.h>
-#include <limits.h>
 #include <time.h>
-#include <windows.h>
-#include <winbase.h>
-
 #include "debug.h"
 #include "gettimeofday.h"
 
-static LARGE_INTEGER start_LI;
-LARGE_INTEGER freq = {.QuadPart = 0};
-static time_t start_time;
-
-static void gettimeofday_init();
-
-static void gettimeofday_init() {
-	time_t tmp;
-	HANDLE process;
-	DWORD prio;
-
-	process = GetCurrentProcess();
-	prio = GetPriorityClass(process);
-	int ret = SetPriorityClass(process, REALTIME_PRIORITY_CLASS);
-	if(!ret) {
-		fprintf(stderr, "SetPriorityClass failed.\n");
-	}
-
-	tmp = time(NULL);
-
-	while( (start_time = time(NULL)) == tmp)
-		;
-	
-	QueryPerformanceFrequency(&freq);
-	QueryPerformanceCounter(&start_LI);
-	SetPriorityClass(process, prio);
-        assert((freq.QuadPart - 1) <= LLONG_MAX / 1000000LL); // check possible overflow for tv_usec computation below
-}
-
- 
-#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
-  #define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
-#else
-  #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
-#endif
- 
 // Definition of a gettimeofday function
 int gettimeofday_replacement(struct timeval *tv, void *tz)
 {
 	UNUSED(tz);
-	LARGE_INTEGER val;
+        struct timespec ts;
+        timespec_get(&ts, TIME_UTC);
 
-	if(freq.QuadPart == 0) {
-		gettimeofday_init();
-	}
-
-	QueryPerformanceFrequency(&freq);
-	QueryPerformanceCounter(&val);
-	
-	long long int difference = val.QuadPart - start_LI.QuadPart;
-
-	tv->tv_sec =  start_time + difference / freq.QuadPart;
-	tv->tv_usec = (difference % freq.QuadPart) * 1000000LL / freq.QuadPart;
+        tv->tv_sec = ts.tv_sec;
+        tv->tv_usec = ts.tv_nsec / 1000;
 
 	return 0;
 }
