@@ -43,7 +43,6 @@
 
 #include <memory>
 #include <string_view>
-#include <charconv>
 
 #include "debug.h"
 #include "audio/audio_filter.h"
@@ -51,6 +50,7 @@
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
 #include "utils/misc.h"
+#include "utils/sv_parse_num.hpp"
 
 namespace{
         struct Ring_buf_deleter{
@@ -84,7 +84,7 @@ static af_result_code init(const char *cfg, void **state){
                 return AF_HELP_SHOWN;
         } 
 
-        if(std::from_chars(tok.begin(), tok.end(), s->delay_ms).ec != std::errc()){
+        if(!parse_num(tok, s->delay_ms)){
                 log_msg(LOG_LEVEL_ERROR, "Failed to parse delay time\n");
                 usage();
                 return AF_FAILURE;
