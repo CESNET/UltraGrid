@@ -322,42 +322,41 @@ struct device_state {
 };
 
 struct state_decklink {
-        uint32_t            magic;
-
-        struct timeval      tv;
+        uint32_t            magic = DECKLINK_MAGIC;
+        chrono::high_resolution_clock::time_point t0 = chrono::high_resolution_clock::now();
 
         vector<struct device_state> state;
 
-        BMDTimeValue        frameRateDuration;
-        BMDTimeScale        frameRateScale;
+        BMDTimeValue        frameRateDuration{};
+        BMDTimeScale        frameRateScale{};
 
-        DeckLinkTimecode    *timecode; ///< @todo Should be actually allocated dynamically and
+        DeckLinkTimecode    *timecode{}; ///< @todo Should be actually allocated dynamically and
                                        ///< its lifespan controlled by AddRef()/Release() methods
 
-        struct video_desc   vid_desc;
-        struct audio_desc   aud_desc;
+        struct video_desc   vid_desc{};
+        struct audio_desc   aud_desc{};
 
-        unsigned long int   frames;
-        unsigned long int   frames_last;
-        bool                stereo;
-        bool                initialized_audio;
-        bool                initialized_video;
-        bool                emit_timecode;
-        int                 devices_cnt;
-        bool                play_audio; ///< the BMD device will be used also for output audio
+        unsigned long int   frames            = 0;
+        unsigned long int   frames_last       = 0;
+        bool                stereo            = false;
+        bool                initialized_audio = false;
+        bool                initialized_video = false;
+        bool                emit_timecode     = false;
+        int                 devices_cnt       = 1;
+        bool                play_audio        = false; ///< the BMD device will be used also for output audio
 
-        BMDPixelFormat      pixelFormat;
+        BMDPixelFormat      pixelFormat{};
 
-        uint32_t            link_req; // 0 default
-        uint32_t            profile_req; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
-        char                level; // 0 - undefined, 'A' - level A, 'B' - level B
+        uint32_t            link_req = BMD_OPT_DEFAULT;
+        uint32_t            profile_req = BMD_OPT_DEFAULT; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
+        char                sdi_dual_channel_level = BMD_OPT_DEFAULT; // 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
         BMDVideoOutputConversionMode conversion_mode{};
-        HDRMetadata         requested_hdr_mode;
+        HDRMetadata         requested_hdr_mode{};
 
         buffer_pool_t       buffer_pool;
 
-        bool                low_latency;
+        bool                low_latency       = true;
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
  };
@@ -575,7 +574,6 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
 static int display_decklink_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        struct timeval tv;
 
         if (frame == NULL)
                 return FALSE;
@@ -583,8 +581,6 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
         UNUSED(nonblock);
 
         assert(s->magic == DECKLINK_MAGIC);
-
-        gettimeofday(&tv, NULL);
 
         uint32_t i;
 
@@ -619,11 +615,11 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
 
         frame->callbacks.dispose(frame);
 
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
+        auto t1 = chrono::high_resolution_clock::now();
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(t1 - t0).count() * 1000.0 << " ms.\n";
 
-        gettimeofday(&tv, NULL);
-        double seconds = tv_diff(tv, s->tv);
-        if (seconds > 5) {
+        if (chrono::duration_cast<chrono::seconds>(t1 - s->t0).count() > 5) {
+                double seconds = chrono::duration_cast<chrono::duration<double>>(t1 - s->t0).count();
                 double fps = (s->frames - s->frames_last) / seconds;
                 if (log_level <= LOG_LEVEL_INFO) {
                         log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
@@ -635,7 +631,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                                 << s->state.at(0).delegate->frames_dropped << " dropped, "
                                 << s->state.at(0).delegate->frames_flushed << " flushed cumulative)\n";
                 }
-                s->tv = tv;
+                s->t0 = t1;
                 s->frames_last = s->frames;
         }
 
@@ -988,9 +984,9 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strcasecmp(ptr, "half-duplex") == 0) {
                         s->profile_req = bmdDuplexHalf;
                 } else if (strcasecmp(ptr, "LevelA") == 0) {
-                        s->level = 'A';
+                        s->sdi_dual_channel_level = 'A';
                 } else if (strcasecmp(ptr, "LevelB") == 0) {
-                        s->level = 'B';
+                        s->sdi_dual_channel_level = 'B';
                 } else if (strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
                         char *packing = ptr + strlen("HDMI3DPacking=");
                         if (strcasecmp(packing, "SideBySideHalf") == 0) {
@@ -1064,7 +1060,6 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
-        struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
         vector<string>                                  cardId;
@@ -1085,14 +1080,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return NULL;
         }
 
-        s = new state_decklink();
-        s->magic = DECKLINK_MAGIC;
-        s->stereo = FALSE;
-        s->emit_timecode = false;
-        s->profile_req = BMD_OPT_DEFAULT;
-        s->link_req = 0;
-        s->devices_cnt = 1;
-        s->low_latency = true;
+        auto *s = new state_decklink();
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
@@ -1110,8 +1098,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 delete s;
                 return NULL;
         }
-
-        gettimeofday(&s->tv, NULL);
 
         if (s->low_latency) {
                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Using low-latency mode. "
@@ -1248,7 +1234,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
                 BMD_CONFIG_SET_INT(HDMI3DPacking, BMDVideo3DPackingFormat, bmdDeckLinkConfigHDMI3DPackingFormat, "3D packing");
 
-                if (s->level != 0) {
+                if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
 #if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (8 << 16))
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Compiled with old SDK - cannot set 3G-SDI level.\n");
 #else
@@ -1257,12 +1243,12 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 				if (deckLinkAttributes->GetFlag(BMDDeckLinkSupportsSMPTELevelAOutput, &supports_level_a) != S_OK) {
 					log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could figure out if device supports Level A 3G-SDI.\n");
 				} else {
-					if (s->level == 'A' && supports_level_a == BMD_FALSE) {
+					if (s->sdi_dual_channel_level == 'A' && supports_level_a == BMD_FALSE) {
 						log_msg(LOG_LEVEL_WARNING, MOD_NAME "Device does not support Level A 3G-SDI!\n");
 					}
 				}
 			}
-                        HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSMPTELevelAOutput, s->level == 'A');
+                        HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSMPTELevelAOutput, s->sdi_dual_channel_level == 'A');
                         if(res != S_OK) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output 3G-SDI level.\n");
                         }
