@@ -466,6 +466,10 @@ display_decklink_getf(void *state)
         struct state_decklink *s = (struct state_decklink *)state;
         assert(s->magic == DECKLINK_MAGIC);
 
+        if (!s->initialized_video) {
+                return nullptr;
+        }
+
         struct video_frame *out = vf_alloc_desc(s->vid_desc);
         auto deckLinkFrames =  new vector<IDeckLinkMutableVideoFrame *>(s->devices_cnt);
         out->callbacks.dispose_udata = (void *) deckLinkFrames;
@@ -474,57 +478,55 @@ display_decklink_getf(void *state)
                 vf_free(frame);
         };
 
-        if (s->initialized_video) {
-                for (unsigned int i = 0; i < s->vid_desc.tile_count; ++i) {
-                        const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
-                        IDeckLinkMutableVideoFrame *deckLinkFrame = nullptr;
-                        lock_guard<mutex> lg(s->buffer_pool.lock);
+        for (unsigned int i = 0; i < s->vid_desc.tile_count; ++i) {
+                const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);
+                IDeckLinkMutableVideoFrame *deckLinkFrame = nullptr;
+                lock_guard<mutex> lg(s->buffer_pool.lock);
 
-                        while (!s->buffer_pool.frame_queue.empty()) {
-                                auto tmp = s->buffer_pool.frame_queue.front();
-                                IDeckLinkMutableVideoFrame *frame;
-                                if (s->stereo)
-                                        frame = dynamic_cast<DeckLink3DFrame *>(tmp);
-                                else
-                                        frame = dynamic_cast<DeckLinkFrame *>(tmp);
-                                s->buffer_pool.frame_queue.pop();
-                                if (!frame || // wrong type
-                                                frame->GetWidth() != (long) s->vid_desc.width ||
-                                                frame->GetHeight() != (long) s->vid_desc.height ||
-                                                frame->GetRowBytes() != linesize ||
-                                                frame->GetPixelFormat() != s->pixelFormat) {
-                                        delete tmp;
-                                } else {
-                                        deckLinkFrame = frame;
-                                        deckLinkFrame->AddRef();
-                                        break;
-                                }
+                while (!s->buffer_pool.frame_queue.empty()) {
+                        auto tmp = s->buffer_pool.frame_queue.front();
+                        IDeckLinkMutableVideoFrame *frame;
+                        if (s->stereo)
+                                frame = dynamic_cast<DeckLink3DFrame *>(tmp);
+                        else
+                                frame = dynamic_cast<DeckLinkFrame *>(tmp);
+                        s->buffer_pool.frame_queue.pop();
+                        if (!frame || // wrong type
+                                        frame->GetWidth() != (long) s->vid_desc.width ||
+                                        frame->GetHeight() != (long) s->vid_desc.height ||
+                                        frame->GetRowBytes() != linesize ||
+                                        frame->GetPixelFormat() != s->pixelFormat) {
+                                delete tmp;
+                        } else {
+                                deckLinkFrame = frame;
+                                deckLinkFrame->AddRef();
+                                break;
                         }
-                        if (!deckLinkFrame) {
-                                if (s->stereo)
-                                        deckLinkFrame = DeckLink3DFrame::Create(s->vid_desc.width,
-                                                        s->vid_desc.height, linesize,
-                                                        s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
-                                else
-                                        deckLinkFrame = DeckLinkFrame::Create(s->vid_desc.width,
-                                                        s->vid_desc.height, linesize,
-                                                        s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
-                        }
-                        (*deckLinkFrames)[i] = deckLinkFrame;
+                }
+                if (!deckLinkFrame) {
+                        if (s->stereo)
+                                deckLinkFrame = DeckLink3DFrame::Create(s->vid_desc.width,
+                                                s->vid_desc.height, linesize,
+                                                s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
+                        else
+                                deckLinkFrame = DeckLinkFrame::Create(s->vid_desc.width,
+                                                s->vid_desc.height, linesize,
+                                                s->pixelFormat, s->buffer_pool, s->requested_hdr_mode);
+                }
+                (*deckLinkFrames)[i] = deckLinkFrame;
 
-                        deckLinkFrame->GetBytes((void **) &out->tiles[i].data);
+                deckLinkFrame->GetBytes((void **) &out->tiles[i].data);
 
-                        if (s->stereo) {
-                                IDeckLinkVideoFrame     *deckLinkFrameRight = nullptr;
-                                DeckLink3DFrame *frame3D = dynamic_cast<DeckLink3DFrame *>(deckLinkFrame);
-                                assert(frame3D != nullptr);
-                                frame3D->GetFrameForRightEye(&deckLinkFrameRight);
-                                deckLinkFrameRight->GetBytes((void **) &out->tiles[1].data);
-                                // release immedieatelly (parent still holds the reference)
-                                deckLinkFrameRight->Release();
+                if (s->stereo) {
+                        IDeckLinkVideoFrame     *deckLinkFrameRight = nullptr;
+                        DeckLink3DFrame *frame3D = dynamic_cast<DeckLink3DFrame *>(deckLinkFrame);
+                        assert(frame3D != nullptr);
+                        frame3D->GetFrameForRightEye(&deckLinkFrameRight);
+                        deckLinkFrameRight->GetBytes((void **) &out->tiles[1].data);
+                        // release immedieatelly (parent still holds the reference)
+                        deckLinkFrameRight->Release();
 
-                                ++i;
-                        }
+                        ++i;
                 }
         }
 
