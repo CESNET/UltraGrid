@@ -9,3 +9,8 @@
 * fixed potential problem with multichannel audio when there is a BPS change
 * build GitHub builds with NDI 5 by default (user still needs to obtain NDI
   library by itself)
+
+#### 1.7.3
+* fixed channel mapping from lesser amount of input channels to higher (eg.
+  `--audio-channel-map 0:1` while receiving only mono)
+* do not set BMD conversion mode (issue #215)
