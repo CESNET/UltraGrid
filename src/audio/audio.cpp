@@ -118,38 +118,23 @@ struct audio_network_parameters {
 };
 
 struct state_audio {
-        state_audio(struct module *parent) {
-                module_init_default(&mod);
-                mod.priv_data = this;
-                mod.cls = MODULE_CLASS_AUDIO;
-                module_register(&mod, parent);
-
-                module_init_default(&audio_receiver_module);
-                audio_receiver_module.cls = MODULE_CLASS_RECEIVER;
-                audio_receiver_module.priv_data = this;
-                module_register(&audio_receiver_module, &mod);
-
-                module_init_default(&audio_sender_module);
-                audio_sender_module.cls = MODULE_CLASS_SENDER;
-                audio_sender_module.priv_data = this;
-                module_register(&audio_sender_module, &mod);
-
+        state_audio(struct module *parent) :
+                mod(MODULE_CLASS_AUDIO, parent, this),
+                audio_receiver_module(MODULE_CLASS_RECEIVER, mod.get(), this),
+                audio_sender_module(MODULE_CLASS_SENDER,mod.get(), this)
+        {
                 gettimeofday(&t0, NULL);
         }
         ~state_audio() {
                 delete fec_state;
-
-                module_done(&audio_receiver_module);
-                module_done(&audio_sender_module);
-                module_done(&mod);
         }
 
-        struct module mod;
+        module_raii mod;
         struct state_audio_capture *audio_capture_device = nullptr;
         struct state_audio_playback *audio_playback_device = nullptr;
 
-        struct module audio_receiver_module;
-        struct module audio_sender_module;
+        module_raii audio_receiver_module;
+        module_raii audio_sender_module;
 
         Filter_chain filter_chain;
 
@@ -357,7 +342,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 if(ret > 0) {
                         goto error;
                 }
-                s->tx_session = tx_init(&s->audio_sender_module, mtu, TX_MEDIA_AUDIO, opt->fec_cfg, encryption, bitrate);
+                s->tx_session = tx_init(s->audio_sender_module.get(), mtu, TX_MEDIA_AUDIO, opt->fec_cfg, encryption, bitrate);
                 if(!s->tx_session) {
                         fprintf(stderr, "Unable to initialize audio transmit.\n");
                         goto error;
@@ -504,11 +489,11 @@ void audio_done(struct state_audio *s)
         audio_capture_done(s->audio_capture_device);
         // process remaining messages
         struct message *msg;
-        while ((msg = check_message(&s->audio_receiver_module))) {
+        while ((msg = check_message(s->audio_receiver_module.get()))) {
                 struct response *r = audio_receiver_process_message(s, (struct msg_receiver *) msg);
                 free_message(msg, r);
         }
-        while ((msg = check_message(&s->audio_sender_module))) {
+        while ((msg = check_message(s->audio_sender_module.get()))) {
                 struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);
                 free_message(msg, r);
         }
@@ -678,7 +663,7 @@ static void *audio_receiver_thread(void *arg)
         printf("Audio receiving started.\n");
         while (!should_exit) {
                 struct message *msg;
-                while((msg= check_message(&s->audio_receiver_module))) {
+                while((msg= check_message(s->audio_receiver_module.get()))) {
                         struct response *r = audio_receiver_process_message(s, (struct msg_receiver *) msg);
                         free_message(msg, r);
                 }
@@ -723,7 +708,7 @@ static void *audio_receiver_thread(void *arg)
                                         assert(dec_state != NULL);
                                         cp->decoder_state = dec_state;
                                         dec_state->enabled = true;
-                                        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, &s->audio_receiver_module);
+                                        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, s->audio_receiver_module.get());
                                         audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted_receiver ? 0.0 : s->volume);
                                         assert(dec_state->pbuf_data.decoder != NULL);
                                         cp->decoder_state_deleter = audio_decoder_state_deleter;
@@ -1019,7 +1004,7 @@ static void *audio_sender_thread(void *arg)
 
         while (!should_exit) {
                 struct message *msg;
-                while((msg = check_message(&s->audio_sender_module))) {
+                while((msg = check_message(s->audio_sender_module.get()))) {
                         struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);
                         free_message(msg, r);
                 }
