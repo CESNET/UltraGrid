@@ -148,6 +148,26 @@ const char *module_class_name(enum module_class cls);
 void append_message_path(char *buf, int buflen, enum module_class modules[]);
 bool module_get_path_str(struct module *mod, char *buf, size_t buflen);
 
+#ifdef __cplusplus
+class module_raii{
+public:
+        module_raii(enum module_class type, module *parent, void *priv){
+                module_init_default(&mod);
+                mod.priv_data = priv;
+                mod.cls = type;
+                module_register(&mod, parent);
+        }
+
+        ~module_raii(){
+                module_done(&mod);
+        }
+
+        module *get(){ return &mod; }
+private:
+        module mod;
+};
+#endif
+
 /**
  * @retval NULL if not found
  * @retval non-NULL pointer to the module
