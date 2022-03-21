@@ -39,6 +39,7 @@
 #define FILTER_CHAIN_HPP_
 
 #include <vector>
+#include <string_view>
 #include "audio_filter.h"
 #include "module.h"
 
@@ -53,6 +54,7 @@ public:
         Filter_chain& operator=(const Filter_chain&) = delete;
 
         void push_back(struct audio_filter filter);
+        bool emplace_new(std::string_view cfg);
         void clear();
 
         af_result_code reconfigure(int bps, int ch_count, int sample_rate);

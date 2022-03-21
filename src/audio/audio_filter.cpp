@@ -63,14 +63,14 @@ af_result_code audio_filter_init(struct module *parent, const char *name, const 
 
                         af_result_code ret = funcs->init(parent, cfg, &filter->state);
                         if(ret == AF_FAILURE) {
-                                fprintf(stderr, "Unable to initialize filter: %s\n",
+                                log_msg(LOG_LEVEL_ERROR, "Unable to initialize filter: %s\n",
                                                 name);
                         }
                         return ret;
                 }
         }
 
-        fprintf(stderr, "Unable to find capture filter: %s\n", name);
+        log_msg(LOG_LEVEL_ERROR, "Unable to find capture filter: %s\n", name);
         return AF_FAILURE;
 }
 

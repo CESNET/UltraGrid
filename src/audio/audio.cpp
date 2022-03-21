@@ -105,7 +105,7 @@ enum audio_transport_device {
 };
 
 #define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
-constexpr const char *MOD_NAME = "[audio] ";
+#define MOD_NAME "[audio] "
 
 struct audio_network_parameters {
         char *addr = nullptr;
@@ -289,20 +289,10 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 std::string_view cfg_sv = opt->filter_cfg;;
                 std::string_view item;
                 while(item = tokenize(cfg_sv, '#'), !item.empty()) {
-                        std::string filter_name(tokenize(item, ':'));
-                        std::string config(item);
-
-                        struct audio_filter afilter;
-                        if(audio_filter_init(s->filter_chain.get_module(),
-                                                filter_name.c_str(),
-                                                config.c_str(),
-                                                &afilter) != AF_OK)
-                        {
-                                printf("Failed to init audio filter\n");
+                        if(!s->filter_chain.emplace_new(item)) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to init audio filter\n");
                                 goto error;
                         }
-
-                        s->filter_chain.push_back(afilter);
                 }
         }
 
