@@ -38,7 +38,7 @@
 #ifndef AUDIO_FILTER_H_
 #define AUDIO_FILTER_H_
 
-#define AUDIO_FILTER_ABI_VERSION 1
+#define AUDIO_FILTER_ABI_VERSION 2
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,7 +64,8 @@ struct audio_filter_info{
         /// @retval     0      if initialized successfully
         /// @retval     <0     if error
         /// @retval     >0     no error but state was not returned, eg. showing help
-        af_result_code (*init)(const char *cfg, void **state);
+        af_result_code (*init)(struct module *mod, const char *cfg, void **state);
+
         void (*done)(void *state);
 
         af_result_code (*configure)(void *state,
@@ -84,7 +85,7 @@ struct audio_filter{
         void *state;
 };
 
-af_result_code audio_filter_init(const char *name, const char *cfg,
+af_result_code audio_filter_init(struct module *parent, const char *name, const char *cfg,
                 struct audio_filter *filter);
 
 void audio_filter_destroy(struct audio_filter *state);

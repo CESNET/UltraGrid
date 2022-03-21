@@ -45,6 +45,7 @@
 #include <string_view>
 
 #include "debug.h"
+#include "module.h"
 #include "audio/audio_filter.h"
 #include "audio/types.h"
 #include "lib_common.h"
@@ -59,6 +60,10 @@ namespace{
 }
 
 struct state_delay{
+        state_delay(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this) {  }
+
+        module_raii mod;
+
         int delay_ms;
         int samples;
         int bps;
@@ -73,8 +78,8 @@ static void usage(){
         printf("\tdelay:<delay in milliseconds>\n\n");
 }
 
-static af_result_code init(const char *cfg, void **state){
-        auto s = std::make_unique<state_delay>();
+static af_result_code init(struct module *parent, const char *cfg, void **state){
+        auto s = std::make_unique<state_delay>(parent);
 
         std::string_view sv = cfg;
 
@@ -99,6 +104,17 @@ static af_result_code init(const char *cfg, void **state){
         return AF_OK;
 };
 
+static void init_delay_ring(state_delay *s){
+        s->samples = (s->sample_rate / 1000) * s->delay_ms;
+        int delay_size = s->bps * s->ch_count * s->samples;
+        if(delay_size == 0){
+                s->ring.reset();
+        } else {
+                s->ring.reset(ring_buffer_init(delay_size * 2));
+                ring_fill(s->ring.get(), 0, delay_size);
+        }
+}
+
 static af_result_code configure(void *state,
                         int in_bps, int in_ch_count, int in_sample_rate)
 {
@@ -108,14 +124,8 @@ static af_result_code configure(void *state,
         s->ch_count = in_ch_count;
         s->sample_rate = in_sample_rate;
 
-        s->samples = (s->sample_rate / 1000) * s->delay_ms;
-        int delay_size = s->bps * s->ch_count * s->samples;
-        if(delay_size == 0){
-                s->ring.reset();
-        } else {
-                s->ring.reset(ring_buffer_init(delay_size * 2));
-                ring_fill(s->ring.get(), 0, delay_size);
-        }
+        init_delay_ring(s);
+
         return AF_OK;
 }
 
@@ -137,6 +147,19 @@ static void get_configured(void *state,
 
 static af_result_code filter(void *state, struct audio_frame **frame){
         auto s = static_cast<state_delay *>(state);
+
+        struct message *msg;
+        while ((msg = check_message(s->mod.get()))) {
+                const char *text = ((msg_universal *) msg)->text;
+                if(!parse_num(text, s->delay_ms)){
+                        log_msg(LOG_LEVEL_ERROR, "Failed to parse delay time\n");
+                        free_message(msg, new_response(RESPONSE_BAD_REQUEST, nullptr));
+                        continue;
+                }
+
+                init_delay_ring(s);
+                free_message(msg, new_response(RESPONSE_OK, nullptr));
+        }
 
         auto f = *frame;
         if(f->bps != s->bps || f->ch_count != s->ch_count){

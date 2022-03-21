@@ -121,7 +121,8 @@ struct state_audio {
         state_audio(struct module *parent) :
                 mod(MODULE_CLASS_AUDIO, parent, this),
                 audio_receiver_module(MODULE_CLASS_RECEIVER, mod.get(), this),
-                audio_sender_module(MODULE_CLASS_SENDER,mod.get(), this)
+                audio_sender_module(MODULE_CLASS_SENDER,mod.get(), this),
+                filter_chain(audio_sender_module.get())
         {
                 gettimeofday(&t0, NULL);
         }
@@ -292,7 +293,9 @@ struct state_audio * audio_cfg_init(struct module *parent,
                         std::string config(item);
 
                         struct audio_filter afilter;
-                        if(audio_filter_init(filter_name.c_str(), config.c_str(),
+                        if(audio_filter_init(s->filter_chain.get_module(),
+                                                filter_name.c_str(),
+                                                config.c_str(),
                                                 &afilter) != AF_OK)
                         {
                                 printf("Failed to init audio filter\n");

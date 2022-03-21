@@ -50,7 +50,7 @@
 #include "module.h"
 #include "utils/color_out.h"
 
-af_result_code audio_filter_init(const char *name, const char *cfg,
+af_result_code audio_filter_init(struct module *parent, const char *name, const char *cfg,
                 struct audio_filter *filter)
 {
         const auto filters = get_libraries_for_class(LIBRARY_CLASS_AUDIO_FILTER,
@@ -61,7 +61,7 @@ af_result_code audio_filter_init(const char *name, const char *cfg,
                 if(strcasecmp(i.first.c_str(), name) == 0){
                         filter->info = funcs;
 
-                        af_result_code ret = funcs->init(cfg, &filter->state);
+                        af_result_code ret = funcs->init(parent, cfg, &filter->state);
                         if(ret == AF_FAILURE) {
                                 fprintf(stderr, "Unable to initialize filter: %s\n",
                                                 name);

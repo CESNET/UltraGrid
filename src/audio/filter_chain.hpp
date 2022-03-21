@@ -40,12 +40,13 @@
 
 #include <vector>
 #include "audio_filter.h"
+#include "module.h"
 
 struct audio_filter;
 
 class Filter_chain{
 public:
-        Filter_chain() = default;
+        Filter_chain(struct module *parent);
         Filter_chain(const Filter_chain&) = delete;
         ~Filter_chain();
 
@@ -57,11 +58,15 @@ public:
         af_result_code reconfigure(int bps, int ch_count, int sample_rate);
 
         af_result_code filter(struct audio_frame **frame);
+
+        struct module *get_module() { return mod.get(); }
 private:
         std::vector<struct audio_filter> filters;
         int bps = 0;
         int ch_count = 0;
         int sample_rate = 0;
+
+        module_raii mod;
 };
 
 
