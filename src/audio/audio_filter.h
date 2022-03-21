@@ -3,7 +3,7 @@
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2021 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,17 +66,31 @@ struct audio_filter_info{
         /// @retval     >0     no error but state was not returned, eg. showing help
         af_result_code (*init)(struct module *mod, const char *cfg, void **state);
 
+        /// @brief Frees filter
         void (*done)(void *state);
 
+        /// @brief Configure audio input format
+        /// @param state         filter state
+        /// @param bps           bytes per sample
+        /// @param ch_count      channel count
+        /// @param sample_rate   sample rate
+        /// @retval  0                      if initialized successfully
+        /// @retval  <0                     if error
         af_result_code (*configure)(void *state,
                         int bps, int ch_count, int sample_rate);
 
+        /// @brief Get configured input audio format
         void (*get_configured_in)(void *state,
                         int *bps, int *ch_count, int *sample_rate);
 
+        /// @brief Get configured output audio format
         void (*get_configured_out)(void *state,
                         int *bps, int *ch_count, int *sample_rate);
 
+        /// @brief Filter audio frame
+        /// @param state         filter state
+        /// @param f             frame to filter, can take ownership of passed
+		//                       frame and return a different one
         af_result_code (*filter)(void *state, struct audio_frame **f);
 };
 
