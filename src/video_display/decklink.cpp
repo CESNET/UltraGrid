@@ -65,6 +65,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cinttypes>
 #include <cstdint>
 #include <iomanip>
 #include <mutex>
@@ -182,18 +183,22 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                         return S_OK;
                 }
                 virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ BMD_STR *timecode) {
-#ifdef HAVE_LINUX
                         uint8_t hours, minutes, seconds, frames;
                         GetComponents(&hours, &minutes, &seconds, &frames);
                         char *out = (char *) malloc(14);
                         assert(minutes <= 59 && seconds <= 59);
                         sprintf(out, "%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8, hours, minutes, seconds, frames);
-                        *timecode = out;
-                        return S_OK;
+#ifdef _WIN32
+                        mbstate_t mbstate{};
+                        const char *tmp = out;
+                        size_t required_size = mbsrtowcs(NULL, &tmp, 0, &mbstate) + 1;
+                        *timecode = (wchar_t *) malloc(required_size * sizeof(wchar_t));
+                        mbsrtowcs(*timecode, &tmp, required_size, &mbstate);
+                        free(out);
 #else
-                        UNUSED(timecode);
-                        return E_FAIL;
+                        *timecode = out;
 #endif
+                        return S_OK;
                 }
                 virtual BMDTimecodeFlags STDMETHODCALLTYPE GetFlags (void)        { return bmdTimecodeFlagDefault; }
                 virtual HRESULT STDMETHODCALLTYPE GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }
