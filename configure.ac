@@ -1525,7 +1525,7 @@ then
 fi
 
 if test $sdp_http_req = yes -a $sdp_http = no; then
-        AC_MSG_ERROR([SDP over HTTP is currently not supported under MSW]);
+        AC_MSG_ERROR([SDP/HTTP dependency EmbeddableWebServer.h not found!]);
 fi
 
 # -------------------------------------------------------------------------------------------------
