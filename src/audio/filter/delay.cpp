@@ -64,11 +64,14 @@ struct state_delay{
 
         module_raii mod;
 
-        int delay_ms;
-        int samples;
-        int bps;
-        int ch_count;
-        int sample_rate;
+        bool frame_mode = false;
+        int req_delay = 0;
+
+        int bps = 0;
+        int ch_count = 0;
+        int sample_rate = 0;
+
+        int delay_size = 0;
         std::unique_ptr<ring_buffer_t, Ring_buf_deleter> ring;
 };
 
@@ -78,41 +81,45 @@ static void usage(){
         printf("\tdelay:<delay in milliseconds>\n\n");
 }
 
-static af_result_code init(struct module *parent, const char *cfg, void **state){
-        auto s = std::make_unique<state_delay>(parent);
-
-        std::string_view sv = cfg;
-
-        auto tok = tokenize(sv, ':');
+static af_result_code parse_cfg(state_delay *s, std::string_view cfg){
+        auto tok = tokenize(cfg, ':');
         if(tok.empty() || tok == "help"){
                 usage();
                 return AF_HELP_SHOWN;
         } 
 
-        if(!parse_num(tok, s->delay_ms)){
+        if(!parse_num(tok, s->req_delay)){
                 log_msg(LOG_LEVEL_ERROR, "Failed to parse delay time\n");
                 usage();
                 return AF_FAILURE;
         }
 
-        s->samples = 0;
-        s->bps = 0;
-        s->ch_count = 0;
-
-        *state = s.release();
+        s->frame_mode = (tokenize(cfg, ':') == "frames");
 
         return AF_OK;
+}
+
+static af_result_code init(struct module *parent, const char *cfg, void **state){
+        auto s = std::make_unique<state_delay>(parent);
+
+        auto ret = parse_cfg(s.get(), cfg);
+        if(ret == AF_OK)
+                *state = s.release();
+
+        return ret;
 };
 
-static void init_delay_ring(state_delay *s){
-        s->samples = (s->sample_rate / 1000) * s->delay_ms;
-        int delay_size = s->bps * s->ch_count * s->samples;
-        if(delay_size == 0){
+static void set_delay_size(state_delay *s, int size){
+        if(size == s->delay_size)
+                return;
+
+        if(size == 0){
                 s->ring.reset();
         } else {
-                s->ring.reset(ring_buffer_init(delay_size * 2));
-                ring_fill(s->ring.get(), 0, delay_size);
+                s->ring.reset(ring_buffer_init(size * 2));
+                ring_fill(s->ring.get(), 0, size);
         }
+        s->delay_size = size;
 }
 
 static af_result_code configure(void *state,
@@ -124,7 +131,10 @@ static af_result_code configure(void *state,
         s->ch_count = in_ch_count;
         s->sample_rate = in_sample_rate;
 
-        init_delay_ring(s);
+        if(!s->frame_mode){
+                int samples = (s->sample_rate / 1000) * s->req_delay;
+                set_delay_size(s, samples * s->ch_count * s->bps);
+        }
 
         return AF_OK;
 }
@@ -151,17 +161,24 @@ static af_result_code filter(void *state, struct audio_frame **frame){
         struct message *msg;
         while ((msg = check_message(s->mod.get()))) {
                 const char *text = ((msg_universal *) msg)->text;
-                if(!parse_num(text, s->delay_ms)){
-                        log_msg(LOG_LEVEL_ERROR, "Failed to parse delay time\n");
+                if(parse_cfg(s, text) != AF_OK){
                         free_message(msg, new_response(RESPONSE_BAD_REQUEST, nullptr));
                         continue;
                 }
 
-                init_delay_ring(s);
+                if(!s->frame_mode){
+                        int samples = (s->sample_rate / 1000) * s->req_delay;
+                        set_delay_size(s, samples * s->ch_count * s->bps);
+                }
+
                 free_message(msg, new_response(RESPONSE_OK, nullptr));
         }
 
         auto f = *frame;
+        if(s->frame_mode){
+                set_delay_size(s, f->data_len * s->req_delay);
+        }
+
         if(f->bps != s->bps || f->ch_count != s->ch_count){
                 if(configure(state, f->bps, f->ch_count, f->sample_rate) != AF_OK){
                         return AF_MISCONFIGURED;
@@ -172,20 +189,18 @@ static af_result_code filter(void *state, struct audio_frame **frame){
         if(!s->ring)
                 return AF_OK;
 
-        int delay_size = s->bps * s->ch_count * s->samples;
-
-        if(f->data_len <= delay_size){
+        if(f->data_len <= s->delay_size){
                 ring_buffer_write(s->ring.get(), f->data, f->data_len);
                 ring_buffer_read(s->ring.get(), f->data, f->data_len);
         } else {
-                int excess_size = f->data_len - delay_size;
+                int excess_size = f->data_len - s->delay_size;
 
                 //Write the last delay_size bytes to buffer
-                ring_buffer_write(s->ring.get(), f->data + excess_size, delay_size);
+                ring_buffer_write(s->ring.get(), f->data + excess_size, s->delay_size);
 
                 //Move the beggining of frame to the end and prepend delay_size bytes from buffer
-                memmove(f->data + delay_size, f->data, excess_size);
-                ring_buffer_read(s->ring.get(), f->data, delay_size);
+                memmove(f->data + s->delay_size, f->data, excess_size);
+                ring_buffer_read(s->ring.get(), f->data, s->delay_size);
         }
 
         return AF_OK;
