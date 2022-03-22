@@ -12,12 +12,12 @@ install_libvpx() {
 
 FFMPEG_GIT_DEPTH=5000 # greater depth is useful for 3-way merges
 install_svt() {
-        ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-HEVC && cd SVT-HEVC/Build/linux && ./build.sh release && cd Release && make -j $(nproc) && sudo make install || exit 1 )
+        #( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-HEVC && cd SVT-HEVC/Build/linux && ./build.sh release && cd Release && make -j $(nproc) && sudo make install || exit 1 )
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-AV1 && cd SVT-AV1 && cd Build && cmake .. -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Release && make -j $(nproc) && sudo make install || exit 1 )
-        ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git && cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j $(nproc) && sudo make install || exit 1 )
+        #( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git && cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j $(nproc) && sudo make install || exit 1 )
         # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
-        git apply -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
-        git apply -3 SVT-VP9/ffmpeg_plugin/master-*.patch
+        #git apply -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
+        #git apply -3 SVT-VP9/ffmpeg_plugin/master-*.patch
 }
 
 # The NVENC API implies respective driver version (see libavcodec/nvenc.c) - 455.28 (Linux) / 456.71 (Windows) for v11.0
@@ -39,10 +39,12 @@ FF_PATCH_DIR=$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches
 for n in `ls $FF_PATCH_DIR`; do
         git apply $FF_PATCH_DIR/$n
 done
-./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame --enable-libsvthevc --enable-libsvtav1 \
+./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame \
         --enable-libdav1d \
         --enable-librav1e \
-        --enable-libsvtvp9 \
+        --enable-libsvtav1 \
+        #--enable-libsvthevc \
+        #--enable-libsvtvp9 \
 
 make -j $(nproc)
 sudo make install
