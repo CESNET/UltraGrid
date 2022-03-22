@@ -95,7 +95,8 @@ public:
                 result = xrGetInstanceProcAddr(instance, "xrGetOpenGLGraphicsRequirementsKHR",
                                         reinterpret_cast<PFN_xrVoidFunction*>(&pfnGetOpenGLGraphicsRequirementsKHR));
 
-                XrGraphicsRequirementsOpenGLKHR graphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR};
+                XrGraphicsRequirementsOpenGLKHR graphicsRequirements{};
+                graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR;
                 result = pfnGetOpenGLGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements);
 
                 result = xrCreateSession(instance, &session_create_info, &session);
