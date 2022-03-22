@@ -55,17 +55,17 @@ jobs:
       run: |
         sudo cp -ar $GITHUB_WORKSPACE ~/chroot/UltraGrid
         sudo chroot ~/chroot /bin/sh -ec "cd UltraGrid; .github/scripts/Linux/arm/build.sh"
+    - name: Upload Release Asset
+      id: upload-release-asset
+      if: github.repository == 'CESNET/UltraGrid'
+      run: |
+        sudo apt install jq
+        sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} continuous ~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
     - name: Upload Build
-      if: github.repository != 'CESNET/UltraGrid' || github.ref != 'refs/heads/arm-build'
+      if: steps.upload-release-asset.conclusion == 'skipped'
       uses: actions/upload-artifact@v2
       with:
         name: UltraGrid CI ${{ matrix.arch }} build
         path: '~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage'
-    - name: Upload Release Asset
-      if: github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/arm-build'
-      run: |
-        sudo apt install jq
-        sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} continuous ~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
-
 
 # vi: set expandtab sw=2:
