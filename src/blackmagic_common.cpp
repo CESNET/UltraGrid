@@ -404,6 +404,10 @@ std::ostream &operator<<(std::ostream &output, REFIID iid)
  */
 int parse_bmd_flag(const char *val)
 {
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnull-pointer-arithmetic"
+#endif // defined __clang__
         if (val == nullptr || val == static_cast<char *>(nullptr) + 1 // allow constructions like parse_bmd_flag(strstr(opt, '=') + 1)
                         || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
                 return BMD_OPT_TRUE;
@@ -417,6 +421,9 @@ int parse_bmd_flag(const char *val)
 
         LOG(LOG_LEVEL_ERROR) << "Value " << val << " not recognized for a flag, use one of: " R"_("false", "true" or "keep")_" "\n";
         return -1;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif // defined __clang
 }
 
 int invert_bmd_flag(int val)
