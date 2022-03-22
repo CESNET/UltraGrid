@@ -188,17 +188,9 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                         char *out = (char *) malloc(14);
                         assert(minutes <= 59 && seconds <= 59);
                         sprintf(out, "%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8, hours, minutes, seconds, frames);
-#ifdef _WIN32
-                        mbstate_t mbstate{};
-                        const char *tmp = out;
-                        size_t required_size = mbsrtowcs(NULL, &tmp, 0, &mbstate) + 1;
-                        *timecode = (wchar_t *) malloc(required_size * sizeof(wchar_t));
-                        mbsrtowcs(*timecode, &tmp, required_size, &mbstate);
+                        *timecode = get_bmd_api_str_from_cstr(out);
                         free(out);
-#else
-                        *timecode = out;
-#endif
-                        return S_OK;
+                        return *timecode ? S_OK : E_FAIL;
                 }
                 virtual BMDTimecodeFlags STDMETHODCALLTYPE GetFlags (void)        { return bmdTimecodeFlagDefault; }
                 virtual HRESULT STDMETHODCALLTYPE GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }

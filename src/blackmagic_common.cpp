@@ -97,6 +97,22 @@ char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
        return cstr;
 }
 
+BMD_STR get_bmd_api_str_from_cstr(const char *cstr)
+{
+#ifdef __APPLE__
+        return CFStringCreateWithCString(kCFAllocatorMalloc, cstr, kCFStringEncodingUTF8);
+#elif defined _WIN32
+        mbstate_t mbstate{};
+        const char *tmp = cstr;
+        size_t required_size = mbsrtowcs(NULL, &tmp, 0, &mbstate) + 1;
+        BMD_STR out = (wchar_t *) malloc(required_size * sizeof(wchar_t));
+        mbsrtowcs(out, &tmp, required_size, &mbstate);
+	return out;
+#else
+        return strdup(cstr);
+#endif
+}
+
 void release_bmd_api_str(BMD_STR string)
 {
 #ifdef HAVE_MACOSX

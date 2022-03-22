@@ -91,6 +91,7 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 #define BMD_STR const char *
 #endif
 char *get_cstr_from_bmd_api_str(BMD_STR string);
+BMD_STR get_bmd_api_str_from_cstr(const char *cstr);
 void release_bmd_api_str(BMD_STR string);
 
 IDeckLinkIterator *create_decklink_iterator(bool verbose = true, bool coinit = true);
