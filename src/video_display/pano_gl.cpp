@@ -86,6 +86,9 @@ struct state_vr{
 };
 
 static void * display_panogl_init(struct module *parent, const char *fmt, unsigned int flags) {
+        UNUSED(parent);
+        UNUSED(fmt);
+        UNUSED(flags);
         state_vr *s = new state_vr();
         s->sdl_frame_event = SDL_RegisterEvents(1);
         s->sdl_redraw_event = SDL_RegisterEvents(1);
