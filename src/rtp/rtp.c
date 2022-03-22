@@ -3667,8 +3667,8 @@ void rtp_send_bye(struct rtp *session)
                         /* Schedule us to block in udp_select() until the time we are due to send our */
                         /* BYE packet. If we receive an RTCP packet from another participant before   */
                         /* then, we are woken up to handle it...                                      */
-                        long long ms = (session->next_rtcp_send_time - curr_time) / NS_IN_MS;
-                        lldiv_t d = lldiv(ms, MS_IN_SEC);
+                        long long us = (session->next_rtcp_send_time - curr_time) / NS_IN_US;
+                        lldiv_t d = lldiv(us, US_IN_SEC);
                         struct timeval timeout = { .tv_sec = d.quot, .tv_usec = d.rem };
                         udp_fd_zero();
                         udp_fd_set(session->rtcp_socket);

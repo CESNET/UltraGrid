@@ -68,9 +68,9 @@ uint32_t get_std_audio_local_mediatime(double samples, int rate);
 uint32_t get_std_video_local_mediatime(void);
 
 typedef long long time_ns_t;
-#define MS_IN_SEC 1000000LL
+#define US_IN_SEC 1000000LL
 #define NS_IN_SEC 1000000000LL
-#define NS_IN_MS (NS_IN_SEC/MS_IN_SEC)
+#define NS_IN_US (NS_IN_SEC/US_IN_SEC)
 static inline time_ns_t get_time_in_ns() {
         struct timespec ts = { 0, 0 };
         timespec_get(&ts, TIME_UTC);

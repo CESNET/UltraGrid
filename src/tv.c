@@ -111,16 +111,16 @@ void tv_add_usec(struct timeval *ts, long long offset)
 {
         long long new_usec = ts->tv_usec + offset;
 
-        if (new_usec < MS_IN_SEC) {
+        if (new_usec < US_IN_SEC) {
                 ts->tv_usec = new_usec;
                 return;
         }
-        if (new_usec < 2 * MS_IN_SEC) {
+        if (new_usec < 2 * US_IN_SEC) {
                 ts->tv_sec++;
-                ts->tv_usec = new_usec - MS_IN_SEC;
+                ts->tv_usec = new_usec - US_IN_SEC;
                 return;
         }
-        lldiv_t d = lldiv(new_usec, MS_IN_SEC);
+        lldiv_t d = lldiv(new_usec, US_IN_SEC);
         ts->tv_sec += d.quot;
         ts->tv_usec = d.rem;
 }
