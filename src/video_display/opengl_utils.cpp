@@ -78,7 +78,7 @@ void main(){
 }
 )END";
 
-static const char *frag_src = R"END(
+[[maybe_unused]] static const char *frag_src = R"END(
 #version 330 core
 in vec2 UV;
 out vec3 color;
@@ -332,7 +332,7 @@ void Texture::upload_internal_pbo(size_t w, size_t h,
 
 void Texture::upload(size_t w, size_t h,
                 GLenum fmt, GLenum type,
-                const void *data, size_t data_len)
+                const void *data)
 {
         PROFILE_FUNC;
 
@@ -375,7 +375,7 @@ void Texture::upload_frame(video_frame *f, bool pbo_frame){
 
                 upload(width, height,
                                 fmt, GL_UNSIGNED_BYTE,
-                                0, f->tiles[0].data_len);
+                                0);
                 glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
         } else {
                 PROFILE_DETAIL("Regular frame upload");

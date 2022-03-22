@@ -175,11 +175,10 @@ public:
          * @param fmt format of the image (same as internalformat parameter of 
          * glTexSubImage2D())
          * @param data pointer to image data to upload
-         * @param data_len length of image data to upload
          */
         void upload(size_t w, size_t h,
                         GLenum fmt, GLenum type,
-                        const void *data, size_t data_len);
+                        const void *data);
 
         /**
          * Uploads image data to the texture
