@@ -72,9 +72,15 @@ typedef long long time_ns_t;
 #define NS_IN_SEC 1000000000LL
 #define NS_IN_US (NS_IN_SEC/US_IN_SEC)
 static inline time_ns_t get_time_in_ns() {
+#ifdef HAVE_TIMESPEC_GET
         struct timespec ts = { 0, 0 };
         timespec_get(&ts, TIME_UTC);
         return ts.tv_sec * NS_IN_SEC + ts.tv_nsec;
+#else
+        struct timeval tv = { 0, 0 };
+        gettimeofday(&tv, NULL);
+        return tv.tv_sec * NS_IN_SEC + tv.tv_usec * NS_IN_US;
+#endif
 }
 
 #ifdef __cplusplus
