@@ -23,6 +23,7 @@ greaterThan(QT_MAJOR_VERSION, 5) {
 }
 
 CONFIG += c++11
+CONFIG += silent
 
 LIBS += $$PWD/../../tools/astat.a
 macx {
