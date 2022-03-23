@@ -565,17 +565,18 @@ data/ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 
 # -------------------------------------------------------------------------------------------------
 clean:
-	-rm -f $(OBJS) $(GENERAED_HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
-	-rm -f dxt_compress/dxt_glsl.h
-	-rm -f $(TEST_OBJS) bin/run_tests
-	-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
-	-rm -rf $(BUNDLE)
-	-rm -rf $(GUI_BUNDLE)
-	-rm -rf $(PERF) src/uv_perf.o
-	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
-	-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@
-	-rm -rf $(DEP_FILES)
-	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ distclean; fi
+	@echo "Making clean..."
+	$(COND_SILENCE)-rm -f $(OBJS) $(GENERAED_HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
+	$(COND_SILENCE)-rm -f dxt_compress/dxt_glsl.h
+	$(COND_SILENCE)-rm -f $(TEST_OBJS) bin/run_tests
+	$(COND_SILENCE)-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
+	$(COND_SILENCE)-rm -rf $(BUNDLE)
+	$(COND_SILENCE)-rm -rf $(GUI_BUNDLE)
+	$(COND_SILENCE)-rm -rf $(PERF) src/uv_perf.o
+	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
+	$(COND_SILENCE)-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@
+	$(COND_SILENCE)-rm -rf $(DEP_FILES)
+	$(COND_SILENCE)if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ distclean; fi
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h cscope.out tags
