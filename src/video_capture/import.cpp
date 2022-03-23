@@ -197,7 +197,6 @@ struct vidcap_import_state {
 
 static void * audio_reading_thread(void *args);
 static void * video_reading_thread(void *args);
-static bool init_audio(struct vidcap_import_state *state, char *audio_filename);
 static void send_message(struct import_message *msg, struct message_queue *queue);
 static struct import_message* pop_message(struct message_queue *queue);
 static int flush_processed(struct processed_entry *list);
@@ -229,7 +228,7 @@ vidcap_import_probe(bool verbose, void (**deleter)(void *))
 
 #define READ_N(buf, len) if (fread(buf, len, 1, audio_file) != 1) goto error_format;
 
-static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
+static bool init_audio(struct vidcap_import_state *s, const char *audio_filename)
 {
         FILE *audio_file = fopen(audio_filename, "rb");
         if(!audio_file) {
@@ -459,22 +458,13 @@ try {
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
 
-        char *audio_filename = (char *) malloc(strlen(s->directory) + strlen("/sound.wav") + 1);
-        assert(audio_filename != NULL);
-        strcpy(audio_filename, s->directory);
-        strcat(audio_filename, "/sound.wav");
-        if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && !disable_audio && init_audio(s, audio_filename)) {
+        std::string audio_filename = std::string(s->directory) + "/sound.wav";
+        if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && !disable_audio && init_audio(s, audio_filename.c_str())) {
                 s->audio_state.has_audio = true;
         }
-        free(audio_filename);
         
-        char *info_filename = (char *) malloc(strlen(s->directory) + sizeof("/video.info") + 1);
-        assert(info_filename != NULL);
-        strcpy(info_filename, s->directory);
-        strcat(info_filename, "/video.info");
-
-        info = fopen(info_filename, "r");
-        free(info_filename);
+        std::string info_filename = std::string(s->directory) + "/video.info";
+        info = fopen(info_filename.c_str(), "r");
         if (info == nullptr) {
                 perror(MOD_NAME "Failed to open video index file");
                 if (!s->audio_state.has_audio) {
@@ -502,7 +492,6 @@ try {
 
         if (s->audio_state.has_audio) {
                 if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
-                        free(audio_filename);
                         throw ug_runtime_error("Unable to create thread.");
                 }
         }
