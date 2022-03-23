@@ -307,7 +307,7 @@ static void audio_append_pcm(struct vidcap_state_ndi *s, NDIlib_audio_frame_v3_t
         }
 
         for (int i = 0; i < frame->no_samples; ++i) {
-                float *in = (float *) frame->p_data + i;
+                float *in = (float *)(void *) frame->p_data + i;
                 int32_t *out = (int32_t *)(void *) s->audio[s->audio_buf_idx].data + i * d.ch_count;
                 int j = 0;
                 for (; j < min(d.ch_count, frame->no_channels); ++j) {

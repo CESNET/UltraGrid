@@ -128,8 +128,7 @@ static void *owner_thread(void *arg) {
 
         if(!VERSION_IS_UNSPECIFIED(context->version) &&
                         !VERSION_IS_LEGACY(context->version)) {
-                if(!glewIsSupported("GL_ARB_create_context_profile")
-                                != GLEW_OK) {
+                if(glewIsSupported("GL_ARB_create_context_profile") != GLEW_OK) {
                         fprintf(stderr, "OpenGL implementation is not capable "
                                         "of selecting profile.\n");
                         goto release_context;

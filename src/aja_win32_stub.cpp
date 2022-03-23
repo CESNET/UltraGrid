@@ -62,6 +62,7 @@ static const struct video_capture_info vidcap_aja_info = {
         vidcap_aja_init_proxy,
         vidcap_aja_done,
         vidcap_aja_grab,
+	false,
 };
 
 REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
@@ -96,7 +97,8 @@ static const struct video_display_info display_aja_info = {
         display_aja_reconfigure,
         display_aja_get_property,
         display_aja_put_audio_frame,
-        display_aja_reconfigure_audio
+        display_aja_reconfigure_audio,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
 };
 
 REGISTER_MODULE(aja, &display_aja_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
