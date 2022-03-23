@@ -531,14 +531,14 @@ try {
 
 static void exit_reading_threads(struct vidcap_import_state *s)
 {
-        struct import_message *msg = (struct import_message *) malloc(sizeof(struct import_message));
-
-        msg->type = FINALIZE;
-        msg->data = NULL;
-        msg->data_len = 0;
-        msg->next = NULL;
-
         if (s->has_video) {
+                struct import_message *msg = (struct import_message *) malloc(sizeof(struct import_message));
+
+                msg->type = FINALIZE;
+                msg->data = NULL;
+                msg->data_len = 0;
+                msg->next = NULL;
+
                 unique_lock<mutex> lk(s->lock);
                 send_message(msg, &s->message_queue);
                 lk.unlock();
