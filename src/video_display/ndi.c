@@ -207,10 +207,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                         THROW(FAIL);
                 }
 
-                NDIlib_send_create_t NDI_send_create_desc = { 0 };
-                NDI_send_create_desc.clock_video = false;
-                NDI_send_create_desc.clock_audio = false;
-                NDI_send_create_desc.p_ndi_name = ndi_name;
+                NDIlib_send_create_t NDI_send_create_desc = { .p_ndi_name = ndi_name, .p_groups = NULL, .clock_video = false, .clock_audio = false };
                 s->pNDI_send = s->NDIlib->send_create(&NDI_send_create_desc);
                 if (s->pNDI_send == NULL) {
                         THROW(FAIL);
