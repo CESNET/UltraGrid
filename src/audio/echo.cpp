@@ -310,7 +310,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
         size_t far_end_samples = ring_get_current_size(s->far_end_ringbuf.get()) / 2;
 
         if(far_end_samples < near_end_samples){
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "Not enough far end samples (%lu near, %lu far)\n", near_end_samples, far_end_samples);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Not enough far end samples (%zu near, %zu far)\n", near_end_samples, far_end_samples);
 
                 //The delay between far end and near end will always be at least
                 //recorded frame length

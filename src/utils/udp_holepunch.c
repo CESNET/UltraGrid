@@ -109,7 +109,7 @@ static void send_msg(int sock, const char *msg){
 
         char header[MSG_HEADER_LEN];
         memset(header, ' ', sizeof(header));
-        snprintf(header, sizeof(header), "%lu", msg_size);
+        snprintf(header, sizeof(header), "%zu", msg_size);
 
         ssize_t ret = send(sock, header, sizeof(header), 0);
 
