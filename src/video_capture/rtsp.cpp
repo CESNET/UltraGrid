@@ -74,6 +74,7 @@
 
 #include <curl/curl.h>
 #include <chrono>
+#include <memory>
 
 #define KEEPALIVE_INTERVAL_S 5
 #define MOD_NAME  "[rtsp] "
@@ -751,18 +752,17 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     }
     rewind(sdp_file);
 
-    char* buffer = (char*) malloc(fileSize+1);
-    unsigned long readResult = fread(buffer, sizeof(char), fileSize, sdp_file);
+    auto buffer = std::make_unique<char[]>(fileSize + 1);
+    unsigned long readResult = fread(buffer.get(), sizeof(char), fileSize, sdp_file);
     if (ferror(sdp_file)){
         perror(MOD_NAME "SDP file read failed");
         free(line);
-        free(buffer);
         return false;
     }
     buffer[readResult] = '\0';
 
     while (buffer[n] != '\0'){
-        getNewLine(buffer,&n,line);
+        getNewLine(buffer.get(),&n,line);
         sscanf(line, " a = control: %*s");
         tmpBuff = strstr(line, "track");
         if(tmpBuff!=NULL){
@@ -825,7 +825,6 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
         }
     }
     free(line);
-    free(buffer);
     rewind(sdp_file);
     return true;
 }
