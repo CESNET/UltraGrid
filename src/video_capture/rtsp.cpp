@@ -725,7 +725,8 @@ init_rtsp(struct rtsp_state *s) {
     return len_nals;
 
 error:
-    fclose(sdp_file);
+    if(sdp_file)
+            fclose(sdp_file);
     return -1;
 }
 
