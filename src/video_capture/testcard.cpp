@@ -143,8 +143,14 @@ static auto configure_sdl_mixer_audio(struct testcard_state *s) {
                 fprintf(stderr,"[testcard] error initalizing sound\n");
                 return false;
         }
+#ifdef _WIN32
         const char *filename = tmpnam(nullptr);
         FILE *f = fopen(filename, "wb");
+#else
+        char filename[] = P_tmpdir "/uv.midiXXXXXX";
+        int fd = mkstemp(filename);
+        FILE *f = fd == -1 ? nullptr : fdopen(fd, "wb");
+#endif
         if (f == nullptr) {
                 perror("fopen midi");
                 return false;
