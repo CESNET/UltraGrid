@@ -6,7 +6,7 @@ Set-PSDebug -Trace 1
 
 # Install CUDA
 if (!${env:no_cuda}) {
-  $url="https://developer.download.nvidia.com/compute/cuda/11.6.0/local_installers/cuda_11.6.0_511.23_windows.exe"
+  $url="https://developer.download.nvidia.com/compute/cuda/11.6.1/network_installers/cuda_11.6.1_windows_network.exe"
   $url -match 'cuda/(?<version>[0-9]+.[0-9]+)'
   $version=$Matches.version
   Invoke-WebRequest $url -OutFile cuda_inst.exe
