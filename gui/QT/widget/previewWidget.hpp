@@ -15,6 +15,8 @@ public:
 		connect(&timer, SIGNAL(timeout()), this, SLOT(update()));
   	}
 
+        ~PreviewWidget();
+
 	void setKey(const char *key);
 	void start();
 	void stop();
@@ -25,17 +27,17 @@ protected:
 	void paintGL();
 
 private:
-	GLuint vertexBuffer;
-	GLuint vertexShader;
-	GLuint fragShader;
-	GLuint program;
-	GLuint texture;
+	GLuint vertexBuffer = 0;
+	GLuint program = 0;
+	GLuint texture = 0;
 
 	QOpenGLVertexArrayObject vao;
 
 	GLfloat scaleVec[2];
-	int vidW, vidH;
-	int width, height;
+	int vidW = 0;
+	int vidH = 0;
+	int width = 0;
+	int height = 0;
 
 	void setVidSize(int w, int h);
 	void calculateScale();

@@ -65,12 +65,27 @@ static unsigned char pixels[] = {
 	255, 0, 0,   0, 255, 0,   0, 0, 255,   255, 255, 255
 };
 
-void PreviewWidget::initializeGL(){
+static QOpenGLFunctions_3_3_Core *getOpenGLFuncs(){
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
+	return QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
 #else
-	QOpenGLFunctions_3_3_Core *f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_3_3_Core>(QOpenGLContext::currentContext());
+	return QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_3_3_Core>(QOpenGLContext::currentContext());
 #endif
+}
+
+PreviewWidget::~PreviewWidget(){
+	auto f = getOpenGLFuncs();
+
+	makeCurrent();
+	f->glDeleteBuffers(1, &vertexBuffer);
+	f->glDeleteProgram(program);
+	f->glDeleteTextures(1, &texture);
+	vao.destroy();
+	doneCurrent();
+}
+
+void PreviewWidget::initializeGL(){
+	auto f = getOpenGLFuncs();
 
 	if(!f) {
 		QMessageBox warningBox(this);
@@ -92,8 +107,8 @@ void PreviewWidget::initializeGL(){
 	f->glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 	f->glBufferData(GL_ARRAY_BUFFER, sizeof(rectangle), rectangle, GL_STATIC_DRAW);
 
-	vertexShader = f->glCreateShader(GL_VERTEX_SHADER);
-	fragShader = f->glCreateShader(GL_FRAGMENT_SHADER);
+	GLuint vertexShader = f->glCreateShader(GL_VERTEX_SHADER);
+	GLuint fragShader = f->glCreateShader(GL_FRAGMENT_SHADER);
 
 	f->glShaderSource(vertexShader, 1, &vert_src, NULL);
 	compileShader(vertexShader, f);
@@ -158,11 +173,7 @@ void PreviewWidget::setVidSize(int w, int h){
 }
 
 void PreviewWidget::paintGL(){
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	QOpenGLFunctions_3_3_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_3_Core>();
-#else
-	QOpenGLFunctions_3_3_Core *f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_3_3_Core>(QOpenGLContext::currentContext());
-#endif
+	auto f = getOpenGLFuncs();
 
 	if(!f)
 		return;
