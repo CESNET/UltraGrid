@@ -4,7 +4,7 @@ set -ex
 
 mkdir -p /usr/local/lib /usr/local/bin /usr/local/include
 cat >> ~/.bash_profile <<'EOF'
-export MSYSTEM_PREFIX=/ucrt64
+export MSYSTEM_PREFIX=/clang64
 export PATH=$MSYSTEM_PREFIX/bin:/usr/local/bin:$PATH
 export CPATH=/usr/local/include:/usr/include
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:$MSYSTEM_PREFIX/lib/pkgconfig
@@ -38,7 +38,7 @@ EOF
 
 PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
-MSYS_REPO=mingw-w64-ucrt-x86_64
+MSYS_REPO=mingw-w64-clang-x86_64
 $PACMAN_INSTALL automake autoconf git make pkgconf ${MSYS_REPO}-toolchain ${MSYS_REPO}-cppunit unzip zip
 $PACMAN_INSTALL ${MSYS_REPO}-ffmpeg
 $PACMAN_INSTALL ${MSYS_REPO}-speexdsp
