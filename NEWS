@@ -10,6 +10,8 @@ next
 * transcoding reflector - ports with same the compression now reuse compressed
   frames instead of doing the same work
 * conference mode now automatically sends back video to all participants
+* audio filter 'delay' for delaying audio on sender
+* improve H.265 recovery from packet drops (enabled constrained-intra)
 
 1.7
 ====
