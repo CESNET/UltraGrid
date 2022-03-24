@@ -68,7 +68,12 @@
 # if defined _WIN32
 #  define QSORT_S_COMP_FIRST 1 // MS version of qsort_s with comparator as first arg
 # else
-#  define qsort_s qsort_r
+#  ifdef __APPLE__
+#    define QSORT_S_COMP_FIRST 1 // BSD version as well
+#    define qsort_s(ptr, count, size, comp, context) qsort_r(ptr, count, size, context, comp)
+#  else
+#    define qsort_s qsort_r
+#  endif
 # endif
 #endif
 
