@@ -146,10 +146,10 @@ if test $system = Linux; then
 fi
 
 if test $system = MacOSX; then
-        if test $os_version_major -lt 18; then # Darwin 18.0.0 is macOS 10.14
+        if test $os_version_major -lt 19; then # Darwin 19.0.0 is macOS 10.15
                 MIN_MACOS_VER=10.7
         else
-                MIN_MACOS_VER=10.14
+                MIN_MACOS_VER=10.15
         fi
         COMMON_OSX_FLAGS="-iframework data/redists -mmacosx-version-min=$MIN_MACOS_VER -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
