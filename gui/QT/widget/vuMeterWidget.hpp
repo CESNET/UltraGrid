@@ -63,10 +63,6 @@ private:
 
 	std::chrono::system_clock::time_point last_connect;
 
-	static const int meterVerticalPad = 5;
-	static const int meterBarPad = 2;
-	static constexpr double zeroLevel = -40.0;
-
 	void paintMeter(QPainter&, int x, int y, int width, int height, double peak, double rms);
 	void paintScale(QPainter&, int x, int y, int width, int height);
 

@@ -25,9 +25,11 @@ ug_connection *connectLoop(int port){
 	return connection;
 }
 
+	static constexpr int meterVerticalPad = 5;
+	static constexpr int meterBarPad = 2;
+	static constexpr double zeroLevel = -40.0;
 }//anon namespace
 
-constexpr double VuMeterWidget::zeroLevel;
 
 void VuMeterWidget::updateVal(){
 	updateVolumes();
@@ -39,12 +41,9 @@ void VuMeterWidget::updateVal(){
 		barLevel[i] = std::max(barLevel[i] - fallSpeed / updatesPerSecond, 0.0);
 		rmsLevel[i] = std::max(rmsLevel[i] - fallSpeed / updatesPerSecond, 0.0);
 
-#if 1
 		double newPeakHeight = 100 - std::max(peak[i], zeroLevel) * (100 / zeroLevel);
 		double newRmsHeight = 100 - std::max(rms[i], zeroLevel) * (100 / zeroLevel);
-#else
-		double newHeight = pow(10.0, peak[i] / 20.0) * 100;
-#endif
+
 		barLevel[i] = std::max(barLevel[i], newPeakHeight);
 		rmsLevel[i] = std::max(rmsLevel[i], newRmsHeight);
 	}
