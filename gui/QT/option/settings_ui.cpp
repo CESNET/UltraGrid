@@ -129,7 +129,7 @@ void SettingsUi::refreshAllCallback(Option&, bool, void *opaque){
 	static_cast<SettingsUi *>(opaque)->refreshAll();
 }
 
-void vuMeterCallback(Option &opt, bool /*suboption*/, void *opaque){
+static void vuMeterCallback(Option &opt, bool /*suboption*/, void *opaque){
 	static_cast<Ui::UltragridWindow *>(opaque)->vuMeter->setVisible(opt.isEnabled());
 }
 

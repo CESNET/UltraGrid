@@ -8,6 +8,25 @@
 #include <QStyle>
 #include "vuMeterWidget.hpp"
 
+namespace{
+
+ug_connection *connectLoop(int port){
+	const int max_tries = 2;
+	int tries = 0;
+
+	ug_connection *connection = nullptr;
+	connection = ug_control_connection_init(port);
+	while(!connection && tries < max_tries){
+		std::this_thread::sleep_for (std::chrono::seconds(2));
+		connection = ug_control_connection_init(port);
+		tries++;
+	}
+
+	return connection;
+}
+
+}//anon namespace
+
 constexpr double VuMeterWidget::zeroLevel;
 
 void VuMeterWidget::updateVal(){
@@ -160,21 +179,6 @@ void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 			width() - meter_width * 2,
 			height());
 
-}
-
-ug_connection *connectLoop(int port){
-	const int max_tries = 2;
-	int tries = 0;
-
-	ug_connection *connection = nullptr;
-	connection = ug_control_connection_init(port);
-	while(!connection && tries < max_tries){
-		std::this_thread::sleep_for (std::chrono::seconds(2));
-		connection = ug_control_connection_init(port);
-		tries++;
-	}
-
-	return connection;
 }
 
 void VuMeterWidget::connect_ug(){
