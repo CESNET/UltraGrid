@@ -95,6 +95,7 @@ typedef enum {
         AV1,      ///< AOMedia Video 1
         I420,     ///< planar YCbCr 4:2:0
         Y216,     ///< YCbCr 422 16-bit - Y0 Cb Y1 Cr
+        PRORES,   ///< Apple ProRes
         VIDEO_CODEC_COUNT, ///< count of known video codecs (including VIDEO_CODEC_NONE)
         VIDEO_CODEC_END = VIDEO_CODEC_COUNT
 } codec_t;

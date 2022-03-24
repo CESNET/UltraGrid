@@ -213,6 +213,13 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 setparam_h264_h265_av1,
                 600
         }},
+        { PRORES, codec_params_t{
+                nullptr,
+                0,
+                nullptr,
+                setparam_default,
+                300,
+        }},
 };
 
 struct state_video_compress_libav {

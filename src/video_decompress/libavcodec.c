@@ -228,6 +228,7 @@ static const struct decoder_info decoders[] = {
         { HFYU, AV_CODEC_ID_HUFFYUV, NULL, { NULL } },
         { FFV1, AV_CODEC_ID_FFV1, NULL, { NULL } },
         { AV1, AV_CODEC_ID_AV1, NULL, { NULL } },
+        { PRORES, AV_CODEC_ID_PRORES, NULL, { NULL } },
 };
 
 ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
@@ -1059,7 +1060,7 @@ static void libavcodec_decompress_done(void *state)
 }
 
 static const codec_t supp_codecs[] = { H264, H265, JPEG, MJPG, J2K, J2KR, VP8, VP9,
-        HFYU, FFV1, AV1 };
+        HFYU, FFV1, AV1, PRORES };
 /**
  * @todo
  * This should be automatically generated taking into account existing conversions.

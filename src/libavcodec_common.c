@@ -107,6 +107,7 @@ static const struct {
         { AV_CODEC_ID_HUFFYUV, HFYU },
         { AV_CODEC_ID_FFV1, FFV1 },
         { AV_CODEC_ID_AV1, AV1 },
+        { AV_CODEC_ID_PRORES, PRORES },
 };
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec)
