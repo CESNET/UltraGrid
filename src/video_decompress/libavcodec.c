@@ -1059,8 +1059,6 @@ static void libavcodec_decompress_done(void *state)
         free(s);
 }
 
-static const codec_t supp_codecs[] = { H264, H265, JPEG, MJPG, J2K, J2KR, VP8, VP9,
-        HFYU, FFV1, AV1, PRORES };
 /**
  * @todo
  * This should be automatically generated taking into account existing conversions.
@@ -1093,7 +1091,7 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R12L, 950 },
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, v210, 950 },
 };
-#define SUPP_CODECS_CNT (sizeof supp_codecs / sizeof supp_codecs[0])
+#define SUPP_CODECS_CNT (sizeof decoders / sizeof decoders[0])
 #define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
 /// @todo to remove
 ADD_TO_PARAM("lavd-use-10bit",
@@ -1124,15 +1122,15 @@ static const struct decode_from_to *libavcodec_decompress_get_decoders() {
         unsigned int ret_idx = 0;
         for (size_t t = 0; t < DEC_TEMPLATE_CNT; ++t) {
                 for (size_t c = 0; c < SUPP_CODECS_CNT; ++c) {
-                        if (force_codec && force_codec != supp_codecs[c]) {
+                        if (force_codec && force_codec != decoders[c].ug_codec) {
                                 continue;
                         }
-                        ret[ret_idx++] = (struct decode_from_to){supp_codecs[c],
+                        ret[ret_idx++] = (struct decode_from_to){decoders[c].ug_codec,
                                 dec_template[t].internal, dec_template[t].to,
                                 dec_template[t].priority};
 #ifdef HAVE_SWSCALE
                         // we can convert with swscale in the end
-                        ret[ret_idx++] = (struct decode_from_to){supp_codecs[c],
+                        ret[ret_idx++] = (struct decode_from_to){decoders[c].ug_codec,
                                 VIDEO_CODEC_NONE, dec_template[t].to,
                                 950};
 #endif
