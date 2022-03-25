@@ -59,11 +59,13 @@ $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
 
-# Install XIMEA
-wget --no-verbose https://www.ximea.com/downloads/recent/XIMEA_Linux_SP.tgz
-tar xzf XIMEA_Linux_SP.tgz
-cd package
-sudo ./install
+install_ximea() {
+        wget --no-verbose https://www.ximea.com/downloads/recent/XIMEA_Linux_SP.tgz
+        tar xzf XIMEA_Linux_SP.tgz
+        cd package
+        patch -p0 <$GITHUB_WORKSPACE/.github/scripts/Linux/ximea.patch # TOREMOVE when not needed
+        sudo ./install
+}
 
 # Install AJA
 if [ -n "$SDK_URL" ]; then
@@ -111,4 +113,5 @@ cd ..
 
 install_cineform
 install_ndi
+install_ximea
 
