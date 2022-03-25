@@ -1166,7 +1166,11 @@ static int adjust_params(struct ug_options *opt) {
         // default values for different RXTX protocols
         if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
                 if (opt->requested_compression == nullptr) {
-                        opt->requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
+                        if (strcasecmp(opt->video_protocol, "rtsp") == 0) {
+                                opt->requested_compression = "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh";
+                        } else {
+                                opt->requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
+                        }
                 }
                 if (opt->force_ip_version == 0 && strcasecmp(opt->video_protocol, "rtsp") == 0) {
                         opt->force_ip_version = 4;
