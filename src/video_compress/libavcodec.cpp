@@ -1428,6 +1428,10 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 vf_free(frame);
         };
         out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), dispose);
+        if (s->compressed_desc.color_spec == PRORES) {
+                assert(s->codec_ctx->codec_tag != 0);
+                out->color_spec = get_codec_from_fcc(s->codec_ctx->codec_tag);
+        }
         vf_copy_metadata(out.get(), tx.get());
 #if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
         int got_output;

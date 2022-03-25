@@ -95,7 +95,13 @@ typedef enum {
         AV1,      ///< AOMedia Video 1
         I420,     ///< planar YCbCr 4:2:0
         Y216,     ///< YCbCr 422 16-bit - Y0 Cb Y1 Cr
-        PRORES,   ///< Apple ProRes
+        PRORES,           ///< abstract Apple ProRes, must not be used in transmit
+        PRORES_4444,      ///< Apple ProRes 4444
+        PRORES_4444_XQ,   ///< Apple ProRes 4444 (XQ)
+        PRORES_422_HQ,    ///< Apple ProRes 422 (HQ)
+        PRORES_422,       ///< Apple ProRes 422
+        PRORES_422_PROXY, ///< Apple ProRes 422 (Proxy)
+        PRORES_422_LT,    ///< Apple ProRes 422 (LT)
         VIDEO_CODEC_COUNT, ///< count of known video codecs (including VIDEO_CODEC_NONE)
         VIDEO_CODEC_END = VIDEO_CODEC_COUNT
 } codec_t;

@@ -210,7 +210,19 @@ static const struct codec_info_t codec_info[] = {
         [Y216] =  {"Y216", "Packed 16-bit YUV 4:2:2 little-endian",
                 to_fourcc('Y','2','1','6'), 2, 4.0, 16, 8, FALSE, FALSE, FALSE, FALSE, 4220, "y216"},
         [PRORES] =  {"PRORES", "Apple ProRes",
-                to_fourcc('a','p','p','r'), 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "pror"},
+                0, 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "pror"},
+        [PRORES_4444] =  {"PRORES_4444", "Apple ProRes 4444",
+                to_fourcc('a','p','4','h'), 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "ap4h"},
+        [PRORES_4444_XQ] =  {"PRORES_4444_XQ", "Apple ProRes 4444 (XQ)",
+                to_fourcc('a','p','4','x'), 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "ap4x"},
+        [PRORES_422_HQ] =  {"PRORES_422_HQ", "Apple ProRes 422 (HQ)",
+                to_fourcc('a','p','c','h'), 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "apch"},
+        [PRORES_422] =  {"PRORES_422", "Apple ProRes 422",
+                to_fourcc('a','p','c','n'), 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "apcn"},
+        [PRORES_422_PROXY] =  {"PRORES_422_PROXY", "Apple ProRes 422 (Proxy)",
+                to_fourcc('a','p','c','o'), 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "apco"},
+        [PRORES_422_LT] =  {"PRORES_422_LT", "Apple ProRes 422 (LT)",
+                to_fourcc('a','p','c','s'), 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "apcs"},
 };
 
 /// for planar pixel formats
@@ -247,13 +259,6 @@ static const struct alternative_fourcc fourcc_aliases[] = {
         {to_fourcc('D', 'V', 'S', '8'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('y', 'u', 'v', '2'), to_fourcc('U', 'Y', 'V', 'Y')},
         {to_fourcc('y', 'u', 'V', '2'), to_fourcc('U', 'Y', 'V', 'Y')},
-        // for ProRes, correct FourCC should be actually following:
-        {to_fourcc('a', 'p', '4', 'h'), to_fourcc('a', 'p', 'p', 'r')}, ///< Apple ProRes 4444
-        {to_fourcc('a', 'p', '4', 'x'), to_fourcc('a', 'p', 'p', 'r')}, ///< Apple ProRes 4444 (XQ)
-        {to_fourcc('a', 'p', 'c', 'h'), to_fourcc('a', 'p', 'p', 'r')}, ///< Apple ProRes 422 (HQ)
-        {to_fourcc('a', 'p', 'c', 'n'), to_fourcc('a', 'p', 'p', 'r')}, ///< Apple ProRes 422
-        {to_fourcc('a', 'p', 'c', 'o'), to_fourcc('a', 'p', 'p', 'r')}, ///< Apple ProRes 422 (Proxy)
-        {to_fourcc('a', 'p', 'c', 's'), to_fourcc('a', 'p', 'p', 'r')}, ///< Apple ProRes 422 (LT)
 };
 
 struct alternative_codec_name {

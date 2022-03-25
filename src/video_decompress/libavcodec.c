@@ -228,7 +228,12 @@ static const struct decoder_info decoders[] = {
         { HFYU, AV_CODEC_ID_HUFFYUV, NULL, { NULL } },
         { FFV1, AV_CODEC_ID_FFV1, NULL, { NULL } },
         { AV1, AV_CODEC_ID_AV1, NULL, { NULL } },
-        { PRORES, AV_CODEC_ID_PRORES, NULL, { NULL } },
+        { PRORES_4444, AV_CODEC_ID_PRORES, NULL, { NULL } },
+        { PRORES_4444_XQ, AV_CODEC_ID_PRORES, NULL, { NULL } },
+        { PRORES_422_HQ, AV_CODEC_ID_PRORES, NULL, { NULL } },
+        { PRORES_422, AV_CODEC_ID_PRORES, NULL, { NULL } },
+        { PRORES_422_PROXY, AV_CODEC_ID_PRORES, NULL, { NULL } },
+        { PRORES_422_LT, AV_CODEC_ID_PRORES, NULL, { NULL } },
 };
 
 ADD_TO_PARAM("force-lavd-decoder", "* force-lavd-decoder=<decoder>[:<decoder2>...]\n"
@@ -331,6 +336,9 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 }
                 s->codec_ctx->width = desc.width;
                 s->codec_ctx->height = desc.height;
+                if (desc.color_spec > PRORES || desc.color_spec <= PRORES_422_LT) {
+                        s->codec_ctx->codec_tag = get_fourcc(desc.color_spec);
+                }
                 set_codec_context_params(s);
                 pthread_mutex_lock(s->global_lavcd_lock);
                 if (avcodec_open2(s->codec_ctx, *codec_it, NULL) < 0) {
