@@ -63,7 +63,6 @@ install_ximea() {
         wget --no-verbose https://www.ximea.com/downloads/recent/XIMEA_Linux_SP.tgz
         tar xzf XIMEA_Linux_SP.tgz
         cd package
-        patch -p0 <$GITHUB_WORKSPACE/.github/scripts/Linux/ximea.patch # TOREMOVE when not needed
         sudo ./install
 }
 
