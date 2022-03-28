@@ -1,6 +1,7 @@
 /**
  * @file   hwaccel_videotoolbox.c
  * @author Martin Piatka <piatka@cesnet.cz>
+ * @author Martin Pulec <martin.pulec@cesnet.cz>
  */
 /*
  * Copyright (c) 2021-2022 CESNET z.s.p.o.
@@ -35,7 +36,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "debug.h"
 #include "hwaccel_videotoolbox.h"
+
+#include <libavutil/pixdesc.h>
+
+#define MOD_NAME "[videotoolbox dec.] "
 
 int videotoolbox_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
@@ -47,14 +53,24 @@ int videotoolbox_init(struct AVCodecContext *s,
         if(ret < 0)
                 return ret;
 
+        enum AVPixelFormat probe_formats[] = { s->sw_pix_fmt, AV_PIX_FMT_UYVY422 };
+
         AVBufferRef *hw_frames_ctx = NULL;
-        ret = create_hw_frame_ctx(device_ref,
-                        s->coded_width,
-                        s->coded_height,
-                        AV_PIX_FMT_VIDEOTOOLBOX,
-                        s->sw_pix_fmt,
-                        0, //has to be 0, ffmpeg can't allocate frames by itself
-                        &hw_frames_ctx);
+        for (unsigned i = 0; i < sizeof probe_formats / sizeof probe_formats[0]; ++i) {
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Trying SW pixel format: %s\n", av_get_pix_fmt_name(probe_formats[i]));
+                ret = create_hw_frame_ctx(device_ref,
+                                s->coded_width,
+                                s->coded_height,
+                                AV_PIX_FMT_VIDEOTOOLBOX,
+                                probe_formats[i],
+                                0, //has to be 0, ffmpeg can't allocate frames by itself
+                                &hw_frames_ctx);
+                if (ret >= 0) {
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Successfully initialized with SW pixel format: %s\n",
+                                        av_get_pix_fmt_name(probe_formats[i]));
+                        break;
+                }
+        }
 
         if(ret < 0)
                 goto fail;

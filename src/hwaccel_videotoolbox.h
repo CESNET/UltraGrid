@@ -51,5 +51,5 @@ int videotoolbox_init(struct AVCodecContext *s, struct hw_accel_state *state, co
 }
 #endif
 
-#endif //HWACC_VAAPI
+#endif // ! defined HWACCEL_VIDEOTOOLBOX_H_FB662D24_EA6D_4723_9F06_F9EABB79D0A6
 
