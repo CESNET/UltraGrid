@@ -461,10 +461,11 @@ static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
 }
 
 #if HAVE_MACOSX
-int videotoolbox_init(struct AVCodecContext *s,
+static int videotoolbox_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
                 codec_t out_codec)
 {
+        (void) out_codec;
         AVBufferRef *device_ref = NULL;
         int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VIDEOTOOLBOX, &device_ref);
         if(ret < 0)
