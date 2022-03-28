@@ -1875,6 +1875,9 @@ then
 
         LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON src/video_compress/libavcodec.o"
         LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_COMMON $HW_ACC_OBJ src/video_decompress/libavcodec.o"
+        if test $system = MacOSX; then
+                LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_DECOMPRESS_OBJ src/hwaccel_videotoolbox.o"
+        fi
         COMMON_FLAGS="$COMMON_FLAGS $LIBAVCODEC_CFLAGS $LIBAVUTIL_CFLAGS"
         libavcodec=yes
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
