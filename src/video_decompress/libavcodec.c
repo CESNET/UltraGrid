@@ -336,7 +336,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 }
                 s->codec_ctx->width = desc.width;
                 s->codec_ctx->height = desc.height;
-                if (desc.color_spec > PRORES || desc.color_spec <= PRORES_422_LT) {
+                if (desc.color_spec > PRORES && desc.color_spec <= PRORES_422_LT) {
                         s->codec_ctx->codec_tag = get_fourcc(desc.color_spec);
                 }
                 set_codec_context_params(s);
