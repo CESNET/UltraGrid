@@ -369,41 +369,62 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
 }
 
 /**
- * Just a simple test - since this is 1:1 mapping, use just dummy random data
+ * Just a simple test - use just dummy random data
+ * @todo
+ * Write more reasonable comparison to check P010LE with different neigboring lines.
  */
-void ff_codec_conversions_test::test_p210_from_to_v210()
+void ff_codec_conversions_test::test_pX10_from_to_v210()
 {
         constexpr codec_t codec = v210;
         constexpr long width = 1920;
-        constexpr long height = 1080;
+        constexpr long height = 4;
         const long linesize = vc_get_linesize(width, codec);
         vector <unsigned char> in(height * linesize);
         vector <unsigned char> out(height * linesize);
         default_random_engine rand_gen;
         uniform_int_distribution<uint32_t> dist(0, 0x3fffffffLU);
-        std::for_each((uint32_t *) in.data(), (uint32_t *) (in.data() + height * linesize), [&](uint32_t & c) { c = dist(rand_gen); });
 
-        AVFrame frame{};
-        frame.format =  AV_PIX_FMT_P210LE;
-        frame.width = 1920;
-        frame.height = 1080;
-        if (av_image_alloc(frame.data, frame.linesize,
-                                width, height, (AVPixelFormat) frame.format, 32) < 0) {
-                abort();
+        for (auto &c : {AV_PIX_FMT_P010LE, AV_PIX_FMT_P210LE}) {
+                AVFrame frame{};
+                frame.format = c;
+                frame.width = 1920;
+                frame.height = 1080;
+                if (av_image_alloc(frame.data, frame.linesize,
+                                        width, height, (AVPixelFormat) frame.format, 32) < 0) {
+                        abort();
+                }
+
+                if (c == AV_PIX_FMT_P210LE) {
+                        std::for_each((uint32_t *) in.data(), (uint32_t *) (in.data() + height * linesize), [&](uint32_t & c) { c = dist(rand_gen); });
+                } else { // later using dummy "==" compare, chroma in odd and even line must be same for P010 to avoid rounding errors
+                        std::for_each((uint32_t *) in.data(), (uint32_t *) (in.data() + linesize), [&](uint32_t & c) { c =  dist(rand_gen); });
+                        for (int i = 1; i < height; ++i) {
+                                std::copy(in.data(), &in[linesize], &in[i * linesize]);
+                        }
+                }
+
+                auto from_conv = get_uv_to_av_conversion(codec, frame.format);
+                auto to_conv = get_av_to_uv_conversion(frame.format, codec);
+                assert(from_conv != nullptr);
+                assert(to_conv != nullptr);
+
+                from_conv(&frame, in.data(), width, height);
+                to_conv(reinterpret_cast<char *>(out.data()), &frame, width, height, vc_get_linesize(width, codec), nullptr);
+
+                if (getenv("DEBUG_DUMP") != nullptr) {
+                        for (int i = 0; i < 128; i += 1) {
+                                auto *din = reinterpret_cast<uint32_t *>(in.data()) + i * 4;
+                                auto *dout = reinterpret_cast<uint32_t *>(out.data()) + i * 4;
+                                printf("0x%08x IN =%08x %08x %08x %08x\n", i * 16, din[0], din[1], din[2], din[3]);
+                                printf("0x%08x OUT=%08x %08x %08x %08x\n", i * 16, dout[0], dout[1], dout[2], dout[3]);
+                        }
+                }
+
+                CPPUNIT_ASSERT_MESSAGE("Error: output doesn't match input"s, in == out);
+                out[(width / 2) * height] = 123;
+                CPPUNIT_ASSERT_MESSAGE("Error: output matches input but it shouldn't"s, in != out);
+                av_freep(frame.data);
         }
-
-        auto from_conv = get_uv_to_av_conversion(codec, frame.format);
-        auto to_conv = get_av_to_uv_conversion(frame.format, codec);
-        assert(from_conv != nullptr);
-        assert(to_conv != nullptr);
-
-        from_conv(&frame, in.data(), width, height);
-        to_conv(reinterpret_cast<char *>(out.data()), &frame, width, height, vc_get_linesize(width, codec), nullptr);
-
-        CPPUNIT_ASSERT_MESSAGE("Error: output doesn't match input"s, in == out);
-        out[(width / 2) * height] = 123;
-        CPPUNIT_ASSERT_MESSAGE("Error: output matches input but it shouldn't"s, in != out);
-
 }
 
 #endif // defined HAVE_CPPUNIT && HAVE_LAVC

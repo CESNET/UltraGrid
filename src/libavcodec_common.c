@@ -2704,9 +2704,9 @@ static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
 {
         UNUSED(rgb_shift);
         for(int y = 0; y < height / 2; ++y) {
-                uint8_t *src_y1 = (in_frame->data[0] + in_frame->linesize[0] * y * 2);
-                uint8_t *src_y2 = (in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
-                uint8_t *src_cbcr = (in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_y1 = (uint16_t *) (in_frame->data[0] + in_frame->linesize[0] * y * 2);
+                uint16_t *src_y2 = (uint16_t *) (in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
+                uint16_t *src_cbcr = (uint16_t *) (in_frame->data[1] + in_frame->linesize[1] * y);
                 uint32_t *dst1 = (uint32_t *)(void *)(dst_buffer + (y * 2) * pitch);
                 uint32_t *dst2 = (uint32_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
 
@@ -2714,39 +2714,39 @@ static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
                         uint32_t w0_0, w0_1, w0_2, w0_3;
                         uint32_t w1_0, w1_1, w1_2, w1_3;
 
-                        w0_0 = *src_cbcr << 2; // Cb0
-                        w1_0 = *src_cbcr << 2;
+                        w0_0 = *src_cbcr >> 6; // Cb0
+                        w1_0 = *src_cbcr >> 6;
                         src_cbcr++; // Cr0
-                        w0_0 = w0_0 | (*src_y1++ << 2) << 10;
-                        w1_0 = w1_0 | (*src_y2++ << 2) << 10;
-                        w0_0 = w0_0 | (*src_cbcr << 2) << 20;
-                        w1_0 = w1_0 | (*src_cbcr << 2) << 20;
+                        w0_0 = w0_0 | (*src_y1++ >> 6) << 10;
+                        w1_0 = w1_0 | (*src_y2++ >> 6) << 10;
+                        w0_0 = w0_0 | (*src_cbcr >> 6) << 20;
+                        w1_0 = w1_0 | (*src_cbcr >> 6) << 20;
                         src_cbcr++; // Cb1
 
-                        w0_1 = *src_y1++ << 2;
-                        w1_1 = *src_y2++ << 2;
-                        w0_1 = w0_1 | (*src_cbcr << 2) << 10;
-                        w1_1 = w1_1 | (*src_cbcr << 2) << 10;
+                        w0_1 = *src_y1++ >> 6;
+                        w1_1 = *src_y2++ >> 6;
+                        w0_1 = w0_1 | (*src_cbcr >> 6) << 10;
+                        w1_1 = w1_1 | (*src_cbcr >> 6) << 10;
                         src_cbcr++; // Cr1
-                        w0_1 = w0_1 | (*src_y1++ << 2) << 20;
-                        w1_1 = w1_1 | (*src_y2++ << 2) << 20;
+                        w0_1 = w0_1 | (*src_y1++ >> 6) << 20;
+                        w1_1 = w1_1 | (*src_y2++ >> 6) << 20;
 
-                        w0_2 = *src_cbcr << 2;
-                        w1_2 = *src_cbcr << 2;
+                        w0_2 = *src_cbcr >> 6;
+                        w1_2 = *src_cbcr >> 6;
                         src_cbcr++;
-                        w0_2 = w0_2 | (*src_y1++ << 2) << 10;
-                        w1_2 = w1_2 | (*src_y2++ << 2) << 10;
-                        w0_2 = w0_2 | (*src_cbcr << 2) << 20;
-                        w1_2 = w1_2 | (*src_cbcr << 2) << 20;
+                        w0_2 = w0_2 | (*src_y1++ >> 6) << 10;
+                        w1_2 = w1_2 | (*src_y2++ >> 6) << 10;
+                        w0_2 = w0_2 | (*src_cbcr >> 6) << 20;
+                        w1_2 = w1_2 | (*src_cbcr >> 6) << 20;
                         src_cbcr++;
 
-                        w0_3 = *src_y1++;
-                        w1_3 = *src_y2++;
-                        w0_3 = w0_3 | (*src_cbcr << 2) << 10;
-                        w1_3 = w1_3 | (*src_cbcr << 2) << 10;
+                        w0_3 = *src_y1++ >> 6;
+                        w1_3 = *src_y2++ >> 6;
+                        w0_3 = w0_3 | (*src_cbcr >> 6) << 10;
+                        w1_3 = w1_3 | (*src_cbcr >> 6) << 10;
                         src_cbcr++;
-                        w0_3 = w0_3 | (*src_y1++ << 2) << 20;
-                        w1_3 = w1_3 | (*src_y2++ << 2) << 20;
+                        w0_3 = w0_3 | (*src_y1++ >> 6) << 20;
+                        w1_3 = w1_3 | (*src_y2++ >> 6) << 20;
 
                         *dst1++ = w0_0;
                         *dst1++ = w0_1;
