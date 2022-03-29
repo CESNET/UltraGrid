@@ -2792,6 +2792,24 @@ static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
+static void p210le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < height; ++y) {
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cbcr = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
+                        *dst = *src_cbcr++ >> 8;
+                        *dst++ = *src_y++ >> 8;
+                        *dst++ = *src_cbcr++ >> 8;
+                        *dst++ = *src_y++ >> 8;
+                }
+        }
+}
+
 #ifdef HWACC_VDPAU
 static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
@@ -2938,6 +2956,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P10LE, RG48, yuv444p10le_to_rg48, false},
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
+                {AV_PIX_FMT_P210LE, UYVY, p210le_to_uyvy, false},
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
                 {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
 #endif
