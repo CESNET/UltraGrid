@@ -19,6 +19,7 @@ brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
 brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
 brew install qt@5
+brew install glm
 
 sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt
 
