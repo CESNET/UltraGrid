@@ -209,14 +209,14 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
         }},
         { AV1, codec_params_t{
                 [](bool) { return "libsvtav1"; },
-                0,
+                0.1,
                 get_av1_preset,
                 setparam_h264_h265_av1,
                 600
         }},
         { PRORES, codec_params_t{
                 nullptr,
-                0,
+                0.5,
                 nullptr,
                 setparam_default,
                 300,
