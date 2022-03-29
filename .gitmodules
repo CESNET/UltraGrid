@@ -1,9 +1,6 @@
 [submodule "cineform-sdk"]
 	path = cineform-sdk
 	url = https://github.com/gopro/cineform-sdk.git
-[submodule "glm"]
-	path = glm
-	url = https://github.com/g-truc/glm.git
 [submodule "ext-deps/zfec"]
 	path = ext-deps/zfec
 	url = https://github.com/tahoe-lafs/zfec
