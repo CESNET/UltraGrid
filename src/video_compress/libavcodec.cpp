@@ -131,6 +131,7 @@ typedef struct {
 } codec_params_t;
 
 static string get_h264_h265_preset(string const & enc_name, int width, int height, double fps);
+static string get_av1_preset(string const & enc_name, int width, int height, double fps);
 static void libavcodec_check_messages(struct state_video_compress_libav *s);
 static void libavcodec_compress_done(struct module *mod);
 static void setparam_default(AVCodecContext *, struct setparam_param *);
@@ -207,9 +208,9 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
                 502
         }},
         { AV1, codec_params_t{
-                nullptr,
+                [](bool) { return "libsvtav1"; },
                 0,
-                nullptr,
+                get_av1_preset,
                 setparam_h264_h265_av1,
                 600
         }},
@@ -1886,6 +1887,10 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* 
                 if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_rows", 2, 0)) {
                         print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Column Count for SVT", ret);
                 }
+                //Low-latency mode
+                if (int ret = av_opt_set_int(codec_ctx->priv_data, "pred_struct", 0, 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable to set pred_struct for SVT", ret);
+                }
         }
 }
 
@@ -1949,6 +1954,18 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
         }
         if (regex_match(enc_name, regex(".*_vaapi"))) {
                 return string{DONT_SET_PRESET}; // VAAPI doesn't support presets
+        }
+        return {};
+}
+
+static string get_av1_preset(string const & enc_name, int width, int height, double fps)
+{
+        if (enc_name == "libsvtav1") {
+                if (width <= 1920 && height <= 1080 && fps <= 30) {
+                        return string("9");
+                } else {
+                        return string("11");
+                }
         }
         return {};
 }
