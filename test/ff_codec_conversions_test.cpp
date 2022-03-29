@@ -20,10 +20,13 @@
 #include "video_capture/testcard_common.h"
 #include "video_codec.h"
 
+using namespace std::string_literals;
+
 using std::array;
 using std::copy;
 using std::cout;
 using std::default_random_engine;
+using std::uniform_int_distribution;
 using std::ifstream;
 using std::min;
 using std::max;
@@ -32,6 +35,7 @@ using std::vector;
 
 constexpr int MIN_12B = 16;
 constexpr int MAX_12B = 4079;
+
 
 // Registers the fixture into the 'registry'
 CPPUNIT_TEST_SUITE_REGISTRATION( ff_codec_conversions_test );
@@ -307,7 +311,6 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48_out_of_range()
  */
 void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
 {
-        using namespace std::string_literals;
         constexpr int MAX_DIFF = 16; /// @todo look at the conversions to yield better precision
 
         int width = 2048;
@@ -363,6 +366,44 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
         }
 
         CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference "s + to_string (MAX_DIFF) + "/65535, found "s + to_string(max_diff), max_diff <= MAX_DIFF);
+}
+
+/**
+ * Just a simple test - since this is 1:1 mapping, use just dummy random data
+ */
+void ff_codec_conversions_test::test_p210_from_to_v210()
+{
+        constexpr codec_t codec = v210;
+        constexpr long width = 1920;
+        constexpr long height = 1080;
+        const long linesize = vc_get_linesize(width, codec);
+        vector <unsigned char> in(height * linesize);
+        vector <unsigned char> out(height * linesize);
+        default_random_engine rand_gen;
+        uniform_int_distribution<uint32_t> dist(0, 0x3fffffffLU);
+        std::for_each((uint32_t *) in.data(), (uint32_t *) (in.data() + height * linesize), [&](uint32_t & c) { c = dist(rand_gen); });
+
+        AVFrame frame{};
+        frame.format =  AV_PIX_FMT_P210LE;
+        frame.width = 1920;
+        frame.height = 1080;
+        if (av_image_alloc(frame.data, frame.linesize,
+                                width, height, (AVPixelFormat) frame.format, 32) < 0) {
+                abort();
+        }
+
+        auto from_conv = get_uv_to_av_conversion(codec, frame.format);
+        auto to_conv = get_av_to_uv_conversion(frame.format, codec);
+        assert(from_conv != nullptr);
+        assert(to_conv != nullptr);
+
+        from_conv(&frame, in.data(), width, height);
+        to_conv(reinterpret_cast<char *>(out.data()), &frame, width, height, vc_get_linesize(width, codec), nullptr);
+
+        CPPUNIT_ASSERT_MESSAGE("Error: output doesn't match input"s, in == out);
+        out[(width / 2) * height] = 123;
+        CPPUNIT_ASSERT_MESSAGE("Error: output matches input but it shouldn't"s, in != out);
+
 }
 
 #endif // defined HAVE_CPPUNIT && HAVE_LAVC

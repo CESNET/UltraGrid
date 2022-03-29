@@ -37,6 +37,9 @@
  */
 /**
  * @file
+ * References:
+ * 1. [v210](https://wiki.multimedia.cx/index.php/V210)
+ *
  * @todo
  * Some conversions to RGBA ignore RGB-shifts - either fix that or deprecate RGB-shifts
  */
@@ -670,6 +673,41 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __res
                         *dst_cbcr++ = (((w0_2 & 0x3ff) + (w1_2 & 0x3ff)) / 2) << 6; // Cr
                         *dst_cbcr++ = ((((w0_2 >> 20) & 0x3ff) + ((w1_2 >> 20) & 0x3ff)) / 2) << 6; // Cb
                         *dst_cbcr++ = ((((w0_3 >> 10) & 0x3ff) + ((w1_3 >> 10) & 0x3ff)) / 2) << 6; // Cr
+                }
+        }
+}
+
+static void v210_to_p210le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        assert((uintptr_t) in_data % 4 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
+        for(int y = 0; y < height; y++) {
+                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint16_t *dst_cbcr = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0 = *src++;
+                        uint32_t w0_1 = *src++;
+                        uint32_t w0_2 = *src++;
+                        uint32_t w0_3 = *src++;
+
+                        *dst_y++ = ((w0_0 >> 10) & 0x3ff) << 6;
+                        *dst_y++ = (w0_1 & 0x3ff) << 6;
+                        *dst_y++ = ((w0_1 >> 20) & 0x3ff) << 6;
+                        *dst_y++ = ((w0_2 >> 10) & 0x3ff) << 6;
+                        *dst_y++ = (w0_3 & 0x3ff) << 6;
+                        *dst_y++ = ((w0_3 >> 20) & 0x3ff) << 6;
+
+                        *dst_cbcr++ = (w0_0 & 0x3ff) << 6; // Cb
+                        *dst_cbcr++ = ((w0_0 >> 20) & 0x3ff) << 6; // Cr
+                        *dst_cbcr++ = ((w0_1 >> 10) & 0x3ff) << 6; // Cb
+                        *dst_cbcr++ = (w0_2 & 0x3ff) << 6; // Cr
+                        *dst_cbcr++ = ((w0_2 >> 20) & 0x3ff) << 6; // Cb
+                        *dst_cbcr++ = ((w0_3 >> 10) & 0x3ff) << 6; // Cr
                 }
         }
 }
@@ -2621,6 +2659,46 @@ static inline void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * 
         yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
+static void p210le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < height; ++y) {
+                uint16_t *src_y = (uint16_t *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cbcr = (uint16_t *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0 = *src_cbcr >> 6; // Cb0
+                        src_cbcr++; // Cr0
+                        w0_0 = w0_0 | (*src_y++ >> 6) << 10;
+                        w0_0 = w0_0 | (*src_cbcr >> 6) << 20;
+                        src_cbcr++; // Cb1
+
+                        uint32_t w0_1 = *src_y++ >> 6;
+                        w0_1 = w0_1 | (*src_cbcr >> 6) << 10;
+                        src_cbcr++; // Cr1
+                        w0_1 = w0_1 | (*src_y++ >> 6) << 20;
+
+                        uint32_t w0_2 = *src_cbcr >> 6;
+                        src_cbcr++;
+                        w0_2 = w0_2 | (*src_y++ >> 6) << 10;
+                        w0_2 = w0_2 | (*src_cbcr >> 6) << 20;
+                        src_cbcr++;
+
+                        uint32_t w0_3 = *src_y++ >> 6;
+                        w0_3 = w0_3 | (*src_cbcr >> 6) << 10;
+                        src_cbcr++;
+                        w0_3 = w0_3 | (*src_y++ >> 6) << 20;
+
+                        *dst++ = w0_0;
+                        *dst++ = w0_1;
+                        *dst++ = w0_2;
+                        *dst++ = w0_3;
+                }
+        }
+}
+
 static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -2781,6 +2859,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { RG48, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, rg48_to_yuv444p16le },
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
+                { v210, AV_PIX_FMT_P210LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p210le },
 #endif
                 { UYVY, AV_PIX_FMT_YUV422P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
                 { UYVY, AV_PIX_FMT_YUVJ422P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
@@ -2858,6 +2937,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
                 {AV_PIX_FMT_YUV444P10LE, RG48, yuv444p10le_to_rg48, false},
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
+                {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
                 {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
 #endif
