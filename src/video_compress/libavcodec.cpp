@@ -1903,7 +1903,7 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
                 configure_qsv(codec_ctx, param);
-        } else if (strstr(codec_ctx->codec->name, "libsvt_") == codec_ctx->codec->name) {
+        } else if (strstr(codec_ctx->codec->name, "libsvt") == codec_ctx->codec->name) {
                 configure_svt(codec_ctx, param);
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Unknown encoder %s. Using default configuration values.\n", codec_ctx->codec->name);
