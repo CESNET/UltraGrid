@@ -2159,6 +2159,7 @@ then
 
         CUDA_INC="\"-I$CUDA_PATH/include\""
 	CUDA_COMPILER="$NVCC"
+        INC="$INC $CUDA_INC"
 
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
