@@ -120,7 +120,7 @@ static void * stat_event_thread(void *args);
 static void send_response(fd_t fd, struct response *resp);
 static void print_control_help();
 
-#ifndef HAVE_LINUX
+#ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
 
