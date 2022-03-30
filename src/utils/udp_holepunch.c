@@ -99,8 +99,8 @@
 struct Punch_ctx {
         juice_agent_t *juice_agent;
 
-        int coord_sock;
-        int local_candidate_port;
+        fd_t coord_sock;
+        fd_t local_candidate_port;
 };
 
 static void send_msg(int sock, const char *msg){
@@ -216,7 +216,7 @@ static bool connect_to_coordinator(const char *coord_srv_addr,
         memcpy(&sockaddr.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
         if (connect(s, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) < 0){
                 error_msg(MOD_NAME "Failed to connect to coordination server\n");
-                close(s);
+                CLOSESOCKET(s);
                 return false;
         }
 
@@ -224,7 +224,7 @@ static bool connect_to_coordinator(const char *coord_srv_addr,
         return true;
 }
 
-static void exchange_coord_desc(juice_agent_t *agent, int coord_sock){
+static void exchange_coord_desc(juice_agent_t *agent, fd_t coord_sock){
         char sdp[JUICE_MAX_SDP_STRING_LEN];
         juice_get_local_description(agent, sdp, JUICE_MAX_SDP_STRING_LEN);
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Local description:\n%s\n", sdp);
@@ -240,7 +240,7 @@ static void exchange_coord_desc(juice_agent_t *agent, int coord_sock){
         juice_set_remote_description(agent, msg_buf);
 }
 
-static void discover_and_xchg_candidates(juice_agent_t *agent, int coord_sock) {
+static void discover_and_xchg_candidates(juice_agent_t *agent, fd_t coord_sock) {
         juice_gather_candidates(agent);
 
         fd_set rfds;
@@ -341,7 +341,7 @@ static bool run_punch(struct Punch_ctx *ctx, char *local, char *remote){
 
 static void cleanup_punch(struct Punch_ctx *ctx){
         juice_destroy(ctx->juice_agent);
-        close(ctx->coord_sock);
+        CLOSESOCKET(ctx->coord_sock);
 
 }
 
