@@ -146,7 +146,7 @@ int fec::pt_from_fec_type(enum tx_media_type media_type, enum fec_type fec_type,
                 default: break;
                 }
         }
-        assert(0 && "Unsupported media/FEC type combination");
+        UG_ASSERT(0 && "Unsupported media/FEC type combination");
 }
 
 enum fec_type fec::fec_type_from_pt(int pt) throw()
