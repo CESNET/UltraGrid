@@ -368,7 +368,6 @@ static void * audio_play_ca_init(const char *cfg)
         AudioComponent comp;
         AudioComponentDescription comp_desc;
 #endif
-        UInt32 size;
         AudioDeviceID device;
 
         struct state_ca_playback *s = new struct state_ca_playback();
@@ -414,7 +413,6 @@ static void * audio_play_ca_init(const char *cfg)
         ret = AudioUnitUninitialize(s->auHALComponentInstance);
         if(ret) goto error;
 
-        size=sizeof(device);
         if(cfg != NULL) {
                 if(strcmp(cfg, "help") == 0) {
                         cout << "Core Audio playback usage:\n";
