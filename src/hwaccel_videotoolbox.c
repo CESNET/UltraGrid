@@ -36,12 +36,48 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "compat/qsort_s.h"
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+#include "config_unix.h"
+#include "config_win32.h"
+
 #include "debug.h"
 #include "hwaccel_videotoolbox.h"
 
 #include <libavutil/pixdesc.h>
 
 #define MOD_NAME "[videotoolbox dec.] "
+
+#ifdef QSORT_S_COMP_FIRST
+static int compare(void *ctx, const void *a, const void *b) {
+#else
+static int compare(const void *a, const void *b, void *ctx) {
+#endif
+        int bits_per_comp = ((const AVPixFmtDescriptor *) ctx)->comp[0].depth;
+        int deptha = av_pix_fmt_desc_get(*(const enum AVPixelFormat*) a)->comp[0].depth;
+        int depthb = av_pix_fmt_desc_get(*(const enum AVPixelFormat*) b)->comp[0].depth;
+        if (deptha != depthb) {
+                // either a or b is lower than bits_per_comp - sort higher bit depth first
+                if (deptha < bits_per_comp || depthb < bits_per_comp) {
+                        return depthb - deptha;
+                }
+                // both are equal or higher - sort lower bit depth first
+                return deptha - depthb;
+        }
+        /// @todo more fine-grained comparison when there will be more than 2 alternative codecs
+        return 0;
+}
+
+static void sort_codecs(enum AVPixelFormat sw_format, int count, enum AVPixelFormat *formats) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-qual"
+        AVPixFmtDescriptor *sw_fmt_desc = (AVPixFmtDescriptor *) av_pix_fmt_desc_get(sw_format);
+#pragma clang diagnostic pop
+        qsort_s(formats, count, sizeof(enum AVPixelFormat), compare, sw_fmt_desc);
+}
 
 int videotoolbox_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
@@ -53,7 +89,8 @@ int videotoolbox_init(struct AVCodecContext *s,
         if(ret < 0)
                 return ret;
 
-        enum AVPixelFormat probe_formats[] = { s->sw_pix_fmt, AV_PIX_FMT_UYVY422 };
+        enum AVPixelFormat probe_formats[] = { s->sw_pix_fmt, AV_PIX_FMT_UYVY422, AV_PIX_FMT_P210LE };
+        sort_codecs(s->sw_pix_fmt, sizeof probe_formats / sizeof probe_formats[0] - 1, probe_formats + 1);
 
         AVBufferRef *hw_frames_ctx = NULL;
         for (unsigned i = 0; i < sizeof probe_formats / sizeof probe_formats[0]; ++i) {

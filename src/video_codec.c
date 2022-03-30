@@ -50,7 +50,7 @@
  *
  */
 
-#define __STDC_WANT_LIB_EXT1__ 1 // qsort_s
+#include "compat/qsort_s.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -63,19 +63,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#if !defined __STDC_LIB_EXT1__
-# if defined _WIN32
-#  define QSORT_S_COMP_FIRST 1 // MS version of qsort_s with comparator as first arg
-# else
-#  ifdef __APPLE__
-#    define QSORT_S_COMP_FIRST 1 // BSD version as well
-#    define qsort_s(ptr, count, size, comp, context) qsort_r(ptr, count, size, context, comp)
-#  else
-#    define qsort_s qsort_r
-#  endif
-# endif
-#endif
 
 #include "debug.h"
 #include "host.h"
