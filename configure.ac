@@ -2136,6 +2136,7 @@ then
         RTDXT_COMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
         RTDXT_DECOMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
+        COMMON_FLAGS="$COMMON_FLAGS -Idxt_compress"
         ADD_MODULE("vcompress_rtdxt", "$RTDXT_COMPRESS_OBJ ",
                   "$RTDXT_LIB")
         ADD_MODULE("vdecompress_rtdxt", "$RTDXT_DECOMPRESS_OBJ ",

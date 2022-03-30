@@ -27,7 +27,7 @@ MKDIR_P       = $(COND_SILENCE)mkdir -p
 CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
-INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
+INC           = -Isrc -I$(srcdir)/src -I$(srcdir)/test \
                 @INC@
 CUDA_INC      = @CUDA_INC@ -Isrc -I$(srcdir)/src
 OFAST         = @OFAST@
