@@ -28,7 +28,8 @@ CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @MATHLIBS@ -lm -pthread
 INC           = -Isrc -I$(srcdir) -I$(srcdir)/src -I$(srcdir)/test -Idxt_compress \
-                @CUDA_INC@ @INC@
+                @INC@
+CUDA_INC      = @CUDA_INC@ -Isrc -I$(srcdir)/src
 OFAST         = @OFAST@
 DECKLINK_PATH = @DECKLINK_PATH@
 DYLIBBUNDLER  = @DYLIBBUNDLER@
@@ -313,12 +314,12 @@ POSTPROCESS_DEPS = \
 # Pattern rule for compiling CUDA files
 %.o: %.cu
 	$(MKDIR_P) $(dir $@)
-	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(INC) -c $< -o $@
-	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(INC) -M $< > $*.d
+	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(CUDA_INC) -c $< -o $@
+	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
 	$(POSTPROCESS_DEPS)
 %.lib: %.cu
 	$(MKDIR_P) $(dir $@)
-	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(INC) -MD --shared $< -o $*.dll
+	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(CUDA_INC) -MD --shared $< -o $*.dll
 	touch $@
 	$(POSTPROCESS_DEPS)
 
