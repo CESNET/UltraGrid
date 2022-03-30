@@ -2663,9 +2663,12 @@ static void p210le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 2 == 0);
+        assert((uintptr_t) in_frame->data[1] % 2 == 0);
+        assert((uintptr_t) dst_buffer % 4 == 0);
         for(int y = 0; y < height; ++y) {
-                uint16_t *src_y = (uint16_t *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint16_t *src_cbcr = (uint16_t *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cbcr = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
                 uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
@@ -2703,10 +2706,13 @@ static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 2 == 0);
+        assert((uintptr_t) in_frame->data[1] % 2 == 0);
+        assert((uintptr_t) dst_buffer % 4 == 0 && pitch % 4 == 0);
         for(int y = 0; y < height / 2; ++y) {
-                uint16_t *src_y1 = (uint16_t *) (in_frame->data[0] + in_frame->linesize[0] * y * 2);
-                uint16_t *src_y2 = (uint16_t *) (in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
-                uint16_t *src_cbcr = (uint16_t *) (in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_y1 = (uint16_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * y * 2);
+                uint16_t *src_y2 = (uint16_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
+                uint16_t *src_cbcr = (uint16_t *)(void *) (in_frame->data[1] + in_frame->linesize[1] * y);
                 uint32_t *dst1 = (uint32_t *)(void *)(dst_buffer + (y * 2) * pitch);
                 uint32_t *dst2 = (uint32_t *)(void *)(dst_buffer + (y * 2 + 1) * pitch);
 
@@ -2796,6 +2802,8 @@ static void p210le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 2 == 0);
+        assert((uintptr_t) in_frame->data[1] % 2 == 0);
         for(int y = 0; y < height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cbcr = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
@@ -2877,8 +2885,8 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { RG48, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, rg48_to_yuv444p16le },
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
-                { v210, AV_PIX_FMT_P210LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p210le },
 #endif
+                { v210, AV_PIX_FMT_P210LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p210le },
                 { UYVY, AV_PIX_FMT_YUV422P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
                 { UYVY, AV_PIX_FMT_YUVJ422P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
                 { UYVY, AV_PIX_FMT_YUV420P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
@@ -2954,9 +2962,9 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
                 {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
                 {AV_PIX_FMT_YUV444P10LE, RG48, yuv444p10le_to_rg48, false},
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
                 {AV_PIX_FMT_P210LE, UYVY, p210le_to_uyvy, false},
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
                 {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
 #endif

@@ -145,6 +145,10 @@ extern "C" {
 #define AV_PIX_FMT_GBRP12LE PIX_FMT_GBRP12LE
 #endif
 
+#if LIBAVUTIL_VERSION_INT <= AV_VERSION_INT(57, 9, 101) // FFMPEG commit b2cd1fb2ec6
+#define AV_PIX_FMT_P210LE AV_PIX_FMT_NONE
+#endif
+
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(57, 8, 0)
 static struct AVPacket *av_packet_alloc(void) ATTRIBUTE(unused);
 static struct AVPacket *av_packet_alloc() {
