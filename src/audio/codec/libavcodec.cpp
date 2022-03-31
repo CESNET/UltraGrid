@@ -66,7 +66,6 @@ extern "C" {
 #include "audio/codec.h"
 #include "audio/utils.h"
 #include "libavcodec_common.h"
-#include "utils/resource_manager.h"
 
 #define MAGIC 0xb135ca11
 #define LOW_LATENCY_AUDIOENC_FRAME_DURATION 2.5
@@ -114,7 +113,6 @@ static std::unordered_map<audio_codec_t, codec_param, std::hash<int>> mapping {
 
 struct libavcodec_codec_state {
         uint32_t magic = MAGIC;
-        pthread_mutex_t    *libav_global_lock;
         AVCodecContext     *codec_ctx;
         const AVCodec      *codec;
 
@@ -211,7 +209,6 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                         (direction == AUDIO_CODER ? "en"s : "de"s) << "coder: " << s->codec->name << "\n";
         }
 
-        s->libav_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
         s->codec_ctx = avcodec_alloc_context3(s->codec);
         if(!s->codec_ctx) { // not likely :)
                 if (!silent) {
@@ -341,14 +338,11 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
                 }
         }
 
-        pthread_mutex_lock(s->libav_global_lock);
         /* open it */
         if (int ret = avcodec_open2(s->codec_ctx, s->codec, nullptr)) {
                 print_libav_audio_error(LOG_LEVEL_ERROR, "Could not open codec", ret);
-                pthread_mutex_unlock(s->libav_global_lock);
                 return false;
         }
-        pthread_mutex_unlock(s->libav_global_lock);
 
         if(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) {
                 s->codec_ctx->frame_size = 1;
@@ -392,14 +386,11 @@ static bool reinitialize_decoder(struct libavcodec_codec_state *s, struct audio_
         s->codec_ctx->bits_per_coded_sample = 4; // ADPCM
         s->codec_ctx->sample_rate = desc.sample_rate;
 
-        pthread_mutex_lock(s->libav_global_lock);
         /* open it */
         if (avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
                 fprintf(stderr, "Could not open codec\n");
-                pthread_mutex_unlock(s->libav_global_lock);
                 return false;
         }
-        pthread_mutex_unlock(s->libav_global_lock);
 
         s->saved_desc = desc;
 
@@ -672,10 +663,8 @@ static void cleanup_common(struct libavcodec_codec_state *s)
 #endif
         }
 
-        pthread_mutex_lock(s->libav_global_lock);
         avcodec_close(s->codec_ctx);
         avcodec_free_context(&s->codec_ctx);
-        pthread_mutex_unlock(s->libav_global_lock);
 
         s->context_initialized = false;
 }
@@ -687,7 +676,6 @@ static void libavcodec_done(void *state)
 
         cleanup_common(s);
 
-        rm_release_shared_lock(LAVCD_LOCK_NAME);
         av_frame_free(&s->av_frame);
 
         delete s;

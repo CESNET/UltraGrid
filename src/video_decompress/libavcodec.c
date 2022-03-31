@@ -47,7 +47,6 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/misc.h" // get_cpu_core_count()
-#include "utils/resource_manager.h"
 #include "utils/worker.h"
 #include "video.h"
 #include "video_decompress.h"
@@ -69,7 +68,6 @@
 #define MOD_NAME "[lavd] "
 
 struct state_libavcodec_decompress {
-        pthread_mutex_t *global_lavcd_lock;
         AVCodecContext  *codec_ctx;
         AVFrame         *frame;
         AVPacket        *pkt;
@@ -125,10 +123,8 @@ static void deconfigure(struct state_libavcodec_decompress *s)
         }
 #endif
         if(s->codec_ctx) {
-                pthread_mutex_lock(s->global_lavcd_lock);
                 avcodec_close(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);
-                pthread_mutex_unlock(s->global_lavcd_lock);
         }
         av_free(s->frame);
         s->frame = NULL;
@@ -341,15 +337,12 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         s->codec_ctx->codec_tag = get_fourcc(desc.color_spec);
                 }
                 set_codec_context_params(s);
-                pthread_mutex_lock(s->global_lavcd_lock);
                 if (avcodec_open2(s->codec_ctx, *codec_it, NULL) < 0) {
                         avcodec_free_context(&s->codec_ctx);
-                        pthread_mutex_unlock(s->global_lavcd_lock);
                         log_msg(LOG_LEVEL_WARNING, "[lavd] Unable to open decoder %s.\n", (*codec_it)->name);
                         codec_it++;
                         continue;
                 } else {
-                        pthread_mutex_unlock(s->global_lavcd_lock);
                         log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s\n", (*codec_it)->name);
                         break;
                 }
@@ -382,7 +375,6 @@ static void * libavcodec_decompress_init(void)
         s = (struct state_libavcodec_decompress *)
                 calloc(1, sizeof(struct state_libavcodec_decompress));
 
-        s->global_lavcd_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
         av_log_set_level((log_level - 1) * 8);
 
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
@@ -1017,8 +1009,6 @@ static void libavcodec_decompress_done(void *state)
                 (struct state_libavcodec_decompress *) state;
 
         deconfigure(s);
-
-        rm_release_shared_lock(LAVCD_LOCK_NAME);
 
         free(s);
 }

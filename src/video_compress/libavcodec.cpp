@@ -67,7 +67,6 @@
 #include "rang.hpp"
 #include "utils/misc.h"
 #include "utils/parallel_conv.h"
-#include "utils/resource_manager.h"
 #include "utils/worker.h"
 #include "video.h"
 #include "video_compress.h"
@@ -225,8 +224,6 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
 
 struct state_video_compress_libav {
         struct module       module_data;
-
-        pthread_mutex_t    *lavcd_global_lock;
 
         struct video_desc   saved_desc;
 
@@ -495,9 +492,6 @@ static list<compress_preset> get_libavcodec_presets() {
         avcodec_register_all();
 #endif
 
-        pthread_mutex_t *lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
-        pthread_mutex_lock(lavcd_global_lock);
-
         if (avcodec_find_encoder_by_name("libx264")) {
                 ret.push_back({"encoder=libx264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 1.5, 0}, {15, 1, 0}});
                 ret.push_back({"encoder=libx264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 1.5, 0}, {20, 1, 0}});
@@ -525,9 +519,6 @@ static list<compress_preset> get_libavcodec_presets() {
 #if 0
         ret.push_back({ "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}});
 #endif
-
-        pthread_mutex_unlock(lavcd_global_lock);
-        rm_release_shared_lock(LAVCD_LOCK_NAME);
 
         return ret;
 }
@@ -580,7 +571,6 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         struct state_video_compress_libav *s;
 
         s = new state_video_compress_libav();
-        s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
         av_log_set_level((log_level - 1) * 8);
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         /*  register all the codecs (you can also register only the codec
@@ -1086,15 +1076,12 @@ static bool try_open_codec(struct state_video_compress_libav *s,
         get_av_pixfmt_details(ug_codec, pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
 
         /* open it */
-        pthread_mutex_lock(s->lavcd_global_lock);
         if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
                 avcodec_free_context(&s->codec_ctx);
                 s->codec_ctx = NULL;
                 log_msg(LOG_LEVEL_ERROR, "[lavc] Could not open codec for pixel format %s\n", av_get_pix_fmt_name(pix_fmt));
-                pthread_mutex_unlock(s->lavcd_global_lock);
                 return false;
         }
-        pthread_mutex_unlock(s->lavcd_global_lock);
 
         return true;
 }
@@ -1621,10 +1608,8 @@ static void cleanup(struct state_video_compress_libav *s)
 			}
 		} while (ret != AVERROR_EOF);
 #endif
-                pthread_mutex_lock(s->lavcd_global_lock);
                 avcodec_close(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);
-                pthread_mutex_unlock(s->lavcd_global_lock);
                 s->codec_ctx = NULL;
         }
         if(s->in_frame) {
@@ -1649,7 +1634,6 @@ static void libavcodec_compress_done(struct module *mod)
 
         cleanup(s);
 
-        rm_release_shared_lock(LAVCD_LOCK_NAME);
         for(int i = 0; i < s->params.thread_count; i++) {
                 av_free(s->in_frame_part[i]);
         }

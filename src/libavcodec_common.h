@@ -170,12 +170,6 @@ static void av_packet_free(struct AVPacket **pkt) {
 }
 #endif
 
-/**
- * @todo
- * Is this stuff still needed?
- */
-#define LAVCD_LOCK_NAME "lavcd_lock"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

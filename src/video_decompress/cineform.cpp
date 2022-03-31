@@ -46,7 +46,6 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
-#include "utils/resource_manager.h"
 #include "video.h"
 #include "video_decompress.h"
 #include "utils/misc.h" // to_fourcc
