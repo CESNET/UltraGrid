@@ -511,9 +511,8 @@ static list<compress_preset> get_libavcodec_presets() {
                         ret.push_back({"encoder=nvenc_h264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 0, 0.2}, {15, 1, 0}});
                         ret.push_back({"encoder=nvenc_h264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 0, 0.2}, {20, 1, 0}});
                         ret.push_back({"encoder=nvenc_h264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 0, 0.2}, {25, 1, 0}});
-                        avcodec_close(codec_ctx);
                 }
-                av_free(codec_ctx);
+                avcodec_free_context(&codec_ctx);
         }
 #endif
 #if 0
@@ -1078,7 +1077,6 @@ static bool try_open_codec(struct state_video_compress_libav *s,
         /* open it */
         if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
                 avcodec_free_context(&s->codec_ctx);
-                s->codec_ctx = NULL;
                 log_msg(LOG_LEVEL_ERROR, "[lavc] Could not open codec for pixel format %s\n", av_get_pix_fmt_name(pix_fmt));
                 return false;
         }
@@ -1608,9 +1606,7 @@ static void cleanup(struct state_video_compress_libav *s)
 			}
 		} while (ret != AVERROR_EOF);
 #endif
-                avcodec_close(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);
-                s->codec_ctx = NULL;
         }
         if(s->in_frame) {
                 av_freep(s->in_frame->data);

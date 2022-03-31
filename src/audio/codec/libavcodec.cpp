@@ -663,7 +663,6 @@ static void cleanup_common(struct libavcodec_codec_state *s)
 #endif
         }
 
-        avcodec_close(s->codec_ctx);
         avcodec_free_context(&s->codec_ctx);
 
         s->context_initialized = false;
