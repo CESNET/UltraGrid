@@ -56,7 +56,6 @@
 #include "rtp/rtpenc_h264.h"
 #include "video.h"
 #include "video_codec.h"
-#include "compat/platform_spin.h"
 #include "video_frame.h"
 
 struct rtpenc_h264_state {

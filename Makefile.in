@@ -135,7 +135,6 @@ COMMON_OBJS     = \
 		src/compat/gettimeofday.o \
 		src/compat/platform_pipe.o \
 		src/compat/platform_semaphore.o \
-		src/compat/platform_spin.o \
 		src/compat/platform_time.o \
 		src/compat/usleep.o \
 		src/crypto/crc_32.o \

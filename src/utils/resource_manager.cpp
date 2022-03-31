@@ -1,6 +1,11 @@
 /**
  * @file   utils/resource_manager.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * Seldom used, currently only in x11_common.c. But the managed resources
+ * cannot be easily replaced by static variables there because there will be
+ * multiple instances of static vars in case of modular UltraGrid build (every
+ * library compiled with that file defining the var).
  */
 /*
  * Copyright (c) 2013 CESNET, z. s. p. o.
@@ -43,7 +48,6 @@
 
 #include "resource_manager.h"
 
-#include "compat/platform_spin.h"
 #include "utils/lock_guard.h"
 
 #include <algorithm>
@@ -160,14 +164,14 @@ class resource_manager_t {
                 typedef map<string, pair<resource *, int> > obj_map_t;
                 
                 resource_manager_t() {
-                        platform_spin_init(&m_access_lock);
+                        pthread_mutex_init(&m_access_lock, NULL);
                         pthread_mutex_init(&m_excl_lock, NULL);
                 }
 
                 ~resource_manager_t() {
                         for_each(m_objs.begin(),
                                         m_objs.end(), func_delete);
-                        platform_spin_destroy(&m_access_lock);
+                        pthread_mutex_destroy(&m_access_lock);
                         pthread_mutex_destroy(&m_excl_lock);
                 }
 
@@ -181,7 +185,7 @@ class resource_manager_t {
 
                 resource *acquire(string name, type_t type, options_t const & options) {
                         resource *ret;
-                        platform_spin_guard lock(m_access_lock);
+                        pthread_mutex_guard lock(m_access_lock);
                         string item_name = name + "#" + resource::get_suffix(type);
 
                         obj_map_t::iterator it = m_objs.find(item_name);
@@ -198,7 +202,7 @@ class resource_manager_t {
                 }
 
                 void release(string name, type_t type) {
-                        platform_spin_guard lock(m_access_lock);
+                        pthread_mutex_guard lock(m_access_lock);
                         string item_name = name + "#" + resource::get_suffix(type);
 
                         obj_map_t::iterator it = m_objs.find(item_name);
@@ -215,7 +219,7 @@ class resource_manager_t {
                 }
 
         private:
-                platform_spin_t m_access_lock;
+                pthread_mutex_t m_access_lock;
                 pthread_mutex_t m_excl_lock;
                 obj_map_t m_objs;
 

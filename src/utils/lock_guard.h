@@ -11,7 +11,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "compat/platform_spin.h"
 #include <pthread.h>
 
 namespace ultragrid {
@@ -47,8 +46,6 @@ typedef class generic_lock_guard<pthread_rwlock_t, pthread_rwlock_wrlock, pthrea
         pthread_rwlock_guard_write;
 typedef class generic_lock_guard<pthread_rwlock_t, pthread_rwlock_rdlock, pthread_rwlock_unlock>
         pthread_rwlock_guard_read;
-typedef class generic_lock_guard<platform_spin_t, platform_spin_lock, platform_spin_unlock>
-        platform_spin_guard;
 
 } // end of namespace ultragrid
 
