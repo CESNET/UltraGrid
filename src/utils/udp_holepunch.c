@@ -196,7 +196,7 @@ static void recv_msg(int sock, char *buf, size_t buf_len){
 
 static bool connect_to_coordinator(const char *coord_srv_addr,
                 int coord_srv_port,
-                int *sock)
+                fd_t *sock)
 {
         struct sockaddr_in sockaddr;
         memset(&sockaddr, 0, sizeof(sockaddr));
