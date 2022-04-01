@@ -188,7 +188,7 @@ struct vidcap_decklink_state {
         int                     use1080psf = BMD_OPT_KEEP; // capture PsF instead of progressive
 
         uint32_t                profile{}; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
-        uint32_t                link = 0;
+        uint32_t                link = 0; /// @deprecated TOREMOVE? It sets output link configuration, not input thus it should not be used here.
         bool                    nosig_send = false; ///< send video even when no signal detected
 };
 
@@ -1210,11 +1210,10 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
                 BMD_CONFIG_SET_INT(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough);
 
-                if (s->link == 0) {
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
-                        s->link = bmdLinkConfigurationSingleLink;
+                if (s->link != 0) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output link configuration on capture is deprecated and will be removed in future, let us know if this is needed!\n";
+                        CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
                 }
-                CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
                 if (s->use1080psf != BMD_OPT_KEEP) {
                         CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf != 0), "Unable to set output as PsF");
                 }
