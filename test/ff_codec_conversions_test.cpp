@@ -222,8 +222,11 @@ static void yuv444p16le_rg48_encode_decode(int width, int height, char *in, char
 
         /* the image can be allocated by any means and av_image_alloc() is
          * just the most convenient way if av_malloc() is to be used */
-        if (av_image_alloc(frame.data, frame.linesize,
-                                width, height, (AVPixelFormat) frame.format, 32) < 0) {
+        if (int size = av_image_alloc(frame.data, frame.linesize,
+                                width, height, (AVPixelFormat) frame.format, 32); size < 0) {
+                char buf[1024];
+                av_strerror(size, buf, sizeof buf);
+                fprintf(stderr, "av_image_alloc failed: %s\n", buf);
                 abort();
         }
 
@@ -387,10 +390,13 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
         for (auto &c : {AV_PIX_FMT_P010LE, AV_PIX_FMT_P210LE}) {
                 AVFrame frame{};
                 frame.format = c;
-                frame.width = 1920;
-                frame.height = 1080;
-                if (av_image_alloc(frame.data, frame.linesize,
-                                        width, height, (AVPixelFormat) frame.format, 32) < 0) {
+                frame.width = width;
+                frame.height = height;
+                if (int size = av_image_alloc(frame.data, frame.linesize,
+                                        width, height, (AVPixelFormat) frame.format, 32); size < 0) {
+                        char buf[1024];
+                        av_strerror(size, buf, sizeof buf);
+                        fprintf(stderr, "av_image_alloc failed: %s\n", buf);
                         abort();
                 }
 
