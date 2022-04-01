@@ -1215,6 +1215,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 
                 BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConnection, s->connection);
                 BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode);
+                BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
                 BMD_CONFIG_SET_INT(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough);
 
                 if (s->link == 0) {
@@ -1281,7 +1282,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                 }
                                 BMDPixelFormat pf = it->second;
                                 BMD_BOOL supported = 0;
-                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
+                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
                                 if (supported) {
                                         break;
                                 }
@@ -1343,7 +1344,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 }
 
                 BMD_BOOL supported = 0;
-                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, s->conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
+                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
 
                 if (!supported) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";
