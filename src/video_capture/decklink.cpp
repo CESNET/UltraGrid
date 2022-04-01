@@ -147,49 +147,48 @@ using std::mutex;
 class VideoDelegate;
 
 struct device_state {
-        IDeckLink                  *deckLink;
-        IDeckLinkInput             *deckLinkInput;
-        VideoDelegate              *delegate;
-        IDeckLinkProfileAttributes *deckLinkAttributes;
-        IDeckLinkConfiguration     *deckLinkConfiguration;
-        string                      device_id; // either numeric value or device name
+        IDeckLink                  *deckLink              = nullptr;
+        IDeckLinkInput             *deckLinkInput         = nullptr;
+        VideoDelegate              *delegate              = nullptr;
+        IDeckLinkProfileAttributes *deckLinkAttributes    = nullptr;
+        IDeckLinkConfiguration     *deckLinkConfiguration = nullptr;
+        string                      device_id = "0"; // either numeric value or device name
 };
 
 struct vidcap_decklink_state {
-        vector <struct device_state>     state;
-        int                     devices_cnt;
-	string			mode;
-	// void*			rtp_buffer;
-	unsigned int		next_frame_time; // avarege time between frames
-        struct video_frame     *frame;
-        struct audio_frame      audio;
+        vector <struct device_state>     state{vector <struct device_state>(1)};
+        int                     devices_cnt = 1;
+        string                  mode;
+        unsigned int            next_frame_time = 0; // avarege time between frames
+        struct video_frame     *frame{nullptr};
+        struct audio_frame      audio{};
         queue<IDeckLinkAudioInputPacket *> audioPackets;
-        codec_t                 codec;
+        codec_t                 codec{VIDEO_CODEC_NONE};
         BMDVideoInputFlags enable_flags{0};
         BMDSupportedVideoModeFlags supported_flags = bmdSupportedVideoModeDefault;
 
         mutex                   lock;
 	condition_variable      boss_cv;
 
-        int                     frames;
-        unsigned int            grab_audio:1; /* wheather we process audio or not */
+        int                     frames = 0;
+        bool                    grab_audio{false}; /* wheather we process audio or not */
         bool                    stereo{false}; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         bool                    sync_timecode{false}; /* use timecode when grabbing from multiple inputs */
         static_assert(bmdVideoConnectionUnspecified == BMD_OPT_DEFAULT, "Connection unspecified is not 0!");
         BMDVideoConnection      connection{bmdVideoConnectionUnspecified};
         int                     audio_consumer_levels{-1}; ///< 0 false, 1 true, -1 default
         BMDVideoInputConversionMode conversion_mode{};
-        BMDDeckLinkCapturePassthroughMode passthrough; // 0 means don't set
+        BMDDeckLinkCapturePassthroughMode passthrough{}; // 0 means don't set
 
         struct timeval          t0;
 
-        bool                    detect_format;
-        unsigned int            requested_bit_depth; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
-        bool                    p_not_i;
+        bool                    detect_format = false;
+        unsigned int            requested_bit_depth = 0; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
+        bool                    p_not_i = false;
         int                     use1080psf = BMD_OPT_KEEP; // capture PsF instead of progressive
 
-        uint32_t                profile; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
-        uint32_t                link;
+        uint32_t                profile{}; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
+        uint32_t                link = 0;
         bool                    nosig_send = false; ///< send video even when no signal detected
 };
 
@@ -307,7 +306,7 @@ public:
                 HRESULT result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
                 if(result == S_OK) {
                         CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
-                        if(s->grab_audio == FALSE ||
+                        if (!s->grab_audio ||
                                         this->i != 0) { //TODO: figure out output from multiple streams
                                 deckLinkInput->DisableAudioInput();
                         } else {
@@ -738,12 +737,6 @@ static bool settings_init_key_val(struct vidcap_decklink_state *s, char **save_p
 
 static int settings_init(struct vidcap_decklink_state *s, char *fmt)
 {
-        // defaults
-        s->codec = VIDEO_CODEC_NONE;
-        s->devices_cnt = 1;
-        s->state.resize(s->devices_cnt);
-        s->state[0].device_id = "0";
-
         char *tmp;
         char *save_ptr = NULL;
 
@@ -1029,11 +1022,11 @@ static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDi
 
 static bool decklink_cap_configure_audio(struct vidcap_decklink_state *s, unsigned int audio_src_flag, BMDAudioConnection *audioConnection) {
         if (audio_src_flag == 0U) {
-                s->grab_audio = FALSE;
+                s->grab_audio = false;
                 return true;
         }
 
-        s->grab_audio = TRUE;
+        s->grab_audio = true;
         switch (audio_src_flag) {
                 case VIDCAP_FLAG_AUDIO_EMBEDDED:
                         *audioConnection = bmdAudioConnectionEmbedded;
@@ -1071,8 +1064,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
         const char *fmt = vidcap_params_get_fmt(params);
-	struct vidcap_decklink_state *s;
-
 	int dnum, mnum;
 
 
@@ -1095,7 +1086,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-	s = new vidcap_decklink_state();
+	struct vidcap_decklink_state *s = new vidcap_decklink_state();
 	if (s == NULL) {
 		LOG(LOG_LEVEL_ERROR) << "Unable to allocate DeckLink state\n";
 		return VIDCAP_INIT_FAIL;
@@ -1370,7 +1361,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         goto error;
                 }
 
-                if (s->grab_audio == FALSE ||
+                if (!s->grab_audio ||
                                 i != 0) { //TODO: figure out output from multiple streams
                         deckLinkInput->DisableAudioInput();
                 } else {
