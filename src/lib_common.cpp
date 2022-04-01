@@ -249,7 +249,7 @@ void register_library(const char *name, const void *data, enum library_class cls
 {
         auto& map = get_libmap()[cls];
         if (map.find(name) != map.end()) {
-                LOG(LOG_LEVEL_ERROR) << "Module \"" << name << "\" multiple initialization!\n";
+                LOG(LOG_LEVEL_ERROR) << "Module \"" << name << "\" (class " << cls << ") multiple initialization!\n";
         }
         map[name] = {data, abi_version, static_cast<bool>(hidden)};
 }
