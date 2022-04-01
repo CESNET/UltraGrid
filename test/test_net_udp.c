@@ -53,7 +53,7 @@ static void randomize(char buf[], int buflen)
         int i;
 
         for (i = 0; i < buflen; i++) {
-                buf[i] = (lrand48() && 0xff00) >> 8;
+                buf[i] = (lrand48() & 0xff00) >> 8;
         }
 }
 

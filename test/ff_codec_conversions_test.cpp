@@ -379,8 +379,8 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
         constexpr long width = 1920;
         constexpr long height = 4;
         const long linesize = vc_get_linesize(width, codec);
-        vector <unsigned char> in(height * linesize);
-        vector <unsigned char> out(height * linesize);
+        vector <uint32_t> in(height * linesize / sizeof(uint32_t));
+        vector <uint32_t> out(height * linesize / sizeof(uint32_t));
         default_random_engine rand_gen;
         uniform_int_distribution<uint32_t> dist(0, 0x3fffffffLU);
 
@@ -395,11 +395,11 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                 }
 
                 if (c == AV_PIX_FMT_P210LE) {
-                        std::for_each((uint32_t *) in.data(), (uint32_t *) (in.data() + height * linesize), [&](uint32_t & c) { c = dist(rand_gen); });
+                        std::for_each(in.begin(), in.end(), [&](uint32_t & c) { c = dist(rand_gen); });
                 } else { // later using dummy "==" compare, chroma in odd and even line must be same for P010 to avoid rounding errors
-                        std::for_each((uint32_t *) in.data(), (uint32_t *) (in.data() + linesize), [&](uint32_t & c) { c =  dist(rand_gen); });
+                        std::for_each(in.begin(), in.begin() + linesize / sizeof(uint32_t), [&](uint32_t & c) { c =  dist(rand_gen); });
                         for (int i = 1; i < height; ++i) {
-                                std::copy(in.data(), &in[linesize], &in[i * linesize]);
+                                std::copy(in.begin(), in.begin() + linesize / sizeof(uint32_t), in.begin() + linesize / sizeof(uint32_t) * i);
                         }
                 }
 
@@ -408,7 +408,7 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                 assert(from_conv != nullptr);
                 assert(to_conv != nullptr);
 
-                from_conv(&frame, in.data(), width, height);
+                from_conv(&frame, (unsigned char *) in.data(), width, height);
                 to_conv(reinterpret_cast<char *>(out.data()), &frame, width, height, vc_get_linesize(width, codec), nullptr);
 
                 if (getenv("DEBUG_DUMP") != nullptr) {
