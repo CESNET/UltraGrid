@@ -175,7 +175,8 @@ struct vidcap_decklink_state {
         unsigned int            grab_audio:1; /* wheather we process audio or not */
         bool                    stereo{false}; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         bool                    sync_timecode{false}; /* use timecode when grabbing from multiple inputs */
-        BMDVideoConnection      connection{};
+        static_assert(bmdVideoConnectionUnspecified == BMD_OPT_DEFAULT, "Connection unspecified is not 0!");
+        BMDVideoConnection      connection{bmdVideoConnectionUnspecified};
         int                     audio_consumer_levels{-1}; ///< 0 false, 1 true, -1 default
         BMDVideoInputConversionMode conversion_mode{};
         BMDDeckLinkCapturePassthroughMode passthrough; // 0 means don't set
