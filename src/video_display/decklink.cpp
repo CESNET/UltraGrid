@@ -427,7 +427,7 @@ public:
 
                 const uint32_t AUDIO_BUFFER_MAX = 4096; // MAX buffered audio sample in blackmagic
                 //uint32_t target_buffer_fill = AUDIO_BUFFER_MAX / 3 * 2;
-                uint32_t jitter = 5;
+                uint32_t jitter = 50;
 
                 average_buffer_samples.add((double)buffered_count);
                 int frameJitter = buffered_count - previous_buffer;
