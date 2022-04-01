@@ -112,6 +112,86 @@ using rang::style;
 static int display_decklink_putf(void *state, struct video_frame *frame, int nonblock);
 
 namespace {
+class MovingAverage {
+public:
+	MovingAverage(unsigned int period) :
+		period(period), 
+                window(new double[period]), 
+                head(NULL), 
+                tail(NULL),
+		total(0) {
+		
+                assert(period >= 1);
+	}
+
+	~MovingAverage() {
+		delete[] window;
+	}
+
+        void add(double val) {
+		// Init
+		if (head == NULL) {
+			head = window;
+			*head = val;
+			tail = head;
+			inc(tail);
+			total = val;
+			return;
+		}
+		// full?
+		if (head == tail) {
+			total -= *head;
+			inc(head);
+		}
+ 
+		*tail = val;
+		inc(tail);
+		total += val;
+	}
+ 
+	// Returns the average of the last P elements added.
+	// If no elements have been added yet, returns 0.0
+	double avg() const {
+		ptrdiff_t size = this->size();
+		if (size == 0) {
+			return 0; // No entries => 0 average
+		}
+		return total / (double)size; 
+	}
+        
+        ptrdiff_t size() const {
+		if (head == NULL)
+			return 0;
+		if (head == tail)
+			return period;
+		return (period + tail - head) % period;
+	}
+        // returns true if we have filled the period with samples
+        ptrdiff_t filled(){
+                bool filled = false;
+                if (this->size() >= this->period ){
+                        filled = true;
+                }
+                return filled;
+        }
+
+        double getTotal() const {
+                return total;
+        }
+ 
+private:
+	unsigned int period;
+	double* window; // Holds the values to calculate the average of.
+	double* head; 
+	double* tail; 
+	double total; // Cache the total
+ 
+	void inc(double* &p) {
+		if (++p >= window + period) {
+			p = window;
+		}
+	}
+};
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
 private:
@@ -319,6 +399,8 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
  */
 class deck_audio_drift_fixer {
 public:
+        deck_audio_drift_fixer() : average_buffer_samples(500),average_delta(150){}
+
         bool m_enabled = false;
 
         void set_root(module *root) {
@@ -343,7 +425,66 @@ public:
                 }
                 m_total += to_be_written;
 
+                const uint32_t AUDIO_BUFFER_MAX = 4096; // MAX buffered audio sample in blackmagic
+                //uint32_t target_buffer_fill = AUDIO_BUFFER_MAX / 3 * 2;
+                uint32_t jitter = 5;
+
+                average_buffer_samples.add((double)buffered_count);
+                int frameJitter = buffered_count - previous_buffer;
+                average_delta.add((double)frameJitter);
+                this->previous_buffer = buffered_count;
+                
                 long long dst_frame_rate = 0;
+                // do we have enough samples to work out what the drift is
+                uint32_t average_buffer_depth = (uint32_t)average_buffer_samples.avg();
+                int32_t delta = (int32_t)average_buffer_depth - (int32_t) buffered_count;
+                if ( average_buffer_samples.filled()) {
+                        if( target_buffer_fill == 0){
+                                target_buffer_fill = average_buffer_depth;
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE target "<< target_buffer_fill <<"\n";
+                        }
+
+                        if (average_buffer_depth  > target_buffer_fill + jitter  )
+                        {
+                                // buffered samples to big shrink
+                                dst_frame_rate = (bmdAudioSampleRate48kHz * BASE) - 5;
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter\n";
+                        } else if(average_buffer_depth < target_buffer_fill - jitter ) {
+                                 // buffer is increasing as we are not playing slower than the source
+                                dst_frame_rate = (bmdAudioSampleRate48kHz * BASE) + 5;
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter\n";
+                        } else {
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed normal " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter\n";
+                                // dst_frame_rate = bmdAudioSampleRate48kHz * BASE * 1;
+                        }
+                        
+                       /*
+                        if ( true ){
+                               dst_frame_rate = 12275712; //99.9%
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " 99.9  CHANGE \n";
+                        } else {
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " 100  CHANGE \n";
+                        }
+                        */
+                        /*
+                        if ( (uint32_t)buffered_count >  average_buffer_depth ) {
+                                // buffer is increasing as we are not playing slower than the source
+                                dst_frame_rate = bmdAudioSampleRate48kHz * BASE * 1.001;
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta\n";
+                                
+                        } else if( (uint32_t) buffered_count < average_buffer_depth ){
+                                // buffer is decreasing as we are playing faster than source
+                                dst_frame_rate = bmdAudioSampleRate48kHz * BASE * 0.999;
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta\n";
+                                
+                        }
+                        */
+                        
+                }
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE2 " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << dst_frame_rate << " dst_frame_rate "<<"\n";
+
+                
+                /*
                 if (m_resample_level < 0 && buffered_count + to_be_written < per_frame_samples) {
                         dst_frame_rate = bmdAudioSampleRate48kHz * BASE;
                         m_resample_level = 0;
@@ -357,7 +498,8 @@ public:
                         dst_frame_rate = (BASE * bmdAudioSampleRate48kHz - drift_samples) + 128; // slightly 1/2/48000 faster frame rate than computed
                         m_resample_level = -2;
                 }
-
+                */
+   
                 if (dst_frame_rate != 0) {
                         auto *m = new msg_universal((string(MSG_UNIVERSAL_TAG_AUDIO_DECODER) + to_string(dst_frame_rate << ADEC_CH_RATE_SHIFT | BASE)).c_str());
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Sending resample request " << m_resample_level << ": " << dst_frame_rate << "/" << BASE << "\n";
@@ -388,18 +530,24 @@ private:
 
         struct module *m_root = nullptr;
 
+        MovingAverage average_buffer_samples;
+        MovingAverage average_delta; // velocity
+
         atomic<double> m_new_fps{0.0};
         double m_fps{0.0};
         long per_frame_samples{0};
         int m_buffered0{0}; ///< initial buffer filling
         long long m_total{};
         int m_resample_level = 0; // <0 downsampling, 0 none
+        uint32_t target_buffer_fill =0;
+        uint32_t previous_buffer = 0;
 
         /// DeckLink buffers 3 frames of sound
         constexpr static int soft_buf_ratio_pct = 250;
         constexpr static int hard_buf_ratio_pct = 280;
         constexpr static int max_init_buf_ratio_pct = 180;
 };
+
 
 #define DECKLINK_MAGIC 0x12de326b
 
@@ -451,6 +599,11 @@ struct state_decklink {
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
 
         deck_audio_drift_fixer audio_drift_fixer;
+
+        uint32_t            last_buffered_samples;
+        MovingAverage*      average_buffer_samples;
+        int32_t             drift_since_last_correction;
+
  };
 
 static void show_help(bool full);
@@ -675,7 +828,20 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
         UNUSED(nonblock);
 
         assert(s->magic == DECKLINK_MAGIC);
-
+        /*
+        timeInFrame is not dcoumented in the SDK, so putting this here for information.
+        The timeInFrame loops in range from 0 to ticksPerFrame-1 for each frame
+        The timeInFrame is reset by EOF interrupt from DeckLink hardware on output
+        After IDeckLinkOutput::EnableVideoOutput, there is some relocking of output to requested video mode, 
+        in this time there are no EOF signals, so the timeInFrame is not reset.
+        There is slight variability in the lock time between runs as EnableVideoOutput is called from different timepoint in frame period.
+        The below will give an idea of the skew between the source clock and the blackmagic hardware clock.
+        */
+        BMDTimeValue blk_start_time = 0;
+        BMDTimeValue blk_start_timeInFrame = 0;
+        BMDTimeValue blk_start_ticksPerFrame =0;
+        s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_start_time, &blk_start_timeInFrame, &blk_start_ticksPerFrame);
+        
         uint32_t i;
 
         s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i);
@@ -709,10 +875,35 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
 
         frame->callbacks.dispose(frame);
 
+
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
+        BMDTimeValue blk_end_time = 0;
+        BMDTimeValue blk_end_timeInFrame = 0;
+        BMDTimeValue blk_end_ticksPerFrame =0;
+        BMDTimeValue blk_write_duration =0;
+      
+
+        s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_end_time, &blk_end_timeInFrame, &blk_end_ticksPerFrame);
+        if (blk_end_timeInFrame >= blk_start_timeInFrame){
+                blk_write_duration = blk_end_timeInFrame - blk_start_timeInFrame;
+        } else{ 
+                // we have wrapped 
+                BMDTimeValue end_time = blk_end_timeInFrame + blk_end_ticksPerFrame;
+                blk_write_duration = end_time - blk_start_timeInFrame;
+        }
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " putf Video inframe "  << blk_start_timeInFrame << " start, "
+                                                                      << blk_end_timeInFrame << " end, " 
+                                                                      << blk_write_duration << " duration.\n";
+        if (blk_end_timeInFrame - blk_start_timeInFrame > 80) {
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " Video Inframe took longer than expected " << blk_write_duration<<"\n";
+        }
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " putf Video BlkMagic clock " << blk_start_time << " start, "
+                                                                            << blk_end_time << " end, "
+                                                                            << blk_end_time - blk_start_time <<" duration.\n";
         auto t1 = chrono::high_resolution_clock::now();
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(t1 - t0).count() * 1000.0 << " ms.\n";
 
-        if (chrono::duration_cast<chrono::seconds>(t1 - s->t0).count() > 5) {
+        if (chrono::duration_cast<chrono::seconds>(t1 - s->t0).count() > 1) {
                 double seconds = chrono::duration_cast<chrono::duration<double>>(t1 - s->t0).count();
                 double fps = (s->frames - s->frames_last) / seconds;
                 if (log_level <= LOG_LEVEL_INFO) {
@@ -725,6 +916,10 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                                 << s->state.at(0).delegate->frames_dropped << " dropped, "
                                 << s->state.at(0).delegate->frames_flushed << " flushed cumulative)\n";
                 }
+                // take the calculated FPS and take away target FPS and add the diff to teh audio FPS to make it play fast or slower ?
+                // 
+                //target_fps = 
+                //s->audio_drift_fixer.set_fps(fps);
                 s->t0 = t1;
                 s->frames_last = s->frames;
         }
@@ -1176,8 +1371,18 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return NULL;
         }
 
-        auto *s = new state_decklink();
+        struct state_decklink *s = new state_decklink();
+        s->magic = DECKLINK_MAGIC;
         s->audio_drift_fixer.set_root(get_root_module(parent));
+        s->stereo = FALSE;
+        s->emit_timecode = false;
+        s->profile_req = BMD_OPT_DEFAULT;
+        s->link_req = 0;
+        s->devices_cnt = 1;
+        s->low_latency = true;
+        s->last_buffered_samples = 0;
+        s->average_buffer_samples = new MovingAverage(50);
+        s->drift_since_last_correction = 0;
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
@@ -1473,7 +1678,7 @@ static void display_decklink_done(void *state)
                 s->buffer_pool.frame_queue.pop();
                 delete tmp;
         }
-
+        delete s->average_buffer_samples;
         delete s->timecode;
 
         delete s;
@@ -1587,42 +1792,104 @@ static int display_decklink_get_property(void *state, int property, void *val, s
 /*
  * AUDIO
  */
+ 
 static void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 {
+        static std::chrono::high_resolution_clock::time_point time_of_prev_call;
+        std::chrono::high_resolution_clock::time_point time_of_this_call = chrono::high_resolution_clock::now();
+        auto time_diff = chrono::duration_cast<chrono::duration<double>>(time_of_this_call - time_of_prev_call);
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " call diff audio putf " << setprecision(3) << time_diff.count() << "\n";
+        time_of_prev_call = time_of_this_call;
         struct state_decklink *s = (struct state_decklink *)state;
-        unsigned int sampleFrameCount = frame->data_len / (frame->bps *
-                        frame->ch_count);
-
+        unsigned int sampleFrameCount = frame->data_len / (frame->bps * frame->ch_count);
+        int frame_data_len = frame->data_len;
+        
         assert(s->play_audio);
+        BMDTimeValue blk_start_time = 0;
+        BMDTimeValue blk_start_timeInFrame = 0;
+        BMDTimeValue blk_start_ticksPerFrame =0;
+        s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_start_time, &blk_start_timeInFrame, &blk_start_ticksPerFrame);
 
         uint32_t sampleFramesWritten;
 
         auto t0 = chrono::high_resolution_clock::now();
-
+        
+        const uint32_t AUDIO_BUFFER_MAX = 4096;// MAX buffered audio sample in blackmagic
+        uint32_t target_buffer_fill = AUDIO_BUFFER_MAX /2 + sampleFrameCount; 
         uint32_t buffered = 0;
         s->state[0].deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "AUDIO PUTF " << frame->data_len << " data_len " << frame->bps << " bps " << frame->ch_count << " ch_count " << (frame->bps *
+                        frame->ch_count) << " (bps * ch_count) "<<sampleFrameCount <<" sampleFrameCount "<< buffered << " buffered \n"; 
+
         if (buffered == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer underflow!\n";
         }
+        
         if (!s->audio_drift_fixer.update(buffered, sampleFrameCount)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "update drift early exit.\n");
                 return;
         }
-
+        // recalc as the resampler could have changed the number of samples to write
+        unsigned int oldSampleFrameCount = sampleFrameCount; 
+        // sampleFrameCount = frame->data_len / (frame->bps * frame->ch_count);
+        if (oldSampleFrameCount != sampleFrameCount ){
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << " SAMPLES CHANGED " << oldSampleFrameCount <<" oldSampleFrameCount "<<sampleFrameCount<<" sampleFrameCount "<<buffered<<" bufferred "<<"\n";
+        }
+        LOG(LOG_LEVEL_WARNING) << MOD_NAME << " SAMPLES " << oldSampleFrameCount <<" oldSampleFrameCount "<<sampleFrameCount<<" sampleFrameCount "<<buffered<<" bufferred "<<"\n"; 
+        if (frame->data_len != frame_data_len)
+        {
+               LOG(LOG_LEVEL_WARNING) << MOD_NAME << " FRAME LEN CHANGED " << frame->data_len <<" frame->data_len " << frame_data_len << " frame_data_len " <<"\n";
+        }
         if (s->low_latency) {
                 HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sampleFrameCount,
                                 &sampleFramesWritten);
                 if (FAILED(res)) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WriteAudioSamplesSync failed.\n");
                 }
+                if (sampleFrameCount != sampleFramesWritten ){
+                        if (sampleFrameCount < sampleFramesWritten){
+                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! " << sampleFrameCount
+                                                       << " low_latency sample count, "<<sampleFramesWritten << " samples written, " 
+                                                       << sampleFrameCount - sampleFramesWritten<<" diff, "
+                                                       << buffered<< " buffered size, "
+                                                       << (unsigned int)s->last_buffered_samples -  (unsigned int)buffered << " delta\n";
+                        } 
+                }
         } else {
                 s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
                                 0, &sampleFramesWritten);
                 if (sampleFramesWritten != sampleFrameCount) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! (" << sampleFramesWritten << " written, " << sampleFrameCount - sampleFramesWritten << " dropped)\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! no_low_latency " << sampleFrameCount
+                                                       << " samples written, " << sampleFramesWritten << " written, " 
+                                                       << sampleFrameCount - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
                 }
         }
+        BMDTimeValue blk_end_time = 0;
+        BMDTimeValue blk_end_timeInFrame = 0;
+        BMDTimeValue blk_end_ticksPerFrame =0;
+        BMDTimeValue blk_write_duration =0;
+        s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_end_time, &blk_end_timeInFrame, &blk_end_ticksPerFrame);
+        if (blk_end_timeInFrame >= blk_start_timeInFrame){
+                blk_write_duration = blk_end_timeInFrame - blk_start_timeInFrame;
+        } else{ 
+                // we have warpped 
+                BMDTimeValue end_time = blk_end_timeInFrame + blk_end_ticksPerFrame;
+                blk_write_duration = end_time - blk_start_timeInFrame;
+        }
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "putf Audio Inframe " << blk_start_timeInFrame << " start, " << blk_end_timeInFrame << " end "
+                                                                << blk_write_duration<<"  duration " << sampleFrameCount
+                                                                << " samples to write, " << sampleFramesWritten << " samples written, " 
+                                                                << sampleFrameCount - sampleFramesWritten << " diff, " << buffered << " buffered, " 
+                                                                << (signed int)buffered - (signed int)s->last_buffered_samples << " buffered diff\n";
 
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
+        if (blk_end_timeInFrame - blk_start_timeInFrame > 3) {
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "putf audio write took longer than expected " << blk_write_duration<<"\n";
+        }
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "putf Audio BlkMagic Clock " << blk_start_time << " start," << blk_end_time <<" end, " 
+                                                                 << blk_end_time - blk_start_time << " duration\n";
+        s->last_buffered_samples = buffered;
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
+        
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,

@@ -53,6 +53,7 @@
 
 #include <sstream>
 #include <stdexcept>
+#include <chrono>
 
 #define DEFAULT_RESAMPLE_QUALITY 10 // in range [0,10] - 10 best
 
@@ -342,6 +343,7 @@ ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
 
 tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
 {
+        std::chrono::high_resolution_clock::time_point funcBegin = std::chrono::high_resolution_clock::now();
         if (new_sample_rate_num / new_sample_rate_den == sample_rate && new_sample_rate_num % new_sample_rate_den == 0) {
                 return {true, audio_frame2()};
         }
@@ -416,6 +418,11 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
         }
 
         channels = move(new_channels);
+
+        std::chrono::high_resolution_clock::time_point funcEnd = std::chrono::high_resolution_clock::now();
+        auto timeDiff = std::chrono::duration_cast<std::chrono::duration<double>>(funcEnd - funcBegin);
+        LOG(LOG_LEVEL_VERBOSE) << " call diff resampler " << setprecision(3) << timeDiff.count() << "\n";
+
         return {true, std::move(remainder)};
 #else
         UNUSED(resampler_state.resample_from);
