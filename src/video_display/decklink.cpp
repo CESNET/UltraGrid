@@ -447,11 +447,11 @@ public:
                         if (average_buffer_depth  > target_buffer_fill + jitter  )
                         {
                                 // buffered samples to big shrink
-                                dst_frame_rate = (bmdAudioSampleRate48kHz * BASE) - 5;
+                                dst_frame_rate = (bmdAudioSampleRate48kHz - 5) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter\n";
                         } else if(average_buffer_depth < target_buffer_fill - jitter ) {
                                  // buffer is increasing as we are not playing slower than the source
-                                dst_frame_rate = (bmdAudioSampleRate48kHz * BASE) + 5;
+                                dst_frame_rate = (bmdAudioSampleRate48kHz + 5) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter\n";
                         } else {
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed normal " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter\n";
