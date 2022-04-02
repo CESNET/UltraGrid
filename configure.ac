@@ -1553,7 +1553,7 @@ then
 fi
 
 if test $resize_req = yes -a $resize = no; then
-        AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
+        AC_MSG_ERROR([Resize dependency not found, may install OpenCV...?]);
 fi
 
 # -------------------------------------------------------------------------------------------------
