@@ -46,6 +46,8 @@
 #include <cppunit/CompilerOutputter.h>
 #include <cppunit/extensions/TestFactoryRegistry.h>
 #include <cppunit/ui/text/TestRunner.h>
+#include <cppunit/TestResult.h>
+#include <cppunit/TextTestProgressListener.h>
 #endif
 #include <iostream>
 #include <string>
@@ -67,7 +69,7 @@ extern "C" {
 #include "test_video_display.h"
 }
 
-using std::clog;
+using std::cerr;
 using std::cout;
 using std::string;
 
@@ -123,6 +125,13 @@ static bool run_standard_tests()
         return success;
 }
 
+class MyCustomProgressTestListener : public CppUnit::TextTestProgressListener {
+ public:
+     virtual void startTest(CppUnit::Test *test) {
+         cerr << "starting test " << test->getName() << "\n";
+     }
+};
+
 static bool run_unit_tests([[maybe_unused]] string const &test)
 {
 #ifdef HAVE_CPPUNIT
@@ -133,10 +142,12 @@ static bool run_unit_tests([[maybe_unused]] string const &test)
         // Adds the test to the list of test to run
         CPPUNIT_NS::TextUi::TestRunner runner;
         runner.addTest( suite );
+        MyCustomProgressTestListener progress;
+        runner.eventManager().addListener(&progress);
 
         // Change the default outputter to a compiler error format outputter
         runner.setOutputter( new CPPUNIT_NS::CompilerOutputter( &runner.result(),
-                                CPPUNIT_NS::stdCOut() ) );
+                                CPPUNIT_NS::stdCErr() ) );
         // Run the test. Runs all tests if test==""s.
         return runner.run(test);
 #endif
