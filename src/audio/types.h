@@ -122,11 +122,18 @@ class audio_frame2;
 class audio_frame2_resampler {
 public:
         ~audio_frame2_resampler();
+        int get_resampler_numerator();
+        int get_resampler_denominator();
+        int get_resampler_output_latency();
+        int get_resampler_input_latency();
+        bool resampler_set();
 private:
         void *resampler{nullptr}; // type is (SpeexResamplerState *)
         int resample_from{0};
         int resample_to_num{0};
         int resample_to_den{1};
+        int resample_output_latency{0};
+        int resample_input_latency{0};
         size_t resample_ch_count{0};
 
         friend class audio_frame2;
@@ -169,6 +176,7 @@ public:
         bool has_same_prop_as(audio_frame2 const &frame) const;
         void set_duration(double duration);
         void set_fec_params(int channel, fec_desc const &);
+        void check_data(const char* location);
         static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
         void change_bps(int new_bps);
         /**

@@ -88,6 +88,26 @@ audio_frame2_resampler::~audio_frame2_resampler() {
         }
 }
 
+int audio_frame2_resampler::get_resampler_numerator() {
+        return this->resample_to_num;
+}
+
+int audio_frame2_resampler::get_resampler_denominator() {
+        return this->resample_to_den;
+}
+
+int audio_frame2_resampler::get_resampler_input_latency() {
+        return this->resample_input_latency;
+}
+
+int audio_frame2_resampler::get_resampler_output_latency() {
+        return this->resample_output_latency;
+}
+
+bool audio_frame2_resampler::resampler_set() {
+        return this->resampler != nullptr;
+}
+
 /**
  * @brief Creates empty audio_frame2
  */
@@ -338,6 +358,21 @@ void  audio_frame2::change_bps(int new_bps)
         channels = move(new_channels);
 }
 
+void audio_frame2::check_data(const char* location) {
+        for(size_t i = 0; i < channels.size(); i++) {
+                auto channelData = this->get_data(i);
+                auto channelDataLength =  this->get_data_len(i);
+                int16_t previousValue = 1;
+                for(size_t j = 0; j < channelDataLength / sizeof(uint16_t); j++) {
+                        auto currValue = *(int16_t *)(channelData + (sizeof(int16_t) * j));
+                        if(currValue == previousValue && currValue == 0) {
+                                LOG(LOG_LEVEL_INFO) << " FOUND SET OF ZEROES IN CHANNEL " << i << " FOUND AT " << location << " " << j * sizeof(uint16_t) << " Samples in" << "\n";
+                        }
+                        previousValue = currValue;
+                }
+        }
+}
+
 ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
                 "  Sets audio resampler quality in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_RESAMPLE_QUALITY) "\n");
 
@@ -370,9 +405,11 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
                         quality = stoi(commandline_params.at("resampler-quality"));
                         assert(quality >= 0 && quality <= 10);
                 }
-                int err = 0;
-                resampler_state.resampler = speex_resampler_init_frac(channels.size(), sample_rate * new_sample_rate_den,
-                                new_sample_rate_num, sample_rate, new_sample_rate_num, quality, &err);
+                int err = 0;// 48005 / 48000  48000
+                resampler_state.resampler = speex_resampler_init_frac(channels.size(), sample_rate * new_sample_rate_den, new_sample_rate_num,
+                                                                      sample_rate, new_sample_rate_num / new_sample_rate_den, quality, &err);
+                // Ignore resampler delay
+                speex_resampler_skip_zeros((SpeexResamplerState *) resampler_state.resampler);
                 if (err) {
                         LOG(LOG_LEVEL_ERROR) << "[audio_frame2] Cannot initialize resampler: " << speex_resampler_strerror(err) << "\n";
                         return {false, audio_frame2{}};
@@ -381,6 +418,9 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
                 resampler_state.resample_to_num = new_sample_rate_num;
                 resampler_state.resample_to_den = new_sample_rate_den;
                 resampler_state.resample_ch_count = channels.size();
+                resampler_state.resample_input_latency = speex_resampler_get_input_latency((SpeexResamplerState *) resampler_state.resampler);
+                resampler_state.resample_output_latency = speex_resampler_get_output_latency((SpeexResamplerState *) resampler_state.resampler);
+                LOG(LOG_LEVEL_VERBOSE) << "LATENCIES InputLatency " << resampler_state.resample_input_latency << " OutputLatency " << resampler_state.resample_output_latency << "\n";
         }
 
         for (size_t i = 0; i < channels.size(); i++) {
@@ -408,7 +448,8 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
                                 (const spx_int16_t *)(const void *) get_data(i), &in_frames,
                                 (spx_int16_t *)(void *) new_channels[i].data.get(), &write_frames);
                 if (in_frames != in_frames_orig) {
-                        remainder.append(i, get_data(i) + in_frames * sizeof(int16_t), in_frames_orig - in_frames);
+                        remainder.append(i, get_data(i) + (in_frames * sizeof(int16_t)), in_frames_orig - in_frames);
+                        LOG(LOG_LEVEL_VERBOSE) << " adding to remainder " << in_frames << " in-frames " << in_frames_orig << " in-frames-orig " << "\n";
                 }
                 new_channels[i].len = write_frames * sizeof(int16_t);
         }
