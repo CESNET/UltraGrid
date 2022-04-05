@@ -39,6 +39,7 @@ PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
 MSYS_REPO=mingw-w64-ucrt-x86_64
 $PACMAN_INSTALL automake autoconf git make pkgconf ${MSYS_REPO}-toolchain ${MSYS_REPO}-cppunit unzip zip
+$PACMAN_INSTALL ${MSYS_REPO}-ffmpeg
 $PACMAN_INSTALL ${MSYS_REPO}-speexdsp
 $PACMAN_INSTALL ${MSYS_REPO}-glew ${MSYS_REPO}-SDL2 ${MSYS_REPO}-freeglut
 $PACMAN_INSTALL ${MSYS_REPO}-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
@@ -85,9 +86,6 @@ build_cineform() {
 
 $GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh
 $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
-
-# Install FFMPEG
-wget --no-verbose https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z && 7z x ffmpeg-release-full-shared.7z && cp -r ffmpeg-*build-shared/{bin,lib,include} /usr/local && rm -rf ffmpeg-* || exit 1
 
 # Install GPUJPEG
 ( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local || exit 1 )
