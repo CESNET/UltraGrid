@@ -406,13 +406,24 @@ public:
         void set_root(module *root) {
                 m_root = root;
         }
-        void set_fps(double fps) {
-                m_new_fps = fps; // schedule for reinit
-        }
 
-        double scaleBufferDelta(int delta) {
+        /**
+         * @brief This function will check the buffer delta and will return a delta in the sample rate
+         *        that is required in order to offset the delta. This is scaled between the class
+         *        members of minHz and maxHz. The delta also has a max and min for the scaling which
+         *        are defined by the minBuffer and the maxBuffer. This ensures that very large deltas
+         *        cannot cause large jumps in the resample rate that are audible (and that small deltas)
+         *        do not create a resampling rate that is too small to have impact on the buffer.
+         * 
+         * @param delta The delta between the average buffer size and the target buffer size to calculate a resample
+         *               delta to offset the difference.
+         * @return double A resample delta that can be added or subtracted from the original resample rate to move the
+         *                average buffer size to the target buffer size.
+         */
+        double scale_buffer_delta(int delta) {
                 // Get a positive delta so that the scale can be calculated properly
                 delta = abs(delta);
+                // Check the boundaries for the scaling calculation
                 if((uint32_t)delta > this->maxBuffer) {
                         delta = this->maxBuffer;
                 }
@@ -427,118 +438,48 @@ public:
                 if (!m_enabled) {
                         return true;
                 }
-                if (m_new_fps != m_fps) {
-                        m_fps = m_new_fps;
-                        if (!reinit(buffered_count, to_be_written)) {
-                                return false;
-                        }
-                }
-                if (m_fps == 0) { // not initialized
-                        return true;
-                }
-                m_total += to_be_written;
 
-                const uint32_t AUDIO_BUFFER_MAX = 4096; // MAX buffered audio sample in blackmagic
-                //uint32_t target_buffer_fill = AUDIO_BUFFER_MAX / 3 * 2;
-                uint32_t jitter = 50;
-
+                // Add the amount currently in the buffer to the moving average, and calculate the delta between that and the previous amount
+                // Store the previous buffer count so we can calculate this next frame.
                 average_buffer_samples.add((double)buffered_count);
-                int frameJitter = buffered_count - previous_buffer;
-                average_delta.add((double)frameJitter);
+                average_delta.add((double)buffered_count - previous_buffer);
                 this->previous_buffer = buffered_count;
                 
                 long long dst_frame_rate = 0;
-                // do we have enough samples to work out what the drift is
-                uint32_t average_buffer_depth = (uint32_t)average_buffer_samples.avg();
-                int32_t delta = (int32_t)average_buffer_depth - (int32_t) buffered_count;
+                // Check to see if our buffered samples has enough to calculate a good average
                 if (average_buffer_samples.filled()) {
+                        // Calculate the average
+                        uint32_t average_buffer_depth = (uint32_t)average_buffer_samples.avg();
+
+                        // Check to see if we have a target amount of the buffer we'd like to fill
                         if( target_buffer_fill == 0) {
+                                // @todo - Have a more dynamic approach to stabalising the buffer during clock drift.
                                 target_buffer_fill =  3000;                                
                                 this->posJitter = 600;
                                 this->negJitter =  600;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE target "<< target_buffer_fill << " posJitter " << this->posJitter << " negJitter " << this->negJitter << " \n";
                         }
 
-                        
+                        // Check whether there needs to be any resampling                        
                         if (average_buffer_depth  > target_buffer_fill + this->posJitter)
                         {
-                                // buffered samples to big shrink
-                                int resampleHz = (int)this->scaleBufferDelta(average_buffer_depth - target_buffer_fill);
+                                // The buffer is too large, so we need to resample down to remove some frames
+                                int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resampleHz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter " << resampleHz << " resampleHz\n";
                         } else if(average_buffer_depth < target_buffer_fill - this->negJitter) {
-                                 // buffer is increasing as we are not playing slower than the source
-                                 // buffered samples to big shrink
-                                int resampleHz = (int)this->scaleBufferDelta(average_buffer_depth - target_buffer_fill);
+                                 // The buffer is too small, so we need to resample up to generate some additional frames
+                                int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resampleHz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter " << resampleHz << " resampleHz\n";
                         } else {
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed normal " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter 0 resampleHz\n";
+                                // If there is nothing to do, then set the resample rate to be the base resample rate.
+                                // This is needed because otherwise code elsewhere may not recognise that there should
+                                // no longer be any resampling.
                                 dst_frame_rate = bmdAudioSampleRate48kHz * BASE;
-                        }
-
-                        /*
-                        if(counter  == 20 || counter == 25 || counter == 40 || counter == 50) {
-                                dst_frame_rate = (bmdAudioSampleRate48kHz + 50) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " CHANGE resample 100" << "\n";
-                        }
-                        else if ( counter  == 30 || counter == 35 || counter == 45 || counter == 55) {
-                                dst_frame_rate = (bmdAudioSampleRate48kHz - 50) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " CHANGE resample 150" << "\n";
-                        }
-                        else {
-                                dst_frame_rate = (bmdAudioSampleRate48kHz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " CHANGE resample same" << "\n";
-                        }
-			counter++;
-                        */
-                       
-                        
-                       /*
-                        if ( true ){
-                               dst_frame_rate = 12275712; //99.9%
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " 99.9  CHANGE \n";
-                        } else {
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " 100  CHANGE \n";
-                        }
-                        */
-                        /*
-                        if ( (uint32_t)buffered_count >  average_buffer_depth ) {
-                                // buffer is increasing as we are not playing slower than the source
-                                dst_frame_rate = bmdAudioSampleRate48kHz * BASE * 1.001;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta\n";
-                                
-                        } else if( (uint32_t) buffered_count < average_buffer_depth ){
-                                // buffer is decreasing as we are playing faster than source
-                                dst_frame_rate = bmdAudioSampleRate48kHz * BASE * 0.999;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta\n";
-                                
-                        }
-                        */
-                        
+                        }       
                 }
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE2 " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << dst_frame_rate << " dst_frame_rate "<<"\n";
-
-                
-                /*
-                if (m_resample_level < 0 && buffered_count + to_be_written < per_frame_samples) {
-                        dst_frame_rate = bmdAudioSampleRate48kHz * BASE;
-                        m_resample_level = 0;
-                } else if (m_resample_level == 0 && buffered_count + to_be_written > per_frame_samples * soft_buf_ratio_pct / 100) {
-                        // computed in shifted base by 256
-                        long long drift_samples = ((buffered_count + to_be_written) - m_buffered0) * BASE * bmdAudioSampleRate48kHz / m_total;
-                        dst_frame_rate = BASE * bmdAudioSampleRate48kHz - drift_samples;
-                        m_resample_level = -1;
-                } else if (m_resample_level == -1 && buffered_count + to_be_written > per_frame_samples * hard_buf_ratio_pct / 100) {
-                        long long drift_samples = ((buffered_count + to_be_written) - m_buffered0) * BASE * bmdAudioSampleRate48kHz / m_total;
-                        dst_frame_rate = (BASE * bmdAudioSampleRate48kHz - drift_samples) + 128; // slightly 1/2/48000 faster frame rate than computed
-                        m_resample_level = -2;
-                }
-                */
    
                 if (dst_frame_rate != 0) {
                         auto *m = new msg_universal((string(MSG_UNIVERSAL_TAG_AUDIO_DECODER) + to_string(dst_frame_rate << ADEC_CH_RATE_SHIFT | BASE)).c_str());
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Sending resample request " << m_resample_level << ": " << dst_frame_rate << "/" << BASE << "\n";
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Sending resample request " << dst_frame_rate << "/" << BASE << "\n";
                         assert(m_root != nullptr);
                         auto *response = send_message_sync(m_root, "audio.receiver.decoder", reinterpret_cast<message *>(m), 100, SEND_MESSAGE_FLAG_NO_STORE);
                         if (!RESPONSE_SUCCESSFUL(response_get_status(response))) {
@@ -552,29 +493,14 @@ public:
 
 private:
         static constexpr unsigned long BASE = (1U<<8U);
-        bool reinit(int buffered_count, int to_be_written) {
-                m_total = 0;
-                per_frame_samples = bmdAudioSampleRate48kHz / m_fps;
-                m_resample_level = 0;
-                if (buffered_count + to_be_written > per_frame_samples * max_init_buf_ratio_pct / 100) {
-                        m_buffered0 = buffered_count;
-                        return false;
-                }
-                m_buffered0 = buffered_count + to_be_written;
-                return true;
-        }
-
         struct module *m_root = nullptr;
 
         MovingAverage average_buffer_samples;
-        MovingAverage average_delta; // velocity
+        MovingAverage average_delta;
 
         atomic<double> m_new_fps{0.0};
         double m_fps{0.0};
-        long per_frame_samples{0};
-        int m_buffered0{0}; ///< initial buffer filling
-        long long m_total{};
-        int m_resample_level = 0; // <0 downsampling, 0 none
+
         uint32_t target_buffer_fill =0;
         uint32_t previous_buffer = 0;
 
@@ -589,13 +515,6 @@ private:
         uint32_t negJitter = 0;
         uint32_t maxAvg = 3650;
         uint32_t minAvg = 1800;
-
-        uint32_t counter = 0;
-
-        /// DeckLink buffers 3 frames of sound
-        constexpr static int soft_buf_ratio_pct = 250;
-        constexpr static int hard_buf_ratio_pct = 280;
-        constexpr static int max_init_buf_ratio_pct = 180;
 };
 
 
@@ -1845,32 +1764,18 @@ static int display_decklink_get_property(void *state, int property, void *val, s
  
 static void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 {
-        static std::chrono::high_resolution_clock::time_point time_of_prev_call;
-        std::chrono::high_resolution_clock::time_point time_of_this_call = chrono::high_resolution_clock::now();
-        auto time_diff = chrono::duration_cast<chrono::duration<double>>(time_of_this_call - time_of_prev_call);
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " call diff audio putf " << setprecision(3) << time_diff.count() << "\n";
-        time_of_prev_call = time_of_this_call;
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = frame->data_len / (frame->bps * frame->ch_count);
         int frame_data_len = frame->data_len;
         
         assert(s->play_audio);
-        BMDTimeValue blk_start_time = 0;
-        BMDTimeValue blk_start_timeInFrame = 0;
-        BMDTimeValue blk_start_ticksPerFrame =0;
-        s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_start_time, &blk_start_timeInFrame, &blk_start_ticksPerFrame);
 
         uint32_t sampleFramesWritten;
 
         auto t0 = chrono::high_resolution_clock::now();
         
-        const uint32_t AUDIO_BUFFER_MAX = 4096;// MAX buffered audio sample in blackmagic
-        uint32_t target_buffer_fill = AUDIO_BUFFER_MAX /2 + sampleFrameCount; 
         uint32_t buffered = 0;
         s->state[0].deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "AUDIO PUTF " << frame->data_len << " data_len " << frame->bps << " bps " << frame->ch_count << " ch_count " << (frame->bps *
-                        frame->ch_count) << " (bps * ch_count) "<<sampleFrameCount <<" sampleFrameCount "<< buffered << " buffered \n"; 
-
         if (buffered == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer underflow!\n";
         }
@@ -1879,31 +1784,12 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "update drift early exit.\n");
                 return;
         }
-        // recalc as the resampler could have changed the number of samples to write
-        unsigned int oldSampleFrameCount = sampleFrameCount; 
-        // sampleFrameCount = frame->data_len / (frame->bps * frame->ch_count);
-        if (oldSampleFrameCount != sampleFrameCount ){
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << " SAMPLES CHANGED " << oldSampleFrameCount <<" oldSampleFrameCount "<<sampleFrameCount<<" sampleFrameCount "<<buffered<<" bufferred "<<"\n";
-        }
-        LOG(LOG_LEVEL_WARNING) << MOD_NAME << " SAMPLES " << oldSampleFrameCount <<" oldSampleFrameCount "<<sampleFrameCount<<" sampleFrameCount "<<buffered<<" bufferred "<<"\n"; 
-        if (frame->data_len != frame_data_len)
-        {
-               LOG(LOG_LEVEL_WARNING) << MOD_NAME << " FRAME LEN CHANGED " << frame->data_len <<" frame->data_len " << frame_data_len << " frame_data_len " <<"\n";
-        }
+
         if (s->low_latency) {
                 HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sampleFrameCount,
                                 &sampleFramesWritten);
                 if (FAILED(res)) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WriteAudioSamplesSync failed.\n");
-                }
-                if (sampleFrameCount != sampleFramesWritten ){
-                        if (sampleFrameCount < sampleFramesWritten){
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! " << sampleFrameCount
-                                                       << " low_latency sample count, "<<sampleFramesWritten << " samples written, " 
-                                                       << sampleFrameCount - sampleFramesWritten<<" diff, "
-                                                       << buffered<< " buffered size, "
-                                                       << (unsigned int)s->last_buffered_samples -  (unsigned int)buffered << " delta\n";
-                        } 
                 }
         } else {
                 s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
@@ -1914,32 +1800,8 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
                                                        << sampleFrameCount - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
                 }
         }
-        BMDTimeValue blk_end_time = 0;
-        BMDTimeValue blk_end_timeInFrame = 0;
-        BMDTimeValue blk_end_ticksPerFrame =0;
-        BMDTimeValue blk_write_duration =0;
-        s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_end_time, &blk_end_timeInFrame, &blk_end_ticksPerFrame);
-        if (blk_end_timeInFrame >= blk_start_timeInFrame){
-                blk_write_duration = blk_end_timeInFrame - blk_start_timeInFrame;
-        } else{ 
-                // we have warpped 
-                BMDTimeValue end_time = blk_end_timeInFrame + blk_end_ticksPerFrame;
-                blk_write_duration = end_time - blk_start_timeInFrame;
-        }
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "putf Audio Inframe " << blk_start_timeInFrame << " start, " << blk_end_timeInFrame << " end "
-                                                                << blk_write_duration<<"  duration " << sampleFrameCount
-                                                                << " samples to write, " << sampleFramesWritten << " samples written, " 
-                                                                << sampleFrameCount - sampleFramesWritten << " diff, " << buffered << " buffered, " 
-                                                                << (signed int)buffered - (signed int)s->last_buffered_samples << " buffered diff\n";
 
-        if (blk_end_timeInFrame - blk_start_timeInFrame > 3) {
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "putf audio write took longer than expected " << blk_write_duration<<"\n";
-        }
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "putf Audio BlkMagic Clock " << blk_start_time << " start," << blk_end_time <<" end, " 
-                                                                 << blk_end_time - blk_start_time << " duration\n";
-        s->last_buffered_samples = buffered;
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
-        
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,

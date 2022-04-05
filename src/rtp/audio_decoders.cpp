@@ -215,7 +215,7 @@ struct state_audio_decoder {
         bool muted;
 
         audio_frame2_resampler resampler;
-        bool resampleTailBuffer;
+        bool resample_tail_buffer;
 
         audio_playback_ctl_t audio_playback_ctl_func;
         void *audio_playback_state;
@@ -291,7 +291,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->audio_playback_ctl_func = c;
         s->audio_playback_state = p_state;
 
-        s->resampleTailBuffer = false;
+        s->resample_tail_buffer = false;
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DECODER;
@@ -763,6 +763,8 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 return FALSE;
         }
 
+        // If there is any audio leftover as part of the resample ensure that it's added to the beginning of the next audio frame
+        // regardless of whether or not there is more resampling to do.
         if (decoder->resample_remainder) {
                 decoder->resample_remainder.append(decompressed);
                 decompressed = move(decoder->resample_remainder);
@@ -770,30 +772,43 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << " Adding the remainder to the audio\n";
         }
 
-        int resampleNumerator = decoder->req_resample_to >> ADEC_CH_RATE_SHIFT;
-        int resampleDenominator = decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1);
+        // Get the resample numerator and denominator out of the req_resample_to (this may be zero)
+        int resample_numerator = decoder->req_resample_to >> ADEC_CH_RATE_SHIFT;
+        int resample_denominator = decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1);
 
+        // Here we want to check to see if the sample rate is being changed and if there is a resampler currently active.
+        // If this is true (so either we're changing to a new resample rate, or changing from a resample to the "normal" resample rate)
+        // then we need to drain the resampler of buffer it is holding still leftover from the resample delay. We can do this by feeding it
+        // as many zeroes as the size of the input latency from the resampler is.
         if (decoder->req_resample_to != 0
                         && decoder->resampler.resampler_is_set()
-                        && !decoder->resampleTailBuffer
+                        && !decoder->resample_tail_buffer
                         && (decompressed.get_sample_rate() != decoder->resampler.get_resampler_from_sample_rate()
-                                || resampleNumerator != decoder->resampler.get_resampler_numerator()
-                                || resampleDenominator != decoder->resampler.get_resampler_denominator()
+                                || resample_numerator != decoder->resampler.get_resampler_numerator()
+                                || resample_denominator != decoder->resampler.get_resampler_denominator()
                                 || decompressed.get_channel_count() != decoder->resampler.get_resampler_channel_count())) {
-                // Collect the remaining buffer from the resampler
+                // The resampler is no longer required. Collect the remaining buffer from the resampler
                 audio_frame2 tailBuffer = audio_frame2();
                 tailBuffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decompressed.get_bps(), decompressed.get_sample_rate());
+
+                // Generate a buffer the size of the input latency and apply it to all channels
                 char buffer[(decoder->resampler.get_resampler_input_latency()) * sizeof(uint16_t)];
+                memset(buffer, 0, sizeof(buffer));
                 for(size_t i = 0; i < tailBuffer.get_channel_count(); i++) {
-                        memset(buffer, 0, sizeof(buffer));
                         tailBuffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * sizeof(uint16_t));
                 }
-                // Extract remaining buffer from resampler
+                // Extract remaining buffer from resampler by applying a resample the size of the input latency
                 tailBuffer.resample_fake(decoder->resampler, decoder->resampler.get_resampler_numerator(), decoder->resampler.get_resampler_denominator());
+
+                // Append the decompressed audio to the buffer we have extracted
                 tailBuffer.append(decompressed);
                 decompressed = move(tailBuffer);
-                decoder->resampleTailBuffer = true;
-                // Ensure that this resampler can't be reused after draining it
+                // Set the flag that ensures this is only run once when the change in sample rate occurs (as changing to the "original" resample rate
+                // will not destroy the resampler)
+                decoder->resample_tail_buffer = true;
+                // Ensure that this resampler can't be reused after draining it. This will force the destruction of the resampler on the next resample.
+                // This means that even if we switch to the original resample rate, and then back to the sample rate this resampler is set to then the
+                // resampler will be destroyed (as it will have a set of zeroes in it's buffer the size of the input latency).
                 decoder->resampler.resample_set_destroy_flag(true);
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << " Adding the buffer delay back to the audio\n";
         }
@@ -810,8 +825,10 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         }
                         decoder->resample_remainder = move(remainder);
 
+                        // If the resampler was destroyed and reinitialised then there will be a new buffer 
+                        // stored in the resampler we will need to extract later
                         if(reinitResampler) {
-                                decoder->resampleTailBuffer = false;
+                                decoder->resample_tail_buffer = false;
                         }
                 } else {
                         auto [ret, reinitResampler] = decompressed.resample(decoder->resampler, s->buffer.sample_rate);
@@ -820,8 +837,10 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 return FALSE;
                         }
                         
+                        // If the resampler was destroyed and reinitialised then there will be a new buffer 
+                        // stored in the resampler we will need to extract later
                         if(reinitResampler) {
-                                decoder->resampleTailBuffer = false;
+                                decoder->resample_tail_buffer = false;
                         }
                 }
         }
