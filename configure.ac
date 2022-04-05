@@ -3343,6 +3343,9 @@ AC_CHECK_LIB(natpmp, initnatpmp,  FOUND_NATPMP_L=yes, FOUND_NATPMP_L=no)
 if test "$FOUND_NATPMP_H" = yes -a "$FOUND_NATPMP_L" -a $natpmp_req != no; then
         LIBS="-lnatpmp $LIBS"
         AC_DEFINE([HAVE_NATPMP], [1], [Build with NAT-PMP support])
+        if test $system = Windows; then
+                COMMON_FLAGS="$COMMON_FLAGS -DNATPMP_STATICLIB"
+        fi
         natpmp=yes
 fi
 
