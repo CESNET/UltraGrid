@@ -453,24 +453,13 @@ public:
                 int32_t delta = (int32_t)average_buffer_depth - (int32_t) buffered_count;
                 if (average_buffer_samples.filled()) {
                         if( target_buffer_fill == 0) {
-                                if(average_buffer_depth > this->maxAvg) {
-                                        target_buffer_fill = this->maxAvg - 500;
-                                }
-                                else if(average_buffer_depth < this->minAvg) {
-                                        target_buffer_fill = this->minAvg + 500;
-                                }
-                                else {
-                                        target_buffer_fill = average_buffer_depth;
-                                }
-                                
-                                // this->posJitter = this->maxAvg - target_buffer_fill;
-                                // this->negJitter =  target_buffer_fill - this->minAvg;
-                                this->posJitter = 5;
-                                this->negJitter = 5;
+                                target_buffer_fill =  3000;                                
+                                this->posJitter = 600;
+                                this->negJitter =  600;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE target "<< target_buffer_fill << " posJitter " << this->posJitter << " negJitter " << this->negJitter << " \n";
                         }
 
-                        /*
+                        
                         if (average_buffer_depth  > target_buffer_fill + this->posJitter)
                         {
                                 // buffered samples to big shrink
@@ -485,16 +474,16 @@ public:
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter " << resampleHz << " resampleHz\n";
                         } else {
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed normal " <<  average_buffer_depth << " vs " << buffered_count << " " << delta << " delta " << average_delta.getTotal() << " average_velocity " <<  frameJitter << " jitter 0 resampleHz\n";
-                                // dst_frame_rate = bmdAudioSampleRate48kHz * BASE * 1;
+                                dst_frame_rate = bmdAudioSampleRate48kHz * BASE;
                         }
-                        */
 
+                        /*
                         if(counter  == 20 || counter == 25 || counter == 40 || counter == 50) {
-                                dst_frame_rate = (bmdAudioSampleRate48kHz - 100) * BASE;
+                                dst_frame_rate = (bmdAudioSampleRate48kHz + 50) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " CHANGE resample 100" << "\n";
                         }
                         else if ( counter  == 30 || counter == 35 || counter == 45 || counter == 55) {
-                                dst_frame_rate = (bmdAudioSampleRate48kHz - 150) * BASE;
+                                dst_frame_rate = (bmdAudioSampleRate48kHz - 50) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " CHANGE resample 150" << "\n";
                         }
                         else {
@@ -502,6 +491,7 @@ public:
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " CHANGE resample same" << "\n";
                         }
 			counter++;
+                        */
                        
                         
                        /*
@@ -597,8 +587,8 @@ private:
         // Calculate the jitter so that we're within an acceptable range
         uint32_t posJitter = 0;
         uint32_t negJitter = 0;
-        uint32_t maxAvg = 3750;
-        uint32_t minAvg = 1500;
+        uint32_t maxAvg = 3650;
+        uint32_t minAvg = 1800;
 
         uint32_t counter = 0;
 

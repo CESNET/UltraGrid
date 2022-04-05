@@ -215,6 +215,7 @@ struct state_audio_decoder {
         bool muted;
 
         audio_frame2_resampler resampler;
+        bool resampleTailBuffer;
 
         audio_playback_ctl_t audio_playback_ctl_func;
         void *audio_playback_state;
@@ -289,6 +290,8 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->magic = AUDIO_DECODER_MAGIC;
         s->audio_playback_ctl_func = c;
         s->audio_playback_state = p_state;
+
+        s->resampleTailBuffer = false;
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DECODER;
@@ -769,11 +772,18 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
         int resampleNumerator = decoder->req_resample_to >> ADEC_CH_RATE_SHIFT;
         int resampleDenominator = decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1);
-        if(decoder->req_resample_to != 0 && resampleNumerator / resampleDenominator == decompressed.get_sample_rate() && decoder->resampler.resampler_set()) {
+
+        if (decoder->req_resample_to != 0
+                        && decoder->resampler.resampler_is_set()
+                        && !decoder->resampleTailBuffer
+                        && (decompressed.get_sample_rate() != decoder->resampler.get_resampler_from_sample_rate()
+                                || resampleNumerator != decoder->resampler.get_resampler_numerator()
+                                || resampleDenominator != decoder->resampler.get_resampler_denominator()
+                                || decompressed.get_channel_count() != decoder->resampler.get_resampler_channel_count())) {
                 // Collect the remaining buffer from the resampler
                 audio_frame2 tailBuffer = audio_frame2();
                 tailBuffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decompressed.get_bps(), decompressed.get_sample_rate());
-                char buffer[decoder->resampler.get_resampler_input_latency() * sizeof(uint16_t)];
+                char buffer[(decoder->resampler.get_resampler_input_latency()) * sizeof(uint16_t)];
                 for(size_t i = 0; i < tailBuffer.get_channel_count(); i++) {
                         memset(buffer, 0, sizeof(buffer));
                         tailBuffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * sizeof(uint16_t));
@@ -782,6 +792,9 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 tailBuffer.resample_fake(decoder->resampler, decoder->resampler.get_resampler_numerator(), decoder->resampler.get_resampler_denominator());
                 tailBuffer.append(decompressed);
                 decompressed = move(tailBuffer);
+                decoder->resampleTailBuffer = true;
+                // Ensure that this resampler can't be reused after draining it
+                decoder->resampler.resample_set_destroy_flag(true);
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << " Adding the buffer delay back to the audio\n";
         }
 
@@ -791,7 +804,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 }
                 if (decoder->req_resample_to != 0) {
                         decompressed.check_data("PRE-SAMPLE");
-                        auto [ret, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
+                        auto [ret, reinitResampler, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
                         if (!ret) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return FALSE;
@@ -799,10 +812,19 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         decompressed.check_data("POST-SAMPLE");
                         decoder->resample_remainder = move(remainder);
                         decompressed.check_data("POST-REMAIN");
+
+                        if(reinitResampler) {
+                                decoder->resampleTailBuffer = false;
+                        }
                 } else {
-                        if (!decompressed.resample(decoder->resampler, s->buffer.sample_rate)) {
+                        auto [ret, reinitResampler] = decompressed.resample(decoder->resampler, s->buffer.sample_rate);
+                        if (!ret) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return FALSE;
+                        }
+                        
+                        if(reinitResampler) {
+                                decoder->resampleTailBuffer = false;
                         }
                 }
         }
