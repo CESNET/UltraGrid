@@ -386,6 +386,9 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
         uniform_int_distribution<uint32_t> dist(0, 0x3fffffffLU);
 
         for (auto &c : {AV_PIX_FMT_P010LE, AV_PIX_FMT_P210LE}) {
+                if (c == AV_PIX_FMT_NONE) { // compat - P210LE linked to NONE with old FFmpeg
+                        continue;
+                }
                 AVFrame frame{};
                 frame.format = c;
                 frame.width = width;
