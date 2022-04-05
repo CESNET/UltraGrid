@@ -803,15 +803,12 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         decompressed.change_bps(2);
                 }
                 if (decoder->req_resample_to != 0) {
-                        decompressed.check_data("PRE-SAMPLE");
                         auto [ret, reinitResampler, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
                         if (!ret) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return FALSE;
                         }
-                        decompressed.check_data("POST-SAMPLE");
                         decoder->resample_remainder = move(remainder);
-                        decompressed.check_data("POST-REMAIN");
 
                         if(reinitResampler) {
                                 decoder->resampleTailBuffer = false;
