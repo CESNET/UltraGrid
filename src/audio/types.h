@@ -126,7 +126,10 @@ public:
         int get_resampler_denominator();
         int get_resampler_output_latency();
         int get_resampler_input_latency();
-        bool resampler_set();
+        int get_resampler_from_sample_rate();
+        size_t get_resampler_channel_count();
+        bool resampler_is_set();
+        void resample_set_destroy_flag(bool destroy);
 private:
         void *resampler{nullptr}; // type is (SpeexResamplerState *)
         int resample_from{0};
@@ -135,6 +138,7 @@ private:
         int resample_output_latency{0};
         int resample_input_latency{0};
         size_t resample_ch_count{0};
+        bool destroy_resampler{false};
 
         friend class audio_frame2;
 };
@@ -192,10 +196,10 @@ public:
          *                        properties.
          * @retval false          if SpeexDSP was not compiled in
          */
-        bool resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
+        std::tuple<bool, bool> resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
 
         ///@ resamples to new sample rate while keeping nominal sample rate intact
-        std::tuple<bool, audio_frame2> resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den);
+        std::tuple<bool, bool, audio_frame2> resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den);
 private:
         struct channel {
                 std::unique_ptr<char []> data;

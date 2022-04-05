@@ -104,8 +104,20 @@ int audio_frame2_resampler::get_resampler_output_latency() {
         return this->resample_output_latency;
 }
 
-bool audio_frame2_resampler::resampler_set() {
+int audio_frame2_resampler::get_resampler_from_sample_rate() {
+        return this->resample_from;
+}
+
+size_t audio_frame2_resampler::get_resampler_channel_count() {
+        return this->resample_ch_count;
+}
+
+bool audio_frame2_resampler::resampler_is_set() {
         return this->resampler != nullptr;
+}
+
+void audio_frame2_resampler::resample_set_destroy_flag(bool destroy) {
+        this->destroy_resampler = destroy;
 }
 
 /**
@@ -376,13 +388,14 @@ void audio_frame2::check_data(const char* location) {
 ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
                 "  Sets audio resampler quality in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_RESAMPLE_QUALITY) "\n");
 
-tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
+tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
 {
         std::chrono::high_resolution_clock::time_point funcBegin = std::chrono::high_resolution_clock::now();
         if (new_sample_rate_num / new_sample_rate_den == sample_rate && new_sample_rate_num % new_sample_rate_den == 0) {
-                return {true, audio_frame2()};
+                return {true, false, audio_frame2()};
         }
 
+        bool reinitialisedResampler = false;
 #ifdef HAVE_SPEEXDSP
         /// @todo
         /// speex supports also floats so there could be possibility also to add support for more bps
@@ -391,12 +404,12 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
         }
 
         std::vector<channel> new_channels(channels.size());
-
-        if (sample_rate != resampler_state.resample_from
+        if ((sample_rate != resampler_state.resample_from
                         || new_sample_rate_num != resampler_state.resample_to_num || new_sample_rate_den != resampler_state.resample_to_den
-                        || channels.size() != resampler_state.resample_ch_count) {
+                        || channels.size() != resampler_state.resample_ch_count) || resampler_state.destroy_resampler) {
                 if (resampler_state.resampler) {
                         speex_resampler_destroy((SpeexResamplerState *) resampler_state.resampler);
+                        resampler_state.destroy_resampler = false;
                 }
                 resampler_state.resampler = nullptr;
 
@@ -412,7 +425,7 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
                 speex_resampler_skip_zeros((SpeexResamplerState *) resampler_state.resampler);
                 if (err) {
                         LOG(LOG_LEVEL_ERROR) << "[audio_frame2] Cannot initialize resampler: " << speex_resampler_strerror(err) << "\n";
-                        return {false, audio_frame2{}};
+                        return {false, reinitialisedResampler, audio_frame2{}};
                 }
                 resampler_state.resample_from = sample_rate;
                 resampler_state.resample_to_num = new_sample_rate_num;
@@ -420,6 +433,8 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
                 resampler_state.resample_ch_count = channels.size();
                 resampler_state.resample_input_latency = speex_resampler_get_input_latency((SpeexResamplerState *) resampler_state.resampler);
                 resampler_state.resample_output_latency = speex_resampler_get_output_latency((SpeexResamplerState *) resampler_state.resampler);
+
+                reinitialisedResampler = true;
                 LOG(LOG_LEVEL_VERBOSE) << "LATENCIES InputLatency " << resampler_state.resample_input_latency << " OutputLatency " << resampler_state.resample_output_latency << "\n";
         }
 
@@ -451,7 +466,7 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
                         remainder.append(i, get_data(i) + (in_frames * sizeof(int16_t)), in_frames_orig - in_frames);
                         LOG(LOG_LEVEL_VERBOSE) << " adding to remainder " << in_frames << " in-frames " << in_frames_orig << " in-frames-orig " << "\n";
                 }
-                new_channels[i].len = write_frames * sizeof(int16_t);
+                new_channels[i].len = (write_frames - 1) * sizeof(int16_t);
         }
 
         if (remainder.get_data_len() == 0) {
@@ -464,28 +479,28 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
         auto timeDiff = std::chrono::duration_cast<std::chrono::duration<double>>(funcEnd - funcBegin);
         LOG(LOG_LEVEL_VERBOSE) << " call diff resampler " << setprecision(3) << timeDiff.count() << "\n";
 
-        return {true, std::move(remainder)};
+        return {true, reinitialisedResampler, std::move(remainder)};
 #else
         UNUSED(resampler_state.resample_from);
         UNUSED(resampler_state.resample_to_num);
         UNUSED(resampler_state.resample_to_den);
         UNUSED(resampler_state.resample_ch_count);
         LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
-        return {false, audio_frame2{}};
+        return {false, reinitialisedResampler, audio_frame2{}};
 #endif
 }
 
-bool audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sample_rate)
+tuple<bool, bool> audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sample_rate)
 {
-        auto [ret, remainder] = resample_fake(resampler_state, new_sample_rate, 1);
+        auto [ret, reinitResampler, remainder] = resample_fake(resampler_state, new_sample_rate, 1);
         if (!ret) {
-                return false;
+                return {false, reinitResampler};
         }
         if (remainder.get_data_len() > 0) {
                 LOG(LOG_LEVEL_WARNING) << "Audio frame resampler: not all samples resampled!\n";
         }
         sample_rate = new_sample_rate;
 
-        return true;
+        return {true, reinitResampler};
 }
 
