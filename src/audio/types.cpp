@@ -54,6 +54,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <chrono>
+#include <thread>
 
 #define DEFAULT_RESAMPLE_QUALITY 10 // in range [0,10] - 10 best
 
@@ -441,6 +442,26 @@ void audio_frame2::check_data(const char* location) {
         }
 }
 
+void audio_frame2::resample_channel(audio_frame2_resampler* resampler_state, int channel_index, const uint16_t *in, uint32_t *in_len, channel *new_channel, audio_frame2 *remainder) {
+#ifdef HAVE_SPEEXDSP
+        uint32_t in_len_orig = &in_len;
+        uint32_t out_len = new_channel->len;
+
+        speex_resampler_process_int(
+                        (SpeexResamplerState *) resampler_state->resampler,
+                        i,
+                        (const spx_int16_t *)in, in_len,
+                        (spx_int16_t *)(void *) new_channels->data.get(), &out_len);
+        if (&in_len != in_len_orig) {
+                remainder->append(i, in + (&in_len * sizeof(int16_t)), in_len_orig - &in_len);
+        }
+        // The speex resampler process returns the number of frames written + 1 (so ensure we subtract 1 when setting the length)
+        new_channel->len = (out_len - 1) * sizeof(int16_t);
+#else
+        LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
+#endif
+}
+
 ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
                 "  Sets audio resampler quality in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_RESAMPLE_QUALITY) "\n");
 
@@ -514,21 +535,15 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
         /// Consider doing this in parallel - complex resampling requires some milliseconds.
         /// Parallel resampling would reduce latency (and improve performance if there is not
         /// enough single-core power).
+        std::vector<std::thread> resampleChannelThreads;
         for (size_t i = 0; i < channels.size(); i++) {
-                uint32_t in_frames = get_data_len(i) / sizeof(int16_t);
-                uint32_t in_frames_orig = in_frames;
-                uint32_t write_frames = new_channels[i].len;
+                resampleChannelThreads.push_back(std::thread(audio_frame2.resample_channel, &resampler_state, i,  
+                                                             (const spx_int16_t *)(const void *) get_data(i), 
+                                                             get_data_len(i) / sizeof(int16_t), &(new_channels[i]), &remainder));   
+        }
 
-                speex_resampler_process_int(
-                                (SpeexResamplerState *) resampler_state.resampler,
-                                i,
-                                (const spx_int16_t *)(const void *) get_data(i), &in_frames,
-                                (spx_int16_t *)(void *) new_channels[i].data.get(), &write_frames);
-                if (in_frames != in_frames_orig) {
-                        remainder.append(i, get_data(i) + (in_frames * sizeof(int16_t)), in_frames_orig - in_frames);
-                }
-                // The speex resampler process returns the number of frames written + 1 (so ensure we subtract 1 when setting the length)
-                new_channels[i].len = (write_frames - 1) * sizeof(int16_t);
+        for(size_t i = 0; i < channels.size(); i++) {
+                resampleChannelThreads[i].join()
         }
 
         if (remainder.get_data_len() == 0) {
