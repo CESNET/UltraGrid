@@ -468,12 +468,14 @@ public:
                         if (average_buffer_depth  > target_buffer_fill + this->posJitter)
                         {
                                 // The buffer is too large, so we need to resample down to remove some frames
-                                int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
+                                // int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
+                                int resampleHz = 5;
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resampleHz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else if(average_buffer_depth < target_buffer_fill - this->negJitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
-                                int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
+                                // int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
+                                int resampleHz = 5;
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resampleHz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else {
