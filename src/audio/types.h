@@ -211,8 +211,8 @@ private:
         };
         static void resample_channel(audio_frame2_resampler* resampler_state, int channel_index, 
                                      const uint16_t *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder);
-        static void resample_channel(audio_frame2_resampler* resampler_state, int channel_index, 
-                                     const float *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder);
+        static void resample_channel_float(audio_frame2_resampler* resampler_state, int channel_index, 
+                                           const float *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder);
         void reserve(int channel, size_t len);
         int bps;                /* bytes per sample */
         int sample_rate;
