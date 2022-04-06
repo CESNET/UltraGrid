@@ -434,7 +434,7 @@ public:
         }
 
         /// @retval flag if the audio frame should be written
-        bool update(int buffered_count, int to_be_written) {
+        bool update(int buffered_count) {
                 if (!m_enabled) {
                         return true;
                 }
@@ -497,9 +497,6 @@ private:
 
         MovingAverage average_buffer_samples;
         MovingAverage average_delta;
-
-        atomic<double> m_new_fps{0.0};
-        double m_fps{0.0};
 
         uint32_t target_buffer_fill =0;
         uint32_t previous_buffer = 0;
@@ -860,11 +857,11 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                 BMDTimeValue end_time = blk_end_timeInFrame + blk_end_ticksPerFrame;
                 blk_write_duration = end_time - blk_start_timeInFrame;
         }
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " putf Video inframe "  << blk_start_timeInFrame << " start, "
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " putf Video inframe "  << blk_start_timeInFrame << " start, "
                                                                       << blk_end_timeInFrame << " end, " 
                                                                       << blk_write_duration << " duration.\n";
         if (blk_end_timeInFrame - blk_start_timeInFrame > 80) {
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " Video Inframe took longer than expected " << blk_write_duration<<"\n";
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " Video Inframe took longer than expected " << blk_write_duration<<"\n";
         }
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " putf Video BlkMagic clock " << blk_start_time << " start, "
                                                                             << blk_end_time << " end, "
@@ -879,16 +876,12 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
                         log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
                                         s->frames - s->frames_last, seconds, fps);
                 } else {
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->frames - s->frames_last <<
+                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << s->frames - s->frames_last <<
                                 " frames in " << seconds << " seconds = " << fps << " FPS ("
                                 << s->state.at(0).delegate->frames_late << " late, "
                                 << s->state.at(0).delegate->frames_dropped << " dropped, "
                                 << s->state.at(0).delegate->frames_flushed << " flushed cumulative)\n";
                 }
-                // take the calculated FPS and take away target FPS and add the diff to teh audio FPS to make it play fast or slower ?
-                // 
-                //target_fps = 
-                //s->audio_drift_fixer.set_fps(fps);
                 s->t0 = t1;
                 s->frames_last = s->frames;
         }
@@ -974,7 +967,6 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         HRESULT                           result;
 
         unique_lock<mutex> lk(s->reconfiguration_lock);
-        s->audio_drift_fixer.set_fps(desc.fps);
 
         assert(s->magic == DECKLINK_MAGIC);
         
@@ -1766,7 +1758,6 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
 {
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = frame->data_len / (frame->bps * frame->ch_count);
-        int frame_data_len = frame->data_len;
         
         assert(s->play_audio);
 
@@ -1780,7 +1771,7 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer underflow!\n";
         }
         
-        if (!s->audio_drift_fixer.update(buffered, sampleFrameCount)) {
+        if (!s->audio_drift_fixer.update(buffered)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "update drift early exit.\n");
                 return;
         }

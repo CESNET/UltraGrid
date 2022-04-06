@@ -786,7 +786,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         && (decompressed.get_sample_rate() != decoder->resampler.get_resampler_from_sample_rate()
                                 || resample_numerator != decoder->resampler.get_resampler_numerator()
                                 || resample_denominator != decoder->resampler.get_resampler_denominator()
-                                || decompressed.get_channel_count() != decoder->resampler.get_resampler_channel_count())) {
+                                || (size_t)decompressed.get_channel_count() != decoder->resampler.get_resampler_channel_count())) {
                 // The resampler is no longer required. Collect the remaining buffer from the resampler
                 audio_frame2 tailBuffer = audio_frame2();
                 tailBuffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decompressed.get_bps(), decompressed.get_sample_rate());
@@ -794,7 +794,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 // Generate a buffer the size of the input latency and apply it to all channels
                 char buffer[(decoder->resampler.get_resampler_input_latency()) * sizeof(uint16_t)];
                 memset(buffer, 0, sizeof(buffer));
-                for(size_t i = 0; i < tailBuffer.get_channel_count(); i++) {
+                for(size_t i = 0; i < (size_t)tailBuffer.get_channel_count(); i++) {
                         tailBuffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * sizeof(uint16_t));
                 }
                 // Extract remaining buffer from resampler by applying a resample the size of the input latency
