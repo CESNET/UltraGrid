@@ -766,6 +766,14 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         // If there is any audio leftover as part of the resample ensure that it's added to the beginning of the next audio frame
         // regardless of whether or not there is more resampling to do.
         if (decoder->resample_remainder) {
+                if(decoder->resample_remainder.get_bps() > decompressed.get_bps()) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << " BPSCHANGE " << decoder->resample_remainder.get_bps() << " remainderBps " << decompressed.get_bps() << " decompressedBps" << "\n";
+                        decompressed.change_bps(decoder->resample_remainder.get_bps());
+                }
+                else if (decoder->resample_remainder.get_bps() < decompressed.get_bps()){
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << " BPSCHANGE " << decoder->resample_remainder.get_bps() << " remainderBps " << decompressed.get_bps() << " decompressedBps" << "\n";
+                        decoder->resample_remainder.change_bps(decompressed.get_bps());
+                }
                 decoder->resample_remainder.append(decompressed);
                 decompressed = move(decoder->resample_remainder);
                 decoder->resample_remainder = audio_frame2();
@@ -786,19 +794,30 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         && (decompressed.get_sample_rate() != decoder->resampler.get_resampler_from_sample_rate()
                                 || resample_numerator != decoder->resampler.get_resampler_numerator()
                                 || resample_denominator != decoder->resampler.get_resampler_denominator()
-                                || (size_t)decompressed.get_channel_count() != decoder->resampler.get_resampler_channel_count())) {
+                                || (size_t)decompressed.get_channel_count() != decoder->resampler.get_resampler_channel_count()
+                                || decoder->resampler.get_resampler_initial_bps() != decompressed.get_bps())) {
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << " REMOVE removing buffer\n";
                 // The resampler is no longer required. Collect the remaining buffer from the resampler
                 audio_frame2 tailBuffer = audio_frame2();
-                tailBuffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decompressed.get_bps(), decompressed.get_sample_rate());
+                tailBuffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decoder->resampler.get_resampler_initial_bps(), decompressed.get_sample_rate());
 
                 // Generate a buffer the size of the input latency and apply it to all channels
-                char buffer[(decoder->resampler.get_resampler_input_latency()) * sizeof(uint16_t)];
+                char buffer[(decoder->resampler.get_resampler_input_latency()) * decoder->resampler.get_resampler_initial_bps()];
                 memset(buffer, 0, sizeof(buffer));
                 for(size_t i = 0; i < (size_t)tailBuffer.get_channel_count(); i++) {
-                        tailBuffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * sizeof(uint16_t));
+                        tailBuffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * decoder->resampler.get_resampler_initial_bps());
                 }
                 // Extract remaining buffer from resampler by applying a resample the size of the input latency
                 tailBuffer.resample_fake(decoder->resampler, decoder->resampler.get_resampler_numerator(), decoder->resampler.get_resampler_denominator());
+
+                if(tailBuffer.get_bps() > decompressed.get_bps()) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << " tailBuffBig BPSCHANGE " << tailBuffer.get_bps() << " tailBufferBps " << decompressed.get_bps() << " decompressedBps" << "\n";
+                        decompressed.change_bps(tailBuffer.get_bps());
+                }
+                else if (tailBuffer.get_bps() < decompressed.get_bps()){
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << " tailBuffSmall BPSCHANGE " << tailBuffer.get_bps() << " tailBufferBps " << decompressed.get_bps() << " decompressedBps" << "\n";
+                        tailBuffer.change_bps(decompressed.get_bps());
+                }
 
                 // Append the decompressed audio to the buffer we have extracted
                 tailBuffer.append(decompressed);
@@ -814,9 +833,6 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         }
 
         if (decoder->req_resample_to != 0 || s->buffer.sample_rate != decompressed.get_sample_rate()) {
-                if (decompressed.get_bps() != 2) {
-                        decompressed.change_bps(2);
-                }
                 if (decoder->req_resample_to != 0) {
                         auto [ret, reinitResampler, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
                         if (!ret) {

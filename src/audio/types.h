@@ -127,6 +127,7 @@ public:
         int get_resampler_output_latency();
         int get_resampler_input_latency();
         int get_resampler_from_sample_rate();
+        int get_resampler_initial_bps();
         size_t get_resampler_channel_count();
         bool resampler_is_set();
         void resample_set_destroy_flag(bool destroy);
@@ -137,6 +138,7 @@ private:
         int resample_to_den{1};
         int resample_output_latency{0};
         int resample_input_latency{0};
+        int resample_initial_bps{0};
         size_t resample_ch_count{0};
         bool destroy_resampler{false};
 
@@ -207,6 +209,10 @@ private:
                 size_t max_len;
                 struct fec_desc fec_params;
         };
+        static void resample_channel(audio_frame2_resampler* resampler_state, int channel_index, 
+                                     const uint16_t *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder);
+        static void resample_channel(audio_frame2_resampler* resampler_state, int channel_index, 
+                                     const float *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder);
         void reserve(int channel, size_t len);
         int bps;                /* bytes per sample */
         int sample_rate;
