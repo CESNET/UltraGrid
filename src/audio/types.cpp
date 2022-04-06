@@ -168,6 +168,16 @@ void audio_frame2_resampler::resample_set_destroy_flag(bool destroy) {
 }
 
 /**
+ * @brief Returns the initial BPS when the resampler is initialised so we can analyse what BPS the held buffer will
+ *        be.
+ * 
+ * @return int The BPS of the audio frame when the resampler was initialised. 
+ */
+int audio_frame2_resampler::get_resampler_initial_bps() {
+        return this->resample_initial_bps;
+}
+
+/**
  * @brief Creates empty audio_frame2
  */
 audio_frame2::audio_frame2() :
@@ -442,21 +452,41 @@ void audio_frame2::check_data(const char* location) {
         }
 }
 
-void audio_frame2::resample_channel(audio_frame2_resampler* resampler_state, int channel_index, const uint16_t *in, uint32_t *in_len, channel *new_channel, audio_frame2 *remainder) {
+void audio_frame2::resample_channel(audio_frame2_resampler* resampler_state, int channel_index, const uint16_t *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder) {
 #ifdef HAVE_SPEEXDSP
-        uint32_t in_len_orig = &in_len;
+        uint32_t in_len_orig = in_len;
         uint32_t out_len = new_channel->len;
 
         speex_resampler_process_int(
                         (SpeexResamplerState *) resampler_state->resampler,
-                        i,
-                        (const spx_int16_t *)in, in_len,
-                        (spx_int16_t *)(void *) new_channels->data.get(), &out_len);
-        if (&in_len != in_len_orig) {
-                remainder->append(i, in + (&in_len * sizeof(int16_t)), in_len_orig - &in_len);
+                        channel_index,
+                        (const spx_int16_t *)in, &in_len,
+                        (spx_int16_t *)(void *) new_channel->data.get(), &out_len);
+        if (in_len != in_len_orig) {
+                remainder->append(channel_index, (char *)(in + (in_len * sizeof(int16_t))), in_len_orig - in_len);
         }
         // The speex resampler process returns the number of frames written + 1 (so ensure we subtract 1 when setting the length)
         new_channel->len = (out_len - 1) * sizeof(int16_t);
+#else
+        LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
+#endif
+}
+
+void audio_frame2::resample_channel(audio_frame2_resampler* resampler_state, int channel_index, const float *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder) {
+#ifdef HAVE_SPEEXDSP
+        uint32_t in_len_orig = in_len;
+        uint32_t out_len = new_channel->len;
+
+        speex_resampler_process_float(
+                        (SpeexResamplerState *) resampler_state->resampler,
+                        channel_index,
+                        (const float *)in, &in_len,
+                        (float *)(void *) new_channel->data.get(), &out_len);
+        if (in_len != in_len_orig) {
+                remainder->append(channel_index, (char *)(in + (in_len * sizeof(float))), in_len_orig - in_len);
+        }
+        // The speex resampler process returns the number of frames written + 1 (so ensure we subtract 1 when setting the length)
+        new_channel->len = (out_len - 1) * sizeof(float);
 #else
         LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
 #endif
@@ -471,22 +501,29 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
                 return {true, false, audio_frame2()};
         }
 
+        std::chrono::high_resolution_clock::time_point resample_begin = std::chrono::high_resolution_clock::now();
+
         bool reinitialised_resampler = false;
 #ifdef HAVE_SPEEXDSP
         /// @todo
         /// speex supports also floats so there could be possibility also to add support for more bps
-        if (bps != 2) {
-                throw logic_error("Only 16 bits per sample are currently for resampling supported!");
+        LOG(LOG_LEVEL_VERBOSE) << " BPS " << bps << "\n";
+        if (bps != 2 && bps != 4) {
+                LOG(LOG_LEVEL_VERBOSE) << " Unsupported BPS " << bps << "\n";
+                throw logic_error("Only 16 or 32 bits per sample are currently supported for resampling!");
         }
 
         if ((sample_rate != resampler_state.resample_from
                         || new_sample_rate_num != resampler_state.resample_to_num || new_sample_rate_den != resampler_state.resample_to_den
-                        || channels.size() != resampler_state.resample_ch_count) || resampler_state.destroy_resampler) {
+                        || channels.size() != resampler_state.resample_ch_count) || resampler_state.resample_initial_bps != this->bps
+                        || resampler_state.destroy_resampler) {
                 if (resampler_state.resampler) {
                         speex_resampler_destroy((SpeexResamplerState *) resampler_state.resampler);
                         resampler_state.destroy_resampler = false;
                 }
                 resampler_state.resampler = nullptr;
+                
+                LOG(LOG_LEVEL_VERBOSE) << " REINIT Reinitialising because of BPS change. newBPS " << this->bps << " oldBPS " << resampler_state.resample_initial_bps << "\n";
 
                 int quality = DEFAULT_RESAMPLE_QUALITY;
                 if (commandline_params.find("resampler-quality") != commandline_params.end()) {
@@ -516,6 +553,8 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
                 resampler_state.resample_input_latency = speex_resampler_get_input_latency((SpeexResamplerState *) resampler_state.resampler);
                 resampler_state.resample_output_latency = speex_resampler_get_output_latency((SpeexResamplerState *) resampler_state.resampler);
 
+                resampler_state.resample_initial_bps = this->bps;
+
                 reinitialised_resampler = true;
         }
 
@@ -524,7 +563,7 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
         for (size_t i = 0; i < channels.size(); i++) {
                 // allocate new storage + 10 ms headroom
                 size_t new_size = (long long) channels[i].len * new_sample_rate_num / sample_rate / new_sample_rate_den
-                        + new_sample_rate_num * sizeof(int16_t) / 100 / new_sample_rate_den;
+                        + new_sample_rate_num * sizeof(this->bps) / 100 / new_sample_rate_den;
                 new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size, {}};
         }
 
@@ -537,20 +576,37 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
         /// enough single-core power).
         std::vector<std::thread> resampleChannelThreads;
         for (size_t i = 0; i < channels.size(); i++) {
-                resampleChannelThreads.push_back(std::thread(audio_frame2.resample_channel, &resampler_state, i,  
-                                                             (const spx_int16_t *)(const void *) get_data(i), 
-                                                             get_data_len(i) / sizeof(int16_t), &(new_channels[i]), &remainder));   
+                if(bps == 2) {
+                        // resampleChannelThreads.push_back(std::thread(audio_frame2::resample_channel, &resampler_state, i,  
+                        //                                  (const uint16_t *)(const void *) get_data(i), 
+                        //                                  (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder));
+                        audio_frame2::resample_channel(&resampler_state, i,  
+                                                (const uint16_t *)(const void *) get_data(i), 
+                                                (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder);
+                }
+                else if(bps == 4) {
+                        // resampleChannelThreads.push_back(std::thread(audio_frame2::resample_channel, &resampler_state, i,  
+                        //                                  (const float *)(const void *) get_data(i), 
+                        //                                  (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder));
+                        audio_frame2::resample_channel(&resampler_state, i,  
+                                                       (const float *)(const void *) get_data(i), 
+                                                       (int)(get_data_len(i) / sizeof(float)), &(new_channels[i]), &remainder);
+                }
         }
 
-        for(size_t i = 0; i < channels.size(); i++) {
-                resampleChannelThreads[i].join()
-        }
+        // for(size_t i = 0; i < channels.size(); i++) {
+        //         resampleChannelThreads[i].join();
+        // }
 
         if (remainder.get_data_len() == 0) {
                 remainder = {};
         }
 
         channels = move(new_channels);
+
+        std::chrono::high_resolution_clock::time_point resample_end = std::chrono::high_resolution_clock::now();
+        auto time_diff = std::chrono::duration_cast<std::chrono::duration<double>>(resample_end - resample_begin);
+        LOG(LOG_LEVEL_VERBOSE) << " call diff resampler " << setprecision(30) << time_diff.count() << "\n";
 
         return {true, reinitialised_resampler, std::move(remainder)};
 #else
