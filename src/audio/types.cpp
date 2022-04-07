@@ -586,12 +586,12 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
         std::vector<std::thread> resampleChannelThreads;
         for (size_t i = 0; i < channels.size(); i++) {
                 // if(bps == 2) {
-                        // resampleChannelThreads.push_back(std::thread(audio_frame2::resample_channel, &resampler_state, i,  
-                        //                                  (const uint16_t *)(const void *) get_data(i), 
-                        //                                  (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder));
-                        audio_frame2::resample_channel(&resampler_state, i,  
-                                                (const uint16_t *)(const void *) get_data(i), 
-                                                (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder);
+                        resampleChannelThreads.push_back(std::thread(audio_frame2::resample_channel, &resampler_state, i,  
+                                                         (const uint16_t *)(const void *) get_data(i), 
+                                                         (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder));
+                        // audio_frame2::resample_channel(&resampler_state, i,  
+                        //                         (const uint16_t *)(const void *) get_data(i), 
+                        //                         (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder);
                         // LOG(LOG_LEVEL_VERBOSE) << "Calling int resampler\n";
                 // }
                 // else if(bps == 4) {
@@ -605,9 +605,9 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
                 // }
         }
 
-        // for(size_t i = 0; i < channels.size(); i++) {
-        //         resampleChannelThreads[i].join();
-        // }
+        for(size_t i = 0; i < channels.size(); i++) {
+                resampleChannelThreads[i].join();
+        }
 
         if (remainder.get_data_len() == 0) {
                 remainder = {};

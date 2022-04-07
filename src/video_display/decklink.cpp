@@ -451,17 +451,12 @@ public:
 
                 // Check to see if our buffered samples has enough to calculate a good average
                 if (average_buffer_samples.filled()) {
-                        // Calculate the average
-                        // uint32_t average_buffer_depth = (uint32_t)average_buffer_samples.avg();
-
                         // Check to see if we have a target amount of the buffer we'd like to fill
                         if( target_buffer_fill == 0) {
                                 // @todo - Have a more dynamic approach to stabalising the buffer during clock drift.
                                 target_buffer_fill =  3000;                                
                                 this->posJitter = 600;
                                 this->negJitter = 600;
-                                // this->posJitter = 5;
-                                // this->negJitter = 5;
                         }
 
                         // Check whether there needs to be any resampling                        
@@ -470,12 +465,12 @@ public:
                                 // The buffer is too large, so we need to resample down to remove some frames
                                 int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resampleHz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else if(average_buffer_depth < target_buffer_fill - this->negJitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
                                 int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resampleHz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else {
                                 // If there is nothing to do, then set the resample rate to be the base resample rate.
                                 // This is needed because otherwise code elsewhere may not recognise that there should
@@ -485,7 +480,7 @@ public:
                         }       
                 }
 
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE2 " <<  average_buffer_depth << " vs " << buffered_count << " " << dst_frame_rate << " dst_frame_rate "<<"\n";
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " UPDATE2 " <<  average_buffer_depth << " vs " << buffered_count << " " << dst_frame_rate << " dst_frame_rate "<<"\n";
 
    
                 if (dst_frame_rate != 0) {
