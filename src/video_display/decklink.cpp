@@ -397,11 +397,15 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
  * - handle underruns
  * - what about jitter - while computing the dst sample rate, the sampling interval (m_total) must be "long"
  */
-class deck_audio_drift_fixer {
+class audio_drift_fixer {
 public:
-        deck_audio_drift_fixer() : average_buffer_samples(500),average_delta(150){}
+        audio_drift_fixer(int buffer_samples, int delta_samples, 
+                          int target_buffer_fill = 0, int positive_jitter = 0,
+                          int negative_jitter = 0) : average_buffer_samples(buffer_samples),average_delta(delta_samples),
+                                                     target_buffer_fill(target_buffer_fill), pos_jitter(positive_jitter),
+                                                     neg_jitter(negative_jitter){}
 
-        bool m_enabled = false;
+        bool m_enabled = true;
 
         void set_root(module *root) {
                 m_root = root;
@@ -410,8 +414,8 @@ public:
         /**
          * @brief This function will check the buffer delta and will return a delta in the sample rate
          *        that is required in order to offset the delta. This is scaled between the class
-         *        members of minHz and maxHz. The delta also has a max and min for the scaling which
-         *        are defined by the minBuffer and the maxBuffer. This ensures that very large deltas
+         *        members of min_hz and max_hz. The delta also has a max and min for the scaling which
+         *        are defined by the min_buffer and the max_buffer. This ensures that very large deltas
          *        cannot cause large jumps in the resample rate that are audible (and that small deltas)
          *        do not create a resampling rate that is too small to have impact on the buffer.
          * 
@@ -424,52 +428,57 @@ public:
                 // Get a positive delta so that the scale can be calculated properly
                 delta = abs(delta);
                 // Check the boundaries for the scaling calculation
-                if((uint32_t)delta > this->maxBuffer) {
-                        delta = this->maxBuffer;
+                if((uint32_t)delta > this->max_buffer) {
+                        delta = this->max_buffer;
                 }
-                else if ((uint32_t)delta < this->minBuffer) {
-                        delta = this->minBuffer;
+                else if ((uint32_t)delta < this->min_buffer) {
+                        delta = this->min_buffer;
                 }
-                return (((this->maxHz - this->minHz) * (delta - this->minBuffer)) / (this->maxBuffer - this->minBuffer)) + this->minHz;
+                return (((this->max_hz - this->min_hz) * (delta - this->min_buffer)) / (this->max_buffer - this->min_buffer)) + this->min_hz;
         }
 
         /// @retval flag if the audio frame should be written
         bool update(int buffered_count) {
-                if (!m_enabled) {
+                if (!this->m_enabled) {
                         return true;
                 }
 
                 // Add the amount currently in the buffer to the moving average, and calculate the delta between that and the previous amount
                 // Store the previous buffer count so we can calculate this next frame.
-                average_buffer_samples.add((double)buffered_count);
-                average_delta.add((double)buffered_count - previous_buffer);
+                this->average_buffer_samples.add((double)buffered_count);
+                this->average_delta.add((double)buffered_count - previous_buffer);
                 this->previous_buffer = buffered_count;
                 
                 long long dst_frame_rate = 0;
                 // Calculate the average
-                uint32_t average_buffer_depth = (uint32_t)average_buffer_samples.avg();
+                uint32_t average_buffer_depth = (uint32_t)(this->average_buffer_samples.avg());
 
                 // Check to see if our buffered samples has enough to calculate a good average
-                if (average_buffer_samples.filled()) {
+                if (this->average_buffer_samples.filled()) {
+                        // @todo might be worth trying to make this more dynamic so that certain input values
+                        // for different cards can be applied
                         // Check to see if we have a target amount of the buffer we'd like to fill
-                        if( target_buffer_fill == 0) {
-                                // @todo - Have a more dynamic approach to stabalising the buffer during clock drift.
-                                target_buffer_fill =  3000;                                
-                                this->posJitter = 600;
-                                this->negJitter = 600;
+                        if(this->target_buffer_fill == 0) {
+                                this->target_buffer_fill =  audio_drift_fixer::TARGET_BUFFER_DEFAULT;
+                        }
+                        if(this->pos_jitter == 0) {                           
+                                this->pos_jitter = audio_drift_fixer::POS_JITTER_DEFAULT;
+                        }
+                        if(this->neg_jitter == 0) {
+                                this->neg_jitter = audio_drift_fixer::NEG_JITTER_DEFAULT;
                         }
 
                         // Check whether there needs to be any resampling                        
-                        if (average_buffer_depth  > target_buffer_fill + this->posJitter)
+                        if (average_buffer_depth  > target_buffer_fill + this->pos_jitter)
                         {
                                 // The buffer is too large, so we need to resample down to remove some frames
-                                int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
-                                dst_frame_rate = (bmdAudioSampleRate48kHz - resampleHz) * BASE;
+                                int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
+                                dst_frame_rate = (bmdAudioSampleRate48kHz - resample_hz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
-                        } else if(average_buffer_depth < target_buffer_fill - this->negJitter) {
+                        } else if(average_buffer_depth < target_buffer_fill - this->neg_jitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
-                                int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
-                                dst_frame_rate = (bmdAudioSampleRate48kHz + resampleHz) * BASE;
+                                int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
+                                dst_frame_rate = (bmdAudioSampleRate48kHz + resample_hz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else {
                                 // If there is nothing to do, then set the resample rate to be the base resample rate.
@@ -508,16 +517,22 @@ private:
         uint32_t previous_buffer = 0;
 
         // The min and max Hz changes we can resample between
-        uint32_t minHz = 5;
-        uint32_t maxHz = 50;
+        uint32_t min_hz = 5;
+        uint32_t max_hz = 50;
         // The min and max values to scale between
-        uint32_t minBuffer = 100;
-        uint32_t maxBuffer = 600;
+        uint32_t min_buffer = 100;
+        uint32_t max_buffer = 600;
         // Calculate the jitter so that we're within an acceptable range
-        uint32_t posJitter = 0;
-        uint32_t negJitter = 0;
-        uint32_t maxAvg = 3650;
-        uint32_t minAvg = 1800;
+        uint32_t pos_jitter = 0;
+        uint32_t neg_jitter = 0;
+        // Currently unused but might form a part of a more dynamic
+        // solution to finding good jitter values in the future. @todo
+        uint32_t max_avg = 3650;
+        uint32_t min_avg = 1800;
+
+        static uint32_t TARGET_BUFFER_DEFAULT = 3000;
+        static uint32_t POS_JITTER_DEFAULT = 600;
+        static uint32_t NEG_JITTER_DEFAULT = 600;
 };
 
 
@@ -570,10 +585,9 @@ struct state_decklink {
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
 
-        deck_audio_drift_fixer audio_drift_fixer;
+        audio_drift_fixer audio_drift_fixer;
 
         uint32_t            last_buffered_samples;
-        MovingAverage*      average_buffer_samples;
         int32_t             drift_since_last_correction;
 
  };
@@ -1294,7 +1308,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                         return false;
                                 }
                         }
-                } else if (strstr(ptr, "drift_fix") == ptr) {
+                } else if (strstr(ptr, "no_drift_fix") == ptr) {
                         s->audio_drift_fixer.m_enabled = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
@@ -1348,8 +1362,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->devices_cnt = 1;
         s->low_latency = true;
         s->last_buffered_samples = 0;
-        s->average_buffer_samples = new MovingAverage(50);
         s->drift_since_last_correction = 0;
+        s->audio_drift_fixer = audio_drift_fixer(500, 150, 3000, 600, 600);
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
@@ -1645,7 +1659,6 @@ static void display_decklink_done(void *state)
                 s->buffer_pool.frame_queue.pop();
                 delete tmp;
         }
-        delete s->average_buffer_samples;
         delete s->timecode;
 
         delete s;
