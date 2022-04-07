@@ -397,9 +397,9 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
  * - handle underruns
  * - what about jitter - while computing the dst sample rate, the sampling interval (m_total) must be "long"
  */
-class audio_drift_fixer {
+class AudioDriftFixer {
 public:
-        audio_drift_fixer(int buffer_samples, int delta_samples, 
+        AudioDriftFixer(int buffer_samples, int delta_samples, 
                           int target_buffer_fill = 0, int positive_jitter = 0,
                           int negative_jitter = 0) : average_buffer_samples(buffer_samples),average_delta(delta_samples),
                                                      target_buffer_fill(target_buffer_fill), pos_jitter(positive_jitter),
@@ -459,13 +459,13 @@ public:
                         // for different cards can be applied
                         // Check to see if we have a target amount of the buffer we'd like to fill
                         if(this->target_buffer_fill == 0) {
-                                this->target_buffer_fill =  audio_drift_fixer::TARGET_BUFFER_DEFAULT;
+                                this->target_buffer_fill =  AudioDriftFixer::TARGET_BUFFER_DEFAULT;
                         }
                         if(this->pos_jitter == 0) {                           
-                                this->pos_jitter = audio_drift_fixer::POS_JITTER_DEFAULT;
+                                this->pos_jitter = AudioDriftFixer::POS_JITTER_DEFAULT;
                         }
                         if(this->neg_jitter == 0) {
-                                this->neg_jitter = audio_drift_fixer::NEG_JITTER_DEFAULT;
+                                this->neg_jitter = AudioDriftFixer::NEG_JITTER_DEFAULT;
                         }
 
                         // Check whether there needs to be any resampling                        
@@ -530,9 +530,9 @@ private:
         uint32_t max_avg = 3650;
         uint32_t min_avg = 1800;
 
-        static uint32_t TARGET_BUFFER_DEFAULT = 3000;
-        static uint32_t POS_JITTER_DEFAULT = 600;
-        static uint32_t NEG_JITTER_DEFAULT = 600;
+        static const uint32_t TARGET_BUFFER_DEFAULT = 3000;
+        static const uint32_t POS_JITTER_DEFAULT = 600;
+        static const uint32_t NEG_JITTER_DEFAULT = 600;
 };
 
 
@@ -585,7 +585,7 @@ struct state_decklink {
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
 
-        audio_drift_fixer audio_drift_fixer;
+        AudioDriftFixer audio_drift_fixer{500, 150, 3000, 600, 600};
 
         uint32_t            last_buffered_samples;
         int32_t             drift_since_last_correction;
@@ -1363,7 +1363,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->low_latency = true;
         s->last_buffered_samples = 0;
         s->drift_since_last_correction = 0;
-        s->audio_drift_fixer = audio_drift_fixer(500, 150, 3000, 600, 600);
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
