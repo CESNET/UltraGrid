@@ -441,7 +441,8 @@ void audio_frame2::convert_int32_to_float() {
                 auto channel_data_length =  this->get_data_len(i);
                 for(size_t j = 0; j < channel_data_length / this->bps; j++) {
                         int32_t *p_curr_value = (int32_t *)(channel_data + (this->bps * j));
-                        *p_curr_value = (float)(*p_curr_value / std::numeric_limits<int32_t>::max());
+                        float *p_curr_value_float = (float *)p_curr_value;
+                        *p_curr_value_float = ((float)(*p_curr_value) / (float)std::numeric_limits<int32_t>::max());
                 }
         }
 }
@@ -459,14 +460,16 @@ void audio_frame2::convert_float_to_int32() {
                 auto channel_data_length =  this->get_data_len(i);
                 for(size_t j = 0; j < channel_data_length / this->bps; j++) {
                         float *p_curr_value = (float *)(channel_data + (this->bps * j));
+                        int32_t *p_curr_value_int = (int32_t *)p_curr_value;
+
                         if((*p_curr_value) > 1) {
-                                *p_curr_value = std::numeric_limits<int32_t>::max();
+                                *p_curr_value_int = std::numeric_limits<int32_t>::max();
                         }
                         else if((*p_curr_value) < -1) {
-                                *p_curr_value = std::numeric_limits<int32_t>::min();
+                                *p_curr_value_int = std::numeric_limits<int32_t>::min();
                         }
                         else {
-                                *p_curr_value = (int32_t)std::roundf((*p_curr_value) * std::numeric_limits<int32_t>::max());
+                                *p_curr_value_int = (int32_t)roundf((*p_curr_value) * std::numeric_limits<int32_t>::max());
                         }
                 }
         }
