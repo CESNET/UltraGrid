@@ -798,28 +798,34 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 || decoder->resampler.get_resampler_initial_bps() != decompressed.get_bps())) {
                 LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " REMOVE removing tail buffer\n";
                 // The resampler is no longer required. Collect the remaining buffer from the resampler
-                audio_frame2 tailBuffer = audio_frame2();
-                tailBuffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decoder->resampler.get_resampler_initial_bps(), decompressed.get_sample_rate());
+                audio_frame2 tail_buffer = audio_frame2();
+                tail_buffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decoder->resampler.get_resampler_initial_bps(), decompressed.get_sample_rate());
 
                 // Generate a buffer the size of the input latency and apply it to all channels
                 char buffer[decoder->resampler.get_resampler_input_latency() * decoder->resampler.get_resampler_initial_bps()];
                 memset(buffer, 0, decoder->resampler.get_resampler_input_latency() * decoder->resampler.get_resampler_initial_bps());
-                for(size_t i = 0; i < (size_t)tailBuffer.get_channel_count(); i++) {
-                        tailBuffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * decoder->resampler.get_resampler_initial_bps());
+                for(size_t i = 0; i < (size_t)tail_buffer.get_channel_count(); i++) {
+                        tail_buffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * decoder->resampler.get_resampler_initial_bps());
                 }
                 // Extract remaining buffer from resampler by applying a resample the size of the input latency
-                tailBuffer.resample_fake(decoder->resampler, decoder->resampler.get_resampler_numerator(), decoder->resampler.get_resampler_denominator());
+                tail_buffer.resample_fake(decoder->resampler, decoder->resampler.get_resampler_numerator(), decoder->resampler.get_resampler_denominator());
 
-                if(tailBuffer.get_bps() > decompressed.get_bps()) {
-                        decompressed.change_bps(tailBuffer.get_bps());
+                // If there was a resampling of size 32 bit then convert the floating point numbers into int32.
+                if(tail_buffer.get_bps() == 4) {
+                        tail_buffer.convert_float_to_int32();
                 }
-                else if (tailBuffer.get_bps() < decompressed.get_bps()){
-                        tailBuffer.change_bps(decompressed.get_bps());
+
+                // Check that the BPS of the tail buffer matches the decompressed (and if not, convert one to the other by upscaling)
+                if(tail_buffer.get_bps() > decompressed.get_bps()) {
+                        decompressed.change_bps(tail_buffer.get_bps());
+                }
+                else if (tail_buffer.get_bps() < decompressed.get_bps()){
+                        tail_buffer.change_bps(decompressed.get_bps());
                 }
 
                 // Append the decompressed audio to the buffer we have extracted
-                tailBuffer.append(decompressed);
-                decompressed = move(tailBuffer);
+                tail_buffer.append(decompressed);
+                decompressed = move(tail_buffer);
                 // Set the flag that ensures this is only run once when the change in sample rate occurs (as changing to the "original" resample rate
                 // will not destroy the resampler)
                 decoder->resample_tail_buffer = true;
@@ -830,7 +836,16 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         }
 
         if (decoder->req_resample_to != 0 || s->buffer.sample_rate != decompressed.get_sample_rate()) {
-                if(decompressed.get_bps() != 2) {
+                // If the input is 32 bits big assume we're using int32 (rather than float). Convert from that to float
+                // as speex only has support for floating point resampling (and not int32). Then there is a requirement
+                // to convert back afterwards.
+                if(decompressed.get_bps() == 4) {
+                        decompressed.convert_int32_to_float();
+                }
+                // The main support BPS for the speex resampling is 2. So if the bytes per sample is not 4 or 2, convert
+                // to a bytes per sample that is best supported (4 bytes per sample is likely more accurate, but the 
+                // conversion from int32 to float and back to int32 losses some accuracy when rounding).
+                else if(decompressed.get_bps() != 2) {
                         decompressed.change_bps(2);
                 }
                 if (decoder->req_resample_to != 0) {
@@ -858,6 +873,11 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         if(reinitResampler) {
                                 decoder->resample_tail_buffer = false;
                         }
+                }
+                // Now that resampling has occurred ensure that if there was a conversion from int32 to float that
+                // this is now reversed.
+                if(decompressed.get_bps() == 4) {
+                        decompressed.convert_float_to_int32();
                 }
         }
 

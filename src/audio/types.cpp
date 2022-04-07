@@ -51,6 +51,7 @@
 #include <speex/speex_resampler.h>
 #endif // HAVE_SPEEXDSP
 
+#include <cmath>
 #include <sstream>
 #include <stdexcept>
 #include <chrono>
@@ -428,43 +429,60 @@ void  audio_frame2::change_bps(int new_bps)
 }
 
 /**
- * @brief A helper function for detecting whether or not there are two instances of a "zero" in the output
- *        in a row. This would indicate a period of silence in the audio, which during resampling, indicates
- *        that the buffer from the resampler has not been extracted properly (or is not being removed at the 
- *        beginning of the resampler delay). In production code this should function should not be required.
+ * @brief This will convert 32-bit integer audio into a 32-bit floating point audio format.
+ *        Doing so will allow 32-bit integer audio data to be resampled using the speex floating point resampler.
+ *        Converting between 32-bit floating point audio and 32-bit integer audio is likely to cause
+ *        some data loss due to rounding issues on conversion (and the precision of floating point data types when converting to)
  * 
- * @param location Used in the log output so that this call can be placed in multiple places in the code and this argument
- *                 can be used to distinguish them.
  */
-void audio_frame2::check_data(const char* location, int i, bool flag) {
-        auto channelData = this->get_data(i);
-        auto channelDataLength =  this->get_data_len(i);
-        float previousValue = 1;
-        if(flag) {
-                for(size_t j = 0; j < channelDataLength / this->bps; j++) {
-                        auto currValue = *(int32_t *)(channelData + (this->bps * j));
-                        LOG(LOG_LEVEL_VERBOSE) << location << " CHANNEL DATA " << currValue << "\n";
-                        previousValue = currValue;
-                }
-                for(size_t j = 0; j < channelDataLength / this->bps; j++) {
-                        auto pCurrValue = (int32_t *)(channelData + (this->bps * j));
-                        *pCurrValue = (float)*pCurrValue;
+void audio_frame2::convert_int32_to_float() {
+        for(size_t i = 0; i < this->channels.size(); i++) {
+                auto channel_data = this->get_data(i);
+                auto channel_data_length =  this->get_data_len(i);
+                for(size_t j = 0; j < channel_data_length / this->bps; j++) {
+                        int32_t *p_curr_value = (int32_t *)(channel_data + (this->bps * j));
+                        *p_curr_value = (float)(*p_curr_value / std::numeric_limits<int32_t>::max());
                 }
         }
-        else {
-                for(size_t j = 0; j < channelDataLength / this->bps; j++) {
-                        auto pCurrValue = (float *)(channelData + (this->bps * j));
-                        *pCurrValue = (int32_t)*pCurrValue;
-                }
-                for(size_t j = 0; j < channelDataLength / this->bps; j++) {
-                        auto currValue = *(int32_t *)(channelData + (this->bps * j));
-                        LOG(LOG_LEVEL_VERBOSE) << location << " CHANNEL DATA " << currValue << "\n";
-                        previousValue = currValue;
-                }
-        }
-        
 }
 
+/**
+ * @brief This will convert 32-bit floating point audio data into a 32-bit integer audio format.
+ *        Doing so will allow 32-bit integer audio data to be resampled using the speex floating point resampler.
+ *        Converting between 32-bit floating point audio and 32-bit integer audio is likely to cause
+ *        some data loss due to the precision of floating point data types (and rounding issues on conversion back).
+ * 
+ */
+void audio_frame2::convert_float_to_int32() {
+        for(size_t i = 0; i < this->channels.size(); i++) {
+                auto channel_data = this->get_data(i);
+                auto channel_data_length =  this->get_data_len(i);
+                for(size_t j = 0; j < channel_data_length / this->bps; j++) {
+                        float *p_curr_value = (float *)(channel_data + (this->bps * j));
+                        if((*p_curr_value) > 1) {
+                                *p_curr_value = std::numeric_limits<int32_t>::max();
+                        }
+                        else if((*p_curr_value) < -1) {
+                                *p_curr_value = std::numeric_limits<int32_t>::min();
+                        }
+                        else {
+                                *p_curr_value = (int32_t)std::roundf((*p_curr_value) * std::numeric_limits<int32_t>::max());
+                        }
+                }
+        }
+}
+
+/**
+ * @brief A static function for resampling a single channel using the speex integer resampler.
+ *        This is used to thread the resampling for all channels simultaneously.
+ * 
+ * @param resampler_state A pointer to resample state object which contains the Speex resampler state.
+ * @param channel_index The channel index which is resampled.
+ * @param in  A pointer to the 16bit integer data for the channel that is being resampled.
+ * @param in_len The length in samples of the inputted data.
+ * @param new_channel A pointer to the channel that is going to be written to.
+ * @param remainder A pointer to an audio frame to capture lost audio if the resampler fails to resample all of the given data.
+ */
 void audio_frame2::resample_channel(audio_frame2_resampler* resampler_state, int channel_index, const uint16_t *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder) {
 #ifdef HAVE_SPEEXDSP
         uint32_t in_len_orig = in_len;
@@ -485,6 +503,17 @@ void audio_frame2::resample_channel(audio_frame2_resampler* resampler_state, int
 #endif
 }
 
+/**
+ * @brief A static function for resampling a single channel using the speex floating point resampler.
+ *        This is used to thread the resampling for all channels simultaneously.
+ * 
+ * @param resampler_state A pointer to resample state object which contains the Speex resampler state.
+ * @param channel_index The channel index which is resampled.
+ * @param in  A pointer to the floating point data for the channel that is being resampled.
+ * @param in_len The length in samples of the inputted data.
+ * @param new_channel A pointer to the channel that is going to be written to.
+ * @param remainder A pointer to an audio frame to capture lost audio if the resampler fails to resample all of the given data.
+ */
 void audio_frame2::resample_channel_float(audio_frame2_resampler* resampler_state, int channel_index, const float *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder) {
 #ifdef HAVE_SPEEXDSP
         uint32_t in_len_orig = in_len;
@@ -513,13 +542,15 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
                 return {true, false, audio_frame2()};
         }
 
+        // If there is resampling occuring then time how long the function takes.
         std::chrono::high_resolution_clock::time_point resample_begin = std::chrono::high_resolution_clock::now();
 
+        // Track whether or not the resampler was reinitialised so that there is not an attempt to pull the latency buffer
+        // from the resampler
         bool reinitialised_resampler = false;
 #ifdef HAVE_SPEEXDSP
-        /// @todo
-        /// speex supports also floats so there could be possibility also to add support for more bps
-        if (this->bps != 2) {
+        // Speex has support for both 16bit audio and floating point 32bit audio
+        if (this->bps != 2 && this->bps != 4) {
                 LOG(LOG_LEVEL_DEBUG) << " Resample unsupported BPS " << bps << "\n";
                 throw logic_error("Only 16 bits per sample are currently supported for resampling!");
         }
@@ -579,32 +610,24 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
         audio_frame2 remainder;
         remainder.init(get_channel_count(), get_codec(), get_bps(), get_sample_rate());
 
-        /// @todo
-        /// Consider doing this in parallel - complex resampling requires some milliseconds.
-        /// Parallel resampling would reduce latency (and improve performance if there is not
-        /// enough single-core power).
+        // Thread pool the resampling of the threads
         std::vector<std::thread> resampleChannelThreads;
         for (size_t i = 0; i < channels.size(); i++) {
-                // if(bps == 2) {
+                // If the bytes per sample is 2, then use the integer based speex resampler
+                if(bps == 2) {
                         resampleChannelThreads.push_back(std::thread(audio_frame2::resample_channel, &resampler_state, i,  
                                                          (const uint16_t *)(const void *) get_data(i), 
                                                          (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder));
-                        // audio_frame2::resample_channel(&resampler_state, i,  
-                        //                         (const uint16_t *)(const void *) get_data(i), 
-                        //                         (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder);
-                        // LOG(LOG_LEVEL_VERBOSE) << "Calling int resampler\n";
-                // }
-                // else if(bps == 4) {
-                //         // resampleChannelThreads.push_back(std::thread(audio_frame2::resample_channel, &resampler_state, i,  
-                //         //                                  (const float *)(const void *) get_data(i), 
-                //         //                                  (int)(get_data_len(i) / sizeof(int16_t)), &(new_channels[i]), &remainder));
-                //         audio_frame2::resample_channel_float(&resampler_state, i,  
-                //                                              (const float *)(const void *) get_data(i), 
-                //                                              (int)(get_data_len(i) / sizeof(float)), &(new_channels[i]), &remainder);
-                //         LOG(LOG_LEVEL_VERBOSE) << "Calling float resampler\n";
-                // }
+                }
+                // If the bytes per sample is 4, then use the floating point based speex resampler
+                else if(bps == 4) {
+                        resampleChannelThreads.push_back(std::thread(audio_frame2::resample_channel_float, &resampler_state, i,  
+                                                         (const float *)(const void *) get_data(i), 
+                                                         (int)(get_data_len(i) / sizeof(float)), &(new_channels[i]), &remainder));
+                }
         }
 
+        // Join the threads before copying the data across
         for(size_t i = 0; i < channels.size(); i++) {
                 resampleChannelThreads[i].join();
         }
@@ -617,7 +640,7 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
 
         std::chrono::high_resolution_clock::time_point resample_end = std::chrono::high_resolution_clock::now();
         auto time_diff = std::chrono::duration_cast<std::chrono::duration<double>>(resample_end - resample_begin);
-        LOG(LOG_LEVEL_VERBOSE) << " call diff resampler " << setprecision(30) << time_diff.count() << "\n";
+        LOG(LOG_LEVEL_DEBUG) << " CALL LENGTH RESAMPLER " << setprecision(30) << time_diff.count() << "\n";
 
         return {true, reinitialised_resampler, std::move(remainder)};
 #else
@@ -643,4 +666,3 @@ tuple<bool, bool> audio_frame2::resample(audio_frame2_resampler & resampler_stat
 
         return {true, reinitResampler};
 }
-
