@@ -796,14 +796,14 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 || resample_denominator != decoder->resampler.get_resampler_denominator()
                                 || (size_t)decompressed.get_channel_count() != decoder->resampler.get_resampler_channel_count()
                                 || decoder->resampler.get_resampler_initial_bps() != decompressed.get_bps())) {
-                LOG(LOG_LEVEL_INFO) << MOD_NAME << " REMOVE removing buffer\n";
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " REMOVE removing tail buffer\n";
                 // The resampler is no longer required. Collect the remaining buffer from the resampler
                 audio_frame2 tailBuffer = audio_frame2();
                 tailBuffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decoder->resampler.get_resampler_initial_bps(), decompressed.get_sample_rate());
 
                 // Generate a buffer the size of the input latency and apply it to all channels
-                char buffer[(decoder->resampler.get_resampler_input_latency()) * decoder->resampler.get_resampler_initial_bps()];
-                memset(buffer, 0, sizeof(buffer));
+                char buffer[decoder->resampler.get_resampler_input_latency() * decoder->resampler.get_resampler_initial_bps()];
+                memset(buffer, 0, decoder->resampler.get_resampler_input_latency() * decoder->resampler.get_resampler_initial_bps());
                 for(size_t i = 0; i < (size_t)tailBuffer.get_channel_count(); i++) {
                         tailBuffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * decoder->resampler.get_resampler_initial_bps());
                 }
@@ -811,11 +811,9 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 tailBuffer.resample_fake(decoder->resampler, decoder->resampler.get_resampler_numerator(), decoder->resampler.get_resampler_denominator());
 
                 if(tailBuffer.get_bps() > decompressed.get_bps()) {
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << " tailBuffBig BPSCHANGE " << tailBuffer.get_bps() << " tailBufferBps " << decompressed.get_bps() << " decompressedBps" << "\n";
                         decompressed.change_bps(tailBuffer.get_bps());
                 }
                 else if (tailBuffer.get_bps() < decompressed.get_bps()){
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << " tailBuffSmall BPSCHANGE " << tailBuffer.get_bps() << " tailBufferBps " << decompressed.get_bps() << " decompressedBps" << "\n";
                         tailBuffer.change_bps(decompressed.get_bps());
                 }
 
@@ -829,10 +827,12 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 // This means that even if we switch to the original resample rate, and then back to the sample rate this resampler is set to then the
                 // resampler will be destroyed (as it will have a set of zeroes in it's buffer the size of the input latency).
                 decoder->resampler.resample_set_destroy_flag(true);
-                LOG(LOG_LEVEL_INFO) << MOD_NAME << " Adding the buffer delay back to the audio\n";
         }
 
         if (decoder->req_resample_to != 0 || s->buffer.sample_rate != decompressed.get_sample_rate()) {
+                if(decompressed.get_bps() != 2) {
+                        decompressed.change_bps(2);
+                }
                 if (decoder->req_resample_to != 0) {
                         auto [ret, reinitResampler, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
                         if (!ret) {
@@ -840,7 +840,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 return FALSE;
                         }
                         decoder->resample_remainder = move(remainder);
-
+                        // throw std::runtime_error("Close!");
                         // If the resampler was destroyed and reinitialised then there will be a new buffer 
                         // stored in the resampler we will need to extract later
                         if(reinitResampler) {
