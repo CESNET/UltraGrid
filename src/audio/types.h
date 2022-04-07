@@ -182,7 +182,7 @@ public:
         bool has_same_prop_as(audio_frame2 const &frame) const;
         void set_duration(double duration);
         void set_fec_params(int channel, fec_desc const &);
-        void check_data(const char* location);
+        void check_data(const char* location, int i, bool flag);
         static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
         void change_bps(int new_bps);
         /**

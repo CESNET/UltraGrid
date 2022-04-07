@@ -399,7 +399,7 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
  */
 class deck_audio_drift_fixer {
 public:
-        deck_audio_drift_fixer() : average_buffer_samples(100),average_delta(150){}
+        deck_audio_drift_fixer() : average_buffer_samples(500),average_delta(150){}
 
         bool m_enabled = false;
 
@@ -458,24 +458,22 @@ public:
                         if( target_buffer_fill == 0) {
                                 // @todo - Have a more dynamic approach to stabalising the buffer during clock drift.
                                 target_buffer_fill =  3000;                                
-                                // this->posJitter = 600;
-                                // this->negJitter = 600;
-                                this->posJitter = 5;
-                                this->negJitter = 5;
+                                this->posJitter = 600;
+                                this->negJitter = 600;
+                                // this->posJitter = 5;
+                                // this->negJitter = 5;
                         }
 
                         // Check whether there needs to be any resampling                        
                         if (average_buffer_depth  > target_buffer_fill + this->posJitter)
                         {
                                 // The buffer is too large, so we need to resample down to remove some frames
-                                // int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
-                                int resampleHz = 5;
+                                int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resampleHz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else if(average_buffer_depth < target_buffer_fill - this->negJitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
-                                // int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
-                                int resampleHz = 5;
+                                int resampleHz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resampleHz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else {
