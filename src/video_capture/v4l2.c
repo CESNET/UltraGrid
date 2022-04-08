@@ -116,13 +116,19 @@ static struct {
         {V4L2_PIX_FMT_YUV420, I420},
         {V4L2_PIX_FMT_RGB24, RGB},
         {V4L2_PIX_FMT_RGB32, RGBA},
+#ifdef V4L2_PIX_FMT_RGBX32
         {V4L2_PIX_FMT_RGBX32, RGBA},
+#endif
         {V4L2_PIX_FMT_MJPEG, MJPG},
         {V4L2_PIX_FMT_JPEG, MJPG},
         {V4L2_PIX_FMT_H264, H264},
         {V4L2_PIX_FMT_H264_NO_SC, H264}, ///< H.264 without start codes
+#ifdef V4L2_PIX_FMT_HEVC
         {V4L2_PIX_FMT_HEVC, H265},
+#endif
+#ifdef V4L2_PIX_FMT_HEVC
         {V4L2_PIX_FMT_VP9, VP9},
+#endif
 };
 
 static void enqueue_all_finished_frames(struct vidcap_v4l2_state *s) {
