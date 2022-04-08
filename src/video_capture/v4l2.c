@@ -217,10 +217,12 @@ static void show_help()
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
         printf("\t\t<tpf> or <fps> should be given as a single integer or a fraction\n");
-        printf("\t\t<conv> - forces conversion, eg. to RGB (may be useful eg. to convert captured MJPG from USB 2.0 webcam to HEVC)\n");
-        printf("\t\t         mapping available for codecs:");
+        printf("\t\t<conv> - SW conversion, eg. to RGB (useful eg. to convert captured MJPG from USB 2.0 webcam to uncompressed),\n"
+               "\t\t         codecs available to convert to:");
         for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
-                printf(" %s", get_codec_name(v4l2_ug_map[i].ug_codec));
+                if (v4lconvert_supported_dst_format(v4l2_ug_map[i].v4l2_fcc)) {
+                        printf(" %s", get_codec_name(v4l2_ug_map[i].ug_codec));
+                }
         }
         printf("\n\n");
 
@@ -689,6 +691,10 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         }
         if (v4l2_convert_to != VIDEO_CODEC_NONE) {
                 s->dst_fmt.fmt.pix.pixelformat = get_ug_to_v4l2(v4l2_convert_to);
+                if (!v4lconvert_supported_dst_format(s->dst_fmt.fmt.pix.pixelformat)) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Conversion to %s doesn't seem to be supported by v4lconvert but proceeding as requested...\n", get_codec_name(v4l2_convert_to));
+                }
+
                 if (s->dst_fmt.fmt.pix.pixelformat == 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find %s to V4L2 mapping!\n", get_codec_name(v4l2_convert_to));
                         goto error;
