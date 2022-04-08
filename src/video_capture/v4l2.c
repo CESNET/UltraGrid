@@ -5,7 +5,7 @@
  * @author  Martin Pulec     <martin.pulec@cesnet.cz>
  */
  /*
- * Copyright (c) 2012-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,16 +103,26 @@ struct v4l2_dispose_deq_buffer_data {
         struct v4l2_buffer buf;
 };
 
+/**
+ * In theory, direct mapping (get_codec_from_fcc/get_fourcc) of FourCC obtained by VIDIOC_ENUM_FMT,
+ * could be used. But UG uses different FCC for some codecs than V4l2 (RGB, I420).
+ */
 static struct {
         uint32_t v4l2_fcc;
         codec_t ug_codec;
 } v4l2_ug_map[] = {
         {V4L2_PIX_FMT_YUYV, YUYV},
         {V4L2_PIX_FMT_UYVY, UYVY},
+        {V4L2_PIX_FMT_YUV420, I420},
         {V4L2_PIX_FMT_RGB24, RGB},
         {V4L2_PIX_FMT_RGB32, RGBA},
+        {V4L2_PIX_FMT_RGBX32, RGBA},
         {V4L2_PIX_FMT_MJPEG, MJPG},
+        {V4L2_PIX_FMT_JPEG, MJPG},
         {V4L2_PIX_FMT_H264, H264},
+        {V4L2_PIX_FMT_H264_NO_SC, H264}, ///< H.264 without start codes
+        {V4L2_PIX_FMT_HEVC, H265},
+        {V4L2_PIX_FMT_VP9, VP9},
 };
 
 static void enqueue_all_finished_frames(struct vidcap_v4l2_state *s) {
@@ -911,4 +921,4 @@ static const struct video_capture_info vidcap_v4l2_info = {
 };
 
 REGISTER_MODULE(v4l2, &vidcap_v4l2_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-
+// vi: set et sw=8:
