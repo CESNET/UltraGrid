@@ -472,12 +472,12 @@ public:
                         if (average_buffer_depth  > target_buffer_fill + this->pos_jitter)
                         {
                                 // The buffer is too large, so we need to resample down to remove some frames
-                                int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
+                                int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill + this->pos_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resample_hz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else if(average_buffer_depth < target_buffer_fill - this->neg_jitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
-                                int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill);
+                                int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill - this->neg_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resample_hz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
                         } else {
@@ -517,8 +517,8 @@ private:
         uint32_t previous_buffer = 0;
 
         // The min and max Hz changes we can resample between
-        uint32_t min_hz = 5;
-        uint32_t max_hz = 50;
+        uint32_t min_hz = 1;
+        uint32_t max_hz = 5;
         // The min and max values to scale between
         uint32_t min_buffer = 100;
         uint32_t max_buffer = 600;
@@ -585,7 +585,7 @@ struct state_decklink {
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
 
-        AudioDriftFixer audio_drift_fixer{500, 150, 3000, 600, 600};
+        AudioDriftFixer audio_drift_fixer{250, 150, 2700, 600, 600};
 
         uint32_t            last_buffered_samples;
         int32_t             drift_since_last_correction;
