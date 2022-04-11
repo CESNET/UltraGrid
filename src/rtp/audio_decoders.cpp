@@ -766,18 +766,16 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         // If there is any audio leftover as part of the resample ensure that it's added to the beginning of the next audio frame
         // regardless of whether or not there is more resampling to do.
         if (decoder->resample_remainder) {
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << " Adding the remainder to the audio\n";
                 if(decoder->resample_remainder.get_bps() > decompressed.get_bps()) {
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << " BPSCHANGE " << decoder->resample_remainder.get_bps() << " remainderBps " << decompressed.get_bps() << " decompressedBps" << "\n";
                         decompressed.change_bps(decoder->resample_remainder.get_bps());
                 }
                 else if (decoder->resample_remainder.get_bps() < decompressed.get_bps()){
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << " BPSCHANGE " << decoder->resample_remainder.get_bps() << " remainderBps " << decompressed.get_bps() << " decompressedBps" << "\n";
                         decoder->resample_remainder.change_bps(decompressed.get_bps());
                 }
                 decoder->resample_remainder.append(decompressed);
                 decompressed = move(decoder->resample_remainder);
                 decoder->resample_remainder = audio_frame2();
-                LOG(LOG_LEVEL_INFO) << MOD_NAME << " Adding the remainder to the audio\n";
         }
 
         // Get the resample numerator and denominator out of the req_resample_to (this may be zero)
