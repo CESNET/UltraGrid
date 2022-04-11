@@ -15,3 +15,10 @@
   `--audio-channel-map 0:1` while receiving only mono)
 * do not set BMD conversion mode (issue #215)
 
+#### 1.7.4
+* fixed setting of intra-refresh build for NVENC with libavcodec (do not set,
+  otherwise libavcodec sets infinite GOP meaning stream not being decodable from
+  the middle /not at all to be more specific/)
+* backported fixed RTSP capture from master
+* build fixes
+
