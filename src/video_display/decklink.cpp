@@ -401,18 +401,18 @@ public:
                 std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
                 if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 30) {
                 
-                        LOG(LOG_LEVEL_INFO) << rang::style::underline << "Decklink stats - " 
-                                        << rang::style::reset     << "Total Audio Frames Played: "
+                        LOG(LOG_LEVEL_INFO) << rang::style::underline << "Decklink stats (cumulative)" 
+                                        << rang::style::reset     << " - Total Audio Frames Played: "
                                         << rang::style::bold      << this->frames_played 
-                                        << rang::style::reset     << " Missing Audio Frames: "
+                                        << rang::style::reset     << " / Missing Audio Frames: "
                                         << rang::style::bold      << this->frames_missed
-                                        << rang::style::reset     << " Buffer Underflows: " 
+                                        << rang::style::reset     << " / Buffer Underflows: " 
                                         << rang::style::bold      << this->buffer_underflow
-                                        << rang::style::reset     << " Buffer Overflows: "
+                                        << rang::style::reset     << " / Buffer Overflows: "
                                         << rang::style::bold      << this->buffer_overflow
-                                        << rang::style::reset     << " Resample (Higher Hz): "
+                                        << rang::style::reset     << " / Resample (Higher Hz): "
                                         << rang::style::bold      << this->resample_high
-                                        << rang::style::reset     << " Resample (Lower Hz): "
+                                        << rang::style::reset     << " / Resample (Lower Hz): "
                                         << rang::style::bold      << this->resample_low
                                         << "\n";
                         this->last_summary = now;
@@ -1917,16 +1917,17 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
                                 &sampleFramesWritten);
                 if (FAILED(res)) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WriteAudioSamplesSync failed.\n");
+                        return;
                 }
         } else {
                 s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sample_frame_count, 0,
                                 0, &sampleFramesWritten);
-                if (sampleFramesWritten != sample_frame_count) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! no_low_latency " << sample_frame_count
-                                                       << " samples written, " << sampleFramesWritten << " written, " 
-                                                       << sample_frame_count - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
-                        s->summary.increment_buffer_overflow();
-                }
+        }
+        if (sampleFramesWritten != sample_frame_count) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! no_low_latency " << sample_frame_count
+                                                << " samples written, " << sampleFramesWritten << " written, " 
+                                                << sample_frame_count - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
+                s->summary.increment_buffer_overflow();
         }
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
         s->summary.increment_audio_frames_played();
