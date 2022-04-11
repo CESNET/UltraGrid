@@ -472,7 +472,7 @@ public:
                 }
                 // Check to see if the amount in the buffer has dropped by over half the average
                 // number of samples being written. If so, we likely dropped a frame.
-                if(this->prev_buffer_samples > buffer_samples + (samples / 2)) {
+                if(prev_buffer_samples >= 0 && (uint32_t)this->prev_buffer_samples > buffer_samples + (samples / 2)) {
                         this->frames_missed++;
                 }
                 this->prev_buffer_samples = buffer_samples;
