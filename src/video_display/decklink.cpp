@@ -391,6 +391,112 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
 };
 } // end of unnamed namespace
 
+class DecklinkAudioSummary {
+public:
+        /**
+         * @brief This will detail out the longer running stats of the Decklink. It should be called on every audio frame
+         *        but will only print out the report once every 30 seconds.
+         */
+        void report() {
+                std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+                if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 30) {
+                
+                        LOG(LOG_LEVEL_INFO) << rang::style::underline << "Decklink stats - " 
+                                        << rang::style::reset     << "Total Audio Frames Played: "
+                                        << rang::style::bold      << this->frames_played 
+                                        << rang::style::reset     << " Missing Audio Frames: "
+                                        << rang::style::bold      << this->frames_missed
+                                        << rang::style::reset     << " Buffer Underflows: " 
+                                        << rang::style::bold      << this->buffer_underflow
+                                        << rang::style::reset     << " Buffer Overflows: "
+                                        << rang::style::bold      << this->buffer_overflow
+                                        << rang::style::reset     << " Resample (Higher Hz): "
+                                        << rang::style::bold      << this->resample_high
+                                        << rang::style::reset     << " Resample (Lower Hz): "
+                                        << rang::style::bold      << this->resample_low
+                                        << "\n";
+                        this->last_summary = now;
+                }
+        }
+
+        /**
+         * @brief This should be called when a resample is requested that is lower than the
+         *        original sample rate.
+         */
+        void increment_resample_low() {
+                this->resample_low++;
+        }
+
+        /**
+         * @brief This should be called when a resample is requested that is higher than the
+         *        original sample rate.
+         */
+        void increment_resample_high() {
+                this->resample_high++;
+        }
+
+        /**
+         * @brief This should be called when an overflow has occured.
+         */
+        void increment_buffer_overflow() {
+                this->buffer_overflow++;
+        }
+
+        /**
+         * @brief This should be called when an underflow has occured.
+         */
+        void increment_buffer_underflow() {
+                this->buffer_underflow++;
+        }
+
+        /**
+         * @brief This should be called when an call to audio put has been called.
+         */
+        void increment_audio_frames_played() {
+                this->frames_played++;
+        }
+
+        /**
+         * @brief A quick way of roughly calculating if the buffer has emptied by the size of a single audio frame
+         *        to keep track of missing audio frames. This doesn't mean that the audio frame was not played, just
+         *        that the length of time between audio put calls caused the buffer to empty by half of the average
+         *        size of a frame.
+         * 
+         * @param buffer_samples The amount of audio samples in the buffer.
+         * @param samples        The amount of samples that will be written to the buffer.
+         */
+        void calculate_missing(uint32_t buffer_samples, uint32_t samples) {
+                this->avg_added_frames.add(samples);
+                if(this->avg_added_frames.filled()) {
+                        samples = (uint32_t)this->avg_added_frames.avg();
+                }
+                // Check to see if the amount in the buffer has dropped by over half the average
+                // number of samples being written. If so, we likely dropped a frame.
+                if(this->prev_buffer_samples > buffer_samples + (samples / 2)) {
+                        this->frames_missed++;
+                }
+                this->prev_buffer_samples = buffer_samples;
+        }
+private:
+        // Keep a track of the amount in the decklink buffer
+        int32_t prev_buffer_samples = -1;
+        // How many frames have been successfully written
+        uint32_t frames_played = 0;
+        // How many times the buffer dropped avg amount of frames being added
+        uint32_t frames_missed = 0;
+        MovingAverage avg_added_frames{10};
+        // How many buffer underflows and overflows have occured.
+        uint32_t buffer_underflow = 0;
+        uint32_t buffer_overflow = 0;
+        // How many times it was requested a higher or lower sample rate
+        uint32_t resample_high = 0;
+        uint32_t resample_low = 0;
+        // We want to the summary to be outputted every 30 or so seconds. So keep track of
+        // the last we outputted data.
+        std::chrono::steady_clock::time_point last_summary = std::chrono::steady_clock::now();
+};
+
+
 /**
  * @todo
  * - handle network losses
@@ -543,112 +649,6 @@ private:
         static const uint32_t POS_JITTER_DEFAULT = 600;
         static const uint32_t NEG_JITTER_DEFAULT = 600;
 };
-
-class DecklinkAudioSummary {
-public:
-        /**
-         * @brief This will detail out the longer running stats of the Decklink. It should be called on every audio frame
-         *        but will only print out the report once every 30 seconds.
-         */
-        void report() {
-                std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-                if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 30) {
-                
-                        LOG(LOG_LEVEL_INFO) << rang::style::underline << "Decklink stats - " 
-                                        << rang::style::reset     << "Total Audio Frames Played: "
-                                        << rang::style::bold      << this->frames_played 
-                                        << rang::style::reset     << " Missing Audio Frames: "
-                                        << rang::style::bold      << this->frames_missed
-                                        << rang::style::reset     << " Buffer Underflows " 
-                                        << rang::style::bold      << this->buffer_underflow
-                                        << rang::style::reset     << " Buffer Overflows "
-                                        << rang::style::bold      << this->buffer_overflow
-                                        << rang::style::reset     << " Resample (Higher Hz) "
-                                        << rang::style::bold      << this->resample_high
-                                        << rang::style::reset     << " Resample (Lower Hz) "
-                                        << rang::style::bold      << this->resample_low
-                                        << "\n";
-                        this->last_summary = now;
-                }
-        }
-
-        /**
-         * @brief This should be called when a resample is requested that is lower than the
-         *        original sample rate.
-         */
-        void increment_resample_low() {
-                this->resample_low++;
-        }
-
-        /**
-         * @brief This should be called when a resample is requested that is higher than the
-         *        original sample rate.
-         */
-        void increment_resample_high() {
-                this->resample_high++;
-        }
-
-        /**
-         * @brief This should be called when an overflow has occured.
-         */
-        void increment_buffer_overflow() {
-                this->buffer_overflow++;
-        }
-
-        /**
-         * @brief This should be called when an underflow has occured.
-         */
-        void increment_buffer_underflow() {
-                this->buffer_underflow++;
-        }
-
-        /**
-         * @brief This should be called when an call to audio put has been called.
-         */
-        void increment_audio_frames_played() {
-                this->frames_played++;
-        }
-
-        /**
-         * @brief A quick way of roughly calculating if the buffer has emptied by the size of a single audio frame
-         *        to keep track of missing audio frames. This doesn't mean that the audio frame was not played, just
-         *        that the length of time between audio put calls caused the buffer to empty by half of the average
-         *        size of a frame.
-         * 
-         * @param buffer_samples The amount of audio samples in the buffer.
-         * @param samples        The amount of samples that will be written to the buffer.
-         */
-        void calculate_missing(uint32_t buffer_samples, uint32_t samples) {
-                this->avg_added_frames.add(samples);
-                if(this->avg_added_frames.filled()) {
-                        samples = (uint32_t)this->avg_added_frames.avg();
-                }
-                // Check to see if the amount in the buffer has dropped by over half the average
-                // number of samples being written. If so, we likely dropped a frame.
-                if(this->prev_buffer_samples > buffer_samples + (samples / 2)) {
-                        this->frames_missed++;
-                }
-                this->prev_buffer_samples = buffer_samples;
-        }
-private:
-        // Keep a track of the amount in the decklink buffer
-        int32_t prev_buffer_samples = -1;
-        // How many frames have been successfully written
-        uint32_t frames_played = 0;
-        // How many times the buffer dropped avg amount of frames being added
-        uint32_t frames_missed = 0;
-        MovingAverage avg_added_frames{10};
-        // How many buffer underflows and overflows have occured.
-        uint32_t buffer_underflow = 0;
-        uint32_t buffer_overflow = 0;
-        // How many times it was requested a higher or lower sample rate
-        uint32_t resample_high = 0;
-        uint32_t resample_low = 0;
-        // We want to the summary to be outputted every 30 or so seconds. So keep track of
-        // the last we outputted data.
-        std::chrono::steady_clock::time_point last_summary = std::chrono::steady_clock::now();
-}
-
 
 #define DECKLINK_MAGIC 0x12de326b
 
