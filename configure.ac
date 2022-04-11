@@ -3229,18 +3229,27 @@ fi
 # ------------------------------------------------------------------------------
 ndi=no
 AC_ARG_ENABLE(ndi,
-[  --enable-ndi            enables NDI support (default is auto)],
+      AS_HELP_STRING([--enable-ndi@<:@=ver@:>@], [enables NDI support (default is auto)]),
     [ndi_req=$enableval],
     [ndi_req=$build_default]
     )
 
 AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
 
+NDI_VER=
+if expr $ndi_req : @<:@0-9@:>@ >/dev/null; then
+        NDI_VER=$ndi_req
+        ndi_req = yes
+fi
+
 # if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
 if test $ndi_req != no && ( test "$FOUND_NDI_H" = yes || ( test -n "$NDI_SDK_DIR" && test $system = Windows ) )
 then
         if test -n "$NDI_SDK_DIR" && test $system = Windows; then
                 COMMON_FLAGS="$COMMON_FLAGS -I\"$NDI_SDK_DIR/Include\""
+        fi
+        if test -n "$NDI_VER"; then
+                AC_DEFINE_UNQUOTED([USE_NDI_VERSION], [$NDI_VER], [NDI version to use])
         fi
         ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "")
         ADD_MODULE("display_ndi", "src/video_display/ndi.o", "")
