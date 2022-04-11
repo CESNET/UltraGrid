@@ -677,6 +677,7 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __res
         }
 }
 
+#ifdef HAVE_P210
 static void v210_to_p210le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
@@ -711,6 +712,7 @@ static void v210_to_p210le(AVFrame * __restrict out_frame, unsigned char * __res
                 }
         }
 }
+#endif
 
 static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
@@ -2659,6 +2661,7 @@ static inline void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * 
         yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
+#ifdef HAVE_P210
 static void p210le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -2701,6 +2704,7 @@ static void p210le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
                 }
         }
 }
+#endif
 
 static void p010le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
@@ -2798,6 +2802,7 @@ static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
+#ifdef HAVE_P210
 static void p210le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -2817,6 +2822,7 @@ static void p210le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
                 }
         }
 }
+#endif
 
 #ifdef HWACC_VDPAU
 static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
@@ -2886,7 +2892,9 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
 #endif
+#ifdef HAVE_P210
                 { v210, AV_PIX_FMT_P210LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p210le },
+#endif
                 { UYVY, AV_PIX_FMT_YUV422P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
                 { UYVY, AV_PIX_FMT_YUVJ422P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
                 { UYVY, AV_PIX_FMT_YUV420P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
@@ -2962,8 +2970,10 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
                 {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
                 {AV_PIX_FMT_YUV444P10LE, RG48, yuv444p10le_to_rg48, false},
+#ifdef HAVE_P210
                 {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
                 {AV_PIX_FMT_P210LE, UYVY, p210le_to_uyvy, false},
+#endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
                 {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
