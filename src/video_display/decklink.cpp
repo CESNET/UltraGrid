@@ -83,6 +83,10 @@
 #define STDMETHODCALLTYPE
 #endif
 
+#define MAX_RESAMPLE_DELTA_DEFAULT 30
+#define MIN_RESAMPLE_DELTA_DEFAULT 1
+#define TARGET_BUFFER_DEFAULT 2700
+
 static void print_output_modes(IDeckLink *);
 static void display_decklink_done(void *state);
 
@@ -513,6 +517,18 @@ public:
 
         bool m_enabled = true;
 
+        void set_max_hz(uint32_t max_hz) {
+                this->max_hz = max_hz;
+        }
+
+        void set_min_hz(uint32_t min_hz) {
+                this->min_hz = min_hz;
+        }
+
+        void set_target_buffer(uint32_t target_buffer) {
+                this->target_buffer_fill = target_buffer;
+        }
+
         void set_summary(DecklinkAudioSummary *audio_summary) {
                 this->audio_summary = audio_summary;
         }
@@ -568,9 +584,6 @@ public:
                         // @todo might be worth trying to make this more dynamic so that certain input values
                         // for different cards can be applied
                         // Check to see if we have a target amount of the buffer we'd like to fill
-                        if(this->target_buffer_fill == 0) {
-                                this->target_buffer_fill =  AudioDriftFixer::TARGET_BUFFER_DEFAULT;
-                        }
                         if(this->pos_jitter == 0) {                           
                                 this->pos_jitter = AudioDriftFixer::POS_JITTER_DEFAULT;
                         }
@@ -625,12 +638,12 @@ private:
         MovingAverage average_buffer_samples;
         MovingAverage average_delta;
 
-        uint32_t target_buffer_fill =0;
+        uint32_t target_buffer_fill = TARGET_BUFFER_DEFAULT;
         uint32_t previous_buffer = 0;
 
         // The min and max Hz changes we can resample between
-        uint32_t min_hz = 1;
-        uint32_t max_hz = 5;
+        uint32_t min_hz = MIN_RESAMPLE_DELTA_DEFAULT;
+        uint32_t max_hz = MAX_RESAMPLE_DELTA_DEFAULT;
         // The min and max values to scale between
         uint32_t min_buffer = 100;
         uint32_t max_buffer = 600;
@@ -645,7 +658,6 @@ private:
         // Store a audio_summary of resampling
         DecklinkAudioSummary *audio_summary = nullptr;
 
-        static const uint32_t TARGET_BUFFER_DEFAULT = 3000;
         static const uint32_t POS_JITTER_DEFAULT = 600;
         static const uint32_t NEG_JITTER_DEFAULT = 600;
 };
@@ -716,12 +728,15 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square][:HDR[=<t>]]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square][:HDR[=<t>]][:maxresample=<N>][:minresample=<N>][:targetbuffer=<N>]\n" << style::reset;
         cout << "Options:\n";
         cout << style::bold << "\tfullhelp" << style::reset << " displays help for further options\n";
         cout << style::bold << "\t<device(s)>" << style::reset << " is comma-separated indices or names of output devices\n";
         cout << style::bold << "\tsingle-link/dual-link/quad-link" << style::reset << " specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
         cout << style::bold << "\tLevelA/LevelB" << style::reset << " specifies 3G-SDI output level\n";
+        cout << style::bold << "\tmaxresample=<N> - " << style::reset << "The maximum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
+        cout << style::bold << "\tminresample=<N> - " << style::reset << "The minimum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
+        cout << style::bold << "\ttargetbuffer=<N> - " << style::reset << "The target amount of samples to have in the buffer (per channel).\n";
         if (!full) {
                 cout << style::bold << "\tconversion" << style::reset << " - use '-d decklink:fullhelp' for list of conversions\n";
         } else {
@@ -756,7 +771,6 @@ static void show_help(bool full)
         cout << style::bold << "\thalf-duplex" << style::reset
                 << " - set a profile that allows maximal number of simultaneous IOs\n";
         cout << "\nIf " << style::bold << "audio_level" << style::reset << " is " << style::bold << "mic" << style::reset << " audio analog level is set to maximum attenuation on audio output.\n";
-
         cout << "Recognized pixel formats:";
         for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { cout << " " << style::bold << get_codec_name(i.first) << style::reset; } );
         cout << "\n";
@@ -1291,6 +1305,29 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         decklink_uninitialize();
 }
 
+
+static void parse_uint32(const char *value_str, const char *value_name, uint32_t *value, uint32_t default_value) {
+        int value_len = strlen(value_str);
+        if(value_len == 0) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Empty string for option - " << value_name << " - Setting to default " << default_value << "\n";
+                *value = default_value;
+                return;
+        }
+        else if(value_len > 9) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Inputted string too large - " << value_name << " - Setting to default " << default_value << "\n";
+                *value = default_value;
+                return;
+        }
+        int tmp_value = atoi(value_str);
+        if(tmp_value < 1) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Inputted resample string negative number - " << value_name << " - Setting to default " << default_value << "\n";
+                *value = default_value;
+        }
+        else {
+                *value = tmp_value;
+        }
+}
+
 static auto parse_devices(const char *devices_str, vector<string> *cardId) {
         if (strlen(devices_str) == 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Empty device string!\n");
@@ -1425,6 +1462,23 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         }
                 } else if (strstr(ptr, "no_drift_fix") == ptr) {
                         s->audio_drift_fixer.m_enabled = true;
+                }
+                else if (strncasecmp(ptr, "maxresample=", strlen("maxresample=")) == 0) {
+                        uint32_t max_resample_delta = 0;
+                        parse_uint32(ptr + strlen("maxresample="), "maxresample", &max_resample_delta, MAX_RESAMPLE_DELTA_DEFAULT);
+                        s->audio_drift_fixer.set_max_hz(max_resample_delta);
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Set Max Resample Delta to be " << max_resample_delta << "Hz\n";
+                } 
+                else if (strncasecmp(ptr, "minresample=", strlen("minresample=")) == 0) {
+                        uint32_t min_resample_delta = 0;
+                        parse_uint32(ptr + strlen("minresample="), "minresample", &min_resample_delta, MIN_RESAMPLE_DELTA_DEFAULT);
+                        s->audio_drift_fixer.set_min_hz(min_resample_delta);
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Set Min Resample Delta to be " << min_resample_delta << "Hz\n";
+                }else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
+                        uint32_t target_buffer = 0;
+                        parse_uint32(ptr + strlen("targetbuffer="), "targetbuffer",&target_buffer, TARGET_BUFFER_DEFAULT);
+                        s->audio_drift_fixer.set_target_buffer(target_buffer);
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Set Target Buffer to be " << target_buffer << " samples in buffer (per channel)\n";
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                         return false;
