@@ -106,7 +106,7 @@ struct setparam_param {
         double fps;
         bool have_preset;
         bool interlaced;
-        bool no_periodic_intra;
+        int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         int thread_count;
         string thread_mode;
 };
@@ -336,7 +336,7 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         cout << style::bold << fg::red << "\t-c libavcodec" << fg::reset << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>]"
                         "[:subsampling=<subsampling>][:gop=<gop>]"
-                        "[:disable_intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n" <<
+                        "[:[disable_]intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n" <<
                         style::reset;
         cout << "\nwhere\n";
         cout << style::bold << "\t<encoder>" << style::reset << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
@@ -358,7 +358,7 @@ static void usage() {
                 cout << "\t\t" << style::bold << get_codec_name(param.first) << style::reset << " - " << avail << "\n";
 
         }
-        cout << style::bold << "\tdisable_intra_refresh" << style::reset << " - do not use Periodic Intra Refresh (H.264/H.265)\n";
+        cout << style::bold << "\t[disable_]intra_refresh" << style::reset << " - (do not) use Periodic Intra Refresh (H.264/H.265)\n";
         cout << style::bold << "\t<bits_per_sec>" << style::reset << " specifies requested bitrate\n"
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
         cout << style::bold << "\t<bits_per_pixel>" << style::reset << " specifies requested bitrate using compressed bits per pixel\n"
@@ -425,8 +425,8 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 log_msg(LOG_LEVEL_ERROR, "[lavc] Supported subsampling is 444, 422, or 420.\n");
                                 return -1;
                         }
-                } else if (strcasecmp("disable_intra_refresh", item) == 0) {
-                        s->params.no_periodic_intra = true;
+                } else if (strstr(item, "intra_refresh") != nullptr) {
+                        s->params.periodic_intra = strstr(item, "disable_") == item ? 0 : 1;
                 } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
                         char *threads = item + strlen("threads=");
                         s->params.thread_mode = threads;
@@ -1764,7 +1764,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
 
         string x265_params = "keyint=" + to_string(codec_ctx->gop_size);
         /// turn on periodic intra refresh, unless explicitely disabled
-        if (!param->no_periodic_intra){
+        if (param->periodic_intra != 0) {
                 int ret = AVERROR_ENCODER_NOT_FOUND;
                 codec_ctx->refs = 1;
                 if ("libx264"s == codec_ctx->codec->name || "libx264rgb"s == codec_ctx->codec->name) {
@@ -1791,7 +1791,7 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *para
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set unset look-ahead.\n");
         }
-        if (!param->no_periodic_intra) {
+        if (param->no_periodic_intra != 0) {
                 ret = av_opt_set(codec_ctx->priv_data, "int_ref_type", "vertical", 0);
                 if (ret != 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set intra refresh.\n");
@@ -1841,7 +1841,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         }
 
         set_forced_idr(codec_ctx, 1);
-        if (!param->no_periodic_intra){
+        if (param->no_periodic_intra == 1) {
                 if (int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0) != 0) {
                         print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
                 }
