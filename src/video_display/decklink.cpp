@@ -517,22 +517,47 @@ public:
 
         bool m_enabled = true;
 
+        /**
+         * @brief Set the max hz object
+         * 
+         * @param max_hz The maximum hz delta that can be applied to fix the drift
+         */
         void set_max_hz(uint32_t max_hz) {
                 this->max_hz = max_hz;
         }
 
+        /**
+         * @brief Set the min hz object
+         * 
+         * @param min_hz The minimum hz delta that can be applied to fix the drift
+         */
         void set_min_hz(uint32_t min_hz) {
                 this->min_hz = min_hz;
         }
 
+        /**
+         * @brief Set the target buffer object
+         * 
+         * @param target_buffer The target buffer of samples per channel
+         */
         void set_target_buffer(uint32_t target_buffer) {
                 this->target_buffer_fill = target_buffer;
         }
 
+        /**
+         * @brief Set the summary object
+         * 
+         * @param audio_summary The audio summary pointer
+         */
         void set_summary(DecklinkAudioSummary *audio_summary) {
                 this->audio_summary = audio_summary;
         }
 
+        /**
+         * @brief Set the root object
+         * 
+         * @param root The root module
+         */
         void set_root(module *root) {
                 m_root = root;
         }
@@ -1306,6 +1331,16 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 }
 
 
+/**
+ * @brief A helper function for parsing unsigned integers out of the command line parameters. This will not allow negative numbers
+ *        or numbers that are longer than 9 digits long (this stops undefined behaviour occuring). Any error case should apply a
+ *        default value.
+ * 
+ * @param value_str    The string that is being parsed.
+ * @param value_name   The name of the parameter that is being parsed
+ * @param value          A pointer to a uint32 to write the parsed value into
+ * @param default_value  The default value that should be applied in any of the error cases.
+ */
 static void parse_uint32(const char *value_str, const char *value_name, uint32_t *value, uint32_t default_value) {
         int value_len = strlen(value_str);
         if(value_len == 0) {
@@ -1320,7 +1355,7 @@ static void parse_uint32(const char *value_str, const char *value_name, uint32_t
         }
         int tmp_value = atoi(value_str);
         if(tmp_value < 1) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Inputted resample string negative number - " << value_name << " - Setting to default " << default_value << "\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Inputted resample string negative number or not a valid number - " << value_name << " - Setting to default " << default_value << "\n";
                 *value = default_value;
         }
         else {
