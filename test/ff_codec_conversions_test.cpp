@@ -385,10 +385,11 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
         default_random_engine rand_gen;
         uniform_int_distribution<uint32_t> dist(0, 0x3fffffffLU);
 
-        for (auto &c : {AV_PIX_FMT_P010LE, AV_PIX_FMT_P210LE}) {
-                if (c == AV_PIX_FMT_NONE) { // compat - P210LE linked to NONE with old FFmpeg
-                        continue;
-                }
+        for (const auto &c : {AV_PIX_FMT_P010LE,
+#ifdef HAVE_P210
+                        AV_PIX_FMT_P210LE
+#endif
+                        }) {
                 AVFrame frame{};
                 frame.format = c;
                 frame.width = width;
@@ -401,7 +402,11 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                         abort();
                 }
 
+#ifdef HAVE_P210
                 if (c == AV_PIX_FMT_P210LE) {
+#else
+                if (false) {
+#endif
                         std::for_each(in.begin(), in.end(), [&](uint32_t & c) { c = dist(rand_gen); });
                 } else { // later using dummy "==" compare, chroma in odd and even line must be same for P010 to avoid rounding errors
                         std::for_each(in.begin(), in.begin() + linesize / sizeof(uint32_t), [&](uint32_t & c) { c =  dist(rand_gen); });
