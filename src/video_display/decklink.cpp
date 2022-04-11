@@ -407,6 +407,10 @@ public:
 
         bool m_enabled = true;
 
+        void set_summary(DecklinkAudioSummary *summary) {
+                this->summary = summary;
+        }
+
         void set_root(module *root) {
                 m_root = root;
         }
@@ -475,11 +479,13 @@ public:
                                 int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill + this->pos_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resample_hz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
+                                this->summary->increment_resample_low();
                         } else if(average_buffer_depth < target_buffer_fill - this->neg_jitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
                                 int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill - this->neg_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resample_hz) * BASE;
                                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
+                                this->summary->increment_resample_high();
                         } else {
                                 // If there is nothing to do, then set the resample rate to be the base resample rate.
                                 // This is needed because otherwise code elsewhere may not recognise that there should
@@ -530,10 +536,118 @@ private:
         uint32_t max_avg = 3650;
         uint32_t min_avg = 1800;
 
+        // Store a summary of resampling
+        DecklinkAudioSummary *summary = nullptr;
+
         static const uint32_t TARGET_BUFFER_DEFAULT = 3000;
         static const uint32_t POS_JITTER_DEFAULT = 600;
         static const uint32_t NEG_JITTER_DEFAULT = 600;
 };
+
+class DecklinkAudioSummary {
+public:
+        /**
+         * @brief This will detail out the longer running stats of the Decklink. It should be called on every audio frame
+         *        but will only print out the report once every 30 seconds.
+         */
+        void report() {
+                std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+                if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 30) {
+                
+                        LOG(LOG_LEVEL_INFO) << rang::style::underline << "Decklink stats - " 
+                                        << rang::style::reset     << "Total Audio Frames Played: "
+                                        << rang::style::bold      << this->frames_played 
+                                        << rang::style::reset     << " Missing Audio Frames: "
+                                        << rang::style::bold      << this->frames_missed
+                                        << rang::style::reset     << " Buffer Underflows " 
+                                        << rang::style::bold      << this->buffer_underflow
+                                        << rang::style::reset     << " Buffer Overflows "
+                                        << rang::style::bold      << this->buffer_overflow
+                                        << rang::style::reset     << " Resample (Higher Hz) "
+                                        << rang::style::bold      << this->resample_high
+                                        << rang::style::reset     << " Resample (Lower Hz) "
+                                        << rang::style::bold      << this->resample_low
+                                        << "\n";
+                        this->last_summary = now;
+                }
+        }
+
+        /**
+         * @brief This should be called when a resample is requested that is lower than the
+         *        original sample rate.
+         */
+        void increment_resample_low() {
+                this->resample_low++;
+        }
+
+        /**
+         * @brief This should be called when a resample is requested that is higher than the
+         *        original sample rate.
+         */
+        void increment_resample_high() {
+                this->resample_high++;
+        }
+
+        /**
+         * @brief This should be called when an overflow has occured.
+         */
+        void increment_buffer_overflow() {
+                this->buffer_overflow++;
+        }
+
+        /**
+         * @brief This should be called when an underflow has occured.
+         */
+        void increment_buffer_underflow() {
+                this->buffer_underflow++;
+        }
+
+        /**
+         * @brief This should be called when an call to audio put has been called.
+         */
+        void increment_audio_frames_played() {
+                this->frames_played++;
+        }
+
+        /**
+         * @brief A quick way of roughly calculating if the buffer has emptied by the size of a single audio frame
+         *        to keep track of missing audio frames. This doesn't mean that the audio frame was not played, just
+         *        that the length of time between audio put calls caused the buffer to empty by half of the average
+         *        size of a frame.
+         * 
+         * @param buffer_samples The amount of audio samples in the buffer.
+         * @param samples        The amount of samples that will be written to the buffer.
+         */
+        void calculate_missing(uint32_t buffer_samples, uint32_t samples) {
+                this->avg_added_frames.add(samples);
+                if(this->avg_added_frames.filled()) {
+                        samples = (uint32_t)this->avg_added_frames.avg();
+                }
+                // Check to see if the amount in the buffer has dropped by over half the average
+                // number of samples being written. If so, we likely dropped a frame.
+                if(this->prev_buffer_samples > buffer_samples + (samples / 2)) {
+                        this->frames_missed++;
+                }
+                this->prev_buffer_samples = buffer_samples;
+        }
+private:
+        // Keep a track of the amount in the decklink buffer
+        int32_t prev_buffer_samples = -1;
+        // How many frames have been successfully written
+        uint32_t frames_played = 0;
+        // How many times the buffer dropped avg amount of frames being added
+        uint32_t frames_missed = 0;
+        MovingAverage avg_added_frames{10};
+        // How many buffer underflows and overflows have occured.
+        uint32_t buffer_underflow = 0;
+        uint32_t buffer_overflow = 0;
+        // How many times it was requested a higher or lower sample rate
+        uint32_t resample_high = 0;
+        uint32_t resample_low = 0;
+        // We want to the summary to be outputted every 30 or so seconds. So keep track of
+        // the last we outputted data.
+        std::chrono::steady_clock::time_point last_summary = std::chrono::steady_clock::now();
+}
 
 
 #define DECKLINK_MAGIC 0x12de326b
@@ -589,6 +703,7 @@ struct state_decklink {
 
         uint32_t            last_buffered_samples;
         int32_t             drift_since_last_correction;
+        DecklinkAudioSummary summary{};
 
  };
 
@@ -1363,6 +1478,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->low_latency = true;
         s->last_buffered_samples = 0;
         s->drift_since_last_correction = 0;
+        s->audio_drift_fixer.set_summary(&s->summary);
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
@@ -1775,7 +1891,7 @@ static int display_decklink_get_property(void *state, int property, void *val, s
 static void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        unsigned int sampleFrameCount = frame->data_len / (frame->bps * frame->ch_count);
+        unsigned int sample_frame_count = frame->data_len / (frame->bps * frame->ch_count);
         
         assert(s->play_audio);
 
@@ -1785,8 +1901,10 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
         
         uint32_t buffered = 0;
         s->state[0].deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
+        s->summary.calculate_missing(buffered, sample_frame_count);
         if (buffered == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer underflow!\n";
+                s->summary.increment_buffer_underflow();
         }
         
         if (!s->audio_drift_fixer.update(buffered)) {
@@ -1795,22 +1913,24 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
         }
 
         if (s->low_latency) {
-                HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sampleFrameCount,
+                HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sample_frame_count,
                                 &sampleFramesWritten);
                 if (FAILED(res)) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WriteAudioSamplesSync failed.\n");
                 }
         } else {
-                s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
+                s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sample_frame_count, 0,
                                 0, &sampleFramesWritten);
-                if (sampleFramesWritten != sampleFrameCount) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! no_low_latency " << sampleFrameCount
+                if (sampleFramesWritten != sample_frame_count) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! no_low_latency " << sample_frame_count
                                                        << " samples written, " << sampleFramesWritten << " written, " 
-                                                       << sampleFrameCount - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
+                                                       << sample_frame_count - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
+                        s->summary.increment_buffer_overflow();
                 }
         }
-
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
+        s->summary.increment_audio_frames_played();
+        s->summary.report();
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
