@@ -513,7 +513,7 @@ public:
                 if(this->prev_audio_end.time_since_epoch().count() != 0) {
                         // Collect the time now and do a comparison to the time when we ended the previous function call
                         std::chrono::high_resolution_clock::time_point audio_begin = std::chrono::high_resolution_clock::now();
-                        std::chrono::milliseconds time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(this->prev_audio_end - audio_begin);
+                        std::chrono::milliseconds time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(audio_begin - this->prev_audio_end);
 
                         // Set a max or min if the timing is outside of whats already been collected
                         long long duration_diff = time_diff.count();
