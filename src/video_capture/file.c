@@ -185,7 +185,7 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
 }
 
 static void vidcap_file_write_audio(struct vidcap_state_lavf_decoder *s, AVFrame * frame) {
-        int plane_count = av_sample_fmt_is_planar(s->aud_ctx->sample_fmt) ? s->aud_ctx->channels : 1;
+        int plane_count = av_sample_fmt_is_planar(s->aud_ctx->sample_fmt) ? AVCODECCTX_CHANNELS(s->aud_ctx) : 1;
         // transform from floats
         if (av_get_alt_sample_fmt(s->aud_ctx->sample_fmt, 0) == AV_SAMPLE_FMT_FLT) {
                 for (int i = 0; i < plane_count; ++i) {
@@ -564,7 +564,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                         av_get_sample_fmt_name(s->aud_ctx->sample_fmt));
                         s->audio_frame.bps = av_get_bytes_per_sample(s->aud_ctx->sample_fmt);
                         s->audio_frame.sample_rate = s->aud_ctx->sample_rate;
-                        s->audio_frame.ch_count = s->aud_ctx->channels;
+                        s->audio_frame.ch_count = AVCODECCTX_CHANNELS(s->aud_ctx);
                         s->audio_frame.max_size = s->audio_frame.bps * s->audio_frame.ch_count * s->audio_frame.sample_rate;
                         s->audio_frame.data = malloc(s->audio_frame.max_size);
                         s->use_audio = true;

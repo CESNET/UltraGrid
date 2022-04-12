@@ -149,6 +149,13 @@ extern "C" {
 #define HAVE_P210 1
 #endif
 
+#if defined FF_API_OLD_CHANNEL_LAYOUT || (LIBAVUTIL_VERSION_MAJOR >= 58)
+#define AVCODECCTX_CHANNELS(context) (context)->ch_layout.nb_channels
+#define FF_API_NEW_CHANNEL_LAYOUT 1
+#else
+#define AVCODECCTX_CHANNELS(context) (context)->channels
+#endif
+
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(57, 8, 0)
 static struct AVPacket *av_packet_alloc(void) ATTRIBUTE(unused);
 static struct AVPacket *av_packet_alloc() {
