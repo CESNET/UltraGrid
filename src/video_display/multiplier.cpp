@@ -90,15 +90,13 @@ static void show_help(){
 
 static void *display_multiplier_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        struct state_multiplier *s;
         char *fmt_copy = NULL;
 
-        s = new state_multiplier();
+        auto s = std::make_unique<state_multiplier>();
 
         if (fmt && strlen(fmt) > 0) {
                 if (strcmp(fmt, "help") == 0) { 
                     show_help();
-                    delete s;
                     return &display_init_noerr;
                 }
 
@@ -106,16 +104,15 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                         struct state_multiplier *orig;
                         sscanf(fmt, "%p", &orig);
                         s->common = orig->common;
-                        return s;
+                        return s.release();
                 } else {
                         fmt_copy = strdup(fmt);
                 }
         } else {
                 show_help();
-                delete s;
                 return &display_init_noerr;
         }
-        s->common = shared_ptr<state_multiplier_common>(new state_multiplier_common());
+        s->common = std::make_shared<state_multiplier_common>();
 
         char *saveptr;
         for(char *token = strtok_r(fmt_copy, "#", &saveptr); token; token = strtok_r(NULL, "#", &saveptr)){
@@ -136,7 +133,6 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                 if (display_needs_mainloop(disp.get()) && !s->common->displays.empty()) {
                         LOG(LOG_LEVEL_FATAL) << "[multiplier] Display " << requested_display << " needs mainloop but is not given first!\n";
                         free(fmt_copy);
-                        delete s;
                         return nullptr;
                 }
 
@@ -146,7 +142,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
 
         s->common->parent = parent;
 
-        return s;
+        return s.release();
 }
 
 static void check_reconf(struct state_multiplier_common *s, struct video_desc desc)
