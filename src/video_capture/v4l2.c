@@ -148,7 +148,7 @@ static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
         }
 
         int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        if(ioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
+        if (s->fd != -1 && ioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Stream stopping error");
         };
 
