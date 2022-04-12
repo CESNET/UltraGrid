@@ -84,7 +84,7 @@
 #endif
 
 #define MAX_RESAMPLE_DELTA_DEFAULT 30
-#define MIN_RESAMPLE_DELTA_DEFAULT 1
+#define MIN_RESAMPLE_DELTA_DEFAULT 5
 #define TARGET_BUFFER_DEFAULT 2700
 
 static void print_output_modes(IDeckLink *);
@@ -689,20 +689,24 @@ public:
                                 // The buffer is too large, so we need to resample down to remove some frames
                                 int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill + this->pos_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resample_hz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity " << resample_hz << " resample_hz\n";
                                 this->audio_summary->increment_resample_low();
                         } else if(average_buffer_depth < target_buffer_fill - this->neg_jitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
                                 int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill - this->neg_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resample_hz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity " << resample_hz << " resample_hz\n";
                                 this->audio_summary->increment_resample_high();
                         } else {
-                                // If there is nothing to do, then set the resample rate to be the base resample rate.
-                                // This is needed because otherwise code elsewhere may not recognise that there should
-                                // no longer be any resampling.
-                                dst_frame_rate = bmdAudioSampleRate48kHz * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed normal " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity \n";
+                                // If there is nothing to do, then set the resample rate to trend towards our target, but at a very
+                                // low sample rate delta.
+                                if(average_buffer_depth > target_buffer_fill) {
+                                        dst_frame_rate = (bmdAudioSampleRate48kHz - 1) * BASE;
+                                }
+                                else {
+                                        dst_frame_rate = (bmdAudioSampleRate48kHz + 1) * BASE;
+                                }
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed normal " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity 1 resample_hz\n";
                         }       
                 }
 
