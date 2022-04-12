@@ -68,11 +68,10 @@
 static void show_help(void);
 static void print_fps(int fd, struct v4l2_frmivalenum *param);
 
-#define DEFAULT_DEVICE "/dev/video0"
-
 #define DEFAULT_BUF_COUNT 2
 #define MAX_BUF_COUNT 30
 #define MOD_NAME "[V4L cap.] "
+#define V4L2_PROBE_MAX 64
 
 struct vidcap_v4l2_state {
         struct video_desc desc;
@@ -219,7 +218,7 @@ static void show_help()
         printf("V4L2 capture\n");
         printf("Usage\n");
         printf("\t-t v4l2[:device=<dev>][:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:convert=<conv>]\n");
-        printf("\t\tuse device <dev> for grab (default: %s)\n", DEFAULT_DEVICE);
+        printf("\t\tuse device <dev> for grab (default: first usable)\n");
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
         printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
         printf("\t\t<tpf> or <fps> should be given as a single integer or a fraction\n");
@@ -232,7 +231,7 @@ static void show_help()
         }
         printf("\n\n");
 
-        for (int i = 0; i < 64; ++i) {
+        for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
                 char name[32];
 
                 snprintf(name, 32, "/dev/video%d", i);
@@ -381,7 +380,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
                 return vt;
         }
 
-        for (int i = 0; i < 64; ++i) {
+        for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
                 char name[32];
 
                 snprintf(name, 32, "/dev/video%d", i);
@@ -484,10 +483,50 @@ static codec_t get_v4l2_to_ug(uint32_t fcc) {
         return VIDEO_CODEC_NONE;
 }
 
+static int try_open_device(const char *dev_name) {
+        int fd = open(dev_name, O_RDWR);
+        if (fd == -1) {
+                char errbuf[1024];
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to open input device %s: %s\n",
+                                dev_name, strerror_r(errno, errbuf, sizeof errbuf));
+                return -1;
+        }
+
+        struct v4l2_capability capability;
+        memset(&capability, 0, sizeof(capability));
+        if (ioctl(fd, VIDIOC_QUERYCAP, &capability) != 0) {
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "ioctl VIDIOC_QUERYCAP");
+                close(fd);
+                return -1;
+        }
+
+        if (!(capability.device_caps & V4L2_CAP_VIDEO_CAPTURE)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s, %s can't capture\n",capability.card,capability.bus_info);
+                close(fd);
+                return -1;
+        }
+
+        if (!(capability.device_caps & V4L2_CAP_STREAMING)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Streaming capability not present.\n");
+                close(fd);
+                return -1;
+        }
+
+        int index = 0;
+
+        if (ioctl(fd, VIDIOC_S_INPUT, &index) != 0) {
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Could not enable input (VIDIOC_S_INPUT)");
+                close(fd);
+                return -1;
+        }
+
+        return fd;
+}
+
 static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 {
         struct vidcap_v4l2_state *s;
-        const char *dev_name = DEFAULT_DEVICE;
+        const char *dev_name = NULL;
         uint32_t pixelformat = 0;
         uint32_t width = 0,
                  height = 0;
@@ -585,39 +624,23 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 }
         }
 
-        s->fd = open(dev_name, O_RDWR);
-
-        if(s->fd == -1) {
-                char errbuf[1024];
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to open input device %s: %s\n",
-                                dev_name, strerror_r(errno, errbuf, sizeof errbuf));
+        static_assert(V4L2_PROBE_MAX < 100, "Pattern below has place only for 2 digits");
+        char dev_name_try[] = "/dev/videoXX";
+        if (dev_name != NULL) {
+                s->fd = try_open_device(dev_name);
+        } else {
+                for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
+                        snprintf(dev_name_try, sizeof dev_name_try, "/dev/video%d", i);
+                        s->fd = try_open_device(dev_name_try);
+                        if (s->fd != -1) {
+                                dev_name = dev_name_try;
+                                break;
+                        }
+                }
+        }
+        if (s->fd == -1) {
                 goto error;
         }
-
-        struct v4l2_capability   capability;
-        memset(&capability, 0, sizeof(capability));
-        if (ioctl(s->fd,VIDIOC_QUERYCAP, &capability) != 0) {
-                log_perror(LOG_LEVEL_ERROR, MOD_NAME "ioctl VIDIOC_QUERYCAP");
-                goto error;
-        }
-
-        if (!(capability.device_caps & V4L2_CAP_VIDEO_CAPTURE)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s, %s can't capture\n",capability.card,capability.bus_info);
-                goto error;
-        }
-
-        if (!(capability.device_caps & V4L2_CAP_STREAMING)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Streaming capability not present.\n");
-                goto error;
-        }
-
-        int index = 0;
-
-        if (ioctl(s->fd, VIDIOC_S_INPUT, &index) != 0) {
-                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Could not enable input (VIDIOC_S_INPUT)");
-                goto error;
-        }
-
 
         struct v4l2_format fmt;
         memset(&fmt, 0, sizeof(fmt));
@@ -650,12 +673,11 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         if (ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set video format");
                 goto error;
-        } else {
-                char fourcc[5];
-                memcpy(fourcc, &fmt.fmt.pix.pixelformat, sizeof(uint32_t));
-                fourcc[4] = '\0';
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Capturing %dx%d %s\n", fmt.fmt.pix.width, fmt.fmt.pix.height, fourcc);
         }
+        char fourcc[5];
+        memcpy(fourcc, &fmt.fmt.pix.pixelformat, sizeof(uint32_t));
+        fourcc[4] = '\0';
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Capturing %dx%d %s from %s\n", fmt.fmt.pix.width, fmt.fmt.pix.height, fourcc, dev_name);
 
         if(numerator != 0 && denominator != 0) {
                 stream_params.parm.capture.timeperframe.numerator = numerator;
