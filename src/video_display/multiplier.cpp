@@ -43,6 +43,7 @@
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
+#include "utils/misc.h"
 
 #include <condition_variable>
 #include <vector>
@@ -90,57 +91,48 @@ static void show_help(){
 
 static void *display_multiplier_init(struct module *parent, const char *fmt, unsigned int flags)
 {
-        char *fmt_copy = NULL;
-
         auto s = std::make_unique<state_multiplier>();
 
-        if (fmt && strlen(fmt) > 0) {
-                if (strcmp(fmt, "help") == 0) { 
-                    show_help();
-                    return &display_init_noerr;
-                }
-
-                if (isdigit(fmt[0])) { // fork
-                        struct state_multiplier *orig;
-                        sscanf(fmt, "%p", &orig);
-                        s->common = orig->common;
-                        return s.release();
-                } else {
-                        fmt_copy = strdup(fmt);
-                }
-        } else {
+        if(!fmt || strlen(fmt) == 0){
                 show_help();
                 return &display_init_noerr;
         }
-        s->common = std::make_shared<state_multiplier_common>();
 
-        char *saveptr;
-        for(char *token = strtok_r(fmt_copy, "#", &saveptr); token; token = strtok_r(NULL, "#", &saveptr)){
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Initializing display " << token << "\n";
-                const char *requested_display = token;
-                const char *cfg = "";
-                char *delim = strchr(token, ':');
-                if (delim) {
-                        *delim = '\0';
-                        cfg = delim + 1;
-                }
+        if (isdigit(fmt[0])) { // fork
+                struct state_multiplier *orig;
+                sscanf(fmt, "%p", &orig);
+                s->common = orig->common;
+                return s.release();
+        }
+
+        std::string_view fmt_sv = fmt;
+
+        if (fmt_sv == "help") { 
+                show_help();
+                return &display_init_noerr;
+        }
+
+        s->common = std::make_shared<state_multiplier_common>();
+        s->common->parent = parent;
+
+        for(auto tok = tokenize(fmt_sv, '#'); !tok.empty(); tok = tokenize(fmt_sv, '#')){
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Initializing display " << tok << "\n";
+                auto display = std::string(tokenize(tok, ':'));
+                auto cfg = std::string(tok);
+
                 struct display *d_ptr;
-                if (initialize_video_display(parent, requested_display, cfg, flags, NULL, &d_ptr) != 0) {
-                        LOG(LOG_LEVEL_FATAL) << "[multiplier] Unable to initialize a display " << requested_display << "!\n";
+                if (initialize_video_display(parent, display.c_str(), cfg.c_str(), flags, NULL, &d_ptr) != 0) {
+                        LOG(LOG_LEVEL_FATAL) << "[multiplier] Unable to initialize a display " << display << "!\n";
                         abort();
                 }
                 unique_disp disp(d_ptr);
                 if (display_needs_mainloop(disp.get()) && !s->common->displays.empty()) {
-                        LOG(LOG_LEVEL_FATAL) << "[multiplier] Display " << requested_display << " needs mainloop but is not given first!\n";
-                        free(fmt_copy);
+                        LOG(LOG_LEVEL_FATAL) << "[multiplier] Display " << display << " needs mainloop but is not given first!\n";
                         return nullptr;
                 }
 
                 s->common->displays.push_back(std::move(disp));
         }
-        free(fmt_copy);
-
-        s->common->parent = parent;
 
         return s.release();
 }
