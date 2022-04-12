@@ -418,7 +418,19 @@ public:
                                         << rang::style::bold      << this->resample_high
                                         << rang::style::reset     << " / Resample (Lower Hz): "
                                         << rang::style::bold      << this->resample_low
+                                        << rang::style::reset     << " / Average Buffer: "
+                                        << rang::style::bold      << this->buffer_average
+                                        << rang::style::reset     << " / Average Added Frames: "
+                                        << rang::style::bold      << (uint32_t) round(this->avg_added_frames.avg())
+                                        << rang::style::reset     << " / Max time diff audio (ms): "
+                                        << rang::style::bold      << this->audio_time_diff_max
+                                        << rang::style::reset     << " / Min time diff audio (ms): "
+                                        << rang::style::bold      << this->audio_time_diff_min
                                         << "\n";
+                        // Reset some of the variables
+                        this->audio_time_diff_max = 0;
+                        this->audio_time_diff_min = std::numeric_limits<long long>().max();
+                        // Ensure that the summary gets called 30 seconds from now
                         this->last_summary = now;
                 }
         }
@@ -461,6 +473,15 @@ public:
         }
 
         /**
+         * @brief Set the buffer average object
+         * 
+         * @param buffer_average The average samples in the buffer per channel
+         */
+        void set_buffer_average(double buffer_average) {
+                this->buffer_average = (int32_t)round(buffer_average);
+        }
+
+        /**
          * @brief A quick way of roughly calculating if the buffer has emptied by the size of a single audio frame
          *        to keep track of missing audio frames. This doesn't mean that the audio frame was not played, just
          *        that the length of time between audio put calls caused the buffer to empty by half of the average
@@ -481,6 +502,37 @@ public:
                 }
                 this->prev_buffer_samples = buffer_samples;
         }
+
+        /**
+         * @brief This function should be called at the beginning of put audio to record the
+         *        difference between calls.
+         * 
+         */
+        void record_audio_time_diff() {
+                // CHeck the previous time has been initialised
+                if(this->prev_audio_end.time_since_epoch().count() != 0) {
+                        // Collect the time now and do a comparison to the time when we ended the previous function call
+                        std::chrono::high_resolution_clock::time_point audio_begin = std::chrono::high_resolution_clock::now();
+                        std::chrono::milliseconds time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(this->prev_audio_end - audio_begin);
+
+                        // Set a max or min if the timing is outside of whats already been collected
+                        long long duration_diff = time_diff.count();
+                        if(duration_diff > this->audio_time_diff_max) {
+                                this->audio_time_diff_max = duration_diff;
+                        }
+                        else if(duration_diff < this->audio_time_diff_min) {
+                                this->audio_time_diff_min = duration_diff;
+                        }
+                }
+        }
+
+        /**
+         * @brief Mark the end of the put audio function
+         * 
+         */
+        void mark_audio_time_end() {
+                this->prev_audio_end = std::chrono::high_resolution_clock::now();
+        }
 private:
         // Keep a track of the amount in the decklink buffer
         int32_t prev_buffer_samples = -1;
@@ -495,6 +547,12 @@ private:
         // How many times it was requested a higher or lower sample rate
         uint32_t resample_high = 0;
         uint32_t resample_low = 0;
+        // Sample count average
+        uint32_t buffer_average = 0;
+        // Timing between calls of audio put
+        std::chrono::high_resolution_clock::time_point prev_audio_end{};
+        long long audio_time_diff_max = 0;
+        long long audio_time_diff_min = std::numeric_limits<long long>().max();
         // We want to the summary to be outputted every 30 or so seconds. So keep track of
         // the last we outputted data.
         std::chrono::steady_clock::time_point last_summary = std::chrono::steady_clock::now();
@@ -560,6 +618,15 @@ public:
          */
         void set_root(module *root) {
                 m_root = root;
+        }
+
+        /**
+         * @brief Get the average sample count per channel
+         * 
+         * @return double The average of the buffer over the last X frames
+         */
+        double get_buffer_avg() {
+                return this->average_buffer_samples.avg();
         }
 
         /**
@@ -1976,11 +2043,12 @@ static int display_decklink_get_property(void *state, int property, void *val, s
 /*
  * AUDIO
  */
- 
 static void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sample_frame_count = frame->data_len / (frame->bps * frame->ch_count);
+
+        s->audio_summary.record_audio_time_diff();
         
         assert(s->play_audio);
 
@@ -2013,14 +2081,16 @@ static void display_decklink_put_audio_frame(void *state, struct audio_frame *fr
                                 0, &sampleFramesWritten);
         }
         if (sampleFramesWritten != sample_frame_count) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! no_low_latency " << sample_frame_count
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! " << sample_frame_count
                                                 << " samples written, " << sampleFramesWritten << " written, " 
                                                 << sample_frame_count - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
                 s->audio_summary.increment_buffer_overflow();
         }
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
         s->audio_summary.increment_audio_frames_played();
+        s->audio_summary.set_buffer_average(s->audio_drift_fixer.get_buffer_avg());
         s->audio_summary.report();
+        s->audio_summary.mark_audio_time_end();
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
