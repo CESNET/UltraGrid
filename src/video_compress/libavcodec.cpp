@@ -1756,7 +1756,7 @@ static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *para
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set unset look-ahead.\n");
         }
-        if (param->no_periodic_intra != 0) {
+        if (param->periodic_intra != 0) {
                 ret = av_opt_set(codec_ctx->priv_data, "int_ref_type", "vertical", 0);
                 if (ret != 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set intra refresh.\n");
@@ -1811,7 +1811,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         }
 
         set_forced_idr(codec_ctx, 1);
-        if (param->no_periodic_intra == 1) {
+        if (param->periodic_intra == 1) {
                 if (int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0) != 0) {
                         print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
                 }
