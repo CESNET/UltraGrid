@@ -62,6 +62,7 @@
 #include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
+#include "mac_gl_common.h"
 #include "rang.hpp"
 #include "video.h"
 #include "video_capture.h"
@@ -330,7 +331,7 @@ static void syphon_mainloop(void *state)
         state_global = (struct state_vidcap_syphon *) state;
         struct state_vidcap_syphon *s = state_global;
 
-        uvGlutInit(&uv_argc, uv_argv);
+        macGlutInit(&uv_argc, uv_argv);
         glutInitDisplayMode(GLUT_RGB);
         s->window = glutCreateWindow("dummy Syphon client window");
         glutHideWindow();

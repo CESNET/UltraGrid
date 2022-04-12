@@ -70,8 +70,6 @@
 
 struct state_mac_gl;
 
-int get_mac_kernel_version_major(void);
-
 int get_mac_kernel_version_major()
 {
         int mib[2];

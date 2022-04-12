@@ -57,10 +57,6 @@
 #include "debug.h"
 #include "gl_context.h"
 
-#if defined HAVE_GL && !defined HAVE_MACOSX
-#  include <GL/glut.h>
-#endif
-
 /**
  * @brief initializes specified OpenGL context
  *
@@ -227,20 +223,6 @@ void gl_context_make_current(struct gl_context *context)
 	mac_gl_make_current(context_state);
 #else
         win32_context_make_current(context_state);
-#endif
-}
-
-void uvGlutInit(int *argcp, char **argv)
-{
-#ifdef HAVE_GL
-# ifdef HAVE_MACOSX
-        macGlutInit(argcp, argv);
-# else
-        glutInit(argcp, argv);
-# endif
-#else
-        UNUSED(argcp);
-        UNUSED(argv);
 #endif
 }
 

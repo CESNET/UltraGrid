@@ -6,7 +6,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @todo remove vdpau function loading (use glew)
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -49,21 +52,10 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h> // CGL
 #include <OpenGL/glext.h>
-#include <GLUT/glut.h>
-#elif defined HAVE_LINUX
+#else
 #include <GL/glew.h>
-#include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glut.h>
-#include "x11_common.h"
-#else // WIN32
-#include <GL/glew.h>
-#include <GL/glut.h>
 #endif /* HAVE_MACOSX */
-
-#ifdef FREEGLUT
-#include <GL/freeglut_ext.h>
-#endif /* FREEGLUT */
+#include <GLFW/glfw3.h>
 
 #include "spout_sender.h"
 #include "syphon_server.h"
@@ -273,7 +265,7 @@ struct state_gl {
         /* For debugging... */
         uint32_t	magic;
 
-        int             window;
+        GLFWwindow     *window;
 
 	bool            fs;
         bool            deinterlace;
@@ -302,8 +294,6 @@ struct state_gl {
         chrono::steady_clock::time_point                      cursor_shown_from; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
         string          syphon_spout_srv_name;
 
-        bool should_exit_main_loop; // used only for GLUT (not freeglut)
-
         double          window_size_factor;
 
         struct module   mod;
@@ -323,10 +313,10 @@ struct state_gl {
 
         state_gl(struct module *parent) : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
                 fbo_id(0), texture_display(0), texture_uyvy(0), pbo_id(0),
-                magic(MAGIC_GL), window(-1), fs(false), deinterlace(false), current_frame(nullptr),
+                magic(MAGIC_GL), window(NULL), fs(false), deinterlace(false), current_frame(nullptr),
                 aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
                 vsync(1), paused(false), show_cursor(SC_AUTOHIDE),
-                should_exit_main_loop(false), window_size_factor(1.0),
+                window_size_factor(1.0),
                 syphon_spout(nullptr), hide_window(false), fixed_size(false),
                 fixed_w(0), fixed_h(0)
         {
@@ -359,8 +349,6 @@ static constexpr array gl_supp_codecs = {
         DXT5
 };
 
-static struct state_gl *gl;
-
 /* Prototyping */
 static int display_gl_putf(void *state, struct video_frame *frame, int nonblock);
 static bool display_gl_process_key(struct state_gl *s, long long int key);
@@ -370,14 +358,13 @@ static void gl_draw(double ratio, double bottom_offset, bool double_buf);
 static void gl_show_help(void);
 
 static void gl_change_aspect(struct state_gl *s, int width, int height);
-static void gl_resize(int width, int height);
+static void gl_resize(GLFWwindow *win, int width, int height);
 static void gl_render_uyvy(struct state_gl *s, char *data);
 static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc);
-static void glut_idle_callback(void);
-static void glut_key_callback(int key, bool is_special);
-static void glut_mouse_callback(int x, int y);
-static void glut_close_callback(void);
-static void glut_resize_window(bool fs, int height, double aspect, double window_size_factor);
+static void gl_process_frames(struct state_gl *s);
+static void glfw_key_callback(GLFWwindow* win, int key, int scancode, int action, int mods);
+static void glfw_mouse_callback(GLFWwindow *win, double x, double y);
+static void glfw_close_callback(GLFWwindow *win);
 static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
 static void upload_texture(struct state_gl *s, char *data);
@@ -385,10 +372,6 @@ static bool check_rpi_pbo_quirks();
 
 #ifdef HWACC_VDPAU
 static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
-#endif
-
-#ifdef HAVE_MACOSX
-extern "C" void NSApplicationLoad(void);
 #endif
 
 /**
@@ -400,7 +383,7 @@ static void gl_show_help(void) {
         cout << "options:\n";
         cout << BOLD("\td")           << "\t\tdeinterlace\n";
         cout << BOLD("\tfs")          << "\t\tfullscreen\n";
-        cout << BOLD("\tnodecorate")  << "\tdisable window decorations (works with X11 only)\n";
+        cout << BOLD("\tnodecorate")  << "\tdisable window decorations\n";
         cout << BOLD("\tnovsync")     << "\t\tdo not turn sync on VBlank\n";
         cout << BOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
         cout << BOLD("\tsingle")      << "\t\tuse single buffer (instead of double-buffering\n";
@@ -458,10 +441,6 @@ static void gl_load_splashscreen(struct state_gl *s)
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
         int use_pbo = -1; // default
         UNUSED(flags);
-        if (gl) {
-                LOG(LOG_LEVEL_ERROR) << "Multiple instances of GL display is disallowed!\n";
-                return nullptr;
-        }
 
 	struct state_gl *s = new state_gl(parent);
         
@@ -487,11 +466,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 char *pos = strchr(tok,'/');
                                 if(pos) s->video_aspect /= atof(pos + 1);
                         } else if(!strcasecmp(tok, "nodecorate")) {
-#ifdef HAVE_LINUX
                                 s->nodecorate = true;
-#else
-				log_msg(LOG_LEVEL_WARNING, MOD_NAME "Nodecorate not supported for current platform!\n");
-#endif
                         } else if(!strcasecmp(tok, "novsync")) {
                                 s->vsync = 0;
                         } else if(!strcasecmp(tok, "single")) {
@@ -570,9 +545,6 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 keycontrol_register_key(&s->mod, i.first, msg, i.second.data());
         }
 
-        /* GLUT callbacks take only some arguments so we need static variable */
-        gl = s;
-
         return (void*)s;
 }
 
@@ -590,20 +562,15 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-static void glut_resize_window(bool fs, int height, double aspect, double window_size_factor)
+static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspect, double fps, double window_size_factor)
 {
-        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "glut_resize_window - fullscreen: %d, aspect: %lf, factor %lf\n",
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "glfw - fullscreen: %d, aspect: %lf, factor %lf\n",
                         (int) fs, aspect, window_size_factor);
         if (fs) {
-                //glutReshapeWindow(glutGet(GLUT_SCREEN_WIDTH), glutGet(GLUT_SCREEN_HEIGHT));
-                glutFullScreen();
+                glfwSetWindowMonitor(win, glfwGetPrimaryMonitor(), 0, 0, height * aspect, height, round(fps));
         } else {
-                glutReshapeWindow(window_size_factor *
-                                height * aspect,
-                                window_size_factor *
-                                height);
+                glfwSetWindowSize(win, window_size_factor * height * aspect, window_size_factor * height);
         }
-        glutPostRedisplay();
 }
 
 /*
@@ -614,64 +581,7 @@ static void display_gl_set_sync_on_vblank(int value) {
         if (value == SYSTEM_VSYNC) {
                 return;
         }
-        bool have_ext_swap_control_tear = false;
-#ifdef HAVE_LINUX
-        if (strstr(glXQueryExtensionsString(glXGetCurrentDisplay(), 0),
-                                "GLX_EXT_swap_control_tear")) {
-                have_ext_swap_control_tear = true;
-        }
-#elif defined WIN32
-        const char * (*wglGetExtensionsStringARBProc)(HDC hdc) = (const char *(*)(HDC))
-                wglGetProcAddress("wglGetExtensionsStringARB");
-        if (strstr(wglGetExtensionsStringARBProc(wglGetCurrentDC()),
-                                "WGL_EXT_swap_control_tear")) {
-                have_ext_swap_control_tear = true;
-        }
-#endif
-        if (value == -1) {
-                if (!have_ext_swap_control_tear) {
-                        log_msg(LOG_LEVEL_WARNING, "WGL/GLX_EXT_swap_control_tear not detected, using normal vsync.\n");
-                        value = 1;
-                } else {
-                        log_msg(LOG_LEVEL_VERBOSE, "WGL/GLX_EXT_swap_control_tear detected, using adaptive vsync\n");
-                }
-        }
-
-#ifdef HAVE_MACOSX
-        int swap_interval = value;
-        CGLContextObj cgl_context = CGLGetCurrentContext();
-        CGLSetParameter(cgl_context, kCGLCPSwapInterval, &swap_interval);
-#elif HAVE_LINUX
-        /* using GLX_SGI_swap_control
-         *
-         * Also it is worth considering to use GLX_EXT_swap_control (instead?).
-         * But we would need both Display and GLXDrawable variables which we do not currently have
-         */
-        int (*glXSwapIntervalSGIProc)(int interval) = 0;
-
-        glXSwapIntervalSGIProc = (int (*)(int))
-                glXGetProcAddressARB( (const GLubyte *) "glXSwapIntervalSGI");
-
-        if(glXSwapIntervalSGIProc) {
-                glXSwapIntervalSGIProc(value);
-        } else {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "GLX_SGI_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
-        }
-#elif WIN32
-        BOOL (*wglSwapIntervalEXTProc)(int interval) = 0;
-
-        wglSwapIntervalEXTProc = (BOOL (*)(int))
-                wglGetProcAddress("wglSwapIntervalEXT");
-
-        if (wglSwapIntervalEXTProc) {
-                BOOL ret = wglSwapIntervalEXTProc(value);
-                if (!ret) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to set sync-on-VBlank.\n");
-                }
-        } else {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WGL_EXT_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
-        }
-#endif
+        glfwSwapInterval(value);
 }
 
 static void screenshot(struct video_frame *frame)
@@ -721,7 +631,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         log_msg(LOG_LEVEL_INFO, "Setting GL size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
         if (!s->hide_window)
-                glutShowWindow();
+                glfwShowWindow(s->window);
 
         glUseProgram(0);
 
@@ -805,9 +715,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         gl_check_error();
 
         if (!s->fixed_size) {
-                glut_resize_window(s->fs, desc.height, s->aspect, s->window_size_factor);
+                glfw_resize_window(s->window, s->fs, desc.height, s->aspect, desc.fps, s->window_size_factor);
+                gl_resize(s->window, desc.width, desc.height);
         }
-        gl_change_aspect(s, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
+        int width, height;
+        glfwGetFramebufferSize(s->window, &width, &height);
+        gl_change_aspect(s, width, height);
 
         gl_check_error();
 
@@ -827,14 +740,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 s->syphon_spout = spout_sender_register(s->syphon_spout_srv_name.c_str(), desc.width, desc.height);
 	}
 #endif
-
-	if (s->nodecorate) {
-#ifdef HAVE_LINUX
-                // https://stackoverflow.com/questions/12343390/how-to-get-x-window-id-of-a-window-created-by-glut
-		GLXDrawable d = glXGetCurrentDrawable();
-		x11_unset_window_decorations(glXGetCurrentDisplay(), d);
-#endif
-	}
 
         s->scratchpad.resize(desc.width * desc.height * 8);
         s->current_display_desc = desc;
@@ -905,9 +810,8 @@ static void pop_frame(struct state_gl *s)
         s->frame_consumed_cv.notify_one();
 }
 
-static void glut_idle_callback(void)
+static void gl_process_frames(struct state_gl *s)
 {
-        struct state_gl *s = gl;
         struct timeval tv;
         double seconds;
         struct video_frame *frame;
@@ -918,7 +822,7 @@ static void glut_idle_callback(void)
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received message: %s\n", msg_univ->text);
                 struct response *r;
                 if (strncasecmp(msg_univ->text, "win-title ", strlen("win-title ")) == 0) {
-                        glutSetWindowTitle(msg_univ->text + strlen("win-title "));
+                        glfwSetWindowTitle(s->window, msg_univ->text + strlen("win-title "));
                         r = new_response(RESPONSE_OK, NULL);
                 } else {
                         if (strlen(msg_univ->text) == 0) {
@@ -938,12 +842,12 @@ static void glut_idle_callback(void)
         }
 
 
-        if (gl->show_cursor == state_gl::SC_AUTOHIDE) {
-                if (gl->cursor_shown_from != chrono::steady_clock::time_point()) {
+        if (s->show_cursor == state_gl::SC_AUTOHIDE) {
+                if (s->cursor_shown_from != chrono::steady_clock::time_point()) {
                         auto now = chrono::steady_clock::now();
-                        if (chrono::duration_cast<chrono::seconds>(now - gl->cursor_shown_from).count() > 2) {
-                                glutSetCursor(GLUT_CURSOR_NONE);
-                                gl->cursor_shown_from = chrono::steady_clock::time_point();
+                        if (chrono::duration_cast<chrono::seconds>(now - s->cursor_shown_from).count() > 2) {
+                                glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+                                s->cursor_shown_from = chrono::steady_clock::time_point();
                         }
                 }
         }
@@ -960,9 +864,6 @@ static void glut_idle_callback(void)
         }
 
         if (!frame) {
-#ifdef FREEGLUT
-                glutLeaveMainLoop();
-#endif
                 pop_frame(s);
                 return;
         }
@@ -975,6 +876,10 @@ static void glut_idle_callback(void)
                 return;
         }
 
+        if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
+                gl_reconfigure_screen(s, video_desc_from_frame(frame));
+        }
+
         if (s->current_frame) {
                 s->lock.lock();
                 vf_recycle(s->current_frame);
@@ -983,12 +888,8 @@ static void glut_idle_callback(void)
         }
         s->current_frame = frame;
 
-        if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
-                gl_reconfigure_screen(s, video_desc_from_frame(frame));
-        }
-
         gl_render(s, frame->tiles[0].data);
-        gl_draw(s->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2, gl->vsync != SINGLE_BUF);
+        gl_draw(s->aspect, (s->dxt_height - s->current_display_desc.height) / (float) s->dxt_height * 2, s->vsync != SINGLE_BUF);
 
         // publish to Syphon/Spout
         if (s->syphon_spout) {
@@ -1000,7 +901,11 @@ static void glut_idle_callback(void)
 #endif // HAVE_SPOUT
         }
 
-        glutSwapBuffers();
+        if (s->vsync == SINGLE_BUF) {
+                glFlush();
+        } else {
+                glfwSwapBuffers(s->window);
+        }
         log_msg(LOG_LEVEL_DEBUG, "Render buffer %dx%d\n", frame->tiles[0].width, frame->tiles[0].height);
         pop_frame(s);
 
@@ -1017,38 +922,29 @@ static void glut_idle_callback(void)
         }
 }
 
-static int64_t translate_glut_to_ug(int key, bool is_special) {
-#ifdef FREEGLUT
-        if (is_special && (key == GLUT_KEY_CTRL_L || key == GLUT_KEY_CTRL_R
-                        || key == GLUT_KEY_ALT_L || key == GLUT_KEY_ALT_R)) {
-                return 0;
-        }
-#endif // defined FREEGLUT
-        if (is_special) {
-                if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
-                        switch (key) {
-                        case GLUT_KEY_UP: return K_CTRL_UP;
-                        case GLUT_KEY_DOWN: return K_CTRL_DOWN;
-                        default: return -1;
-                        }
-                }
+static int64_t translate_glfw_to_ug(int key, int mods) {
+        key = tolower(key);
+        if (mods == GLFW_MOD_CONTROL) {
                 switch (key) {
-                case GLUT_KEY_LEFT: return K_LEFT;
-                case GLUT_KEY_UP: return K_UP;
-                case GLUT_KEY_RIGHT: return K_RIGHT;
-                case GLUT_KEY_DOWN: return K_DOWN;
-                case GLUT_KEY_PAGE_UP: return K_PGUP;
-                case GLUT_KEY_PAGE_DOWN: return K_PGDOWN;
+                case GLFW_KEY_UP: return K_CTRL_UP;
+                case GLFW_KEY_DOWN: return K_CTRL_DOWN;
+                default:
+                    return isalpha(key) ? K_CTRL(key) : -1;
                 }
-        } else {
-                if (glutGetModifiers() == 0) {
-                        return key;
-                }
-                if (glutGetModifiers() == GLUT_ACTIVE_CTRL && key >= 1 && key <= 26) {
-                        return K_CTRL('a' + key - 1);
-                }
-                if (glutGetModifiers() == GLUT_ACTIVE_ALT && isalpha(key)) {
+        } else if (mods == GLFW_MOD_ALT) {
+                if (isalpha(key)) {
                         return K_ALT(key);
+                }
+                return -1;
+        } else if (mods == 0) {
+                switch (key) {
+                case GLFW_KEY_LEFT: return K_LEFT;
+                case GLFW_KEY_UP: return K_UP;
+                case GLFW_KEY_RIGHT: return K_RIGHT;
+                case GLFW_KEY_DOWN: return K_DOWN;
+                case GLFW_KEY_PAGE_UP: return K_PGUP;
+                case GLFW_KEY_PAGE_DOWN: return K_PGDOWN;
+                default: return key;
                 }
         }
         return -1;
@@ -1060,19 +956,10 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
         switch (key) {
                 case 'f':
                         s->fs = !s->fs;
-                        glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
-                                        s->window_size_factor);
+                        glfwSetWindowMonitor(s->window, s->fs ? glfwGetPrimaryMonitor() : NULL, 0, 0, s->current_display_desc.width, s->current_display_desc.height, round(s->current_display_desc.fps));
                         break;
                 case 'q':
-#if defined FREEGLUT || defined HAVE_MACOSX
                         exit_uv(0);
-#else
-                        /// @todo
-                        /// This shouldn't happen (?). We have either freeglut (Linux, MSW) or
-                        /// original GLUT on OS X
-			glutDestroyWindow(s->window);
-			exit(1);
-#endif
                         break;
                 case 'd':
                         s->deinterlace = !s->deinterlace;
@@ -1088,17 +975,15 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                 case K_ALT('m'):
                         s->show_cursor = (state_gl::show_cursor_t) (((int) s->show_cursor + 1) % 3);
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Show cursor (0 - on, 1 - off, 2 - autohide): " << s->show_cursor << "\n";
-                        glutSetCursor(s->show_cursor == state_gl::SC_TRUE ? GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
+                        glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == state_gl::SC_TRUE ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
                         break;
                 case K_CTRL_UP:
                         s->window_size_factor *= 1.1;
-                        glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
-                                        s->window_size_factor);
+                        glfw_resize_window(s->window, s->fs, s->current_display_desc.height, s->aspect, s->current_display_desc.fps, s->window_size_factor);
                         break;
                 case K_CTRL_DOWN:
                         s->window_size_factor /= 1.1;
-                        glut_resize_window(s->fs, s->current_display_desc.height, s->aspect,
-                                        s->window_size_factor);
+                        glfw_resize_window(s->window, s->fs, s->current_display_desc.height, s->aspect, s->current_display_desc.fps, s->window_size_factor);
                         break;
                 default:
                         return false;
@@ -1107,58 +992,39 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
         return true;
 }
 
-static void glut_key_callback(int key, bool is_special)
+static void glfw_key_callback(GLFWwindow* win, int key, int /* scancode */, int action, int mods)
 {
+        if (action != GLFW_PRESS) {
+                return;
+        }
+        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
         char name[MAX_KEYCODE_NAME_LEN];
-        int64_t ugk = translate_glut_to_ug(key, is_special);
+        int64_t ugk = translate_glfw_to_ug(key, mods);
         get_keycode_name(ugk, name, sizeof name);
-        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "%s %d pressed, modifiers: %d (UG name: %s)\n",
-                        is_special ? "Special key" : "Key", key, glutGetModifiers(),
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "%d pressed, modifiers: %d (UG name: %s)\n",
+                        key, mods,
                         ugk > 0 ? name : "unknown");
         if (ugk == -1) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate%s key %d (modifiers: %d)!\n", is_special ? " special" : "", key, glutGetModifiers());
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot translate key %d (modifiers: %d)!\n", key, mods);
         }
         if (ugk <= 0) {
                 return;
         }
-        if (!display_gl_process_key(gl, ugk)) { // keybinding not found -> pass to control
-                keycontrol_send_key(get_root_module(&gl->mod), ugk);
+        if (!display_gl_process_key(s, ugk)) { // keybinding not found -> pass to control
+                keycontrol_send_key(get_root_module(&s->mod), ugk);
         }
 }
 
-static void glut_mouse_callback(int /* x */, int /* y */)
+static void glfw_mouse_callback(GLFWwindow *win, double /* x */, double /* y */)
 {
-        if (gl->show_cursor == state_gl::SC_AUTOHIDE) {
-                if (gl->cursor_shown_from == chrono::steady_clock::time_point()) {
-                        glutSetCursor(GLUT_CURSOR_INHERIT);
+        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+        if (s->show_cursor == state_gl::SC_AUTOHIDE) {
+                if (s->cursor_shown_from == chrono::steady_clock::time_point()) {
+                        glfwSetInputMode(s->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                 }
-                gl->cursor_shown_from = chrono::steady_clock::now();
+                s->cursor_shown_from = chrono::steady_clock::now();
         }
 }
-
-#ifdef FREEGLUT
-jmp_buf error_env;
-static void glut_init_error_callback(const char *fmt, va_list ap)
-{
-        va_list aq;
-        va_copy(aq, ap);
-        // get number of required bytes
-        int size = vsnprintf(NULL, 0, fmt, aq);
-        va_end(aq);
-
-        // format the string
-        auto buffer = (char *) alloca(size + 1);
-        va_copy(aq, ap);
-        if (vsprintf(buffer, fmt, aq) >= 0) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << buffer << "\n";
-        }
-        va_end(aq);
-
-        // This is required - if there is no noexit function call, glutInit()
-        // continues normally until it crashes.
-        longjmp(error_env, EXIT_FAIL_DISPLAY);
-}
-#endif
 
 static bool display_gl_check_gl_version() {
         auto version = (const char *) glGetString(GL_VERSION);
@@ -1182,15 +1048,33 @@ static void display_gl_print_depth() {
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Buffer depth - R: " << bits[0] << "b, G: " << bits[1] << "b, B: " << bits[2] << "b\n";
 }
 
-static void display_gl_render_last() {
-        if (!gl->current_frame) {
+static void display_gl_render_last(struct state_gl *s) {
+        if (!s->current_frame) {
                 return;
         }
         // redraw last frame
-        gl_render(gl, gl->current_frame->tiles[0].data);
-        gl_draw(gl->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2, gl->vsync != SINGLE_BUF);
-        glutSwapBuffers();
+        gl_render(s, s->current_frame->tiles[0].data);
+        gl_draw(s->aspect, (s->dxt_height - s->current_display_desc.height) / (float) s->dxt_height * 2, s->vsync != SINGLE_BUF);
+        if (s->vsync == SINGLE_BUF) {
+                glFlush();
+        } else {
+                glfwSwapBuffers(s->window);
+        }
 }
+
+#if defined HAVE_LINUX || defined WIN32
+static const char *glewGetError(GLenum err) {
+        switch (err) {
+                case GLEW_ERROR_NO_GL_VERSION: return "missing GL version";
+                case GLEW_ERROR_GL_VERSION_10_ONLY: return "Need at least OpenGL 1.1";
+                case GLEW_ERROR_GLX_VERSION_11_ONLY: return "Need at least GLX 1.2";
+#ifdef GLEW_ERROR_NO_GLX_DISPLAY
+                case GLEW_ERROR_NO_GLX_DISPLAY: return "Need GLX display for GLX support";
+#endif
+                default: return (const char *) glewGetErrorString(err);
+        }
+}
+#endif // defined HAVE_LINUX || defined WIN32
 
 #define GL_DISABLE_10B_OPT "gl-disable-10b"
 ADD_TO_PARAM(GL_DISABLE_10B_OPT ,
@@ -1199,74 +1083,48 @@ ADD_TO_PARAM(GL_DISABLE_10B_OPT ,
 
 static bool display_gl_init_opengl(struct state_gl *s)
 {
-#if defined HAVE_LINUX || defined WIN32
-        GLenum err;
-#endif // HAVE_LINUX
-
-#ifdef FREEGLUT
-        glutInitErrorFunc(glut_init_error_callback);
-        if (setjmp(error_env) == 0) {
-#endif
-                uvGlutInit(&uv_argc, uv_argv);
-#ifdef FREEGLUT
-        } else {
+        if (glfwInit() == GLFW_FALSE) {
                 exit_uv(EXIT_FAIL_DISPLAY);
                 return false;
         }
-#endif
-        string glut_config = s->vsync == SINGLE_BUF ? "single" : "double";
         if (commandline_params.find(GL_DISABLE_10B_OPT) == commandline_params.end()) {
-                glut_config += " rgba red=10 green=10 blue=10";
+                for (auto const & bits : {GLFW_RED_BITS, GLFW_GREEN_BITS, GLFW_BLUE_BITS}) {
+                        glfwWindowHint(bits, 10);
+                }
         }
-        glutInitDisplayString(glut_config.c_str());
+        if (s->nodecorate) {
+                glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+        }
 
-#ifdef HAVE_MACOSX
-        /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
-        /* Avoids uncaught exception (1002)  when creating CGSWindow */
-        NSApplicationLoad();
-#endif
-
-#ifdef FREEGLUT
-        glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
-#endif
-        glutIdleFunc(glut_idle_callback);
+        glfwWindowHint(GLFW_DOUBLEBUFFER, s->vsync == SINGLE_BUF ? GLFW_FALSE : GLFW_TRUE);
+        int width = splash_width;
+        int height = splash_height;
         if (s->fixed_size && s->fixed_w && s->fixed_h) {
-                glutInitWindowSize(s->fixed_w, s->fixed_h);
-        } else {
-                glutInitWindowSize(splash_width, splash_height);
+                width = s->fixed_w;
+                height = s->fixed_h;
         }
-	s->window = glutCreateWindow(get_commandline_param("window-title") ? get_commandline_param("window-title") : DEFAULT_WIN_NAME);
+        s->window = glfwCreateWindow(width, height, get_commandline_param("window-title") ? get_commandline_param("window-title") : DEFAULT_WIN_NAME, s->fs ?  glfwGetPrimaryMonitor() : NULL, NULL);
+        glfwSetWindowUserPointer(s->window, s);
         if (s->hide_window)
-                glutHideWindow();
-        glutSetCursor(s->show_cursor == state_gl::SC_TRUE ?  GLUT_CURSOR_INHERIT : GLUT_CURSOR_NONE);
-        //glutHideWindow();
-	glutKeyboardFunc([](unsigned char key, int /*x*/, int /*y*/) { glut_key_callback(key, false); });
-	glutSpecialFunc([](int key, int /*x*/, int /*y*/) { glut_key_callback(key, true); }); // special keys
-	//glutDisplayFunc((void (*)())glutSwapBuffers); // cast is needed because glutSwapBuffers is stdcall on MSW
-        glutDisplayFunc(display_gl_render_last); // if not called, freeglut wouldn't call some window events
-        glutMotionFunc(glut_mouse_callback);
-        glutPassiveMotionFunc(glut_mouse_callback);
-#ifdef HAVE_MACOSX
-        glutWMCloseFunc(glut_close_callback);
-#elif FREEGLUT
-        glutCloseFunc(glut_close_callback);
-#endif
-	glutReshapeFunc(gl_resize);
+                glfwHideWindow(s->window);
+        glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == state_gl::SC_TRUE ?  GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
+        glfwMakeContextCurrent(s->window);
+        glfwSetKeyCallback(s->window, glfw_key_callback);
+        glfwSetCursorPosCallback(s->window, glfw_mouse_callback);
+        glfwSetWindowCloseCallback(s->window, glfw_close_callback);
+        glfwSetFramebufferSizeCallback(s->window, gl_resize);
 
+#if defined HAVE_LINUX || defined WIN32
+        if (GLenum err = glewInit()) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "GLEW Error: %s (err %d)\n", glewGetError(err), err);
+                //return false; // do not fail - error 4 (on Wayland) can be suppressed
+        }
+#endif /* HAVE_LINUX */
         if (!display_gl_check_gl_version()) {
                 return false;
         }
         display_gl_print_depth();
 
-#if defined HAVE_LINUX || defined WIN32
-        err = glewInit();
-        if (GLEW_OK != err)
-        {
-                /* Problem: glewInit failed, something is seriously wrong. */
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "GLEW Error: %d\n", err);
-                return false;
-        }
-#endif /* HAVE_LINUX */
 
         glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
         glEnable( GL_TEXTURE_2D );
@@ -1342,10 +1200,20 @@ static void display_gl_cleanup_opengl(struct state_gl *s){
                 s->pbo_id = 0;
         }
 
-        if (s->window != -1) {
-                glutDestroyWindow(s->window);
-                s->window = -1;
+        if (s->window != NULL) {
+                glfwDestroyWindow(s->window);
+                s->window = nullptr;
         }
+
+        if (s->syphon_spout) {
+#ifdef HAVE_SYPHON
+                syphon_server_unregister(s->syphon_spout);
+#elif defined HAVE_SPOUT
+                spout_sender_unregister(s->syphon_spout);
+#endif
+        }
+
+        glfwTerminate();
 }
 
 static void display_gl_run(void *arg)
@@ -1358,14 +1226,10 @@ static void display_gl_run(void *arg)
                 return;
         }
 
-#if defined FREEGLUT
-	glutMainLoop();
-#else
-        while (!s->should_exit_main_loop) {
-                glut_idle_callback();
-                glutCheckLoop();
+        while (!glfwWindowShouldClose(s->window)) {
+                glfwPollEvents();
+                gl_process_frames(s);
         }
-#endif
         display_gl_cleanup_opengl(s);
 }
 
@@ -1390,17 +1254,19 @@ static void gl_change_aspect(struct state_gl *s, int width, int height)
         glOrtho(-1,1,-1/s->aspect,1/s->aspect,10,-10);
 }
 
-static void gl_resize(int width, int height)
+static void gl_resize(GLFWwindow *win, int width, int height)
 {
+        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
         debug_msg("Resized to: %dx%d\n", width, height);
 
-        gl_change_aspect(gl, width, height);
+        gl_change_aspect(s, width, height);
 
-        if (gl->vsync == SINGLE_BUF) {
+        if (s->vsync == SINGLE_BUF) {
                 glDrawBuffer(GL_FRONT);
                 /* Clear the screen */
                 glClear(GL_COLOR_BUFFER_BIT);
         }
+        display_gl_render_last(s);
 }
 
 static void upload_texture(struct state_gl *s, char *data)
@@ -1419,7 +1285,6 @@ static void upload_texture(struct state_gl *s, char *data)
         int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
         if (s->use_pbo) {
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id); // current pbo
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, type, nullptr);
                 glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
                 if (void *ptr = glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB)) {
                         // update data directly on the mapped buffer
@@ -1430,6 +1295,7 @@ static void upload_texture(struct state_gl *s, char *data)
                         }
                         glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
                 }
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, type, nullptr);
 
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
         } else {
@@ -1768,44 +1634,44 @@ bool state_vdpau::loadVdpGlFuncs(){
         }
 
         VDPAUInitNV = (void (*)(const void *, const void *))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAUInitNV");
+                glfwGetProcAddress("glVDPAUInitNV");
 
         VDPAUFiniNV = (void (*)(void))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAUFiniNV");
+                glfwGetProcAddress("glVDPAUFiniNV");
 
         VDPAURegisterVideoSurfaceNV = (vdpauSurfaceNV (*)(const void *,
                                 GLenum,
                                 GLsizei,
                                 const uint *))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAURegisterVideoSurfaceNV");
+                glfwGetProcAddress("glVDPAURegisterVideoSurfaceNV");
 
         VDPAURegisterOutputSurfaceNV = (vdpauSurfaceNV (*)(const void *,
                                 GLenum,
                                 GLsizei,
                                 const uint *))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAURegisterOutputSurfaceNV");
+                glfwGetProcAddress("glVDPAURegisterOutputSurfaceNV");
 
         VDPAUIsSurfaceNV = (GLboolean (*)(vdpauSurfaceNV))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAUIsSurfaceNV");
+                glfwGetProcAddress("glVDPAUIsSurfaceNV");
 
         VDPAUUnregisterSurfaceNV = (void (*)(vdpauSurfaceNV))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAUUnregisterSurfaceNV");
+                glfwGetProcAddress("glVDPAUUnregisterSurfaceNV");
 
         VDPAUGetSurfaceivNV = (void (*)(vdpauSurfaceNV,
                                 GLenum,
                                 GLsizei,
                                 GLsizei *,
                                 int *))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAUGetSurfaceivNV");
+                glfwGetProcAddress("glVDPAUGetSurfaceivNV");
 
         VDPAUSurfaceAccessNV = (void (*)(vdpauSurfaceNV, GLenum))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAUSurfaceAccessNV");
+                glfwGetProcAddress("glVDPAUSurfaceAccessNV");
 
         VDPAUMapSurfacesNV = (void (*)(GLsizei, const vdpauSurfaceNV *))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAUMapSurfacesNV");
+                glfwGetProcAddress("glVDPAUMapSurfacesNV");
 
         VDPAUUnmapSurfacesNV = (void (*)(GLsizei, const vdpauSurfaceNV *))
-                glXGetProcAddressARB( (const GLubyte *) "glVDPAUUnmapSurfacesNV");
+                glfwGetProcAddress("glVDPAUUnmapSurfacesNV");
 
         return true;
 }
@@ -1846,10 +1712,9 @@ static void gl_draw(double ratio, double bottom_offset, bool double_buf)
         gl_check_error();
 }
 
-static void glut_close_callback(void)
+static void glfw_close_callback(GLFWwindow *win)
 {
-        gl->should_exit_main_loop = true;
-        gl->window = -1;
+        glfwSetWindowShouldClose(win, GLFW_TRUE);
         exit_uv(0);
 }
 
@@ -1918,16 +1783,6 @@ static void display_gl_done(void *state)
 
         vf_free(s->current_frame);
 
-        if (s->syphon_spout) {
-#ifdef HAVE_SYPHON
-                syphon_server_unregister(s->syphon_spout);
-#elif defined HAVE_SPOUT
-                spout_sender_unregister(s->syphon_spout);
-#endif
-        }
-
-        gl = nullptr;
-        
         delete s;
 }
 
@@ -1966,7 +1821,7 @@ static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         unique_lock<mutex> lk(s->lock);
 
         if(!frame) {
-                s->should_exit_main_loop = true; // used only for GLUT (not freeglut)
+                glfwSetWindowShouldClose(s->window, GLFW_TRUE);
                 s->frame_queue.push(frame);
                 lk.unlock();
                 s->new_frame_ready_cv.notify_one();
@@ -2027,11 +1882,7 @@ static const struct video_display_info display_gl_info = {
         display_gl_get_property,
         display_gl_put_audio_frame,
         display_gl_reconfigure_audio,
-#ifdef __APPLE__
-        DISPLAY_NEEDS_MAINLOOP,
-#else
-        DISPLAY_DOESNT_NEED_MAINLOOP,
-#endif
+        DISPLAY_NEEDS_MAINLOOP, // many GLFW functions must be called from main thread (notably glfwPollEvents())
 };
 
 REGISTER_MODULE(gl, &display_gl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

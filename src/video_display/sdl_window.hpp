@@ -51,7 +51,6 @@
 #       include <GL/glx.h>
 #else // WIN32
 #       include <GL/glew.h>
-#       include <GL/glut.h>
 #endif //HAVE_MACOSX
 
 

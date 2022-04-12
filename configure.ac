@@ -519,7 +519,7 @@ fi
 if test "$system" = MacOSX
 then
         OPENGL=yes
-        OPENGL_LIB="-framework OpenGL -framework Cocoa"
+        OPENGL_LIB="-framework Cocoa -framework GLUT -framework OpenGL"
         COMMON_FLAGS="$COMMON_FLAGS -DGL_SILENCE_DEPRECATION"
         GL_COMMON_OBJ="$GL_COMMON_OBJ src/mac_gl_common.o"
 fi
@@ -1950,34 +1950,21 @@ gl_display=no
 
 AC_ARG_ENABLE(gl-display,
 [  --disable-gl-display    disable OpenGL display (default is auto)]
-[                          Requires: OpenGL GLUT],
+[                          Requires: OpenGL GLFW3],
     [gl_display_req=$enableval],
     [gl_display_req=$build_default]
     )
 
 GL_OBJ="$GL_OBJ src/video_display/gl.o"
 
-case "$system" in
-	MacOSX)
-                GLUT_LIB="-framework GLUT"
-                FOUND_GLUT=yes
-	;;
-	*)
-                AC_CHECK_HEADERS([GL/glut.h])
-                AC_CHECK_LIB([freeglut], [glutMainLoop], [GLUT_LIB=-lfreeglut],
-			     AC_CHECK_LIB([glut], [glutMainLoop], [GLUT_LIB=-lglut], [GLUT_LIB=""]))
-		if test "$ac_cv_header_GL_glut_h" = yes -a -n "$GLUT_LIB"; then
-			FOUND_GLUT=yes
-		fi
-	;;
-esac
+PKG_CHECK_MODULES([GLFW], [glfw3], [ FOUND_GLFW=yes ], [ FOUND_GLFW=no ])
 
-if test "$OPENGL" = yes -a "$FOUND_GLUT" = yes -a $gl_display_req != no
+if test "$OPENGL" = yes -a "$FOUND_GLFW" = yes -a $gl_display_req != no
 then
-        GL_LIB="$GLUT_LIB $OPENGL_LIB"
+        GL_LIB="$GLFW_LIBS $OPENGL_LIB"
         gl_display=yes
         AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
-	INC="$INC $GL_INC"
+	INC="$INC $GLFW_INC"
 	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_OBJ", "$GL_LIB $LAVC_HWACC_LIBS")
 fi
 

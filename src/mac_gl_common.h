@@ -39,9 +39,17 @@
 #define MAC_GL_PROFILE_3_2 1
 typedef int mac_opengl_version_t;
 
-int get_mac_kernel_version_major();
+#ifdef __cplusplus
+extern "C" {
+#endif // defined __cplusplus
+
+int get_mac_kernel_version_major(void);
 void *mac_gl_init(mac_opengl_version_t);
 void mac_gl_free(void *);
 void mac_gl_make_current(void *);
 void macGlutInit(int *argcp, char **argv);
+
+#ifdef __cplusplus
+}
+#endif // defined __cplusplus
 

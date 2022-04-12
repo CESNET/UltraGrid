@@ -127,8 +127,6 @@ static void gl_check_error()
 
 GLuint glsl_compile_link(const char *vprogram, const char *fprogram);
 
-void uvGlutInit(int *argcp, char **argv);
-
 #ifdef __cplusplus
 }
 #endif // __cplusplus
