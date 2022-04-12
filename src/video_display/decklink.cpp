@@ -403,7 +403,7 @@ public:
          */
         void report() {
                 std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-                if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 30) {
+                if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 10) {
                 
                         LOG(LOG_LEVEL_INFO) << rang::style::underline << "Decklink stats (cumulative)" 
                                         << rang::style::reset     << " - Total Audio Frames Played: "
