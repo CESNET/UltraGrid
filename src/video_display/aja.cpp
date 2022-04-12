@@ -48,15 +48,16 @@
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
-#pragma GCC diagnostic warning "-Wcast-qual"
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif // defined __GNUC__
 #include <ajantv2/includes/ntv2utils.h>
+#include <ntv2democommon.h>
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif // defined __GNUC__
 #include <ajatypes.h>
 #include <ntv2debug.h>
-#include <ntv2democommon.h>
 #include <ntv2devicescanner.h>
 
 #include <chrono>
@@ -656,7 +657,7 @@ void display::process_frames()
 
                         if (mAudioLen > 0) {
                                 uint32_t val;
-                                CHECK(mDevice.ReadAudioLastOut(val, mOutputChannel));
+                                CHECK(mDevice.ReadAudioLastOut(val, NTV2AudioSystem(mOutputChannel)));
                                 int channels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
                                 int latency_ms = ((mAudioOutLastAddress + mAudioOutWrapAddress - val) % mAudioOutWrapAddress) / (SAMPLE_RATE / 1000) / BPS / channels;
                                 if (latency_ms > 135) {
