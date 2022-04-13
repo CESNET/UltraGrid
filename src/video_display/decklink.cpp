@@ -798,7 +798,7 @@ struct state_decklink {
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
 
-        AudioDriftFixer audio_drift_fixer{250, 25, 2700, 50, 50};
+        AudioDriftFixer audio_drift_fixer{250, 25, 2700, 600, 600};
 
         uint32_t            last_buffered_samples;
         int32_t             drift_since_last_correction;
