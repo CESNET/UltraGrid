@@ -794,16 +794,17 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 || resample_denominator != decoder->resampler.get_resampler_denominator()
                                 || (size_t)decompressed.get_channel_count() != decoder->resampler.get_resampler_channel_count()
                                 || decoder->resampler.get_resampler_initial_bps() != decompressed.get_bps())) {
-                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " REMOVE removing tail buffer\n";
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " REMOVE removing tail buffer\n";
                 // The resampler is no longer required. Collect the remaining buffer from the resampler
                 audio_frame2 tail_buffer = audio_frame2();
                 tail_buffer.init(decompressed.get_channel_count(), decompressed.get_codec(), decoder->resampler.get_resampler_initial_bps(), decompressed.get_sample_rate());
 
                 // Generate a buffer the size of the input latency and apply it to all channels
-                char buffer[decoder->resampler.get_resampler_input_latency() * decoder->resampler.get_resampler_initial_bps()];
-                memset(buffer, 0, decoder->resampler.get_resampler_input_latency() * decoder->resampler.get_resampler_initial_bps());
+                uint32_t leftover_frames = (decoder->resampler.get_resampler_input_latency() - 1);
+                char buffer[leftover_frames * decoder->resampler.get_resampler_initial_bps()];
+                memset(buffer, 0, leftover_frames * decoder->resampler.get_resampler_initial_bps());
                 for(size_t i = 0; i < (size_t)tail_buffer.get_channel_count(); i++) {
-                        tail_buffer.append(i, buffer, decoder->resampler.get_resampler_input_latency()  * decoder->resampler.get_resampler_initial_bps());
+                        tail_buffer.append(i, buffer, leftover_frames * decoder->resampler.get_resampler_initial_bps());
                 }
                 // Extract remaining buffer from resampler by applying a resample the size of the input latency
                 tail_buffer.resample_fake(decoder->resampler, decoder->resampler.get_resampler_numerator(), decoder->resampler.get_resampler_denominator());

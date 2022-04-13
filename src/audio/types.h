@@ -130,6 +130,7 @@ public:
         int get_resampler_initial_bps();
         size_t get_resampler_channel_count();
         bool resampler_is_set();
+        bool create_resampler(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps);
         void resample_set_destroy_flag(bool destroy);
 private:
         void *resampler{nullptr}; // type is (SpeexResamplerState *)
@@ -141,6 +142,7 @@ private:
         int resample_initial_bps{0};
         size_t resample_ch_count{0};
         bool destroy_resampler{false};
+        bool initial{}; 
 
         friend class audio_frame2;
 };

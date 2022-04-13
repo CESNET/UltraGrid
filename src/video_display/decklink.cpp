@@ -84,7 +84,7 @@
 #endif
 
 #define MAX_RESAMPLE_DELTA_DEFAULT 30
-#define MIN_RESAMPLE_DELTA_DEFAULT 5
+#define MIN_RESAMPLE_DELTA_DEFAULT 1
 #define TARGET_BUFFER_DEFAULT 2700
 
 static void print_output_modes(IDeckLink *);
@@ -403,8 +403,7 @@ public:
          */
         void report() {
                 std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-                if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 10) {
-                
+                if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 10) {                
                         LOG(LOG_LEVEL_INFO) << rang::style::underline << "Decklink stats (cumulative)" 
                                         << rang::style::reset     << " - Total Audio Frames Played: "
                                         << rang::style::bold      << this->frames_played 
@@ -421,7 +420,7 @@ public:
                                         << rang::style::reset     << " / Average Buffer: "
                                         << rang::style::bold      << this->buffer_average
                                         << rang::style::reset     << " / Average Added Frames: "
-                                        << rang::style::bold      << (uint32_t) round(this->avg_added_frames.avg())
+                                        << rang::style::bold      << this->avg_added_frames.avg()
                                         << rang::style::reset     << " / Max time diff audio (ms): "
                                         << rang::style::bold      << this->audio_time_diff_max
                                         << rang::style::reset     << " / Min time diff audio (ms): "
@@ -540,7 +539,7 @@ private:
         uint32_t frames_played = 0;
         // How many times the buffer dropped avg amount of frames being added
         uint32_t frames_missed = 0;
-        MovingAverage avg_added_frames{10};
+        MovingAverage avg_added_frames{250};
         // How many buffer underflows and overflows have occured.
         uint32_t buffer_underflow = 0;
         uint32_t buffer_overflow = 0;
@@ -664,12 +663,14 @@ public:
                 // Add the amount currently in the buffer to the moving average, and calculate the delta between that and the previous amount
                 // Store the previous buffer count so we can calculate this next frame.
                 this->average_buffer_samples.add((double)buffered_count);
-                this->average_delta.add((double)buffered_count - previous_buffer);
+                this->average_delta.add((double)abs((int32_t)buffered_count - (int32_t)previous_buffer));
                 this->previous_buffer = buffered_count;
                 
                 long long dst_frame_rate = 0;
                 // Calculate the average
                 uint32_t average_buffer_depth = (uint32_t)(this->average_buffer_samples.avg());
+
+                int resample_hz = 0;
 
                 // Check to see if our buffered samples has enough to calculate a good average
                 if (this->average_buffer_samples.filled()) {
@@ -687,30 +688,20 @@ public:
                         if (average_buffer_depth  > target_buffer_fill + this->pos_jitter)
                         {
                                 // The buffer is too large, so we need to resample down to remove some frames
-                                int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill + this->pos_jitter);
+                                resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill - this->pos_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resample_hz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed slow " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity " << resample_hz << " resample_hz\n";
                                 this->audio_summary->increment_resample_low();
                         } else if(average_buffer_depth < target_buffer_fill - this->neg_jitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
-                                int resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill - this->neg_jitter);
+                                resample_hz = (int)this->scale_buffer_delta(target_buffer_fill - average_buffer_depth - this->neg_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resample_hz) * BASE;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed fast " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity " << resample_hz << " resample_hz\n";
                                 this->audio_summary->increment_resample_high();
                         } else {
-                                // If there is nothing to do, then set the resample rate to trend towards our target, but at a very
-                                // low sample rate delta.
-                                if(average_buffer_depth > target_buffer_fill) {
-                                        dst_frame_rate = (bmdAudioSampleRate48kHz - 1) * BASE;
-                                }
-                                else {
-                                        dst_frame_rate = (bmdAudioSampleRate48kHz + 1) * BASE;
-                                }
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed normal " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.getTotal() << " average_velocity 1 resample_hz\n";
+                                dst_frame_rate = (bmdAudioSampleRate48kHz) * BASE;
                         }       
                 }
 
-                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " UPDATE2 " <<  average_buffer_depth << " vs " << buffered_count << " " << dst_frame_rate << " dst_frame_rate "<<"\n";
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.avg() << " average_velocity " << resample_hz << " resample_hz\n";
 
    
                 if (dst_frame_rate != 0) {
@@ -807,7 +798,7 @@ struct state_decklink {
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
 
-        AudioDriftFixer audio_drift_fixer{250, 150, 2700, 600, 600};
+        AudioDriftFixer audio_drift_fixer{250, 25, 2700, 50, 50};
 
         uint32_t            last_buffered_samples;
         int32_t             drift_since_last_correction;
