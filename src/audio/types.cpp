@@ -181,6 +181,18 @@ int audio_frame2_resampler::get_resampler_initial_bps() {
 ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
                 "  Sets audio resampler quality in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_RESAMPLE_QUALITY) "\n");
 
+/**
+ * @brief This function will create (and destroy) a new resampler.
+ * 
+ * @param original_sample_rate The original sample rate in Hz
+ * @param new_sample_rate_num  The numerator of the new sample rate
+ * @param new_sample_rate_den  The denominator of the new sample rate
+ * @param channel_size         The number of channels that will be resampled
+ * @param bps                  The bit rate (in bytes) of the incoming audio
+ * 
+ * @return true  Successfully created the resampler
+ * @return false Initialisation of the resampler failed
+ */
 bool audio_frame2_resampler::create_resampler(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps) {
 #ifdef HAVE_SPEEXDSP
         LOG(LOG_LEVEL_VERBOSE) << "Destroying Resampler\n";
