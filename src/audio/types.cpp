@@ -178,6 +178,52 @@ int audio_frame2_resampler::get_resampler_initial_bps() {
         return this->resample_initial_bps;
 }
 
+ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
+                "  Sets audio resampler quality in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_RESAMPLE_QUALITY) "\n");
+
+bool audio_frame2_resampler::create_resampler(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps) {
+#ifdef HAVE_SPEEXDSP
+        LOG(LOG_LEVEL_VERBOSE) << "Destroying Resampler\n";
+        if (this->resampler) {
+                speex_resampler_destroy((SpeexResamplerState *) this->resampler);
+                this->destroy_resampler = false;
+        }
+        this->resampler = nullptr;
+
+        int quality = DEFAULT_RESAMPLE_QUALITY;
+        if (commandline_params.find("resampler-quality") != commandline_params.end()) {
+                quality = stoi(commandline_params.at("resampler-quality"));
+                assert(quality >= 0 && quality <= 10);
+        }
+        int err = 0;
+        this->resampler = speex_resampler_init_frac(channel_size, original_sample_rate * new_sample_rate_den, new_sample_rate_num,
+                                                    original_sample_rate, new_sample_rate_num / new_sample_rate_den, quality, &err);
+        if (err) {
+                LOG(LOG_LEVEL_ERROR) << "[audio_frame2_resampler] Cannot initialize resampler: " << speex_resampler_strerror(err) << "\n";
+                return false;
+        }
+        // Ignore resampler delay. The speex resampler silently adds a delay to the resampler by adding silence at the length
+        // of the input latency and stored a buffered amount for itself. This is extracted outside of this function on the final
+        // call before a resampler is marked for destruction.
+        speex_resampler_skip_zeros((SpeexResamplerState *) this->resampler);
+        this->resample_from = original_sample_rate;
+
+        // Setup resampler values
+        this->resample_to_num = new_sample_rate_num;
+        this->resample_to_den = new_sample_rate_den;
+        this->resample_ch_count = channel_size;
+        // Capture the input and output latency. Generally, there is not a difference between the two.
+        // The input latency is used to calculate leftover audio in the resampler that is collected on the
+        // audio frame before the resampler is destroyed.
+        this->resample_input_latency = speex_resampler_get_input_latency((SpeexResamplerState *) this->resampler);
+        this->resample_output_latency = speex_resampler_get_output_latency((SpeexResamplerState *) this->resampler);
+        this->resample_initial_bps = bps;
+        LOG(LOG_LEVEL_ERROR) << "[audio_frame2] Resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
+        return true;
+#endif
+        return false;
+}
+
 /**
  * @brief Creates empty audio_frame2
  */
@@ -500,7 +546,7 @@ void audio_frame2::resample_channel(audio_frame2_resampler* resampler_state, int
                 remainder->append(channel_index, (char *)(in + (in_len * sizeof(int16_t))), in_len_orig - in_len);
         }
         // The speex resampler process returns the number of frames written + 1 (so ensure we subtract 1 when setting the length)
-        new_channel->len = (out_len - 1) * sizeof(int16_t);
+        new_channel->len = out_len * sizeof(int16_t);
 #else
         LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
 #endif
@@ -530,14 +576,11 @@ void audio_frame2::resample_channel_float(audio_frame2_resampler* resampler_stat
                 remainder->append(channel_index, (char *)(in + (in_len * sizeof(float))), in_len_orig - in_len);
         }
         // The speex resampler process returns the number of frames written + 1 (so ensure we subtract 1 when setting the length)
-        new_channel->len = (out_len - 1) * sizeof(float);
+        new_channel->len = out_len * sizeof(float);
 #else
         LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, SpeexDSP was not compiled in!\n";
 #endif
 }
-
-ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
-                "  Sets audio resampler quality in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_RESAMPLE_QUALITY) "\n");
 
 tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
 {
@@ -562,43 +605,11 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
                         || new_sample_rate_num != resampler_state.resample_to_num || new_sample_rate_den != resampler_state.resample_to_den
                         || channels.size() != resampler_state.resample_ch_count) || resampler_state.resample_initial_bps != this->bps
                         || resampler_state.destroy_resampler) {
-                if (resampler_state.resampler) {
-                        speex_resampler_destroy((SpeexResamplerState *) resampler_state.resampler);
-                        resampler_state.destroy_resampler = false;
+                reinitialised_resampler = resampler_state.create_resampler(this->sample_rate, new_sample_rate_num, new_sample_rate_den, this->channels.size(), this->bps);
+                if(!reinitialised_resampler) {
+                        return {false, false, audio_frame2{}};
                 }
-                resampler_state.resampler = nullptr;
-
-                int quality = DEFAULT_RESAMPLE_QUALITY;
-                if (commandline_params.find("resampler-quality") != commandline_params.end()) {
-                        quality = stoi(commandline_params.at("resampler-quality"));
-                        assert(quality >= 0 && quality <= 10);
-                }
-                int err = 0;
-                resampler_state.resampler = speex_resampler_init_frac(channels.size(), sample_rate * new_sample_rate_den, new_sample_rate_num,
-                                                                      sample_rate, new_sample_rate_num / new_sample_rate_den, quality, &err);
-                if (err) {
-                        LOG(LOG_LEVEL_ERROR) << "[audio_frame2] Cannot initialize resampler: " << speex_resampler_strerror(err) << "\n";
-                        return {false, reinitialised_resampler, audio_frame2{}};
-                }
-                // Ignore resampler delay. The speex resampler silently adds a delay to the resampler by adding silence at the length
-                // of the input latency and stored a buffered amount for itself. This is extracted outside of this function on the final
-                // call before a resampler is marked for destruction.
-                speex_resampler_skip_zeros((SpeexResamplerState *) resampler_state.resampler);
-                resampler_state.resample_from = sample_rate;
-
-                // Setup resampler values
-                resampler_state.resample_to_num = new_sample_rate_num;
-                resampler_state.resample_to_den = new_sample_rate_den;
-                resampler_state.resample_ch_count = channels.size();
-                // Capture the input and output latency. Generally, there is not a difference between the two.
-                // The input latency is used to calculate leftover audio in the resampler that is collected on the
-                // audio frame before the resampler is destroyed.
-                resampler_state.resample_input_latency = speex_resampler_get_input_latency((SpeexResamplerState *) resampler_state.resampler);
-                resampler_state.resample_output_latency = speex_resampler_get_output_latency((SpeexResamplerState *) resampler_state.resampler);
-
-                resampler_state.resample_initial_bps = this->bps;
-
-                reinitialised_resampler = true;
+                LOG(LOG_LEVEL_ERROR) << "[audio_frame2] Resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
         }
 
         // Initialise the new channels that the resampler is going to write into
@@ -643,7 +654,7 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
 
         std::chrono::high_resolution_clock::time_point resample_end = std::chrono::high_resolution_clock::now();
         auto time_diff = std::chrono::duration_cast<std::chrono::duration<double>>(resample_end - resample_begin);
-        LOG(LOG_LEVEL_DEBUG) << " CALL LENGTH RESAMPLER " << setprecision(30) << time_diff.count() << "\n";
+        LOG(LOG_LEVEL_DEBUG) << "CALL LENGTH RESAMPLER " << setprecision(30) << time_diff.count() << "\n";
 
         return {true, reinitialised_resampler, std::move(remainder)};
 #else
