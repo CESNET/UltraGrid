@@ -1558,7 +1558,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                 }
                         }
                 } else if (strstr(ptr, "no_drift_fix") == ptr) {
-                        s->audio_drift_fixer.m_enabled = true;
+                        s->audio_drift_fixer.m_enabled = false;
                 }
                 else if (strncasecmp(ptr, "maxresample=", strlen("maxresample=")) == 0) {
                         uint32_t max_resample_delta = 0;
