@@ -190,7 +190,7 @@ void mac_gl_make_current(void * state)
 -(void) initialize: (struct state_mac_gl *) s
 {
         window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 100, 100)
-                                             styleMask:NSBorderlessWindowMask
+                                             styleMask:NSWindowStyleMaskBorderless
                                                backing:NSBackingStoreBuffered
                                                  defer:NO];
         [window autorelease];
