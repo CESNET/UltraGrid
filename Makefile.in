@@ -40,7 +40,10 @@ PERF          = bin/uv_perf
 BUNDLE        = uv.app
 GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
-CUDA_COMPILER = @CUDA_COMPILER@
+REAL_CUDA_COMPILER = "@CUDA_COMPILER@"
+CUDA_COMPILER_0 = @echo "Compiling $<..."; $(REAL_CUDA_COMPILER)
+CUDA_COMPILER_1 = $(REAL_CUDA_COMPILER)
+CUDA_COMPILER   = $(CUDA_COMPILER_$(VERBOSE))
 SYSTEM	      = @system@
 
 GUI_EXE       = @GUI_EXE@
@@ -313,12 +316,12 @@ POSTPROCESS_DEPS = \
 # Pattern rule for compiling CUDA files
 %.o: %.cu
 	$(MKDIR_P) $(dir $@)
-	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(CUDA_INC) -c $< -o $@
-	"$(CUDA_COMPILER)" $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
+	$(CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -c $< -o $@
+	$(CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
 	$(POSTPROCESS_DEPS)
 %.lib: %.cu
 	$(MKDIR_P) $(dir $@)
-	"$(CUDA_COMPILER)" $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(CUDA_INC) -MD --shared $< -o $*.dll
+	$(CUDA_COMPILER) $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(CUDA_INC) -MD --shared $< -o $*.dll
 	touch $@
 	$(POSTPROCESS_DEPS)
 
