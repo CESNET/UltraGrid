@@ -80,6 +80,7 @@
 #include "module.h"
 #include "rang.hpp"
 #include "utils/color_out.h"
+#include "utils/misc.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
@@ -304,6 +305,7 @@ struct state_gl {
         bool fixed_size;
         int fixed_w, fixed_h;
 
+        enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
         bool nodecorate = false;
         bool use_pbo = true;
 
@@ -379,10 +381,11 @@ static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
  */
 static void gl_show_help(void) {
         cout << "usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-d gl" << rang::fg::reset << "[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:spout[=<name>]|:nodecorate|:fixed_size[=WxH]|:vsync[<x>|single]]* | help\n\n" << rang::style::reset;
+        cout << rang::style::bold << rang::fg::red << "\t-d gl" << rang::fg::reset << "[:d|:fs|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:spout[=<name>]|:modeset[=fps]|:nodecorate|:fixed_size[=WxH]|:vsync[<x>|single]]* | help\n\n" << rang::style::reset;
         cout << "options:\n";
         cout << BOLD("\td")           << "\t\tdeinterlace\n";
         cout << BOLD("\tfs")          << "\t\tfullscreen\n";
+        cout << BOLD("\tmodeset[=fps]")<< "\tset received video mode as display mode (in fullscreen); modeset=<fps>|size - set specified FPS or only size\n";
         cout << BOLD("\tnodecorate")  << "\tdisable window decorations\n";
         cout << BOLD("\tnovsync")     << "\t\tdo not turn sync on VBlank\n";
         cout << BOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
@@ -461,6 +464,15 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                                 s->deinterlace = true;
                         } else if(!strcmp(tok, "fs")) {
                                 s->fs = true;
+                        } else if(strstr(tok, "modeset") != nullptr) {
+                                if (strcmp(tok, "nomodeset") != 0) {
+                                        if (char *val = strchr(tok, '=')) {
+                                                val += 1;
+                                                s->modeset = strcmp(val, "size") == 0 ? state_gl::MODESET_SIZE_ONLY : (enum state_gl::modeset_t) stoi(val);
+                                        } else {
+                                                s->modeset = state_gl::MODESET;
+                                        }
+                                }
                         } else if(!strncmp(tok, "aspect=", strlen("aspect="))) {
                                 s->video_aspect = atof(tok + strlen("aspect="));
                                 char *pos = strchr(tok,'/');
@@ -562,12 +574,30 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
+static void glfw_print_video_mode(struct state_gl *s) {
+        if (!s->fs || !s->modeset) {
+                return;
+        }
+        GLFWmonitor *mon = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(mon);
+        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Display mode set to: " << mode->width << "x" << mode->height << "@" << mode->refreshRate << "\n";
+}
+
 static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspect, double fps, double window_size_factor)
 {
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "glfw - fullscreen: %d, aspect: %lf, factor %lf\n",
                         (int) fs, aspect, window_size_factor);
         if (fs) {
-                glfwSetWindowMonitor(win, glfwGetPrimaryMonitor(), 0, 0, height * aspect, height, round(fps));
+                GLFWmonitor *mon = glfwGetPrimaryMonitor();
+                auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+                if (s->modeset) {
+                        int refresh_rate = s->modeset == state_gl::MODESET ? round(fps) : static_cast<int>(s->modeset);
+                        glfwSetWindowMonitor(win, mon, 0, 0, height * aspect, height, refresh_rate);
+                        glfw_print_video_mode(s);
+                } else {
+                        const GLFWvidmode* mode = glfwGetVideoMode(mon);
+                        glfwSetWindowMonitor(win, mon, 0, 0, mode->width, mode->height, mode->refreshRate);
+                }
         } else {
                 glfwSetWindowSize(win, window_size_factor * height * aspect, window_size_factor * height);
         }
@@ -955,9 +985,25 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
         verbose_msg(MOD_NAME "Key %lld pressed\n", key);
         switch (key) {
                 case 'f':
-                        s->fs = !s->fs;
-                        glfwSetWindowMonitor(s->window, s->fs ? glfwGetPrimaryMonitor() : NULL, 0, 0, s->current_display_desc.width, s->current_display_desc.height, round(s->current_display_desc.fps));
-                        break;
+                        {
+                                s->fs = !s->fs;
+                                int width = s->current_display_desc.width;
+                                int height = s->current_display_desc.height;
+                                int refresh_rate = s->modeset == state_gl::MODESET ? round(s->current_display_desc.fps) : static_cast<int>(s->modeset);
+                                GLFWmonitor *mon = nullptr;
+                                if (s->fs) {
+                                        mon = glfwGetPrimaryMonitor();
+                                        if (!s->modeset) {
+                                                const GLFWvidmode* mode = glfwGetVideoMode(mon);
+                                                width = mode->width;
+                                                height = mode->height;
+                                                refresh_rate = mode->refreshRate;
+                                        }
+                                }
+                                glfwSetWindowMonitor(s->window, mon, 0, 0, width, height, refresh_rate);
+                                glfw_print_video_mode(s);
+                                break;
+                        }
                 case 'q':
                         exit_uv(0);
                         break;
@@ -1099,11 +1145,17 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glfwWindowHint(GLFW_DOUBLEBUFFER, s->vsync == SINGLE_BUF ? GLFW_FALSE : GLFW_TRUE);
         int width = splash_width;
         int height = splash_height;
+        GLFWmonitor *mon= s->fs ? glfwGetPrimaryMonitor() : nullptr;
         if (s->fixed_size && s->fixed_w && s->fixed_h) {
                 width = s->fixed_w;
                 height = s->fixed_h;
+        } else if (!s->modeset && s->fs) {
+                const GLFWvidmode* mode = glfwGetVideoMode(mon);
+                width = mode->width;
+                height = mode->height;
         }
-        s->window = glfwCreateWindow(width, height, get_commandline_param("window-title") ? get_commandline_param("window-title") : DEFAULT_WIN_NAME, s->fs ?  glfwGetPrimaryMonitor() : NULL, NULL);
+        s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), mon, NULL);
+        glfw_print_video_mode(s);
         glfwSetWindowUserPointer(s->window, s);
         if (s->hide_window)
                 glfwHideWindow(s->window);
