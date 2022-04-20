@@ -5,10 +5,11 @@ on:
     branches:
       - coverity_scan
   schedule:
-   - cron:  '0 6 20 * *' # 20th at 6:00 UTC
+   - cron:  '0 4 20 * *' # 20th at 4:00 UTC
 
 jobs:
   Coverity:
+    if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == null
     runs-on: ubuntu-latest
     env:
       SDK_URL: ${{ secrets.SDK_URL }}

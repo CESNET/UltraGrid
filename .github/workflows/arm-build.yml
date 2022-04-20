@@ -9,7 +9,7 @@ on:
 
 jobs:
   Build:
-    if: github.repository == 'CESNET/UltraGrid' || github.event.schedule != null
+    if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == null
     runs-on: ubuntu-latest
     strategy:
       matrix:
