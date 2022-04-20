@@ -118,13 +118,14 @@ struct audio_network_parameters {
 };
 
 struct state_audio {
-        state_audio(struct module *parent) :
+        state_audio(struct module *parent, time_ns_t st) :
                 mod(MODULE_CLASS_AUDIO, parent, this),
                 audio_receiver_module(MODULE_CLASS_RECEIVER, mod.get(), this),
                 audio_sender_module(MODULE_CLASS_SENDER,mod.get(), this),
-                filter_chain(audio_sender_module.get())
+                filter_chain(audio_sender_module.get()),
+                start_time(st),
+                t0(st)
         {
-                gettimeofday(&t0, NULL);
         }
         ~state_audio() {
                 delete fec_state;
@@ -150,8 +151,8 @@ struct state_audio {
         enum audio_transport_device receiver = NET_NATIVE;
         
         time_ns_t start_time;
+        time_ns_t t0; // for statistics
 
-        struct timeval t0; // for statistics
         audio_frame2 captured;
 
         struct tx *tx_session = nullptr;
@@ -236,7 +237,6 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 time_ns_t start_time,
                 int mtu, int ttl, struct exporter *exporter)
 {
-        struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
         UNUSED(unused);
         char *addr;
@@ -259,8 +259,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 return NULL;
         }
         
-        s = new state_audio(parent);
-        s->start_time = start_time;
+        struct state_audio *s = new state_audio(parent, start_time);
 
         s->audio_channel_map = opt->channel_map;
         s->audio_scale = opt->scale;
@@ -945,11 +944,9 @@ static void process_statistics(struct state_audio *s, audio_frame2 *buffer)
         }
         s->captured.append(*buffer);
 
-        struct timeval t;
-        double seconds;
-        gettimeofday(&t, 0);
-        seconds = tv_diff(t, s->t0);
-        if (seconds > 5.0) {
+        time_ns_t t = get_time_in_ns();
+        if (t - s->t0 > 5 * NS_IN_SEC) {
+                double seconds = (double)(t - s->t0) / NS_IN_SEC;
                 auto d = new asend_stats_processing_data;
                 std::swap(d->frame, s->captured);
                 d->seconds = seconds;
