@@ -1122,6 +1122,10 @@ static const char *glewGetError(GLenum err) {
 }
 #endif // defined HAVE_LINUX || defined WIN32
 
+static void glfw_print_error(int error_code, const char* description) {
+        LOG(LOG_LEVEL_ERROR) << "GLFW error " << error_code << ": " << description << "\n";
+}
+
 #define GL_DISABLE_10B_OPT "gl-disable-10b"
 ADD_TO_PARAM(GL_DISABLE_10B_OPT ,
          "* " GL_DISABLE_10B_OPT "\n"
@@ -1129,10 +1133,12 @@ ADD_TO_PARAM(GL_DISABLE_10B_OPT ,
 
 static bool display_gl_init_opengl(struct state_gl *s)
 {
-        if (glfwInit() == GLFW_FALSE) {
-                exit_uv(EXIT_FAIL_DISPLAY);
+        if (int ret = glfwInit(); ret == GLFW_FALSE) {
+                LOG(LOG_LEVEL_ERROR) << "glfwInit returned " << ret << "\n";
                 return false;
         }
+        glfwSetErrorCallback(glfw_print_error);
+
         if (commandline_params.find(GL_DISABLE_10B_OPT) == commandline_params.end()) {
                 for (auto const & bits : {GLFW_RED_BITS, GLFW_GREEN_BITS, GLFW_BLUE_BITS}) {
                         glfwWindowHint(bits, 10);
@@ -1154,7 +1160,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 width = mode->width;
                 height = mode->height;
         }
-        s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), mon, NULL);
+        if ((s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), mon, NULL)) == nullptr) {
+                return false;
+        }
         glfw_print_video_mode(s);
         glfwSetWindowUserPointer(s->window, s);
         if (s->hide_window)
