@@ -255,56 +255,59 @@ struct state_vdpau {
 #endif
 
 struct state_gl {
-        GLuint          PHandle_uyvy, PHandle_dxt, PHandle_dxt5;
+        GLuint          PHandle_uyvy = 0;
+        GLuint          PHandle_dxt = 0;
+        GLuint          PHandle_dxt5 = 0;
 
         // Framebuffer
-        GLuint fbo_id;
-        GLuint texture_display;
-        GLuint texture_uyvy;
-        GLuint pbo_id;
+        GLuint fbo_id = 0;
+        GLuint texture_display = 0;
+        GLuint texture_uyvy = 0;
+        GLuint pbo_id = 0;
 
         /* For debugging... */
-        uint32_t	magic;
+        uint32_t        magic = MAGIC_GL;
 
         GLFWmonitor    *monitor = glfwGetPrimaryMonitor();
-        GLFWwindow     *window;
+        GLFWwindow     *window = nullptr;
 
-	bool            fs;
-        bool            deinterlace;
+        bool            fs = false;
+        bool            deinterlace  = false;
 
-        struct video_frame *current_frame;
+        struct video_frame *current_frame = nullptr;
 
         queue<struct video_frame *> frame_queue;
         queue<struct video_frame *> free_frame_queue;
-        struct video_desc current_desc;
-        struct video_desc current_display_desc;
+        struct video_desc current_desc = {};
+        struct video_desc current_display_desc {};
         mutex           lock;
         condition_variable new_frame_ready_cv;
         condition_variable frame_consumed_cv;
 
-        double          aspect;
-        double          video_aspect;
-        unsigned long int frames;
-        
-        int             dxt_height;
+        double          aspect = 0.0;
+        double          video_aspect = 0.0;
+        unsigned long int frames = 0;
+
+        int             dxt_height = 0;
 
         struct timeval  tv;
 
-        int             vsync;
-        bool            paused;
-        enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor;
-        chrono::steady_clock::time_point                      cursor_shown_from; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
+        int             vsync = 1;
+        bool            paused = false;
+        enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
+        chrono::steady_clock::time_point                      cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
         string          syphon_spout_srv_name;
 
-        double          window_size_factor;
+        double          window_size_factor = 1.0;
 
         struct module   mod;
 
-        void *syphon_spout;
-        bool hide_window;
+        void *syphon_spout = nullptr;
+        bool hide_window = false;
 
-        bool fixed_size;
-        int fixed_w, fixed_h;
+        bool fixed_size = false;
+        int fixed_w = 0;
+        int fixed_h = 0;
 
         enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
         bool nodecorate = false;
@@ -314,18 +317,8 @@ struct state_gl {
         struct state_vdpau vdp;
 #endif
 
-        state_gl(struct module *parent) : PHandle_uyvy(0), PHandle_dxt(0), PHandle_dxt5(0),
-                fbo_id(0), texture_display(0), texture_uyvy(0), pbo_id(0),
-                magic(MAGIC_GL), window(NULL), fs(false), deinterlace(false), current_frame(nullptr),
-                aspect(0.0), video_aspect(0.0), frames(0ul), dxt_height(0),
-                vsync(1), paused(false), show_cursor(SC_AUTOHIDE),
-                window_size_factor(1.0),
-                syphon_spout(nullptr), hide_window(false), fixed_size(false),
-                fixed_w(0), fixed_h(0)
-        {
+        state_gl(struct module *parent) {
                 gettimeofday(&tv, NULL);
-                memset(&current_desc, 0, sizeof(current_desc));
-                memset(&current_display_desc, 0, sizeof(current_display_desc));
 
                 module_init_default(&mod);
                 mod.cls = MODULE_CLASS_DATA;
