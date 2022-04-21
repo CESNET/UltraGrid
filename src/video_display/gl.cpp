@@ -290,7 +290,7 @@ struct state_gl {
 
         int             dxt_height = 0;
 
-        struct timeval  tv;
+        time_ns_t       t0 = get_time_in_ns();
 
         int             vsync = 1;
         bool            paused = false;
@@ -318,8 +318,6 @@ struct state_gl {
 #endif
 
         state_gl(struct module *parent) {
-                gettimeofday(&tv, NULL);
-
                 module_init_default(&mod);
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
@@ -896,8 +894,6 @@ static void pop_frame(struct state_gl *s)
 
 static void gl_process_frames(struct state_gl *s)
 {
-        struct timeval tv;
-        double seconds;
         struct video_frame *frame;
 
         struct message *msg;
@@ -995,14 +991,13 @@ static void gl_process_frames(struct state_gl *s)
 
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;
-        gettimeofday(&tv, NULL);
-        seconds = tv_diff(tv, s->tv);
-
-        if (seconds > 5) {
+        time_ns_t diff_ns = get_time_in_ns() - s->t0;
+        if (diff_ns > 5 * NS_IN_SEC) {
+                double seconds = static_cast<double>(diff_ns) / NS_IN_SEC;
                 double fps = s->frames / seconds;
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
                 s->frames = 0;
-                s->tv = tv;
+                s->t0 += diff_ns;
         }
 }
 
