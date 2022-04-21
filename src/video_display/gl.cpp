@@ -307,7 +307,7 @@ struct state_gl {
 
         enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
         bool nodecorate = false;
-        bool use_pbo = true;
+        int use_pbo = -1;
 
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
@@ -441,99 +441,100 @@ static void gl_load_splashscreen(struct state_gl *s)
         s->frame_queue.push(frame);
 }
 
+static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
+        if (strstr(ptr, "help") != 0) {
+                gl_show_help();
+                return &display_init_noerr;
+        }
+
+        char *tok, *save_ptr = NULL;
+
+        while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
+                if(!strcmp(tok, "d")) {
+                        s->deinterlace = true;
+                } else if(!strcmp(tok, "fs")) {
+                        s->fs = true;
+                } else if(strstr(tok, "modeset") != nullptr) {
+                        if (strcmp(tok, "nomodeset") != 0) {
+                                if (char *val = strchr(tok, '=')) {
+                                        val += 1;
+                                        s->modeset = strcmp(val, "size") == 0 ? state_gl::MODESET_SIZE_ONLY : (enum state_gl::modeset_t) stoi(val);
+                                } else {
+                                        s->modeset = state_gl::MODESET;
+                                }
+                        }
+                } else if(!strncmp(tok, "aspect=", strlen("aspect="))) {
+                        s->video_aspect = atof(tok + strlen("aspect="));
+                        char *pos = strchr(tok,'/');
+                        if(pos) s->video_aspect /= atof(pos + 1);
+                } else if(!strcasecmp(tok, "nodecorate")) {
+                        s->nodecorate = true;
+                } else if(!strcasecmp(tok, "novsync")) {
+                        s->vsync = 0;
+                } else if(!strcasecmp(tok, "single")) {
+                        s->vsync = SINGLE_BUF;
+                } else if (!strncmp(tok, "vsync=", strlen("vsync="))) {
+                        if (toupper((tok + strlen("vsync="))[0]) == 'D') {
+                                s->vsync = SYSTEM_VSYNC;
+                        } else {
+                                s->vsync = atoi(tok + strlen("vsync="));
+                        }
+                } else if (!strcasecmp(tok, "cursor")) {
+                        s->show_cursor = state_gl::SC_TRUE;
+                } else if (strstr(tok, "syphon") == tok || strstr(tok, "spout") == tok) {
+#if defined HAVE_SYPHON || defined HAVE_SPOUT
+                        if (strchr(tok, '=')) {
+                                s->syphon_spout_srv_name = strchr(tok, '=') + 1;
+                        } else {
+                                s->syphon_spout_srv_name = "UltraGrid";
+                        }
+#else
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
+                        return nullptr;
+#endif
+                } else if (!strcasecmp(tok, "hide-window")) {
+                        s->hide_window = true;
+                } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
+                        s->use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
+                } else if(!strncmp(tok, "size=",
+                                        strlen("size="))) {
+                        s->window_size_factor =
+                                atof(tok + strlen("size=")) / 100.0;
+                } else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
+                        s->fixed_size = true;
+                        if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
+                                char *size = tok + strlen("fixed_size=");
+                                if (strchr(size, 'x')) {
+                                        s->fixed_w = atoi(size);
+                                        s->fixed_h = atoi(strchr(size, 'x') + 1);
+                                }
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
+                        return nullptr;
+                }
+                ptr = NULL;
+        }
+
+        return s;
+}
+
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
-        int use_pbo = -1; // default
         UNUSED(flags);
 
 	struct state_gl *s = new state_gl(parent);
-        
-	// parse parameters
-	if (fmt != NULL) {
-		if (strcmp(fmt, "help") == 0) {
-			gl_show_help();
-			delete s;
-			return &display_init_noerr;
-		}
 
-		char *tmp, *ptr;
-                tmp = ptr = strdup(fmt);
-		char *tok, *save_ptr = NULL;
-		
-		while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
-                        if(!strcmp(tok, "d")) {
-                                s->deinterlace = true;
-                        } else if(!strcmp(tok, "fs")) {
-                                s->fs = true;
-                        } else if(strstr(tok, "modeset") != nullptr) {
-                                if (strcmp(tok, "nomodeset") != 0) {
-                                        if (char *val = strchr(tok, '=')) {
-                                                val += 1;
-                                                s->modeset = strcmp(val, "size") == 0 ? state_gl::MODESET_SIZE_ONLY : (enum state_gl::modeset_t) stoi(val);
-                                        } else {
-                                                s->modeset = state_gl::MODESET;
-                                        }
-                                }
-                        } else if(!strncmp(tok, "aspect=", strlen("aspect="))) {
-                                s->video_aspect = atof(tok + strlen("aspect="));
-                                char *pos = strchr(tok,'/');
-                                if(pos) s->video_aspect /= atof(pos + 1);
-                        } else if(!strcasecmp(tok, "nodecorate")) {
-                                s->nodecorate = true;
-                        } else if(!strcasecmp(tok, "novsync")) {
-                                s->vsync = 0;
-                        } else if(!strcasecmp(tok, "single")) {
-                                s->vsync = SINGLE_BUF;
-                        } else if (!strncmp(tok, "vsync=", strlen("vsync="))) {
-                                if (toupper((tok + strlen("vsync="))[0]) == 'D') {
-                                        s->vsync = SYSTEM_VSYNC;
-                                } else {
-                                        s->vsync = atoi(tok + strlen("vsync="));
-                                }
-                        } else if (!strcasecmp(tok, "cursor")) {
-                                s->show_cursor = state_gl::SC_TRUE;
-                        } else if (strstr(tok, "syphon") == tok || strstr(tok, "spout") == tok) {
-#if defined HAVE_SYPHON || defined HAVE_SPOUT
-                                if (strchr(tok, '=')) {
-                                        s->syphon_spout_srv_name = strchr(tok, '=') + 1;
-                                } else {
-                                        s->syphon_spout_srv_name = "UltraGrid";
-                                }
-#else
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
-                                free(tmp);
-                                delete s;
-                                return NULL;
-#endif
-                        } else if (!strcasecmp(tok, "hide-window")) {
-                                s->hide_window = true;
-                        } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
-                                use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
-                        } else if(!strncmp(tok, "size=",
-                                                strlen("size="))) {
-                                s->window_size_factor =
-                                        atof(tok + strlen("size=")) / 100.0;
-                        } else if (strncmp(tok, "fixed_size", strlen("fixed_size")) == 0) {
-                                s->fixed_size = true;
-                                if (strncmp(tok, "fixed_size=", strlen("fixed_size=")) == 0) {
-                                        char *size = tok + strlen("fixed_size=");
-                                        if (strchr(size, 'x')) {
-                                                s->fixed_w = atoi(size);
-                                                s->fixed_h = atoi(strchr(size, 'x') + 1);
-                                        }
-                                }
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
-                                free(tmp);
-                                delete s;
-                                return NULL;
-                        }
-                        ptr = NULL;
+        if (fmt != NULL) {
+                char *tmp = strdup(fmt);
+                auto *ret = display_gl_parse_fmt(s, tmp);
+                free(tmp);
+                if (ret != s) {
+                        delete s;
+                        return ret;
                 }
+        }
 
-		free(tmp);
-	}
-
-        s->use_pbo = use_pbo == -1 ? !check_rpi_pbo_quirks() : use_pbo; // don't use PBO for Raspberry Pi (better performance)
+        s->use_pbo = s->use_pbo == -1 ? !check_rpi_pbo_quirks() : s->use_pbo; // don't use PBO for Raspberry Pi (better performance)
 
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
