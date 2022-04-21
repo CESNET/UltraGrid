@@ -37,9 +37,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @todo remove vdpau function loading (use glew)
- */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -202,40 +199,6 @@ struct state_vdpau {
         uint32_t surf_height = 0;
         VdpChromaType surf_ct = 0;
 
-        void (*VDPAUInitNV)(const void * /*vdpDevice*/,
-                        const void * /*getProcAddress*/);
-
-        void (*VDPAUFiniNV)(void);
-
-        vdpauSurfaceNV (*VDPAURegisterVideoSurfaceNV)(const void * /*vdpSurface*/,
-                        GLenum /*target*/,
-                        GLsizei /*numTextureNames*/,
-                        const uint * /*textureNames*/);
-
-        vdpauSurfaceNV (*VDPAURegisterOutputSurfaceNV)(const void * /*vdpSurface*/,
-                        GLenum /*target*/,
-                        GLsizei /*numTextureNames*/,
-                        const uint * /*textureNames*/);
-
-        GLboolean (*VDPAUIsSurfaceNV)(vdpauSurfaceNV /*surface*/);
-        void (*VDPAUUnregisterSurfaceNV)(vdpauSurfaceNV /*surface*/);
-
-        void (*VDPAUGetSurfaceivNV)(vdpauSurfaceNV /*surface*/,
-                        GLenum /*pname*/,
-                        GLsizei /*bufSize*/,
-                        GLsizei * /*length*/,
-                        int * /*values*/);
-
-        void (*VDPAUSurfaceAccessNV)(vdpauSurfaceNV /*surface*/,
-                        GLenum /*access*/);
-
-        void (*VDPAUMapSurfacesNV)(GLsizei /*numSurfaces*/,
-                        const vdpauSurfaceNV * /*surfaces*/);
-
-        void (*VDPAUUnmapSurfacesNV)(GLsizei /*numSurfaces*/,
-                        const vdpauSurfaceNV * /*surfaces*/);
-
-        bool loadVdpGlFuncs();
         bool init();
         void checkInterop(VdpDevice device, VdpGetProcAddress *get_proc_address);
         void initInterop(VdpDevice device, VdpGetProcAddress *get_proc_address);
@@ -244,8 +207,6 @@ struct state_vdpau {
         void initMixer(uint32_t w, uint32_t h, VdpChromaType ct);
         void mixerRender(VdpVideoSurface f);
         void uninitMixer();
-
-
 
         void uninit();
 
@@ -1508,7 +1469,7 @@ void state_vdpau::uninitMixer(){
                 surf_ct = 0;
         }
 
-        VDPAUUnregisterSurfaceNV(vdpgl_surf);
+        glVDPAUUnregisterSurfaceNV(vdpgl_surf);
         mixerInitialized = false;
 }
 
@@ -1560,12 +1521,12 @@ void state_vdpau::initMixer(uint32_t w, uint32_t h, VdpChromaType ct){
                 log_msg(LOG_LEVEL_ERROR, "Failed to create VdpVideoMixer: %s\n", funcs.getErrorString(st));
         }
 
-        vdpgl_surf = VDPAURegisterOutputSurfaceNV(NV_CAST(out_surf),
+        vdpgl_surf = glVDPAURegisterOutputSurfaceNV(NV_CAST(out_surf),
                         GL_TEXTURE_2D,
                         1,
                         textures);
 
-        VDPAUSurfaceAccessNV(vdpgl_surf, GL_WRITE_DISCARD_NV);
+        glVDPAUSurfaceAccessNV(vdpgl_surf, GL_WRITE_DISCARD_NV);
 
         mixerInitialized = true;
 }
@@ -1634,7 +1595,7 @@ static void gl_render_vdpau(struct state_gl *s, char *data)
         int state = 0;
         int len = 0;
         if(s->vdp.vdpgl_surf){
-                s->vdp.VDPAUGetSurfaceivNV(s->vdp.vdpgl_surf,
+                glVDPAUGetSurfaceivNV(s->vdp.vdpgl_surf,
                                 GL_SURFACE_STATE_NV,
                                 1,
                                 &len,
@@ -1643,14 +1604,14 @@ static void gl_render_vdpau(struct state_gl *s, char *data)
         }
 
         if(state == GL_SURFACE_MAPPED_NV)
-                s->vdp.VDPAUUnmapSurfacesNV(1, &s->vdp.vdpgl_surf);
+                glVDPAUUnmapSurfacesNV(1, &s->vdp.vdpgl_surf);
 
         s->vdp.checkInterop(frame->hwctx.device, frame->hwctx.get_proc_address);
         check_mixer(s, frame);
 
         s->vdp.mixerRender(frame->surface);
 
-        s->vdp.VDPAUMapSurfacesNV(1, &s->vdp.vdpgl_surf);
+        glVDPAUMapSurfacesNV(1, &s->vdp.vdpgl_surf);
 
         glBindTexture(GL_TEXTURE_2D, s->vdp.textures[0]);
 
@@ -1676,7 +1637,7 @@ void state_vdpau::initInterop(VdpDevice device, VdpGetProcAddress *get_proc_addr
         if(interopInitialized)
                 uninitInterop();
 
-        VDPAUInitNV(NV_CAST(device), (void *) get_proc_address);
+        glVDPAUInitNV(NV_CAST(device), (void *) get_proc_address);
         this->device = device;
         this->get_proc_address = get_proc_address;
 
@@ -1691,7 +1652,7 @@ void state_vdpau::uninitInterop(){
         if(!interopInitialized)
                 return;
 
-        VDPAUFiniNV();
+        glVDPAUFiniNV();
         device = 0;
         get_proc_address = nullptr;
         interopInitialized = false;
@@ -1705,7 +1666,6 @@ void state_vdpau::uninitInterop(){
  * @brief Initializes state_vdpau
  */
 bool state_vdpau::init(){
-        loadVdpGlFuncs();
         initialized = true;
         glGenTextures(4, textures);
         hw_vdpau_frame_init(&lastFrame);
@@ -1723,62 +1683,7 @@ void state_vdpau::uninit(){
                 textures[i] = 0;
         }
 }
-
-/**
- * @brief Loads GL functions for the GL_NV_vdpau_interop extension
- */
-bool state_vdpau::loadVdpGlFuncs(){
-        if (!strstr((const char *) glGetString(GL_EXTENSIONS),
-                                "GL_NV_vdpau_interop"))
-        {
-                log_msg(LOG_LEVEL_ERROR, "VDPAU interop NOT supported!\n");
-                log_msg(LOG_LEVEL_DEBUG, "Available extensions:%s\n", glGetString(GL_EXTENSIONS));
-                return false;
-        }
-
-        VDPAUInitNV = (void (*)(const void *, const void *))
-                glfwGetProcAddress("glVDPAUInitNV");
-
-        VDPAUFiniNV = (void (*)(void))
-                glfwGetProcAddress("glVDPAUFiniNV");
-
-        VDPAURegisterVideoSurfaceNV = (vdpauSurfaceNV (*)(const void *,
-                                GLenum,
-                                GLsizei,
-                                const uint *))
-                glfwGetProcAddress("glVDPAURegisterVideoSurfaceNV");
-
-        VDPAURegisterOutputSurfaceNV = (vdpauSurfaceNV (*)(const void *,
-                                GLenum,
-                                GLsizei,
-                                const uint *))
-                glfwGetProcAddress("glVDPAURegisterOutputSurfaceNV");
-
-        VDPAUIsSurfaceNV = (GLboolean (*)(vdpauSurfaceNV))
-                glfwGetProcAddress("glVDPAUIsSurfaceNV");
-
-        VDPAUUnregisterSurfaceNV = (void (*)(vdpauSurfaceNV))
-                glfwGetProcAddress("glVDPAUUnregisterSurfaceNV");
-
-        VDPAUGetSurfaceivNV = (void (*)(vdpauSurfaceNV,
-                                GLenum,
-                                GLsizei,
-                                GLsizei *,
-                                int *))
-                glfwGetProcAddress("glVDPAUGetSurfaceivNV");
-
-        VDPAUSurfaceAccessNV = (void (*)(vdpauSurfaceNV, GLenum))
-                glfwGetProcAddress("glVDPAUSurfaceAccessNV");
-
-        VDPAUMapSurfacesNV = (void (*)(GLsizei, const vdpauSurfaceNV *))
-                glfwGetProcAddress("glVDPAUMapSurfacesNV");
-
-        VDPAUUnmapSurfacesNV = (void (*)(GLsizei, const vdpauSurfaceNV *))
-                glfwGetProcAddress("glVDPAUUnmapSurfacesNV");
-
-        return true;
-}
-#endif
+#endif // defined HWACC_VDPAU
 
 static void gl_draw(double ratio, double bottom_offset, bool double_buf)
 {
