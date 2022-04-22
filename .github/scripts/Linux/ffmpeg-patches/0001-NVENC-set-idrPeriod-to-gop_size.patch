@@ -1,18 +1,31 @@
-From 8fa747e6d0e36f293643c451ddbb8f389c02ed30 Mon Sep 17 00:00:00 2001
+From 64f7b0960e3d2ee3855492d518813f4ad53459ef Mon Sep 17 00:00:00 2001
 From: Martin Pulec <martin.pulec@cesnet.cz>
-Date: Tue, 7 Sep 2021 17:08:30 +0200
+Date: Fri, 22 Apr 2022 09:50:14 +0200
 Subject: [PATCH] NVENC: set idrPeriod to gop_size
 
 NVENC_INFINITE_GOPLENGTH is useless for UltraGrid
 ---
- libavcodec/nvenc.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ libavcodec/avcodec.h | 3 +++
+ libavcodec/nvenc.c   | 8 ++------
+ 2 files changed, 5 insertions(+), 6 deletions(-)
 
+diff --git a/libavcodec/avcodec.h b/libavcodec/avcodec.h
+index 4dae23d06e..31f9898731 100644
+--- a/libavcodec/avcodec.h
++++ b/libavcodec/avcodec.h
+@@ -3167,4 +3167,7 @@ int avcodec_is_open(AVCodecContext *s);
+  * @}
+  */
+ 
++// UltraGrid patch
++#define PATCHED_FF_NVENC_NO_INFINITE_GOP 1
++
+ #endif /* AVCODEC_AVCODEC_H */
 diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
-index ae25afd7f8..d387d75057 100644
+index b6bcec8246..8bdada1598 100644
 --- a/libavcodec/nvenc.c
 +++ b/libavcodec/nvenc.c
-@@ -1129,9 +1129,7 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
+@@ -1130,9 +1130,7 @@ static av_cold int nvenc_setup_h264_config(AVCodecContext *avctx)
          h264->maxNumRefFrames = ctx->dpb_size;
      }
  
@@ -23,7 +36,7 @@ index ae25afd7f8..d387d75057 100644
          h264->idrPeriod = avctx->gop_size;
      }
  
-@@ -1243,9 +1241,7 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
+@@ -1244,9 +1242,7 @@ static av_cold int nvenc_setup_hevc_config(AVCodecContext *avctx)
          hevc->maxNumRefFramesInDPB = ctx->dpb_size;
      }
  
@@ -35,5 +48,5 @@ index ae25afd7f8..d387d75057 100644
      }
  
 -- 
-2.30.2
+2.36.0
 

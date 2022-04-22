@@ -1811,7 +1811,11 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         }
 
         set_forced_idr(codec_ctx, 1);
+#ifdef PATCHED_FF_NVENC_NO_INFINITE_GOP
+        if (param->periodic_intra != 0) {
+#else
         if (param->periodic_intra == 1) {
+#endif
                 if (int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0) != 0) {
                         print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
                 }
