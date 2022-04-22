@@ -1105,7 +1105,8 @@ static void display_gl_print_depth() {
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Buffer depth - R: " << bits[0] << "b, G: " << bits[1] << "b, B: " << bits[2] << "b\n";
 }
 
-static void display_gl_render_last(struct state_gl *s) {
+static void display_gl_render_last(GLFWwindow *win) {
+        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
         if (!s->current_frame) {
                 return;
         }
@@ -1180,6 +1181,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glfwSetCursorPosCallback(s->window, glfw_mouse_callback);
         glfwSetWindowCloseCallback(s->window, glfw_close_callback);
         glfwSetFramebufferSizeCallback(s->window, gl_resize);
+        glfwSetWindowRefreshCallback(s->window, display_gl_render_last);
 
 #if defined HAVE_LINUX || defined WIN32
         if (GLenum err = glewInit()) {
@@ -1331,7 +1333,6 @@ static void gl_resize(GLFWwindow *win, int width, int height)
                 /* Clear the screen */
                 glClear(GL_COLOR_BUFFER_BIT);
         }
-        display_gl_render_last(s);
 }
 
 static void upload_texture(struct state_gl *s, char *data)
