@@ -16,7 +16,6 @@ echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> $GITHUB_ENV
 brew install autoconf automake cppunit libtool pkg-config
 brew install speexdsp
 brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
-brew install glfw
 brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
 brew install qt@5
@@ -68,6 +67,15 @@ install_deltacast() {
         sudo cp -a $DELTA_CACHE_INST/* $(xcrun --show-sdk-path)/System/Library/Frameworks
 }
 
+install_glfw() {(
+        git clone --depth 1 https://github.com/glfw/glfw.git
+        cd glfw
+        git apply $GITHUB_WORKSPACE/.github/scripts/macOS/0001-mac-set-use-16-bit-depth-framebuffer.patch
+        cmake -DBUILD_SHARED_LIBS=ON .
+        cmake --build . --parallel
+        sudo cmake --install .
+)}
+
 # Install NDI
 install_ndi() {
         sudo installer -pkg /private/var/tmp/Install_NDI_SDK_Apple.pkg -target /
@@ -112,6 +120,7 @@ $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 build_cineform
 install_aja
 install_deltacast
+install_glfw
 install_live555
 install_ndi
 install_syphon
