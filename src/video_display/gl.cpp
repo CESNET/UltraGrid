@@ -88,6 +88,7 @@
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 
 #define MAX_BUFFER_SIZE 1
+#define ADAPTIVE_VSYNC -1
 #define SYSTEM_VSYNC 0xFE
 #define SINGLE_BUF 0xFF // use single buffering instead of double
 
@@ -253,7 +254,7 @@ struct state_gl {
 
         time_ns_t       t0 = get_time_in_ns();
 
-        int             vsync = 1;
+        int             vsync = ADAPTIVE_VSYNC;
         bool            paused = false;
         enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
         chrono::steady_clock::time_point                      cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
