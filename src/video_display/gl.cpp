@@ -1832,7 +1832,9 @@ static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         unique_lock<mutex> lk(s->lock);
 
         if(!frame) {
-                glfwSetWindowShouldClose(s->window, GLFW_TRUE);
+                if (s->window) {
+                        glfwSetWindowShouldClose(s->window, GLFW_TRUE);
+                }
                 s->frame_queue.push(frame);
                 lk.unlock();
                 s->new_frame_ready_cv.notify_one();
