@@ -11,9 +11,9 @@ git checkout 35c375
 ./genMakefiles mingw
 
 # ensure binutils ld is used (not lld)
-pacman -Sy binutils
-PATH=/usr/bin:PATH
+pacman -Sy --noconfirm binutils
+PATH=/usr/bin:$PATH
 
 make -j $(nproc)
-pacman -Rs binutils
+pacman -Rs --noconfirm binutils
 
