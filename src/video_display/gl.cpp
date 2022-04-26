@@ -306,6 +306,7 @@ static constexpr array gl_supp_codecs = {
 };
 
 /* Prototyping */
+static bool display_gl_init_opengl(struct state_gl *s);
 static int display_gl_putf(void *state, struct video_frame *frame, int nonblock);
 static bool display_gl_process_key(struct state_gl *s, long long int key);
 static int display_gl_reconfigure(void *state, struct video_desc desc);
@@ -575,6 +576,11 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 char msg[18];
                 sprintf(msg, "%" PRIx64, i.first);
                 keycontrol_register_key(&s->mod, i.first, msg, i.second.data());
+        }
+
+        if (!display_gl_init_opengl(s)) {
+                delete s;
+                return nullptr;
         }
 
         return (void*)s;
@@ -1197,10 +1203,11 @@ static bool display_gl_init_opengl(struct state_gl *s)
         }
 #endif /* HAVE_LINUX */
         if (!display_gl_check_gl_version()) {
+                glfwDestroyWindow(s->window);
+                s->window = nullptr;
                 return false;
         }
         display_gl_print_depth();
-
 
         glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
         glEnable( GL_TEXTURE_2D );
@@ -1294,11 +1301,6 @@ static void display_gl_run(void *arg)
 {
         struct state_gl *s = 
                 (struct state_gl *) arg;
-
-        if (!display_gl_init_opengl(s)) {
-                exit_uv(1);
-                return;
-        }
 
         while (!glfwWindowShouldClose(s->window)) {
                 glfwPollEvents();
@@ -1840,9 +1842,7 @@ static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         unique_lock<mutex> lk(s->lock);
 
         if(!frame) {
-                if (s->window) {
-                        glfwSetWindowShouldClose(s->window, GLFW_TRUE);
-                }
+                glfwSetWindowShouldClose(s->window, GLFW_TRUE);
                 s->frame_queue.push(frame);
                 lk.unlock();
                 s->new_frame_ready_cv.notify_one();
