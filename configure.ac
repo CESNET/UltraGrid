@@ -914,7 +914,11 @@ fi
 
 if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
 then
-        aja=yes
+        AJA_VER=`sed -n 's/@%:@define AJA_NTV2_SDK_VERSION_MAJOR@<:@@<:@:space:@:>@@:>@*\(@<:@0-9@:>@*\).*/\1/p' <$AJA_PATH/ajalibraries/ajantv2/includes/ntv2enums.h`
+        echo $AJA_VER
+        if test $AJA_VER -ge 16; then
+                aja=yes
+        fi
 fi
 
 if test $aja = yes -a $system = Windows; then
