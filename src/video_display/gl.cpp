@@ -86,7 +86,7 @@
 #define MAGIC_GL         0x1331018e
 #define MOD_NAME         "[GL] "
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
-
+#define GL_DISABLE_10B_OPT_PARAM_NAME "gl-disable-10b"
 #define MAX_BUFFER_SIZE 1
 #define ADAPTIVE_VSYNC -1
 #define SYSTEM_VSYNC 0xFE
@@ -371,7 +371,9 @@ static void gl_print_monitors(bool fullhelp) {
  */
 static void gl_show_help(bool full) {
         cout << "usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-d gl" << rang::fg::reset << "[:d|:fs[=<monitor>]|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:spout[=<name>]|:modeset[=<fps>]|:nodecorate|:fixed_size[=WxH]|:vsync[=<x>|single]]* | [full]help\n\n" << rang::style::reset;
+        cout << rang::style::bold << rang::fg::red << "\t-d gl" << rang::fg::reset << "[:d|:fs[=<monitor>]|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:spout[=<name>]|:modeset[=<fps>]|:nodecorate|:fixed_size[=WxH]|:vsync[=<x>|single]]* | gl:[full]help"
+                << (full ? " [--param " GL_DISABLE_10B_OPT_PARAM_NAME "]" : "")
+                << "\n\n" << rang::style::reset;
         cout << "options:\n";
         cout << BOLD("\td")           << "\t\tdeinterlace\n";
         cout << BOLD("\tfs[=<monitor>]") << "\tfullscreen with optional display specification\n";
@@ -388,6 +390,9 @@ static void gl_show_help(bool full) {
         cout << BOLD("\tspout")       << "\t\tuse Spout (optionally with name)\n";
         cout << BOLD("\thide-window") << "\tdo not show OpenGL window (useful with Syphon/SPOUT)\n";
         cout << BOLD("\t[no]pbo")     << "\t\tWhether or not use PBO (ignore if not sure)\n";
+        if (full) {
+                cout << BOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)     << "\tdo not set 10-bit framebuffer (performance issues)\n";
+        }
 
         printf("\nkeyboard shortcuts:\n");
         for (auto i : keybindings) {
@@ -583,6 +588,9 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
         struct state_gl	*s = (struct state_gl *) state;
 
         assert (find(gl_supp_codecs.begin(), gl_supp_codecs.end(), desc.color_spec) != gl_supp_codecs.end());
+        if (desc.color_spec == R10k) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying R10k - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME;
+        }
 
         s->current_desc = desc;
 
@@ -1138,16 +1146,15 @@ static void glfw_print_error(int error_code, const char* description) {
         LOG(LOG_LEVEL_ERROR) << "GLFW error " << error_code << ": " << description << "\n";
 }
 
-#define GL_DISABLE_10B_OPT "gl-disable-10b"
-ADD_TO_PARAM(GL_DISABLE_10B_OPT ,
-         "* " GL_DISABLE_10B_OPT "\n"
+ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
+         "* " GL_DISABLE_10B_OPT_PARAM_NAME "\n"
          "  Disable 10 bit codec processing to improve performance\n");
 
 static bool display_gl_init_opengl(struct state_gl *s)
 {
         glfwSetErrorCallback(glfw_print_error);
 
-        if (commandline_params.find(GL_DISABLE_10B_OPT) == commandline_params.end()) {
+        if (commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end()) {
                 for (auto const & bits : {GLFW_RED_BITS, GLFW_GREEN_BITS, GLFW_BLUE_BITS}) {
                         glfwWindowHint(bits, 10);
                 }
@@ -1738,7 +1745,7 @@ static int display_gl_get_property(void *state, int property, void *val, size_t 
                 case DISPLAY_PROPERTY_CODECS:
                         if (sizeof gl_supp_codecs <= *len) {
                                 auto filter_codecs = [](codec_t c) {
-                                        return c != R10k || commandline_params.find(GL_DISABLE_10B_OPT) == commandline_params.end(); // option to disable 10-bit processing
+                                        return c != R10k || commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end(); // option to disable 10-bit processing
                                 };
                                 copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(), (codec_t *) val, filter_codecs);
                         } else {
