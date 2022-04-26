@@ -1157,12 +1157,12 @@ ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
  */
 static bool display_gl_init_opengl(struct state_gl *s)
 {
-        if (int ret = glfwInit(); ret == GLFW_FALSE) {
-                LOG(LOG_LEVEL_ERROR) << "glfwInit returned " << ret << "\n";
+        glfwSetErrorCallback(glfw_print_error);
+
+        if (glfwInit() == GLFW_FALSE) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "glfwInit failed!\n";
                 return false;
         }
-
-        glfwSetErrorCallback(glfw_print_error);
 
         if (commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end()) {
                 for (auto const & bits : {GLFW_RED_BITS, GLFW_GREEN_BITS, GLFW_BLUE_BITS}) {
