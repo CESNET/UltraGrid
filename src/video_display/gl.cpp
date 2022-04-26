@@ -531,11 +531,6 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
         UNUSED(flags);
 
-        if (int ret = glfwInit(); ret == GLFW_FALSE) {
-                LOG(LOG_LEVEL_ERROR) << "glfwInit returned " << ret << "\n";
-                return nullptr;
-        }
-
 	struct state_gl *s = new state_gl(parent);
 
         if (fmt != NULL) {
@@ -1156,8 +1151,17 @@ ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
          "* " GL_DISABLE_10B_OPT_PARAM_NAME "\n"
          "  Disable 10 bit codec processing to improve performance\n");
 
+/**
+ * Initializes OpenGL stuff. If this function succeeds, display_gl_cleanup_opengl() needs
+ * to be called to release resources.
+ */
 static bool display_gl_init_opengl(struct state_gl *s)
 {
+        if (int ret = glfwInit(); ret == GLFW_FALSE) {
+                LOG(LOG_LEVEL_ERROR) << "glfwInit returned " << ret << "\n";
+                return false;
+        }
+
         glfwSetErrorCallback(glfw_print_error);
 
         if (commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end()) {
@@ -1234,59 +1238,29 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glUniform1i(glGetUniformLocation(s->PHandle_dxt,"yuvtex"),0);
         glUseProgram(0);
         s->PHandle_dxt5 = glsl_compile_link(vert, fp_display_dxt5ycocg);
-        /*if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
-          perror("Unable to create display thread\n");
-          return NULL;
-          }*/
 
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // set row alignment to 1 byte instead of default
                                                // 4 bytes which won't work on row-unaligned RGB
 
         glGenBuffersARB(1, &s->pbo_id);
+        glfwMakeContextCurrent(nullptr);
 
         return true;
 }
 
+/// Releases resources allocated with display_gl_init_opengl. After this function,
+/// the resource references are invalid.
 static void display_gl_cleanup_opengl(struct state_gl *s){
-        if (s->PHandle_uyvy != 0) {
-                glDeleteProgram(s->PHandle_uyvy);
-                s->PHandle_uyvy = 0;
-        }
+        glfwMakeContextCurrent(s->window);
 
-        if (s->PHandle_dxt != 0) {
-                glDeleteProgram(s->PHandle_dxt);
-                s->PHandle_dxt = 0;
-        }
-
-        if (s->PHandle_dxt5 != 0) {
-                glDeleteProgram(s->PHandle_dxt5);
-                s->PHandle_dxt5 = 0;
-        }
-
-        if (s->texture_display != 0) {
-                glDeleteTextures(1, &s->texture_display);
-                s->texture_display = 0;
-        }
-
-        if (s->texture_uyvy != 0) {
-                glDeleteTextures(1, &s->texture_uyvy);
-                s->texture_uyvy = 0;
-        }
-
-        if (s->fbo_id != 0) {
-                glDeleteFramebuffersEXT(1, &s->fbo_id);
-                s->fbo_id = 0;
-        }
-
-        if (s->pbo_id != 0) {
-                glDeleteBuffersARB(1, &s->pbo_id);
-                s->pbo_id = 0;
-        }
-
-        if (s->window != NULL) {
-                glfwDestroyWindow(s->window);
-                s->window = nullptr;
-        }
+        glDeleteProgram(s->PHandle_uyvy);
+        glDeleteProgram(s->PHandle_dxt);
+        glDeleteProgram(s->PHandle_dxt5);
+        glDeleteTextures(1, &s->texture_display);
+        glDeleteTextures(1, &s->texture_uyvy);
+        glDeleteFramebuffersEXT(1, &s->fbo_id);
+        glDeleteBuffersARB(1, &s->pbo_id);
+        glfwDestroyWindow(s->window);
 
         if (s->syphon_spout) {
 #ifdef HAVE_SYPHON
@@ -1295,6 +1269,8 @@ static void display_gl_cleanup_opengl(struct state_gl *s){
                 spout_sender_unregister(s->syphon_spout);
 #endif
         }
+
+        glfwTerminate();
 }
 
 static void display_gl_run(void *arg)
@@ -1302,11 +1278,12 @@ static void display_gl_run(void *arg)
         struct state_gl *s = 
                 (struct state_gl *) arg;
 
+        glfwMakeContextCurrent(s->window);
         while (!glfwWindowShouldClose(s->window)) {
                 glfwPollEvents();
                 gl_process_frames(s);
         }
-        display_gl_cleanup_opengl(s);
+        glfwMakeContextCurrent(nullptr);
 }
 
 static void gl_change_aspect(struct state_gl *s, int width, int height)
@@ -1787,7 +1764,8 @@ static void display_gl_done(void *state)
 
         assert(s->magic == MAGIC_GL);
 
-        //pthread_join(s->thread_id, NULL);
+        display_gl_cleanup_opengl(s);
+
         while (s->free_frame_queue.size() > 0) {
                 struct video_frame *buffer = s->free_frame_queue.front();
                 s->free_frame_queue.pop();
@@ -1803,8 +1781,6 @@ static void display_gl_done(void *state)
         vf_free(s->current_frame);
 
         delete s;
-
-        glfwTerminate();
 }
 
 static struct video_frame * display_gl_getf(void *state)
