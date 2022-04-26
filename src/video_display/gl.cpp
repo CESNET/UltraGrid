@@ -230,7 +230,7 @@ struct state_gl {
         /* For debugging... */
         uint32_t        magic = MAGIC_GL;
 
-        GLFWmonitor    *monitor = glfwGetPrimaryMonitor();
+        GLFWmonitor    *monitor = nullptr;
         GLFWwindow     *window = nullptr;
 
         bool            fs = false;
@@ -590,7 +590,7 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
 
         assert (find(gl_supp_codecs.begin(), gl_supp_codecs.end(), desc.color_spec) != gl_supp_codecs.end());
         if (desc.color_spec == R10k) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying R10k - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME;
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying R10k - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "\n";
         }
 
         s->current_desc = desc;
@@ -1163,6 +1163,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "glfwInit failed!\n";
                 return false;
         }
+
+        s->monitor = glfwGetPrimaryMonitor();
 
         if (commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end()) {
                 for (auto const & bits : {GLFW_RED_BITS, GLFW_GREEN_BITS, GLFW_BLUE_BITS}) {
