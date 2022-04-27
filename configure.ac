@@ -899,7 +899,6 @@ then
                 # NTV2 SDK 13.x
                 if test "$FOUND_LIBAJA" = no; then
                         AC_CHECK_FILES(${AJA_PATH}/lib/libajantv2.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
-                        NTV2_13=yes
                 fi
         fi
 elif test $system = Windows
@@ -914,10 +913,14 @@ fi
 
 if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
 then
-        AJA_VER=`sed -n 's/@%:@define AJA_NTV2_SDK_VERSION_MAJOR@<:@@<:@:space:@:>@@:>@*\(@<:@0-9@:>@*\).*/\1/p' <$AJA_PATH/ajalibraries/ajantv2/includes/ntv2enums.h`
-        echo $AJA_VER
-        if test $AJA_VER -ge 16; then
+        if test $system = Windows; then
                 aja=yes
+        else # check version at least 16 (only mac+Lin, Windows would require a different check)
+                AJA_VER=`sed -n 's/@%:@define AJA_NTV2_SDK_VERSION_MAJOR@<:@@<:@:space:@:>@@:>@*\(@<:@0-9@:>@*\).*/\1/p' <$AJA_PATH/ajalibraries/ajantv2/includes/ntv2enums.h`
+                echo $AJA_VER
+                if test $AJA_VER -ge 16; then
+                        aja=yes
+                fi
         fi
 fi
 
@@ -925,21 +928,12 @@ if test $aja = yes -a $system = Windows; then
         ADD_MODULE("aja", "src/aja_win32_stub.o", "-laja")
 elif test $aja = yes # Linux and macOS
 then
-        if test $system = Linux -a "$NTV2_13" != yes
-	then
-                AJA_INC="$AJA_INC -I${AJA_PATH}/ntv2projects/classes -I${AJA_PATH}/ajaapi -I${AJA_PATH}/ntv2projects/includes -I${AJA_PATH}/ntv2projects/democlasses"
-                AJA_LIB="${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a"
-        else # ntv2 13.x
-                AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/includes -I${AJA_PATH}/ajalibraries/ajantv2/src/mac -I${AJA_PATH}/ajaapps/crossplatform/demoapps -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajaapps/crossplatform/demoapps/ntv2capture"
-        fi
+        AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/includes -I${AJA_PATH}/ajalibraries/ajantv2/src/mac -I${AJA_PATH}/ajaapps/crossplatform/demoapps -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajaapps/crossplatform/demoapps/ntv2capture"
         if test $system = Linux
         then
                 AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
-                if test "$NTV2_13" = yes
-                then
-                        AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/src/lin"
-                        AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
-                fi
+                AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/src/lin"
+                AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
         else # mac
                 AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
                 AJA_LIB="-lajantv2"
