@@ -60,24 +60,17 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len);
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
-    rtp_packet *pckt = NULL;
     struct coded_data *orig = cdata;
 
-    uint8_t nal;
-    uint8_t type;
-    uint8_t nri;
-
-    int pass;
     int total_length = 0;
-
-    unsigned char *dst = NULL;
-    int src_len;
 
     struct decode_data_h264 *data = (struct decode_data_h264 *) decode_data;
     struct video_frame *frame = data->frame;
     frame->frame_type = BFRAME;
 
-    for (pass = 0; pass < 2; pass++) {
+    for (int pass = 0; pass < 2; pass++) {
+        unsigned char *dst = NULL;
+        int src_len;
 
         if (pass > 0) {
             cdata = orig;
@@ -89,11 +82,12 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
         }
 
         while (cdata != NULL) {
-            pckt = cdata->data;
+            rtp_packet *pckt = cdata->data;
+            uint8_t *data = pckt->data;
 
-            nal = (uint8_t) pckt->data[0];
-            type = nal & 0x1f;
-            nri = nal & 0x60;
+            uint8_t nal = data[0];
+            uint8_t type = nal & 0x1f;
+            uint8_t nri = nal & 0x60;
 
             if (type == 7){
                 fill_coded_frame_from_sps(frame, (unsigned char*) pckt->data, pckt->data_len);
@@ -311,3 +305,5 @@ int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, i
 
     return 0;
 }
+
+// vi: set et sw=4 :
