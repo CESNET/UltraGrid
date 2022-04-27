@@ -3133,6 +3133,16 @@ void serialize_avframe(const void *f, FILE *out) {
         }
 }
 
+ADD_TO_PARAM("lavcd-log-level",
+                "* lavcd-log-level=<num>\n"
+                "  Set libavcodec log level (use UltraGrid range semantics)\n");
+/// Sets specified log level either given explicitly or from UG-wide log_level
+void ug_set_av_log_level() {
+        const char *param = get_commandline_param("lavcd-log-level");
+        int av_log_level = param != NULL ? atoi(param) : log_level;
+        av_log_set_level((av_log_level - 1) * 8);
+}
+
 #pragma GCC diagnostic pop
 
 /* vi: set expandtab sw=8: */

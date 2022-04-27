@@ -369,12 +369,10 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
 static void * libavcodec_decompress_init(void)
 {
-        struct state_libavcodec_decompress *s;
-
-        s = (struct state_libavcodec_decompress *)
+        struct state_libavcodec_decompress *s =
                 calloc(1, sizeof(struct state_libavcodec_decompress));
 
-        av_log_set_level((log_level - 1) * 8);
+        ug_set_av_log_level();
 
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         /*   register all the codecs (you can also register only the codec
