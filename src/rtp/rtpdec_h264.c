@@ -70,12 +70,12 @@ int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, 
  *                    placeholder to represent all
  * @retval !=H264_NAL RTC type that doesn't represent H.264 NAL unit, eg. aggregate or fragment units
  */
-static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len, _Bool process_sps) {
+static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
     uint8_t type = nal & 0x1f;
     uint8_t nri = nal & 0x60;
     debug_msg("NAL type %d\n", (int) type);
 
-    if (process_sps && type == 7){
+    if (type == 7){
         fill_coded_frame_from_sps(frame, data, data_len);
     }
 
@@ -92,7 +92,8 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
 
 static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
     uint8_t nal = data[0];
-    uint8_t type = process_nal(nal, frame, data, data_len, 1);
+    uint8_t type = process_nal(nal, frame, data, data_len);
+    int fu_length = 0;
 
     switch (type) {
         case H264_NAL:
@@ -130,7 +131,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                     } else {
                         assert(nal_count < sizeof nal_sizes / sizeof nal_sizes[0] - 1);
                         nal_sizes[nal_count++] = nal_size;
-                        process_nal(data[0], frame, data, data_len, 1);
+                        process_nal(data[0], frame, data, data_len);
                     }
                 } else {
                     error_msg("NAL size exceeds length: %u %d\n", nal_size, data_len);
@@ -171,7 +172,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
             if (data_len > 1) {
                 uint8_t fu_header = *data;
                 uint8_t start_bit = fu_header >> 7;
-                //uint8_t end_bit       = (fu_header & 0x40) >> 6;
+                uint8_t end_bit       = (fu_header & 0x40) >> 6;
                 uint8_t nal_type = fu_header & 0x1f;
                 uint8_t reconstructed_nal;
 
@@ -185,9 +186,6 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 data++;
                 data_len--;
 
-                /// @todo sps is not processed
-                process_nal(reconstructed_nal, frame, data, data_len, 0);
-
                 if (pass == 0) {
                     if (start_bit) {
                         *total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
@@ -195,11 +193,17 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                         *total_length += data_len;
                     }
                 } else {
+                    if (end_bit) {
+                        fu_length = data_len;
+                    } else {
+                        fu_length += data_len;
+                    }
                     if (start_bit) {
                         *dst -= sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
                         memcpy(*dst, start_sequence, sizeof(start_sequence));
                         memcpy(*dst + sizeof(start_sequence), &reconstructed_nal, sizeof(reconstructed_nal));
                         memcpy(*dst + sizeof(start_sequence) + sizeof(reconstructed_nal), data, data_len);
+                        process_nal(reconstructed_nal, frame, data, fu_length);
                     } else {
                         *dst -= data_len;
                         memcpy(*dst, data, data_len);
