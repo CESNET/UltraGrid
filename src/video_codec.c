@@ -838,7 +838,7 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
         register uint32_t tmp;
 
         d = (uint32_t *)(void *) dst;
-        s = (const void *)(const void *) src;
+        s = (const void *) src;
 
         while (len >= 16) {
                 tmp =
