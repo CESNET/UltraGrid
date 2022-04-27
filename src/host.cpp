@@ -631,7 +631,7 @@ void register_param(const char *param, const char *doc)
                 if (params[i].param == NULL) {
                         params[i].param = param;
                         params[i].doc = doc;
-                        break;
+                        return;
                 }
                 if (strcmp(params[i].param, param) == 0) {
                         if (strcmp(params[i].doc, doc) != 0) {
@@ -640,6 +640,7 @@ void register_param(const char *param, const char *doc)
                         return;
                 }
         }
+        log_msg(LOG_LEVEL_WARNING, "Cannot register param \"%s\", maxmimum number of parameters reached.\n", param);
 }
 
 bool validate_param(const char *param)
