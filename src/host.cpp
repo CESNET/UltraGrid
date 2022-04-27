@@ -620,6 +620,10 @@ static struct {
         const char *doc;
 } params[100];
 
+/**
+ * Registers param to param database ("--param"). If param given multiple times, only
+ * first value is stored.
+ */
 void register_param(const char *param, const char *doc)
 {
         assert(param != NULL && doc != NULL);
@@ -628,6 +632,12 @@ void register_param(const char *param, const char *doc)
                         params[i].param = param;
                         params[i].doc = doc;
                         break;
+                }
+                if (strcmp(params[i].param, param) == 0) {
+                        if (strcmp(params[i].doc, doc) != 0) {
+                                log_msg(LOG_LEVEL_WARNING, "Param \"%s\" as it is already registered but with different documentation.\n", param);
+                        }
+                        return;
                 }
         }
 }
