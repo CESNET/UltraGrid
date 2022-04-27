@@ -135,6 +135,7 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
                         //TODO: bframes and iframes detection
                         uint16_t nal_size;
                         memcpy(&nal_size, src, sizeof(uint16_t));
+                        nal_size = ntohs(nal_size);
 
                         src += 2;
                         src_len -= 2;
