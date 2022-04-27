@@ -56,18 +56,26 @@
 #include "utils/bs.h"
 #include "video_frame.h"
 
+#define H264_NAL 32 ///< type was 1-23 representing H.264 NAL type
+
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
 int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len);
 
-static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
-    uint8_t nal = data[0];
+/**
+ * This function extracts important data for futher processing of the stream, eg. frame type - for prepending
+ * RTSP/SDP sprop-parameter-sets to I-frame and parsing dimensions from SPS NAL
+ *
+ * @retval H264_NAL   type was H.264 NAL type that can be directly stored to buffer, using the H264_NAL
+ *                    placeholder to represent all
+ * @retval !=H264_NAL RTC type that doesn't represent H.264 NAL unit, eg. aggregate or fragment units
+ */
+static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len, _Bool process_sps) {
     uint8_t type = nal & 0x1f;
     uint8_t nri = nal & 0x60;
-
     debug_msg("NAL type %d\n", (int) type);
 
-    if (type == 7){
+    if (process_sps && type == 7){
         fill_coded_frame_from_sps(frame, data, data_len);
     }
 
@@ -77,13 +85,17 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
         } else if (frame->frame_type == BFRAME && nri != 0){
             frame->frame_type = OTHER;
         }
-
-        type = 1;
+        return H264_NAL;
     }
+    return type;
+}
+
+static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
+    uint8_t nal = data[0];
+    uint8_t type = process_nal(nal, frame, data, data_len, 1);
 
     switch (type) {
-        case 0:
-        case 1:
+        case H264_NAL:
             if (pass == 0) {
                 *total_length += sizeof(start_sequence) + data_len;
             } else {
@@ -101,7 +113,6 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
 
             while (data_len > 2) {
                 //TODO: Not properly tested
-                //TODO: bframes and iframes detection
                 uint16_t nal_size;
                 memcpy(&nal_size, data, sizeof(uint16_t));
                 nal_size = ntohs(nal_size);
@@ -119,6 +130,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                     } else {
                         assert(nal_count < sizeof nal_sizes / sizeof nal_sizes[0] - 1);
                         nal_sizes[nal_count++] = nal_size;
+                        process_nal(data[0], frame, data, data_len, 1);
                     }
                 } else {
                     error_msg("NAL size exceeds length: %u %d\n", nal_size, data_len);
@@ -145,11 +157,12 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
             }
             break;
         }
+        case 0:
         case 25:
         case 26:
         case 27:
         case 29:
-            error_msg("Unhandled NAL type\n");
+            error_msg("Unhandled NAL type %d\n", type);
             return FALSE;
         case 28:
             data++;
@@ -162,12 +175,6 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 uint8_t nal_type = fu_header & 0x1f;
                 uint8_t reconstructed_nal;
 
-                if(frame->frame_type != INTRA && (nal_type == 5 || nal_type == 6)){
-                    frame->frame_type = INTRA;
-                } else if (frame->frame_type == BFRAME && nri != 0){
-                    frame->frame_type = OTHER;
-                }
-
                 // Reconstruct this packet's true nal; only the data follows.
                 /* The original nal forbidden bit and NRI are stored in this
                  * packet's nal. */
@@ -177,6 +184,9 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 // skip the fu_header
                 data++;
                 data_len--;
+
+                /// @todo sps is not processed
+                process_nal(reconstructed_nal, frame, data, data_len, 0);
 
                 if (pass == 0) {
                     if (start_bit) {
