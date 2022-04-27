@@ -45,6 +45,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
+
 #include "debug.h"
 #include "perf.h"
 #include "rtp/rtp.h"
@@ -64,6 +65,8 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
     uint8_t type = nal & 0x1f;
     uint8_t nri = nal & 0x60;
 
+    debug_msg("NAL type %d\n", (int) type);
+
     if (type == 7){
         fill_coded_frame_from_sps(frame, data, data_len);
     }
@@ -82,7 +85,6 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
         case 0:
         case 1:
             if (pass == 0) {
-                debug_msg("NAL type 1\n");
                 *total_length += sizeof(start_sequence) + data_len;
             } else {
                 *dst -= data_len + sizeof(start_sequence);
@@ -91,6 +93,9 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
             }
             break;
         case 24:
+        {
+            int nal_sizes[100];
+            unsigned nal_count = 0;
             data++;
             data_len--;
 
@@ -104,13 +109,16 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 data += 2;
                 data_len -= 2;
 
+                if (log_level >= LOG_LEVEL_DEBUG) {
+                    debug_msg("STAP-A subpacket NAL type %d\n", (int) (data[0] & 0x1f));
+                }
+
                 if (nal_size <= data_len) {
                     if (pass == 0) {
                         *total_length += sizeof(start_sequence) + nal_size;
                     } else {
-                        *dst -= nal_size + sizeof(start_sequence);
-                        memcpy(*dst, start_sequence, sizeof(start_sequence));
-                        memcpy(*dst + sizeof(start_sequence), data, nal_size);
+                        assert(nal_count < sizeof nal_sizes / sizeof nal_sizes[0] - 1);
+                        nal_sizes[nal_count++] = nal_size;
                     }
                 } else {
                     error_msg("NAL size exceeds length: %u %d\n", nal_size, data_len);
@@ -123,9 +131,20 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                     error_msg("Consumed more bytes than we got! (%d)\n", data_len);
                     return FALSE;
                 }
+
+            }
+            if (pass > 0) {
+                for (int i = nal_count - 1; i >= 0; i--) {
+                    int nal_size = nal_sizes[i];
+                    data -= nal_size;
+                    *dst -= nal_size + sizeof(start_sequence);
+                    memcpy(*dst, start_sequence, sizeof(start_sequence));
+                    memcpy(*dst + sizeof(start_sequence), data, nal_size);
+                    data -= 2;
+                }
             }
             break;
-
+        }
         case 25:
         case 26:
         case 27:
