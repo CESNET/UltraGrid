@@ -70,7 +70,6 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
 
     for (int pass = 0; pass < 2; pass++) {
         unsigned char *dst = NULL;
-        int src_len;
 
         if (pass > 0) {
             cdata = orig;
@@ -83,14 +82,15 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
 
         while (cdata != NULL) {
             rtp_packet *pckt = cdata->data;
-            uint8_t *data = pckt->data;
+            uint8_t *data = (uint8_t *) pckt->data;
+            int data_len = pckt->data_len;
 
             uint8_t nal = data[0];
             uint8_t type = nal & 0x1f;
             uint8_t nri = nal & 0x60;
 
             if (type == 7){
-                fill_coded_frame_from_sps(frame, (unsigned char*) pckt->data, pckt->data_len);
+                fill_coded_frame_from_sps(frame, data, data_len);
             }
 
             if (type >= 1 && type <= 23) {
@@ -103,54 +103,49 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
                 type = 1;
             }
 
-            const uint8_t *src = NULL;
-
             switch (type) {
                 case 0:
                 case 1:
                     if (pass == 0) {
                         debug_msg("NAL type 1\n");
-                        total_length += sizeof(start_sequence) + pckt->data_len;
+                        total_length += sizeof(start_sequence) + data_len;
                     } else {
                         dst -= pckt->data_len + sizeof(start_sequence);
                         memcpy(dst, start_sequence, sizeof(start_sequence));
-                        memcpy(dst + sizeof(start_sequence), pckt->data, pckt->data_len);
+                        memcpy(dst + sizeof(start_sequence), data, data_len);
                     }
                     break;
                 case 24:
-                    src = (const uint8_t *) pckt->data;
-                    src_len = pckt->data_len;
+                    data++;
+                    data_len--;
 
-                    src++;
-                    src_len--;
-
-                    while (src_len > 2) {
+                    while (data_len > 2) {
                         //TODO: Not properly tested
                         //TODO: bframes and iframes detection
                         uint16_t nal_size;
-                        memcpy(&nal_size, src, sizeof(uint16_t));
+                        memcpy(&nal_size, data, sizeof(uint16_t));
                         nal_size = ntohs(nal_size);
 
-                        src += 2;
-                        src_len -= 2;
+                        data += 2;
+                        data_len -= 2;
 
-                        if (nal_size <= src_len) {
+                        if (nal_size <= data_len) {
                             if (pass == 0) {
                                 total_length += sizeof(start_sequence) + nal_size;
                             } else {
                                 dst -= nal_size + sizeof(start_sequence);
                                 memcpy(dst, start_sequence, sizeof(start_sequence));
-                                memcpy(dst + sizeof(start_sequence), src, nal_size);
+                                memcpy(dst + sizeof(start_sequence), data, nal_size);
                             }
                         } else {
-                            error_msg("NAL size exceeds length: %u %d\n", nal_size, src_len);
+                            error_msg("NAL size exceeds length: %u %d\n", nal_size, data_len);
                             return FALSE;
                         }
-                        src += nal_size;
-                        src_len -= nal_size;
+                        data += nal_size;
+                        data_len -= nal_size;
 
-                        if (src_len < 0) {
-                            error_msg("Consumed more bytes than we got! (%d)\n", src_len);
+                        if (data_len < 0) {
+                            error_msg("Consumed more bytes than we got! (%d)\n", data_len);
                             return FALSE;
                         }
                     }
@@ -163,14 +158,11 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
                     error_msg("Unhandled NAL type\n");
                     return FALSE;
                 case 28:
-                    src = (const uint8_t *) pckt->data;
-                    src_len = pckt->data_len;
+                    data++;
+                    data_len--;
 
-                    src++;
-                    src_len--;
-
-                    if (src_len > 1) {
-                        uint8_t fu_header = *src;
+                    if (data_len > 1) {
+                        uint8_t fu_header = *data;
                         uint8_t start_bit = fu_header >> 7;
                         //uint8_t end_bit       = (fu_header & 0x40) >> 6;
                         uint8_t nal_type = fu_header & 0x1f;
@@ -189,24 +181,24 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
                         reconstructed_nal |= nal_type;
 
                         // skip the fu_header
-                        src++;
-                        src_len--;
+                        data++;
+                        data_len--;
 
                         if (pass == 0) {
                             if (start_bit) {
-                                total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + src_len;
+                                total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
                             } else {
-                                total_length += src_len;
+                                total_length += data_len;
                             }
                         } else {
                             if (start_bit) {
-                                dst -= sizeof(start_sequence) + sizeof(reconstructed_nal) + src_len;
+                                dst -= sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
                                 memcpy(dst, start_sequence, sizeof(start_sequence));
                                 memcpy(dst + sizeof(start_sequence), &reconstructed_nal, sizeof(reconstructed_nal));
-                                memcpy(dst + sizeof(start_sequence) + sizeof(reconstructed_nal), src, src_len);
+                                memcpy(dst + sizeof(start_sequence) + sizeof(reconstructed_nal), data, data_len);
                             } else {
-                                dst -= src_len;
-                                memcpy(dst, src, src_len);
+                                dst -= data_len;
+                                memcpy(dst, data, data_len);
                             }
                         }
                     } else {
