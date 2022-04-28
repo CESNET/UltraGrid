@@ -117,9 +117,15 @@ static struct video_frame *display_dump_getf(void *state)
         return s->f;
 }
 
-static int display_dump_putf(void *state, struct video_frame *frame, int)
+static int display_dump_putf(void *state, struct video_frame *frame, int flags)
 {
         auto s = (dump_display_state *) state;
+        if (frame == nullptr || flags == PUTF_DISCARD) {
+                return 0;
+        }
+        assert(frame == s->f);
+        export_video(s->e, frame);
+
         auto curr_time = steady_clock::now();
         s->frames += 1;
         double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
@@ -129,10 +135,6 @@ static int display_dump_putf(void *state, struct video_frame *frame, int)
                                 s->frames, seconds, fps);
                 s->t0 = curr_time;
                 s->frames = 0;
-        }
-
-        if (frame) {
-                export_video(s->e, frame);
         }
 
         return 0;
