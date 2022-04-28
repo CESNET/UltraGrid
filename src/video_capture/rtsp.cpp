@@ -89,14 +89,14 @@
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C, action_fail) \
     if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
-        fprintf(stderr, "[rtsp error] curl_easy_setopt(%s, %s, %s) failed: %d\n", #A, #B, #C, res); \
+        fprintf(stderr, "[rtsp error] curl_easy_setopt(%s, %s, %s) failed: %s (%d)\n", #A, #B, #C, curl_easy_strerror(res), res); \
         printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
         action_fail; \
     }
 
 #define my_curl_easy_perform(A) \
     if ((res = curl_easy_perform((A))) != CURLE_OK){ \
-        fprintf(stderr, "[rtsp error] curl_easy_perform(%s) failed: %d\n", #A, res); \
+        fprintf(stderr, "[rtsp error] curl_easy_perform(%s) failed: %s (%d)\n", #A, curl_easy_strerror(res), res); \
         printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
         return NULL; \
     }
@@ -235,6 +235,10 @@ struct rtsp_state {
     pthread_mutex_t lock;
     pthread_cond_t keepalive_cv;
 };
+
+static void curl_print_error(const char *msg, CURLcode err) {
+        error_msg("%s: %s\n", msg, curl_easy_strerror(err));
+}
 
 static void
 show_help() {
@@ -599,8 +603,8 @@ static CURL *init_curl() {
     /* initialize curl */
     CURLcode res = curl_global_init(CURL_GLOBAL_ALL);
     if (res != CURLE_OK) {
-        fprintf(stderr, "[rtsp] curl_global_init(%s) failed: %d\n",
-            "CURL_GLOBAL_ALL", res);
+        fprintf(stderr, "[rtsp] curl_global_init(%s) failed: %s (%d)\n",
+            "CURL_GLOBAL_ALL", curl_easy_strerror(res), res);
         return NULL;
     }
     curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
@@ -871,8 +875,8 @@ rtsp_get_parameters(CURL *curl, const char *uri) {
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_GET_PARAMETER, return -1);
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP GET PARAMETERS] curl_easy_perform failed\n");
+    if ((res = curl_easy_perform(curl)) != CURLE_OK){
+        curl_print_error("[RTSP GET PARAMETERS] curl_easy_perform failed", res);
         error_msg("[RTSP GET PARAMETERS] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
         return 0;
     }else{
@@ -907,8 +911,8 @@ rtsp_options(CURL *curl, const char *uri) {
 
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_OPTIONS, return -1);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP OPTIONS] curl_easy_perform failed\n");
+    if ((res = curl_easy_perform(curl)) != CURLE_OK){
+        curl_print_error("[RTSP OPTIONS] curl_easy_perform failed", res);
         error_msg("[RTSP OPTIONS] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
         return 0;
     }else{
@@ -927,8 +931,8 @@ rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp) {
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_DESCRIBE, goto error);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP DESCRIBE] curl_easy_perform failed\n");
+    if ((res = curl_easy_perform(curl)) != CURLE_OK){
+        curl_print_error("[RTSP DESCRIGE] curl_easy_perform failed", res);
         error_msg("[RTSP DESCRIBE] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
         goto error;
     }
@@ -952,8 +956,8 @@ rtsp_setup(CURL *curl, const char *uri, const char *transport) {
     my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport, return -1);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_SETUP, return -1);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP SETUP] curl_easy_perform failed\n");
+    if ((res = curl_easy_perform(curl)) != CURLE_OK){
+        curl_print_error("[RTSP SETUP] curl_easy_perform failed", res);
         error_msg("[RTSP SETUP] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
         return 0;
     }else{
@@ -972,8 +976,8 @@ rtsp_play(CURL *curl, const char *uri, const char * /* range */) {
     //my_curl_easy_setopt(curl, CURLOPT_RANGE, range);      //range not set because we want (right now) no limit range for streaming duration
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_PLAY, return -1);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP PLAY] curl_easy_perform failed\n");
+    if ((res = curl_easy_perform(curl)) != CURLE_OK){
+        curl_print_error("[RTSP PLAY] curl_easy_perform failed", res);
         error_msg("[RTSP PLAY] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
         return 0;
     }else{
@@ -991,8 +995,8 @@ rtsp_teardown(CURL *curl, const char *uri) {
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_TEARDOWN, return -1);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP TEARD DOWN] curl_easy_perform failed\n");
+    if ((res = curl_easy_perform(curl)) != CURLE_OK){
+        curl_print_error("[RTSP TEAR DOWN] curl_easy_perform failed", res);
         error_msg("[RTSP TEARD DOWN] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
         return 0;
     }else{
