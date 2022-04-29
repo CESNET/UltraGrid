@@ -65,6 +65,10 @@ struct dump_display_state {
                         dirname = "dump." + to_string(now);
                 }
                 e = export_init(NULL, dirname.c_str(), true);
+                if (e == nullptr) {
+                        log_msg(LOG_LEVEL_ERROR, "[dump] Failed to create export instance!\n");
+                        throw 1;
+                }
         }
         ~dump_display_state() {
                 vf_free(f);
@@ -92,7 +96,12 @@ static void *display_dump_init(struct module * /* parent */, const char *cfg, un
                 usage();
                 return &display_init_noerr;
         }
-        return new dump_display_state(cfg);
+        dump_display_state *s = nullptr;
+        try {
+                s = new dump_display_state(cfg);
+        } catch (...) {
+        }
+        return s;
 }
 
 static void display_dump_run(void *)
