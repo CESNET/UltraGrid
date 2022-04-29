@@ -1082,8 +1082,11 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
             continue;
         }
         char *sprop_val = strstr(sprop, "=") + 1;
+        if (char *term = strchr(sprop_val, ';')) {
+            *term = '\0';
+        }
 
-        while (char *nal = strtok(sprop_val, ",;")) {
+        while (char *nal = strtok(sprop_val, ",")) {
             sprop_val = NULL;
             gsize length;   //gsize is an unsigned int.
             //convert base64 to binary
