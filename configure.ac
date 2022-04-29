@@ -917,7 +917,6 @@ then
                 aja=yes
         else # check version at least 16 (only mac+Lin, Windows would require a different check)
                 AJA_VER=`sed -n 's/@%:@define AJA_NTV2_SDK_VERSION_MAJOR@<:@@<:@:space:@:>@@:>@*\(@<:@0-9@:>@*\).*/\1/p' <$AJA_PATH/ajalibraries/ajantv2/includes/ntv2enums.h`
-                echo $AJA_VER
                 if test $AJA_VER -ge 16; then
                         aja=yes
                 fi
