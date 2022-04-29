@@ -49,7 +49,7 @@ update_nasm
 sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install libopencv-dev
-sudo apt install libglib2.0-dev libcurl4-nss-dev
+sudo apt install libcurl4-nss-dev
 sudo apt install libtool # gpujpeg
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 
