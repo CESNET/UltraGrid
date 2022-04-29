@@ -48,6 +48,12 @@
 extern "C" {
 #endif
 
+#define NAL_MIN     1
+#define NAL_IDR     5
+#define NAL_SEI     6
+#define NAL_SPS     7
+#define NAL_MAX    23
+
 struct video_frame;
 
 struct decode_data_h264 {

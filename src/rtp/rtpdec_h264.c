@@ -56,7 +56,15 @@
 #include "utils/bs.h"
 #include "video_frame.h"
 
-#define H264_NAL 32 ///< type was 1-23 representing H.264 NAL type
+// NAL values >23 are invalid in H.264 codestream but used by RTP
+#define RTP_STAP_A 24
+#define RTP_STAP_B 25
+#define RTP_MTAP16 26
+#define RTP_MTAP24 27
+#define RTP_FU_A   28
+#define RTP_FU_B   29
+/// type was 1-23 representing H.264 NAL type
+#define H264_NAL   32
 
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
@@ -75,12 +83,12 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
     uint8_t nri = (nal & 0x60) >> 5;
     debug_msg("NAL type %d (nri: %d)\n", (int) type, (int) nri);
 
-    if (type == 7){
+    if (type == NAL_SPS) {
         fill_coded_frame_from_sps(frame, data, data_len);
     }
 
-    if (type >= 1 && type <= 23) {
-        if(frame->frame_type != INTRA && (type == 5 || type == 6)) {
+    if (type >= NAL_MIN && type <= NAL_MAX) {
+        if (type == NAL_IDR || type == NAL_SEI) {
             frame->frame_type = INTRA;
         } else if (frame->frame_type == BFRAME && nri != 0){
             frame->frame_type = OTHER;
@@ -105,7 +113,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 memcpy(*dst + sizeof(start_sequence), data, data_len);
             }
             break;
-        case 24:
+        case RTP_STAP_A:
         {
             int nal_sizes[100];
             unsigned nal_count = 0;
@@ -158,14 +166,13 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
             }
             break;
         }
-        case 0:
-        case 25:
-        case 26:
-        case 27:
-        case 29:
+        case RTP_STAP_B:
+        case RTP_MTAP16:
+        case RTP_MTAP24:
+        case RTP_FU_B:
             error_msg("Unhandled NAL type %d\n", type);
             return FALSE;
-        case 28:
+        case RTP_FU_A:
             data++;
             data_len--;
 
