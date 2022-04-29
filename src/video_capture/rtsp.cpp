@@ -1070,10 +1070,6 @@ vidcap_rtsp_done(void *state) {
  */
 static int
 get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
-
-    uint8_t nalInfo;
-    uint8_t type;
-    uint8_t nri __attribute__((unused));
     int max_len = 1500, len_nals = 0;
     char *s = (char *) malloc(max_len);
     char *sprop;
@@ -1082,53 +1078,32 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
 
     while (fgets(s, max_len - 2, sdp_file) != NULL) {
         sprop = strstr(s, "sprop-parameter-sets=");
-        if (sprop != NULL) {
+        if (sprop == NULL) {
+            continue;
+        }
+        char *sprop_val = strstr(sprop, "=") + 1;
+
+        while (char *nal = strtok(sprop_val, ",;")) {
+            sprop_val = NULL;
             gsize length;   //gsize is an unsigned int.
-            char *nal_aux, *nal;
-            memcpy(nals, start_sequence, sizeof(start_sequence));
-            len_nals = sizeof(start_sequence);
-            nal_aux = strstr(sprop, "=");
-            nal_aux++;
-            nal = strtok(nal_aux, ",;");
-            if (nal == nullptr) {
+            //convert base64 to binary
+            guchar *nal_decoded = g_base64_decode(nal, &length);
+            if (length == 0) {
+                g_free(nal_decoded);
                 continue;
             }
-            debug_msg(MOD_NAME "sprop-parameter (b64): %s\n", nal);
-            //convert base64 to hex
-            guchar *nals_aux = g_base64_decode(nal, &length);
-            memcpy(nals + len_nals, nals_aux, length);
-            g_free(nals_aux);
+
+            memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
+            len_nals += sizeof(start_sequence);
+            memcpy(nals + len_nals, nal_decoded, length);
             len_nals += length;
+            g_free(nal_decoded);
 
-            nalInfo = (uint8_t) nals[4];
-            type = nalInfo & 0x1f;
-            nri = nalInfo & 0x60;
-
-            if (type == 7){
-                width_height_from_SDP(width, height , (unsigned char *) (nals+4), length);
-            }
-
-            while ((nal = strtok(NULL, ",;")) != NULL) {
-                guchar *nals_aux = g_base64_decode(nal, &length);
-                if (length) {
-                    //convert base64 to hex
-                    memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
-                    len_nals += sizeof(start_sequence);
-                    memcpy(nals + len_nals, nals_aux, length);
-                    len_nals += length;
-
-                    nalInfo = (uint8_t) nals[len_nals - length];
-                    type = nalInfo & 0x1f;
-                    nri = nalInfo & 0x60;
-
-                    if (type == 7){
-                        width_height_from_SDP(width, height , (unsigned char *) (nals+(len_nals - length)), length);
-                    }
-                    //assure start sequence injection between sps, pps and other nals
-                    memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
-                    len_nals += sizeof(start_sequence);
-                }
-                g_free(nals_aux);
+            uint8_t nalInfo = (uint8_t) nals[len_nals - length];
+            uint8_t type = nalInfo & 0x1f;
+            debug_msg(MOD_NAME "sprop-parameter %d (base64): %s\n", (int) type, nal);
+            if (type == NAL_SPS){
+                width_height_from_SDP(width, height, (unsigned char *) (nals+(len_nals - length)), length);
             }
         }
     }
