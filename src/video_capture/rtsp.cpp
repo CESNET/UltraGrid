@@ -51,7 +51,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
-#include <glib.h>
 
 #include "audio/types.h"
 #include "debug.h"
@@ -62,7 +61,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
 #include "rtsp/rtsp_utils.h"
-
+#include "utils/misc.h"
 #include "video_decompress.h"
 
 #include "pdb.h"
@@ -1088,11 +1087,11 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
 
         while (char *nal = strtok(sprop_val, ",")) {
             sprop_val = NULL;
-            gsize length;   //gsize is an unsigned int.
+            unsigned int length = 0;
             //convert base64 to binary
-            guchar *nal_decoded = g_base64_decode(nal, &length);
+            unsigned char *nal_decoded = base64_decode(nal, &length);
             if (length == 0) {
-                g_free(nal_decoded);
+                free(nal_decoded);
                 continue;
             }
 
@@ -1100,7 +1099,7 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
             len_nals += sizeof(start_sequence);
             memcpy(nals + len_nals, nal_decoded, length);
             len_nals += length;
-            g_free(nal_decoded);
+            free(nal_decoded);
 
             uint8_t nalInfo = (uint8_t) nals[len_nals - length];
             uint8_t type = nalInfo & 0x1f;

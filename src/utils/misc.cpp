@@ -372,3 +372,41 @@ std::string_view tokenize(std::string_view& str, char delim){
 
         return std::string_view(token_begin, token_end - token_begin);
 }
+
+/**
+ * C-adapted version of https://stackoverflow.com/a/34571089
+ *
+ * As the output is a generic binary string, it is not NULL-terminated.
+ *
+ * Caller is obliged to free the returned string.
+ */
+unsigned char *base64_decode(const char *in, unsigned int *length) {
+    unsigned int allocated = 128;
+    unsigned char *out = (unsigned char *) malloc(allocated);
+    *length = 0;
+
+    int T[256];
+    for (unsigned int i = 0; i < sizeof T / sizeof T[0]; i++) {
+        T[i] = -1;
+    }
+    for (int i=0; i<64; i++) T[(int) "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[i]] = i;
+
+    int val=0, valb=-8;
+    unsigned char c = 0;
+    while ((c = *in++) != '\0') {
+        if (T[c] == -1) break;
+        val = (val << 6) + T[c];
+        valb += 6;
+        if (valb >= 0) {
+            if (allocated == *length) {
+                allocated *= 2;
+                out = (unsigned char *) realloc(out, allocated);
+                assert(out != NULL);
+            }
+            out[(*length)++] = (val>>valb)&0xFF;
+            valb -= 8;
+        }
+    }
+    return out;
+}
+

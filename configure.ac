@@ -1420,7 +1420,7 @@ RTSP_LIBS=
 RTSP_OBJ=
 rtsp=no
 
-define(rtsp_deps, [glib-2.0 >= 2.24.1 libcurl])
+define(rtsp_deps, [libcurl])
 
 AC_ARG_ENABLE(rtsp,
 [  --disable-rtsp          disable RTSP support (default is auto)]
@@ -1433,7 +1433,7 @@ PKG_CHECK_MODULES([RTSP], [rtsp_deps], FOUND_RTSP_DEPS=yes, FOUND_RTSP_DEPS=no)
 
 if test $rtsp_req != no -a $FOUND_RTSP_DEPS = yes
 then
-        AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl ang glib support])
+        AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl])
         SAVED_CFLAGS=$CFLAGS
         CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
         SAVED_CXXFLAGS=$CXXFLAGS
@@ -1446,7 +1446,7 @@ then
 fi
 
 if test $rtsp_req = yes -a $rtsp = no; then
-        AC_MSG_ERROR([rtsp not found, check curl or glib dependencies...]);
+        AC_MSG_ERROR([rtsp not found, check curl dependencies...]);
 fi
 
 # -------------------------------------------------------------------------------------------------

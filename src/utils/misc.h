@@ -89,6 +89,8 @@ int get_cpu_core_count(void);
 #define to_fourcc(a,b,c,d)     (((uint32_t)(a)) | ((uint32_t)(b)<<8U) | ((uint32_t)(c)<<16U) | ((uint32_t)(d)<<24U))
 #endif
 
+unsigned char *base64_decode(const char *in, unsigned int *length);
+
 #ifdef __cplusplus
 }
 #endif
