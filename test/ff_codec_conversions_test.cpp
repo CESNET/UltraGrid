@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "ff_codec_conversions_test.h"
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_video_conversions.h"
 #include "tv.h"
 #include "video_capture/testcard_common.h"
 #include "video_codec.h"

@@ -1869,11 +1869,12 @@ fi
 if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
 then
         LIBAVCODEC_COMMON="src/libavcodec_common.o"
+        LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/lavc_video_conversions.o"
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
-        LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
+        LIBAVCODEC_AUDIO_CODEC_OBJ="$LIBAVCODEC_COMMON src/audio/codec/libavcodec.o"
 
-        LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON src/video_compress/libavcodec.o"
-        LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_COMMON $HW_ACC_OBJ src/video_decompress/libavcodec.o"
+        LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO src/video_compress/libavcodec.o"
+        LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO $HW_ACC_OBJ src/video_decompress/libavcodec.o"
         if test $system = MacOSX; then
                 LIBAVCODEC_DECOMPRESS_OBJ="$LIBAVCODEC_DECOMPRESS_OBJ src/hwaccel_videotoolbox.o"
         fi

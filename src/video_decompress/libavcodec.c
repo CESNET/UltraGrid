@@ -44,6 +44,8 @@
 #include "debug.h"
 #include "host.h"
 #include "libavcodec_common.h"
+#include "libavcodec/lavc_video.h"
+#include "libavcodec/lavc_video_conversions.h"
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/misc.h" // get_cpu_core_count()
@@ -737,7 +739,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
                 int pitch, int rgb_shift[static restrict 3], struct state_libavcodec_decompress_sws *sws) {
         av_to_uv_convert_p convert = NULL;
 
-        debug_file_dump("lavd-avframe", serialize_avframe, frame);
+        debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
         if (get_av_to_ug_pixfmt(av_codec) == out_codec) {
                 if (!codec_is_planar(out_codec)) {

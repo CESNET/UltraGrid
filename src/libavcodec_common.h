@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -221,48 +221,6 @@ inline static bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt
 void print_libav_error(int verbosity, const char *msg, int rc);
 bool libav_codec_has_extradata(codec_t codec);
 
-typedef void uv_to_av_convert(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height);
-typedef uv_to_av_convert *pixfmt_callback_t;
-
-/**
- * Conversions from UltraGrid to FFMPEG formats.
- *
- * Currently do not add an "upgrade" conversion (UYVY->10b) because also
- * UltraGrid decoder can be used first and thus conversion v210->UYVY->10b
- * may be used resulting in a precision loss. If needed, put the upgrade
- * conversions below the others.
- */
-struct uv_to_av_conversion {
-        codec_t src;
-        enum AVPixelFormat dst;
-        enum AVColorSpace colorspace;  ///< destination colorspace
-        enum AVColorRange color_range; ///< destination color range
-        pixfmt_callback_t func;        ///< conversion function
-};
-const struct uv_to_av_conversion *get_uv_to_av_conversions(void);
-pixfmt_callback_t get_uv_to_av_conversion(codec_t uv_codec, int av_codec);
-/**
- * Returns AV format details for given pair UV,AV codec (must be unique then)
- */
-void get_av_pixfmt_details(codec_t uv_codec, int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range);
-
-typedef void av_to_uv_convert(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
-typedef av_to_uv_convert *av_to_uv_convert_p;
-
-struct av_to_uv_conversion {
-        int av_codec;
-        codec_t uv_codec;
-        av_to_uv_convert_p convert;
-        bool native; ///< there is a 1:1 mapping between the FFMPEG and UV codec (matching
-                     ///< color space, channel count (w/wo alpha), bit-depth,
-                     ///< subsampling etc.). Supported out are: RGB, UYVY, v210 (in future
-                     ///< also 10,12 bit RGB). Subsampling doesn't need to be respected (we do
-                     ///< not have codec for eg. 4:4:4 UYVY).
-};
-
-av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec);
-const struct av_to_uv_conversion *get_av_to_uv_conversions(void);
-
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec);
 enum AVCodecID get_ug_to_av_codec(codec_t ug_codec);
 
@@ -274,13 +232,6 @@ codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) ATTRIBUTE(const);
 enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) ATTRIBUTE(const);
 const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) ATTRIBUTE(const);
 void ug_set_av_log_level(void);
-
-void serialize_avframe(const void *f, FILE *out);
-
-#ifdef HAVE_SWSCALE
-struct SwsContext;
-struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPixelFormat SrcFormat, unsigned int DstW, unsigned int DstH, enum AVPixelFormat DstFormat, int64_t Flags);
-#endif // defined HAVE_SWSCALE
 
 #ifdef __cplusplus
 }

@@ -43,8 +43,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "libavcodec_common.h"
-
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -62,6 +60,9 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "libavcodec_common.h"
+#include "libavcodec/lavc_video.h"
+#include "libavcodec/lavc_video_conversions.h"
 #include "messaging.h"
 #include "module.h"
 #include "rang.hpp"
@@ -1492,7 +1493,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 }
         }
 
-        debug_file_dump("lavc-avframe", serialize_avframe, s->in_frame);
+        debug_file_dump("lavc-avframe", serialize_video_avframe, s->in_frame);
         AVFrame *frame = s->in_frame;
 #ifdef HWACC_VAAPI
         if(s->hwenc){

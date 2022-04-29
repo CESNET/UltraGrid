@@ -71,6 +71,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "libavcodec_common.h"
+#include "libavcodec/lavc_video_conversions.h"
 #include "messaging.h"
 #include "module.h"
 #include "playback.h"
