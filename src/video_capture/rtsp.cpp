@@ -1027,8 +1027,12 @@ vidcap_rtsp_done(void *state) {
     pthread_cond_signal(&s->keepalive_cv);
     pthread_mutex_unlock(&s->lock);
 
-    pthread_join(s->vrtsp_state.vrtsp_thread_id, NULL);
-    pthread_join(s->keep_alive_rtsp_thread_id, NULL);
+    if (s->vrtsp_state.vrtsp_thread_id) {
+        pthread_join(s->vrtsp_state.vrtsp_thread_id, NULL);
+    }
+    if (s->keep_alive_rtsp_thread_id) {
+        pthread_join(s->keep_alive_rtsp_thread_id, NULL);
+    }
 
     if(s->vrtsp_state.sd)
         decompress_done(s->vrtsp_state.sd);
