@@ -313,7 +313,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 
         AVCODECCTX_CHANNELS(s->codec_ctx) = 1;
 #if FF_API_NEW_CHANNEL_LAYOUT
-        s->codec_ctx->ch_layout.order = AV_CHANNEL_ORDER_UNSPEC;
+        s->codec_ctx->ch_layout = AV_CHANNEL_LAYOUT_MONO;
 #else
         s->codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
@@ -353,7 +353,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         s->av_frame->nb_samples     = s->codec_ctx->frame_size;
         s->av_frame->format         = s->codec_ctx->sample_fmt;
 #if FF_API_NEW_CHANNEL_LAYOUT
-        s->codec_ctx->ch_layout.order = AV_CHANNEL_ORDER_UNSPEC;
+        s->av_frame->ch_layout = AV_CHANNEL_LAYOUT_MONO;
 #else
         s->av_frame->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
