@@ -71,12 +71,14 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len);
 
 /**
- * This function extracts important data for futher processing of the stream, eg. frame type - for prepending
- * RTSP/SDP sprop-parameter-sets to I-frame and parsing dimensions from SPS NAL
+ * This function extracts important data for futher processing of the stream,
+ * eg. frame type - for prepending RTSP/SDP sprop-parameter-sets to I-frame and
+ * parsing dimensions from SPS NAL.
  *
- * @retval H264_NAL   type was H.264 NAL type that can be directly stored to buffer, using the H264_NAL
- *                    placeholder to represent all
- * @retval !=H264_NAL RTC type that doesn't represent H.264 NAL unit, eg. aggregate or fragment units
+ * Should be run in 1st pass - it sets frame_type according to which does the
+ * decoder deduce offset in 2nd pass.
+ *
+ * @retval H.264 or RTP NAL type
  */
 static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
     uint8_t type = nal & 0x1f;
@@ -93,15 +95,17 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
         } else if (frame->frame_type == BFRAME && nri != 0){
             frame->frame_type = OTHER;
         }
-        return H264_NAL;
     }
     return type;
 }
 
 static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
-    uint8_t nal = data[0];
-    uint8_t type = process_nal(nal, frame, data, data_len);
     int fu_length = 0;
+    uint8_t nal = data[0];
+    uint8_t type = pass == 0 ? process_nal(nal, frame, data, data_len) : nal & 0x1f;
+    if (type >= NAL_MIN && type <= NAL_MAX) {
+        type = H264_NAL;
+    }
 
     switch (type) {
         case H264_NAL:
@@ -136,10 +140,10 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 if (nal_size <= data_len) {
                     if (pass == 0) {
                         *total_length += sizeof(start_sequence) + nal_size;
+                        process_nal(data[0], frame, data, data_len);
                     } else {
                         assert(nal_count < sizeof nal_sizes / sizeof nal_sizes[0] - 1);
                         nal_sizes[nal_count++] = nal_size;
-                        process_nal(data[0], frame, data, data_len);
                     }
                 } else {
                     error_msg("NAL size exceeds length: %u %d\n", nal_size, data_len);
@@ -194,23 +198,23 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 data_len--;
 
                 if (pass == 0) {
-                    if (start_bit) {
-                        *total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
-                    } else {
-                        *total_length += data_len;
-                    }
-                } else {
                     if (end_bit) {
                         fu_length = data_len;
                     } else {
                         fu_length += data_len;
                     }
                     if (start_bit) {
+                        *total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
+                        process_nal(reconstructed_nal, frame, data, fu_length);
+                    } else {
+                        *total_length += data_len;
+                    }
+                } else {
+                    if (start_bit) {
                         *dst -= sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
                         memcpy(*dst, start_sequence, sizeof(start_sequence));
                         memcpy(*dst + sizeof(start_sequence), &reconstructed_nal, sizeof(reconstructed_nal));
                         memcpy(*dst + sizeof(start_sequence) + sizeof(reconstructed_nal), data, data_len);
-                        process_nal(reconstructed_nal, frame, data, fu_length);
                     } else {
                         *dst -= data_len;
                         memcpy(*dst, data, data_len);
