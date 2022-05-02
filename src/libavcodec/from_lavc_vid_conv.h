@@ -1,5 +1,5 @@
 /**
- * @file   libavcodec/lavc_video_conversions.h
+ * @file   libavcodec/from_lavc_vid_conv.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
@@ -35,39 +35,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIBAVCODEC_LAVC_VIDEO_CONVERSIONS_H_97E7417B_773A_453F_BB1A_37841E167152
-#define LIBAVCODEC_LAVC_VIDEO_CONVERSIONS_H_97E7417B_773A_453F_BB1A_37841E167152
+#ifndef LIBAVCODEC_FROM_LAVC_VID_CONV_H_97E7417B_773A_453F_BB1A_37841E167152
+#define LIBAVCODEC_FROM_LAVC_VID_CONV_H_97E7417B_773A_453F_BB1A_37841E167152
 
 #include "libavcodec_common.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef void uv_to_av_convert(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height);
-typedef uv_to_av_convert *pixfmt_callback_t;
-
-/**
- * Conversions from UltraGrid to FFMPEG formats.
- *
- * Currently do not add an "upgrade" conversion (UYVY->10b) because also
- * UltraGrid decoder can be used first and thus conversion v210->UYVY->10b
- * may be used resulting in a precision loss. If needed, put the upgrade
- * conversions below the others.
- */
-struct uv_to_av_conversion {
-        codec_t src;
-        enum AVPixelFormat dst;
-        enum AVColorSpace colorspace;  ///< destination colorspace
-        enum AVColorRange color_range; ///< destination color range
-        pixfmt_callback_t func;        ///< conversion function
-};
-const struct uv_to_av_conversion *get_uv_to_av_conversions(void);
-pixfmt_callback_t get_uv_to_av_conversion(codec_t uv_codec, int av_codec);
-/**
- * Returns AV format details for given pair UV,AV codec (must be unique then)
- */
-void get_av_pixfmt_details(codec_t uv_codec, int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range);
 
 typedef void av_to_uv_convert(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
 typedef av_to_uv_convert *av_to_uv_convert_p;
@@ -90,5 +65,5 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions(void);
 }
 #endif
 
-#endif // !defined LIBAVCODEC_LAVC_VIDEO_CONVERSIONS_H_97E7417B_773A_453F_BB1A_37841E167152
+#endif // !defined LIBAVCODEC_FROM_LAVC_VID_CONV_H_97E7417B_773A_453F_BB1A_37841E167152
 

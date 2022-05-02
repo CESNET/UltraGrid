@@ -62,7 +62,7 @@
 #include "lib_common.h"
 #include "libavcodec_common.h"
 #include "libavcodec/lavc_video.h"
-#include "libavcodec/lavc_video_conversions.h"
+#include "libavcodec/to_lavc_vid_conv.h"
 #include "messaging.h"
 #include "module.h"
 #include "rang.hpp"
