@@ -83,7 +83,7 @@ int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, 
 static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
     uint8_t type = nal & 0x1f;
     uint8_t nri = (nal & 0x60) >> 5;
-    debug_msg("NAL type %d (nri: %d)\n", (int) type, (int) nri);
+    log_msg(LOG_LEVEL_DEBUG2, "NAL type %d (nri: %d)\n", (int) type, (int) nri);
 
     if (type == NAL_SPS) {
         fill_coded_frame_from_sps(frame, data, data_len);
@@ -125,7 +125,6 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
             data_len--;
 
             while (data_len > 2) {
-                //TODO: Not properly tested
                 uint16_t nal_size;
                 memcpy(&nal_size, data, sizeof(uint16_t));
                 nal_size = ntohs(nal_size);
@@ -133,9 +132,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 data += 2;
                 data_len -= 2;
 
-                if (log_level >= LOG_LEVEL_DEBUG) {
-                    debug_msg("STAP-A subpacket NAL type %d (nri: %d)\n", (int) (data[0] & 0x1f), (int) ((nal & 0x60) >> 5));
-                }
+                log_msg(LOG_LEVEL_DEBUG2, "STAP-A subpacket NAL type %d (nri: %d)\n", (int) (data[0] & 0x1f), (int) ((nal & 0x60) >> 5));
 
                 if (nal_size <= data_len) {
                     if (pass == 0) {
@@ -226,7 +223,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
             }
             break;
         default:
-            error_msg("Unknown NAL type\n");
+            error_msg("Unknown NAL type %d\n", type);
             return FALSE;
     }
     return TRUE;

@@ -238,6 +238,8 @@ struct rtsp_state {
     pthread_t keep_alive_rtsp_thread_id; //the worker_id
     pthread_mutex_t lock;
     pthread_cond_t keepalive_cv;
+
+    _Bool rtsp_error_occurred;
 };
 
 static void
@@ -266,7 +268,8 @@ keep_alive_thread(void *arg){
         }
         pthread_mutex_unlock(&s->vrtsp_state.lock);
 
-        // actuall keepalive
+        // actual keepalive
+        verbose_msg(MOD_NAME "GET PARAMETERS %s:\n", s->uri);
         if (rtsp_get_parameters(s->curl, s->uri) == 0) {
             s->should_exit = TRUE;
             exit_uv(1);
@@ -422,10 +425,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
 static int
 vidcap_rtsp_init(struct vidcap_params *params, void **state) {
-
-    log_msg(LOG_LEVEL_WARNING, "RTSP capture module is most likely broken, "
-            "please contact " PACKAGE_BUGREPORT " if you wish to use it.\n");
-
     if (vidcap_params_get_fmt(params)
         && strcmp(vidcap_params_get_fmt(params), "help") == 0)
     {
@@ -620,6 +619,19 @@ static CURL *init_curl() {
     return curl;
 }
 
+static size_t print_rtsp_header(char *buffer, size_t size, size_t nitems, void *userdata) {
+    int aggregate_size = size * nitems;
+    struct rtsp_state *s = (struct rtsp_state *) userdata;
+    if (strncmp(buffer, "RTSP/1.0 ", MIN(strlen("RTSP/1.0 "), aggregate_size)) == 0) {
+        int code = atoi(buffer + strlen("RTSP/1.0 "));
+        s->rtsp_error_occurred = code != 200;
+    }
+    if (log_level >= LOG_LEVEL_VERBOSE || s->rtsp_error_occurred) {
+        log_msg(s->rtsp_error_occurred ? LOG_LEVEL_ERROR : log_level, MOD_NAME "%.*s", aggregate_size, buffer);
+    }
+    return nitems;
+}
+
 /**
  * Initializes rtsp state and internal parameters
  */
@@ -660,7 +672,8 @@ init_rtsp(struct rtsp_state *s) {
     //my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
     my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE, 0L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_NOPROGRESS, 1L, goto error);
-    my_curl_easy_setopt(s->curl, CURLOPT_WRITEHEADER, stdout, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_HEADERDATA, &s, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_HEADERFUNCTION, print_rtsp_header, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_URL, s->uri, goto error);
 
     //TODO TO CHECK CONFIGURING ERRORS
