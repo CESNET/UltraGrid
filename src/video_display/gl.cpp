@@ -481,6 +481,7 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                 } else if(!strcasecmp(tok, "novsync")) {
                         s->vsync = 0;
                 } else if(!strcasecmp(tok, "single")) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Single-buffering is not recommended and may not work, also GLFW discourages its use.\n";
                         s->vsync = SINGLE_BUF;
                 } else if (!strncmp(tok, "vsync=", strlen("vsync="))) {
                         if (toupper((tok + strlen("vsync="))[0]) == 'D') {

@@ -466,6 +466,12 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         return VIDCAP_INIT_NOERR;
     }
 
+    if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+        log_msg(LOG_LEVEL_ERROR, "Audio is not entirely implemented in RTSP. "
+                "Please contact " PACKAGE_BUGREPORT " if you wish to use it.\n");
+        return NULL;
+    }
+
     struct rtsp_state *s = (struct rtsp_state *) calloc(1, sizeof(struct rtsp_state));
     if (s == NULL) {
         return VIDCAP_INIT_FAIL;
