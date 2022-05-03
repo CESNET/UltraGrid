@@ -156,8 +156,8 @@ void wp_worker::push(wp_task_data *data) {
         pthread_mutex_lock(&m_lock);
         assert(m_data.size() == 0);
         m_data.push(data);
-        pthread_cond_signal(&m_task_ready_cv);
         pthread_mutex_unlock(&m_lock);
+        pthread_cond_signal(&m_task_ready_cv);
 }
 
 void *wp_worker::pop(wp_task_data *d) {
