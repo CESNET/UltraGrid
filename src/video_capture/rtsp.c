@@ -38,7 +38,13 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @file
+ * Example stream to test can be generated with:
  *
+ *     docker run --rm -it --network=host aler9/rtsp-simple-server
+ *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
  */
 
 #include "config.h"
@@ -243,6 +249,7 @@ struct rtsp_state {
     pthread_cond_t keepalive_cv;
 
     _Bool rtsp_error_occurred;
+    _Bool sps_pps_emitted; ///< emit SPS/PPS once first to reduce decoding errors
 };
 
 static void
@@ -352,12 +359,35 @@ vidcap_rtsp_thread(void *arg) {
     return NULL;
 }
 
+/**
+ * This is not mandatory and is merely an optimization - we can emit PPS/SPS
+ * early (otherwise it is prepended only to IDR frames). The aim is to allow
+ * the receiver to probe the format while allowing it to reconfigure, it can
+ * then display the following IDR (otherwise it would be used to probe and the
+ * only next would be displayed).
+ */
+static struct video_frame *emit_sps_pps(struct rtsp_state *s) {
+    if (s->vrtsp_state.h264_offset_len == 0) {
+        return NULL;
+    }
+    s->sps_pps_emitted = 1;
+    struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
+    memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
+    frame->tiles[0].data_len = s->vrtsp_state.h264_offset_len;
+    frame->callbacks.dispose = vf_free;
+    return frame;
+}
+
 static struct video_frame *
 vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     struct rtsp_state *s;
     s = (struct rtsp_state *) state;
 
     *audio = NULL;
+
+    if (!s->sps_pps_emitted) {
+        return emit_sps_pps(s);
+    }
 
     if(pthread_mutex_trylock(&s->vrtsp_state.lock)==0){
         {
