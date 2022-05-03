@@ -64,6 +64,9 @@ struct decode_data_h264 {
 
 struct coded_data;
 
+#define NALU_HDR_GET_TYPE(nal) ((nal) & 0x1FU)
+#define NALU_HDR_GET_NRI(nal) (((nal) & 0x60U) >> 5U)
+
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
 

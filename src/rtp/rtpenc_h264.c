@@ -158,6 +158,53 @@ long rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state, unsigned
 	return curNALSize(rtpench264state);
 }
 
+static uint32_t get4Bytes(const unsigned char *ptr) {
+        return (ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3];
+}
+
+static const unsigned char *get_next_nal(const unsigned char *start, long len, _Bool with_start_code) {
+        const unsigned char * const stop = start + len;
+        while (stop - start >= 4) {
+                uint32_t next4Bytes = get4Bytes(start);
+                if (next4Bytes == 0x00000001) {
+                        return start + (with_start_code ? 0 : 4);
+                }
+                if ((next4Bytes & 0xFFFFFF00) == 0x00000100) {
+                        return start + (with_start_code ? 0 : 3);
+                }
+                // We save at least some of "next4Bytes".
+                if ((unsigned) (next4Bytes & 0xFF) > 1) {
+                        // Common case: 0x00000001 or 0x000001 definitely doesn't begin anywhere in "next4Bytes", so we save all of it:
+                        start += 4;
+                } else {
+                        // Save the first byte, and continue testing the rest:
+                        start += 1;
+                }
+        }
+        return NULL;
+}
+
+/**
+ * Returns pointer to next NAL unit in stream (excluding start code).
+ *
+ * @param start  start of the buffer
+ * @param len    length of the buffer
+ * @param endptr pointer to store the end of the NAL unit; may be NULL
+ * @returns      NAL unit beginning or NULL if no further NAL unit was found
+ */
+const unsigned char *rtpenc_h264_get_next_nal(const unsigned char *start, long len, const unsigned char **endptr) {
+        const unsigned char *nal = get_next_nal(start, len, 0);
+        if (endptr == NULL) {
+                return nal;
+        }
+        if (nal == NULL) {
+                return NULL;
+        }
+        const unsigned char *end = get_next_nal(nal, len - (nal - start), 1);
+        *endptr = end ? end : start + len;
+        return nal;
+}
+
 static bool rtpenc_h264_have_seen_eof(struct rtpenc_h264_state *rtpench264state) {
 	return rtpench264state->haveSeenEOF;
 }
@@ -167,7 +214,7 @@ static uint32_t test4Bytes(struct rtpenc_h264_state *rtpench264state) {
 	checkEndOfFrame(rtpench264state, 4);
 
 	unsigned char const* ptr = nextToParse(rtpench264state);
-	return (ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3];
+	return get4Bytes(ptr);
 }
 static unsigned char* startOfFrame(struct rtpenc_h264_state *rtpench264state) {
 	return rtpench264state->startOfFrame;

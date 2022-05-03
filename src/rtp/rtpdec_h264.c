@@ -81,8 +81,8 @@ int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, 
  * @retval H.264 or RTP NAL type
  */
 static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
-    uint8_t type = nal & 0x1f;
-    uint8_t nri = (nal & 0x60) >> 5;
+    uint8_t type = NALU_HDR_GET_TYPE(nal);
+    uint8_t nri = NALU_HDR_GET_NRI(nal);
     log_msg(LOG_LEVEL_DEBUG2, "NAL type %d (nri: %d)\n", (int) type, (int) nri);
 
     if (type == NAL_SPS) {
@@ -102,7 +102,7 @@ static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data
 static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
     int fu_length = 0;
     uint8_t nal = data[0];
-    uint8_t type = pass == 0 ? process_nal(nal, frame, data, data_len) : nal & 0x1f;
+    uint8_t type = pass == 0 ? process_nal(nal, frame, data, data_len) : NALU_HDR_GET_TYPE(nal);
     if (type >= NAL_MIN && type <= NAL_MAX) {
         type = H264_NAL;
     }
@@ -132,7 +132,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 data += 2;
                 data_len -= 2;
 
-                log_msg(LOG_LEVEL_DEBUG2, "STAP-A subpacket NAL type %d (nri: %d)\n", (int) (data[0] & 0x1f), (int) ((nal & 0x60) >> 5));
+                log_msg(LOG_LEVEL_DEBUG2, "STAP-A subpacket NAL type %d (nri: %d)\n", (int) NALU_HDR_GET_TYPE(data[0]), (int) NALU_HDR_GET_NRI(nal));
 
                 if (nal_size <= data_len) {
                     if (pass == 0) {
@@ -181,7 +181,7 @@ static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int p
                 uint8_t fu_header = *data;
                 uint8_t start_bit = fu_header >> 7;
                 uint8_t end_bit       = (fu_header & 0x40) >> 6;
-                uint8_t nal_type = fu_header & 0x1f;
+                uint8_t nal_type = NALU_HDR_GET_TYPE(fu_header);
                 uint8_t reconstructed_nal;
 
                 // Reconstruct this packet's true nal; only the data follows.

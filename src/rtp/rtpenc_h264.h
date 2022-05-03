@@ -61,6 +61,7 @@ struct rtpenc_h264_state;
 // functions documented at definition
 struct rtpenc_h264_state *rtpenc_h264_init_state(void *buf, unsigned char *buf_in, long size);
 long rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state, unsigned char **start, bool *last);
+const unsigned char *rtpenc_h264_get_next_nal(const unsigned char *start, long len, const unsigned char **endptr);
 
 #ifdef __cplusplus
 }

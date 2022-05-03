@@ -48,6 +48,8 @@
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "rtp/rtpdec_h264.h"
+#include "rtp/rtpenc_h264.h"
 #include "utils/misc.h" // get_cpu_core_count()
 #include "utils/worker.h"
 #include "video.h"
@@ -99,6 +101,8 @@ struct state_libavcodec_decompress {
         } sws;
 
         struct hw_accel_state hwaccel;
+
+        _Bool h264_sps_found; ///< to avoid initial error flood, start decoding after SPS was received
 };
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
@@ -805,12 +809,53 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
 #endif // HAVE_SWSCALE
 }
 
+/**
+ * This function handles beginning of H.264 stream that usually floods terminal
+ * output with errors because it usually doesn't start with IDR frame (even if
+ * it does, codec probing swallows this). As a workaround, we wait until first
+ * SPS NAL unit to avoid initial decoding errors.
+ *
+ * A drawback may be that it can in theory happen that the SPS NAL unit is not
+ * at the beginning of the buffer, but it is not the case of libx264 and
+ * hopefully neither other decoders (if so, it needs to be reworked/removed).
+ */
+static _Bool check_first_h264_sps(struct state_libavcodec_decompress *s, unsigned char *src, unsigned int src_len) {
+        if (s->h264_sps_found) {
+                return 1;
+        }
+        _Thread_local static time_ns_t t0;
+        if (t0 == 0) {
+                t0 = get_time_in_ns();
+        }
+        if (get_time_in_ns() - t0 > 10 * NS_IN_SEC) { // after 10 seconds surrender and let decoder do the job
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "No SPS found, starting decode, anyway. Please report a bug to " PACKAGE_BUGREPORT " if decoding succeeds from now.\n");
+                s->h264_sps_found = 1;
+                return 1;
+        }
+        const unsigned char *first_nal = rtpenc_h264_get_next_nal(src, src_len, NULL);
+        if (!first_nal) {
+                return 0;
+        }
+        int type =  NALU_HDR_GET_TYPE(first_nal[0]);
+        if (type == NAL_SPS || type == NAL_SEI) {
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received H.264 SPS NALU, decoding begins...\n");
+                s->h264_sps_found = 1;
+                return 1;
+        }
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Waiting for first H.264 SPS NALU.\n");
+        return 0;
+}
+
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int got_frame = 0;
         decompress_status res = DECODER_NO_FRAME;
+
+        if (s->desc.color_spec == H264 && !check_first_h264_sps(s, src, src_len)) {
+                return DECODER_NO_FRAME;
+        }
 
         if (libav_codec_has_extradata(s->desc.color_spec)) {
                 int extradata_size = *(uint32_t *)(void *) src;
