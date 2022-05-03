@@ -259,17 +259,17 @@ static void *
 keep_alive_thread(void *arg){
     struct rtsp_state *s = (struct rtsp_state *) arg;
 
-    pthread_mutex_lock(&s->lock);
     while (1) {
         struct timeval tp;
         gettimeofday(&tp, NULL);
         struct timespec timeout = { .tv_sec = tp.tv_sec + KEEPALIVE_INTERVAL_S, .tv_nsec = tp.tv_usec * 1000 };
+        pthread_mutex_lock(&s->lock);
         pthread_cond_timedwait(&s->keepalive_cv, &s->lock, &timeout);
         if (s->should_exit) {
-            pthread_mutex_unlock(&s->vrtsp_state.lock);
+            pthread_mutex_unlock(&s->lock);
             break;
         }
-        pthread_mutex_unlock(&s->vrtsp_state.lock);
+        pthread_mutex_unlock(&s->lock);
 
         // actual keepalive
         verbose_msg(MOD_NAME "GET PARAMETERS %s:\n", s->uri);
@@ -844,10 +844,12 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
         for(int p=0;p<2;p++){
             if(strncmp(codecs[p],"H264",4)==0){
                 rtspState->vrtsp_state.codec = "H264";
+                free(rtspState->vrtsp_state.control);
                 rtspState->vrtsp_state.control = strdup(tracks[p]);
 
             }if(strncmp(codecs[p],"PCMU",4)==0){
                 rtspState->artsp_state.codec = "PCMU";
+                free(rtspState->artsp_state.control);
                 rtspState->artsp_state.control = strdup(tracks[p]);
             }
         }
@@ -1012,9 +1014,13 @@ vidcap_rtsp_done(void *state) {
     struct rtsp_state *s = (struct rtsp_state *) state;
 
     pthread_mutex_lock(&s->lock);
+    pthread_mutex_lock(&s->vrtsp_state.lock);
     s->should_exit = TRUE;
-    pthread_cond_signal(&s->keepalive_cv);
+    pthread_mutex_unlock(&s->vrtsp_state.lock);
     pthread_mutex_unlock(&s->lock);
+
+    pthread_cond_signal(&s->keepalive_cv);
+    pthread_cond_signal(&s->vrtsp_state.worker_cv);
 
     if (s->vrtsp_state.vrtsp_thread_id) {
         pthread_join(s->vrtsp_state.vrtsp_thread_id, NULL);
