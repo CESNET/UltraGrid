@@ -45,6 +45,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,8 +73,6 @@
 #include "video_capture.h"
 
 #include <curl/curl.h>
-#include <chrono>
-#include <memory>
 
 #define KEEPALIVE_INTERVAL_S 5
 #define MOD_NAME  "[rtsp] "
@@ -104,6 +103,10 @@
             action_fail; \
         } \
     }
+
+struct rtsp_state;
+struct audio_rtsp_state;
+struct video_rtsp_state;
 
 /* send RTSP GET_PARAMETERS request */
 static int
@@ -278,7 +281,8 @@ keep_alive_thread(void *arg){
     return NULL;
 }
 
-int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *) {
+int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *stats) {
+    UNUSED(stats);
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
     struct decode_data_h264 *d = (struct decode_data_h264 *) decode_data;
@@ -301,7 +305,7 @@ vidcap_rtsp_thread(void *arg) {
 
     while (!s->should_exit) {
         time_ns_t curr_time = get_time_in_ns();
-        uint32_t timestamp = (curr_time - start_time) / 100'000 * 9; // at 90000 Hz
+        uint32_t timestamp = (curr_time - start_time) / (100*1000) * 9; // at 90000 Hz
 
         rtp_update(s->vrtsp_state.device, curr_time);
 
@@ -405,7 +409,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
                 decompress_frame(s->vrtsp_state.sd, (unsigned char *) decompressed->tiles[0].data,
                     (unsigned char *) frame->tiles[0].data,
-                    frame->tiles[0].data_len, 0, nullptr, nullptr);
+                    frame->tiles[0].data_len, 0, NULL, NULL);
                 vf_free(frame);
                 frame = decompressed;
             }
@@ -757,7 +761,6 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     rtspState = (struct rtsp_state *) state;
 
     int n=0;
-    char *line = (char*) malloc(1024);
     char* tmpBuff;
     int countT = 0;
     int countC = 0;
@@ -768,86 +771,92 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     long fileSize = ftell(sdp_file);
     if (fileSize < 0) {
             perror("RTSP ftell");
-            free(line);
             return false;
     }
     rewind(sdp_file);
 
-    auto buffer = std::make_unique<char[]>(fileSize + 1);
-    unsigned long readResult = fread(buffer.get(), sizeof(char), fileSize, sdp_file);
-    if (ferror(sdp_file)){
-        perror(MOD_NAME "SDP file read failed");
-        free(line);
-        return false;
-    }
-    buffer[readResult] = '\0';
-
-    while (buffer[n] != '\0'){
-        getNewLine(buffer.get(),&n,line);
-        sscanf(line, " a = control: %*s");
-        tmpBuff = strstr(line, "track");
-        if(tmpBuff!=NULL){
-            if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
-                //debug_msg("track = %s\n",tmpBuff);
-                strncpy(tracks[countT],tmpBuff,MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1));
-                tracks[countT][MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1)] = '\0';
-                countT++;
-            } else {
-                log_msg(LOG_LEVEL_WARNING, "skipping track = %s\n",tmpBuff);
-            }
+    bool ret = true;
+    char *line = (char*) malloc(1024);
+    char *buffer = malloc(fileSize + 1);
+    do {
+        unsigned long readResult = fread(buffer, sizeof(char), fileSize, sdp_file);
+        if (ferror(sdp_file)){
+            perror(MOD_NAME "SDP file read failed");
+            ret = false;
+            break;
         }
-        tmpBuff=NULL;
-        int pt = 0;
-        sscanf(line, " a=rtpmap:%d %*s", &pt);
-        tmpBuff = strstr(line, "H264");
-        if(tmpBuff!=NULL){
-            if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
-                //debug_msg("codec = %s\n",tmpBuff);
-                strncpy(codecs[countC],tmpBuff,4);
-                codecs[countC][4] = '\0';
-                countC++;
-                if (pt == 0) {
-                    log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing video PT for H.264!\n");
-                    return false;
+        buffer[readResult] = '\0';
+
+        while (buffer[n] != '\0'){
+            getNewLine(buffer,&n,line);
+            sscanf(line, " a = control: %*s");
+            tmpBuff = strstr(line, "track");
+            if(tmpBuff!=NULL){
+                if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
+                    //debug_msg("track = %s\n",tmpBuff);
+                    strncpy(tracks[countT],tmpBuff,MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1));
+                    tracks[countT][MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1)] = '\0';
+                    countT++;
+                } else {
+                    log_msg(LOG_LEVEL_WARNING, "skipping track = %s\n",tmpBuff);
                 }
-                rtspState->vrtsp_state.pt = pt;
-            } else {
-                log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+            }
+            tmpBuff=NULL;
+            int pt = 0;
+            sscanf(line, " a=rtpmap:%d %*s", &pt);
+            tmpBuff = strstr(line, "H264");
+            if(tmpBuff!=NULL){
+                if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
+                    //debug_msg("codec = %s\n",tmpBuff);
+                    strncpy(codecs[countC],tmpBuff,4);
+                    codecs[countC][4] = '\0';
+                    countC++;
+                    if (pt == 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing video PT for H.264!\n");
+                        ret = false;
+                        break;
+                    }
+                    rtspState->vrtsp_state.pt = pt;
+                } else {
+                    log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+                }
+            }
+            tmpBuff=NULL;
+            sscanf(line, " a=rtpmap:97 %*s");
+            tmpBuff = strstr(line, "PCMU");
+            if(tmpBuff!=NULL){
+                if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
+                    //debug_msg("codec = %s\n",tmpBuff);
+                    strncpy(codecs[countC],tmpBuff,4);
+                    codecs[countC][4] = '\0';
+                    countC++;
+                } else {
+                    log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+                }
+            }
+            tmpBuff=NULL;
+
+            if(countT > 1 && countC > 1) break;
+        }
+        verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[0],codecs[0]);
+        verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[1],codecs[1]);
+
+        for(int p=0;p<2;p++){
+            if(strncmp(codecs[p],"H264",4)==0){
+                rtspState->vrtsp_state.codec = "H264";
+                rtspState->vrtsp_state.control = strdup(tracks[p]);
+
+            }if(strncmp(codecs[p],"PCMU",4)==0){
+                rtspState->artsp_state.codec = "PCMU";
+                rtspState->artsp_state.control = strdup(tracks[p]);
             }
         }
-        tmpBuff=NULL;
-        sscanf(line, " a=rtpmap:97 %*s");
-        tmpBuff = strstr(line, "PCMU");
-        if(tmpBuff!=NULL){
-            if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
-                //debug_msg("codec = %s\n",tmpBuff);
-                strncpy(codecs[countC],tmpBuff,4);
-                codecs[countC][4] = '\0';
-                countC++;
-            } else {
-                log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
-            }
-        }
-        tmpBuff=NULL;
+    } while(0);
 
-        if(countT > 1 && countC > 1) break;
-    }
-    verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[0],codecs[0]);
-    verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[1],codecs[1]);
-
-    for(int p=0;p<2;p++){
-        if(strncmp(codecs[p],"H264",4)==0){
-            rtspState->vrtsp_state.codec = "H264";
-            rtspState->vrtsp_state.control = strdup(tracks[p]);
-
-        }if(strncmp(codecs[p],"PCMU",4)==0){
-            rtspState->artsp_state.codec = "PCMU";
-            rtspState->artsp_state.control = strdup(tracks[p]);
-        }
-    }
     free(line);
+    free(buffer);
     rewind(sdp_file);
-    return true;
+    return ret;
 }
 
 void getNewLine(const char* buffer, int* i, char* line){
@@ -960,7 +969,8 @@ rtsp_setup(CURL *curl, const char *uri, const char *transport) {
  * send RTSP PLAY request
  */
 static int
-rtsp_play(CURL *curl, const char *uri, const char * /* range */) {
+rtsp_play(CURL *curl, const char *uri, const char *range) {
+    UNUSED(range);
     verbose_msg("\n[rtsp] PLAY %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
     //my_curl_easy_setopt(curl, CURLOPT_RANGE, range);      //range not set because we want (right now) no limit range for streaming duration
@@ -1016,7 +1026,7 @@ vidcap_rtsp_done(void *state) {
     if(s->vrtsp_state.sd)
         decompress_done(s->vrtsp_state.sd);
 
-    if (s->vrtsp_state.device != nullptr) {
+    if (s->vrtsp_state.device) {
         rtp_done(s->vrtsp_state.device);
     }
 
@@ -1057,11 +1067,13 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
             continue;
         }
         char *sprop_val = strstr(sprop, "=") + 1;
-        if (char *term = strchr(sprop_val, ';')) {
+        char *term = strchr(sprop_val, ';');
+        if (term) {
             *term = '\0';
         }
 
-        while (char *nal = strtok(sprop_val, ",")) {
+        char *nal = 0;
+        while ((nal = strtok(sprop_val, ","))) {
             sprop_val = NULL;
             unsigned int length = 0;
             //convert base64 to binary

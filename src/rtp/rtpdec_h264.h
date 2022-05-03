@@ -62,6 +62,8 @@ struct decode_data_h264 {
         int video_pt;
 };
 
+struct coded_data;
+
 int decode_frame_h264(struct coded_data *cdata, void *decode_data);
 int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, int data_len);
 
