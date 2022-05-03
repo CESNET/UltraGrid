@@ -1424,12 +1424,11 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
                 /* here, but I'm trying to get the basics going first... */
                 log_msg(LOG_LEVEL_ERROR, "getaddrinfo: %s\n", gai_strerror(err));
                 return err;
-        } else {
-                memcpy(&s->sock, res0->ai_addr, res0->ai_addrlen);
-                s->sock_len = res0->ai_addrlen;
-                s->local->mode = (res0->ai_family == AF_INET ? IPv4 : IPv6);
-                verbose_msg("Connected IP version %d\n", s->local->mode);
         }
+        memcpy(&s->sock, res0->ai_addr, res0->ai_addrlen);
+        s->sock_len = res0->ai_addrlen;
+        s->local->mode = (res0->ai_family == AF_INET ? IPv4 : IPv6);
+        verbose_msg("Connected IP version %d\n", s->local->mode);
         freeaddrinfo(res0);
 
         return 0;
