@@ -123,6 +123,97 @@ void main()
 }
 )raw";
 
+/// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
+static const char * v210_to_rgb_fp = R"raw(
+#version 130
+#extension GL_EXT_gpu_shader4 : enable
+//in vec2 texcoord;
+uniform mediump sampler2D tex;
+uniform float imageWidth;
+out mediump vec4 color;
+
+// YUV offset
+const vec3 yuvOffset = vec3(-0.0625, -0.5, -0.5);
+
+// RGB coefficients
+// BT.601 colorspace
+const vec3 Rcoeff = vec3(1.1643,  0.000,  1.5958);
+const vec3 Gcoeff = vec3(1.1643, -0.39173, -0.81290);
+const vec3 Bcoeff = vec3(1.1643,  2.017,  0.000);
+
+// U Y V A | Y U Y A | V Y U A | Y V Y A
+
+int GROUP_FOR_INDEX(int i) {
+  return i / 4;
+}
+
+int SUBINDEX_FOR_INDEX(int i) {
+  return i % 4;
+}
+
+int _y(int i) {
+  return 2 * i + 1;
+}
+
+int _u(int i) {
+  return 4 * (i/2);
+}
+
+int _v(int i) {
+  return 4 * (i / 2) + 2;
+}
+
+int offset(int i) {
+  return i + (i / 3);
+}
+
+vec3 ycbcr2rgb(vec3 yuvToConvert) {
+  vec3 pix;
+  yuvToConvert += yuvOffset;
+  pix.r = dot(yuvToConvert, Rcoeff);
+  pix.g = dot(yuvToConvert, Gcoeff);
+  pix.b = dot(yuvToConvert, Bcoeff);
+  return pix;
+}
+
+void main(void) {
+  ivec2 size = textureSize2D(tex, 0).xy; // 480x486
+  ivec2 sizeOrig = ivec2(imageWidth, size.y); // 720x486
+
+  // interpolate 0,0 -> 1,1 texcoords to 0,0 -> 720,486
+  ivec2 texcoordDenorm = ivec2(gl_TexCoord[0].xy * sizeOrig);
+
+  // 0 1 1 2 3 3 4 5 5 6 7 7 etc.
+  int yOffset = offset(_y(texcoordDenorm.x));
+  int sourceColumnIndexY = GROUP_FOR_INDEX(yOffset);
+
+  // 0 0 1 1 2 2 4 4 5 5 6 6 etc.
+  int uOffset = offset(_u(texcoordDenorm.x));
+  int sourceColumnIndexU = GROUP_FOR_INDEX(uOffset);
+
+  // 0 0 2 2 3 3 4 4 6 6 7 7 etc.
+  int vOffset = offset(_v(texcoordDenorm.x));
+  int sourceColumnIndexV = GROUP_FOR_INDEX(vOffset);
+
+  // 1 0 2 1 0 2 1 0 2 etc.
+  int compY = SUBINDEX_FOR_INDEX(yOffset);
+
+  // 0 0 1 1 2 2 0 0 1 1 2 2 etc.
+  int compU = SUBINDEX_FOR_INDEX(uOffset);
+
+  // 2 2 0 0 1 1 2 2 0 0 1 1 etc.
+  int compV = SUBINDEX_FOR_INDEX(vOffset);
+
+  vec4 y = texelFetch(tex, ivec2(sourceColumnIndexY, texcoordDenorm.y), 0);
+  vec4 u = texelFetch(tex, ivec2(sourceColumnIndexU, texcoordDenorm.y), 0);
+  vec4 v = texelFetch(tex, ivec2(sourceColumnIndexV, texcoordDenorm.y), 0);
+
+  vec3 outColor = ycbcr2rgb(vec3(y[compY], u[compU], v[compV]));
+
+  color = vec4(outColor, 1.0);
+}
+)raw";
+
 /* DXT YUV (FastDXT) related */
 static const char *fp_display_dxt1 = R"raw(
 #version 110
@@ -218,13 +309,14 @@ struct state_vdpau {
 
 struct state_gl {
         GLuint          PHandle_uyvy = 0;
+        GLuint          PHandle_v210 = 0;
         GLuint          PHandle_dxt = 0;
         GLuint          PHandle_dxt5 = 0;
 
         // Framebuffer
         GLuint fbo_id = 0;
         GLuint texture_display = 0;
-        GLuint texture_uyvy = 0;
+        GLuint texture_raw = 0;
         GLuint pbo_id = 0;
 
         /* For debugging... */
@@ -297,6 +389,7 @@ static constexpr array gl_supp_codecs = {
         HW_VDPAU,
 #endif
         UYVY,
+        v210,
         R10k,
         RGBA,
         RGB,
@@ -315,7 +408,7 @@ static void gl_draw(double ratio, double bottom_offset, bool double_buf);
 
 static void gl_change_aspect(struct state_gl *s, int width, int height);
 static void gl_resize(GLFWwindow *win, int width, int height);
-static void gl_render_uyvy(struct state_gl *s, char *data);
+static void gl_render_glsl(struct state_gl *s, char *data);
 static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc);
 static void gl_process_frames(struct state_gl *s);
 static void glfw_key_callback(GLFWwindow* win, int key, int scancode, int action, int mods);
@@ -710,7 +803,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 }
         } else if (desc.color_spec == UYVY) {
                 glActiveTexture(GL_TEXTURE0 + 2);
-                glBindTexture(GL_TEXTURE_2D,s->texture_uyvy);
+                glBindTexture(GL_TEXTURE_2D,s->texture_raw);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                                 desc.width / 2, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
@@ -726,6 +819,24 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
+        } else if (desc.color_spec == v210) {
+                glActiveTexture(GL_TEXTURE0 + 2);
+                glBindTexture(GL_TEXTURE_2D,s->texture_raw);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2,
+                                vc_get_linesize(desc.width, v210) / 4, desc.height, 0,
+                                GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
+                                NULL);
+                glActiveTexture(GL_TEXTURE0 + 0);
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                desc.width, desc.height, 0,
+                                GL_RGBA, GL_UNSIGNED_SHORT,
+                                NULL);
+                glUseProgram(s->PHandle_v210);
+                glUniform1i(glGetUniformLocation(s->PHandle_v210, "tex"), 2);
+                glUniform1f(glGetUniformLocation(s->PHandle_v210, "imageWidth"),
+                                (GLfloat) desc.width);
+                glUseProgram(0);
         } else if (desc.color_spec == RGBA) {
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
@@ -826,7 +937,8 @@ static void gl_render(struct state_gl *s, char *data)
                                         data);
                         break;
                 case UYVY:
-                        gl_render_uyvy(s, data);
+                case v210:
+                        gl_render_glsl(s, data);
                         break;
                 case R10k:
                 case RGB:
@@ -1227,14 +1339,15 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        glGenTextures(1, &s->texture_uyvy);
-        glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
+        glGenTextures(1, &s->texture_raw);
+        glBindTexture(GL_TEXTURE_2D, s->texture_raw);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
         s->PHandle_uyvy = glsl_compile_link(vert, yuv422_to_rgb_fp);
+        s->PHandle_v210 = glsl_compile_link(vert, v210_to_rgb_fp);
         // Create fbo
         glGenFramebuffersEXT(1, &s->fbo_id);
         s->PHandle_dxt = glsl_compile_link(vert, fp_display_dxt1);
@@ -1258,10 +1371,11 @@ static void display_gl_cleanup_opengl(struct state_gl *s){
         glfwMakeContextCurrent(s->window);
 
         glDeleteProgram(s->PHandle_uyvy);
+        glDeleteProgram(s->PHandle_v210);
         glDeleteProgram(s->PHandle_dxt);
         glDeleteProgram(s->PHandle_dxt5);
         glDeleteTextures(1, &s->texture_display);
-        glDeleteTextures(1, &s->texture_uyvy);
+        glDeleteTextures(1, &s->texture_raw);
         glDeleteFramebuffersEXT(1, &s->fbo_id);
         glDeleteBuffersARB(1, &s->pbo_id);
         glfwDestroyWindow(s->window);
@@ -1328,10 +1442,15 @@ static void gl_resize(GLFWwindow *win, int width, int height)
 static void upload_texture(struct state_gl *s, char *data)
 {
         GLuint format = s->current_display_desc.color_spec == RGB ? GL_RGB : GL_RGBA;
-        GLenum type = s->current_display_desc.color_spec == R10k ? GL_UNSIGNED_INT_10_10_10_2 : GL_UNSIGNED_BYTE;
+        GLenum type = GL_UNSIGNED_BYTE;
+        if (s->current_display_desc.color_spec == R10k) {
+                type = GL_UNSIGNED_INT_10_10_10_2;
+        } else if (s->current_display_desc.color_spec == v210) {
+                type = GL_UNSIGNED_INT_2_10_10_10_REV;
+        }
         GLint width = s->current_display_desc.width;
-        if (s->current_display_desc.color_spec == UYVY) {
-                width /= 2;
+        if (s->current_display_desc.color_spec == UYVY || s->current_display_desc.color_spec == v210) {
+                width = vc_get_linesize(width, s->current_display_desc.color_spec) / 4;
         }
         auto byte_swap_r10k = [](uint32_t *out, uint32_t *in, long data_len) {
                 for (int i = 0; i < data_len / 4; i += 1) {
@@ -1384,7 +1503,7 @@ static bool check_rpi_pbo_quirks()
 #endif
 }
 
-static void gl_render_uyvy(struct state_gl *s, char *data)
+static void gl_render_glsl(struct state_gl *s, char *data)
 {
         int status;
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -1394,7 +1513,7 @@ static void gl_render_uyvy(struct state_gl *s, char *data)
         status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
         assert(status == GL_FRAMEBUFFER_COMPLETE_EXT);
         glActiveTexture(GL_TEXTURE0 + 2);
-        glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
+        glBindTexture(GL_TEXTURE_2D, s->texture_raw);
 
         glMatrixMode( GL_PROJECTION );
         glPushMatrix();
@@ -1409,8 +1528,9 @@ static void gl_render_uyvy(struct state_gl *s, char *data)
         glViewport( 0, 0, s->current_display_desc.width, s->current_display_desc.height);
 
         upload_texture(s, data);
+        gl_check_error();
 
-        glUseProgram(s->PHandle_uyvy);
+        glUseProgram(s->current_display_desc.color_spec == UYVY ? s->PHandle_uyvy : s->PHandle_v210);
 
         glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
         gl_check_error();
