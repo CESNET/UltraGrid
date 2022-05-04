@@ -84,46 +84,44 @@ struct gl_context {
 bool init_gl_context(struct gl_context *context, int which);
 void gl_context_make_current(struct gl_context *context);
 void destroy_gl_context(struct gl_context *context);
-static void gl_check_error(void) __attribute__((unused));
 
-static void gl_check_error()
-{
-        GLenum msg;
-        msg=glGetError();
-        int flag = 1;
-        switch(msg){
-                case GL_NO_ERROR:
-                        flag = 0;
-                        //printf("No error\n");
-                        break;
-                case GL_INVALID_ENUM:
-                        fprintf(stderr, "GL_INVALID_ENUM\n");
-                        break;
-                case GL_INVALID_VALUE:
-                        fprintf(stderr, "GL_INVALID_VALUE\n");
-                        break;
-                case GL_INVALID_OPERATION:
-                        fprintf(stderr, "GL_INVALID_OPERATION\n");
-                        break;
-                case GL_STACK_OVERFLOW:
-                        fprintf(stderr, "GL_STACK_OVERFLOW\n");
-                        break;
-                case GL_STACK_UNDERFLOW:
-                        fprintf(stderr, "GL_STACK_UNDERFLOW\n");
-                        break;
-                case GL_OUT_OF_MEMORY:
-                        fprintf(stderr, "GL_OUT_OF_MEMORY\n");
-                        break;
-                case 1286:
-                        fprintf(stderr, "INVALID_FRAMEBUFFER_OPERATION_EXT\n");
-                        break;
-                default:
-                        fprintf(stderr, "wft mate? Unknown GL ERROR: %d\n", msg);
-                        break;
-        }
-        if(flag)
-                abort();
-}
+#define gl_check_error() do { \
+        GLenum msg = glGetError(); \
+        int flag = 1; \
+        switch(msg){ \
+                case GL_NO_ERROR: \
+                        flag = 0; \
+                        break; \
+                case GL_INVALID_ENUM: \
+                        fprintf(stderr, "GL_INVALID_ENUM\n"); \
+                        break; \
+                case GL_INVALID_VALUE: \
+                        fprintf(stderr, "GL_INVALID_VALUE\n"); \
+                        break; \
+                case GL_INVALID_OPERATION: \
+                        fprintf(stderr, "GL_INVALID_OPERATION\n"); \
+                        break; \
+                case GL_STACK_OVERFLOW: \
+                        fprintf(stderr, "GL_STACK_OVERFLOW\n"); \
+                        break; \
+                case GL_STACK_UNDERFLOW: \
+                        fprintf(stderr, "GL_STACK_UNDERFLOW\n"); \
+                         break; \
+                case GL_OUT_OF_MEMORY: \
+                        fprintf(stderr, "GL_OUT_OF_MEMORY\n"); \
+                        break; \
+                case 1286: \
+                        fprintf(stderr, "INVALID_FRAMEBUFFER_OPERATION_EXT\n"); \
+                        break; \
+                default: \
+                        fprintf(stderr, "wft mate? Unknown GL ERROR: %d\n", msg); \
+                break; \
+        } \
+        if(flag) { \
+                fprintf(stderr, "\tat %s:%d: %s\n", __FILE__, __LINE__, __func__); \
+                abort(); \
+        } \
+} while(0)
 
 GLuint glsl_compile_link(const char *vprogram, const char *fprogram);
 
