@@ -1,9 +1,12 @@
+/**
+ * @file
+ * @author Gerard Castillo <gerard.castillo@i2cat.net>
+ * @author David Cassany   <david.cassany@i2cat.net>
+ * @author Martin Pulec    <martin.pulec@cesnet.cz>
+ */
 /*
- * AUTHOR:  Gerard Castillo <gerard.castillo@i2cat.net>,
- * 			David Cassany   <david.cassany@i2cat.net>
- *
- *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2014-2022 CESNET
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -44,23 +47,11 @@
 #ifndef _RTP_ENC_H264_H
 #define _RTP_ENC_H264_H
 
-#ifndef __cplusplus
-#include <stdalign.h>
-#include <stdbool.h>
-#endif // ! defined __cplusplus
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define RTPENC_STATE_ALIGN alignof(unsigned char *)
-#define RTPENC_STATE_SIZE 64
-#define RTPENC_STATE_DECLARE(var) alignas(RTPENC_STATE_ALIGN) char (var)[RTPENC_STATE_SIZE]
-struct rtpenc_h264_state;
-
-// functions documented at definition
-struct rtpenc_h264_state *rtpenc_h264_init_state(void *buf, unsigned char *buf_in, long size);
-long rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state, unsigned char **start, bool *last);
+// function documented at definition
 const unsigned char *rtpenc_h264_get_next_nal(const unsigned char *start, long len, const unsigned char **endptr);
 
 #ifdef __cplusplus

@@ -980,21 +980,19 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	char *extn = 0;
 	uint16_t extn_len = 0;
 	uint16_t extn_type = 0;
-	unsigned nalsize = 0;
-	uint8_t *data = (uint8_t *) tile->data;
+	const uint8_t *start = (uint8_t *) tile->data;
 	int data_len = tile->data_len;
 	unsigned maxPacketSize = tx->mtu - 40;
 
-        RTPENC_STATE_DECLARE(rtpenc_h264_state_buf);
-        auto *rtpenc_h264_state = rtpenc_h264_init_state(rtpenc_h264_state_buf, data, data_len);
-        if (rtpenc_h264_state == nullptr) {
-                return;
-        }
+        const unsigned char *endptr = 0;
+        const unsigned char *nal = start;
 
-        bool eof = false;
-        while ((nalsize = rtpenc_h264_frame_parse(rtpenc_h264_state, &data, &eof)) > 0) {
+        while ((nal = rtpenc_h264_get_next_nal(nal, data_len - (nal - start), &endptr))) {
+                unsigned int nalsize = endptr - nal;
+                bool eof = endptr == start + data_len;
                 bool lastNALUnitFragment = false; // by default
                 unsigned curNALOffset = 0;
+                char *nalc = const_cast<char *>(reinterpret_cast<const char *>(nal));
 
 		while(!lastNALUnitFragment){
 			// We have NAL unit data in the buffer.  There are three cases to consider:
@@ -1012,7 +1010,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 
 					if (eof) m = 1;
 					if (rtp_send_data(rtp_session, ts, pt, m, cc, &csrc,
-							(char *) data, nalsize,
+							nalc, nalsize,
 							extn, extn_len, extn_type) < 0) {
 						error_msg("There was a problem sending the RTP packet\n");
 					}
@@ -1021,12 +1019,12 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 					// We need to send the NAL unit data as FU packets.  Deliver the first
 					// packet now.  Note that we add "NAL header" and "FU header" bytes to the front
 					// of the packet (overwriting the existing "NAL header").
-					hdr[0] = (data[0] & 0xE0) | 28; //FU indicator
-					hdr[1] = 0x80 | (data[0] & 0x1F); // FU header (with S bit)
+					hdr[0] = (nal[0] & 0xE0) | 28; //FU indicator
+					hdr[1] = 0x80 | (nal[0] & 0x1F); // FU header (with S bit)
 
 					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
 									(char *) hdr, 2,
-									(char *) data + 1, maxPacketSize - 2,
+									nalc + 1, maxPacketSize - 2,
 									extn, extn_len, extn_type) < 0) {
 										error_msg("There was a problem sending the RTP packet\n");
 					}
@@ -1046,7 +1044,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 					// We can't send all of the remaining data this time:
 					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
 							(char *) hdr, 2,
-							(char *) data + curNALOffset,
+							nalc + curNALOffset,
 							maxPacketSize - 2, extn, extn_len,
 							extn_type) < 0) {
 								error_msg("There was a problem sending the RTP packet\n");
@@ -1063,7 +1061,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 
 					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
 									(char *) hdr, 2,
-									(char *) data + curNALOffset,
+									nalc + curNALOffset,
 									nalsize, extn, extn_len, extn_type) < 0) {
 										error_msg("There was a problem sending the RTP packet\n");
 					}
@@ -1072,6 +1070,9 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 			}
 		}
 	}
+        if (endptr != start + data_len) {
+                error_msg("No NAL found!\n");
+        }
 }
 
 void tx_send_jpeg(struct tx *tx, struct video_frame *frame,
