@@ -14,3 +14,4 @@
 * fixed channel mapping from lesser amount of input channels to higher (eg.
   `--audio-channel-map 0:1` while receiving only mono)
 * do not set BMD conversion mode (issue #215)
+

@@ -43,7 +43,9 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
 #endif // HAVE_CONFIG_H
+
 #include "debug.h"
 #include "perf.h"
 #include "rtp/rtp.h"
@@ -54,29 +56,190 @@
 #include "utils/bs.h"
 #include "video_frame.h"
 
+// NAL values >23 are invalid in H.264 codestream but used by RTP
+#define RTP_STAP_A 24
+#define RTP_STAP_B 25
+#define RTP_MTAP16 26
+#define RTP_MTAP24 27
+#define RTP_FU_A   28
+#define RTP_FU_B   29
+/// type was 1-23 representing H.264 NAL type
+#define H264_NAL   32
+
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 
 int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len);
 
+/**
+ * This function extracts important data for futher processing of the stream,
+ * eg. frame type - for prepending RTSP/SDP sprop-parameter-sets to I-frame and
+ * parsing dimensions from SPS NAL.
+ *
+ * Should be run in 1st pass - it sets frame_type according to which does the
+ * decoder deduce offset in 2nd pass.
+ *
+ * @retval H.264 or RTP NAL type
+ */
+static uint8_t process_nal(uint8_t nal, struct video_frame *frame, uint8_t *data, int data_len) {
+    uint8_t type = NALU_HDR_GET_TYPE(nal);
+    uint8_t nri = NALU_HDR_GET_NRI(nal);
+    log_msg(LOG_LEVEL_DEBUG2, "NAL type %d (nri: %d)\n", (int) type, (int) nri);
+
+    if (type == NAL_SPS) {
+        fill_coded_frame_from_sps(frame, data, data_len);
+    }
+
+    if (type >= NAL_MIN && type <= NAL_MAX) {
+        if (type == NAL_IDR || type == NAL_SEI) {
+            frame->frame_type = INTRA;
+        } else if (frame->frame_type == BFRAME && nri != 0){
+            frame->frame_type = OTHER;
+        }
+    }
+    return type;
+}
+
+static _Bool decode_nal_unit(struct video_frame *frame, int *total_length, int pass, unsigned char **dst, uint8_t *data, int data_len) {
+    int fu_length = 0;
+    uint8_t nal = data[0];
+    uint8_t type = pass == 0 ? process_nal(nal, frame, data, data_len) : NALU_HDR_GET_TYPE(nal);
+    if (type >= NAL_MIN && type <= NAL_MAX) {
+        type = H264_NAL;
+    }
+
+    switch (type) {
+        case H264_NAL:
+            if (pass == 0) {
+                *total_length += sizeof(start_sequence) + data_len;
+            } else {
+                *dst -= data_len + sizeof(start_sequence);
+                memcpy(*dst, start_sequence, sizeof(start_sequence));
+                memcpy(*dst + sizeof(start_sequence), data, data_len);
+            }
+            break;
+        case RTP_STAP_A:
+        {
+            int nal_sizes[100];
+            unsigned nal_count = 0;
+            data++;
+            data_len--;
+
+            while (data_len > 2) {
+                uint16_t nal_size;
+                memcpy(&nal_size, data, sizeof(uint16_t));
+                nal_size = ntohs(nal_size);
+
+                data += 2;
+                data_len -= 2;
+
+                log_msg(LOG_LEVEL_DEBUG2, "STAP-A subpacket NAL type %d (nri: %d)\n", (int) NALU_HDR_GET_TYPE(data[0]), (int) NALU_HDR_GET_NRI(nal));
+
+                if (nal_size <= data_len) {
+                    if (pass == 0) {
+                        *total_length += sizeof(start_sequence) + nal_size;
+                        process_nal(data[0], frame, data, data_len);
+                    } else {
+                        assert(nal_count < sizeof nal_sizes / sizeof nal_sizes[0] - 1);
+                        nal_sizes[nal_count++] = nal_size;
+                    }
+                } else {
+                    error_msg("NAL size exceeds length: %u %d\n", nal_size, data_len);
+                    return FALSE;
+                }
+                data += nal_size;
+                data_len -= nal_size;
+
+                if (data_len < 0) {
+                    error_msg("Consumed more bytes than we got! (%d)\n", data_len);
+                    return FALSE;
+                }
+
+            }
+            if (pass > 0) {
+                for (int i = nal_count - 1; i >= 0; i--) {
+                    int nal_size = nal_sizes[i];
+                    data -= nal_size;
+                    *dst -= nal_size + sizeof(start_sequence);
+                    memcpy(*dst, start_sequence, sizeof(start_sequence));
+                    memcpy(*dst + sizeof(start_sequence), data, nal_size);
+                    data -= 2;
+                }
+            }
+            break;
+        }
+        case RTP_STAP_B:
+        case RTP_MTAP16:
+        case RTP_MTAP24:
+        case RTP_FU_B:
+            error_msg("Unhandled NAL type %d\n", type);
+            return FALSE;
+        case RTP_FU_A:
+            data++;
+            data_len--;
+
+            if (data_len > 1) {
+                uint8_t fu_header = *data;
+                uint8_t start_bit = fu_header >> 7;
+                uint8_t end_bit       = (fu_header & 0x40) >> 6;
+                uint8_t nal_type = NALU_HDR_GET_TYPE(fu_header);
+                uint8_t reconstructed_nal;
+
+                // Reconstruct this packet's true nal; only the data follows.
+                /* The original nal forbidden bit and NRI are stored in this
+                 * packet's nal. */
+                reconstructed_nal = nal & 0xe0;
+                reconstructed_nal |= nal_type;
+
+                // skip the fu_header
+                data++;
+                data_len--;
+
+                if (pass == 0) {
+                    if (end_bit) {
+                        fu_length = data_len;
+                    } else {
+                        fu_length += data_len;
+                    }
+                    if (start_bit) {
+                        *total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
+                        process_nal(reconstructed_nal, frame, data, fu_length);
+                    } else {
+                        *total_length += data_len;
+                    }
+                } else {
+                    if (start_bit) {
+                        *dst -= sizeof(start_sequence) + sizeof(reconstructed_nal) + data_len;
+                        memcpy(*dst, start_sequence, sizeof(start_sequence));
+                        memcpy(*dst + sizeof(start_sequence), &reconstructed_nal, sizeof(reconstructed_nal));
+                        memcpy(*dst + sizeof(start_sequence) + sizeof(reconstructed_nal), data, data_len);
+                    } else {
+                        *dst -= data_len;
+                        memcpy(*dst, data, data_len);
+                    }
+                }
+            } else {
+                error_msg("Too short data for FU-A H264 RTP packet\n");
+                return FALSE;
+            }
+            break;
+        default:
+            error_msg("Unknown NAL type %d\n", type);
+            return FALSE;
+    }
+    return TRUE;
+}
+
 int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
-    rtp_packet *pckt = NULL;
     struct coded_data *orig = cdata;
 
-    uint8_t nal;
-    uint8_t type;
-    uint8_t nri;
-
-    int pass;
     int total_length = 0;
-
-    unsigned char *dst = NULL;
-    int src_len;
 
     struct decode_data_h264 *data = (struct decode_data_h264 *) decode_data;
     struct video_frame *frame = data->frame;
     frame->frame_type = BFRAME;
 
-    for (pass = 0; pass < 2; pass++) {
+    for (int pass = 0; pass < 2; pass++) {
+        unsigned char *dst = NULL;
 
         if (pass > 0) {
             cdata = orig;
@@ -88,140 +251,12 @@ int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
         }
 
         while (cdata != NULL) {
-            pckt = cdata->data;
+            rtp_packet *pckt = cdata->data;
 
-            nal = (uint8_t) pckt->data[0];
-            type = nal & 0x1f;
-            nri = nal & 0x60;
-
-            if (type == 7){
-                fill_coded_frame_from_sps(frame, (unsigned char*) pckt->data, pckt->data_len);
+            if (!decode_nal_unit(frame, &total_length, pass, &dst, (uint8_t *) pckt->data, pckt->data_len)) {
+                return FALSE;
             }
 
-            if (type >= 1 && type <= 23) {
-                if(frame->frame_type != INTRA && (type == 5 || type == 6)) {
-                    frame->frame_type = INTRA;
-                } else if (frame->frame_type == BFRAME && nri != 0){
-                    frame->frame_type = OTHER;
-                }
-
-                type = 1;
-            }
-
-            const uint8_t *src = NULL;
-
-            switch (type) {
-                case 0:
-                case 1:
-                    if (pass == 0) {
-                        debug_msg("NAL type 1\n");
-                        total_length += sizeof(start_sequence) + pckt->data_len;
-                    } else {
-                        dst -= pckt->data_len + sizeof(start_sequence);
-                        memcpy(dst, start_sequence, sizeof(start_sequence));
-                        memcpy(dst + sizeof(start_sequence), pckt->data, pckt->data_len);
-                    }
-                    break;
-                case 24:
-                    src = (const uint8_t *) pckt->data;
-                    src_len = pckt->data_len;
-
-                    src++;
-                    src_len--;
-
-                    while (src_len > 2) {
-                        //TODO: Not properly tested
-                        //TODO: bframes and iframes detection
-                        uint16_t nal_size;
-                        memcpy(&nal_size, src, sizeof(uint16_t));
-
-                        src += 2;
-                        src_len -= 2;
-
-                        if (nal_size <= src_len) {
-                            if (pass == 0) {
-                                total_length += sizeof(start_sequence) + nal_size;
-                            } else {
-                                dst -= nal_size + sizeof(start_sequence);
-                                memcpy(dst, start_sequence, sizeof(start_sequence));
-                                memcpy(dst + sizeof(start_sequence), src, nal_size);
-                            }
-                        } else {
-                            error_msg("NAL size exceeds length: %u %d\n", nal_size, src_len);
-                            return FALSE;
-                        }
-                        src += nal_size;
-                        src_len -= nal_size;
-
-                        if (src_len < 0) {
-                            error_msg("Consumed more bytes than we got! (%d)\n", src_len);
-                            return FALSE;
-                        }
-                    }
-                    break;
-
-                case 25:
-                case 26:
-                case 27:
-                case 29:
-                    error_msg("Unhandled NAL type\n");
-                    return FALSE;
-                case 28:
-                    src = (const uint8_t *) pckt->data;
-                    src_len = pckt->data_len;
-
-                    src++;
-                    src_len--;
-
-                    if (src_len > 1) {
-                        uint8_t fu_header = *src;
-                        uint8_t start_bit = fu_header >> 7;
-                        //uint8_t end_bit       = (fu_header & 0x40) >> 6;
-                        uint8_t nal_type = fu_header & 0x1f;
-                        uint8_t reconstructed_nal;
-
-                        if(frame->frame_type != INTRA && (nal_type == 5 || nal_type == 6)){
-                            frame->frame_type = INTRA;
-                        } else if (frame->frame_type == BFRAME && nri != 0){
-                            frame->frame_type = OTHER;
-                        }
-
-                        // Reconstruct this packet's true nal; only the data follows.
-                        /* The original nal forbidden bit and NRI are stored in this
-                         * packet's nal. */
-                        reconstructed_nal = nal & 0xe0;
-                        reconstructed_nal |= nal_type;
-
-                        // skip the fu_header
-                        src++;
-                        src_len--;
-
-                        if (pass == 0) {
-                            if (start_bit) {
-                                total_length += sizeof(start_sequence) + sizeof(reconstructed_nal) + src_len;
-                            } else {
-                                total_length += src_len;
-                            }
-                        } else {
-                            if (start_bit) {
-                                dst -= sizeof(start_sequence) + sizeof(reconstructed_nal) + src_len;
-                                memcpy(dst, start_sequence, sizeof(start_sequence));
-                                memcpy(dst + sizeof(start_sequence), &reconstructed_nal, sizeof(reconstructed_nal));
-                                memcpy(dst + sizeof(start_sequence) + sizeof(reconstructed_nal), src, src_len);
-                            } else {
-                                dst -= src_len;
-                                memcpy(dst, src, src_len);
-                            }
-                        }
-                    } else {
-                        error_msg("Too short data for FU-A H264 RTP packet\n");
-                        return FALSE;
-                    }
-                    break;
-                default:
-                    error_msg("Unknown NAL type\n");
-                    return FALSE;
-            }
             cdata = cdata->nxt;
         }
     }
@@ -309,3 +344,5 @@ int width_height_from_SDP(int *widthOut, int *heightOut , unsigned char *data, i
 
     return 0;
 }
+
+// vi: set et sw=4 :

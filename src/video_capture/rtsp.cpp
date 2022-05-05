@@ -38,13 +38,20 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @file
+ * Example stream to test can be generated with:
  *
+ *     docker run --rm -it --network=host aler9/rtsp-simple-server
+ *     ffmpeg -re -f lavfi -i smptebars=s=1920x1080 -vcodec libx264 -tune zerolatency -f rtsp rtsp://localhost:8554/mystream
  */
 
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,7 +69,6 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
 #include "rtsp/rtsp_utils.h"
-
 #include "video_decompress.h"
 
 #include "pdb.h"
@@ -84,21 +90,30 @@
 #define DEFAULT_VIDEO_FRAME_HEIGHT 1080
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*DEFAULT_VIDEO_FRAME_WIDTH*DEFAULT_VIDEO_FRAME_HEIGHT)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
-
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C, action_fail) \
-    if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
-        fprintf(stderr, "[rtsp error] curl_easy_setopt(%s, %s, %s) failed: %d\n", #A, #B, #C, res); \
-        printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
-        action_fail; \
+    { \
+        CURLcode res = CURLE_OK; \
+        if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
+            log_msg(LOG_LEVEL_ERROR, MOD_NAME "curl_easy_setopt(%s, %s, %s) failed: %s (%d)\n", #A, #B, #C, curl_easy_strerror(res), res); \
+            printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
+            action_fail; \
+        } \
     }
 
-#define my_curl_easy_perform(A) \
-    if ((res = curl_easy_perform((A))) != CURLE_OK){ \
-        fprintf(stderr, "[rtsp error] curl_easy_perform(%s) failed: %d\n", #A, res); \
-        printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
-        return NULL; \
+#define my_curl_easy_perform(A, action_fail) \
+    { \
+        CURLcode res = CURLE_OK; \
+        if ((res = curl_easy_perform((A))) != CURLE_OK){ \
+            log_msg(LOG_LEVEL_ERROR, MOD_NAME "[%s] curl_easy_perform(%s) failed: %s (%d)\n", __func__, #A, curl_easy_strerror(res), res); \
+            printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
+            action_fail; \
+        } \
     }
+
+struct rtsp_state;
+struct audio_rtsp_state;
+struct video_rtsp_state;
 
 /* send RTSP GET_PARAMETERS request */
 static int
@@ -233,6 +248,9 @@ struct rtsp_state {
     pthread_t keep_alive_rtsp_thread_id; //the worker_id
     pthread_mutex_t lock;
     pthread_cond_t keepalive_cv;
+
+    _Bool rtsp_error_occurred;
+    _Bool sps_pps_emitted; ///< emit SPS/PPS once first to reduce decoding errors
 };
 
 static void
@@ -249,19 +267,20 @@ static void *
 keep_alive_thread(void *arg){
     struct rtsp_state *s = (struct rtsp_state *) arg;
 
-    pthread_mutex_lock(&s->lock);
     while (1) {
         struct timeval tp;
         gettimeofday(&tp, NULL);
         struct timespec timeout = { .tv_sec = tp.tv_sec + KEEPALIVE_INTERVAL_S, .tv_nsec = tp.tv_usec * 1000 };
+        pthread_mutex_lock(&s->lock);
         pthread_cond_timedwait(&s->keepalive_cv, &s->lock, &timeout);
         if (s->should_exit) {
-            pthread_mutex_unlock(&s->vrtsp_state.lock);
+            pthread_mutex_unlock(&s->lock);
             break;
         }
-        pthread_mutex_unlock(&s->vrtsp_state.lock);
+        pthread_mutex_unlock(&s->lock);
 
-        // actuall keepalive
+        // actual keepalive
+        verbose_msg(MOD_NAME "GET PARAMETERS %s:\n", s->uri);
         if (rtsp_get_parameters(s->curl, s->uri) == 0) {
             s->should_exit = TRUE;
             exit_uv(1);
@@ -270,7 +289,8 @@ keep_alive_thread(void *arg){
     return NULL;
 }
 
-int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *) {
+int decode_frame_by_pt(struct coded_data *cdata, void *decode_data, struct pbuf_stats *stats) {
+    UNUSED(stats);
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
     struct decode_data_h264 *d = (struct decode_data_h264 *) decode_data;
@@ -343,12 +363,35 @@ vidcap_rtsp_thread(void *arg) {
     return NULL;
 }
 
+/**
+ * This is not mandatory and is merely an optimization - we can emit PPS/SPS
+ * early (otherwise it is prepended only to IDR frames). The aim is to allow
+ * the receiver to probe the format while allowing it to reconfigure, it can
+ * then display the following IDR (otherwise it would be used to probe and the
+ * only next would be displayed).
+ */
+static struct video_frame *emit_sps_pps(struct rtsp_state *s) {
+    if (s->vrtsp_state.h264_offset_len == 0) {
+        return NULL;
+    }
+    s->sps_pps_emitted = 1;
+    struct video_frame *frame = vf_alloc_desc_data(s->vrtsp_state.desc);
+    memcpy(frame->tiles[0].data, s->vrtsp_state.h264_offset_buffer, s->vrtsp_state.h264_offset_len);
+    frame->tiles[0].data_len = s->vrtsp_state.h264_offset_len;
+    frame->callbacks.dispose = vf_free;
+    return frame;
+}
+
 static struct video_frame *
 vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     struct rtsp_state *s;
     s = (struct rtsp_state *) state;
 
     *audio = NULL;
+
+    if (!s->sps_pps_emitted) {
+        return emit_sps_pps(s);
+    }
 
     if(pthread_mutex_trylock(&s->vrtsp_state.lock)==0){
         {
@@ -400,7 +443,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
                 decompress_frame(s->vrtsp_state.sd, (unsigned char *) decompressed->tiles[0].data,
                     (unsigned char *) frame->tiles[0].data,
-                    frame->tiles[0].data_len, 0, nullptr, nullptr);
+                    frame->tiles[0].data_len, 0, NULL, NULL);
                 vf_free(frame);
                 frame = decompressed;
             }
@@ -420,15 +463,17 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
 static int
 vidcap_rtsp_init(struct vidcap_params *params, void **state) {
-
-    log_msg(LOG_LEVEL_WARNING, "RTSP capture module is most likely broken, "
-            "please contact " PACKAGE_BUGREPORT " if you wish to use it.\n");
-
     if (vidcap_params_get_fmt(params)
         && strcmp(vidcap_params_get_fmt(params), "help") == 0)
     {
         show_help();
         return VIDCAP_INIT_NOERR;
+    }
+
+    if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+        log_msg(LOG_LEVEL_ERROR, "Audio is not entirely implemented in RTSP. "
+                "Please contact " PACKAGE_BUGREPORT " if you wish to use it.\n");
+        return VIDCAP_INIT_FAIL;
     }
 
     struct rtsp_state *s = (struct rtsp_state *) calloc(1, sizeof(struct rtsp_state));
@@ -527,38 +572,38 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
         return VIDCAP_INIT_FAIL;
     }
     if (!rtp_set_option(s->vrtsp_state.device, RTP_OPT_WEAK_VALIDATION, 1)) {
-        debug_msg("[rtsp] RTP INIT - set option\n");
+        error_msg("[rtsp] RTP INIT failed - set option\n");
         return VIDCAP_INIT_FAIL;
     }
     if (!rtp_set_sdes(s->vrtsp_state.device, rtp_my_ssrc(s->vrtsp_state.device),
                 RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING))) {
-        debug_msg("[rtsp] RTP INIT - set sdes\n");
+        error_msg("[rtsp] RTP INIT failed - set sdes\n");
         return VIDCAP_INIT_FAIL;
     }
 
     int ret = rtp_set_recv_buf(s->vrtsp_state.device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
     if (!ret) {
-        debug_msg("[rtsp] RTP INIT - set recv buf \nset command: sudo sysctl -w net.core.rmem_max=9123840\n");
+        error_msg("[rtsp] RTP INIT failed - set recv buf \nset command: sudo sysctl -w net.core.rmem_max=9123840\n");
         return VIDCAP_INIT_FAIL;
     }
 
     if (!rtp_set_send_buf(s->vrtsp_state.device, 1024 * 56)) {
-        debug_msg("[rtsp] RTP INIT - set send buf\n");
+        error_msg("[rtsp] RTP INIT failed - set send buf\n");
         return VIDCAP_INIT_FAIL;
     }
     ret=pdb_add(s->vrtsp_state.participants, rtp_my_ssrc(s->vrtsp_state.device));
 
-    debug_msg("[rtsp] rtp receiver init done\n");
+    verbose_msg("[rtsp] rtp receiver init done\n");
 
     if (s->vrtsp_state.port == 0) {
         s->vrtsp_state.port = rtp_get_udp_rx_port(s->vrtsp_state.device);
         assert(s->vrtsp_state.port != 0);
     }
 
-    debug_msg("[rtsp] selected flags:\n");
-    debug_msg("\t  uri: %s\n",s->uri);
-    debug_msg("\t  port: %d\n", s->vrtsp_state.port);
-    debug_msg("\t  decompress: %d\n\n",s->vrtsp_state.decompress);
+    verbose_msg(MOD_NAME "selected flags:\n");
+    verbose_msg(MOD_NAME "\t  uri: %s\n",s->uri);
+    verbose_msg(MOD_NAME "\t  port: %d\n", s->vrtsp_state.port);
+    verbose_msg(MOD_NAME "\t  decompress: %d\n\n",s->vrtsp_state.decompress);
 
     len = init_rtsp(s);
 
@@ -590,7 +635,7 @@ vidcap_rtsp_init(struct vidcap_params *params, void **state) {
     pthread_create(&s->vrtsp_state.vrtsp_thread_id, NULL, vidcap_rtsp_thread, s);
     pthread_create(&s->keep_alive_rtsp_thread_id, NULL, keep_alive_thread, s);
 
-    debug_msg("[rtsp] rtsp capture init done\n");
+    verbose_msg("[rtsp] rtsp capture init done\n");
 
     *state = s;
     return VIDCAP_INIT_OK;
@@ -601,8 +646,8 @@ static CURL *init_curl() {
     /* initialize curl */
     CURLcode res = curl_global_init(CURL_GLOBAL_ALL);
     if (res != CURLE_OK) {
-        fprintf(stderr, "[rtsp] curl_global_init(%s) failed: %d\n",
-            "CURL_GLOBAL_ALL", res);
+        fprintf(stderr, "[rtsp] curl_global_init(%s) failed: %s (%d)\n",
+            "CURL_GLOBAL_ALL", curl_easy_strerror(res), res);
         return NULL;
     }
     curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
@@ -615,7 +660,21 @@ static CURL *init_curl() {
         fprintf(stderr, "[rtsp] curl_easy_init() failed\n");
         return NULL;
     }
+    my_curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1, );
     return curl;
+}
+
+static size_t print_rtsp_header(char *buffer, size_t size, size_t nitems, void *userdata) {
+    int aggregate_size = size * nitems;
+    struct rtsp_state *s = (struct rtsp_state *) userdata;
+    if (strncmp(buffer, "RTSP/1.0 ", MIN(strlen("RTSP/1.0 "), (size_t) aggregate_size)) == 0) {
+        int code = atoi(buffer + strlen("RTSP/1.0 "));
+        s->rtsp_error_occurred = code != 200;
+    }
+    if (log_level >= LOG_LEVEL_VERBOSE || s->rtsp_error_occurred) {
+        log_msg(s->rtsp_error_occurred ? LOG_LEVEL_ERROR : log_level, MOD_NAME "%.*s", aggregate_size, buffer);
+    }
+    return nitems;
 }
 
 /**
@@ -632,15 +691,14 @@ init_rtsp(struct rtsp_state *s) {
 
     const char *range = "0.000-";
     int len_nals = -1;
-    debug_msg("\n[rtsp] request %s\n", VERSION_STR);
-    debug_msg("    Project web site: http://code.google.com/p/rtsprequest/\n");
-    debug_msg("    Requires cURL V7.20 or greater\n\n");
+    verbose_msg(MOD_NAME "request %s\n", VERSION_STR);
+    verbose_msg(MOD_NAME "    Project web site: http://code.google.com/p/rtsprequest/\n");
+    verbose_msg(MOD_NAME "    Requires cURL V7.20 or greater\n\n");
     char Atransport[256];
     char Vtransport[256];
     memset(Atransport, 0, 256);
     memset(Vtransport, 0, 256);
     int port = s->vrtsp_state.port;
-    CURLcode res;
     FILE *sdp_file = tmpfile();
     if (sdp_file == NULL) {
         sdp_file = fopen("rtsp.sdp", "w+");
@@ -659,7 +717,8 @@ init_rtsp(struct rtsp_state *s) {
     //my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
     my_curl_easy_setopt(s->curl, CURLOPT_VERBOSE, 0L, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_NOPROGRESS, 1L, goto error);
-    my_curl_easy_setopt(s->curl, CURLOPT_WRITEHEADER, stdout, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_HEADERDATA, &s, goto error);
+    my_curl_easy_setopt(s->curl, CURLOPT_HEADERFUNCTION, print_rtsp_header, goto error);
     my_curl_easy_setopt(s->curl, CURLOPT_URL, s->uri, goto error);
 
     //TODO TO CHECK CONFIGURING ERRORS
@@ -677,9 +736,13 @@ init_rtsp(struct rtsp_state *s) {
     }
 
     if (log_level >= LOG_LEVEL_VERBOSE) {
-        fprintf(stderr, "SDP:\n");
-        while (!feof(sdp_file)) {
-            putc(getc(sdp_file), stderr);
+        fprintf(stderr, MOD_NAME "SDP:\n" MOD_NAME);
+        int ch = 0;
+        while ((ch = getc(sdp_file)) != EOF) {
+            putc(ch, stderr);
+            if (ch == '\n') {
+                fprintf(stderr, MOD_NAME);
+            }
         }
         rewind(sdp_file);
         fprintf(stderr, "\n\n");
@@ -694,7 +757,7 @@ init_rtsp(struct rtsp_state *s) {
         strcpy(uri, s->uri);
         strcat(uri, "/");
         strcat(uri, s->vrtsp_state.control);
-        debug_msg("\n V URI = %s\n", uri);
+        verbose_msg(MOD_NAME " V URI = %s\n", uri);
         if (rtsp_setup(s->curl, uri, Vtransport) == 0) {
             goto error;
         }
@@ -704,7 +767,7 @@ init_rtsp(struct rtsp_state *s) {
         strcpy(uri, s->uri);
         strcat(uri, "/");
         strcat(uri, s->artsp_state.control);
-        debug_msg("\n A URI = %s\n", uri);
+        verbose_msg(MOD_NAME " A URI = %s\n", uri);
         if (rtsp_setup(s->curl, uri, Atransport) == 0) {
             goto error;
         }
@@ -721,13 +784,14 @@ init_rtsp(struct rtsp_state *s) {
     /* get start nal size attribute from sdp file */
     len_nals = get_nals(sdp_file, (char *) s->vrtsp_state.h264_offset_buffer, (int *) &s->vrtsp_state.desc.width, (int *) &s->vrtsp_state.desc.height);
 
-    debug_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
+    verbose_msg("[rtsp] playing video from server (size: WxH = %d x %d)...\n", s->vrtsp_state.desc.width,s->vrtsp_state.desc.height);
 
     fclose(sdp_file);
     return len_nals;
 
 error:
-    fclose(sdp_file);
+    if(sdp_file)
+            fclose(sdp_file);
     return -1;
 }
 
@@ -738,7 +802,6 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     rtspState = (struct rtsp_state *) state;
 
     int n=0;
-    char *line = (char*) malloc(1024);
     char* tmpBuff;
     int countT = 0;
     int countC = 0;
@@ -749,88 +812,94 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
     long fileSize = ftell(sdp_file);
     if (fileSize < 0) {
             perror("RTSP ftell");
-            free(line);
             return false;
     }
     rewind(sdp_file);
 
-    char* buffer = (char*) malloc(fileSize+1);
-    unsigned long readResult = fread(buffer, sizeof(char), fileSize, sdp_file);
-    if (ferror(sdp_file)){
-        perror(MOD_NAME "SDP file read failed");
-        free(line);
-        free(buffer);
-        return false;
-    }
-    buffer[readResult] = '\0';
-
-    while (buffer[n] != '\0'){
-        getNewLine(buffer,&n,line);
-        sscanf(line, " a = control: %*s");
-        tmpBuff = strstr(line, "track");
-        if(tmpBuff!=NULL){
-            if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
-                //debug_msg("track = %s\n",tmpBuff);
-                strncpy(tracks[countT],tmpBuff,MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1));
-                tracks[countT][MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1)] = '\0';
-                countT++;
-            } else {
-                log_msg(LOG_LEVEL_WARNING, "skipping track = %s\n",tmpBuff);
-            }
+    bool ret = true;
+    char *line = (char*) malloc(1024);
+    char *buffer = (char *) malloc(fileSize + 1);
+    do {
+        unsigned long readResult = fread(buffer, sizeof(char), fileSize, sdp_file);
+        if (ferror(sdp_file)){
+            perror(MOD_NAME "SDP file read failed");
+            ret = false;
+            break;
         }
-        tmpBuff=NULL;
-        int pt = 0;
-        sscanf(line, " a=rtpmap:%d %*s", &pt);
-        tmpBuff = strstr(line, "H264");
-        if(tmpBuff!=NULL){
-            if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
-                //debug_msg("codec = %s\n",tmpBuff);
-                strncpy(codecs[countC],tmpBuff,4);
-                codecs[countC][4] = '\0';
-                countC++;
-                if (pt == 0) {
-                    log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing video PT for H.264!\n");
-                    return false;
+        buffer[readResult] = '\0';
+
+        while (buffer[n] != '\0'){
+            getNewLine(buffer,&n,line);
+            sscanf(line, " a = control: %*s");
+            tmpBuff = strstr(line, "track");
+            if(tmpBuff!=NULL){
+                if ((unsigned) countT < sizeof tracks / sizeof tracks[0]) {
+                    //debug_msg("track = %s\n",tmpBuff);
+                    strncpy(tracks[countT],tmpBuff,MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1));
+                    tracks[countT][MIN(strlen(tmpBuff)-2, sizeof tracks[countT] - 1)] = '\0';
+                    countT++;
+                } else {
+                    log_msg(LOG_LEVEL_WARNING, "skipping track = %s\n",tmpBuff);
                 }
-                rtspState->vrtsp_state.pt = pt;
-            } else {
-                log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+            }
+            tmpBuff=NULL;
+            int pt = 0;
+            sscanf(line, " a=rtpmap:%d %*s", &pt);
+            tmpBuff = strstr(line, "H264");
+            if(tmpBuff!=NULL){
+                if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
+                    //debug_msg("codec = %s\n",tmpBuff);
+                    strncpy(codecs[countC],tmpBuff,4);
+                    codecs[countC][4] = '\0';
+                    countC++;
+                    if (pt == 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing video PT for H.264!\n");
+                        ret = false;
+                        break;
+                    }
+                    rtspState->vrtsp_state.pt = pt;
+                } else {
+                    log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+                }
+            }
+            tmpBuff=NULL;
+            sscanf(line, " a=rtpmap:97 %*s");
+            tmpBuff = strstr(line, "PCMU");
+            if(tmpBuff!=NULL){
+                if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
+                    //debug_msg("codec = %s\n",tmpBuff);
+                    strncpy(codecs[countC],tmpBuff,4);
+                    codecs[countC][4] = '\0';
+                    countC++;
+                } else {
+                    log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
+                }
+            }
+            tmpBuff=NULL;
+
+            if(countT > 1 && countC > 1) break;
+        }
+        verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[0],codecs[0]);
+        verbose_msg(MOD_NAME "TRACK = %s FOR CODEC = %s\n",tracks[1],codecs[1]);
+
+        for(int p=0;p<2;p++){
+            if(strncmp(codecs[p],"H264",4)==0){
+                rtspState->vrtsp_state.codec = "H264";
+                free(rtspState->vrtsp_state.control);
+                rtspState->vrtsp_state.control = strdup(tracks[p]);
+
+            }if(strncmp(codecs[p],"PCMU",4)==0){
+                rtspState->artsp_state.codec = "PCMU";
+                free(rtspState->artsp_state.control);
+                rtspState->artsp_state.control = strdup(tracks[p]);
             }
         }
-        tmpBuff=NULL;
-        sscanf(line, " a=rtpmap:97 %*s");
-        tmpBuff = strstr(line, "PCMU");
-        if(tmpBuff!=NULL){
-            if ((unsigned) countC < sizeof codecs / sizeof codecs[0]) {
-                //debug_msg("codec = %s\n",tmpBuff);
-                strncpy(codecs[countC],tmpBuff,4);
-                codecs[countC][4] = '\0';
-                countC++;
-            } else {
-                log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
-            }
-        }
-        tmpBuff=NULL;
+    } while(0);
 
-        if(countT > 1 && countC > 1) break;
-    }
-    debug_msg("\nTRACK = %s FOR CODEC = %s",tracks[0],codecs[0]);
-    debug_msg("\nTRACK = %s FOR CODEC = %s\n",tracks[1],codecs[1]);
-
-    for(int p=0;p<2;p++){
-        if(strncmp(codecs[p],"H264",4)==0){
-            rtspState->vrtsp_state.codec = "H264";
-            rtspState->vrtsp_state.control = strdup(tracks[p]);
-
-        }if(strncmp(codecs[p],"PCMU",4)==0){
-            rtspState->artsp_state.codec = "PCMU";
-            rtspState->artsp_state.control = strdup(tracks[p]);
-        }
-    }
     free(line);
     free(buffer);
     rewind(sdp_file);
-    return true;
+    return ret;
 }
 
 void getNewLine(const char* buffer, int* i, char* line){
@@ -870,17 +939,11 @@ init_decompressor(struct video_rtsp_state *sr, struct video_desc desc) {
  */
 static int
 rtsp_get_parameters(CURL *curl, const char *uri) {
-    CURLcode res = CURLE_OK;
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_GET_PARAMETER, return -1);
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP GET PARAMETERS] curl_easy_perform failed\n");
-        error_msg("[RTSP GET PARAMETERS] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
-        return 0;
-    }else{
-        return 1;
-    }
+    my_curl_easy_perform(curl, return 0);
+    return 1;
 }
 
 /**
@@ -893,8 +956,7 @@ rtsp_options(CURL *curl, const char *uri) {
          pass[1500] = "",
          *strtoken;
 
-    CURLcode res = CURLE_OK;
-    debug_msg("\n[rtsp] OPTIONS %s\n", uri);
+    verbose_msg("\n[rtsp] OPTIONS %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
 
     sscanf(uri, "rtsp://%1500s", control);
@@ -910,13 +972,8 @@ rtsp_options(CURL *curl, const char *uri) {
 
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_OPTIONS, return -1);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP OPTIONS] curl_easy_perform failed\n");
-        error_msg("[RTSP OPTIONS] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
-        return 0;
-    }else{
-        return 1;
-    }
+    my_curl_easy_perform(curl, return 0);
+    return 1;
 }
 
 /**
@@ -924,23 +981,16 @@ rtsp_options(CURL *curl, const char *uri) {
  */
 static bool
 rtsp_describe(CURL *curl, const char *uri, FILE *sdp_fp) {
-    CURLcode res = CURLE_OK;
-    debug_msg("\n[rtsp] DESCRIBE %s\n", uri);
-    my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, sdp_fp, goto error);
+    verbose_msg("\n[rtsp] DESCRIBE %s\n", uri);
+    my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, sdp_fp, return false);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
-        (long )CURL_RTSPREQ_DESCRIBE, goto error);
+        (long )CURL_RTSPREQ_DESCRIBE, return false);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP DESCRIBE] curl_easy_perform failed\n");
-        error_msg("[RTSP DESCRIBE] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
-        goto error;
-    }
+    my_curl_easy_perform(curl, return false);
 
-    my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout, goto error);
+    my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout, return false);
     rewind(sdp_fp);
     return true;
-error:
-    return false;
 }
 
 /**
@@ -948,40 +998,29 @@ error:
  */
 static int
 rtsp_setup(CURL *curl, const char *uri, const char *transport) {
-    CURLcode res = CURLE_OK;
-    debug_msg("\n[rtsp] SETUP %s\n", uri);
-    debug_msg("\t TRANSPORT %s\n", transport);
+    verbose_msg("\n[rtsp] SETUP %s\n", uri);
+    verbose_msg(MOD_NAME "\t TRANSPORT %s\n", transport);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport, return -1);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_SETUP, return -1);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP SETUP] curl_easy_perform failed\n");
-        error_msg("[RTSP SETUP] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
-        return 0;
-    }else{
-        return 1;
-    }
+    my_curl_easy_perform(curl, return 0);
+    return 1;
 }
 
 /**
  * send RTSP PLAY request
  */
 static int
-rtsp_play(CURL *curl, const char *uri, const char * /* range */) {
-    CURLcode res = CURLE_OK;
-    debug_msg("\n[rtsp] PLAY %s\n", uri);
+rtsp_play(CURL *curl, const char *uri, const char *range) {
+    UNUSED(range);
+    verbose_msg("\n[rtsp] PLAY %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri, return -1);
     //my_curl_easy_setopt(curl, CURLOPT_RANGE, range);      //range not set because we want (right now) no limit range for streaming duration
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long )CURL_RTSPREQ_PLAY, return -1);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP PLAY] curl_easy_perform failed\n");
-        error_msg("[RTSP PLAY] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
-        return 0;
-    }else{
-        return 1;
-    }
+    my_curl_easy_perform(curl, return 0);
+    return 1;
 }
 
 /**
@@ -989,18 +1028,12 @@ rtsp_play(CURL *curl, const char *uri, const char * /* range */) {
  */
 static int
 rtsp_teardown(CURL *curl, const char *uri) {
-    CURLcode res = CURLE_OK;
-    debug_msg("\n[rtsp] TEARDOWN %s\n", uri);
+    verbose_msg("\n[rtsp] TEARDOWN %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST,
         (long )CURL_RTSPREQ_TEARDOWN, return -1);
 
-    if (curl_easy_perform(curl) != CURLE_OK){
-        error_msg("[RTSP TEARD DOWN] curl_easy_perform failed\n");
-        error_msg("[RTSP TEARD DOWN] could not configure rtsp capture properly, \n\t\tplease check your parameters. \ncleaning...\n\n");
-        return 0;
-    }else{
-        return 1;
-    }
+    my_curl_easy_perform(curl, return 0);
+    return 1;
 }
 
 static struct vidcap_type *
@@ -1022,17 +1055,25 @@ vidcap_rtsp_done(void *state) {
     struct rtsp_state *s = (struct rtsp_state *) state;
 
     pthread_mutex_lock(&s->lock);
+    pthread_mutex_lock(&s->vrtsp_state.lock);
     s->should_exit = TRUE;
-    pthread_cond_signal(&s->keepalive_cv);
+    pthread_mutex_unlock(&s->vrtsp_state.lock);
     pthread_mutex_unlock(&s->lock);
 
-    pthread_join(s->vrtsp_state.vrtsp_thread_id, NULL);
-    pthread_join(s->keep_alive_rtsp_thread_id, NULL);
+    pthread_cond_signal(&s->keepalive_cv);
+    pthread_cond_signal(&s->vrtsp_state.worker_cv);
+
+    if (s->vrtsp_state.vrtsp_thread_id) {
+        pthread_join(s->vrtsp_state.vrtsp_thread_id, NULL);
+    }
+    if (s->keep_alive_rtsp_thread_id) {
+        pthread_join(s->keep_alive_rtsp_thread_id, NULL);
+    }
 
     if(s->vrtsp_state.sd)
         decompress_done(s->vrtsp_state.sd);
 
-    if (s->vrtsp_state.device != nullptr) {
+    if (s->vrtsp_state.device) {
         rtp_done(s->vrtsp_state.device);
     }
 
@@ -1061,10 +1102,6 @@ vidcap_rtsp_done(void *state) {
  */
 static int
 get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
-
-    uint8_t nalInfo;
-    uint8_t type;
-    uint8_t nri __attribute__((unused));
     int max_len = 1500, len_nals = 0;
     char *s = (char *) malloc(max_len);
     char *sprop;
@@ -1073,52 +1110,37 @@ get_nals(FILE *sdp_file, char *nals, int *width, int *height) {
 
     while (fgets(s, max_len - 2, sdp_file) != NULL) {
         sprop = strstr(s, "sprop-parameter-sets=");
-        if (sprop != NULL) {
-            gsize length;   //gsize is an unsigned int.
-            char *nal_aux, *nal;
-            memcpy(nals, start_sequence, sizeof(start_sequence));
-            len_nals = sizeof(start_sequence);
-            nal_aux = strstr(sprop, "=");
-            nal_aux++;
-            nal = strtok(nal_aux, ",;");
-            if (nal == nullptr) {
+        if (sprop == NULL) {
+            continue;
+        }
+        char *sprop_val = strstr(sprop, "=") + 1;
+        char *term = strchr(sprop_val, ';');
+        if (term) {
+            *term = '\0';
+        }
+
+        char *nal = 0;
+        while ((nal = strtok(sprop_val, ","))) {
+            sprop_val = NULL;
+            gsize length = 0;
+            //convert base64 to binary
+            guchar *nal_decoded = g_base64_decode(nal, &length);
+            if (length == 0) {
+                g_free(nal_decoded);
                 continue;
             }
-            //convert base64 to hex
-            guchar *nals_aux = g_base64_decode(nal, &length);
-            memcpy(nals + len_nals, nals_aux, length);
-            g_free(nals_aux);
+
+            memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
+            len_nals += sizeof(start_sequence);
+            memcpy(nals + len_nals, nal_decoded, length);
             len_nals += length;
+            g_free(nal_decoded);
 
-            nalInfo = (uint8_t) nals[4];
-            type = nalInfo & 0x1f;
-            nri = nalInfo & 0x60;
-
-            if (type == 7){
-                width_height_from_SDP(width, height , (unsigned char *) (nals+4), length);
-            }
-
-            while ((nal = strtok(NULL, ",;")) != NULL) {
-                guchar *nals_aux = g_base64_decode(nal, &length);
-                if (length) {
-                    //convert base64 to hex
-                    memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
-                    len_nals += sizeof(start_sequence);
-                    memcpy(nals + len_nals, nals_aux, length);
-                    len_nals += length;
-
-                    nalInfo = (uint8_t) nals[len_nals - length];
-                    type = nalInfo & 0x1f;
-                    nri = nalInfo & 0x60;
-
-                    if (type == 7){
-                        width_height_from_SDP(width, height , (unsigned char *) (nals+(len_nals - length)), length);
-                    }
-                    //assure start sequence injection between sps, pps and other nals
-                    memcpy(nals+len_nals, start_sequence, sizeof(start_sequence));
-                    len_nals += sizeof(start_sequence);
-                }
-                g_free(nals_aux);
+            uint8_t nalInfo = (uint8_t) nals[len_nals - length];
+            uint8_t type = nalInfo & 0x1f;
+            debug_msg(MOD_NAME "sprop-parameter %d (base64): %s\n", (int) type, nal);
+            if (type == NAL_SPS){
+                width_height_from_SDP(width, height, (unsigned char *) (nals+(len_nals - length)), length);
             }
         }
     }
