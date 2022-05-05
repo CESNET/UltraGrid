@@ -64,6 +64,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "color.h"
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
@@ -2299,6 +2300,58 @@ static void vc_copylineRG48toUYVY(unsigned char * __restrict dst, const unsigned
 }
 
 /**
+ * offset of coefficients is 16 bits, 14 bits from RGB is used
+ */
+static void vc_copylineRG48toV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift) {
+#define COMP_OFF (COMP_BASE+(16-10))
+#define FETCH_BLOCK \
+                r = *in++; \
+                g = *in++; \
+                b = *in++; \
+                y1 = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_OFF) + (1<<6); \
+                u = RGB_TO_CB_709_SCALED(r, g, b) >> COMP_OFF; \
+                v = RGB_TO_CR_709_SCALED(r, g, b) >> COMP_OFF; \
+                r = *in++; \
+                g = *in++; \
+                b = *in++; \
+                y2 = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_OFF) + (1<<6); \
+                u += RGB_TO_CB_709_SCALED(r, g, b) >> COMP_OFF; \
+                v += RGB_TO_CR_709_SCALED(r, g, b) >> COMP_OFF; \
+                y1 = CLAMP_LIMITED_Y(y1, 10); \
+                y2 = CLAMP_LIMITED_Y(y2, 10); \
+                u = CLAMP_LIMITED_CBCR(u / 2 + (1<<9), 10); \
+                v = CLAMP_LIMITED_CBCR(v / 2 + (1<<9), 10);
+
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        assert((uintptr_t) dst % 4 == 0);
+        const uint16_t *in = (const uint16_t *)(const void *) src;
+        uint32_t *d = (uint32_t *)(void *) dst;
+        OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 16; x += 16) {
+                comp_type_t y1, y2, u ,v;
+                comp_type_t r, g, b;
+
+                FETCH_BLOCK
+                *d++ = u | y1 << 10 | v << 20;
+                *d = y2;
+
+                FETCH_BLOCK
+                *d |= u << 10 | y1 << 20;
+                *++d = v | y2 << 10;
+
+                FETCH_BLOCK
+                *d |= u << 20;
+                *++d = y1 | v << 10 | y2 << 20;
+                d++;
+        }
+#undef COMP_OFF
+#undef FETCH_BLOCK
+}
+
+/**
  * Converts BGR to RGB.
  * @copydetails vc_copylinev210
  */
@@ -2525,6 +2578,7 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineRG48toR10k,  RG48,  R10k, false },
         { (decoder_t) vc_copylineRG48toRGB,   RG48,  RGB, false },
         { (decoder_t) vc_copylineRG48toUYVY,  RG48,  UYVY, true },
+        { (decoder_t) vc_copylineRG48toV210,  RG48,  v210, true },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
         { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
         { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
