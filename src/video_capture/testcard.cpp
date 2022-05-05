@@ -425,11 +425,12 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         char *filename = nullptr;
         const char *strip_fmt = NULL;
         char *save_ptr = NULL;
+        int ret = VIDCAP_INIT_FAIL;
         char *tmp;
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>][:apattern=sine|midi]\n");
+                cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>][:apattern=sine|midi] | -t testcard:help\n");
                 cout << "where\n";
                 cout << BOLD("\t<filename>") << " - use file named filename instead of default bars\n";
                 cout << BOLD("\tp") << " - pan with frame\n";
@@ -443,6 +444,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\t-t testcard[:size=<width>x<height>][:fps=<fps>[:codec=<codec>][...]\n");
                 cout << "\n";
                 show_codec_help("testcard", codecs_8b, codecs_10b, codecs_12b);
+                cout << BOLD("Note:") << " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " << BOLD("pattern=help") << " for details.\n";
                 return VIDCAP_INIT_NOERR;
         }
 
@@ -511,7 +513,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         } else {
                 auto data = video_pattern_generate(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec);
                 if (!data) {
-                         goto error;
+                        ret = s->pattern == "help" ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
+                        goto error;
                 }
 
                 memcpy(vf_get_tile(s->frame, 0)->data, data.get(), s->frame->tiles[0].data_len);
@@ -561,7 +564,7 @@ error:
         free(s->data);
         vf_free(s->frame);
         delete s;
-        return VIDCAP_INIT_FAIL;
+        return ret;
 }
 
 static void vidcap_testcard_done(void *state)
