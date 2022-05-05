@@ -1187,6 +1187,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 const GLFWvidmode* mode = glfwGetVideoMode(mon);
                 width = mode->width;
                 height = mode->height;
+                glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
         }
         if ((s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), mon, NULL)) == nullptr) {
                 return false;
