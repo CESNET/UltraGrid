@@ -124,13 +124,13 @@ void main()
 )raw";
 
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
+/// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
 static const char * v210_to_rgb_fp = R"raw(
-#version 130
+#version 110
 #extension GL_EXT_gpu_shader4 : enable
-//in vec2 texcoord;
-uniform mediump sampler2D tex;
+uniform sampler2D image;
 uniform float imageWidth;
-out mediump vec4 color;
+uniform float imageWidthOrig;
 
 // YUV offset
 const vec3 yuvOffset = vec3(-0.0625, -0.5, -0.5);
@@ -177,40 +177,51 @@ vec3 ycbcr2rgb(vec3 yuvToConvert) {
 }
 
 void main(void) {
-  ivec2 size = textureSize2D(tex, 0).xy; // 480x486
-  ivec2 sizeOrig = ivec2(imageWidth, size.y); // 720x486
-
   // interpolate 0,0 -> 1,1 texcoords to 0,0 -> 720,486
-  ivec2 texcoordDenorm = ivec2(gl_TexCoord[0].xy * sizeOrig);
+  int texcoordDenormX;
+  texcoordDenormX = int((2. * gl_TexCoord[0].x * imageWidth - 1.) / 2.);
 
   // 0 1 1 2 3 3 4 5 5 6 7 7 etc.
-  int yOffset = offset(_y(texcoordDenorm.x));
-  int sourceColumnIndexY = GROUP_FOR_INDEX(yOffset);
+  int yOffset;
+  yOffset = offset(_y(texcoordDenormX));
+  int sourceColumnIndexY;
+  sourceColumnIndexY = GROUP_FOR_INDEX(yOffset);
 
   // 0 0 1 1 2 2 4 4 5 5 6 6 etc.
-  int uOffset = offset(_u(texcoordDenorm.x));
-  int sourceColumnIndexU = GROUP_FOR_INDEX(uOffset);
+  int uOffset;
+  uOffset = offset(_u(texcoordDenormX));
+  int sourceColumnIndexU;
+  sourceColumnIndexU = GROUP_FOR_INDEX(uOffset);
 
   // 0 0 2 2 3 3 4 4 6 6 7 7 etc.
-  int vOffset = offset(_v(texcoordDenorm.x));
-  int sourceColumnIndexV = GROUP_FOR_INDEX(vOffset);
+  int vOffset;
+  vOffset = offset(_v(texcoordDenormX));
+  int sourceColumnIndexV;
+  sourceColumnIndexV = GROUP_FOR_INDEX(vOffset);
 
   // 1 0 2 1 0 2 1 0 2 etc.
-  int compY = SUBINDEX_FOR_INDEX(yOffset);
+  int compY;
+  compY = SUBINDEX_FOR_INDEX(yOffset);
 
   // 0 0 1 1 2 2 0 0 1 1 2 2 etc.
-  int compU = SUBINDEX_FOR_INDEX(uOffset);
+  int compU;
+  compU = SUBINDEX_FOR_INDEX(uOffset);
 
   // 2 2 0 0 1 1 2 2 0 0 1 1 etc.
-  int compV = SUBINDEX_FOR_INDEX(vOffset);
+  int compV;
+  compV = SUBINDEX_FOR_INDEX(vOffset);
 
-  vec4 y = texelFetch(tex, ivec2(sourceColumnIndexY, texcoordDenorm.y), 0);
-  vec4 u = texelFetch(tex, ivec2(sourceColumnIndexU, texcoordDenorm.y), 0);
-  vec4 v = texelFetch(tex, ivec2(sourceColumnIndexV, texcoordDenorm.y), 0);
+  vec4 y;
+  vec4 u;
+  vec4 v;
+  y = texture2D(image, vec2(float(2 * sourceColumnIndexY + 1) / (2. * imageWidthOrig), gl_TexCoord[0].y));
+  u = texture2D(image, vec2(float(2 * sourceColumnIndexU + 1) / (2. * imageWidthOrig), gl_TexCoord[0].y));
+  v = texture2D(image, vec2(float(2 * sourceColumnIndexV + 1) / (2. * imageWidthOrig), gl_TexCoord[0].y));
+
 
   vec3 outColor = ycbcr2rgb(vec3(y[compY], u[compU], v[compV]));
 
-  color = vec4(outColor, 1.0);
+  gl_FragColor = vec4(outColor, 1.0);
 }
 )raw";
 
@@ -833,9 +844,11 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 GL_RGBA, GL_UNSIGNED_SHORT,
                                 NULL);
                 glUseProgram(s->PHandle_v210);
-                glUniform1i(glGetUniformLocation(s->PHandle_v210, "tex"), 2);
+                glUniform1i(glGetUniformLocation(s->PHandle_v210, "image"), 2);
                 glUniform1f(glGetUniformLocation(s->PHandle_v210, "imageWidth"),
                                 (GLfloat) desc.width);
+                glUniform1f(glGetUniformLocation(s->PHandle_v210, "imageWidthOrig"),
+                                (GLfloat) vc_get_linesize(desc.width, v210) / 4);
                 glUseProgram(0);
         } else if (desc.color_spec == RGBA) {
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
