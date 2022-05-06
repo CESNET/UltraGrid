@@ -150,6 +150,7 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
         char log[32768];
         GLuint vhandle, fhandle;
         GLuint phandle;
+        GLint status;
 
         phandle = glCreateProgram();
         vhandle = glCreateShader(GL_VERTEX_SHADER);
@@ -165,6 +166,8 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
                 if (strlen(log) > 0) {
                         log_msg(LOG_LEVEL_INFO, "Fragment compile log: %s\n", log);
                 }
+                glGetShaderiv(fhandle, GL_COMPILE_STATUS, &status);
+                assert(status == GL_TRUE);
         }
         /* vertex */
         if (vprogram) {
@@ -175,6 +178,8 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
                 if (strlen(log) > 0) {
                         log_msg(LOG_LEVEL_INFO, "Vertex compile log: %s\n", log);
                 }
+                glGetShaderiv(fhandle, GL_COMPILE_STATUS, &status);
+                assert(status == GL_TRUE);
         }
 
         /* attach and link */
@@ -185,6 +190,8 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
                 glAttachShader(phandle, fhandle);
         }
         glLinkProgram(phandle);
+        glGetProgramiv(phandle, GL_LINK_STATUS, &status);
+        assert(status == GL_TRUE);
         glGetProgramInfoLog(phandle, sizeof log, NULL, (GLchar*) log);
         if (strlen(log) > 0) {
                 log_msg(LOG_LEVEL_INFO, "Link Log: %s\n", log);
