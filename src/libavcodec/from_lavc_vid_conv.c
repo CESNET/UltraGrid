@@ -54,6 +54,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "color.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
 #include "hwaccel_rpi4.h"
@@ -82,51 +83,6 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic warning "-Wpass-failed"
-
-//
-// uv_to_av_convert conversions
-//
-//
-/* @brief Color space coedfficients - RGB full range to YCbCr bt. 709 limited range
- *
- * RGB should use SDI full range [1<<(depth-8)..255<<(depth-8)-1], see [limits]
- *
- * Scaled by 1<<COMP_BASE, footroom 16/255, headroom 235/255 (luma), 240/255 (chroma); limits [2^(depth-8)..255*2^(depth-8)-1]
- * matrix Y = [ 0.182586, 0.614231, 0.062007; -0.100643, -0.338572, 0.4392157; 0.4392157, -0.398942, -0.040274 ]
- * * [coefficients]: https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a "Rec. 709 coefficients"
- * * [limits]:       https://tech.ebu.ch/docs/r/r103.pdf                             "SDI limits"
- *
- * @ingroup lavc_video_conversions
- *
- * @todo
- * Use this transformations in all conversions.
- * @{
- */
-#define FULL_FOOT(depth) (1<<((depth)-8))
-#define FULL_HEAD(depth) ((255<<((depth)-8))-1)
-#define CLAMP_FULL(val, depth) MIN(FULL_HEAD(depth), MAX((val), FULL_FOOT(depth)))
-typedef int32_t comp_type_t; // int32_t provides much better performance than int_fast32_t
-#define COMP_BASE (sizeof(comp_type_t) == 4 ? 14 : 18) // computation will be less precise when comp_type_t is 32 bit
-static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
-
-//  matrix Y1^-1 = inv(Y)
-static const comp_type_t y_scale = 1.164383 * (1<<COMP_BASE); // precomputed value, Y multiplier is same for all channels
-//static const comp_type_t r_y = 1; // during computation already contained in y_scale
-//static const comp_type_t r_cb = 0;
-static const comp_type_t r_cr = 1.792741 * (1<<COMP_BASE);
-//static const comp_type_t g_y = 1;
-static const comp_type_t g_cb = -0.213249 * (1<<COMP_BASE);
-static const comp_type_t g_cr = -0.532909 * (1<<COMP_BASE);
-//static const comp_type_t b_y = 1;
-static const comp_type_t b_cb = 2.112402 * (1<<COMP_BASE);
-//static const comp_type_t b_cr = 0;
-#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * r_cb */ + (cr) * r_cr)
-#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * g_cb    + (cr) * g_cr)
-#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * b_cb /* + (cr) * b_cr */)
-
-#define FORMAT_RGBA(r, g, b, depth) (~(0xFFU << (rgb_shift[R]) | 0xFFU << (rgb_shift[G]) | 0xFFU << (rgb_shift[B])) | \
-        (CLAMP_FULL((r), (depth)) << rgb_shift[R] | CLAMP_FULL((g), (depth)) << rgb_shift[G] | CLAMP_FULL((b), (depth)) << rgb_shift[B]))
-/// @}
 
 static void nv12_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)

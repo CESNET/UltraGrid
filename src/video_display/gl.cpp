@@ -68,6 +68,7 @@
 #include <string>
 #include <string_view>
 
+#include "color.h"
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
@@ -136,10 +137,9 @@ uniform float imageWidthOrig;
 const vec3 yuvOffset = vec3(-0.0625, -0.5, -0.5);
 
 // RGB coefficients
-// BT.601 colorspace
-const vec3 Rcoeff = vec3(1.1643,  0.000,  1.5958);
-const vec3 Gcoeff = vec3(1.1643, -0.39173, -0.81290);
-const vec3 Bcoeff = vec3(1.1643,  2.017,  0.000);
+const vec3 Rcoeff = vec3()raw" TOSTRING(Y_709) ", " TOSTRING(R_CB_709) ", " TOSTRING(R_CR_709) R"raw();
+const vec3 Gcoeff = vec3()raw" TOSTRING(Y_709) ", " TOSTRING(G_CB_709) ", " TOSTRING(G_CR_709) R"raw();
+const vec3 Bcoeff = vec3()raw" TOSTRING(Y_709) ", " TOSTRING(B_CB_709) ", " TOSTRING(B_CR_709) R"raw();
 
 // U Y V A | Y U Y A | V Y U A | Y V Y A
 

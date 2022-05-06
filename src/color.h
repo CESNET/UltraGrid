@@ -71,6 +71,35 @@ static const comp_type_t cr_b = (-0.0722/1.5748*224/255) * (1<<COMP_BASE);
 #define RGB_TO_CR_709_SCALED(r, g, b) ((r) * cr_r + (g) * cr_g + (b) * cr_b)
 #define CLAMP_LIMITED_Y(val, depth) MIN(MAX(val, 1<<(depth-4)), 235 * (1<<(depth-8)));
 #define CLAMP_LIMITED_CBCR(val, depth) MIN(MAX(val, 1<<(depth-4)), 240 * (1<<(depth-8)));
+
+#define Y_709     1.164383
+#define R_CB_709  0.0
+#define R_CR_709  1.792741
+#define G_CB_709 -0.213249
+#define G_CR_709 -0.532909
+#define B_CB_709  2.112402
+#define B_CR_709  0.0
+//  matrix Y1^-1 = inv(Y)
+static const comp_type_t y_scale = Y_709 * (1<<COMP_BASE); // precomputed value, Y multiplier is same for all channels
+//static const comp_type_t r_y = 1; // during computation already contained in y_scale
+//static const comp_type_t r_cb = 0;
+static const comp_type_t r_cr = R_CR_709 * (1<<COMP_BASE);
+//static const comp_type_t g_y = 1;
+static const comp_type_t g_cb = G_CB_709 * (1<<COMP_BASE);
+static const comp_type_t g_cr = G_CR_709 * (1<<COMP_BASE);
+//static const comp_type_t b_y = 1;
+static const comp_type_t b_cb = B_CB_709 * (1<<COMP_BASE);
+//static const comp_type_t b_cr = 0;
+#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * r_cb */ + (cr) * r_cr)
+#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * g_cb    + (cr) * g_cr)
+#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * b_cb /* + (cr) * b_cr */)
+
+#define FULL_FOOT(depth) (1<<((depth)-8))
+#define FULL_HEAD(depth) ((255<<((depth)-8))-1)
+#define CLAMP_FULL(val, depth) MIN(FULL_HEAD(depth), MAX((val), FULL_FOOT(depth)))
+
+#define FORMAT_RGBA(r, g, b, depth) (~(0xFFU << (rgb_shift[R]) | 0xFFU << (rgb_shift[G]) | 0xFFU << (rgb_shift[B])) | \
+        (CLAMP_FULL((r), (depth)) << rgb_shift[R] | CLAMP_FULL((g), (depth)) << rgb_shift[G] | CLAMP_FULL((b), (depth)) << rgb_shift[B]))
 /// @}
 
 #endif // !defined COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25
