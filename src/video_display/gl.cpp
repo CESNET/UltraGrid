@@ -357,7 +357,7 @@ struct state_gl {
 
         time_ns_t       t0 = get_time_in_ns();
 
-        int             vsync = ADAPTIVE_VSYNC;
+        int             vsync = 1;
         bool            paused = false;
         enum show_cursor_t { SC_TRUE, SC_FALSE, SC_AUTOHIDE } show_cursor = SC_AUTOHIDE;
         chrono::steady_clock::time_point                      cursor_shown_from{}; ///< indicates time point from which is cursor show if show_cursor == SC_AUTOHIDE, timepoint() means cursor is not currently shown
@@ -1038,6 +1038,12 @@ static void gl_process_frames(struct state_gl *s)
                         return;
                 }
                 frame = s->frame_queue.front();
+
+                if (s->current_frame) {
+                        vf_recycle(s->current_frame);
+                        s->free_frame_queue.push(s->current_frame);
+                }
+                s->current_frame = frame;
         }
 
         if (!frame) {
@@ -1056,14 +1062,6 @@ static void gl_process_frames(struct state_gl *s)
         if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
                 gl_reconfigure_screen(s, video_desc_from_frame(frame));
         }
-
-        if (s->current_frame) {
-                s->lock.lock();
-                vf_recycle(s->current_frame);
-                s->free_frame_queue.push(s->current_frame);
-                s->lock.unlock();
-        }
-        s->current_frame = frame;
 
         gl_render(s, frame->tiles[0].data);
         gl_draw(s->aspect, (s->dxt_height - s->current_display_desc.height) / (float) s->dxt_height * 2, s->vsync != SINGLE_BUF);
@@ -1242,17 +1240,15 @@ static void display_gl_print_depth() {
 
 static void display_gl_render_last(GLFWwindow *win) {
         auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
-        if (!s->current_frame) {
+        unique_lock<mutex> lk(s->lock);
+        auto *f = s->current_frame;
+        s->current_frame = nullptr;
+        lk.unlock();
+        if (!f) {
                 return;
         }
         // redraw last frame
-        gl_render(s, s->current_frame->tiles[0].data);
-        gl_draw(s->aspect, (s->dxt_height - s->current_display_desc.height) / (float) s->dxt_height * 2, s->vsync != SINGLE_BUF);
-        if (s->vsync == SINGLE_BUF) {
-                glFlush();
-        } else {
-                glfwSwapBuffers(s->window);
-        }
+        display_gl_putf(s, f, PUTF_NONBLOCK);
 }
 
 #if defined HAVE_LINUX || defined WIN32
