@@ -2554,6 +2554,37 @@ static void vc_copylineY216toUYVY(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void vc_copylineY216toV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        assert((uintptr_t) dst % 4 == 0);
+        OPTIMIZED_FOR (int x = 0; x < dst_len / 16; ++x) {
+                const uint16_t *s = (const uint16_t *)(const void *) (src + x * 24);
+                uint32_t *d = (uint32_t *)(void *) (dst + x * 16);
+                uint16_t y1, u, y2, v;
+                y1 = s[0];
+                u = s[1];
+                y2 = s[2];
+                v = s[3];
+                d[0] = u >> 6U | y1 >> 6U << 10U | v >> 6U << 20U;
+                y1 = s[4];
+                u = s[5];
+                d[1] = y2 >> 6U | u >> 6U << 10U | y1 >> 6U << 20U;
+                y2 = s[6];
+                v = s[7];
+                y1 = s[8];
+                u = s[9];
+                d[2] = v >> 6U | y2 >> 6U << 10U | u >> 6U << 20U;
+                y2 = s[10];
+                v = s[11];
+                d[3] = y1 >> 6U | v >> 6U << 10U | y2 >> 6U << 20U;
+        }
+}
+
 struct decoder_item {
         decoder_t decoder;
         codec_t in;
@@ -2596,6 +2627,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineUYVYtoV210,  UYVY,  v210, false },
         { vc_copylineUYVYtoY216,  UYVY,  Y216, false },
         { vc_copylineY216toUYVY,  Y216,  UYVY, false },
+        { vc_copylineY216toV210,  Y216,  v210, false },
 };
 
 /**
