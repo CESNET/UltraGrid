@@ -166,7 +166,8 @@ bool set_output_buffering() {
                 } else {
 #ifdef _WIN32
                         if (rang::rang_implementation::isMsysPty(_fileno(outp.second))) {
-                                cout << rang::fg::cyan << "MSYS terminal detected, consider using \"--param " << outp.first << "=no\" if not seeing the output." << rang::fg::reset << endl;
+                                cout << rang::fg::cyan << "MSYS terminal detected, setting \"--param " << outp.first << "=no\" automatically." << rang::fg::reset << endl;
+                                setvbuf(outp.second, NULL, _IONBF, 0);
                         }
 #endif
                 }
