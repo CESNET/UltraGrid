@@ -16,6 +16,10 @@ export UG_FONT_DIR="$DIR/usr/share/fonts"
 export QT_PLUGIN_PATH="$DIR/usr/lib/qt5/plugins"
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
 
+get_tools() {
+        find "$DIR/usr/bin" -exec basename {} \; | tr '\n' ' '
+}
+
 usage() {
         printf "usage:\n"
         printf "\t%s [--gui [args]]\n" "$ARGV0"
@@ -33,13 +37,12 @@ usage() {
         printf "\t%s -u|--update [args]\n" "$ARGV0"
         printf "\t\tupdates AppImage (args will be passed to appimageupdatetool)\n"
         printf "\n"
-        printf "\t%s --tool uv --help\n" "$ARGV0"
+        printf "\t%s -t|--tool uv --help\n" "$ARGV0"
         printf "\t\tprints command-line UltraGrid help\n"
         printf "\n"
-        printf "\t%s --tool <t> [args]\n" "$ARGV0"
+        printf "\t%s -t|--tool <t> [args]\n" "$ARGV0"
         printf "\t\tinvokes specified tool\n"
-        TOOLS=$(find "$DIR/usr/bin" -exec basename {} \; | tr '\n' ' ')
-        printf "\t\ttool may be: %s\n" "$TOOLS"
+        printf "\t\ttool may be: $(tput bold)%s$(tput sgr0)\n" "$(get_tools)"
         printf "\n"
         printf "\t%s args\n" "$ARGV0"
         printf "\t\tinvokes command-line UltraGrid\n"
@@ -184,10 +187,14 @@ if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
                 echo "GUI was not compiled in!" >&2
                 exit 1
         fi
-elif [ "$1" = "--tool" ]; then
+elif [ "$1" = "-t" ] || [ "$1" = "--tool" ]; then
         handle_updates
         TOOL=$2
         shift 2
+        if [ "$TOOL" = help ]; then
+                printf "available tools: $(tput bold)%s$(tput sgr0)\n" "$(get_tools)"
+                exit 0
+        fi
         # shellcheck disable=SC2086
         ${RUN}"$DIR/usr/bin/$TOOL" "$@"
 elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
