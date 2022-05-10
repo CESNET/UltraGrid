@@ -132,12 +132,15 @@ using std::mutex;
 
 #define CALL_AND_CHECK(cmd, ...) CALL_AND_CHECK_CHOOSER(__VA_ARGS__)(cmd, __VA_ARGS__)
 
-#define BMD_CONFIG_SET_INT(key, val) do {\
-        if (val != (decltype(val)) BMD_OPT_DEFAULT) {\
+/// @param fatal - exit if failed to set (usually set to true for explicit settings, false implicit)
+#define BMD_CONFIG_SET_INT(key, val, fatal) do {\
+        if (val != (decltype(val)) BMD_OPT_DEFAULT && val != (decltype(val)) BMD_OPT_KEEP) {\
                 HRESULT result = deckLinkConfiguration->SetInt(key, val);\
                 if (result != S_OK) {\
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
-                        goto error;\
+                        LOG(fatal ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
+                        if (fatal) { \
+                                goto error;\
+                        } \
                 } else { \
                         LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: " << val << "\n";\
                 } \
@@ -178,7 +181,7 @@ struct vidcap_decklink_state {
         BMDVideoConnection      connection{bmdVideoConnectionUnspecified};
         int                     audio_consumer_levels{-1}; ///< 0 false, 1 true, -1 default
         BMDVideoInputConversionMode conversion_mode{};
-        BMDDeckLinkCapturePassthroughMode passthrough{}; // 0 means don't set
+        BMDDeckLinkCapturePassthroughMode passthrough{bmdDeckLinkCapturePassthroughModeDisabled};
 
         struct timeval          t0;
 
@@ -525,8 +528,8 @@ decklink_help(bool full)
                         "\tbut the video stream needs to be preserved, eg. to keep sync with audio).\n";
                 cout << "\n";
 
-                cout << style::bold << "[no]passthrough\n" << style::reset;
-                cout << "\tEnable/disable capture passthrough.\n";
+                cout << style::bold << "[no]passthrough[=keep]\n" << style::reset;
+                cout << "\tDisables/enables/keeps capture passthrough (default is disable).\n";
                 cout << "\n";
 
                 cout << style::bold << "profile=<FourCC>|profile=keep\n" << style::reset;
@@ -691,6 +694,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
                 s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
+                        : strstr(opt, "keep") != nullptr ? static_cast<enum _BMDDeckLinkCapturePassthroughMode>(BMD_OPT_KEEP)
                         : bmdDeckLinkCapturePassthroughModeCleanSwitch;
         } else if (strstr(opt, "profile=") == opt) {
                 const char *mode = opt + strlen("profile=");
@@ -1201,10 +1205,10 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
                 s->state[i].deckLinkAttributes = deckLinkAttributes;
 
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConnection, s->connection);
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConnection, s->connection, true);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, true);
                 BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, false);
 
                 if (s->link != 0) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output link configuration on capture is deprecated and will be removed in future, let us know if this is needed!\n";
