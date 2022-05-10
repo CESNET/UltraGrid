@@ -177,8 +177,8 @@ bool set_output_buffering() {
 #ifdef HAVE_X
 /**
  * Custom X11 error handler to catch errors and handle them more reasonably
- * than the default handler which exits the program immediately, which, however
- * is not correct in multithreaded program.
+ * than the default handler which exits the program immediately, which, however,
+ * doesn't produce a stacktrace.
  */
 static int x11_error_handler(Display *d, XErrorEvent *e) {
         //char msg[1024] = "";
@@ -186,7 +186,10 @@ static int x11_error_handler(Display *d, XErrorEvent *e) {
         UNUSED(d);
         log_msg(LOG_LEVEL_ERROR, "X11 error - code: %d, serial: %d, error: %d, request: %d, minor: %d\n",
                         e->error_code, e->serial, e->error_code, e->request_code, e->minor_code);
-
+        fprintf(stderr, "Backtrace:\n");
+        array<void *, 256> addresses{};
+        int num_symbols = backtrace(addresses.data(), addresses.size());
+        backtrace_symbols_fd(addresses.data(), num_symbols, 2);
         return 0;
 }
 #endif
