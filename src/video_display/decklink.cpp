@@ -367,17 +367,26 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square][:HDR[=<t>]]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:device=<device(s)>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>]]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << ":[full]help\n" << style::reset;
         cout << "Options:\n";
-        cout << style::bold << "\tfullhelp" << style::reset << " displays help for further options\n";
-        cout << style::bold << "\t<device(s)>" << style::reset << " is comma-separated indices or names of output devices\n";
-        cout << style::bold << "\tsingle-link/dual-link/quad-link" << style::reset << " specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
-        cout << style::bold << "\tLevelA/LevelB" << style::reset << " specifies 3G-SDI output level\n";
+        cout << style::bold << "\tfullhelp" << style::reset << "\tdisplay additional options and more details\n";
+        cout << style::bold << "\tdevice" << style::reset << "\t\tindex or name of output device (or comma-separated list of multple devices)\n";
+        cout << style::bold << "\tLevelA/LevelB" << style::reset << "\tspecifies 3G-SDI output level\n";
+        cout << style::bold << "\t3D" << style::reset << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
+        cout << style::bold << "\taudio_level" << style::reset << "\tset maximum attenuation for mic\n";
+        cout << style::bold << "\thalf-duplex" << style::reset
+                << "\tset a profile that allows maximal number of simultaneous IOs\n";
+        cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>|help]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
         if (!full) {
-                cout << style::bold << "\tconversion" << style::reset << " - use '-d decklink:fullhelp' for list of conversions\n";
+                cout << style::bold << "\tconversion" << style::reset << "\toutput size conversion, use '-d decklink:fullhelp' for list of conversions\n";
+                cout << "\t(other options available, use \"fullhelp\" to see complete list of options)\n";
         } else {
-                cout << style::bold << "\t[no-]quad-square" << style::reset << " - set Quad-link SDI is output in Square Division Quad Split mode\n";
-                cout << "\toutput conversion can be:\n" <<
+                cout << style::bold << "\tsingle-link/dual-link/quad-link" << style::reset << "\tspecifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
+                cout << style::bold << "\ttimecode" << style::reset << "\temit timecode\n";
+                cout << style::bold << "\t[no-]quad-square" << style::reset << " set Quad-link SDI is output in Square Division Quad Split mode\n";
+                cout << style::bold << "\t[no-]low-latency" << style::reset << " do not use low-latency mode (use regular scheduled mode; low-latency is default)\n";
+                cout << style::bold << "\tconversion" << style::reset << "\toutput size conversion, can be:\n" <<
                                 style::bold << "\t\tnone" << style::reset << " - no conversion\n" <<
                                 style::bold << "\t\tltbx" << style::reset << " - down-converted letterbox SD\n" <<
                                 style::bold << "\t\tamph" << style::reset << " - down-converted anamorphic SD\n" <<
@@ -388,11 +397,11 @@ static void show_help(bool full)
                                 style::bold << "\t\txcap" << style::reset << " - simultaneous output of 720p and 1080p cross-conversion\n" <<
                                 style::bold << "\t\tua7p" << style::reset << " - simultaneous output of SD and up-converted anamorphic 720p\n" <<
                                 style::bold << "\t\tua1i" << style::reset << " - simultaneous output of SD and up-converted anamorphic 1080i\n" <<
-                                style::bold << "\t\tu47p" << style::reset << " - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 720p\n" <<
-                                style::bold << "\t\tu41i" << style::reset << " - simultaneous output of SD and up-converted anamorphic widescreen aspcet ratip 14:9 to 1080i\n" <<
+                                style::bold << "\t\tu47p" << style::reset << " - simultaneous output of SD and up-converted anamorphic widescreen aspect ratio 14:9 to 720p\n" <<
+                                style::bold << "\t\tu41i" << style::reset << " - simultaneous output of SD and up-converted anamorphic widescreen aspect ratio 14:9 to 1080i\n" <<
                                 style::bold << "\t\tup7p" << style::reset << " - simultaneous output of SD and up-converted pollarbox 720p\n" <<
                                 style::bold << "\t\tup1i" << style::reset << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
-                cout << style::bold << "\tHDMI3DPacking" << style::reset << " can be:\n" <<
+                cout << style::bold << "\tHDMI3DPacking" << style::reset << " can be (used in conjunction with \"3D\" option):\n" <<
 				style::bold << "\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n" << style::reset;
                 cout << style::bold << "\tUse1080PsF[=true|false|keep]" << style::reset << " flag sets use of PsF on output instead of progressive (default is false)\n";
                 cout << style::bold << "\tprofile=<P>\n" << style::reset;
@@ -402,11 +411,7 @@ static void show_help(bool full)
                         << style::bold << "2dhd" << style::reset << " or "
                         << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
                         << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
-                cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>|help]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
         }
-        cout << style::bold << "\thalf-duplex" << style::reset
-                << " - set a profile that allows maximal number of simultaneous IOs\n";
-        cout << "\nIf " << style::bold << "audio_level" << style::reset << " is " << style::bold << "mic" << style::reset << " audio analog level is set to maximum attenuation on audio output.\n";
 
         cout << "Recognized pixel formats:";
         for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { cout << " " << style::bold << get_codec_name(i.first) << style::reset; } );
@@ -1005,7 +1010,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                 return false;
                         }
                 } else if (strncasecmp(ptr, "audio_level=", strlen("audio_level=")) == 0) {
-                        if (strcasecmp(ptr + strlen("audio_level="), "false") == 0) {
+                        if (strcasecmp(ptr + strlen("audio_level="), "false") || strcasecmp(ptr + strlen("audio_level="), "mic") == 0) {
                                 *audio_consumer_levels = 0;
                         } else {
                                 *audio_consumer_levels = 1;

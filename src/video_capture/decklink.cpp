@@ -467,10 +467,10 @@ decklink_help(bool full)
 	int				numDevices = 0;
 
 	printf("\nDecklink options:\n");
-        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}* | decklink:[full]help\n" << style::reset;
         printf("\t\tor\n");
-        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}*|[full]help\n" << style::reset;
-	printf("\t(Mode specification is mandatory if your card does not support format autodetection.)\n");
+        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]\n" << style::reset;
+        cout << "\t(mode specification is mandatory if your card does not support format autodetection; syntax on the first line is recommended, the second is obsolescent)\n";
         printf("\n");
 
         cout << style::bold << "3D" << style::reset << "\n";
@@ -483,19 +483,6 @@ decklink_help(bool full)
         cout << style::bold << "\tline" << style::reset << " - the selected analog input gain levels are used\n";
         cout << style::bold << "\tmic" << style::reset << " - analog audio levels are set to maximum gain on audio input.\n";
 	printf("\n");
-
-        if (full) {
-                cout << style::bold << "conversion\n" << style::reset;
-                cout << style::bold << "\tnone" << style::reset << " - No video input conversion\n";
-                cout << style::bold << "\t10lb" << style::reset << " - HD1080 to SD video input down conversion\n";
-                cout << style::bold << "\t10am" << style::reset << " - Anamorphic from HD1080 to SD video input down conversion\n";
-                cout << style::bold << "\t72lb" << style::reset << " - Letter box from HD720 to SD video input down conversion\n";
-                cout << style::bold << "\t72ab" << style::reset << " - Letterbox video input up conversion\n";
-                cout << style::bold << "\tamup" << style::reset << " - Anamorphic video input up conversion\n";
-                cout << "\tThen use the set the resulting mode (!) for capture, eg. for 1080p to PAL conversion:\n"
-                                "\t\t-t decklink:mode=pal:conversion=10lb\n";
-                cout << "\n";
-        }
 
         cout << style::bold << "detect-format\n" << style::reset;
         cout << "\tTry to detect input video format even if the device doesn't support\n"
@@ -510,7 +497,21 @@ decklink_help(bool full)
         cout << "\tSet a profile that allows maximal number of simultaneous IOs.\n";
         cout << "\n";
 
+        cout << style::bold << "single-/dual-/quad-link\n" << style::reset;
+        cout << "\tUse single-/dual-/quad-link.\n";
+        cout << "\n";
+
         if (full) {
+                cout << style::bold << "conversion\n" << style::reset;
+                cout << style::bold << "\tnone" << style::reset << " - No video input conversion\n";
+                cout << style::bold << "\t10lb" << style::reset << " - HD1080 to SD video input down conversion\n";
+                cout << style::bold << "\t10am" << style::reset << " - Anamorphic from HD1080 to SD video input down conversion\n";
+                cout << style::bold << "\t72lb" << style::reset << " - Letter box from HD720 to SD video input down conversion\n";
+                cout << style::bold << "\t72ab" << style::reset << " - Letterbox video input up conversion\n";
+                cout << style::bold << "\tamup" << style::reset << " - Anamorphic video input up conversion\n";
+                cout << "\tThen use the set the resulting mode (!) for capture, eg. for 1080p to PAL conversion:\n"
+                                "\t\t-t decklink:mode=pal:conversion=10lb\n";
+                cout << "\n";
                 cout << style::bold << "p_not_i\n" << style::reset;
                 cout << "\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
                 cout << "\n";
@@ -536,16 +537,11 @@ decklink_help(bool full)
                         << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
                         << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
                 cout << "\n";
-        }
-
-        cout << style::bold << "single-/dual-/quad-link\n" << style::reset;
-        cout << "\tUse single-/dual-/quad-link.\n";
-        cout << "\n";
-
-        if (full) {
                 cout << style::bold << "sync_timecode" << style::reset << "\n";
                 cout << "\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n";
                 cout << "\n";
+        } else {
+                cout << "(other options available, use \"fullhelp\" to see complete list of options)\n\n";
         }
 
         cout << "Available color spaces:";
