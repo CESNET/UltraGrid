@@ -5,6 +5,7 @@ env:
   CUDA_FEATURES: '--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy'
 
 on:
+  pull_request:
   push:
     branches:
       - master
