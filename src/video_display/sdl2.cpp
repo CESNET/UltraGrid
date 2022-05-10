@@ -649,6 +649,9 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
 
         loadSplashscreen(s);
         for (auto i : display_sdl2_keybindings) {
+                if (i.first == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
+                        continue;
+                }
                 keycontrol_register_key(&s->mod, i.first, to_string(static_cast<int>(i.first)).c_str(), i.second);
         }
 

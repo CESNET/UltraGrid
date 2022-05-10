@@ -673,6 +673,9 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
 
         gl_load_splashscreen(s);
         for (auto i : keybindings) {
+                if (i.first == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
+                        continue;
+                }
                 char msg[18];
                 sprintf(msg, "%" PRIx64, i.first);
                 keycontrol_register_key(&s->mod, i.first, msg, i.second.data());
