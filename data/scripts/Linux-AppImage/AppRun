@@ -190,7 +190,7 @@ elif [ "$1" = "--tool" ]; then
         shift 2
         # shellcheck disable=SC2086
         ${RUN}"$DIR/usr/bin/$TOOL" "$@"
-elif [ "$1" = x"-h" ] || [ "$1" = "--help" ]; then
+elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
         usage
         exit 0
 elif [ "$1" = "--fullhelp" ]; then
