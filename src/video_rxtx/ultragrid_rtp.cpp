@@ -122,6 +122,7 @@ void *(*ultragrid_rtp_video_rxtx::get_receiver_thread())(void *arg) {
 
 void ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 {
+        m_video_desc = video_desc_from_frame(tx_frame.get());
         if (m_fec_state) {
                 tx_frame = m_fec_state->encode(tx_frame);
         }
