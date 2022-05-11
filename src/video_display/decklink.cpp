@@ -1051,16 +1051,6 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
         return true;
 }
 
-#define BMD_CONFIG_SET_INT(val, type, key, name) do {\
-        if (val != (type) BMD_OPT_DEFAULT) {\
-                HRESULT result = deckLinkConfiguration->SetInt(key, val);\
-                if (result != S_OK) {\
-                        log_msg(LOG_LEVEL_ERROR, "Unable to set " name "\n");\
-                        goto error;\
-                }\
-        }\
-} while (0)
-
 static void *display_decklink_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(parent);
@@ -1209,7 +1199,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-                BMD_CONFIG_SET_INT(s->conversion_mode, BMDVideoOutputConversionMode, bmdDeckLinkConfigVideoOutputConversionMode, "conversion mode");
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoOutputConversionMode, s->conversion_mode, true);
 
 		if (use1080psf != BMD_OPT_KEEP) {
                         if (use1080psf == BMD_OPT_DEFAULT) {
@@ -1236,7 +1226,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                 }
 
-                BMD_CONFIG_SET_INT(HDMI3DPacking, BMDVideo3DPackingFormat, bmdDeckLinkConfigHDMI3DPackingFormat, "3D packing");
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigHDMI3DPackingFormat, HDMI3DPacking, true);
 
                 if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
 #if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (8 << 16))
