@@ -251,6 +251,7 @@ struct state_video_compress_libav {
         double              requested_bpp = 0;
         double              requested_crf = -1;
         int                 requested_cqp = -1;
+        int                 requested_q = -1;
         // may be 422, 420 or 0 (no subsampling explicitly requested
         int                 requested_subsampling = 0;
         // contains format that is supplied by UG to the encoder or swscale (if used)
@@ -350,7 +351,7 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        cout << style::bold << fg::red << "\t-c libavcodec" << fg::reset << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>]"
+        cout << style::bold << fg::red << "\t-c libavcodec" << fg::reset << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>][q=<q>]"
                         "[:subsampling=<subsampling>][:gop=<gop>]"
                         "[:[disable_]intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n" <<
                         style::reset;
@@ -381,6 +382,7 @@ static void usage() {
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
         cout << style::bold << "\t<cqp>" << style::reset << " use constant QP value\n";
         cout << style::bold << "\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
+        cout << style::bold << "\t<q>" << style::reset << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
         cout << style::bold << "\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
         cout << style::bold << "\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
         cout << style::bold << "\t<gop>" << style::reset << " specifies GOP size\n";
@@ -433,6 +435,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if(strncasecmp("cqp=", item, strlen("cqp=")) == 0) {
                         char *cqp_str = item + strlen("cqp=");
                         s->requested_cqp = atoi(cqp_str);
+                } else if(strncasecmp("q=", item, strlen("q=")) == 0) {
+                        char *q_str = strchr(item, '=') + 1;
+                        s->requested_q = stoi(q_str);
                 } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
                         char *subsample_str = item + strlen("subsampling=");
                         s->requested_subsampling = atoi(subsample_str);
@@ -735,6 +740,10 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << bitrate << " bps.\n";
+        }
+
+        if (s->requested_q != -1) {
+                s->codec_ctx->qmin = s->codec_ctx->qmax = s->requested_q;
         }
 
         /* resolution must be a multiple of two */
@@ -1680,8 +1689,8 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         //codec_ctx->qblur = 0.0f;
         //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
         //codec_ctx->rc_max_available_vbv_use = 1.0f;
-        codec_ctx->qmin = 0;
-        codec_ctx->qmax = 69;
+        codec_ctx->qmin = IF_NOT_UNDEF_ELSE(codec_ctx->qmin, 0);  // qmin,qmax set to -1 by default
+        codec_ctx->qmax = IF_NOT_UNDEF_ELSE(codec_ctx->qmax, 69);
         codec_ctx->max_qdiff = 69;
         //codec_ctx->rc_qsquish = 0;
         //codec_ctx->scenechange_threshold = 100;
