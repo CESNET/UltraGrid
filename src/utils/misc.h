@@ -48,9 +48,9 @@
 #define MERGE(a,b)  a##b
 #define STRINGIFY(A) #A
 #define TOSTRING(A) STRINGIFY(A) // https://stackoverflow.com/questions/240353/convert-a-preprocessor-token-to-a-string
-#define IF_NOT_NULL_ELSE(val, default_val) (val) ? (val) : (default_val)
+#define IF_NOT_NULL_ELSE(val, default_val) ((val) ? (val) : (default_val))
 #define UNDEF -1
-#define IF_NOT_UNDEF_ELSE(val, default_val) (val) != UNDEF ? (val) : (default_val)
+#define IF_NOT_UNDEF_ELSE(val, default_val) ((val) != UNDEF ? (val) : (default_val))
 
 #ifdef __cplusplus
 extern "C" {

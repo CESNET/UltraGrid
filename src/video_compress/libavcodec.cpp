@@ -98,7 +98,7 @@ static constexpr double DEFAULT_X264_X265_CRF = 22.0;
 static constexpr int DEFAULT_CQP = 21;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr const char *DEFAULT_THREAD_MODE = "slice";
-static constexpr int MIN_SLICE_COUNT = 8;
+static constexpr int DEFAULT_SLICE_COUNT = 32;
 static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
 
 namespace {
@@ -110,6 +110,7 @@ struct setparam_param {
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         int thread_count;
         string thread_mode = DEFAULT_THREAD_MODE;
+        int slices = -1;
 };
 
 constexpr string_view DEFAULT_NVENC_PRESET_H264 = "p4";
@@ -353,7 +354,7 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         cout << style::bold << fg::red << "\t-c libavcodec" << fg::reset << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>][q=<q>]"
                         "[:subsampling=<subsampling>][:gop=<gop>]"
-                        "[:[disable_]intra_refresh][:threads=<thr_mode>][:<lavc_opt>=<val>]*\n" <<
+                        "[:[disable_]intra_refresh][:threads=<thr_mode>][:slices=<slices>][:<lavc_opt>=<val>]*\n" <<
                         style::reset;
         cout << "\nwhere\n";
         cout << style::bold << "\t<encoder>" << style::reset << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
@@ -385,6 +386,7 @@ static void usage() {
         cout << style::bold << "\t<q>" << style::reset << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
         cout << style::bold << "\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
         cout << style::bold << "\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
+        cout << style::bold << "\t<slices>" << style::reset << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         cout << style::bold << "\t<gop>" << style::reset << " specifies GOP size\n";
         cout << style::bold << "\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
         cout << "\nUse '" << style::bold << "-c libavcodec:encoder=<enc>:help" << style::reset << "' to display encoder specific options.\n";
@@ -452,6 +454,9 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
                         char *threads = item + strlen("threads=");
                         s->params.thread_mode = threads;
+                } else if(strncasecmp("slices=", item, strlen("slices=")) == 0) {
+                        char *slices = strchr(item, '=') + 1;
+                        s->params.slices = stoi(slices);
                 } else if(strncasecmp("encoder=", item, strlen("encoder=")) == 0) {
                         char *backend = item + strlen("encoder=");
                         s->backend = backend;
@@ -760,7 +765,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
         set_thread_mode(s->codec_ctx, &s->params);
         // currently FFmpeg JPEG encoder produces broken JPEGs if not using encoding threads and slices > 1
-        s->codec_ctx->slices = s->codec_ctx->codec_id != AV_CODEC_ID_MJPEG || s->codec_ctx->thread_count > 1 ? max(s->params.thread_count, MIN_SLICE_COUNT) : 1;
+        s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(s->params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_MJPEG && s->codec_ctx->thread_count <= 1 ? 1 : DEFAULT_SLICE_COUNT);
 
         if (!s->params.have_preset) {
                 string preset{};
