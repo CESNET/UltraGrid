@@ -107,10 +107,11 @@ int invert_bmd_flag(int val);
 
 std::ostream &operator<<(std::ostream &output, REFIID iid);
 
+/// @param type - Int of Flag
 /// @param fatal - exit if failed to set (usually set to true for explicit settings, false implicit)
-#define BMD_CONFIG_SET_INT(key, val, fatal) do {\
+#define BMD_CONFIG_SET(type, key, val, fatal) do {\
         if (val != (decltype(val)) BMD_OPT_DEFAULT && val != (decltype(val)) BMD_OPT_KEEP) {\
-                HRESULT result = deckLinkConfiguration->SetInt(key, val);\
+                HRESULT result = deckLinkConfiguration->Set##type(key, val);\
                 if (result != S_OK) {\
                         LOG(fatal ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
                         if (fatal) { \

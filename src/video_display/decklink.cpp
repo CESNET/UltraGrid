@@ -356,6 +356,7 @@ struct state_decklink {
         bool                low_latency       = true;
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
+        bool                keep_device_defaults = false;
  };
 
 static void show_help(bool full);
@@ -411,6 +412,7 @@ static void show_help(bool full)
                         << style::bold << "2dhd" << style::reset << " or "
                         << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
                         << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
+                cout << style::bold << "\tkeep-settings" << style::reset << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
         }
 
         cout << "Recognized pixel formats:";
@@ -788,7 +790,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 uint32_t link = s->link_req;
 
-                if (s->link_req == BMD_OPT_DEFAULT) {
+                if (!s->keep_device_defaults && s->link_req == BMD_OPT_DEFAULT) {
                         if (desc.width != 7680) {
                                 link = bmdLinkConfigurationSingleLink;
                                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
@@ -799,7 +801,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 }
                 CALL_AND_CHECK(s->state.at(i).deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, link), "Unable set output SDI link mode");
 
-                if (s->profile_req == BMD_OPT_DEFAULT && link == bmdLinkConfigurationQuadLink) {
+                if (!s->keep_device_defaults && s->profile_req == BMD_OPT_DEFAULT && link == bmdLinkConfigurationQuadLink) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
                         decklink_set_duplex(s->state.at(i).deckLink, bmdProfileOneSubDeviceHalfDuplex);
                 } else if (link == bmdLinkConfigurationQuadLink && (s->profile_req != BMD_OPT_KEEP && s->profile_req == bmdProfileOneSubDeviceHalfDuplex)) {
@@ -1041,6 +1043,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                         return false;
                                 }
                         }
+                } else if (strstr(ptr, "keep-settings") == ptr) {
+                        s->keep_device_defaults = true;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                         return false;
@@ -1061,7 +1065,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
-        BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
+        BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) BMD_OPT_DEFAULT;
         int audio_consumer_levels = -1;
         int use1080psf = BMD_OPT_DEFAULT;
 
@@ -1199,9 +1203,9 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoOutputConversionMode, s->conversion_mode, true);
+                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoOutputConversionMode, s->conversion_mode, true);
 
-		if (use1080psf != BMD_OPT_KEEP) {
+                if (!s->keep_device_defaults && use1080psf != BMD_OPT_KEEP) {
                         if (use1080psf == BMD_OPT_DEFAULT) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output signal as progressive, see option \"Use1080PsF\" to use PsF or keep default.\n";
                         }
@@ -1212,22 +1216,14 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                 }
 
-                result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigLowLatencyVideoOutput, s->low_latency);
-                if (result != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set to low-latency mode.\n");
-                        goto error;
+                BMD_CONFIG_SET(Flag, bmdDeckLinkConfigLowLatencyVideoOutput, s->low_latency, true);
+
+                if (!s->keep_device_defaults && s->low_latency) {
+                        BMD_CONFIG_SET(Flag, bmdDeckLinkConfigFieldFlickerRemoval, false, false);
                 }
 
-                if (s->low_latency) {
-                        result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigFieldFlickerRemoval, false);
-                        if (result != S_OK) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set field flicker removal.\n");
-                                goto error;
-                        }
-                }
-
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigHDMI3DPackingFormat, HDMI3DPacking, true);
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoOutputIdleOperation, bmdIdleVideoOutputLastFrame, false);
+                BMD_CONFIG_SET(Int, bmdDeckLinkConfigHDMI3DPackingFormat, HDMI3DPacking, true);
+                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoOutputIdleOperation, bmdIdleVideoOutputLastFrame, false);
 
                 if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
                         if (deckLinkAttributes) {

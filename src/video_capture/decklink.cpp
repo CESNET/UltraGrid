@@ -178,6 +178,7 @@ struct vidcap_decklink_state {
         uint32_t                profile{}; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         uint32_t                link = 0; /// @deprecated TOREMOVE? It sets output link configuration, not input thus it should not be used here.
         bool                    nosig_send = false; ///< send video even when no signal detected
+        bool                    keep_device_defaults = false;
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -528,6 +529,9 @@ decklink_help(bool full)
                 cout << style::bold << "sync_timecode" << style::reset << "\n";
                 cout << "\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n";
                 cout << "\n";
+                cout << style::bold << "keep-settings" << style::reset << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
+                cout << "\n";
+
         } else {
                 cout << "(other options available, use \"fullhelp\" to see complete list of options)\n\n";
         }
@@ -698,6 +702,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->link = bmdLinkConfigurationQuadLink;
         } else if (strcasecmp(opt, "nosig-send") == 0) {
                 s->nosig_send = true;
+        } else if (strstr(opt, "keep-settings") == opt) {
+                s->keep_device_defaults = true;
         } else {
                 log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning, unrecognized trailing options in init string: %s\n", opt);
                 return false;
@@ -1089,12 +1095,13 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 	}
 
 	if (s->link == bmdLinkConfigurationQuadLink) {
-		if (s->profile == BMD_OPT_DEFAULT) {
-			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
-			s->profile = bmdProfileOneSubDeviceHalfDuplex;
-		} else if (s->profile != BMD_OPT_KEEP && s->profile != bmdProfileOneSubDeviceHalfDuplex) {
-			LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and profile other than 1-subdevice-1/2-duplex may not be supported!\n";
-		}
+                if (!s->keep_device_defaults && s->profile == BMD_OPT_DEFAULT) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
+                        s->profile = bmdProfileOneSubDeviceHalfDuplex;
+                }
+                if (s->profile > 0 && s->profile != bmdProfileOneSubDeviceHalfDuplex) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and profile other than 1-subdevice-1/2-duplex may not be supported!\n";
+                }
 	}
 
         switch (get_bits_per_component(s->codec)) {
@@ -1174,7 +1181,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         LOG(LOG_LEVEL_INFO) << "Using device " << deviceName << "\n";
                 }
 
-                if (s->profile != BMD_OPT_DEFAULT && s->profile != BMD_OPT_KEEP) {
+                if (!s->keep_device_defaults && s->profile != BMD_OPT_DEFAULT && s->profile != BMD_OPT_KEEP) {
                         decklink_set_duplex(s->state[i].deckLink, s->profile);
                 }
 
@@ -1190,10 +1197,10 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
                 s->state[i].deckLinkAttributes = deckLinkAttributes;
 
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConnection, s->connection, true);
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, true);
+                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConnection, s->connection, true);
+                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, true);
                 BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
-                BMD_CONFIG_SET_INT(bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, false);
+                BMD_CONFIG_SET(Int, bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, false);
 
                 if (s->link != 0) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output link configuration on capture is deprecated and will be removed in future, let us know if this is needed!\n";
