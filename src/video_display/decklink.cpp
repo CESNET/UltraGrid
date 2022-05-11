@@ -1227,6 +1227,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 }
 
                 BMD_CONFIG_SET_INT(bmdDeckLinkConfigHDMI3DPackingFormat, HDMI3DPacking, true);
+                BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoOutputIdleOperation, bmdIdleVideoOutputLastFrame, false);
 
                 if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
 #if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (8 << 16))
