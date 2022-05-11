@@ -224,48 +224,55 @@ static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
 };
 
 struct state_video_compress_libav {
+        state_video_compress_libav(struct module *parent) {
+                module_init_default(&module_data);
+                module_data.cls = MODULE_CLASS_DATA;
+                module_data.priv_data = this;
+                module_data.deleter = libavcodec_compress_done;
+                module_register(&module_data, parent);
+        }
+
         struct module       module_data;
 
-        struct video_desc   saved_desc;
+        struct video_desc   saved_desc{};
 
-        AVFrame            *in_frame;
+        AVFrame            *in_frame = nullptr;
         // for every core - parts of the above
-        AVFrame           **in_frame_part;
-        AVCodecContext     *codec_ctx;
+        AVFrame           **in_frame_part = nullptr;
+        AVCodecContext     *codec_ctx = nullptr;
 
-        unsigned char      *decoded; ///< intermediate representation for codecs
+        unsigned char      *decoded = nullptr; ///< intermediate representation for codecs
                                      ///< that are not directly supported
-        codec_t             decoded_codec;
-        decoder_t           decoder;
+        codec_t             decoded_codec = VIDEO_CODEC_NONE;
+        decoder_t           decoder = nullptr;
 
-        codec_t             requested_codec_id;
-        long long int       requested_bitrate;
-        double              requested_bpp;
-        double              requested_crf;
-        int                 requested_cqp;
+        codec_t             requested_codec_id = VIDEO_CODEC_NONE;
+        long long int       requested_bitrate = 0;
+        double              requested_bpp = 0;
+        double              requested_crf = -1;
+        int                 requested_cqp = -1;
         // may be 422, 420 or 0 (no subsampling explicitly requested
-        int                 requested_subsampling;
+        int                 requested_subsampling = 0;
         // contains format that is supplied by UG to the encoder or swscale (if used)
-        AVPixelFormat       selected_pixfmt;
+        AVPixelFormat       selected_pixfmt = AV_PIX_FMT_NONE;
 
-        codec_t             out_codec;
+        codec_t             out_codec = VIDEO_CODEC_NONE;
 
-        struct video_desc compressed_desc;
+        struct video_desc compressed_desc{};
 
-        struct setparam_param params;
+        struct setparam_param params{};
         string              backend;
-        int                 requested_gop;
+        int                 requested_gop = DEFAULT_GOP_SIZE;
 
         map<string, string> lavc_opts; ///< user-supplied options from command-line
 
-        bool hwenc;
-        AVFrame *hwframe;
+        bool hwenc = false;
+        AVFrame *hwframe = nullptr;
 
 #ifdef HAVE_SWSCALE
-        struct SwsContext *sws_ctx;
-		// contains format that is supplied to the encoder
-        AVPixelFormat out_pixfmt;
-        AVFrame *sws_frame;
+        struct SwsContext *sws_ctx = nullptr;
+        AVPixelFormat sws_out_pixfmt = AV_PIX_FMT_NONE;
+        AVFrame *sws_frame = nullptr;
 #endif
 };
 
@@ -568,7 +575,6 @@ static compress_module_info get_libavcodec_module_info(){
 
 struct module * libavcodec_compress_init(struct module *parent, const char *opts)
 {
-        struct state_video_compress_libav *s = new state_video_compress_libav();
         ug_set_av_log_level();
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         /*  register all the codecs (you can also register only the codec
@@ -576,27 +582,15 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         avcodec_register_all();
 #endif
 
-        s->codec_ctx = NULL;
-        s->in_frame = NULL;
-        s->requested_codec_id = VIDEO_CODEC_NONE;
-        s->requested_subsampling = 0;
-        s->params.thread_mode = DEFAULT_THREAD_MODE;
-        // both following options take 0 as a valid argument, so we use -1 as an implicit value
-        s->requested_crf = -1;
-        s->requested_cqp = -1;
-
-        memset(&s->saved_desc, 0, sizeof(s->saved_desc));
-
         char *fmt = strdup(opts);
+        struct state_video_compress_libav *s = new state_video_compress_libav(parent);
         int ret = parse_fmt(s, fmt);
         free(fmt);
-        if(ret != 0) {
-                delete s;
-                if(ret > 0)
-                        return &compress_init_noerr;
-                else
-                        return NULL;
+        if (ret != 0) {
+                module_done(&s->module_data);
+                return ret > 0 ? &compress_init_noerr : NULL;
         }
+
 
         try {
                 s->params.thread_count = stoi(s->params.thread_mode);
@@ -611,23 +605,6 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         for(int i = 0; i < s->params.thread_count; i++) {
                 s->in_frame_part[i] = av_frame_alloc();
         }
-
-        s->decoded = NULL;
-
-        module_init_default(&s->module_data);
-        s->module_data.cls = MODULE_CLASS_DATA;
-        s->module_data.priv_data = s;
-        s->module_data.deleter = libavcodec_compress_done;
-        module_register(&s->module_data, parent);
-
-        s->hwenc = false;
-        s->hwframe = NULL;
-
-#ifdef HAVE_SWSCALE
-        s->sws_ctx = nullptr;
-        s->out_pixfmt = AV_PIX_FMT_NONE;
-        s->sws_frame = nullptr;
-#endif
 
         return &s->module_data;
 }
@@ -765,11 +742,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->height = desc.height;
         /* frames per second */
         s->codec_ctx->time_base = (AVRational){1,(int) desc.fps};
-        if (s->requested_gop) {
-                s->codec_ctx->gop_size = s->requested_gop;
-        } else {
-                s->codec_ctx->gop_size = DEFAULT_GOP_SIZE;
-        }
+        s->codec_ctx->gop_size = s->requested_gop;
         s->codec_ctx->max_b_frames = 0;
 
         s->codec_ctx->pix_fmt = pix_fmt;
@@ -1129,7 +1102,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         sws_freeContext(s->sws_ctx);
         s->sws_ctx = nullptr;
         av_frame_free(&s->sws_frame);
-        s->out_pixfmt = AV_PIX_FMT_NONE;
+        s->sws_out_pixfmt = AV_PIX_FMT_NONE;
 #endif //HAVE_SWSCALE
 
         s->params.fps = desc.fps;
@@ -1249,7 +1222,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 log_msg(LOG_LEVEL_NOTICE, "[lavc] Attempting to use swscale to convert.\n");
                 //get all AVPixelFormats we can convert to and pick the first
                 auto fmts = get_available_pix_fmts(desc, codec, s->requested_subsampling, VIDEO_CODEC_NONE);
-                s->out_pixfmt = s->selected_pixfmt;
+                s->sws_out_pixfmt = s->selected_pixfmt;
                 s->selected_pixfmt = fmts.front();
                 if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
                         //Should not happen as get_available_pix_fmts should only
@@ -1263,7 +1236,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                             s->selected_pixfmt,
                                             desc.width,
                                             desc.height,
-                                            s->out_pixfmt,
+                                            s->sws_out_pixfmt,
                                             SWS_POINT);
                 if(!s->sws_ctx){
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init sws context.\n");
@@ -1277,10 +1250,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
                 s->sws_frame->width = s->codec_ctx->width;
                 s->sws_frame->height = s->codec_ctx->height;
-                s->sws_frame->format = s->out_pixfmt;
+                s->sws_frame->format = s->sws_out_pixfmt;
                 ret = av_image_alloc(s->sws_frame->data, s->sws_frame->linesize,
                                 s->sws_frame->width, s->sws_frame->height,
-                                s->out_pixfmt, 32);
+                                s->sws_out_pixfmt, 32);
                 if (ret < 0) {
                         log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer for sws\n");
                         return false;
@@ -1288,7 +1261,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
                 log_msg(LOG_LEVEL_NOTICE, "[lavc] Using swscale to convert %s to %s.\n",
                                 av_get_pix_fmt_name(s->selected_pixfmt),
-                                av_get_pix_fmt_name(s->out_pixfmt));
+                                av_get_pix_fmt_name(s->sws_out_pixfmt));
 #endif //HAVE_SWSCALE
         }
 
