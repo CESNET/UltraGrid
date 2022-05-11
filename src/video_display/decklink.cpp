@@ -1230,24 +1230,20 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 BMD_CONFIG_SET_INT(bmdDeckLinkConfigVideoOutputIdleOperation, bmdIdleVideoOutputLastFrame, false);
 
                 if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
-#if BLACKMAGIC_DECKLINK_API_VERSION < ((10 << 24) | (8 << 16))
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Compiled with old SDK - cannot set 3G-SDI level.\n");
-#else
-			if (deckLinkAttributes) {
-				BMD_BOOL supports_level_a;
-				if (deckLinkAttributes->GetFlag(BMDDeckLinkSupportsSMPTELevelAOutput, &supports_level_a) != S_OK) {
-					log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could figure out if device supports Level A 3G-SDI.\n");
-				} else {
-					if (s->sdi_dual_channel_level == 'A' && supports_level_a == BMD_FALSE) {
-						log_msg(LOG_LEVEL_WARNING, MOD_NAME "Device does not support Level A 3G-SDI!\n");
-					}
-				}
-			}
+                        if (deckLinkAttributes) {
+                                BMD_BOOL supports_level_a;
+                                if (deckLinkAttributes->GetFlag(BMDDeckLinkSupportsSMPTELevelAOutput, &supports_level_a) != S_OK) {
+                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could figure out if device supports Level A 3G-SDI.\n");
+                                } else {
+                                        if (s->sdi_dual_channel_level == 'A' && supports_level_a == BMD_FALSE) {
+                                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Device does not support Level A 3G-SDI!\n");
+                                        }
+                                }
+                        }
                         HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSMPTELevelAOutput, s->sdi_dual_channel_level == 'A');
                         if(res != S_OK) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output 3G-SDI level.\n");
                         }
-#endif
                 }
 
                 if (s->requested_hdr_mode.EOTF != static_cast<int64_t>(HDR_EOTF::NONE)) {
