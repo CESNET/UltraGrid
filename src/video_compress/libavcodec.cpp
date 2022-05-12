@@ -1708,6 +1708,8 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         }
 
         if (codec_ctx->codec->id == AV_CODEC_ID_H264) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Setting \"slice-max-size\" to %d, in case of decoding problems, use "
+                                "\"slice-max-size=-1\" to revert and please report to " PACKAGE_BUGREPORT ".\n", NAL_UNIT_SIZE);
                 if (int ret = av_opt_set_int(codec_ctx->priv_data, "slice-max-size", NAL_UNIT_SIZE, 0)) {
                         print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to set max slice size", ret);
                 }
