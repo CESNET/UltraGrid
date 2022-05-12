@@ -759,6 +759,25 @@ static bool sockaddr_equal(struct sockaddr *a, struct sockaddr *b){
         }
 }
 
+// Formats bps in "XXXX.X [u]bps" where 'u' is an SI unit.
+static const char *get_bps_with_si_units(unsigned long long int bps) {
+    const char *si_prefixes[] = { "", "k", "M", "G" };
+    int prefix_idx = 0;
+    int reminder = 0;
+    bps *= 8;
+    while (bps > 10000) {
+        reminder = bps % 1000;
+        bps /= 1000;
+        prefix_idx += 1;
+        if (prefix_idx == sizeof si_prefixes / sizeof si_prefixes[0] - 1) {
+            break;
+        }
+    }
+    thread_local char buf[128];
+    snprintf(buf, sizeof buf, "%lld.%d %sbps", bps, reminder / 100, si_prefixes[prefix_idx]);
+    return buf;
+}
+
 #define EXIT(retval) { hd_rum_translator_deinit(&state); if (sock_in != nullptr) udp_exit(sock_in); common_cleanup(init); return retval; }
 int main(int argc, char **argv)
 {
@@ -989,7 +1008,7 @@ int main(int argc, char **argv)
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
                 unsigned long long int bps = cur_data / seconds;
-                log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %llu B/s.\n", cur_data, seconds, bps);
+                log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %s.\n", cur_data, seconds, get_bps_with_si_units(bps));
                 t0 = t;
                 last_data = received_data;
             }
