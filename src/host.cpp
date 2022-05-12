@@ -83,7 +83,7 @@
 #define X11_LIB_NAME "libX11.so.6"
 #endif
 
-#ifdef USE_MTRACE
+#ifdef __linux__
 #include <mcheck.h>
 #endif
 
@@ -130,7 +130,7 @@ void common_cleanup(struct init_data *init)
         }
         delete init;
 
-#ifdef USE_MTRACE
+#ifdef __linux__
         muntrace();
 #endif
 
@@ -368,7 +368,7 @@ struct init_data *common_preinit(int argc, char *argv[])
                 open_all("ultragrid_*.so", init->opened_libs); // load modules
         }
 
-#ifdef USE_MTRACE
+#ifdef __linux__
         mtrace();
 #endif
 
