@@ -238,6 +238,11 @@ static struct item *qinit(int qsize)
     struct item *queue;
     int i;
 
+    if (qsize <= 0) {
+        fprintf(stderr, "wrong packet queue size %d items\n", qsize);
+        return nullptr;
+    }
+
     printf("initializing packet queue for %d items\n", qsize);
 
     queue = (struct item *) calloc(qsize, sizeof(struct item));
@@ -852,15 +857,18 @@ int main(int argc, char **argv)
 
     if (params.port <= 0) {
         fprintf(stderr, "invalid port: %d\n", params.port);
-        EXIT(1);
+        EXIT(EXIT_FAIL_USAGE);
     }
 
     state.qhead = state.qtail = state.queue = qinit(qsize);
+    if (!state.qhead) {
+        EXIT(EXIT_FAILURE);
+    }
 
     /* input socket */
     if ((sock_in = udp_init_if("localhost", NULL, params.port, 0, 255, false, false)) == NULL) {
         perror("input socket");
-        EXIT(2);
+        EXIT(EXIT_FAILURE);
     }
 
     if (udp_set_recv_buf(sock_in, bufsize) != TRUE) {
