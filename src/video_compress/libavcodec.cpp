@@ -109,7 +109,7 @@ struct setparam_param {
         bool interlaced;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         int thread_count;
-        string thread_mode;
+        string thread_mode = DEFAULT_THREAD_MODE;
 };
 
 constexpr string_view DEFAULT_NVENC_PRESET_H264 = "p4";
