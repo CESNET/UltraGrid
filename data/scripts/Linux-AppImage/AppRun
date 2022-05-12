@@ -37,10 +37,10 @@ usage() {
         printf "\t%s -u|--update [args]\n" "$ARGV0"
         printf "\t\tupdates AppImage (args will be passed to appimageupdatetool)\n"
         printf "\n"
-        printf "\t%s -t|--tool uv --help\n" "$ARGV0"
+        printf "\t%s -o|--tool uv --help\n" "$ARGV0"
         printf "\t\tprints command-line UltraGrid help\n"
         printf "\n"
-        printf "\t%s -t|--tool <t> [args]\n" "$ARGV0"
+        printf "\t%s -o|--tool <t> [args]\n" "$ARGV0"
         printf "\t\tinvokes specified tool\n"
         printf "\t\ttool may be: $(tput bold)%s$(tput sgr0)\n" "$(get_tools)"
         printf "\n"
@@ -187,7 +187,7 @@ if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
                 echo "GUI was not compiled in!" >&2
                 exit 1
         fi
-elif [ "$1" = "-t" ] || [ "$1" = "--tool" ]; then
+elif [ "$1" = "-o" ] || [ "$1" = "--tool" ]; then
         handle_updates
         TOOL=$2
         shift 2
