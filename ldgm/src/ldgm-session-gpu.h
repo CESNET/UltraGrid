@@ -21,22 +21,10 @@
 #define  LDGM_SESSION_GPU_INC
 
 #include <string.h>
-#include <stdio.h>
 #include "ldgm-session.h"
 
 #include <map>
 #include <queue>
-
-// CUDA check error
-#define cuda_check_error(msg) \
-    { \
-        cudaError_t err = cudaGetLastError(); \
-        if( cudaSuccess != err) { \
-            fprintf(stderr, "[LDGM GPU] [Error] %s (line %i): %s: %s.\n", \
-                __FILE__, __LINE__, msg, cudaGetErrorString( err) ); \
-            exit(-1); \
-        } \
-    } \
 
 /*
  * =====================================================================================
