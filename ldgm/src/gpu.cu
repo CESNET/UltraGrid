@@ -23,7 +23,6 @@
 #include <cuda_runtime.h>
 //#include "timer-util.h"
 #include "gpu.cuh"
-#include "ldgm-session-gpu.h"
 
 struct coding_params {
         int num_lost;

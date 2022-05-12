@@ -1,3 +1,16 @@
+#include <stdio.h>
+
+// CUDA check error
+#define cuda_check_error(msg) \
+    { \
+        cudaError_t err = cudaGetLastError(); \
+        if( cudaSuccess != err) { \
+            fprintf(stderr, "[LDGM GPU] [Error] %s (line %i): %s: %s.\n", \
+                __FILE__, __LINE__, msg, cudaGetErrorString( err) ); \
+            exit(-1); \
+        } \
+    } \
+
 #ifdef __cplusplus
 extern "C" {
 #endif
