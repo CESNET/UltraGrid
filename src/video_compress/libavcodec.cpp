@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,7 +97,6 @@ static constexpr const codec_t DEFAULT_CODEC = MJPG;
 static constexpr double DEFAULT_X264_X265_CRF = 22.0;
 static constexpr int DEFAULT_CQP = 21;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
-static constexpr const char *DEFAULT_THREAD_MODE = "slice";
 static constexpr int DEFAULT_SLICE_COUNT = 32;
 static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
 
@@ -109,7 +108,7 @@ struct setparam_param {
         bool interlaced;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         int thread_count;
-        string thread_mode = DEFAULT_THREAD_MODE;
+        string thread_mode;
         int slices = -1;
 };
 
@@ -139,7 +138,7 @@ static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264_h265_av1(AVCodecContext *, struct setparam_param *);
 static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
-static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
+static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
 
 typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
@@ -385,7 +384,7 @@ static void usage() {
         cout << style::bold << "\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
         cout << style::bold << "\t<q>" << style::reset << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
         cout << style::bold << "\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
-        cout << style::bold << "\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame\", \"slice\" or a number (of slice threads)\n";
+        cout << style::bold << "\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame[=count]\", \"slice[=count]\" or just a number\n";
         cout << style::bold << "\t<slices>" << style::reset << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         cout << style::bold << "\t<gop>" << style::reset << " specifies GOP size\n";
         cout << style::bold << "\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
@@ -602,11 +601,7 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         }
 
 
-        try {
-                s->params.thread_count = stoi(s->params.thread_mode);
-        } catch(invalid_argument &) { // thread mode is not a number of threads (eg. slice)
-                s->params.thread_count = min<unsigned int>(thread::hardware_concurrency(), INT_MAX);
-        }
+        s->params.thread_count = min<unsigned int>(thread::hardware_concurrency(), INT_MAX);
         if (s->params.thread_count < 1) {
                 log_msg(LOG_LEVEL_WARNING, "Warning: Cannot get number of CPU cores!\n");
                 s->params.thread_count = 1;
@@ -763,7 +758,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->bits_per_raw_sample = min<int>(get_bpp(ug_codec), av_pix_fmt_desc_get(pix_fmt)->comp[0].depth);
 
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
-        set_thread_mode(s->codec_ctx, &s->params);
+        set_codec_thread_mode(s->codec_ctx, &s->params);
         // currently FFmpeg JPEG encoder produces broken JPEGs if not using encoding threads and slices > 1
         s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(s->params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_MJPEG && s->codec_ctx->thread_count <= 1 ? 1 : DEFAULT_SLICE_COUNT);
 
@@ -1623,35 +1618,47 @@ static void libavcodec_compress_done(struct module *mod)
         delete s;
 }
 
-static void set_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        int threads = 0;
-
-        try {
-                threads = stoi(param->thread_mode);
-        } catch(invalid_argument &) { // not a number
-        }
-
         if (param->thread_mode == "no") { // disable threading (which may have been enabled previously
                 codec_ctx->thread_type = 0;
                 codec_ctx->thread_count = 1;
-        } else if (param->thread_mode == "slice" || threads > 0) {
-                // zero should mean count equal to the number of virtual cores
-                if (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
-                        codec_ctx->thread_count = threads; // if "slice", 0 means auto
-                        codec_ctx->thread_type = FF_THREAD_SLICE;
-                } else {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support slice-based multithreading.\n");
+                return;
+        }
+
+        try { // just a number
+                codec_ctx->thread_count = stoi(param->thread_mode);
+                return;
+        } catch(invalid_argument &) { // not a number
+        }
+
+        if (!param->thread_mode.empty()) {
+                codec_ctx->thread_type = strstr(param->thread_mode.c_str(), "slice") != nullptr ? FF_THREAD_SLICE :
+                        strstr(param->thread_mode.c_str(), "thread") != nullptr ? FF_THREAD_FRAME : 0;
+                if (codec_ctx->thread_type == 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown thread mode: %s.\n", param->thread_mode.c_str());
                 }
-        } else if (param->thread_mode == "frame") {
-                if (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
-                        codec_ctx->thread_count = 0;
-                        codec_ctx->thread_type = FF_THREAD_FRAME;
-                } else {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Codec doesn't support frame-based multithreading.\n");
+                if ((codec_ctx->thread_type == FF_THREAD_SLICE && (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) == 0) ||
+                                (codec_ctx->thread_type == FF_THREAD_FRAME && (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) == 0)) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Codec doesn't support specified thread mode.\n");
                 }
-        } else {
-                log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: unknown thread mode: %s.\n", param->thread_mode.c_str());
+
+                if (auto pos = param->thread_mode.find('='); pos != string::npos) {
+                        codec_ctx->thread_count = stoi(param->thread_mode.substr(pos + 1));
+                }
+                return;
+        }
+
+#ifdef AV_CODEC_CAP_OTHER_THREADS // compat - OTHER_THREADS is AUTO_THREADS in older FF
+        if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
+#else
+        if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_AUTO_THREADS) != 0) {
+#endif
+                // mainly for libvpx-vp9, libx264 has thread_count set implicitly to 0 (auto)
+                codec_ctx->thread_count = 0;
+        } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) != 0) {
+                codec_ctx->thread_count = thread::hardware_concurrency();
+                codec_ctx->thread_type = FF_THREAD_SLICE;
         }
 }
 
@@ -1944,7 +1951,6 @@ static string get_av1_preset(string const & enc_name, int width, int height, dou
 
 static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        codec_ctx->thread_count = param->thread_count;
         codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->fps;
         //codec_ctx->rc_buffer_aggressivity = 0.5;
         if (av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0) != 0) {
