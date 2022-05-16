@@ -139,7 +139,7 @@ struct state_vidcap_syphon {
         mutex lock;
         condition_variable frame_ready_cv;
         queue<video_frame *> q;
-        int max_queue_size = DEFAULT_MAX_QUEUE_SIZE;
+        size_t max_queue_size = DEFAULT_MAX_QUEUE_SIZE;
 
         GLuint fbo_id;
         GLuint tex_id;
