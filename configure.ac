@@ -146,7 +146,9 @@ if test $system = Linux; then
 fi
 
 if test $system = MacOSX; then
+        MACOS_LEGACY=no
         if test $os_version_major -lt 19; then # Darwin 19.0.0 is macOS 10.15
+                MACOS_LEGACY=yes
                 MIN_MACOS_VER=10.7
         else
                 MIN_MACOS_VER=10.15
@@ -160,6 +162,7 @@ if test $system = MacOSX; then
         fi
 	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS -headerpad_max_install_names"
         OBJS="$OBJS src/utils/autorelease_pool.o"
+        AC_SUBST(MACOS_LEGACY)
 fi
 
 if test $system = Windows; then
