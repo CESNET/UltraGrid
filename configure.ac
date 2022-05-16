@@ -156,6 +156,7 @@ if test $system = MacOSX; then
         fi
 	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS -headerpad_max_install_names"
         OBJS="$OBJS src/utils/autorelease_pool.o"
+        AC_SUBST(MACOS_LEGACY)
 fi
 
 if test $system = Windows; then

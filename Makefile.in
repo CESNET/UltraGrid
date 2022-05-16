@@ -617,6 +617,12 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
 	# add Qt frameworks
 	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2 -executable=$(GUI_BUNDLE)/Contents/MacOS/uv -executable=$(GUI_BUNDLE)/Contents/MacOS/hd-rum-transcode
+	if [ $(MACOS_LEGACY) = no ]; then \
+		for n in $(GUI_BUNDLE)/Contents/MacOS/*; do \
+			if expr $$n : '.*-real' >/dev/null; then continue; fi; \
+			mv -f $$n $$n-real; cp -f $(srcdir)/data/scripts/macos-wrapper $$n; \
+		done; \
+	fi
 	test -d $(GUI_BUNDLE)/Contents/Resources || mkdir $(GUI_BUNDLE)/Contents/Resources
 	cp data/icon.icns $(GUI_BUNDLE)/Contents/Resources
 	cp data/update.mac $(GUI_BUNDLE)/Contents/MacOS/update
