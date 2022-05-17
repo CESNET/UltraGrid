@@ -66,7 +66,6 @@
 #include <X11/extensions/Xfixes.h>
 #endif // HAVE_XFIXES
 #include <X11/Xutil.h>
-#include "x11_common.h"
 
 #define MOD_NAME "[screen capture] "
 #define QUEUE_SIZE_MAX 3
@@ -79,8 +78,9 @@ static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t screen[:fps=<fps>]\n");
+        printf("\t-t screen[:fps=<fps>][:display=<d>]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
+        printf("\t\t<display> - display to capture (including the colon!)\n");
 }
 
 struct grabbed_data;
@@ -117,6 +117,7 @@ struct vidcap_screen_x11_state {
 
         bool initialized;
         int cpu_count;
+        char *req_display;
 };
 
 static bool initialize(struct vidcap_screen_x11_state *s) {
@@ -125,17 +126,15 @@ static bool initialize(struct vidcap_screen_x11_state *s) {
 
         XWindowAttributes wa;
 
-        x11_lock();
-
-        s->dpy = x11_acquire_display();
-        x11_unlock();
-
+        s->dpy = XOpenDisplay(s->req_display);
         if (!s->dpy) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open display %s\n", IF_NOT_NULL_ELSE(s->req_display, IF_NOT_NULL_ELSE(getenv("DISPLAY"), "($DISPLAY undefined!)")));
                 return false;
         }
 
         s->root = DefaultRootWindow(s->dpy);
         if (!s->dpy) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot get root window!\n");
                 return false;
         }
 
@@ -297,6 +296,17 @@ static _Bool parse_fmt(struct vidcap_screen_x11_state *s, char *fmt) {
                 fmt = NULL;
                 if (strstr(tok, "fps=") == tok) {
                         s->fps = atoi(strchr(tok, '=') + 1);
+                } else if (strstr(tok, "display=") == tok) {
+                        char *val = strchr(tok, '=') + 1;
+                        s->req_display = strdup(val);
+                        tok = strtok_r(NULL, ":", &save_ptr);
+                        if (!tok) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Display string doesn't contain the colon\n");
+                                return 0;
+                        }
+                        s->req_display = realloc(s->req_display, strlen(s->req_display) + 1 + strlen(tok) + 1);
+                        strcat(s->req_display, ":");
+                        strcat(s->req_display, tok);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option \"%s\"!\n", tok);
                         return 0;
@@ -389,6 +399,7 @@ static void vidcap_screen_x11_done(void *state)
                 free(s->tile->data);
 
         vf_free(s->frame);
+        free(s->req_display);
         free(s);
 }
 
@@ -400,6 +411,7 @@ static struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_fra
                 s->initialized = initialize(s);
                 if (!s->initialized) {
                         fprintf(stderr, "Cannot capture screen - unable to initialize!\n");
+                        exit_uv(1);
                         return NULL;
                 }
         }

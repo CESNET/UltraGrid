@@ -34,6 +34,15 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @todo
+ * Perhaps remove the whole stuff (+ resouce manager). This used to be used to
+ * solve some crashes with access to X11 from within multiple threads (IIRC
+ * RTDXT and X11-based display - GL/SDL?).
+ *
+ * This may not be needed - individual modues create its own non-shared Xlib
+ * connection and XInitThreads() is called (this also may not be required).
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
