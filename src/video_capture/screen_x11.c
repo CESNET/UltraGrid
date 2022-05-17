@@ -34,6 +34,10 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @todo
+ * The XGetImage() is a bit slow, consider using XShm as OBS does.
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -44,6 +48,8 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/misc.h"
+#include "utils/parallel_conv.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -109,6 +115,7 @@ struct vidcap_screen_x11_state {
         double fps;
 
         bool initialized;
+        int cpu_count;
 };
 
 static bool initialize(struct vidcap_screen_x11_state *s) {
@@ -299,6 +306,7 @@ static int vidcap_screen_x11_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
         s->initialized = false;
+        s->cpu_count = get_cpu_core_count();
 
         gettimeofday(&s->t0, NULL);
 
@@ -420,8 +428,7 @@ static struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_fra
          * some configurations, but seems to work currently. To be corrected if there is an
          * opposite case.
          */
-        vc_copylineABGRtoRGB((unsigned char *) s->tile->data,
-                        (unsigned char *) &item->data->data[0], s->tile->data_len, 0, 8, 16);
+        parallel_pix_conv(s->tile->height, s->tile->data, vc_get_linesize(s->tile->width, RGB), &item->data->data[0], vc_get_linesize(s->tile->width, RGBA), vc_copylineABGRtoRGB, s->cpu_count);
 
         XDestroyImage(item->data);
         free(item);
