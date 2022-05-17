@@ -68,6 +68,7 @@
 #include <X11/Xutil.h>
 #include "x11_common.h"
 
+#define MOD_NAME "[screen capture] "
 #define QUEUE_SIZE_MAX 3
 
 /* prototypes of functions defined in this module */
@@ -290,49 +291,52 @@ static struct vidcap_type * vidcap_screen_x11_probe(bool verbose, void (**delete
         return vt;
 }
 
+static _Bool parse_fmt(struct vidcap_screen_x11_state *s, char *fmt) {
+        char *tok, *save_ptr;
+        while ((tok = strtok_r(fmt, ":", &save_ptr)) != NULL) {
+                fmt = NULL;
+                if (strstr(tok, "fps=") == tok) {
+                        s->fps = atoi(strchr(tok, '=') + 1);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option \"%s\"!\n", tok);
+                        return 0;
+                }
+        }
+        return 1;
+}
+
 static int vidcap_screen_x11_init(struct vidcap_params *params, void **state)
 {
-        struct vidcap_screen_x11_state *s;
-
         printf("vidcap_screen_init\n");
 
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
         }
 
-        s = (struct vidcap_screen_x11_state *) malloc(sizeof(struct vidcap_screen_x11_state));
+        const char *fmt = vidcap_params_get_fmt(params);
+        if (strcmp(fmt, "help") == 0) {
+                show_help();
+                return VIDCAP_INIT_NOERR;
+        }
+
+        struct vidcap_screen_x11_state *s = calloc(1, sizeof(struct vidcap_screen_x11_state));
         if(s == NULL) {
                 printf("Unable to allocate screen capture state\n");
                 return VIDCAP_INIT_FAIL;
         }
-        s->initialized = false;
         s->cpu_count = get_cpu_core_count();
-
         gettimeofday(&s->t0, NULL);
 
-        s->fps = 0.0;
-
-        s->frame = NULL;
-        s->tile = NULL;
-
-        s->worker_id = 0;
 #ifndef HAVE_XFIXES
         fprintf(stderr, "[Screen capture] Compiled without XFixes library, cursor won't be shown!\n");
 #endif // ! HAVE_XFIXES
 
-        s->prev_time.tv_sec = 
-                s->prev_time.tv_usec = 0;
-
-        s->frames = 0;
-
-        if(vidcap_params_get_fmt(params)) {
-                if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                        show_help();
-                        free(s);
-                        return VIDCAP_INIT_NOERR;
-                } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
-                        s->fps = atoi(vidcap_params_get_fmt(params) + strlen("fps="));
-                }
+        char *fmt_cpy = strdup(fmt);
+        _Bool ret = parse_fmt(s, fmt_cpy);
+        free(fmt_cpy);
+        if (!ret) {
+                free(s);
+                return VIDCAP_INIT_FAIL;
         }
 
         *state = s;
