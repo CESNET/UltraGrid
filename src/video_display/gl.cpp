@@ -442,6 +442,9 @@ static void gl_print_monitors(bool fullhelp) {
         printf("\nmonitors:\n");
         int count = 0;
         GLFWmonitor **mon = glfwGetMonitors(&count);
+        if (count <= 0) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "No monitors found!\n";
+        }
         GLFWmonitor *primary = glfwGetPrimaryMonitor();
         for (int i = 0; i < count; ++i) {
                 cout << "\t" << (mon[i] == primary ? "*" : " ") << BOLD(i) << ") " << glfwGetMonitorName(mon[i]);
@@ -718,8 +721,8 @@ static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspe
 {
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "glfw - fullscreen: %d, aspect: %lf, factor %lf\n",
                         (int) fs, aspect, window_size_factor);
-        if (fs) {
-                auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+        auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
+        if (fs && s->monitor != nullptr) {
                 GLFWmonitor *mon = s->monitor;
                 if (s->modeset) {
                         int refresh_rate = s->modeset == state_gl::MODESET ? round(fps) : static_cast<int>(s->modeset);
@@ -1137,15 +1140,12 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                                 int width = s->current_display_desc.width;
                                 int height = s->current_display_desc.height;
                                 int refresh_rate = s->modeset == state_gl::MODESET ? round(s->current_display_desc.fps) : static_cast<int>(s->modeset);
-                                GLFWmonitor *mon = nullptr;
-                                if (s->fs) {
-                                        mon = s->monitor;
-                                        if (!s->modeset) {
-                                                const GLFWvidmode* mode = glfwGetVideoMode(mon);
-                                                width = mode->width;
-                                                height = mode->height;
-                                                refresh_rate = mode->refreshRate;
-                                        }
+                                GLFWmonitor *mon = s->fs ? s->monitor : nullptr;
+                                if (mon && !s->modeset) {
+                                        const GLFWvidmode* mode = glfwGetVideoMode(mon);
+                                        width = mode->width;
+                                        height = mode->height;
+                                        refresh_rate = mode->refreshRate;
                                 }
                                 glfwSetWindowMonitor(s->window, mon, 0, 0, width, height, refresh_rate);
                                 glfw_print_video_mode(s);
@@ -1290,6 +1290,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
         }
 
         s->monitor = glfwGetPrimaryMonitor();
+        if (s->monitor == nullptr) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "No monitor found! Continuing but full-screen will be disabled.\n";
+        }
 
         if (commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end()) {
                 for (auto const & bits : {GLFW_RED_BITS, GLFW_GREEN_BITS, GLFW_BLUE_BITS}) {
@@ -1307,7 +1310,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (s->fixed_size && s->fixed_w && s->fixed_h) {
                 width = s->fixed_w;
                 height = s->fixed_h;
-        } else if (!s->modeset && s->fs) {
+        } else if (!s->modeset && mon != nullptr) {
                 const GLFWvidmode* mode = glfwGetVideoMode(mon);
                 width = mode->width;
                 height = mode->height;
