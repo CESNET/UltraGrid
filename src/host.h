@@ -181,7 +181,7 @@ struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
  * iterations (GCC), perhals the same holds also for clang. */
 #define __NL__
 #if defined __clang__ // try clang first - on macOS, clang defines both __clang__ and __GNUC__
-#define OPTIMIZED_FOR _Pragma("clang loop vectorize(enable) interleave(enable)") __NL__ for
+#define OPTIMIZED_FOR _Pragma("clang loop vectorize(assume_safety) interleave(enable)") __NL__ for
 #elif defined __GNUC__
 #define OPTIMIZED_FOR _Pragma("GCC ivdep") __NL__ for
 #else
