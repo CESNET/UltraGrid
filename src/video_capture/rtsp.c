@@ -663,7 +663,7 @@ static CURL *init_curl() {
 static size_t print_rtsp_header(char *buffer, size_t size, size_t nitems, void *userdata) {
     int aggregate_size = size * nitems;
     struct rtsp_state *s = (struct rtsp_state *) userdata;
-    if (strncmp(buffer, "RTSP/1.0 ", MIN(strlen("RTSP/1.0 "), aggregate_size)) == 0) {
+    if (strncmp(buffer, "RTSP/1.0 ", MIN(strlen("RTSP/1.0 "), (size_t) aggregate_size)) == 0) {
         int code = atoi(buffer + strlen("RTSP/1.0 "));
         s->rtsp_error_occurred = code != 200;
     }
