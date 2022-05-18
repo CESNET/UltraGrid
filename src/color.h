@@ -57,18 +57,18 @@ typedef int32_t comp_type_t; // int32_t provides much better performance than in
 #define COMP_BASE (sizeof(comp_type_t) == 4 ? 14 : 18) // computation will be less precise when comp_type_t is 32 bit
 static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
 
-static const comp_type_t y_r = (0.2126*219/255) * (1<<COMP_BASE);
-static const comp_type_t y_g = (0.7152*219/255) * (1<<COMP_BASE);
-static const comp_type_t y_b = (0.0722*219/255) * (1<<COMP_BASE);
-static const comp_type_t cb_r = (-0.2126/1.8556*224/255) * (1<<COMP_BASE);
-static const comp_type_t cb_g = (-0.7152/1.8556*224/255) * (1<<COMP_BASE);
-static const comp_type_t cb_b = ((1-0.0722)/1.8556*224/255) * (1<<COMP_BASE);
-static const comp_type_t cr_r = ((1-0.2126)/1.5748*224/255) * (1<<COMP_BASE);
-static const comp_type_t cr_g = (-0.7152/1.5748*224/255) * (1<<COMP_BASE);
-static const comp_type_t cr_b = (-0.0722/1.5748*224/255) * (1<<COMP_BASE);
-#define RGB_TO_Y_709_SCALED(r, g, b) ((r) * y_r + (g) * y_g + (b) * y_b)
-#define RGB_TO_CB_709_SCALED(r, g, b) ((r) * cb_r + (g) * cb_g + (b) * cb_b)
-#define RGB_TO_CR_709_SCALED(r, g, b) ((r) * cr_r + (g) * cr_g + (b) * cr_b)
+#define Y_R ((comp_type_t) ((0.2126*219/255) * (1<<COMP_BASE)))
+#define Y_G ((comp_type_t) ((0.7152*219/255) * (1<<COMP_BASE)))
+#define Y_B ((comp_type_t) ((0.0722*219/255) * (1<<COMP_BASE)))
+#define CB_R ((comp_type_t) ((-0.2126/1.8556*224/255) * (1<<COMP_BASE)))
+#define CB_G ((comp_type_t) ((-0.7152/1.8556*224/255) * (1<<COMP_BASE)))
+#define CB_B ((comp_type_t) (((1-0.0722)/1.8556*224/255) * (1<<COMP_BASE)))
+#define CR_R ((comp_type_t) (((1-0.2126)/1.5748*224/255) * (1<<COMP_BASE)))
+#define CR_G ((comp_type_t) ((-0.7152/1.5748*224/255) * (1<<COMP_BASE)))
+#define CR_B ((comp_type_t) ((-0.0722/1.5748*224/255) * (1<<COMP_BASE)))
+#define RGB_TO_Y_709_SCALED(r, g, b) ((r) * Y_R + (g) * Y_G + (b) * Y_B)
+#define RGB_TO_CB_709_SCALED(r, g, b) ((r) * CB_R + (g) * CB_G + (b) * CB_B)
+#define RGB_TO_CR_709_SCALED(r, g, b) ((r) * CR_R + (g) * CR_G + (b) * CR_B)
 #define CLAMP_LIMITED_Y(val, depth) MIN(MAX(val, 1<<(depth-4)), 235 * (1<<(depth-8)));
 #define CLAMP_LIMITED_CBCR(val, depth) MIN(MAX(val, 1<<(depth-4)), 240 * (1<<(depth-8)));
 
@@ -80,19 +80,19 @@ static const comp_type_t cr_b = (-0.0722/1.5748*224/255) * (1<<COMP_BASE);
 #define B_CB_709  2.112402
 #define B_CR_709  0.0
 //  matrix Y1^-1 = inv(Y)
-static const comp_type_t y_scale = Y_709 * (1<<COMP_BASE); // precomputed value, Y multiplier is same for all channels
+#define Y_SCALE ((comp_type_t) (Y_709 * (1<<COMP_BASE))) // precomputed value, Y multiplier is same for all channels
 //static const comp_type_t r_y = 1; // during computation already contained in y_scale
 //static const comp_type_t r_cb = 0;
-static const comp_type_t r_cr = R_CR_709 * (1<<COMP_BASE);
+#define R_CR ((comp_type_t) (R_CR_709 * (1<<COMP_BASE)))
 //static const comp_type_t g_y = 1;
-static const comp_type_t g_cb = G_CB_709 * (1<<COMP_BASE);
-static const comp_type_t g_cr = G_CR_709 * (1<<COMP_BASE);
+#define G_CB ((comp_type_t) (G_CB_709 * (1<<COMP_BASE)))
+#define G_CR ((comp_type_t) (G_CR_709 * (1<<COMP_BASE)))
 //static const comp_type_t b_y = 1;
-static const comp_type_t b_cb = B_CB_709 * (1<<COMP_BASE);
+#define B_CB ((comp_type_t) (B_CB_709 * (1<<COMP_BASE)))
 //static const comp_type_t b_cr = 0;
-#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * r_cb */ + (cr) * r_cr)
-#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * g_cb    + (cr) * g_cr)
-#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * b_cb /* + (cr) * b_cr */)
+#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * r_cb */ + (cr) * R_CR)
+#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * G_CB    + (cr) * G_CR)
+#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * B_CB /* + (cr) * b_cr */)
 
 #define FULL_FOOT(depth) (1<<((depth)-8))
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)

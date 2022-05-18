@@ -250,7 +250,7 @@ static void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame
 		unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t y = (y_scale * (*src_y++ - (1<<(depth-4))));
+                        comp_type_t y = (Y_SCALE * (*src_y++ - (1<<(depth-4))));
                         comp_type_t cr = *src_cr++ - (1<<(depth-1));
                         comp_type_t cb = *src_cb++ - (1<<(depth-1));
 
@@ -308,7 +308,7 @@ static void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame
                         comp_type_t g[8];
                         comp_type_t b[8];
                         OPTIMIZED_FOR (int j = 0; j < 8; ++j) {
-                                comp_type_t y = (y_scale * (*src_y++ - (1<<(depth-4))));
+                                comp_type_t y = (Y_SCALE * (*src_y++ - (1<<(depth-4))));
                                 comp_type_t cr = *src_cr++ - (1<<(depth-1));
                                 comp_type_t cb = *src_cb++ - (1<<(depth-1));
                                 comp_type_t rr = YCBCR_TO_R_709_SCALED(y, cb, cr) >> (COMP_BASE-12+depth);
@@ -394,7 +394,7 @@ static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, 
                 uint16_t *dst = (uint16_t *)(void *) (dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t y = (y_scale * (*src_y++ - (1<<(depth-4))));
+                        comp_type_t y = (Y_SCALE * (*src_y++ - (1<<(depth-4))));
                         comp_type_t cr = *src_cr++ - (1<<(depth-1));
                         comp_type_t cb = *src_cb++ - (1<<(depth-1));
 
@@ -930,27 +930,27 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cb = *src_cbcr++ - 128;
                         comp_type_t cr = *src_cbcr++ - 128;
-                        comp_type_t y = *src_y++ * y_scale;
-                        comp_type_t r = r_cr * cr;
-                        comp_type_t g = g_cb * cb + g_cr * cr;
-                        comp_type_t b = b_cb * cb;
+                        comp_type_t y = *src_y++ * Y_SCALE;
+                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr);
+                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr);
+                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r >> COMP_BASE, g >> COMP_BASE, b >> COMP_BASE, 8);
                                 dst += 4;
                         } else {
-                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
-                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
-                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL(r >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL(g >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL(b >> COMP_BASE, 8);
                         }
 
-                        y = *src_y++ * y_scale;
+                        y = *src_y++ * Y_SCALE;
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r >> COMP_BASE, g >> COMP_BASE, b >> COMP_BASE, 8);
                                 dst += 4;
                         } else {
-                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
-                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
-                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL(r >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL(g >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL(b >> COMP_BASE, 8);
                         }
                 }
         }
@@ -996,37 +996,37 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                 }
 
 #define WRITE_RES_YUV8P_TO_RGB(DST) if (rgba) {\
-                                *((uint32_t *)(void *) DST) = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);\
+                                *((uint32_t *)(void *) DST) = FORMAT_RGBA((r) >> COMP_BASE, (g) >> COMP_BASE, (b) >> COMP_BASE, 8);\
                                 DST += 4;\
                         } else {\
-                                *DST++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);\
-                                *DST++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);\
-                                *DST++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);\
+                                *DST++ = CLAMP_FULL((r) >> COMP_BASE, 8);\
+                                *DST++ = CLAMP_FULL((g) >> COMP_BASE, 8);\
+                                *DST++ = CLAMP_FULL((b) >> COMP_BASE, 8);\
                         }\
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cb = *src_cb1++ - 128;
                         comp_type_t cr = *src_cr1++ - 128;
-                        comp_type_t y = *src_y1++ * y_scale;
-                        comp_type_t r = r_cr * cr;
-                        comp_type_t g = g_cb * cb + g_cr * cr;
-                        comp_type_t b = b_cb * cb;
+                        comp_type_t y = *src_y1++ * Y_SCALE;
+                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr);
+                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr);
+                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
-                        y = *src_y1++ * y_scale;
+                        y = *src_y1++ * Y_SCALE;
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
                         if (subsampling == 422) {
                                 cb = *src_cb2++ - 128;
                                 cr = *src_cr2++ - 128;
-                                r = r_cr * cr;
-                                g = g_cb * cb + g_cr * cr;
-                                b = b_cb * cb;
+                                r = YCBCR_TO_R_709_SCALED(y, cb, cr);
+                                g = YCBCR_TO_G_709_SCALED(y, cb, cr);
+                                b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         }
-                        y = *src_y2++ * y_scale;
+                        y = *src_y2++ * Y_SCALE;
                         WRITE_RES_YUV8P_TO_RGB(dst2)
 
-                        y = *src_y2++ * y_scale;
+                        y = *src_y2++ * Y_SCALE;
                         WRITE_RES_YUV8P_TO_RGB(dst2)
                 }
         }
@@ -1059,7 +1059,6 @@ static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict 
 
 /**
  * Changes pixel format from planar YUV 444 to packed RGB/A.
- * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
 static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
@@ -1076,17 +1075,17 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         int cb = *src_cb++ - 128;
                         int cr = *src_cr++ - 128;
-                        int y = *src_y++ << COMP_BASE;
-                        int r = r_cr * cr;
-                        int g = g_cb * cb + g_cr * cr;
-                        int b = b_cb * cb;
+                        int y = *src_y++ * Y_SCALE;
+                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr);
+                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr);
+                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = (MIN(MAX((r + y) >> COMP_BASE, 1), 254) << rgb_shift[R] | MIN(MAX((g + y) >> COMP_BASE, 1), 254) << rgb_shift[G] | MIN(MAX((b + y) >> COMP_BASE, 1), 254) << rgb_shift[B]);
+                                *((uint32_t *)(void *) dst) = FORMAT_RGBA((r) >> COMP_BASE, (g) >> COMP_BASE, (b) >> COMP_BASE, 8);
                                 dst += 4;
                         } else {
-                                *dst++ = MIN(MAX((r + y) >> COMP_BASE, 1), 254);
-                                *dst++ = MIN(MAX((g + y) >> COMP_BASE, 1), 254);
-                                *dst++ = MIN(MAX((b + y) >> COMP_BASE, 1), 254);
+                                *dst++ = MIN(MAX((r) >> COMP_BASE, 1), 254);
+                                *dst++ = MIN(MAX((g) >> COMP_BASE, 1), 254);
+                                *dst++ = MIN(MAX((b) >> COMP_BASE, 1), 254);
                         }
                 }
         }
@@ -1420,10 +1419,10 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                                 }\
                         }
 
-                        comp_type_t y1 = (y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y1 = (Y_SCALE * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y1, dst1)
 
-                        comp_type_t y11 = (y_scale * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y11 = (Y_SCALE * (*src_y1++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y11, dst1)
 
                         if (subsampling == 422) {
@@ -1434,10 +1433,10 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                                 bb = YCBCR_TO_B_709_SCALED(0, cb, cr) >> (COMP_BASE + (10 - bpp));
                         }
 
-                        comp_type_t y2 = (y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y2 = (Y_SCALE * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y2, dst2)
 
-                        comp_type_t y22 = (y_scale * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
+                        comp_type_t y22 = (Y_SCALE * (*src_y2++ - (1<<6))) >> (COMP_BASE + (10 - bpp));
                         WRITE_RES_YUV10P_TO_RGB(y22, dst2)
                 }
         }
@@ -1469,17 +1468,17 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
                         comp_type_t cb = (*src_cb++ >> 2) - 128;
                         comp_type_t cr = (*src_cr++ >> 2) - 128;
-                        comp_type_t y = (*src_y++ >> 2) * y_scale;
-                        comp_type_t r = r_cr * cr;
-                        comp_type_t g = g_cb * cb + g_cr * cr;
-                        comp_type_t b = b_cb * cb;
+                        comp_type_t y = (*src_y++ >> 2) * Y_SCALE;
+                        comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr);
+                        comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr);
+                        comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         if (rgba) {
-                                *(uint32_t *)(void *) dst = FORMAT_RGBA((r + y) >> COMP_BASE, (g + y) >> COMP_BASE, (b + y) >> COMP_BASE, 8);
+                                *(uint32_t *)(void *) dst = FORMAT_RGBA((r) >> COMP_BASE, (g) >> COMP_BASE, (b) >> COMP_BASE, 8);
                                 dst += 4;
                         } else {
-                                *dst++ = CLAMP_FULL((r + y) >> COMP_BASE, 8);
-                                *dst++ = CLAMP_FULL((g + y) >> COMP_BASE, 8);
-                                *dst++ = CLAMP_FULL((b + y) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((r) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((g) >> COMP_BASE, 8);
+                                *dst++ = CLAMP_FULL((b) >> COMP_BASE, 8);
                         }
                 }
         }
