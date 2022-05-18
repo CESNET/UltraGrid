@@ -443,7 +443,6 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __res
         assert((uintptr_t) in_data % 4 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
@@ -509,7 +508,6 @@ static void v210_to_p210le(AVFrame * __restrict out_frame, unsigned char * __res
         assert((uintptr_t) in_data % 4 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         for(int y = 0; y < height; y++) {
                 uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
