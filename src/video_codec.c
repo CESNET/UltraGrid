@@ -97,8 +97,6 @@ using std::min;
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 #endif
-static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
-                int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 static decoder_func_t vc_copylineUYVYtoRG48;
 static decoder_func_t vc_copylineRGBtoRG48;
 static decoder_func_t vc_copylineRGBAtoRG48;
@@ -1405,44 +1403,6 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
 /**
  * @brief Converts RGB(A) into UYVY
  *
- * Uses full scale Rec. 601 YUV (aka JPEG)
- * @copydetails vc_copyliner10k
- * @param[in] source pixel size (3 for RGB, 4 for RGBA)
- */
-static void vc_copylineToUYVY601(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
-                int rshift, int gshift, int bshift, int pix_size) {
-        register int r, g, b;
-        register int y1, y2, u ,v;
-        register uint32_t *d = (uint32_t *)(void *) dst;
-
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
-                r = *(src + rshift);
-                g = *(src + gshift);
-                b = *(src + bshift);
-                src += pix_size;
-                y1 = 19595 * r + 38469 * g + 7471 * b;
-                u  = -9642 * r -18931 * g + 28573 * b;
-                v  = 40304 * r - 33750 * g - 6554 * b;
-                r = *(src + rshift);
-                g = *(src + gshift);
-                b = *(src + bshift);
-                src += pix_size;
-                y2 = 19595 * r + 38469 * g + 7471 * b;
-                u += -9642 * r -18931 * g + 28573 * b;
-                v += 40304 * r - 33750 * g - 6554 * b;
-                u = u / 2 + (1<<23);
-                v = v / 2 + (1<<23);
-
-                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
-                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
-                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
-                        (min(max(u, 0), (1<<24)-1) >> 16);
-        }
-}
-
-/**
- * @brief Converts RGB(A) into UYVY
- *
  * Uses Rec. 709 with standard SDI ceiling and floor
  * @copydetails vc_copyliner10k
  * @param[in] roff     red offset in bytes (0 for RGB)
@@ -2053,7 +2013,6 @@ void vc_copylineRG48toRGBA(unsigned char * __restrict dst, const unsigned char *
 
 /**
  * @brief Converts RGB to UYVY.
- * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
 void vc_copylineRGBtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
@@ -2264,7 +2223,6 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char * __restrict dst, const unsigne
 
 /**
  * @brief Converts BGR to UYVY.
- * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
 void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
@@ -2278,7 +2236,6 @@ void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned char * 
 
 /**
  * @brief Converts RGBA to UYVY.
- * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copylinev210
  */
 void vc_copylineRGBAtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
