@@ -78,9 +78,10 @@ static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t screen[:fps=<fps>][:display=<d>]\n");
+        printf("\t-t screen[:fps=<fps>][:display=<d>][:geometry=WxH[+x[+y]]|:size=WxH]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
-        printf("\t\t<display> - display to capture (including the colon!)\n");
+        printf("\t\tdisplay - display to capture (including the colon!)\n");
+        printf("\t\tgeomoetry | size - viewport to use (both option mean the same - size is just a convenient name)\n");
 }
 
 struct grabbed_data;
@@ -97,6 +98,7 @@ struct vidcap_screen_x11_state {
         struct       timeval t, t0;
         Display *dpy;
         Window root;
+        int x, y, width, height;
 
         struct grabbed_data * volatile head, * volatile tail;
         volatile int queue_len;
@@ -139,8 +141,10 @@ static bool initialize(struct vidcap_screen_x11_state *s) {
         }
 
         XGetWindowAttributes(s->dpy, DefaultRootWindow(s->dpy), &wa);
-        s->tile->width = wa.width;
-        s->tile->height = wa.height;
+        s->tile->width = IF_NOT_NULL_ELSE(MIN(s->width, wa.width), wa.width);
+        s->tile->height = IF_NOT_NULL_ELSE(MIN(s->height, wa.height), wa.height);
+        s->x = MAX(0, MIN(s->x, wa.width - s->tile->width));
+        s->y = MAX(0, MIN(s->y, wa.height - s->tile->height));
 
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
@@ -182,7 +186,7 @@ static void *grab_thread(void *args)
                 XFixesCursorImage *cursor =
                         XFixesGetCursorImage (s->dpy);
 #endif // HAVE_XFIXES
-                new_item->data = XGetImage(s->dpy,s->root, 0,0, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
+                new_item->data = XGetImage(s->dpy,s->root, s->x, s->y, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
                 assert(new_item->data != NULL);
 
 #ifdef HAVE_XFIXES
@@ -307,6 +311,23 @@ static _Bool parse_fmt(struct vidcap_screen_x11_state *s, char *fmt) {
                         s->req_display = realloc(s->req_display, strlen(s->req_display) + 1 + strlen(tok) + 1);
                         strcat(s->req_display, ":");
                         strcat(s->req_display, tok);
+                } else if (strstr(tok, "geometry=") == tok || strstr(tok, "size=") == tok) {
+                        char *val = strchr(tok, '=') + 1;
+                        s->width = atoi(val);
+                        val = strchr(val, 'x') + 1;
+                        s->height = atoi(val);
+                        if (s->width * s->height <= 0) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong dimensions %dx%d!\n", s->width, s->height);
+                                return 0;
+                        }
+                        if (strchr(val, '+')) {
+                                val = strchr(val, '+') + 1;
+                                s->x = atoi(val);
+                        }
+                        if (strchr(val, '+')) {
+                                val = strchr(val, '+') + 1;
+                                s->y = atoi(val);
+                        }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option \"%s\"!\n", tok);
                         return 0;
