@@ -170,6 +170,11 @@ static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict fram
         }
 }
 
+#if defined __GNUC__
+static inline void gbrap_to_rgb_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, int comp_count)
+        __attribute__((always_inline));
+#endif
 static inline void gbrap_to_rgb_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, int comp_count)
 {
@@ -200,6 +205,11 @@ static void gbrap_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict fram
         gbrap_to_rgb_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 3);
 }
 
+#if defined __GNUC__
+static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+        __attribute__((always_inline));
+#endif
 static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
@@ -378,6 +388,11 @@ static void yuv444p16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restri
         yuv444pXXle_to_r12l(16, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
+#if defined __GNUC__
+static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+        __attribute__((always_inline));
+#endif
 static inline void yuv444pXXle_to_rg48(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -428,6 +443,11 @@ static void yuv444p16le_to_rg48(char * __restrict dst_buffer, AVFrame * __restri
         yuv444pXXle_to_rg48(16, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
+#if defined __GNUC__
+static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+        __attribute__((always_inline));
+#endif
 static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
@@ -487,6 +507,11 @@ static inline void gbrpXXle_to_r12l(char * __restrict dst_buffer, AVFrame * __re
         }
 }
 
+#if defined __GNUC__
+static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+        __attribute__((always_inline));
+#endif
 static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
@@ -509,6 +534,11 @@ static inline void gbrpXXle_to_rgb(char * __restrict dst_buffer, AVFrame * __res
         }
 }
 
+#if defined __GNUC__
+static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
+        __attribute__((always_inline));
+#endif
 static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
@@ -916,6 +946,11 @@ static void yuv444p_to_v210(char * __restrict dst_buffer, AVFrame * __restrict i
  * Changes pixel format from planar YUV 422 to packed RGB/A.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
+#if defined __GNUC__
+static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+        __attribute__((always_inline));
+#endif
 static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
@@ -1064,6 +1099,11 @@ static void yuv422p_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict 
 /**
  * Changes pixel format from planar YUV 444 to packed RGB/A.
  */
+#if defined __GNUC__
+static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+        __attribute__((always_inline));
+#endif
 static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
@@ -1464,6 +1504,11 @@ MAKE_YUV_TO_RGB_FUNCTION(422, 24)
 MAKE_YUV_TO_RGB_FUNCTION(422, 30)
 MAKE_YUV_TO_RGB_FUNCTION(422, 32)
 
+#if defined __GNUC__
+static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
+        __attribute__((always_inline));
+#endif
 static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
@@ -1492,13 +1537,13 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
         }
 }
 
-static inline void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv444p10le_to_rgb24(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, false);
 }
 
-static inline void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+static void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);

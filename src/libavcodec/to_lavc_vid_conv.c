@@ -603,6 +603,10 @@ static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
 /**
  * Converts to yuv444p 10/12/14 le
  */
+#if defined __GNUC__
+static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+        __attribute__((always_inline));
+#endif
 static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -648,6 +652,10 @@ static void r10k_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
 }
 
 // RGB full range to YCbCr bt. 709 limited range
+#if defined __GNUC__
+static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+        __attribute__((always_inline));
+#endif
 static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -761,6 +769,10 @@ static void r12l_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
 }
 
 /// @brief Converts RG48 to yuv444p 10/12/14 le
+#if defined __GNUC__
+static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+        __attribute__((always_inline));
+#endif
 static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 2 == 0);
@@ -805,6 +817,10 @@ static void rg48_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
         rg48_to_yuv444pXXle(16, out_frame, in_data, width, height);
 }
 
+#if defined __GNUC__
+static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
+        __attribute__((always_inline));
+#endif
 static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
 {
         assert((uintptr_t) in_data % 2 == 0);
@@ -913,6 +929,10 @@ static void rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restr
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, 4);
 }
 
+#if defined __GNUC__
+static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
+        __attribute__((always_inline));
+#endif
 static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -955,6 +975,10 @@ static void r10k_to_gbrp16le(AVFrame * __restrict out_frame, unsigned char * __r
 #endif
 
 /// @note out_depth needs to be at least 12
+#if defined __GNUC__
+static inline void r12l_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int out_depth)
+        __attribute__((always_inline));
+#endif
 static inline void r12l_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int out_depth)
 {
         assert(out_depth >= 12);
