@@ -303,7 +303,7 @@ static void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame
                 uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
                 unsigned char *dst = (unsigned char *) dst_buffer + y * pitch;
 
-                OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
+                for (int x = 0; x < width; x += 8) {
                         comp_type_t r[8];
                         comp_type_t g[8];
                         comp_type_t b[8];
@@ -968,6 +968,10 @@ static void nv12_to_rgb32(char * __restrict dst_buffer, AVFrame * __restrict in_
         nv12_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
+#if defined __GNUC__
+static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba) __attribute__((always_inline));
+#endif
 /**
  * Changes pixel format from planar 8-bit YUV to packed RGB/A.
  * Color space is assumed ITU-T Rec. 709 limited range.
@@ -1361,6 +1365,10 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
+#if defined __GNUC__
+static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift, int out_bit_depth) __attribute__((always_inline));
+#endif
 static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, int out_bit_depth)
 {
