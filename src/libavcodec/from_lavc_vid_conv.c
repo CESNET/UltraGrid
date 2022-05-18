@@ -245,7 +245,12 @@ static void gbrp16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restrict 
         gbrpXXle_to_r10k(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
 }
 
-static void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
+#if defined __GNUC__
+static inline void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+        __attribute__((always_inline));
+#endif
+static inline void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
@@ -299,7 +304,12 @@ static void yuv444p16le_to_r10k(char * __restrict dst_buffer, AVFrame * __restri
         yuv444pXXle_to_r10k(16, dst_buffer, frame, width, height, pitch, rgb_shift);
 }
 
-static void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
+#if defined __GNUC__
+static inline void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+        __attribute__((always_inline));
+#endif
+static inline void yuv444pXXle_to_r12l(int depth, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         assert((uintptr_t) frame->linesize[0] % 2 == 0);
