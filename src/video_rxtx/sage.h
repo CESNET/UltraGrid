@@ -57,7 +57,6 @@ private:
         }
         struct video_desc     m_saved_video_desc;
         struct display       *m_sage_tx_device;
-        pthread_t             m_thread_id;
 };
 
 #endif // VIDEO_RXTX_SAGE_H_

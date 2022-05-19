@@ -687,7 +687,7 @@ static char *udp_host_addr6(socket_udp * s)
 
 bool udp_addr_valid(const char *addr)
 {
-        return udp_addr_valid4(addr) | udp_addr_valid6(addr);
+        return udp_addr_valid4(addr) || udp_addr_valid6(addr);
 }
 
 /**
