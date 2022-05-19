@@ -80,7 +80,7 @@ typedef void decoder_func_t(unsigned char * __restrict dst, const unsigned char 
 typedef decoder_func_t *decoder_t;
 
 /// Prints list of suppored codecs for video module
-void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs12);
+void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs_ge12);
 /// @returns number of bits per color component
 int              get_bits_per_component(codec_t codec) ATTRIBUTE(const);
 int              get_subsampling(codec_t codec) ATTRIBUTE(const);

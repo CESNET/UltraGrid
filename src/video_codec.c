@@ -258,7 +258,7 @@ static const struct alternative_codec_name codec_name_aliases[] = {
         {"HEVC", "H.265"},
 };
 
-void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs12)
+void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs_ge12)
 {
         printf("Supported codecs (%s):\n", module);
 
@@ -279,11 +279,11 @@ void show_codec_help(const char *module, const codec_t *codecs8, const codec_t *
                 }
         }
 
-        if (codecs12) {
-                printf("\t12bits\n");
-                while (*codecs12 != VIDEO_CODEC_NONE) {
-                        printf("\t\t'%s' - %s\n", codec_info[*codecs12].name, codec_info[*codecs12].name_long);
-                        codecs12++;
+        if (codecs_ge12) {
+                printf("\t12+ bits\n");
+                while (*codecs_ge12 != VIDEO_CODEC_NONE) {
+                        printf("\t\t'%s' - %s\n", codec_info[*codecs_ge12].name, codec_info[*codecs_ge12].name_long);
+                        codecs_ge12++;
                 }
         }
 }
