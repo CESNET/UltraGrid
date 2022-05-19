@@ -1472,7 +1472,8 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                                         *DST++ = g;\
                                         *DST++ = b;\
                                 } else {\
-                                        *((uint32_t *)(void *) DST) = htonl(r << 22U | g << 12U | b << 2U);\
+                                        *((uint32_t *)(void *) (DST)) = r >> 2U | (r & 0x3U) << 14 | g >> 4U << 8U | (g & 0xFU) << 20U | b >> 6U << 16U | (b & 0x3FU) << 26U;\
+                                        /*      == htonl(r << 22U | g << 12U | b << 2U) */ \
                                         DST += 4;\
                                 }\
                         }
