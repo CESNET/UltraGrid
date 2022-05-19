@@ -195,6 +195,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('I','4','2','0'), 2, 3.0/2.0, 8, 1, FALSE, FALSE, FALSE, FALSE, 4200, "yuv"},
         [Y216] =  {"Y216", "Packed 16-bit YUV 4:2:2 little-endian",
                 to_fourcc('Y','2','1','6'), 2, 4.0, 16, 8, FALSE, FALSE, FALSE, FALSE, 4220, "y216"},
+        [Y416] =  {"Y416", "Packed 16-bit YUV 4:4:4:4 little-endian",
+                to_fourcc('Y','4','1','6'), 1, 8.0, 16, 8, FALSE, FALSE, FALSE, FALSE, 4444, "y416"},
         [PRORES] =  {"PRORES", "Apple ProRes",
                 0, 0, 1.0, 8, 1, FALSE, TRUE, TRUE, FALSE, 0, "pror"},
         [PRORES_4444] =  {"PRORES_4444", "Apple ProRes 4444",
@@ -2495,6 +2497,44 @@ static void vc_copylineUYVYtoY216(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void vc_copylineUYVYtoY416(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        while (dst_len >= 12) {
+                *dst++ = 0;
+                *dst++ = src[0]; // U
+                *dst++ = 0;
+                *dst++ = src[1]; // Y0
+                *dst++ = 0;
+                *dst++ = src[2]; // V
+                *dst++ = 0;
+                *dst++ = 0;      // A
+                *dst++ = 0;
+                *dst++ = src[0]; // U
+                *dst++ = 0;
+                *dst++ = src[3]; // Y1
+                *dst++ = 0;
+                *dst++ = src[2]; // V
+                *dst++ = 0;
+                *dst++ = 0;      // A
+                src += 4;
+                dst_len -= 16;
+        }
+        if (dst_len >= 8) {
+                *dst++ = 0;
+                *dst++ = src[0]; // U
+                *dst++ = 0;
+                *dst++ = src[1]; // Y0
+                *dst++ = 0;
+                *dst++ = src[2]; // V
+                *dst++ = 0;
+                *dst++ = 0;      // A
+        }
+}
+
 static void vc_copylineY216toUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -2507,6 +2547,22 @@ static void vc_copylineY216toUYVY(unsigned char * __restrict dst, const unsigned
                 *dst++ = src[7];
                 *dst++ = src[5];
                 src += 8;
+                dst_len -= 4;
+        }
+}
+
+static void vc_copylineY416toUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        while (dst_len >= 4) {
+                *dst++ = (src[1] + src[9]) / 2; // U
+                *dst++ = src[3]; // Y0
+                *dst++ = (src[5] + src[13]) / 2; // V
+                *dst++ = src[11]; // Y1
+                src += 16;
                 dst_len -= 4;
         }
 }
@@ -2538,6 +2594,37 @@ static void vc_copylineY216toV210(unsigned char * __restrict dst, const unsigned
                 d[2] = v >> 6U | y2 >> 6U << 10U | u >> 6U << 20U;
                 y2 = s[10];
                 v = s[11];
+                d[3] = y1 >> 6U | v >> 6U << 10U | y2 >> 6U << 20U;
+        }
+}
+
+static void vc_copylineY416toV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        assert((uintptr_t) dst % 4 == 0);
+        OPTIMIZED_FOR (int x = 0; x < dst_len / 16; ++x) {
+                const uint16_t *s = (const uint16_t *)(const void *) (src + x * 48);
+                uint32_t *d = (uint32_t *)(void *) (dst + x * 16);
+                uint16_t y1, u, y2, v;
+                u = (s[0] + s[4]) / 2;
+                y1 = s[1];
+                v = (s[2] + s[6]) / 2;
+                y2 = s[5];
+                d[0] = u >> 6U | y1 >> 6U << 10U | v >> 6U << 20U;
+                y1 = s[9];
+                u = (s[8] + s[12]) / 2;
+                d[1] = y2 >> 6U | u >> 6U << 10U | y1 >> 6U << 20U;
+                y2 = s[13];
+                v = (s[10] + s[14]) / 2;
+                y1 = s[17];
+                u = (s[16] + s[20]) / 2;
+                d[2] = v >> 6U | y2 >> 6U << 10U | u >> 6U << 20U;
+                y2 = s[21];
+                v = (s[18] + s[22]) / 2;
                 d[3] = y1 >> 6U | v >> 6U << 10U | y2 >> 6U << 20U;
         }
 }
@@ -2583,8 +2670,11 @@ static const struct decoder_item decoders[] = {
         { vc_copylineRGBAtoR10k,  RGBA,  R10k, false },
         { vc_copylineUYVYtoV210,  UYVY,  v210, false },
         { vc_copylineUYVYtoY216,  UYVY,  Y216, false },
+        { vc_copylineUYVYtoY416,  UYVY,  Y416, false },
         { vc_copylineY216toUYVY,  Y216,  UYVY, false },
         { vc_copylineY216toV210,  Y216,  v210, false },
+        { vc_copylineY416toUYVY,  Y416,  UYVY, false },
+        { vc_copylineY416toV210,  Y416,  v210, false },
 };
 
 /**

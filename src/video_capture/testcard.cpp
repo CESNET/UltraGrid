@@ -302,7 +302,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 
 static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
 static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
-static const codec_t codecs_ge12b[] = {Y216, RG48, R12L, VIDEO_CODEC_NONE};
+static const codec_t codecs_ge12b[] = {Y216, Y416, RG48, R12L, VIDEO_CODEC_NONE};
 
 static bool parse_fps(const char *fps, struct video_desc *desc) {
         char *endptr = nullptr;
