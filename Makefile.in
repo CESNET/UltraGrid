@@ -205,6 +205,7 @@ COMMON_OBJS     = \
 		src/video_display/pipe.o \
 		src/video_display/proxy.o \
 		src/video_display/multiplier.o \
+		src/video_display/unix_sock.o \
 		src/video_export.o \
 		src/video_rxtx.o \
 		src/video_rxtx/h264_sdp.o \
