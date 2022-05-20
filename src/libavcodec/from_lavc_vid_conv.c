@@ -1796,6 +1796,45 @@ static void ayuv64_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
+static void ayuv64_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 2 == 0);
+        assert((uintptr_t) dst_buffer % 4 == 0);
+        for(int y = 0; y < height; ++y) {
+                uint16_t *src = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < (width + 5) / 6; ++x) {
+                        uint32_t w;
+
+                        w = ((src[2] >> 6U) + (src[6] >> 6U)) / 2;  // U0
+                        w = w | (src[1] >> 6U) << 10U; // U0 Y0a
+                        w = w | ((src[3] >> 6U) + (src[7] >> 6U)) / 2 << 20U; // U0 Y0a V0
+                        *dst++ = w; // flush output
+
+                        w = src[5]; // Y0b |
+                        src += 8; // move to next 2 words
+                        w = w | ((src[2] >> 6U) + (src[6] >> 6U)) / 2 << 10U; // Y0b | U1
+                        w = w | (src[1] >> 6U) << 20U; // Y0b | U1 Y1a
+                        *dst++ = w;
+
+                        w = ((src[3] >> 6U) + (src[7] >> 6U)) / 2; // V1
+                        w = w | (src[5] >> 6U) << 10U; // V1 Y1a |
+                        src += 8;
+                        w = w | ((src[2] >> 6U) + (src[6] >> 6U)) / 2 << 20U; // V1 Y1a | U2
+                        *dst++ = w;
+
+                        w = src[1]; // Y2a
+                        w = w | ((src[3] >> 6U) + (src[7] >> 6U)) / 2 << 10U; // Y2a V2
+                        w = w | ((src[5] >> 6U)) << 20U; // Y2a V2 Y2b |
+                        *dst++ = w;
+                        src += 8;
+                }
+        }
+}
+
 /**
  * @brief returns list of available conversion. Terminated by uv_to_av_conversion::uv_codec == VIDEO_CODEC_NONE
  */
@@ -1870,6 +1909,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, false},
                 {AV_PIX_FMT_AYUV64, UYVY, ayuv64_to_uyvy, false },
+                {AV_PIX_FMT_AYUV64, v210, ayuv64_to_v210, false },
                 {AV_PIX_FMT_AYUV64, Y416, ayuv64_to_y416, true },
                 // RGB
                 {AV_PIX_FMT_GBRAP, RGB, gbrap_to_rgb, false},
