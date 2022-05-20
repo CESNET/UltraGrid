@@ -65,6 +65,7 @@
 
 typedef void ndi_disp_convert_t(const struct video_frame *f, char *out);
 static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out);
+static void ndi_disp_convert_Y416_to_P216(const struct video_frame *f, char *out);
 
 struct display_ndi {
         LIB_HANDLE lib;
@@ -105,6 +106,7 @@ static const struct {
         { UYVY, NDIlib_FourCC_type_UYVY, NULL },
         { I420, NDIlib_FourCC_video_type_I420, NULL },
         { Y216, NDIlib_FourCC_type_P216, ndi_disp_convert_Y216_to_P216 },
+        { Y416, NDIlib_FourCC_type_P216, ndi_disp_convert_Y416_to_P216 },
 };
 
 static int display_ndi_reconfigure(void *state, struct video_desc desc)
@@ -261,6 +263,25 @@ static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out
                         *out_cb_cr++ = *in++;
                         *out_y++ = *in++;
                         *out_cb_cr++ = *in++;
+                }
+        }
+}
+
+static void ndi_disp_convert_Y416_to_P216(const struct video_frame *f, char *out)
+{
+        assert((uintptr_t) out % 2 == 0);
+
+        uint16_t *in = (uint16_t *)(void *) f->tiles[0].data;
+        uint16_t *out_y = (uint16_t *)(void *) out;
+        uint16_t *out_cb_cr = (uint16_t *)(void *) out + f->tiles[0].width * f->tiles[0].height;
+
+        for (unsigned int i = 0; i < f->tiles[0].height; ++i) {
+                OPTIMIZED_FOR (unsigned int j = 0; j < f->tiles[0].width; j += 2) {
+                        *out_y++ = in[1];
+                        *out_cb_cr++ = (in[2] + in[6]) / 2;
+                        *out_y++ = in[5];
+                        *out_cb_cr++ = (in[3] + in[7]) / 2;
+                        in += 8;
                 }
         }
 }
