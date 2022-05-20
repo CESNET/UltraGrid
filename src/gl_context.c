@@ -178,7 +178,7 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
                 if (strlen(log) > 0) {
                         log_msg(LOG_LEVEL_INFO, "Vertex compile log: %s\n", log);
                 }
-                glGetShaderiv(fhandle, GL_COMPILE_STATUS, &status);
+                glGetShaderiv(vhandle, GL_COMPILE_STATUS, &status);
                 assert(status == GL_TRUE);
         }
 

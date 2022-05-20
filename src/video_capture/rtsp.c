@@ -656,7 +656,7 @@ static CURL *init_curl() {
         fprintf(stderr, "[rtsp] curl_easy_init() failed\n");
         return NULL;
     }
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+    my_curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1, );
     return curl;
 }
 

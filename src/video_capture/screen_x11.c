@@ -143,8 +143,8 @@ static bool initialize(struct vidcap_screen_x11_state *s) {
         XGetWindowAttributes(s->dpy, DefaultRootWindow(s->dpy), &wa);
         s->tile->width = IF_NOT_NULL_ELSE(MIN(s->width, wa.width), wa.width);
         s->tile->height = IF_NOT_NULL_ELSE(MIN(s->height, wa.height), wa.height);
-        s->x = MAX(0, MIN(s->x, wa.width - s->tile->width));
-        s->y = MAX(0, MIN(s->y, wa.height - s->tile->height));
+        s->x = MIN(s->x, wa.width - (int) s->tile->width);
+        s->y = MIN(s->y, wa.height - (int) s->tile->height);
 
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
