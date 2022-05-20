@@ -160,48 +160,43 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         s->desc.interlacing = PROGRESSIVE;
 
         char *fmt = strdup(strlen(vidcap_params_get_fmt(params)) != 0 ? vidcap_params_get_fmt(params) : DEFAULT_FORMAT);
+        int ret = VIDCAP_INIT_FAIL;
+        do {
+                char *save_ptr = 0;
+                char *tmp = strtok_r(fmt, ":", &save_ptr);
+                if (!tmp) {
+                        log_msg(LOG_LEVEL_ERROR, "Missing width for testcard\n");
+                        break;
+                }
+                s->desc.width = atoi(tmp);
+                if(s->desc.width % 2 != 0) {
+                        log_msg(LOG_LEVEL_ERROR, "Width must be multiple of 2.\n");
+                        break;
+                }
+                if (!(tmp = strtok_r(NULL, ":", &save_ptr))) {
+                        log_msg(LOG_LEVEL_ERROR, "Missing height for testcard\n");
+                        break;
+                }
+                s->desc.height = atoi(tmp);
+                if (!(tmp = strtok_r(NULL, ":", &save_ptr))) {
+                        log_msg(LOG_LEVEL_ERROR, "Missing FPS for testcard\n");
+                        break;
+                }
+                s->desc.fps = atof(tmp);
 
-        char *tmp = strtok(fmt, ":");
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                free(s);
-                return VIDCAP_INIT_FAIL;
-        }
-        s->desc.width = atoi(tmp);
-        if(s->desc.width % 2 != 0) {
-                fprintf(stderr, "Width must be multiple of 2.\n");
-                free(s);
-                return VIDCAP_INIT_FAIL;
-        }
-        tmp = strtok(NULL, ":");
-        if (!tmp) {
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                free(s);
-                return VIDCAP_INIT_FAIL;
-        }
-        s->desc.height = atoi(tmp);
-        tmp = strtok(NULL, ":");
-        if (!tmp) {
-                free(s);
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return VIDCAP_INIT_FAIL;
-        }
+                if (!(tmp = strtok_r(NULL, ":", &save_ptr)) || get_codec_from_name(tmp) == VIDEO_CODEC_NONE) {
+                        log_msg(LOG_LEVEL_ERROR, "Missing/wrong codec for testcard\n");
+                        break;
+                }
+                s->desc.color_spec = get_codec_from_name(tmp);
 
-        s->desc.fps = atof(tmp);
-
-        tmp = strtok(NULL, ":");
-        if (!tmp) {
+                ret = VIDCAP_INIT_OK;
+        } while(0);
+        free(fmt);
+        if (ret != VIDCAP_INIT_OK) {
                 free(s);
-                fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
-                return VIDCAP_INIT_FAIL;
+                return ret;
         }
-
-        codec_t codec = get_codec_from_name(tmp);
-        if (codec == VIDEO_CODEC_NONE) {
-                codec = UYVY;
-        }
-
-        s->desc.color_spec = codec;
 
         {
                 unsigned int rect_size = (s->desc.width + COL_NUM - 1) / COL_NUM;
@@ -263,8 +258,6 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
         
         gettimeofday(&s->start_time, NULL);
         
-        free(fmt);
-
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->data_consumed_cv, NULL);
 
