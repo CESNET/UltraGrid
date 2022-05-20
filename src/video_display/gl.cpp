@@ -101,7 +101,7 @@ typedef GLintptr vdpauSurfaceNV;
 
 using namespace std;
 
-static const char * yuv422_to_rgb_fp = R"raw(
+static const char * uyvy_to_rgb_fp = R"raw(
 #version 110
 uniform sampler2D image;
 uniform float imageWidth;
@@ -124,6 +124,23 @@ void main()
 }
 )raw";
 
+static const char * yuva_to_rgb_fp = R"raw(
+#version 110
+uniform sampler2D image;
+void main()
+{
+        vec4 yuv;
+        yuv.rgba  = texture2D(image, gl_TexCoord[0].xy).grba;
+        yuv.r = 1.1643 * (yuv.r - 0.0625);
+        yuv.g = yuv.g - 0.5;
+        yuv.b = yuv.b - 0.5;
+        gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
+        gl_FragColor.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
+        gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
+        gl_FragColor.a = yuv.a;
+}
+)raw";
+
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
 /// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
 static const char * v210_to_rgb_fp = R"raw(
@@ -131,7 +148,6 @@ static const char * v210_to_rgb_fp = R"raw(
 #extension GL_EXT_gpu_shader4 : enable
 uniform sampler2D image;
 uniform float imageWidth;
-uniform float imageWidthOrig;
 
 // YUV offset
 const vec3 yuvOffset = vec3(-0.0625, -0.5, -0.5);
@@ -177,6 +193,9 @@ vec3 ycbcr2rgb(vec3 yuvToConvert) {
 }
 
 void main(void) {
+  float imageWidthOrig;
+  imageWidthOrig = float((int(imageWidth) + 47) / 48 * 32);
+
   // interpolate 0,0 -> 1,1 texcoords to 0,0 -> 720,486
   int texcoordDenormX;
   texcoordDenormX = int((2. * gl_TexCoord[0].x * imageWidth - 1.) / 2.);
@@ -320,9 +339,11 @@ struct state_vdpau {
 
 struct state_gl {
         GLuint          PHandle_uyvy = 0;
+        GLuint          PHandle_yuva = 0;
         GLuint          PHandle_v210 = 0;
         GLuint          PHandle_dxt = 0;
         GLuint          PHandle_dxt5 = 0;
+        GLuint          current_program = 0;
 
         // Framebuffer
         GLuint fbo_id = 0;
@@ -404,6 +425,7 @@ static constexpr array gl_supp_codecs = {
         R10k,
         RGBA,
         RGB,
+        Y416,
         DXT1,
         DXT1_YUV,
         DXT5
@@ -825,17 +847,13 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width / 2, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                glUseProgram(s->PHandle_uyvy);
-                glUniform1i(glGetUniformLocation(s->PHandle_uyvy, "image"), 2);
-                glUniform1f(glGetUniformLocation(s->PHandle_uyvy, "imageWidth"),
-                                (GLfloat) desc.width);
-                glUseProgram(0);
                 glActiveTexture(GL_TEXTURE0 + 0);
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
+                s->current_program = s->PHandle_uyvy;
         } else if (desc.color_spec == v210) {
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
@@ -849,13 +867,21 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_SHORT,
                                 NULL);
-                glUseProgram(s->PHandle_v210);
-                glUniform1i(glGetUniformLocation(s->PHandle_v210, "image"), 2);
-                glUniform1f(glGetUniformLocation(s->PHandle_v210, "imageWidth"),
-                                (GLfloat) desc.width);
-                glUniform1f(glGetUniformLocation(s->PHandle_v210, "imageWidthOrig"),
-                                (GLfloat) vc_get_linesize(desc.width, v210) / 4);
-                glUseProgram(0);
+                s->current_program = s->PHandle_v210;
+        } else if (desc.color_spec == Y416) {
+                s->current_program = s->PHandle_yuva;
+                glActiveTexture(GL_TEXTURE0 + 2);
+                glBindTexture(GL_TEXTURE_2D,s->texture_raw);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                desc.width, desc.height, 0,
+                                GL_RGBA, GL_UNSIGNED_SHORT,
+                                NULL);
+                glActiveTexture(GL_TEXTURE0 + 0);
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                desc.width, desc.height, 0,
+                                GL_RGBA, GL_UNSIGNED_SHORT,
+                                NULL);
         } else if (desc.color_spec == RGBA) {
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
@@ -889,6 +915,16 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 s->vdp.init();
         }
 #endif
+        if (s->current_program) {
+                glUseProgram(s->current_program);
+                if (GLint l = glGetUniformLocation(s->current_program, "image"); l != -1) {
+                        glUniform1i(l, 2);
+                }
+                if (GLint l = glGetUniformLocation(s->current_program, "imageWidth"); l != -1) {
+                        glUniform1f(l, (GLfloat) desc.width);
+                }
+                glUseProgram(0);
+        }
 
         gl_check_error();
 
@@ -957,6 +993,7 @@ static void gl_render(struct state_gl *s, char *data)
                         break;
                 case UYVY:
                 case v210:
+                case Y416:
                         gl_render_glsl(s, data);
                         break;
                 case R10k:
@@ -1361,7 +1398,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        s->PHandle_uyvy = glsl_compile_link(vert, yuv422_to_rgb_fp);
+        s->PHandle_uyvy = glsl_compile_link(vert, uyvy_to_rgb_fp);
+        s->PHandle_yuva = glsl_compile_link(vert, yuva_to_rgb_fp);
         s->PHandle_v210 = glsl_compile_link(vert, v210_to_rgb_fp);
         // Create fbo
         glGenFramebuffersEXT(1, &s->fbo_id);
@@ -1387,6 +1425,7 @@ static void display_gl_cleanup_opengl(struct state_gl *s){
 
         glDeleteProgram(s->PHandle_uyvy);
         glDeleteProgram(s->PHandle_v210);
+        glDeleteProgram(s->PHandle_yuva);
         glDeleteProgram(s->PHandle_dxt);
         glDeleteProgram(s->PHandle_dxt5);
         glDeleteTextures(1, &s->texture_display);
@@ -1462,6 +1501,8 @@ static void upload_texture(struct state_gl *s, char *data)
                 type = GL_UNSIGNED_INT_10_10_10_2;
         } else if (s->current_display_desc.color_spec == v210) {
                 type = GL_UNSIGNED_INT_2_10_10_10_REV;
+        } else if (s->current_display_desc.color_spec == Y416) {
+                type = GL_UNSIGNED_SHORT;
         }
         GLint width = s->current_display_desc.width;
         if (s->current_display_desc.color_spec == UYVY || s->current_display_desc.color_spec == v210) {
@@ -1545,7 +1586,7 @@ static void gl_render_glsl(struct state_gl *s, char *data)
         upload_texture(s, data);
         gl_check_error();
 
-        glUseProgram(s->current_display_desc.color_spec == UYVY ? s->PHandle_uyvy : s->PHandle_v210);
+        glUseProgram(s->current_program);
 
         glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
         gl_check_error();
