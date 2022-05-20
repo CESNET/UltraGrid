@@ -1759,6 +1759,43 @@ static void av_rpi4_8_to_ug(char * __restrict dst_buffer, AVFrame * __restrict i
 }
 #endif
 
+static void ayuv64_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < height; ++y) {
+                uint8_t *src = (uint8_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < ((width + 1) & ~1); ++x) {
+                        *dst++ = (src[1] + src[9] / 2);  // U
+                        *dst++ = src[3];                 // Y
+                        *dst++ = (src[5] + src[13] / 2); // V
+                        *dst++ = src[11];                // Y
+                }
+        }
+}
+
+static void ayuv64_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 2 == 0);
+        assert((uintptr_t) dst_buffer % 2 == 0);
+        for(int y = 0; y < height; ++y) {
+                uint16_t *src = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *dst = (uint16_t *)(void *)(dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        *dst++ = src[2]; // U
+                        *dst++ = src[1]; // Y
+                        *dst++ = src[3]; // V
+                        *dst++ = src[0]; // A
+                        src += 4;
+                }
+        }
+}
+
 /**
  * @brief returns list of available conversion. Terminated by uv_to_av_conversion::uv_codec == VIDEO_CODEC_NONE
  */
@@ -1832,6 +1869,8 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P16LE, RG48, yuv444p16le_to_rg48, false},
                 {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, false},
+                {AV_PIX_FMT_AYUV64, UYVY, ayuv64_to_uyvy, false },
+                {AV_PIX_FMT_AYUV64, Y416, ayuv64_to_y416, true },
                 // RGB
                 {AV_PIX_FMT_GBRAP, RGB, gbrap_to_rgb, false},
                 {AV_PIX_FMT_GBRAP, RGBA, gbrap_to_rgba, true},
