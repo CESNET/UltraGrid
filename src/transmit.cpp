@@ -80,7 +80,6 @@
 #include "tv.h"
 #include "transmit.h"
 #include "utils/jpeg_reader.h"
-#include "utils/math.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -534,8 +533,7 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
         }
 
         int fec_symbol_offset = 0;
-        int pf_block_size = is_codec_opaque(frame->color_spec) ? 1 : lcm(get_pf_block_size(frame->color_spec), 48); // 6/8 -> RGB/A convertible to UYVY (multiple of 2 pixs)
-                                                                                                                    // 48 -> RG48 to R12L; @todo figure out better solution
+        int pf_block_size = is_codec_opaque(frame->color_spec) ? 1 : round(PIX_BLOCK_LCM * get_bpp(frame->color_spec));
         unsigned pos = 0;
         do {
                 int len = get_video_pkt_len(frame->fec_params.type != FEC_NONE, mtu,

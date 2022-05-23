@@ -60,6 +60,7 @@ extern "C" {
 #define MAX_BPS 8 /* for Y416 */  ///< maximal (average) number of pixels per know pixel formats (up-round if needed)
 #define MAX_PADDING 64 ///< maximal padding in bytes that may be needed to align to pixfmt block size for Y416->R12L:
                        ///< 64 = vc_linesize(8 /*maximal block pix count (R12L)*/, Y416 /*codec with maximal lenght of 1st arg-sized block*/)
+#define PIX_BLOCK_LCM 24 ///< least common multiple of all pixfmt block sizes in pixels (codec_info_t::block_size/codec_info_t::bpp). "contributors:" 8 R12L, 6 v210
 
 /**
  * @brief Defines type for pixelformat conversions
