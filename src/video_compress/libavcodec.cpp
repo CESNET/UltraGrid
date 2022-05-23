@@ -750,7 +750,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->max_b_frames = 0;
 
         s->codec_ctx->pix_fmt = pix_fmt;
-        s->codec_ctx->bits_per_raw_sample = min<int>(get_bpp(ug_codec), av_pix_fmt_desc_get(pix_fmt)->comp[0].depth);
+        s->codec_ctx->bits_per_raw_sample = min<int>(get_bits_per_component(ug_codec), av_pix_fmt_desc_get(pix_fmt)->comp[0].depth);
 
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
         set_codec_thread_mode(s->codec_ctx, &s->params);
