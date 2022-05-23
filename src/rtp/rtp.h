@@ -47,6 +47,7 @@
 #endif
 
 #include "tv.h"
+#include "video_codec.h" // MAX_PADDING
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,7 +55,7 @@ extern "C" {
 
 #define RTP_VERSION 2
 #define RTP_MAX_MTU 9000
-#define RTP_MAX_PACKET_LEN (RTP_MAX_MTU+RTP_PACKET_HEADER_SIZE)
+#define RTP_MAX_PACKET_LEN (RTP_MAX_MTU+RTP_PACKET_HEADER_SIZE+MAX_PADDING)
 
 #if !defined(WORDS_BIGENDIAN) && !defined(WORDS_SMALLENDIAN)
 #error RTP library requires WORDS_BIGENDIAN or WORDS_SMALLENDIAN to be defined.

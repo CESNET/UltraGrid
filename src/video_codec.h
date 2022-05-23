@@ -58,12 +58,17 @@ extern "C" {
 #define DEFAULT_B_SHIFT 16
 #define DEFAULT_RGB_SHIFT_INIT { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT }
 #define MAX_BPS 8 /* for Y416 */  ///< maximal (average) number of pixels per know pixel formats (up-round if needed)
-#define MAX_PADDING 36 /* R12L */ ///< maximal padding that may be needed to align to pixfmt block size
+#define MAX_PADDING 64 ///< maximal padding in bytes that may be needed to align to pixfmt block size for Y416->R12L:
+                       ///< 64 = vc_linesize(8 /*maximal block pix count (R12L)*/, Y416 /*codec with maximal lenght of 1st arg-sized block*/)
 
 /**
  * @brief Defines type for pixelformat conversions
  *
  * dst and src must not overlap.
+ *
+ * src should have allocated MAX_PADDING bytes more to accomodate some pixel
+ * block conversions requirements (Already done by vf_alloc_desc_data() and by
+ * RTP stack.)
  *
  * @param[out] dst     destination buffer
  * @param[in]  src     source buffer
