@@ -146,8 +146,8 @@ void Participant::to_cv_frame(){
         unsigned src_len = frame_tile.data_len;
 
 #ifdef __SSSE3__
-        __m128i uv_shuff = _mm_set_epi8(255, 255, 255, 255, 255, 255, 255, 255, 14, 12, 10, 8, 6, 4, 2, 0);
-        __m128i y_shuff = _mm_set_epi8(255, 255, 255, 255, 255, 255, 255, 255, 15, 13, 11, 9, 7, 5, 3, 1);
+        __m128i uv_shuff = _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, 14, 12, 10, 8, 6, 4, 2, 0);
+        __m128i y_shuff = _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1, 15, 13, 11, 9, 7, 5, 3, 1);
         while(src_len >= 32){
                 __m128i uyvy = _mm_lddqu_si128((__m128i *)(void *) src);
                 src += 16;
@@ -325,8 +325,8 @@ void Video_mixer::get_mixed(video_frame *result){
         unsigned dst_len = result->tiles[0].data_len;
 
 #ifdef __SSSE3__
-        __m128i y_shuff = _mm_set_epi8(7, 0xFF, 6, 0xFF, 5, 0xFF, 4, 0xFF, 3, 0xFF, 2, 0xFF, 1, 0xFF, 0, 0xFF);
-        __m128i uv_shuff = _mm_set_epi8(0xFF, 7, 0xFF, 6, 0xFF, 5, 0xFF, 4, 0xFF, 3, 0xFF, 2, 0xFF, 1, 0xFF, 0);
+        __m128i y_shuff = _mm_set_epi8(7, -1, 6, -1, 5, -1, 4, -1, 3, -1, 2, -1, 1, -1, 0, -1);
+        __m128i uv_shuff = _mm_set_epi8(-1, 7, -1, 6, -1, 5, -1, 4, -1, 3, -1, 2, -1, 1, -1, 0);
         while(dst_len >= 32){
                __m128i luma = _mm_load_si128((__m128i const*)(const void *) luma_src); 
                luma_src += 16;
