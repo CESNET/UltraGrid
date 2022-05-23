@@ -15,7 +15,7 @@ private:
 
 	void connectSignals() override;
 	void updateUiState() override;
-	void updateUiState(const std::string &text);
+	void updateUiState(const std::string &text) override;
 };
 
 #endif
