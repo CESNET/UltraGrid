@@ -164,7 +164,7 @@ static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
         }
         auto s = (dummy_display_state *) state;
         if (s->dump_bytes > 0) {
-                dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes), get_pf_block_size(frame->color_spec));
+                dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes), get_pf_block_bytes(frame->color_spec));
         }
         if (s->dump_to_file) {
                 if (s->dump_to_file_skip_frames-- == 0) {

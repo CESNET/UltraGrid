@@ -131,9 +131,9 @@ static int crop_postprocess_reconfigure(void *state, struct video_desc desc)
         s->out_desc.height = s->height ? min<int>(s->height, desc.height) : desc.height;
 
         // make sure that width is divisible by pixel block size
-        assert(get_pf_block_size(desc.color_spec) != 0);
-        int linesize = (int) (s->out_desc.width * get_bpp(desc.color_spec)) / get_pf_block_size(desc.color_spec)
-                * get_pf_block_size(desc.color_spec);
+        assert(get_pf_block_bytes(desc.color_spec) != 0);
+        int linesize = (int) (s->out_desc.width * get_bpp(desc.color_spec)) / get_pf_block_bytes(desc.color_spec)
+                * get_pf_block_bytes(desc.color_spec);
         s->out_desc.width = linesize / get_bpp(desc.color_spec);
 
         return TRUE;
@@ -148,13 +148,13 @@ static struct video_frame * crop_getf(void *state)
 static bool crop_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         assert(in->tile_count == 1);
-        assert(get_pf_block_size(in->color_spec) != 0);
+        assert(get_pf_block_bytes(in->color_spec) != 0);
 
         auto s = static_cast<struct state_crop *>(state);
         int src_linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
         int xoff = s->xoff - max<int>(0, out->tiles[0].width + s->xoff - in->tiles[0].width);
-        int xoff_bytes = (int) (xoff * get_bpp(in->color_spec)) / get_pf_block_size(in->color_spec)
-                * get_pf_block_size(in->color_spec);
+        int xoff_bytes = (int) (xoff * get_bpp(in->color_spec)) / get_pf_block_bytes(in->color_spec)
+                * get_pf_block_bytes(in->color_spec);
         int yoff = s->yoff - max<int>(0, out->tiles[0].height + s->yoff - in->tiles[0].height);
 
         for (int y = 0 ; y < (int) out->tiles[0].height; y++) {

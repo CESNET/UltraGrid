@@ -168,8 +168,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if (rect_x < 0 || rect_x + s->width > in->tiles[0].width) {
                 rect_x = in->tiles[0].width - s->width;
         }
-        assert(get_pf_block_size(in->color_spec) > 0);
-        rect_x = (rect_x / get_pf_block_size(in->color_spec)) * get_pf_block_size(in->color_spec);
+        assert(get_pf_block_bytes(in->color_spec) > 0);
+        rect_x = (rect_x / get_pf_block_bytes(in->color_spec)) * get_pf_block_bytes(in->color_spec);
 
         if (rect_y < 0 || rect_y + s->height > in->tiles[0].height) {
                 rect_y = in->tiles[0].height - s->height;
@@ -179,7 +179,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 return in;
 
         int dec_width = s->width;
-        dec_width = (dec_width  + 1) / get_pf_block_size(in->color_spec) * get_pf_block_size(in->color_spec);
+        dec_width = (dec_width  + 1) / get_pf_block_bytes(in->color_spec) * get_pf_block_bytes(in->color_spec);
         int linesize = dec_width * 3;
 
         unsigned char *segment = (unsigned char *) malloc(linesize * s->height);

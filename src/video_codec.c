@@ -119,7 +119,7 @@ struct codec_info_t {
                                          ///< when display gets requestes compressed codec
                                          ///< (otherwise division by zero occurs).
         int bits_per_channel;            ///< Number of bits per color channel
-        int block_size;                  ///< Bytes per pixel block (packed pixelformats only, otherwise set to 1)
+        int block_size_bytes;            ///< Bytes per pixel block (packed pixelformats only, otherwise set to 1)
         unsigned rgb:1;                  ///< Whether pixelformat is RGB
         unsigned opaque:1;               ///< If codec is opaque (= compressed)
         unsigned interframe:1;           ///< Indicates if compression is interframe
@@ -530,13 +530,13 @@ size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec)
         }
 }
 
-/// @brief returns @ref codec_info_t::block_size
-int get_pf_block_size(codec_t codec)
+/// @brief returns @ref codec_info_t::block_size_bytes
+int get_pf_block_bytes(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].block_size;
+                return codec_info[i].block_size_bytes;
         } else {
                 return 0;
         }

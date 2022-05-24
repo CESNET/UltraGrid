@@ -228,7 +228,7 @@ static bool upload_to_cuda_buf(grab_worker_state *gs, video_frame *in_frame,
         size_t offset_bytes = y_offset * in_line_size
                 + vc_get_linesize(x_offset, in_frame->color_spec); 
 
-        w = (w / get_pf_block_size(in_frame->color_spec)) * get_pf_block_size(in_frame->color_spec);
+        w = (w / get_pf_block_bytes(in_frame->color_spec)) * get_pf_block_bytes(in_frame->color_spec);
 
         if(gs->conv_func){
                 if (cudaMemcpy2DAsync(gs->tmp_in_frame + offset_bytes,
