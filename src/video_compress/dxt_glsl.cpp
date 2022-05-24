@@ -86,7 +86,7 @@ static void dxt_glsl_compress_done(struct module *mod);
 static int configure_with(struct state_video_compress_rtdxt *s, struct video_frame *frame)
 {
         unsigned int x;
-        enum dxt_format format;
+        enum dxt_format format{};
 
         for (x = 0; x < frame->tile_count; ++x) {
                 if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
@@ -103,43 +103,31 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                         " to 8 bits. You may directly capture 8-bit signal to improve performance.\n";
         }
 
-        switch (frame->color_spec) {
-                case RGB:
-                        s->decoder = vc_memcpy;
-                        format = DXT_FORMAT_RGB;
+        s->decoder = NULL;
+        codec_t codec_try[3];
+        if (codec_is_a_rgb(frame->color_spec)) {
+                codec_try[0] = RGB;
+                codec_try[1] = RGBA;
+                codec_try[2] = UYVY;
+        } else {
+                codec_try[0] = UYVY;
+                codec_try[1] = RGB;
+                codec_try[2] = RGBA;
+        }
+        for (size_t i = 0; i < sizeof codec_try / sizeof codec_try[0]; ++i) {
+                if ((s->decoder = get_decoder_from_to(frame->color_spec, codec_try[i], true)) != NULL) {
+                        switch (codec_try[i]) {
+                                case RGB: format = DXT_FORMAT_RGB; break;
+                                case RGBA: format = DXT_FORMAT_RGBA; break;
+                                case UYVY: format = DXT_FORMAT_YUV422; break;
+                                default: assert(0 && "Shouldn't get other codecs than the above.");
+                        }
                         break;
-                case RGBA:
-                        s->decoder = vc_memcpy;
-                        format = DXT_FORMAT_RGBA;
-                        break;
-                case R10k:
-                        s->decoder = (decoder_t) vc_copyliner10k;
-                        format = DXT_FORMAT_RGBA;
-                        break;
-                case YUYV:
-                        s->decoder = (decoder_t) vc_copylineYUYV;
-                        format = DXT_FORMAT_YUV422;
-                        break;
-                case UYVY:
-                        s->decoder = vc_memcpy;
-                        format = DXT_FORMAT_YUV422;
-                        break;
-                case v210:
-                        s->decoder = (decoder_t) vc_copylinev210;
-                        format = DXT_FORMAT_YUV422;
-                        break;
-                case DVS10:
-                        s->decoder = (decoder_t) vc_copylineDVS10;
-                        format = DXT_FORMAT_YUV422;
-                        break;
-                case DPX10:
-                        s->decoder = (decoder_t) vc_copylineDPX10toRGBA;
-                        format = DXT_FORMAT_RGBA;
-                        break;
-                default:
-                        fprintf(stderr, "[RTDXT] Unknown codec: %d\n", frame->color_spec);
-                        exit_uv(EXIT_FAILURE);
-                        return FALSE;
+                }
+        }
+        if (!s->decoder) {
+                fprintf(stderr, "[RTDXT] Unsupported codec: %d\n", frame->color_spec);
+                return FALSE;
         }
 
         int data_len = 0;
