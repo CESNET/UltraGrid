@@ -49,6 +49,10 @@
 
 #include "types.h" // codec_t
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif // !defined __cplusplus
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -95,8 +99,8 @@ double           get_bpp(codec_t codec) ATTRIBUTE(const);
 uint32_t         get_fourcc(codec_t codec) ATTRIBUTE(const);
 const char      *get_codec_name(codec_t codec) ATTRIBUTE(const);
 const char      *get_codec_name_long(codec_t codec) ATTRIBUTE(const);
-int              is_codec_opaque(codec_t codec) ATTRIBUTE(const);
-int              is_codec_interframe(codec_t codec) ATTRIBUTE(const);
+bool             is_codec_opaque(codec_t codec) ATTRIBUTE(const);
+bool             is_codec_interframe(codec_t codec) ATTRIBUTE(const);
 codec_t          get_codec_from_fcc(uint32_t fourcc) ATTRIBUTE(const);
 codec_t          get_codec_from_name(const char *name) ATTRIBUTE(const);
 const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(const);
@@ -109,9 +113,9 @@ int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(const);
 size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec) ATTRIBUTE(const);
 void codec_get_planes_subsampling(codec_t pix_fmt, int *sub);
 bool codec_is_420(codec_t pix_fmt);
-int codec_is_a_rgb(codec_t codec) ATTRIBUTE(const);
+bool codec_is_a_rgb(codec_t codec) ATTRIBUTE(const);
 bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(const);
-int codec_is_const_size(codec_t codec) ATTRIBUTE(const);
+bool codec_is_const_size(codec_t codec) ATTRIBUTE(const);
 bool codec_is_hw_accelerated(codec_t codec) ATTRIBUTE(const);
 bool codec_is_planar(codec_t codec) ATTRIBUTE(const);
 

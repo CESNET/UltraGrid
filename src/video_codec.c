@@ -421,15 +421,14 @@ const char *get_codec_file_extension(codec_t codec)
  * @retval TRUE if codec is compressed
  * @retval FALSE if codec is pixelformat
  */
-int is_codec_opaque(codec_t codec)
+bool is_codec_opaque(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
                 return codec_info[i].opaque;
-        } else {
-                return 0;
         }
+        return false;
 }
 
 /**
@@ -438,15 +437,14 @@ int is_codec_opaque(codec_t codec)
  * @retval TRUE if compression is interframe
  * @retval FALSE if compression is not interframe
  */
-int is_codec_interframe(codec_t codec)
+bool is_codec_interframe(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
                 return codec_info[i].interframe;
-        } else {
-                return 0;
         }
+        return false;
 }
 
 /** @brief Returns TRUE if specified pixelformat is some form of RGB (not YUV).
@@ -454,15 +452,14 @@ int is_codec_interframe(codec_t codec)
  * Unspecified for compressed codecs.
  * @retval TRUE  if pixelformat is RGB
  * @retval FALSE if pixelformat is not a RGB */
-int codec_is_a_rgb(codec_t codec)
+bool codec_is_a_rgb(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
                 return codec_info[i].rgb;
-        } else {
-                return 0;
         }
+        return false;
 }
 
 /** @brief Returns TRUE if specified pixelformat has constant size regardles
@@ -471,15 +468,14 @@ int codec_is_a_rgb(codec_t codec)
  * Unspecified for compressed codecs.
  * @retval TRUE  if pixelformat is const size
  * @retval FALSE if pixelformat is not const size */
-int codec_is_const_size(codec_t codec)
+bool codec_is_const_size(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
                 return codec_info[i].const_size;
-        } else {
-                return 0;
         }
+        return false;
 }
 
 bool codec_is_hw_accelerated(codec_t codec) {
