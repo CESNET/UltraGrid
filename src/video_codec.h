@@ -104,6 +104,7 @@ decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBU
 decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow) ATTRIBUTE(const);
 
 int get_pf_block_bytes(codec_t codec) ATTRIBUTE(const);
+int get_pf_block_pixels(codec_t codec) ATTRIBUTE(const);
 int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(const);
 size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec) ATTRIBUTE(const);
 void codec_get_planes_subsampling(codec_t pix_fmt, int *sub);
