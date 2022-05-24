@@ -201,8 +201,8 @@ enum decoder_type_t {
  */
 struct line_decoder {
         int                  base_offset;  ///< from the beginning of buffer. Nonzero if decoding from mutiple tiles.
-        double               src_bpp;      ///< Source pixelformat BPP (bytes)
-        double               dst_bpp;      ///< Destination pixelformat BPP (bytes)
+        long                 conv_num;     ///< in->out bpp conv numerator
+        long                 conv_den;     ///< in->out bpp conv denominator
         int                  shifts[3];    ///< requested red,green and blue shift (in bits)
         decoder_t            decode_line;  ///< actual decoding function
         unsigned int         dst_linesize; ///< destination linesize
@@ -1292,8 +1292,8 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 if(display_mode == DISPLAY_PROPERTY_VIDEO_MERGED && decoder->video_mode == VIDEO_NORMAL) {
                         struct line_decoder *out = &decoder->line_decoder[0];
                         out->base_offset = 0;
-                        out->src_bpp = get_bpp(desc.color_spec);
-                        out->dst_bpp = get_bpp(out_codec);
+                        out->conv_num = get_pf_block_pixels(desc.color_spec) * get_pf_block_bytes(out_codec);
+                        out->conv_den = get_pf_block_bytes(desc.color_spec) * get_pf_block_pixels(out_codec);
                         memcpy(out->shifts, display_requested_rgb_shift, 3 * sizeof(int));
 
                         out->decode_line = decode_line;
@@ -1312,8 +1312,8 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                                         * decoder->pitch +
                                                         vc_get_linesize(x * desc.width, out_codec);
 
-                                        out->src_bpp = get_bpp(desc.color_spec);
-                                        out->dst_bpp = get_bpp(out_codec);
+                                        out->conv_num = get_pf_block_pixels(desc.color_spec) * get_pf_block_bytes(out_codec);
+                                        out->conv_den = get_pf_block_bytes(desc.color_spec) * get_pf_block_pixels(out_codec);
                                         memcpy(out->shifts, display_requested_rgb_shift,
                                                         3 * sizeof(int));
 
@@ -1334,8 +1334,8 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                                         struct line_decoder *out = &decoder->line_decoder[x +
                                                         src_x_tiles * y];
                                         out->base_offset = 0;
-                                        out->src_bpp = get_bpp(desc.color_spec);
-                                        out->dst_bpp = get_bpp(out_codec);
+                                        out->conv_num = get_pf_block_pixels(desc.color_spec) * get_pf_block_bytes(out_codec);
+                                        out->conv_den = get_pf_block_bytes(desc.color_spec) * get_pf_block_pixels(out_codec);
                                         memcpy(out->shifts, display_requested_rgb_shift,
                                                         3 * sizeof(int));
 
@@ -1729,8 +1729,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         /* convert X pos from source frame into the destination frame.
                          * it is byte offset from the beginning of a line.
                          */
-                        int d_x = ((int)((s_x) / line_decoder->src_bpp)) *
-                                line_decoder->dst_bpp;
+                        int d_x = s_x * line_decoder->conv_num / line_decoder->conv_den;
 
                         /* pointer to data payload in packet */
                         source = (unsigned char*)(data);
@@ -1742,7 +1741,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                                 /* len id payload length in source BPP
                                  * decoder needs len in destination BPP, so convert it
                                  */
-                                int l = ((int)(len / line_decoder->src_bpp)) * line_decoder->dst_bpp;
+                                int l = len * line_decoder->conv_num / line_decoder->conv_den;
 
                                 /* do not copy multiple lines, we need to
                                  * copy (& clip, center) line by line

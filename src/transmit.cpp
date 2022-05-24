@@ -533,7 +533,7 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
         }
 
         int fec_symbol_offset = 0;
-        int pf_block_size = is_codec_opaque(frame->color_spec) ? 1 : round(PIX_BLOCK_LCM * get_bpp(frame->color_spec));
+        int pf_block_size = is_codec_opaque(frame->color_spec) ? 1 : PIX_BLOCK_LCM / get_pf_block_pixels(frame->color_spec) * get_pf_block_bytes(frame->color_spec);
         unsigned pos = 0;
         do {
                 int len = get_video_pkt_len(frame->fec_params.type != FEC_NONE, mtu,
