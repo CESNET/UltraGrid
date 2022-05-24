@@ -326,7 +326,12 @@ POSTPROCESS_DEPS = \
 	touch $@
 	$(POSTPROCESS_DEPS)
 
-src/libavcodec_common.o: src/libavcodec_common.c
+src/libavcodec/from_lavc_vid_conv.o: src/libavcodec/from_lavc_vid_conv.c
+	$(MKDIR_P) $(dir $@)
+	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
+	$(POSTPROCESS_DEPS)
+
+src/libavcodec/to_lavc_vid_conv.o: src/libavcodec/to_lavc_vid_conv.c
 	$(MKDIR_P) $(dir $@)
 	$(CC) $(CFLAGS) $(OFAST) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
