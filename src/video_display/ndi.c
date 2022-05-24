@@ -258,7 +258,8 @@ static void ndi_disp_convert_Y216_to_P216(const struct video_frame *f, char *out
         uint16_t *out_cb_cr = (uint16_t *)(void *) out + f->tiles[0].width * f->tiles[0].height;
 
         for (unsigned int i = 0; i < f->tiles[0].height; ++i) {
-                for (unsigned int j = 0; j < f->tiles[0].width; j += 2) {
+                unsigned int width = f->tiles[0].width;
+                OPTIMIZED_FOR (unsigned int j = 0; j < (width + 1) / 2; j += 1) {
                         *out_y++ = *in++;
                         *out_cb_cr++ = *in++;
                         *out_y++ = *in++;
@@ -276,7 +277,8 @@ static void ndi_disp_convert_Y416_to_P216(const struct video_frame *f, char *out
         uint16_t *out_cb_cr = (uint16_t *)(void *) out + f->tiles[0].width * f->tiles[0].height;
 
         for (unsigned int i = 0; i < f->tiles[0].height; ++i) {
-                OPTIMIZED_FOR (unsigned int j = 0; j < f->tiles[0].width; j += 2) {
+                unsigned int width = f->tiles[0].width;
+                OPTIMIZED_FOR (unsigned int j = 0; j < (width + 1) / 2; j += 1) {
                         *out_y++ = in[1];
                         *out_cb_cr++ = (in[2] + in[6]) / 2;
                         *out_y++ = in[5];

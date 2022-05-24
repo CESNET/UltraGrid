@@ -363,7 +363,8 @@ static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data, int 
         auto *out_p = reinterpret_cast<uint32_t *>(out->tiles[0].data) + field_idx * out->tiles[0].width;
         for (unsigned int i = 0; i < out->tiles[0].height; i += total_fields) {
                 const auto *in_p = reinterpret_cast<const uint32_t *>(data + i * in_stride);
-                for (unsigned int j = 0; j < out->tiles[0].width; j++) {
+                unsigned int width = out->tiles[0].width;
+                OPTIMIZED_FOR (unsigned int j = 0; j < width; j++) {
                         uint32_t argb = *in_p++;
                         *out_p++ = (argb & 0xFF000000U) | ((argb & 0xFFU) << 16U) | (argb & 0xFF00U) | ((argb & 0xFF0000U) >> 16U);
                 }
@@ -377,7 +378,8 @@ static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, [[ma
         const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data) + out->tiles[0].width * out->tiles[0].height;
         auto *out_p = reinterpret_cast<uint16_t *>(out->tiles[0].data) + 2 * field_idx * out->tiles[0].width;
         for (unsigned int i = 0; i < out->tiles[0].height;  i += total_fields) {
-                for (unsigned int j = 0; j < out->tiles[0].width; j += 2) {
+                unsigned int width = out->tiles[0].width;
+                OPTIMIZED_FOR (unsigned int j = 0; j < (width + 1) / 2; j += 1) {
                         *out_p++ = *in_y++;
                         *out_p++ = *in_cb_cr++;
                         *out_p++ = *in_y++;
