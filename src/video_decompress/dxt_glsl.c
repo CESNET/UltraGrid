@@ -67,7 +67,7 @@ struct state_decompress_rtdxt {
         struct gl_context context;
 };
 
-static void configure_with(struct state_decompress_rtdxt *decompressor, struct video_desc desc)
+static int configure_with(struct state_decompress_rtdxt *decompressor, struct video_desc desc)
 {
         enum dxt_type type;
 
@@ -75,7 +75,7 @@ static void configure_with(struct state_decompress_rtdxt *decompressor, struct v
                 fprintf(stderr, "[RTDXT decompress] Failed to create GL context.\n");
                 exit_uv(EXIT_FAILURE);
                 decompressor->compressed_len = 0;
-                return;
+                return FALSE;
         }
 
         if(desc.color_spec == DXT5) {
@@ -86,7 +86,7 @@ static void configure_with(struct state_decompress_rtdxt *decompressor, struct v
                 type = DXT_TYPE_DXT1_YUV;
         } else {
                 fprintf(stderr, "Wrong compressiong to decompress.\n");
-                return;
+                return FALSE;
         }
         
         decompressor->desc = desc;
@@ -96,10 +96,15 @@ static void configure_with(struct state_decompress_rtdxt *decompressor, struct v
                         DXT_FORMAT_RGBA : DXT_FORMAT_YUV422,
                         decompressor->context.legacy);
 
-        assert(decompressor->decoder != NULL);
+        if (decompressor->decoder == NULL) {
+                fprintf(stderr, "[RTDXT decompress] State initialization failed.\n");
+                return FALSE;
+        }
         
         decompressor->compressed_len = dxt_get_size(desc.width, desc.height, type);
         decompressor->configured = TRUE;
+
+        return TRUE;
 }
 
 static void * dxt_glsl_decompress_init(void)
@@ -116,6 +121,7 @@ static int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
+        int ret = TRUE;
         
         s->pitch = pitch;
         s->rshift = rshift;
@@ -123,17 +129,17 @@ static int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
         s->bshift = bshift;
         s->out_codec = out_codec;
         if(!s->configured) {
-                configure_with(s, desc);
+                ret = configure_with(s, desc);
         } else {
                 gl_context_make_current(&s->context);
                 dxt_decoder_destroy(s->decoder);
                 destroy_gl_context(&s->context);
-                configure_with(s, desc);
+                ret = configure_with(s, desc);
         }
 
         gl_context_make_current(NULL);
 
-        return TRUE;
+        return ret;
 }
 
 static decompress_status dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
