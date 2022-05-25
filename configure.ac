@@ -3225,9 +3225,9 @@ AC_ARG_ENABLE(ndi,
 AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
 
 NDI_VER=
-if expr $ndi_req : @<:@0-9@:>@ >/dev/null; then
+if expr $ndi_req : '@<:@0-9@:>@' >/dev/null; then
         NDI_VER=$ndi_req
-        ndi_req = yes
+        ndi_req=yes
 fi
 
 # if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
