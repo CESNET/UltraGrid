@@ -392,7 +392,7 @@ static int display_ndi_get_property(void *state, int property, void *val, size_t
                 s->NDIlib->util_send_send_audio_interleaved_ ## bit_depth ## s(s->pNDI_send, &NDI_audio_frame); \
         } while(0)
 
-static void display_ndi_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_ndi_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct display_ndi *s = (struct display_ndi *) state;
         switch (frame->bps * 8) {

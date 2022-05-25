@@ -372,7 +372,7 @@ static int audio_play_jack_reconfigure(void *state, struct audio_desc desc)
         return TRUE;
 }
 
-static void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_jack_put_frame(void *state, const struct audio_frame *frame)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
         assert(frame->bps == 4);

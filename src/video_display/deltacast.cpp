@@ -540,7 +540,7 @@ static int display_deltacast_reconfigure_audio(void *state, int quant_samples, i
         return TRUE;
 }
 
-static void display_deltacast_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_deltacast_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         int i;

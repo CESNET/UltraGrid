@@ -218,7 +218,7 @@ void audio_export_raw(struct audio_export *s, void *data, unsigned len){
         pthread_mutex_unlock(&s->lock);
 }
 
-void audio_export(struct audio_export *s, struct audio_frame *frame)
+void audio_export(struct audio_export *s, const struct audio_frame *frame)
 {
         if(!s) {
                 return;

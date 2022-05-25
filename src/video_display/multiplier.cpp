@@ -281,7 +281,7 @@ static int display_multiplier_reconfigure(void *state, struct video_desc desc)
         return 1;
 }
 
-static void display_multiplier_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_multiplier_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         auto *s = static_cast<struct state_multiplier *>(state);
 

@@ -458,7 +458,7 @@ error:
         return NULL;
 }
 
-static void audio_play_ca_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_ca_put_frame(void *state, const struct audio_frame *frame)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
 

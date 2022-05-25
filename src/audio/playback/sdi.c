@@ -53,7 +53,7 @@
 
 struct state_sdi_playback {
         void *udata;
-        void (*put_callback)(void *, struct audio_frame *);
+        void (*put_callback)(void *, const struct audio_frame *);
         int (*reconfigure_callback)(void *state, int quant_samples, int channels,
                 int sample_rate);
         int (*get_property_callback)(void *, int, void *, size_t *);
@@ -110,7 +110,7 @@ static void * audio_play_sdi_init(const char *cfg)
         return s;
 }
 
-void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void *, struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *))
+void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void *, const struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *))
 {
         struct state_sdi_playback *s = (struct state_sdi_playback *) state;
         
@@ -120,7 +120,7 @@ void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void 
         s->get_property_callback = get_property;
 }
 
-static void audio_play_sdi_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_sdi_put_frame(void *state, const struct audio_frame *frame)
 {
         struct state_sdi_playback *s;
         s = (struct state_sdi_playback *) state;

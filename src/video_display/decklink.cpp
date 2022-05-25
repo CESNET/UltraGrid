@@ -1477,7 +1477,7 @@ static int display_decklink_get_property(void *state, int property, void *val, s
 /*
  * AUDIO
  */
-static void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_decklink_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = frame->data_len / (frame->bps *

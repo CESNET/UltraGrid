@@ -176,7 +176,7 @@ bool audio_desc_eq(struct audio_desc a1, struct audio_desc a2) {
                 a1.codec == a2.codec;
 }
 
-struct audio_desc audio_desc_from_audio_frame(struct audio_frame *frame) {
+struct audio_desc audio_desc_from_frame(const struct audio_frame *frame) {
         return audio_desc { frame->bps,
                 frame->sample_rate,
                 frame->ch_count,

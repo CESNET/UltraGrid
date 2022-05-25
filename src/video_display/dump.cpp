@@ -194,7 +194,7 @@ static int display_dump_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-static void display_dump_put_audio_frame(void *, struct audio_frame *)
+static void display_dump_put_audio_frame(void *, const struct audio_frame *)
 {
 }
 

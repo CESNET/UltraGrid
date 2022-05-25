@@ -339,7 +339,7 @@ error:
         return NULL;
 }
 
-static void audio_play_decklink_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_decklink_put_frame(void *state, const struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = frame->data_len /

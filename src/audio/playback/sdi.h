@@ -39,7 +39,7 @@
 extern "C" {
 #endif
 
-void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void *, struct audio_frame *),
+void sdi_register_display_callbacks(void *state, void *udata, void (*putf)(void *, const struct audio_frame *),
                 int (*reconfigure)(void *, int, int, int),
                 int (*get_property)(void *, int, void *, size_t *)
  );

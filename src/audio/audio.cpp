@@ -736,7 +736,7 @@ static void *audio_receiver_thread(void *arg)
                         bool failed = false;
 
                         struct audio_desc curr_desc;
-                        curr_desc = audio_desc_from_audio_frame(&current_pbuf->buffer);
+                        curr_desc = audio_desc_from_frame(&current_pbuf->buffer);
 
                         if(!audio_desc_eq(device_desc, curr_desc)) {
                                 int log_l;
@@ -1088,7 +1088,7 @@ void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         sdi_capture_new_incoming_frame(sdi_capture, frame);
 }
 
-void audio_register_display_callbacks(struct state_audio *s, void *udata, void (*putf)(void *, struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *))
+void audio_register_display_callbacks(struct state_audio *s, void *udata, void (*putf)(void *, const struct audio_frame *), int (*reconfigure)(void *, int, int, int), int (*get_property)(void *, int, void *, size_t *))
 {
         struct state_sdi_playback *sdi_playback;
         if(!audio_playback_get_display_flags(s->audio_playback_device))
@@ -1101,12 +1101,6 @@ void audio_register_display_callbacks(struct state_audio *s, void *udata, void (
 unsigned int audio_get_display_flags(struct state_audio *s)
 {
         return audio_playback_get_display_flags(s->audio_playback_device);
-}
-
-struct audio_desc audio_desc_from_frame(struct audio_frame *frame)
-{
-        return (struct audio_desc) { frame->bps, frame->sample_rate,
-                frame->ch_count, AC_PCM };
 }
 
 std::ostream& operator<<(std::ostream& os, const audio_desc& desc)

@@ -1073,7 +1073,7 @@ LINK_SPEC int display_aja_get_property(void *state, int property, void *val, siz
         return TRUE;
 }
 
-LINK_SPEC void display_aja_put_audio_frame(void *state, struct audio_frame *frame)
+LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         auto s = static_cast<struct aja::display *>(state);
 

@@ -352,7 +352,7 @@ err:
         return TRUE;
 }
 
-static void display_aggregate_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_aggregate_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         double seconds = tv_diff(s->t, s->t0);    

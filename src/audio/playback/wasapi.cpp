@@ -374,7 +374,7 @@ static int audio_play_wasapi_reconfigure(void *state, struct audio_desc desc)
 }
 
 #define CHECK(cmd) do {HRESULT hr = cmd; if (hr != S_OK) { LOG(LOG_LEVEL_ERROR) << MOD_NAME << #cmd ": " << hresult_to_str(hr) << "\n"; return;}} while(0)
-static void audio_play_wasapi_put_frame(void *state, struct audio_frame *buffer)
+static void audio_play_wasapi_put_frame(void *state, const struct audio_frame *buffer)
 {
         auto s = static_cast<struct state_aplay_wasapi *>(state);
         UINT32 numFramesPadding;

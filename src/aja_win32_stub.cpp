@@ -76,7 +76,7 @@ __declspec(dllimport) void *display_aja_init(struct module * /* parent */, const
 __declspec(dllimport) void display_aja_done(void *state);
 __declspec(dllimport) struct video_frame *display_aja_getf(void *state);
 __declspec(dllimport) int display_aja_putf(void *state, struct video_frame *frame, int nonblock);
-__declspec(dllimport) void display_aja_put_audio_frame(void *state, struct audio_frame *frame);
+__declspec(dllimport) void display_aja_put_audio_frame(void *state, const struct audio_frame *frame);
 __declspec(dllimport) int display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
 __declspec(dllimport) int *aja_display_init_noerr;

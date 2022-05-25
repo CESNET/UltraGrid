@@ -63,7 +63,7 @@ static void * audio_play_dummy_init(const char *)
         return &state;
 }
 
-static void audio_play_dummy_put_frame(void *, struct audio_frame *)
+static void audio_play_dummy_put_frame(void *, const struct audio_frame *)
 {
 }
 

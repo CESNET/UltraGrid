@@ -155,9 +155,9 @@ static struct audio_frame * display_pipe_get_audio(struct state_pipe *s)
         if (s->audio_frames.empty()) {
                 return nullptr;
         }
-        struct audio_desc desc = audio_desc_from_audio_frame(s->audio_frames.front());
+        struct audio_desc desc = audio_desc_from_frame(s->audio_frames.front());
         for (auto it = s->audio_frames.begin(); it != s->audio_frames.end(); ) {
-                if (!audio_desc_eq(desc, audio_desc_from_audio_frame(*it))) {
+                if (!audio_desc_eq(desc, audio_desc_from_frame(*it))) {
                         LOG(LOG_LEVEL_WARNING) << "[pipe] Discarding audio - incompatible format!\n";
                         free((*it)->data);
                         free(*it);
@@ -269,7 +269,7 @@ static int display_pipe_reconfigure(void *state, struct video_desc desc)
         return 1;
 }
 
-static void display_pipe_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_pipe_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         auto s = (struct state_pipe *) state;
         lock_guard<mutex> lk(s->audio_lock);

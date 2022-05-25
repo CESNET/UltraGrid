@@ -46,7 +46,7 @@ extern "C" {
 
 extern int audio_init_state_ok;
 
-#define AUDIO_PLAYBACK_ABI_VERSION 5
+#define AUDIO_PLAYBACK_ABI_VERSION 6
 
 /** @anchor audio_playback_ctl_reqs
  * @name Audio playback control requests
@@ -81,7 +81,7 @@ struct audio_playback_info {
         void (*probe)(struct device_info **available_devices, int *count);
         void (*help)(const char *driver_name);
         void *(*init)(const char *cfg); ///< @param cfg is not NULL
-        void (*write)(void *state, struct audio_frame *frame);
+        void (*write)(void *state, const struct audio_frame *frame);
         /** Returns device supported format that matches best with propsed audio desc */
         bool (*ctl)(void *state, int request, void *data, size_t *len);
         int (*reconfigure)(void *state, struct audio_desc);
@@ -123,7 +123,7 @@ bool audio_playback_ctl(struct state_audio_playback *s, int request, void *data,
 int                             audio_playback_reconfigure(struct state_audio_playback *state,
                 int quant_samples, int channels,
                 int sample_rate);
-void                            audio_playback_put_frame(struct state_audio_playback *state, struct audio_frame *frame);
+void                            audio_playback_put_frame(struct state_audio_playback *state, const struct audio_frame *frame);
 void                            audio_playback_finish(struct state_audio_playback *state);
 void                            audio_playback_done(struct state_audio_playback *state);
 

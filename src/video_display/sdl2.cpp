@@ -775,7 +775,7 @@ static void display_sdl2_new_message(struct module *mod)
         SDL_PushEvent(&event);
 }
 
-static void display_sdl2_put_audio_frame([[maybe_unused]] void *state, [[maybe_unused]] struct audio_frame *frame)
+static void display_sdl2_put_audio_frame([[maybe_unused]] void *state, [[maybe_unused]] const struct audio_frame *frame)
 {
 }
 

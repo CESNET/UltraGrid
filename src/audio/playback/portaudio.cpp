@@ -430,7 +430,7 @@ static int callback( const void *inputBuffer, void *outputBuffer,
         return paContinue;
 }
 
-static void audio_play_portaudio_put_frame(void *state, struct audio_frame *buffer)
+static void audio_play_portaudio_put_frame(void *state, const struct audio_frame *buffer)
 {
         struct state_portaudio_playback * s = 
                 (struct state_portaudio_playback *) state;
@@ -455,7 +455,7 @@ static void audio_play_portaudio_put_frame(void *state, struct audio_frame *buff
         }
         
         audio_buffer_write(s->data, buffer->data, samples_count * buffer->bps * out_channels);
-        }
+}
 
 static const struct audio_playback_info aplay_portaudio_info = {
         audio_play_portaudio_probe,

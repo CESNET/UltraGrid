@@ -51,7 +51,7 @@ struct audio_frame;
 
 struct audio_export * audio_export_init(const char *filename);
 void audio_export_destroy(struct audio_export *state);
-void audio_export(struct audio_export *state, struct audio_frame *frame);
+void audio_export(struct audio_export *state, const struct audio_frame *frame);
 
 /**
  * Configure audio export for exporting samples directly from a sample buffer.

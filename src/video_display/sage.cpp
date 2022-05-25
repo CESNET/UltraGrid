@@ -530,7 +530,7 @@ static int display_sage_get_property(void *state, int property, void *val, size_
         return TRUE;
 }
 
-static void display_sage_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_sage_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);

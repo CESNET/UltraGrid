@@ -295,7 +295,7 @@ static void audio_append_pcm(struct vidcap_state_ndi *s, NDIlib_audio_frame_v3_t
                         << " channels, stream has " << frame->no_channels << "!\n";
         }
 
-        if (!audio_desc_eq(d, audio_desc_from_audio_frame(&s->audio[s->audio_buf_idx]))) {
+        if (!audio_desc_eq(d, audio_desc_from_frame(&s->audio[s->audio_buf_idx]))) {
                 free(s->audio[s->audio_buf_idx].data);
                 s->audio[s->audio_buf_idx].bps = 4;
                 s->audio[s->audio_buf_idx].sample_rate = frame->sample_rate;

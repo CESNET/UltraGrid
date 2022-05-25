@@ -530,7 +530,7 @@ int display_ctl_property(struct display *d, int property, void *val, size_t *len
  * @param d     video display
  * @param frame audio frame to be played
  */
-void display_put_audio_frame(struct display *d, struct audio_frame *frame)
+void display_put_audio_frame(struct display *d, const struct audio_frame *frame)
 {
         assert(d->magic == DISPLAY_MAGIC);
         d->funcs->put_audio_frame(d->state, frame);

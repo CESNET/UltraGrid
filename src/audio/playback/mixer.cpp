@@ -416,7 +416,7 @@ static void * audio_play_mixer_init(const char *cfg)
         }
 }
 
-static void audio_play_mixer_put_frame(void *state, struct audio_frame *frame [[gnu::unused]])
+static void audio_play_mixer_put_frame(void *state, const struct audio_frame *frame)
 {
         struct state_audio_mixer *s = (struct state_audio_mixer *) state;
 

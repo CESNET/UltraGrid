@@ -771,7 +771,7 @@ error:
         return FALSE;
 }
 
-static void display_sdl_put_audio_frame(void *state, struct audio_frame *frame) {
+static void display_sdl_put_audio_frame(void *state, const struct audio_frame *frame) {
         struct state_sdl *s = (struct state_sdl *)state;
         char *tmp;
 

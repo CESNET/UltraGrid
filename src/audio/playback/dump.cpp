@@ -129,7 +129,7 @@ static bool audio_play_dump_ctl(void *, int request, void *data, size_t *len)
         }
 }
 
-static void audio_play_dump_put_frame(void *state, struct audio_frame *f)
+static void audio_play_dump_put_frame(void *state, const struct audio_frame *f)
 {
         auto *s = static_cast<audio_dump_state *>(state);
 

@@ -868,7 +868,7 @@ static int display_dvs_get_property(void *state, int property, void *val, size_t
 /*
  * AUDIO
  */
-static void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_dvs_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         

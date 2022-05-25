@@ -222,7 +222,7 @@ static int display_dummy_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-static void display_dummy_put_audio_frame(void *, struct audio_frame *)
+static void display_dummy_put_audio_frame(void *, const struct audio_frame *)
 {
 }
 

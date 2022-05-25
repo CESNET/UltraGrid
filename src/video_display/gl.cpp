@@ -2024,7 +2024,7 @@ static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         return 0;
 }
 
-static void display_gl_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_gl_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);

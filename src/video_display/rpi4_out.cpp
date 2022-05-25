@@ -624,7 +624,7 @@ static auto display_rpi4_get_property(void *state, int property, void *val, size
         return TRUE;
 }
 
-static void display_rpi4_put_audio_frame(void *, struct audio_frame *)
+static void display_rpi4_put_audio_frame(void *, const struct audio_frame *)
 {
 }
 

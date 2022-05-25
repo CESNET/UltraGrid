@@ -384,7 +384,7 @@ static int display_proxy_reconfigure(void *state, struct video_desc desc)
         return 1;
 }
 
-static void display_proxy_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_proxy_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);

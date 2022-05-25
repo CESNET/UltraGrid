@@ -137,7 +137,7 @@ struct state_alsa_playback {
         char *scratchpad;
 };
 
-static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame);
+static void audio_play_alsa_write_frame(void *state, const struct audio_frame *frame);
 
 static long get_sched_latency_ns(void)
 {
@@ -947,7 +947,7 @@ static int write_samples(snd_pcm_t *handle, const char *data, int bps, int ch_co
         return written;
 }
 
-static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
+static void audio_play_alsa_write_frame(void *state, const struct audio_frame *frame)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         int rc;
@@ -991,7 +991,7 @@ static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
         }
 }
 
-static void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
+static void audio_play_alsa_put_frame(void *state, const struct audio_frame *frame)
 {
         struct state_alsa_playback *s = state;
 

@@ -110,7 +110,7 @@ struct display_bluefish444_state {
                 /// AUDIO
                 void                reconfigure_audio(int quant_samples, int channels,
                                 int sample_rate)                   noexcept(false);
-                void                put_audio_frame(struct audio_frame *) noexcept;
+                void                put_audio_frame(const struct audio_frame *) noexcept;
 #endif
         private:
                 uint32_t            m_magic;
@@ -799,7 +799,7 @@ void display_bluefish444_state::reconfigure_audio(int quant_samples, int channel
         pthread_spin_unlock(&m_AudioSpinLock);
 }
 
-void display_bluefish444_state::put_audio_frame(struct audio_frame *frame) noexcept
+void display_bluefish444_state::put_audio_frame(const struct audio_frame *frame) noexcept
 {
         if(!m_PlayAudio)
                 return;
@@ -1015,7 +1015,7 @@ static int display_bluefish444_reconfigure_audio(void *state, int quant_samples,
 #endif
 }
 
-static void display_bluefish444_put_audio_frame(void *state, struct audio_frame *frame)
+static void display_bluefish444_put_audio_frame(void *state, const struct audio_frame *frame)
 {
 #ifdef HAVE_BLUE_AUDIO
         display_bluefish444_state *s =

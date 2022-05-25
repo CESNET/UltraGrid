@@ -148,7 +148,7 @@ unsigned int audio_playback_get_display_flags(struct state_audio_playback *s)
         }
 }
 
-void audio_playback_put_frame(struct state_audio_playback *s, struct audio_frame *frame)
+void audio_playback_put_frame(struct state_audio_playback *s, const struct audio_frame *frame)
 {
         s->samples_played += frame->data_len / frame->ch_count / frame->bps;
         s->funcs->write(s->state, frame);

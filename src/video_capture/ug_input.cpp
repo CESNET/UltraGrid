@@ -167,7 +167,7 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
 
                 audio_register_display_callbacks(s->audio,
                                 s->display,
-                                (void (*)(void *, struct audio_frame *)) display_put_audio_frame,
+                                (void (*)(void *, const struct audio_frame *)) display_put_audio_frame,
                                 (int (*)(void *, int, int, int)) display_reconfigure_audio,
                                 (int (*)(void *, int, void *, size_t *)) display_ctl_property);
 

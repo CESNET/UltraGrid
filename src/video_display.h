@@ -140,7 +140,7 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 12
+#define VIDEO_DISPLAY_ABI_VERSION 13
 
 typedef bool (*display_needs_mainloop_t)(void *);
 #define DISPLAY_DOESNT_NEED_MAINLOOP ((display_needs_mainloop_t) 0x00)
@@ -155,7 +155,7 @@ struct video_display_info {
         int                     (*putf) (void *state, struct video_frame *frame, int nonblock);
         int                     (*reconfigure_video)(void *state, struct video_desc desc);
         int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
-        void                    (*put_audio_frame) (void *state, struct audio_frame *frame);
+        void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);
         int                     (*reconfigure_audio) (void *state, int quant_samples, int channels,
                         int sample_rate);
         display_needs_mainloop_t needs_mainloop;
@@ -202,7 +202,7 @@ int                      display_ctl_property(struct display *d, int property, v
  * This functions will be called from different thread than video functions.
  * @{
  */
-void                     display_put_audio_frame(struct display *d, struct audio_frame *frame);
+void                     display_put_audio_frame(struct display *d, const struct audio_frame *frame);
 int                      display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
 /** @} */ // end of display_audio
 
