@@ -63,6 +63,7 @@
 #define BUF_LEN_DEFAULT 60
 #define BUF_LEN_DEFAULT_SYNC 200 // default buffer len for sync API
 #define MOD_NAME "[ALSA play.] "
+#define SCRATCHPAD_SIZE (1024*1024)
 
 /**
  * Speex jitter buffer use is currently not stable and not ready for production use.
@@ -94,8 +95,8 @@
         } while (0)
 
 typedef enum {
+        THREAD = 0,
         SYNC,
-        THREAD,
         ASYNC
 } playback_mode_t;
 
@@ -132,6 +133,8 @@ struct state_alsa_playback {
         snd_async_handler_t *pcm_callback;
 
         long sched_latency_ms;
+
+        char *scratchpad;
 };
 
 static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame);
@@ -787,11 +790,9 @@ ADD_TO_PARAM("alsa-playback-api", "* alsa-playback-api={thread|sync|async}\n"
 static void * audio_play_alsa_init(const char *cfg)
 {
         int rc;
-        struct state_alsa_playback *s;
         const char *name;
 
-        s = malloc(sizeof(struct state_alsa_playback));
-        *s = (struct state_alsa_playback){.playback_mode = THREAD};
+        struct state_alsa_playback *s = calloc(1, sizeof(struct state_alsa_playback));
 
         long latency_ns = get_sched_latency_ns();
         if (latency_ns > 0) {
@@ -900,6 +901,7 @@ static void * audio_play_alsa_init(const char *cfg)
                 }
         }
 
+        s->scratchpad = malloc(SCRATCHPAD_SIZE);
         return s;
 
 error:
@@ -907,20 +909,26 @@ error:
         return NULL;
 }
 
-static int write_samples(snd_pcm_t *handle, const struct audio_frame *frame, int frames, bool noninterleaved, playback_mode_t playback_mode) {
-        char *write_ptr[frame->ch_count]; // for non-interleaved
-        char *tmp_data = (char *) alloca(frame->data_len);
+static int write_samples(snd_pcm_t *handle, const char *data, int bps, int ch_count, int frames, bool noninterleaved, playback_mode_t playback_mode, char *tmp_buffer) {
+        char *write_ptr[ch_count]; // for non-interleaved
+        long data_len = bps * ch_count * frames;
         if (noninterleaved) {
-                interleaved2noninterleaved(tmp_data, frame->data, frame->bps, frame->data_len, frame->ch_count);
+                assert(frames * bps * ch_count < SCRATCHPAD_SIZE);
+                interleaved2noninterleaved(tmp_buffer, data, bps, data_len, ch_count);
+                data = tmp_buffer;
+        }
+        if (bps == 1) { // convert to unsigned
+                assert(frames * bps * ch_count < SCRATCHPAD_SIZE);
+                signed2unsigned(tmp_buffer, data, data_len); // data may already equal tmp_buffer if noninterleaved, but np, s2u can work in situ
+                data = tmp_buffer;
         }
 
-        char *data = frame->data; // for interleaved
         int written = 0;
         while (written < frames) {
                 int rc;
                 if (noninterleaved) {
-                        for (int i = 0; i < frame->ch_count; ++i) {
-                                write_ptr[i] = tmp_data + frame->data_len / frame->ch_count * i + written * frame->bps;
+                        for (int i = 0; i < ch_count; ++i) {
+                                write_ptr[i] = tmp_buffer + frames * bps * i + written * bps;
                         }
                         rc = snd_pcm_writen(handle, (void **) &write_ptr, frames);
                 } else {
@@ -934,7 +942,7 @@ static int write_samples(snd_pcm_t *handle, const struct audio_frame *frame, int
                         return rc;
                 }
                 written += rc;
-                data += written * frame->bps * frame->ch_count;
+                data += written * bps * ch_count;
         }
         return written;
 }
@@ -950,12 +958,8 @@ static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
         //fprintf(stderr, "Alsa delay: %d samples (%u Hz)\n", (int)delay, (unsigned int) s->frame.sample_rate);
 #endif
 
-        if(frame->bps == 1) { // convert to unsigned
-                signed2unsigned(frame->data, frame->data, frame->data_len);
-        }
-
         int frames = frame->data_len / (frame->bps * frame->ch_count);
-        rc = write_samples(s->handle, frame, frames, s->non_interleaved, s->playback_mode);
+        rc = write_samples(s->handle, frame->data, frame->bps, frame->ch_count, frames, s->non_interleaved, s->playback_mode, s->scratchpad);
         if (rc == -EPIPE) {
                 /* EPIPE means underrun */
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "underrun occurred\n");
@@ -966,7 +970,7 @@ static void audio_play_alsa_write_frame(void *state, struct audio_frame *frame)
                         if (f + frames > s->buffer_size) {
                                 frames_to_write = s->buffer_size - frames;
                         }
-                        int rc = write_samples(s->handle, frame, frames_to_write, s->non_interleaved, s->playback_mode);
+                        int rc = write_samples(s->handle, frame->data, frame->bps, frame->ch_count, frames_to_write, s->non_interleaved, s->playback_mode, s->scratchpad);
                         if(rc < 0) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "error from writei: %s\n",
                                                 snd_strerror(rc));
@@ -1052,6 +1056,7 @@ static void audio_play_alsa_done(void *state)
 
         pthread_mutex_destroy(&s->lock);
 
+        free(s->scratchpad);
         free(s);
 }
 
