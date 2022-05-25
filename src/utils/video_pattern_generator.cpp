@@ -61,6 +61,7 @@
 #include <array>
 #include <iostream>
 #include <random>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -86,6 +87,7 @@ using std::make_unique;
 using std::max;
 using std::min;
 using std::move;
+using std::set;
 using std::string;
 using std::swap;
 using std::unique_ptr;
@@ -96,6 +98,8 @@ enum class generator_depth {
         bits8,
         bits16
 };
+
+static const set<codec_t> native_16b{ RG48, R12L, R10k, v210, Y416, Y216 };
 
 class image_pattern {
         public:
@@ -334,7 +338,11 @@ class image_pattern_raw : public image_pattern {
 unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (config == "help") {
                 cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
-                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns with " << BOLD("RG48") << ", " << BOLD("R12L") << ", " << BOLD("R10k") << " and " << BOLD("v210") << "\n";
+                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns with";
+                for (auto & c : native_16b) {
+                        cout << " " << BOLD(get_codec_name(c));
+                }
+                cout << "\n";
                 cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
                 cout << "\t\t- pattern 'smpte' uses the top bars from top 2 thirds only (doesn't render bottom third differently)\n";
                 return {};
@@ -411,7 +419,7 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
 
         auto data = generator->init(width, height, generator_depth::bits8);
         codec_t codec_src = RGBA;
-        if (color_spec == RG48 || color_spec == R12L || color_spec == R10k || color_spec == v210) {
+        if (native_16b.find(color_spec) != native_16b.end()) {
                 data = generator->init(width, height, generator_depth::bits16);
                 codec_src = RG48;
         }

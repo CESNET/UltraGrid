@@ -2314,6 +2314,54 @@ static void vc_copylineRG48toV210(unsigned char * __restrict dst, const unsigned
 #undef FETCH_BLOCK
 }
 
+static void vc_copylineRG48toY216(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        assert((uintptr_t) dst % 2 == 0);
+        const uint16_t *in = (const void *) src;
+        uint16_t *d = (void *) dst;
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 8) {
+                comp_type_t r, g, b;
+                comp_type_t u, v;
+                r = *in++;
+                g = *in++;
+                b = *in++;
+                *d++ = CLAMP_LIMITED_Y((RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12), 16); // Y
+                u = (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE);
+                v = (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE);
+                r = *in++;
+                g = *in++;
+                b = *in++;
+                *d++ = CLAMP_LIMITED_CBCR((u + (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) / 2) + (1<<15), 16); // U
+                *d++ = CLAMP_LIMITED_Y((RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12), 16); // Y
+                *d++ = CLAMP_LIMITED_CBCR((v + (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) / 2) + (1<<15), 16); // V
+        }
+}
+
+static void vc_copylineRG48toY416(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        assert((uintptr_t) dst % 2 == 0);
+        const uint16_t *in = (const void *) src;
+        uint16_t *d = (void *) dst;
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 8) {
+                comp_type_t r, g, b;
+                r = *in++;
+                g = *in++;
+                b = *in++;
+                *d++ = CLAMP_LIMITED_CBCR((RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15), 16);
+                *d++ = CLAMP_LIMITED_Y((RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12), 16);
+                *d++ = CLAMP_LIMITED_CBCR((RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15), 16);
+                *d++ = 0xFFFFU;
+        }
+}
+
 /**
  * Converts BGR to RGB.
  * @copydetails vc_copylinev210
@@ -2658,6 +2706,8 @@ static const struct decoder_item decoders[] = {
         { (decoder_t) vc_copylineRG48toRGB,   RG48,  RGB, false },
         { (decoder_t) vc_copylineRG48toUYVY,  RG48,  UYVY, true },
         { (decoder_t) vc_copylineRG48toV210,  RG48,  v210, true },
+        { (decoder_t) vc_copylineRG48toY216,  RG48,  Y216, true },
+        { (decoder_t) vc_copylineRG48toY416,  RG48,  Y416, true },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
         { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
         { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
