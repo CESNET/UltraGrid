@@ -704,6 +704,7 @@ void print_param_doc()
 }
 
 void print_pixel_formats(void) {
+        cout << "codec RGB/YCbCr depth description\n";
         for (codec_t c = static_cast<codec_t>(1); c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                 char tag;
                 if (is_codec_opaque(c)) {
@@ -731,6 +732,7 @@ void print_video_codecs(void) {
                 cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << "   " << get_codec_name_long(c) << setw(width) << "\n";
                 cout.flags(flags);
         }
+        cout << "\nLegend:\n" << " I - interframe codec\n";
 }
 
 bool register_mainloop(mainloop_t m, void *u)
