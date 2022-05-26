@@ -42,7 +42,6 @@
 /**
  * @file
  * @todo
- * - selectable pixel format
  * - audio-only input
  * - regularly (every 30 s or so) write position in file (+ duration at the beginning)
  */
@@ -508,7 +507,6 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
         s->video_frame_queue = simple_linked_list_init();
         s->audio_stream_idx = -1;
         s->video_stream_idx = -1;
-        s->convert_to = UYVY;
         s->max_queue_len = FILE_DEFAULT_QUEUE_LEN;
         s->thread_count = 0; // means auto for most codecs
         s->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
@@ -594,11 +592,16 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                 return VIDCAP_INIT_FAIL;
                         }
                 } else {
-                        s->video_desc.color_spec = s->convert_to;
                         s->vid_ctx = vidcap_file_open_dec_ctx(dec, st, s->thread_count, s->thread_type);
                         if (!s->vid_ctx) {
                                 vidcap_file_common_cleanup(s);
                                 return VIDCAP_INIT_FAIL;
+                        }
+
+                        enum AVPixelFormat suggested[] = { s->vid_ctx->pix_fmt, AV_PIX_FMT_NONE };
+                        s->video_desc.color_spec = IF_NOT_NULL_ELSE(s->convert_to, get_best_ug_codec_to_av(suggested, false));
+                        if (s->video_desc.color_spec == VIDEO_CODEC_NONE) {
+                                s->video_desc.color_spec = UYVY; // fallback, swscale will perhaps be used
                         }
 
                         if ((s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt, s->video_desc.color_spec)) == NULL) {
