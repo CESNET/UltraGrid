@@ -113,7 +113,7 @@ static void toI420(unsigned char *out, const unsigned char *input, int width, in
 void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, unsigned const char *in, int width, int height)
 {
         unsigned char *tmp_buffer = NULL;
-        if (out_c == I420 || out_c == YUYV) {
+        if (out_c == I420 || out_c == YUYV || (in_c == RGBA || out_c == v210)) {
                 decoder_t decoder = get_decoder_from_to(in_c, UYVY, true);
                 tmp_buffer =  malloc(2L * ((width + 1U) ^ 1U) * height);
                 long in_linesize = vc_get_linesize(width, in_c);
@@ -141,7 +141,7 @@ void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, un
 
 static bool testcard_conv_handled_internally(codec_t c)
 {
-        return c == I420 || c == YUYV;
+        return c == I420 || c == YUYV || c == v210;
 }
 
 void testcard_show_codec_help(const char *name, bool src_8b_only)
@@ -163,8 +163,11 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
 
         printf("\t10+ bits\n");
         for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = (int) c + 1) {
-                if (is_codec_opaque(c) || get_bits_per_component(c) == 8 || (get_decoder_from_to(RGBA, c, true) == VIDEO_CODEC_NONE &&
-                                        (src_8b_only || get_decoder_from_to(RG48, c, true) == VIDEO_CODEC_NONE))) {
+                if (is_codec_opaque(c) || get_bits_per_component(c) == 8) {
+                        continue;
+                }
+                if (get_decoder_from_to(RGBA, c, true) == VIDEO_CODEC_NONE &&
+                                ((src_8b_only && c != v210) || get_decoder_from_to(RG48, c, true) == VIDEO_CODEC_NONE)) {
                         continue;
                 }
                 printf("\t\t'%s' - %s\n", get_codec_name(c), get_codec_name_long(c));
