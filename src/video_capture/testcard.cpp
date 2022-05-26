@@ -85,6 +85,7 @@
 #include <vector>
 #include "audio/types.h"
 #include "utils/video_pattern_generator.hpp"
+#include "video_capture/testcard_common.h"
 
 #define AUDIO_SAMPLE_RATE 48000
 #define AUDIO_BPS 2
@@ -300,10 +301,6 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         return 0;
 }
 
-static const codec_t codecs_8b[] = {I420, RGBA, RGB, UYVY, YUYV, VIDEO_CODEC_NONE};
-static const codec_t codecs_10b[] = {R10k, v210, VIDEO_CODEC_NONE};
-static const codec_t codecs_ge12b[] = {Y216, Y416, RG48, R12L, VIDEO_CODEC_NONE};
-
 static bool parse_fps(const char *fps, struct video_desc *desc) {
         char *endptr = nullptr;
         desc->fps = strtod(fps, &endptr);
@@ -361,21 +358,11 @@ static auto parse_format(char **fmt, char **save_ptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown codec '" << tmp << "'\n";
                 return video_desc{};
         }
-        {
-                const codec_t *sets[] = {codecs_8b, codecs_10b, codecs_ge12b};
-                bool supported = false;
-                for (int i = 0; i < (int) (sizeof sets / sizeof sets[0]); ++i) {
-                        const codec_t *it = sets[i];
-                        while (*it != VIDEO_CODEC_NONE) {
-                                if (desc.color_spec == *it++) {
-                                        supported = true;
-                                }
-                        }
-                }
-                if (!supported) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec '" << tmp << "'\n";
-                        return video_desc{};
-                }
+        if (get_decoder_from_to(RG48, desc.color_spec, true) == NULL &&
+                        get_decoder_from_to(RGBA, desc.color_spec, true) == NULL &&
+                        desc.color_spec == I420 && desc.color_spec != YUYV) { // generator generates either RGBA or RG48, handles I420 specially
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec '" << tmp << "'\n";
+                return video_desc{};
         }
 
         *fmt = nullptr;
@@ -443,7 +430,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << "alternative format syntax:\n";
                 cout << BOLD("\t-t testcard[:size=<width>x<height>][:fps=<fps>[:codec=<codec>][...]\n");
                 cout << "\n";
-                show_codec_help("testcard", codecs_8b, codecs_10b, codecs_ge12b);
+                testcard_show_codec_help("testcard");
                 cout << BOLD("Note:") << " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " << BOLD("pattern=help") << " for details.\n";
                 return VIDCAP_INIT_NOERR;
         }
