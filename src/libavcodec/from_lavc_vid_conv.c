@@ -1959,6 +1959,68 @@ av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         return NULL;
 }
 
+/**
+ * Returns AVPixelFormat matching *ugc. If !*ugc, finds (probes) best UltraGrid codec
+ * to which can be one of fmt converted and returns AV_PIX_FMT_NONE.
+ *
+ * @param[in,out] ugc        if zero, probing the codec, if nonzero, only finding matching AVPixelFormat
+ * @retval AV_PIX_FMT_NONE   if !*ugc
+ * @retval !=AV_PIX_FMT_NONE if *ugc is non-zero
+ */
+static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, codec_t *ugc, bool use_hwaccel) {
+        // directly mapped UG codecs
+        for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
+                codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(*fmt_it);
+                if (mapped_pix_fmt != VIDEO_CODEC_NONE) {
+                        if (*ugc == VIDEO_CODEC_NONE) { // just probing internal format
+                                *ugc = mapped_pix_fmt;
+                                return AV_PIX_FMT_NONE;
+                        }
+                        if (*ugc == mapped_pix_fmt) {
+                                return *fmt_it;
+                        }
+                }
+        }
+        bool use_native[] = { true, false }; // try native first
+        for (const bool *use_native_it = use_native; use_native_it !=
+                        use_native + sizeof use_native / sizeof use_native[0]; ++use_native_it) {
+                for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
+                        //If hwaccel is not enabled skip hw accel pixfmts even if there
+                        //are convert functions
+                        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*fmt_it);
+                        if(!use_hwaccel && fmt_desc && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)){
+                                continue;
+                        }
+
+                        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                                if (c->av_codec != *fmt_it) // this conversion is not valid
+                                        continue;
+                                if (*ugc == VIDEO_CODEC_NONE) { // just probing internal format
+                                        if (!*use_native_it || c->native) {
+                                                *ugc = c->uv_codec;
+                                                return AV_PIX_FMT_NONE;
+                                        }
+                                } else {
+                                        if (*ugc == c->uv_codec) { // conversion found
+                                                return *fmt_it;
+                                        }
+                                }
+                        }
+                }
+        }
+        return AV_PIX_FMT_NONE;
+}
+
+codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel) {
+        codec_t c = VIDEO_CODEC_NONE;
+        get_ug_codec_to_av(fmt, &c, use_hwaccel);
+        return c;
+}
+
+enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel) {
+        return get_ug_codec_to_av(fmt, &c, use_hwaccel);
+}
+
 #pragma GCC diagnostic pop
 
 /* vi: set expandtab sw=8: */

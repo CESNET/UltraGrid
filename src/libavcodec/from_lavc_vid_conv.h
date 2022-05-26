@@ -60,6 +60,8 @@ struct av_to_uv_conversion {
 
 av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec);
 const struct av_to_uv_conversion *get_av_to_uv_conversions(void);
+codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel);
+enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel);
 
 #ifdef __cplusplus
 }

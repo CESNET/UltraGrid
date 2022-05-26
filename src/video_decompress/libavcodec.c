@@ -467,7 +467,7 @@ int rpi4_hwacc_init(struct AVCodecContext *s,
 }
 #endif
 
-static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribute__((unused)), const enum AVPixelFormat *fmt)
+static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt)
 {
 #define SELECT_PIXFMT(pixfmt) { log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Selected pixel format: %s\n", av_get_pix_fmt_name(pixfmt)); return pixfmt; }
         if (log_level >= LOG_LEVEL_VERBOSE) {
@@ -533,46 +533,16 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s __attribu
         }
 #endif
 
-        // directly mapped UG codecs
-        for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
-                codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(*fmt_it);
-                if (mapped_pix_fmt != VIDEO_CODEC_NONE) {
-                        if (state->out_codec == VIDEO_CODEC_NONE) { // just probing internal format
-                                state->internal_codec = mapped_pix_fmt;
-                                return AV_PIX_FMT_NONE;
-                        }
-                        if (state->out_codec == mapped_pix_fmt) {
-                                state->internal_codec = mapped_pix_fmt;
-                                SELECT_PIXFMT(*fmt_it);
-                        }
+        if (state->out_codec == VIDEO_CODEC_NONE) { // probe
+                codec_t c = get_best_ug_codec_to_av(fmt, hwaccel);
+                if (c != VIDEO_CODEC_NONE) {
+                        state->internal_codec = c;
+                        return AV_PIX_FMT_NONE;
                 }
-        }
-        bool use_native[] = { true, false }; // try native first
-        for (const bool *use_native_it = use_native; use_native_it !=
-                        use_native + sizeof use_native / sizeof use_native[0]; ++use_native_it) {
-                for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
-                        //If hwaccel is not enabled skip hw accel pixfmts even if there
-                        //are convert functions
-                        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*fmt_it);
-                        if(!hwaccel && fmt_desc && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)){
-                                continue;
-                        }
-
-                        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
-                                if (c->av_codec != *fmt_it) // this conversion is not valid
-                                        continue;
-                                if (state->out_codec == VIDEO_CODEC_NONE) { // just probing internal format
-                                        if (!*use_native_it || c->native) {
-                                                state->internal_codec = c->uv_codec;
-                                                return AV_PIX_FMT_NONE;
-                                        }
-                                } else {
-                                        if (state->out_codec == c->uv_codec) { // conversion found
-                                                state->internal_codec = c->uv_codec; // same as out_codec
-                                                SELECT_PIXFMT(*fmt_it);
-                                        }
-                                }
-                        }
+        } else {
+                enum AVPixelFormat f = lavd_get_av_to_ug_codec(fmt, state->out_codec, hwaccel);
+                if (f != AV_PIX_FMT_NONE) {
+                        SELECT_PIXFMT(f);
                 }
         }
 
