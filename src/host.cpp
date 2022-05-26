@@ -705,7 +705,7 @@ void print_param_doc()
 
 void print_pixel_formats(void) {
         cout << "codec RGB/YCbCr depth description\n";
-        for (codec_t c = static_cast<codec_t>(1); c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
+        for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                 char tag;
                 if (is_codec_opaque(c)) {
                         continue;
@@ -720,7 +720,7 @@ void print_pixel_formats(void) {
 }
 
 void print_video_codecs(void) {
-        for (codec_t c = static_cast<codec_t>(1); c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
+        for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                 char tag;
                 if (!is_codec_opaque(c)) {
                         continue;
