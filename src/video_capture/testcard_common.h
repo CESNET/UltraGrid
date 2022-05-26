@@ -41,6 +41,7 @@
 #ifdef __cplusplus
 #include <cstdint>
 #else
+#include <stdbool.h>
 #include <stdint.h>
 #endif
 
@@ -64,6 +65,7 @@ struct testcard_pixmap {
 void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color);
 void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, const unsigned char *in, int width, int height);
 void testcard_show_codec_help(const char *name);
+bool testcard_has_conversion(codec_t c);
 
 #ifdef __cplusplus
 }

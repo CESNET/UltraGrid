@@ -358,9 +358,7 @@ static auto parse_format(char **fmt, char **save_ptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown codec '" << tmp << "'\n";
                 return video_desc{};
         }
-        if (get_decoder_from_to(RG48, desc.color_spec, true) == NULL &&
-                        get_decoder_from_to(RGBA, desc.color_spec, true) == NULL &&
-                        desc.color_spec == I420 && desc.color_spec != YUYV) { // generator generates either RGBA or RG48, handles I420 specially
+        if (!testcard_has_conversion(desc.color_spec)) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec '" << tmp << "'\n";
                 return video_desc{};
         }
