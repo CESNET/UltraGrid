@@ -428,7 +428,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << "alternative format syntax:\n";
                 cout << BOLD("\t-t testcard[:size=<width>x<height>][:fps=<fps>[:codec=<codec>][...]\n");
                 cout << "\n";
-                testcard_show_codec_help("testcard");
+                testcard_show_codec_help("testcard", false);
                 cout << BOLD("Note:") << " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " << BOLD("pattern=help") << " for details.\n";
                 return VIDCAP_INIT_NOERR;
         }

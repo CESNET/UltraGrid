@@ -144,8 +144,9 @@ static bool testcard_conv_handled_internally(codec_t c)
         return c == I420 || c == YUYV;
 }
 
-void testcard_show_codec_help(const char *name)
+void testcard_show_codec_help(const char *name, bool src_8b_only)
 {
+        bool print_i420 = !src_8b_only; // testcard2 cannot handle planar format, anyway
         printf("Supported codecs (%s):\n", name);
 
         printf("\t8 bits\n");
@@ -154,13 +155,16 @@ void testcard_show_codec_help(const char *name)
                                         && !testcard_conv_handled_internally(c))) {
                         continue;
                 }
+                if (c == I420 && !print_i420) {
+                        continue;
+                }
                 printf("\t\t'%s' - %s\n", get_codec_name(c), get_codec_name_long(c));
         }
 
         printf("\t10+ bits\n");
         for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = (int) c + 1) {
                 if (is_codec_opaque(c) || get_bits_per_component(c) == 8 || (get_decoder_from_to(RGBA, c, true) == VIDEO_CODEC_NONE &&
-                                        get_decoder_from_to(RG48, c, true) == VIDEO_CODEC_NONE)) {
+                                        (src_8b_only || get_decoder_from_to(RG48, c, true) == VIDEO_CODEC_NONE))) {
                         continue;
                 }
                 printf("\t\t'%s' - %s\n", get_codec_name(c), get_codec_name_long(c));
