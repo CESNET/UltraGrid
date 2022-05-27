@@ -11,11 +11,8 @@
 
 class PreviewWidget : public QOpenGLWidget{
 public:
-	PreviewWidget(QWidget *parent) : QOpenGLWidget(parent) {
-		connect(&timer, SIGNAL(timeout()), this, SLOT(update()));
-  	}
-
-        ~PreviewWidget();
+	PreviewWidget(QWidget *parent);
+	~PreviewWidget();
 
 	void setKey(const char *key);
 	void start();
