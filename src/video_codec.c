@@ -697,7 +697,7 @@ void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *d
  *                     should be even aligned to 16B boundary)
  * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
  */
-void vc_copylinev210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylinev210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -747,7 +747,7 @@ void vc_copylinev210(unsigned char * __restrict dst, const unsigned char * __res
  * @brief Converts from YUYV to UYVY.
  * @copydetails vc_copylinev210
  */
-void vc_copylineYUYV(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineYUYV(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -898,7 +898,7 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
  * @param[in]  gshift  ignored
  * @param[in]  bshift  ignored
  */
-void
+static void
 vc_copylineR12LtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
                 int gshift, int bshift)
 {
@@ -978,7 +978,7 @@ vc_copylineR12LtoRGB(unsigned char * __restrict dst, const unsigned char * __res
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
  */
-        void
+static void
 vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rshift,
                 int gshift, int bshift)
 {
@@ -1122,7 +1122,7 @@ vc_copylineRGBA(unsigned char * __restrict dst, const unsigned char * __restrict
  * @brief Converts from DVS10 to v210
  * @copydetails vc_copylinev210
  */
-void vc_copylineDVS10toV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineDVS10toV210(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -1214,7 +1214,7 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
  * @brief Converts from DVS10 to UYVY
  * @copydetails vc_copylinev210
  */
-void vc_copylineDVS10(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineDVS10(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -1276,18 +1276,6 @@ void vc_copylineRGB(unsigned char * __restrict dst, const unsigned char * __rest
 }
 
 /**
- * @brief Converts from RGBA to RGB
- * @copydetails vc_copylineRGBAtoRGBwithShift
- */
-void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
-{
-        UNUSED(rshift);
-        UNUSED(gshift);
-        UNUSED(bshift);
-        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, 0, 8, 16);
-}
-
-/**
  * @brief Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
  *
  * @param[out] dst     4B-aligned buffer that will contain result
@@ -1301,7 +1289,7 @@ void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned char * 
  * In opposite to the defined semantic of {r,g,b}shift, here instead of destination
  * shifts the shifts define the source codec properties.
  */
-void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
+static void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
 {
 	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
@@ -1348,6 +1336,18 @@ void vc_copylineABGRtoRGB(unsigned char * __restrict dst2, const unsigned char *
         UNUSED(bshift);
 
         vc_copylineRGBAtoRGBwithShift(dst2, src2, dst_len, 16, 8, 0);
+}
+
+/**
+ * @brief Converts from RGBA to RGB
+ * @copydetails vc_copylineRGBAtoRGBwithShift
+ */
+static void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        vc_copylineRGBAtoRGBwithShift(dst, src, dst_len, 0, 8, 16);
 }
 
 /**
@@ -1419,8 +1419,8 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
 #define vc_copylineToUYVY709(dst, src, dst_len, roff, goff, boff, pix_size) {\
         register uint32_t *d = (uint32_t *)(void *) dst;\
         OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 4; x += 4) {\
-                register int r, g, b;\
-                register int y1, y2, u ,v;\
+                int r, g, b;\
+                int y1, y2, u ,v;\
                 r = src[roff];\
                 g = src[goff];\
                 b = src[boff];\
@@ -1484,7 +1484,7 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
  * @param[out] dst     output buffer for RGB
  * @param[in]  src     input buffer with UYVY
  */
-void vc_copylineUYVYtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineUYVYtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -1498,7 +1498,7 @@ void vc_copylineUYVYtoRGB(unsigned char * __restrict dst, const unsigned char * 
  * @param[out] dst     output buffer for RGB
  * @param[in]  src     input buffer with YUYV
  */
-void vc_copylineYUYVtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineYUYVtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -1519,7 +1519,7 @@ static void vc_copylineUYVYtoRG48(unsigned char * __restrict dst, const unsigned
  * @param[out] dst     output buffer for RGBA
  * @param[in]  src     input buffer with UYVY
  */
-void vc_copylineUYVYtoRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineUYVYtoRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift) {
         assert((uintptr_t) dst % sizeof(uint32_t) == 0);
         uint32_t *dst32 = (uint32_t *)(void *) dst;
@@ -1638,7 +1638,7 @@ void vc_copylineUYVYtoRGB_SSE(unsigned char * __restrict dst, const unsigned cha
  * Converts 8-bit RGB to 12-bit packed RGB in full range (compatible with
  * SMPTE 268M DPX version 1, Annex C, Method C4 packing).
  */
-void vc_copylineRGBtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
+static void vc_copylineRGBtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
                 int rshift, int gshift, int bshift) {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -1992,7 +1992,7 @@ static void vc_copylineRG48toR10k(unsigned char * __restrict dst, const unsigned
         }
 }
 
-void vc_copylineRG48toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineRG48toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -2231,7 +2231,7 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char * __restrict dst, const unsigne
  * @brief Converts BGR to UYVY.
  * @copydetails vc_copylinev210
  */
-void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -2388,7 +2388,7 @@ void vc_memcpy(unsigned char * __restrict dst, const unsigned char * __restrict 
  * @brief Converts DPX10 to RGBA
  * @copydetails vc_copyliner10k
  */
-void
+static void
 vc_copylineDPX10toRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         
@@ -2412,7 +2412,7 @@ vc_copylineDPX10toRGBA(unsigned char * __restrict dst, const unsigned char * __r
  * @brief Converts DPX10 to RGB.
  * @copydetails vc_copylinev210
  */
-void
+static void
 vc_copylineDPX10toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -2734,6 +2734,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineRG48toR12L,  RG48,  R12L, false },
         { vc_copylineRG48toR10k,  RG48,  R10k, false },
         { vc_copylineRG48toRGB,   RG48,  RGB, false },
+        { vc_copylineRG48toRGBA,  RG48,  RGBA, false },
         { vc_copylineRG48toUYVY,  RG48,  UYVY, true },
         { vc_copylineRG48toV210,  RG48,  v210, true },
         { vc_copylineRG48toY216,  RG48,  Y216, true },
@@ -2744,6 +2745,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineRGBtoRGBA,   RGB,   RGBA, false },
         { vc_copylineRGBtoUYVY,   RGB,   UYVY, true },
         { vc_copylineUYVYtoRGB,   UYVY,  RGB, true },
+        { vc_copylineUYVYtoRGBA,  UYVY,  RGBA, true },
         { vc_copylineYUYVtoRGB,   YUYV,  RGB, true },
         { vc_copylineBGRtoUYVY,   BGR,   UYVY, true },
         { vc_copylineRGBAtoUYVY,  RGBA,  UYVY, true },

@@ -407,17 +407,14 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         if (frame->color_spec == RGB) {
                 data = (unsigned char *) tile->data;
         } else {
-                data = tmp_data = (unsigned char *) malloc(len);
-                if (frame->color_spec == UYVY) {
-                        vc_copylineUYVYtoRGB(data, (const unsigned char *)
-                                        tile->data, len, 0, 0, 0);
-                } else if (frame->color_spec == RGBA) {
-                        vc_copylineRGBAtoRGB(data, (const unsigned char *)
-                                        tile->data, len, 0, 8, 16);
-                } else {
-                        free(tmp_data);
+                decoder_t dec = get_decoder_from_to(frame->color_spec, RGB, true);
+                if (!dec) {
+                        log_msg(LOG_LEVEL_WARNING, "Unable to find decoder from %s to RGB\n",
+                                        get_codec_name(frame->color_spec));
                         return false;
                 }
+                data = tmp_data = (unsigned char *) malloc(len);
+                dec (data, (const unsigned char *) tile->data, len, 0, 0, 0);
         }
 
         if (!data) {
