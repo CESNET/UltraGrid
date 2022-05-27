@@ -516,10 +516,13 @@ src/capture_filter/preview.o: $(srcdir)/src/capture_filter/preview.cpp
 	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -MD -c $< -o $@
 	$(POSTPROCESS_DEPS)
 
-$(GUI_TARGET): $(wildcard $(srcdir)/gui/QT/*.cpp $(srcdir)/gui/QT/*.hpp) $(srcdir)/src/shared_mem_frame.cpp $(srcdir)/tools/astat.h
-	$(MKDIR_P) $(dir $@)
+gui/QT/Makefile: gui/QT/uv-qt.pro
 	@if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	$(COND_SILENCE)cd gui/QT && $(QMAKE) "DESTDIR+=./" $(srcdir_abs)/gui/QT && $(MAKE)
+	$(QMAKE) -makefile $< "DESTDIR+=./" -o $@
+
+.PHONY: $(GUI_TARGET)
+$(GUI_TARGET): gui/QT/Makefile
+	$(COND_SILENCE)cd gui/QT && $(MAKE) --no-print-directory
 
 # -------------------------------------------------------------------------------------------------
 $(TEST_TARGET): $(TEST_OBJS) @TEST_OBJS@
