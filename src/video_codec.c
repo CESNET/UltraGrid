@@ -97,10 +97,6 @@ using std::min;
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 #endif
-static decoder_func_t vc_copylineUYVYtoRG48;
-static decoder_func_t vc_copylineRGBtoRG48;
-static decoder_func_t vc_copylineRGBAtoRG48;
-static decoder_func_t vc_copylineRG48toUYVY;
 
 /**
  * Defines codec metadata
