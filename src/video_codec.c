@@ -821,7 +821,7 @@ static void vc_copylineYUYV(unsigned char * __restrict dst, const unsigned char 
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
  */
-void
+static void
 vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int len, int rshift,
                 int gshift, int bshift)
 {
@@ -1250,9 +1250,13 @@ static void vc_copylineDVS10(unsigned char * __restrict dst, const unsigned char
 
 /**
  * @brief Changes color order of an RGB
+ *
+ * @note
+ * Unlike most of the non-RGBA conversions, RGB shifts are respected.
+ *
  * @copydetails vc_copyliner10k
  */
-void vc_copylineRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
+static void vc_copylineRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         register unsigned int r, g, b;
         union {
@@ -1744,7 +1748,7 @@ static void vc_copylineRGBtoRG48(unsigned char * __restrict dst, const unsigned 
  * SMPTE 268M DPX version 1, Annex C, Method C4 packing) to 16-bit RGB
  * @copydetails vc_copylinev210
  */
-void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -1842,7 +1846,7 @@ void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned char *
  * SMPTE 268M DPX version 1, Annex C, Method C4 packing)
  * @copydetails vc_copylinev210
  */
-void vc_copylineRG48toR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineRG48toR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -2006,7 +2010,7 @@ static void vc_copylineRG48toRGB(unsigned char * __restrict dst, const unsigned 
         }
 }
 
-void vc_copylineRG48toRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineRG48toRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         assert((uintptr_t) dst % sizeof(uint32_t) == 0);
@@ -2021,7 +2025,7 @@ void vc_copylineRG48toRGBA(unsigned char * __restrict dst, const unsigned char *
  * @brief Converts RGB to UYVY.
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineRGBtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -2244,7 +2248,7 @@ static void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned 
  * @brief Converts RGBA to UYVY.
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBAtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineRGBAtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
@@ -2366,7 +2370,7 @@ static void vc_copylineRG48toY416(unsigned char * __restrict dst, const unsigned
  * Converts BGR to RGB.
  * @copydetails vc_copylinev210
  */
-void vc_copylineBGRtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
+static void vc_copylineBGRtoRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
@@ -2771,7 +2775,8 @@ static const struct decoder_item decoders[] = {
  */
 decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
 {
-        if (in == out) {
+        if (in == out &&
+                        (out != RGBA && out != RGB)) { // vc_copylineRGB[A] may change shift
                 return vc_memcpy;
         }
 

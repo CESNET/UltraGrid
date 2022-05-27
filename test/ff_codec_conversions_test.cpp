@@ -103,6 +103,7 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
                 av_freep(frame.data);
 
                 vector <unsigned char> rgba_buf_res(width * height * 4);
+                decoder_t vc_copyliner10k = get_decoder_from_to(R10k, RGBA, true);
                 vc_copyliner10k(rgba_buf_res.data(), r10k_buf.data(), height * vc_get_linesize(width, RGBA), 0, 8, 16);
 
                 int max_diff = 0;

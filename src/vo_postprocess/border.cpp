@@ -153,6 +153,7 @@ static bool border_postprocess(void *state, struct video_frame *in, struct video
                 uint32_t uyvy{};
                 memcpy(&rgba[0], s->color, 4);
                 memcpy(&rgba[1], s->color, 4);
+                decoder_t vc_copylineRGBAtoUYVY = get_decoder_from_to(RGBA, UYVY, true);
                 vc_copylineRGBAtoUYVY((unsigned char *) &uyvy, (unsigned char *) rgba, 4, 0, 0, 0);
                 // up and down
                 for (unsigned int i = 0; i < s->height; ++i) {

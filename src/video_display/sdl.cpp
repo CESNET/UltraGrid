@@ -268,18 +268,13 @@ static void display_frame(struct state_sdl *s, struct video_frame *frame)
         }
 
         if (codec_is_a_rgb(frame->color_spec)) {
-                decoder_t decoder = nullptr;
                 if (s->sdl_screen->format->BitsPerPixel != 32 && s->sdl_screen->format->BitsPerPixel != 24) {
                         log_msg(LOG_LEVEL_WARNING, "[SDL] Unsupported bpp %d!\n",
                                         s->sdl_screen->format->BitsPerPixel);
                         goto free_frame;
                 }
                 codec_t dst_codec = s->sdl_screen->format->BitsPerPixel == 32 ? RGBA : RGB;
-                if (frame->color_spec == RGBA) {
-                        decoder = dst_codec == RGBA ? vc_copylineRGBA : vc_copylineRGBAtoRGB;
-                } else {
-                        decoder = dst_codec == RGBA ? vc_copylineRGBtoRGBA : vc_copylineRGB;
-                }
+                decoder_t decoder = get_decoder_from_to(frame->color_spec, dst_codec, true);
                 assert(decoder != nullptr);
                 SDL_LockSurface(s->sdl_screen);
                 size_t linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);

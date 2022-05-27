@@ -106,6 +106,7 @@ static void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict fra
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
+        decoder_t vc_copylineRGBtoUYVY = get_decoder_from_to(RGB, UYVY, true);
         for (int y = 0; y < height; ++y) {
                 vc_copylineRGBtoUYVY((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0], vc_get_linesize(width, UYVY), 0, 0, 0);
         }
@@ -629,6 +630,7 @@ static void gbrp16le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
 static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
+        decoder_t vc_copylineRG48toRGBA = get_decoder_from_to(RG48, RGBA, true);
         for (int y = 0; y < height; ++y) {
                 vc_copylineRG48toRGBA((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
                                 vc_get_linesize(width, RGBA), rgb_shift[0], rgb_shift[1], rgb_shift[2]);
@@ -638,6 +640,8 @@ static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict f
 static void rgb48le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
+        decoder_t vc_copylineRG48toR12L = get_decoder_from_to(RG48, R12L, true);
+
         for (int y = 0; y < height; ++y) {
                 vc_copylineRG48toR12L((unsigned char *) dst_buffer + y * pitch, frame->data[0] + y * frame->linesize[0],
                                 vc_get_linesize(width, R12L), rgb_shift[0], rgb_shift[1], rgb_shift[2]);

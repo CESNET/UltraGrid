@@ -122,24 +122,15 @@ bool codec_is_planar(codec_t codec) ATTRIBUTE(const);
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines);
 
-decoder_func_t vc_copyliner10k;
 decoder_func_t vc_copylineRGBA;
+decoder_func_t vc_copylineToRGBA_inplace;
 decoder_func_t vc_copylineABGRtoRGB;
 decoder_func_t vc_copylineRGBtoRGBA;
-decoder_func_t vc_copylineRGBtoUYVY;
 decoder_func_t vc_copylineRGBtoUYVY_SSE;
 decoder_func_t vc_copylineRGBtoGrayscale_SSE;
-decoder_func_t vc_copylineR12LtoRG48;
-decoder_func_t vc_copylineRG48toR12L;
-decoder_func_t vc_copylineRG48toRGBA;
 decoder_func_t vc_copylineUYVYtoRGB_SSE;
 decoder_func_t vc_copylineUYVYtoGrayscale;
-decoder_func_t vc_copylineRGBAtoUYVY;
-decoder_func_t vc_copylineBGRtoRGB;
-decoder_func_t vc_copylineRGB;
 decoder_func_t vc_memcpy;
-
-void vc_copylineToRGBA_inplace(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 
 bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec);
 
