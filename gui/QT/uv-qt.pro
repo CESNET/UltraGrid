@@ -25,18 +25,12 @@ greaterThan(QT_MAJOR_VERSION, 5) {
 CONFIG += c++11
 CONFIG += silent
 
-LIBS += $$PWD/../../tools/astat.a
+LIBS += -pthread
 macx {
 	LIBS += -framework CoreFoundation
 } win32 {
 	LIBS += -lWs2_32
 }
-
-astat.target = astat_lib
-astat.commands = cd $$PWD/../../tools && make -f Makefile.astat lib
-
-QMAKE_EXTRA_TARGETS += astat
-PRE_TARGETDEPS += astat_lib
 
 system("which git"): HAS_GIT = TRUE
 
@@ -55,6 +49,7 @@ HEADERS += window/ultragrid_window.hpp \
 	window/log_window.hpp \
 	../../tools/astat.h \
 	../../src/shared_mem_frame.hpp \
+	../../src/compat/platform_pipe.h \
 	widget/vuMeterWidget.hpp \
 	window/settings_window.hpp \
 	option/widget_ui.hpp \
@@ -97,4 +92,6 @@ SOURCES += window/ultragrid_window.cpp \
 	option/audio_opts.cpp \
 	option/video_opts.cpp \
 	../../src/shared_mem_frame.cpp \
+	../../tools/astat.cpp \
+	../../src/compat/platform_pipe.cpp \
 	main.cpp
