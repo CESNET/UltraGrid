@@ -8,15 +8,13 @@
 
 APPDIR=UltraGrid.AppDir
 APPPREFIX=$APPDIR/usr
-ARCH=$(uname -m)
-DATE=$(date +%Y%m%d)
-GLIBC_VERSION=$(ldd --version | sed -n '1s/.*\ \([0-9][0-9]*\.[0-9][0-9]*\)$/\1/p')
-APPNAME=UltraGrid-${DATE}.glibc${GLIBC_VERSION}-${ARCH}.AppImage
 eval "$(grep 'srcdir *=' < Makefile | tr -d \  )"
 
 # redirect the whole output to stderr, output of this script is a created AppName only
 (
 exec 1>&2
+
+umask 022
 
 mkdir tmpinstall $APPDIR
 make DESTDIR=tmpinstall install
@@ -107,26 +105,25 @@ else
 fi
 chmod ugo+x $APPDIR/appimageupdatetool
 
-if [ -n "${appimage_key-}" ]; then
-        echo "$appimage_key" >> key
-        gpg --import key
-        SIGN=--sign
+GIT_ROOT=$(git rev-parse --show-toplevel || true)
+if [ -n "${appimage_key-}" ] && [ -n "${GIT_ROOT-}" ]; then
+        echo "$appimage_key" >> "$GIT_ROOT/pubkey.asc"
 fi
 
-APPIMAGETOOL=$(command -v appimagetool-x86_64.AppImage || true)
-if [ -z "$APPIMAGETOOL" ]; then
-        wget --no-verbose https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage -O appimagetool && chmod 755 appimagetool
-        APPIMAGETOOL=./appimagetool
+MKAPPIMAGE=$(command -v mkappimage-x86_64.AppImage || true)
+if [ -z "$MKAPPIMAGE" ]; then
+        MKAI_PATH=$(wget -q https://github.com/probonopd/go-appimage/releases -O - | grep "mkappimage-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 2)
+        wget -q -c "https://github.com/$MKAI_PATH" -O mkappimage
+        chmod +x mkappimage
+        MKAPPIMAGE=./mkappimage
 fi
 UPDATE_INFORMATION=
 if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
 # shellcheck disable=SC2086 # word spliting of $UPDATE_INFORMATION is requested behavior
-$APPIMAGETOOL ${SIGN+$SIGN }--comp gzip $UPDATE_INFORMATION $APPDIR "$APPNAME"
+$MKAPPIMAGE $UPDATE_INFORMATION $APPDIR
 
 rm -rf $APPDIR tmpinstall
 )
-
-echo "$APPNAME"
 
