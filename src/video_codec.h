@@ -105,7 +105,7 @@ codec_t          get_codec_from_fcc(uint32_t fourcc) ATTRIBUTE(const);
 codec_t          get_codec_from_name(const char *name) ATTRIBUTE(const);
 const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(const);
 decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBUTE(const);
-decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow) ATTRIBUTE(const);
+decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow);
 
 int get_pf_block_bytes(codec_t codec) ATTRIBUTE(const);
 int get_pf_block_pixels(codec_t codec) ATTRIBUTE(const);
@@ -114,7 +114,7 @@ size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec) AT
 void codec_get_planes_subsampling(codec_t pix_fmt, int *sub);
 bool codec_is_420(codec_t pix_fmt);
 bool codec_is_a_rgb(codec_t codec) ATTRIBUTE(const);
-bool codec_is_in_set(codec_t codec, codec_t *set) ATTRIBUTE(const);
+bool codec_is_in_set(codec_t codec, const codec_t *set) ATTRIBUTE(pure);
 bool codec_is_const_size(codec_t codec) ATTRIBUTE(const);
 bool codec_is_hw_accelerated(codec_t codec) ATTRIBUTE(const);
 bool codec_is_planar(codec_t codec) ATTRIBUTE(const);

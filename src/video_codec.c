@@ -2817,8 +2817,18 @@ static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
         return bits_a - bits_b;
 }
 
+/**
+ * Returns best decoder for input codec.
+ *
+ * @param include_slow  whether slow codecs should be considered
+ */
 decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow)
 {
+        if (codec_is_in_set(in, out_candidates) && (in != RGBA && in != RGB)) { // vc_copylineRGB[A] may change shift
+                *out = in;
+                return vc_memcpy;
+        }
+
         codec_t candidates[VIDEO_CODEC_END];
         const codec_t *it = out_candidates;
         size_t count = 0;
@@ -2836,18 +2846,17 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         }
         qsort_s(candidates, count, sizeof(codec_t), best_decoder_cmp, &in);
         *out = candidates[0];
-        decoder_t ret = get_decoder_from_to(in, *out, false);
-        if (ret) {
-                return ret;
-        }
         return get_decoder_from_to(in, *out, true);
+        }
+
+        return NULL;
 }
 
 /**
  * Tries to find specified codec in set of video codecs.
  * The set must by ended by VIDEO_CODEC_NONE.
  */
-bool codec_is_in_set(codec_t codec, codec_t *set)
+bool codec_is_in_set(codec_t codec, const codec_t *set)
 {
         assert (codec != VIDEO_CODEC_NONE);
         assert (set != NULL);
