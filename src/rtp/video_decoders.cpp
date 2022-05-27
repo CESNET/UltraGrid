@@ -1073,7 +1073,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
 
                         if(desc.color_spec == RGBA || /* another exception - we may change shifts */
                                         desc.color_spec == RGB) { // should RGB be also handled
-                                *decode_line = get_decoder_from_to(desc.color_spec, desc.color_spec, true);
+                                *decode_line = get_decoder_from_to(desc.color_spec, desc.color_spec);
                         }
 
                         out_codec = codec;

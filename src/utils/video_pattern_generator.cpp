@@ -336,7 +336,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
                 cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
-                        if (get_decoder_from_to(RG48, c, true) != NULL) {
+                        if (get_decoder_from_to(RG48, c) != NULL) {
                                 cout << " " << BOLD(get_codec_name(c));
                         }
                 }
@@ -417,7 +417,7 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
 
         auto data = generator->init(width, height, generator_depth::bits8);
         codec_t codec_src = RGBA;
-        if (get_decoder_from_to(RG48, color_spec, true) != NULL) {
+        if (get_decoder_from_to(RG48, color_spec) != NULL) {
                 data = generator->init(width, height, generator_depth::bits16);
                 codec_src = RG48;
         }

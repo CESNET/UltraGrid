@@ -89,7 +89,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         struct state_capture_filter_change_pixfmt *s = state;
         struct video_desc desc = video_desc_from_frame(in);
         desc.color_spec = s->to_codec;
-        decoder_t decoder = get_decoder_from_to(in->color_spec, s->to_codec, true);
+        decoder_t decoder = get_decoder_from_to(in->color_spec, s->to_codec);
 
         if (!decoder) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find decoder!\n");

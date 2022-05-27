@@ -40,8 +40,8 @@ void libavcodec_test::test_get_decoder_from_uv_to_uv()
         // testing mostly sanity - if the straightforward conversion is selected
         list<tuple<codec_t, codec_t, decoder_t, string, AVPixelFormat>> expected_decoders {
                 make_tuple(RG48, RG48, &vc_memcpy, "vc_memcpy"s, AV_PIX_FMT_YUV444P16LE),
-                make_tuple(RGB,  RGB,  get_decoder_from_to(RGB, RGB, true), "vc_copylineRGB"s, AV_PIX_FMT_RGB24),
-                make_tuple(BGR,  RGB,  get_decoder_from_to(BGR, RGB, true), "vc_copylineBGRtoRGB"s, AV_PIX_FMT_RGB24),
+                make_tuple(RGB,  RGB,  get_decoder_from_to(RGB, RGB), "vc_copylineRGB"s, AV_PIX_FMT_RGB24),
+                make_tuple(BGR,  RGB,  get_decoder_from_to(BGR, RGB), "vc_copylineBGRtoRGB"s, AV_PIX_FMT_RGB24),
                 make_tuple(BGR,  BGR,  &vc_memcpy, "vc_memcpy"s, AV_PIX_FMT_BGR24),
                 make_tuple(RG48, RG48, &vc_memcpy, "vc_memcpy"s, AV_PIX_FMT_RGB48LE),
         };

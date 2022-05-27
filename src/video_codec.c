@@ -98,6 +98,8 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 #endif
 
+static decoder_t get_decoder_from_to_internal(codec_t in, codec_t out, bool slow);
+
 /**
  * Defines codec metadata
  * @note
@@ -2764,12 +2766,8 @@ static const struct decoder_item decoders[] = {
         { vc_copylineV210toY216,  v210,  Y416, false },
 };
 
-/**
- * Returns line decoder for specifiedn input and output codec.
- *
- * @param[in] slow  include also slow decoders
- */
-decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
+// @param[in] slow  include also slow decoders
+static decoder_t get_decoder_from_to_internal(codec_t in, codec_t out, bool slow)
 {
         if (in == out &&
                         (out != RGBA && out != RGB)) { // vc_copylineRGB[A] may change shift
@@ -2786,6 +2784,13 @@ decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
         return NULL;
 }
 
+/**
+ * Returns line decoder for specifiedn input and output codec.
+ */
+decoder_t get_decoder_from_to(codec_t in, codec_t out) {
+        return get_decoder_from_to_internal(in, out, true);
+}
+
 // less is better
 #ifdef QSORT_S_COMP_FIRST
 static int best_decoder_cmp(void *orig_c, const void *a, const void *b) {
@@ -2796,8 +2801,8 @@ static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
         codec_t codec_b = *(const codec_t *) b;
         codec_t orig_codec = *(codec_t *) orig_c;
 
-        bool slow_a = get_decoder_from_to(orig_codec, codec_a, false) == NULL;
-        bool slow_b = get_decoder_from_to(orig_codec, codec_b, false) == NULL;
+        bool slow_a = get_decoder_from_to_internal(orig_codec, codec_a, false) == NULL;
+        bool slow_b = get_decoder_from_to_internal(orig_codec, codec_b, false) == NULL;
         if (slow_a != slow_b) {
                 return slow_a ? 1 : -1;
         }
@@ -2829,7 +2834,7 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         const codec_t *it = out_candidates;
         size_t count = 0;
         while (*it != VIDEO_CODEC_NONE) {
-                if (get_decoder_from_to(in, *it, include_slow)) {
+                if (get_decoder_from_to_internal(in, *it, include_slow)) {
                         if (count == VIDEO_CODEC_END) {
                                 assert(0 && "Too much codecs, some used multiple times!");
                         }
@@ -2842,7 +2847,7 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         }
         qsort_s(candidates, count, sizeof(codec_t), best_decoder_cmp, &in);
         *out = candidates[0];
-        return get_decoder_from_to(in, *out, true);
+        return get_decoder_from_to(in, *out);
 }
 
 /**

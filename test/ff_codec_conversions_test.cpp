@@ -72,7 +72,7 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
         /// @todo Use 10-bit natively
         auto test_pattern = [&](AVPixelFormat avfmt) {
                 vector <unsigned char> r10k_buf(width * height * 4);
-                auto vc_copylineRGBAtoR10k = get_decoder_from_to(RGBA, R10k, true);
+                auto vc_copylineRGBAtoR10k = get_decoder_from_to(RGBA, R10k);
                 assert(vc_copylineRGBAtoR10k != nullptr);
                 vc_copylineRGBAtoR10k(r10k_buf.data(), rgba_buf.data(), 4L * width * height, 0, 8, 16);
 
@@ -103,7 +103,7 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
                 av_freep(frame.data);
 
                 vector <unsigned char> rgba_buf_res(width * height * 4);
-                decoder_t vc_copyliner10k = get_decoder_from_to(R10k, RGBA, true);
+                decoder_t vc_copyliner10k = get_decoder_from_to(R10k, RGBA);
                 vc_copyliner10k(rgba_buf_res.data(), r10k_buf.data(), height * vc_get_linesize(width, RGBA), 0, 8, 16);
 
                 int max_diff = 0;
@@ -150,7 +150,7 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
         /// @todo Use 12-bit natively
         auto test_pattern = [&](AVPixelFormat avfmt) {
                 vector <unsigned char> r12l_buf(vc_get_datalen(width, height, R12L));
-                decoder_t rgb_to_r12l = get_decoder_from_to(RGB, R12L, true);
+                decoder_t rgb_to_r12l = get_decoder_from_to(RGB, R12L);
                 rgb_to_r12l(r12l_buf.data(), rgb_buf.data(), vc_get_datalen(width, height, R12L), 0, 8, 16);
 
                 AVFrame frame{};
@@ -180,7 +180,7 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
                 av_freep(frame.data);
 
                 vector <unsigned char> rgb_buf_res(width * height * 3);
-                decoder_t r12l_to_rgb = get_decoder_from_to(R12L, RGB, true);
+                decoder_t r12l_to_rgb = get_decoder_from_to(R12L, RGB);
                 r12l_to_rgb(rgb_buf_res.data(), r12l_buf.data(), vc_get_datalen(width, height, RGB), 0, 8, 16);
 
                 int max_diff = 0;

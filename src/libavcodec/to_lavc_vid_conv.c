@@ -892,7 +892,7 @@ static void r10k_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restr
 {
         int src_linesize = vc_get_linesize(width, R10k);
         int dst_linesize = vc_get_linesize(width, RGBA);
-        decoder_t vc_copyliner10k = get_decoder_from_to(R10k, RGBA, true);
+        decoder_t vc_copyliner10k = get_decoder_from_to(R10k, RGBA);
         for (int y = 0; y < height; ++y) {
                 unsigned char *src = in_data + y * src_linesize;
                 unsigned char *dst = out_frame->data[0] + out_frame->linesize[0] * y;

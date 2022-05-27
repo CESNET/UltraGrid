@@ -114,7 +114,7 @@ void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, un
 {
         unsigned char *tmp_buffer = NULL;
         if (out_c == I420 || out_c == YUYV || (in_c == RGBA || out_c == v210)) {
-                decoder_t decoder = get_decoder_from_to(in_c, UYVY, true);
+                decoder_t decoder = get_decoder_from_to(in_c, UYVY);
                 tmp_buffer =  malloc(2L * ((width + 1U) ^ 1U) * height);
                 long in_linesize = vc_get_linesize(width, in_c);
                 long out_linesize = vc_get_linesize(width, UYVY);
@@ -129,7 +129,7 @@ void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, un
                 free(tmp_buffer);
                 return;
         }
-        decoder_t decoder = get_decoder_from_to(in_c, out_c, true);
+        decoder_t decoder = get_decoder_from_to(in_c, out_c);
         assert(decoder != NULL);
         long out_linesize = vc_get_linesize(width, out_c);
         long in_linesize = vc_get_linesize(width, in_c);
@@ -151,7 +151,7 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
 
         printf("\t8 bits\n");
         for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = (int) c + 1) {
-                if (is_codec_opaque(c) || get_bits_per_component(c) != 8 || (get_decoder_from_to(RGBA, c, true) == VIDEO_CODEC_NONE
+                if (is_codec_opaque(c) || get_bits_per_component(c) != 8 || (get_decoder_from_to(RGBA, c) == VIDEO_CODEC_NONE
                                         && !testcard_conv_handled_internally(c))) {
                         continue;
                 }
@@ -166,8 +166,8 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
                 if (is_codec_opaque(c) || get_bits_per_component(c) == 8) {
                         continue;
                 }
-                if (get_decoder_from_to(RGBA, c, true) == VIDEO_CODEC_NONE &&
-                                ((src_8b_only && c != v210) || get_decoder_from_to(RG48, c, true) == VIDEO_CODEC_NONE)) {
+                if (get_decoder_from_to(RGBA, c) == VIDEO_CODEC_NONE &&
+                                ((src_8b_only && c != v210) || get_decoder_from_to(RG48, c) == VIDEO_CODEC_NONE)) {
                         continue;
                 }
                 printf("\t\t'%s' - %s\n", get_codec_name(c), get_codec_name_long(c));
@@ -176,8 +176,8 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
 
 bool testcard_has_conversion(codec_t c)
 {
-        return get_decoder_from_to(RG48, c, true) != NULL ||
-                get_decoder_from_to(RGBA, c, true) != NULL ||
+        return get_decoder_from_to(RG48, c) != NULL ||
+                get_decoder_from_to(RGBA, c) != NULL ||
                 testcard_conv_handled_internally(c);
 }
 

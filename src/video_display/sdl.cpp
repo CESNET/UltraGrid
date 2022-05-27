@@ -274,7 +274,7 @@ static void display_frame(struct state_sdl *s, struct video_frame *frame)
                         goto free_frame;
                 }
                 codec_t dst_codec = s->sdl_screen->format->BitsPerPixel == 32 ? RGBA : RGB;
-                decoder_t decoder = get_decoder_from_to(frame->color_spec, dst_codec, true);
+                decoder_t decoder = get_decoder_from_to(frame->color_spec, dst_codec);
                 assert(decoder != nullptr);
                 SDL_LockSurface(s->sdl_screen);
                 size_t linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);

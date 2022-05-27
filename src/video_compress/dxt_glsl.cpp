@@ -115,7 +115,7 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                 codec_try[2] = RGBA;
         }
         for (size_t i = 0; i < sizeof codec_try / sizeof codec_try[0]; ++i) {
-                if ((s->decoder = get_decoder_from_to(frame->color_spec, codec_try[i], true)) != NULL) {
+                if ((s->decoder = get_decoder_from_to(frame->color_spec, codec_try[i])) != NULL) {
                         switch (codec_try[i]) {
                                 case RGB: format = DXT_FORMAT_RGB; break;
                                 case RGBA: format = DXT_FORMAT_RGBA; break;

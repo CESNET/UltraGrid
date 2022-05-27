@@ -789,13 +789,13 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 auto get_intermediate_codecs_from_uv_to_av(codec_t in, AVPixelFormat av) {
         set<codec_t> intermediate_codecs; // using set to avoid duplicities
         for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed - direct mapping
-                auto decoder = get_decoder_from_to(in, i->uv_codec, true);
+                auto decoder = get_decoder_from_to(in, i->uv_codec);
                 if (decoder != nullptr && i->av_pixfmt == av) {
                         intermediate_codecs.insert(i->uv_codec);
                 }
         }
         for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; ++c) { // AV conversion needed
-                auto decoder = get_decoder_from_to(in, c->src, true);
+                auto decoder = get_decoder_from_to(in, c->src);
                 if (decoder != nullptr && c->dst == av) {
                         intermediate_codecs.insert(c->src);
                 }
@@ -866,7 +866,7 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
         });
 
         *out = intermediate_codecs[0];
-        return get_decoder_from_to(in, *out, true);
+        return get_decoder_from_to(in, *out);
 }
 
 static int get_subsampling(enum AVPixelFormat fmt) {
@@ -956,7 +956,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
         set<enum AVPixelFormat, decltype(compare)> available_formats(compare); // those for that there exitst a conversion and respect requested subsampling (if given)
         for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
-                if (get_decoder_from_to(in_desc.color_spec, i->uv_codec, true)) {
+                if (get_decoder_from_to(in_desc.color_spec, i->uv_codec)) {
                         int codec_subsampling = get_subsampling(i->av_pixfmt);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
@@ -967,7 +967,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         }
         for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
                 if (c->src == in_desc.color_spec ||
-                                get_decoder_from_to(in_desc.color_spec, c->src, true)) {
+                                get_decoder_from_to(in_desc.color_spec, c->src)) {
                         int codec_subsampling = get_subsampling(c->dst);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&

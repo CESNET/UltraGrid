@@ -259,7 +259,7 @@ static void RGBtoBGR_invert(video_frame *dst, video_frame *src){
 
         unsigned char *s = (unsigned char *) src->tiles[0].data + (src->tiles[0].height - 1) * pitch;
         unsigned char *d = (unsigned char *) dst->tiles[0].data;
-        decoder_t vc_copylineBGRtoRGB = get_decoder_from_to(BGR, RGB, true);
+        decoder_t vc_copylineBGRtoRGB = get_decoder_from_to(BGR, RGB);
 
         for(unsigned i = 0; i < src->tiles[0].height; i++){
                 vc_copylineBGRtoRGB(d, s, pitch, 0, 8, 16);
@@ -287,7 +287,7 @@ static void R12L_to_RG48(video_frame *dst, video_frame *src){
 
         unsigned char *s = (unsigned char *) src->tiles[0].data;
         unsigned char *d = (unsigned char *) dst->tiles[0].data;
-        decoder_t vc_copylineR12LtoRG48 = get_decoder_from_to(R12L, RG48, true);
+        decoder_t vc_copylineR12LtoRG48 = get_decoder_from_to(R12L, RG48);
 
         for(unsigned i = 0; i < src->tiles[0].height; i++){
                 vc_copylineR12LtoRG48(d, s, dst_pitch, 0, 0, 0);

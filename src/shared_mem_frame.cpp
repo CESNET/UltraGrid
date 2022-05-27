@@ -221,7 +221,7 @@ void Shared_mem::put_frame(struct video_frame *frame){
                 return;
         }
 
-        decoder_t dec = get_decoder_from_to(frame->color_spec, preview_codec, true);
+        decoder_t dec = get_decoder_from_to(frame->color_spec, preview_codec);
         if (!dec) {
                 LOG(LOG_LEVEL_WARNING) << "[Shared mem] Cannot find decoder from " <<
                         get_codec_name(frame->color_spec) << " to " <<

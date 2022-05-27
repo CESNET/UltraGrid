@@ -407,7 +407,7 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         if (frame->color_spec == RGB) {
                 data = (unsigned char *) tile->data;
         } else {
-                decoder_t dec = get_decoder_from_to(frame->color_spec, RGB, true);
+                decoder_t dec = get_decoder_from_to(frame->color_spec, RGB);
                 if (!dec) {
                         log_msg(LOG_LEVEL_WARNING, "Unable to find decoder from %s to RGB\n",
                                         get_codec_name(frame->color_spec));

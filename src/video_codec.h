@@ -104,7 +104,7 @@ bool             is_codec_interframe(codec_t codec) ATTRIBUTE(const);
 codec_t          get_codec_from_fcc(uint32_t fourcc) ATTRIBUTE(const);
 codec_t          get_codec_from_name(const char *name) ATTRIBUTE(const);
 const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(const);
-decoder_t        get_decoder_from_to(codec_t in, codec_t out, bool slow) ATTRIBUTE(const);
+decoder_t        get_decoder_from_to(codec_t in, codec_t out) ATTRIBUTE(const);
 decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow);
 decoder_t        get_fastest_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out);
 

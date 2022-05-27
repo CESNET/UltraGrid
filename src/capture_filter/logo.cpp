@@ -156,8 +156,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         struct state_capture_filter_logo *s = (struct state_capture_filter_logo *)
                 state;
         decoder_t decoder, coder;
-        decoder = get_decoder_from_to(in->color_spec, RGB, true);
-        coder = get_decoder_from_to(RGB, in->color_spec, true);
+        decoder = get_decoder_from_to(in->color_spec, RGB);
+        coder = get_decoder_from_to(RGB, in->color_spec);
         int rect_x = s->x;
         int rect_y = s->y;
         assert(coder != NULL && decoder != NULL);

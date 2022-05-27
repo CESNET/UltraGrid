@@ -119,7 +119,7 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
 {
         int src_pitch = vc_get_linesize(width, RG48);
         int dst_len = vc_get_linesize(width, R12L);
-        decoder_t vc_copylineRG48toR12L = get_decoder_from_to(RG48, R12L, true);
+        decoder_t vc_copylineRG48toR12L = get_decoder_from_to(RG48, R12L);
 
         for(int i = 0; i < height; i++){
                 vc_copylineRG48toR12L(dst_buffer, src_buffer, dst_len, 0, 0, 0);
@@ -147,7 +147,7 @@ static void bgr_to_rgb_invert(unsigned char *dst_buffer,
 {
         int linesize = vc_get_linesize(width, RGB);
         src_buffer += linesize * (height - 1);
-        decoder_t vc_copylineBGRtoRGB = get_decoder_from_to(BGR, RGB, true);
+        decoder_t vc_copylineBGRtoRGB = get_decoder_from_to(BGR, RGB);
 
         for(int i = 0; i < height; i++){
                 vc_copylineBGRtoRGB(dst_buffer, src_buffer, linesize, 0, 0, 0);
