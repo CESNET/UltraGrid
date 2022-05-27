@@ -854,9 +854,14 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
                 if (subs_a != subs_b) {
                         return subs_a < subs_b;
                 }
-                if (static_cast<bool>(get_decoder_from_to(in, a, false)) != static_cast<bool>(get_decoder_from_to(in, b, false))) { // one is slow, the other not
-                        return get_decoder_from_to(in, a, false) != nullptr;
+
+                codec_t comp_codecs[] = { a, b, VIDEO_CODEC_NONE };
+                codec_t out = VIDEO_CODEC_NONE;
+                get_fastest_decoder_from(in, comp_codecs, &out);
+                if (out) {
+                        return out == a;
                 }
+
                 return a < b;
         });
 

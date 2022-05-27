@@ -2847,9 +2847,48 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         qsort_s(candidates, count, sizeof(codec_t), best_decoder_cmp, &in);
         *out = candidates[0];
         return get_decoder_from_to(in, *out, true);
+}
+
+/**
+ * Returns fastest decoder from input codec
+ *
+ * @note
+ * Currently first decoder_item::slow==false is returned (if any, otherwise first).
+ */
+decoder_t get_fastest_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out)
+{
+        decoder_t current_dec = NULL;
+        codec_t current_codec = VIDEO_CODEC_NONE;
+
+        if (codec_is_in_set(in, out_candidates) && (in != RGBA && in != RGB)) { // vc_copylineRGB[A] may change shift
+                *out = in;
+                return vc_memcpy;
         }
 
-        return NULL;
+        while (*out_candidates) {
+                unsigned int i = 0;
+                for (; i < sizeof decoders / sizeof decoders[0]; ++i) {
+                        if (decoders[i].in == in && decoders[i].out == *out_candidates) {
+                                break;
+                        }
+                }
+                out_candidates++;
+                if (i == sizeof(decoders)/sizeof(struct decoder_item)) {
+                        continue; // not found
+                }
+                if (decoders[i].slow == false) { // match, found fast convert
+                        *out = decoders[i].out;
+                        return decoders[i].decoder;
+                }
+                if (current_dec == NULL) { // it is slow but store it in case we won't find fast one
+                        current_dec = decoders[i].decoder;
+                        current_codec = decoders[i].out;
+                }
+        }
+
+        log_msg(LOG_LEVEL_VERBOSE, "Using slow decoder from %s!\n", get_codec_name(in));
+        *out = current_codec;
+        return current_dec;
 }
 
 /**

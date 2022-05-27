@@ -490,14 +490,10 @@ static void check_for_slave_format_change(struct slave_data *s)
 
                 // prepare decoder
                 if (!codec_is_in_set(desc.color_spec, natively_supported)) {
-                        int j = 0;
-                        while (natively_supported[j] != VIDEO_CODEC_NONE) {
-                                if ((s->decoder = get_decoder_from_to(out_codec, natively_supported[j], false))) {
-                                        s->decoder_from = desc.color_spec;
-                                        desc.color_spec = s->decoder_to = natively_supported[j];
-                                        break;
-                                }
-                                j++;
+                        codec_t c;
+                        if ((s->decoder = get_fastest_decoder_from(out_codec, natively_supported, &c)) != NULL) {
+                                s->decoder_from = desc.color_spec;
+                                desc.color_spec = s->decoder_to = c;
                         }
                 }
 

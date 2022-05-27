@@ -213,29 +213,7 @@ static decoder_t get_decoder(codec_t in_codec, codec_t *out_codec)
 #endif
         };
 
-        // try exact match - there exists fast RGB->RGBA conversion so without
-        // that RGB would be chosen for RGBA otherwise
-        for (auto &c : candidate_codecs) {
-                if (c == in_codec) {
-                        *out_codec = c;
-                        return vc_memcpy;
-                }
-        }
-
-        for (auto &try_slow : { false, true }) {
-                if (try_slow) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Trying slow decoders!\n");
-                }
-                for (auto &c : candidate_codecs) {
-                        decoder_t decoder = get_decoder_from_to(in_codec, c, try_slow);
-                        if (decoder) {
-                                *out_codec = c;
-                                return decoder;
-                        }
-                }
-        }
-
-        return nullptr;
+        return get_fastest_decoder_from(in_codec, candidate_codecs, out_codec);
 }
 
 /**

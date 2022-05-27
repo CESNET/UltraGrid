@@ -147,13 +147,9 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
                         " to 8 bits. You may directly capture 8-bit signal to improve performance.\n";
         }
 
-        if (desc.color_spec == RGB || desc.color_spec == UYVY) {
-                s->in_codec = desc.color_spec;
-        } else if ((s->decoder = get_decoder_from_to(desc.color_spec, RGB, false))) {
-                s->in_codec = RGB;
-        } else if ((s->decoder = get_decoder_from_to(desc.color_spec, UYVY, false))) {
-                s->in_codec = UYVY;
-        } else {
+        codec_t supported_codecs[] = { RGB, UYVY, VIDEO_CODEC_NONE };
+        s->decoder = get_fastest_decoder_from(desc.color_spec, supported_codecs, &s->in_codec);
+        if (!s->decoder) {
                 fprintf(stderr, "Unsupported codec: %s\n", get_codec_name(desc.color_spec));
                 return false;
         }
