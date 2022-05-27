@@ -25,10 +25,14 @@ protected:
 
 private:
 	bool loadFrame();
+	void render();
 
 	GLuint vertexBuffer = 0;
 	GLuint program = 0;
-	GLuint texture = 0;
+	GLuint frame_texture = 0;
+	GLuint testbars_texture = 0;
+
+	GLuint selected_texture = 0;
 
 	QOpenGLVertexArrayObject vao;
 
