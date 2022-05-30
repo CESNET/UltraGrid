@@ -96,7 +96,7 @@ if [ -f "$(echo $APPPREFIX/lib/libva.so.* | cut -d\  -f 1)" ]; then
 fi
 
 cp "$srcdir/data/scripts/Linux-AppImage/AppRun" "$srcdir/data/ultragrid.png" $APPDIR
-cp "$srcdir/data/uv-qt.desktop" $APPDIR/ultragrid.desktop
+cp "$srcdir/data/uv-qt.desktop" $APPDIR/cz.cesnet.ultragrid.desktop
 APPIMAGEUPDATETOOL=$(command -v appimageupdatetool-x86_64.AppImage || true)
 if [ -n "$APPIMAGEUPDATETOOL" ]; then
         cp "$APPIMAGEUPDATETOOL" $APPDIR/appimageupdatetool
