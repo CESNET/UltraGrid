@@ -20,8 +20,10 @@ LINKER_0      = @echo "Linking $@..."; $(REAL_LINKER)
 LINKER_1      = $(REAL_LINKER)
 LINKER        = $(LINKER_$(VERBOSE))
 COMMON_FLAGS  = @COMMON_FLAGS@ -g @DEFS@ -DPATH_PREFIX='"@prefix@"' -DLIB_DIR='"@libdir@"' -Wall -Wextra -Wpointer-arith -DGF_BITS=16
+CFLAGS_ORIG   := $(CFLAGS)
 CFLAGS        = @CFLAGS@ $(COMMON_FLAGS) -Werror=implicit-function-declaration -D_GNU_SOURCE
 CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
+CXXFLAGS_ORIG := $(CXXFLAGS)
 CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 MKDIR_P       = $(COND_SILENCE)mkdir -p
 CUDA_FLAGS    = @CUDA_FLAGS@ @CUDA_COMPUTE_ARGS@
@@ -518,7 +520,8 @@ src/capture_filter/preview.o: $(srcdir)/src/capture_filter/preview.cpp
 
 gui/QT/Makefile: gui/QT/uv-qt.pro
 	@if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	$(QMAKE) -makefile $< "DESTDIR+=./" -o $@
+	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" $(QMAKE) -makefile $< "DESTDIR+=./" -o $@
+
 
 .PHONY: $(GUI_TARGET)
 $(GUI_TARGET): gui/QT/Makefile
