@@ -31,16 +31,17 @@ cp hd-rum $APPPREFIX/bin
 # @todo use https://github.com/probonopd/linuxdeployqt
 PLUGIN_LIBS=
 if [ -f $APPPREFIX/bin/uv-qt ]; then
-        QT_DIR=$(dirname "$(ldd $APPPREFIX/bin/uv-qt | grep Qt5Gui | grep -v found | awk '{ print $3 }')")
+        QT_DIR=$(dirname "$(ldd $APPPREFIX/bin/uv-qt | grep Qt.Gui | grep -v found | awk '{ print $3 }')")
 else
         QT_DIR=
 fi
 if [ -n "$QT_DIR" ]; then
-        SRC_PLUGIN_DIR=$QT_DIR/qt5/plugins
-        DST_PLUGIN_DIR=$APPPREFIX/lib/qt5/plugins
-        mkdir -p $DST_PLUGIN_DIR
-        cp -r $SRC_PLUGIN_DIR/* $DST_PLUGIN_DIR
-        PLUGIN_LIBS=$(find $DST_PLUGIN_DIR -type f)
+        QT_PLUGIN_PREFIX=$(find "$QT_DIR" -maxdepth 1 -type d -name 'qt?')
+        SRC_PLUGIN_DIR=$QT_PLUGIN_PREFIX/plugins
+        DST_PLUGIN_DIR=$APPPREFIX/lib/$(basename "$QT_PLUGIN_PREFIX")/plugins
+        mkdir -p "$DST_PLUGIN_DIR"
+        cp -r "$SRC_PLUGIN_DIR"/* "$DST_PLUGIN_DIR"
+        PLUGIN_LIBS=$(find "$DST_PLUGIN_DIR" -type f)
 fi
 
 add_fonts() { # for GUI+testcard2
@@ -59,7 +60,10 @@ add_fonts
 mkdir -p $APPPREFIX/lib
 for n in "$APPPREFIX"/bin/* "$APPPREFIX"/lib/ultragrid/* $PLUGIN_LIBS; do
         for lib in $(ldd "$n" | awk '{ print $3 }'); do
-                [ ! -f "$lib" ] || cp "$lib" $APPPREFIX/lib
+                [ ! -f "$lib" ] && continue
+                DST_NAME=$APPPREFIX/lib/$(basename "$lib")
+                [ -f "$DST_NAME" ] && continue
+                cp "$lib" $APPPREFIX/lib
         done
 done
 

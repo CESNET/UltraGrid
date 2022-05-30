@@ -13,7 +13,8 @@ LD_PRELOAD=${LD_PRELOAD-}
 #export PATH=$DIR/usr/bin:$PATH
 export QT_QPA_FONTDIR="$DIR/usr/share/fonts"
 export UG_FONT_DIR="$DIR/usr/share/fonts"
-export QT_PLUGIN_PATH="$DIR/usr/lib/qt5/plugins"
+QT_PLUGIN_PATH=$(set -- "$DIR"/usr/lib/qt?/plugins; echo "$1")
+export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
 
 get_tools() {
