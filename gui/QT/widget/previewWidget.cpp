@@ -178,6 +178,24 @@ void PreviewWidget::setVidSize(int w, int h){
 	calculateScale();
 }
 
+bool PreviewWidget::loadFrame(){
+	auto f = getOpenGLFuncs();
+
+	f->glBindTexture(GL_TEXTURE_2D, texture);
+	struct Shared_mem_frame *sframe = shared_mem.get_frame_and_lock();
+	if(sframe){
+		f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, sframe->width, sframe->height, 0, GL_RGB, GL_UNSIGNED_BYTE, sframe->pixels);
+		setVidSize(sframe->width, sframe->height);
+		shared_mem.unlock();
+		//Detach to prevent deadlocks
+		shared_mem.detach();
+	} else {
+		f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+	}
+
+	return true;
+}
+
 void PreviewWidget::paintGL(){
 	auto f = getOpenGLFuncs();
 
@@ -214,17 +232,7 @@ void PreviewWidget::paintGL(){
 	loc = f->glGetUniformLocation(program, "scale_vec");
 	f->glUniform2fv(loc, 1, scaleVec);
 
-	f->glBindTexture(GL_TEXTURE_2D, texture);
-	struct Shared_mem_frame *sframe = shared_mem.get_frame_and_lock();
-	if(sframe){
-		f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, sframe->width, sframe->height, 0, GL_RGB, GL_UNSIGNED_BYTE, sframe->pixels);
-		setVidSize(sframe->width, sframe->height);
-		shared_mem.unlock();
-		//Detach to prevent deadlocks
-		shared_mem.detach();
-	} else {
-		f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-	}
+	loadFrame();
 
 	f->glDrawArrays(GL_TRIANGLES, 0, 6);
 

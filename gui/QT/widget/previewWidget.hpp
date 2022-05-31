@@ -24,6 +24,8 @@ protected:
 	void paintGL();
 
 private:
+	bool loadFrame();
+
 	GLuint vertexBuffer = 0;
 	GLuint program = 0;
 	GLuint texture = 0;
