@@ -7,7 +7,8 @@
 #include <QOpenGLVertexArrayObject>
 #include <QTimer>
 
-#include "shared_mem_frame.hpp"
+#include "ipc_frame.h"
+#include "ipc_frame_unix.h"
 
 class PreviewWidget : public QOpenGLWidget{
 public:
@@ -45,7 +46,8 @@ private:
 	void setVidSize(int w, int h);
 	void calculateScale();
 
-	Shared_mem shared_mem;
+	Ipc_frame_uniq ipc_frame;
+	Ipc_frame_reader_uniq ipc_frame_reader;
 	QTimer timer;
 };
 

@@ -48,7 +48,8 @@ HEADERS += window/ultragrid_window.hpp \
 	widget/previewWidget.hpp \
 	window/log_window.hpp \
 	../../tools/astat.h \
-	../../src/shared_mem_frame.hpp \
+	../../tools/ipc_frame.h \
+	../../tools/ipc_frame_unix.h \
 	../../src/compat/platform_pipe.h \
 	widget/vuMeterWidget.hpp \
 	window/settings_window.hpp \
@@ -94,7 +95,8 @@ SOURCES += window/ultragrid_window.cpp \
 	option/audio_opts.cpp \
 	option/video_opts.cpp \
 	util/ug_process_manager.cpp \
-	../../src/shared_mem_frame.cpp \
 	../../tools/astat.cpp \
+	../../tools/ipc_frame.cpp \
+	../../tools/ipc_frame_unix.cpp \
 	../../src/compat/platform_pipe.cpp \
 	main.cpp

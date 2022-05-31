@@ -5,7 +5,6 @@
 #include <QOpenGLVersionFunctionsFactory>
 #endif
 #include "previewWidget.hpp"
-#include "shared_mem_frame.hpp"
 
 static const GLfloat rectangle[] = {
 	 1.0f,  1.0f,  1.0f,  0.0f,
@@ -74,7 +73,8 @@ static QOpenGLFunctions_3_3_Core *getOpenGLFuncs(){
 }
 
 PreviewWidget::PreviewWidget(QWidget *parent) :
-	QOpenGLWidget(parent)
+	QOpenGLWidget(parent),
+	ipc_frame(ipc_frame_new())
 {
 	connect(&timer, SIGNAL(timeout()), this, SLOT(update()));
 }
@@ -210,17 +210,23 @@ void PreviewWidget::setVidSize(int w, int h){
 bool PreviewWidget::loadFrame(){
 	auto f = getOpenGLFuncs();
 
-	struct Shared_mem_frame *sframe = shared_mem.get_frame_and_lock();
-	if(sframe){
+	if(!ipc_frame_reader || !ipc_frame_reader_is_connected(ipc_frame_reader.get())){
+		selected_texture = testbars_texture;
+		return true;
+	}
+
+
+	if(ipc_frame_reader_has_frame(ipc_frame_reader.get())){
+		if(!ipc_frame_reader_read(ipc_frame_reader.get(), ipc_frame.get()))
+			return false;
+
+		assert(ipc_frame->header.color_spec == IPC_FRAME_COLOR_RGB);
 		selected_texture = frame_texture;
 		f->glBindTexture(GL_TEXTURE_2D, frame_texture);
-		f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, sframe->width, sframe->height, 0, GL_RGB, GL_UNSIGNED_BYTE, sframe->pixels);
-		setVidSize(sframe->width, sframe->height);
-		shared_mem.unlock();
-		//Detach to prevent deadlocks
-		shared_mem.detach();
-	} else {
-		selected_texture = testbars_texture;
+		f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+				ipc_frame->header.width, ipc_frame->header.height,
+				0, GL_RGB, GL_UNSIGNED_BYTE, ipc_frame->data);
+		setVidSize(ipc_frame->header.width, ipc_frame->header.height);
 	}
 
 	return true;
@@ -250,8 +256,9 @@ void PreviewWidget::paintGL(){
 }
 
 void PreviewWidget::setKey(const char *key){
-	shared_mem.detach();
-	shared_mem.setKey(key);
+	std::string path = PLATFORM_TMP_DIR;
+	path += key;
+	ipc_frame_reader.reset(ipc_frame_reader_new(path.c_str()));
 }
 
 void PreviewWidget::start(){
