@@ -37,7 +37,6 @@
 /**
  * @todo
  * * the data is 2x copied
- * * use decoder
  */
 
 #ifdef HAVE_CONFIG_H
@@ -47,6 +46,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture_filter.h"
+#include "compat/misc.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/list.h"
@@ -74,9 +74,34 @@ struct capture_filter_display {
         pthread_t thread_id;
 };
 
+static codec_t select_display_codec(codec_t *display_codecs, codec_t recv_codec) {
+        if (codec_is_in_set(recv_codec, display_codecs)) {
+                return recv_codec;
+        }
+        codec_t out = VIDEO_CODEC_NONE;
+        get_fastest_decoder_from(recv_codec, display_codecs, &out);
+        return out;
+}
+
 static void *worker(void *arg) {
         struct capture_filter_display *s = arg;
-        struct video_desc display_desc = { 0 };
+        struct video_desc configured_desc = { 0 };
+        codec_t display_codecs[VIDEO_CODEC_COUNT + 1];
+        size_t len = sizeof display_codecs;
+        if (!display_ctl_property(s->d, DISPLAY_PROPERTY_CODECS, display_codecs, &len)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot query display supported codecs!\n");
+                exit_uv(1);
+                return NULL;
+        }
+        display_codecs[len / sizeof display_codecs[0]] = VIDEO_CODEC_NONE;
+        int rgb_shift[] = { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT };
+        len = sizeof rgb_shift;
+        if (!display_ctl_property(s->d, DISPLAY_PROPERTY_RGB_SHIFT, rgb_shift, &len)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Cannot query display RGB shift!\n");
+        }
+        decoder_t dec = NULL;
+        int src_linesize = 0;
+        int dst_linesize = 0;
 
         while (1) {
                 pthread_mutex_lock(&s->lock);
@@ -91,15 +116,23 @@ static void *worker(void *arg) {
                 }
 
                 struct video_desc new_desc = video_desc_from_frame(f);
-                if (!video_desc_eq(display_desc, new_desc)) {
-                        if (!display_reconfigure(s->d, new_desc, VIDEO_NORMAL)) {
-                                log_msg(LOG_LEVEL_ERROR, "Unable to reconfigure!");
+                if (!video_desc_eq(configured_desc, new_desc)) {
+                        struct video_desc display_desc = new_desc;
+                        display_desc.color_spec = select_display_codec(display_codecs, new_desc.color_spec);
+                        if (!display_desc.color_spec || !display_reconfigure(s->d, display_desc, VIDEO_NORMAL)) {
+                                log_msg(LOG_LEVEL_ERROR, "Unable to reconfigure to %s!\n", video_desc_to_string(display_desc));
                                 continue;
                         }
-                        display_desc = new_desc;
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Reconfigured display to %s\n", video_desc_to_string(display_desc));
+                        dec = get_decoder_from_to(new_desc.color_spec, display_desc.color_spec);
+                        src_linesize = vc_get_linesize(f->tiles[0].width, f->color_spec);
+                        dst_linesize = vc_get_linesize(f->tiles[0].width, display_desc.color_spec);
+                        configured_desc = new_desc;
                 }
                 struct video_frame *df = display_get_frame(s->d);
-                memcpy(df->tiles[0].data, f->tiles[0].data, f->tiles[0].data_len);
+                for (size_t i = 0; i < f->tiles[0].height; ++i) {
+                        dec((unsigned char *) df->tiles[0].data + i * dst_linesize, (unsigned char *) f->tiles[0].data + i * src_linesize, dst_linesize, rgb_shift[0], rgb_shift[1], rgb_shift[2]);
+                }
                 display_put_frame(s->d, df, PUTF_BLOCKING);
                 vf_free(f);
         }

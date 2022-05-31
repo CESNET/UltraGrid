@@ -234,3 +234,9 @@ video_desc::operator string() const
         return oss.str();
 }
 
+const char *video_desc_to_string(struct video_desc d)
+{
+        thread_local string s = d;
+        return s.c_str();
+}
+
