@@ -109,7 +109,8 @@ void list_video_display_devices(bool full)
  * @param[in] requested_display  video display module name, not NULL
  * @param[in] fmt    command-line entered format string, not NULL
  * @param[in] flags  bit sum of @ref display_flags
- * @param[out] state output display state. Defined only if initialization was successful.
+ * @param[in] postprocess configuration for display postprocess, _is_ NULL if no present
+ * @param[out] out output display state. Defined only if initialization was successful.
  * @retval    0  if sucessful
  * @retval   -1  if failed
  * @retval    1  if successfully shown help (no state returned)
