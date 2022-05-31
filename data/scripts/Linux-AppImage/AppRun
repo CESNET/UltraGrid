@@ -18,7 +18,7 @@ export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
 
 get_tools() {
-        find "$DIR/usr/bin" -exec basename {} \; | tr '\n' ' '
+        find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
 }
 
 usage() {
