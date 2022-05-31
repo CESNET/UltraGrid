@@ -722,8 +722,8 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
         struct state_gl	*s = (struct state_gl *) state;
 
         assert (find(gl_supp_codecs.begin(), gl_supp_codecs.end(), desc.color_spec) != gl_supp_codecs.end());
-        if (desc.color_spec == R10k) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying R10k - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "\n";
+        if (get_bits_per_component(desc.color_spec) > 8) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying 10+ bits - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "'\n";
         }
 
         s->current_desc = desc;
@@ -1904,7 +1904,7 @@ static int display_gl_get_property(void *state, int property, void *val, size_t 
                 case DISPLAY_PROPERTY_CODECS:
                         if (sizeof gl_supp_codecs <= *len) {
                                 auto filter_codecs = [](codec_t c) {
-                                        return c != R10k || commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end(); // option to disable 10-bit processing
+                                        return get_bits_per_component(c) <= 8 || commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end(); // option to disable 10-bit processing
                                 };
                                 copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(), (codec_t *) val, filter_codecs);
                         } else {
