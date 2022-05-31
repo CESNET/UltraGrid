@@ -110,6 +110,9 @@ volatile bool should_exit = false;
 volatile int audio_offset; ///< added audio delay in ms (non-negative), can be used to tune AV sync
 volatile int video_offset; ///< added video delay in ms (non-negative), can be used to tune AV sync
 
+/// 0->1 - call glfwInit, 1->0 call glfwTerminate; fncs shouls be called from main thr, no need to synchronize
+int glfw_init_count;
+
 std::unordered_map<std::string, std::string> commandline_params;
 
 mainloop_t mainloop;

@@ -457,7 +457,7 @@ static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
 #endif
 
 static void gl_print_monitors(bool fullhelp) {
-        if (glfwInit() == GLFW_FALSE) {
+        if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
                 LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
                 return;
         }
@@ -493,7 +493,7 @@ static void gl_print_monitors(bool fullhelp) {
                 cout << "(use \"fullhelp\" to see modes)\n";
         }
 
-        glfwTerminate();
+        ref_count_terminate_last()(glfwTerminate, glfw_init_count);
 }
 
 /**
@@ -674,7 +674,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 free(tmp);
                 if (ret != s) {
                         delete s;
-                        glfwTerminate();
+                        ref_count_terminate_last()(glfwTerminate, glfw_init_count);
                         return ret;
                 }
         }
@@ -1321,8 +1321,8 @@ static bool display_gl_init_opengl(struct state_gl *s)
 {
         glfwSetErrorCallback(glfw_print_error);
 
-        if (glfwInit() == GLFW_FALSE) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "glfwInit failed!\n";
+        if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
+                LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
                 return false;
         }
 
@@ -1442,7 +1442,7 @@ static void display_gl_cleanup_opengl(struct state_gl *s){
 #endif
         }
 
-        glfwTerminate();
+        ref_count_terminate_last()(glfwTerminate, glfw_init_count);
 }
 
 static void display_gl_run(void *arg)

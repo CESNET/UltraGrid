@@ -105,6 +105,8 @@ typedef void (*mainloop_t)(void *);
 extern mainloop_t mainloop;
 extern void *mainloop_udata;
 
+extern int glfw_init_count;
+
 // Both of following varables are non-negative. It indicates amount of milliseconds that
 // audio or video should be delayed. This shall be used for AV sync control. For
 // getting/setting you can use get_av_delay()/set_av_delay(). All is in milliseconds.
@@ -152,9 +154,27 @@ void register_should_exit_callback(struct module *mod, void (*callback)(void *),
 #endif
 
 #ifdef __cplusplus
-#include <unordered_map>
+#include <optional>
 #include <string>
+#include <unordered_map>
 extern std::unordered_map<std::string, std::string> commandline_params;
+
+template<typename T> struct ref_count_init_once {
+        std::optional<T> operator()(T (*init)(void), int &i) {
+                if (i++ == 0) {
+                        return std::optional<T>(init());
+                }
+                return std::nullopt;
+        }
+};
+
+struct ref_count_terminate_last {
+        void operator()(void (*terminate)(void), int &i) {
+                if (--i == 0) {
+                        terminate();
+                }
+        }
+};
 #endif
 
 #define MERGE_(a,b)  a##b
