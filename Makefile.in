@@ -125,6 +125,7 @@ COMMON_OBJS     = \
 		src/audio/filter/delay.o \
 		src/capture_filter.o \
 		src/capture_filter/change_pixfmt.o \
+		src/capture_filter/display.o \
 		src/capture_filter/disrupt.o \
 		src/capture_filter/every.o \
 		src/capture_filter/flip.o \
