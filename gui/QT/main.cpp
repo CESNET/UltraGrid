@@ -35,6 +35,9 @@ int main(int argc, char *argv[]){
 	//important: If this line is removed parsing float numbers for vu meter fails
 	std::setlocale(LC_NUMERIC, "C");
 
+	UltragridWindow uw;
+	uw.show();
+
 	process.start(ultragridExecutable, QStringList());
 	if(process.waitForStarted(1000) == false) {
 		QMessageBox msgBox;
@@ -64,8 +67,7 @@ int main(int argc, char *argv[]){
 	fmt.setProfile(QSurfaceFormat::CoreProfile);
 	QSurfaceFormat::setDefaultFormat(fmt);
 
-	UltragridWindow uw;
-	uw.show();
+	uw.initializeUgOpts();
 	return app.exec();
 }
 

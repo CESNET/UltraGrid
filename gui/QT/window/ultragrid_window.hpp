@@ -20,6 +20,8 @@ public:
 	UltragridWindow(QWidget *parent = 0);
 	static QString findUltragridExecutable();
 
+	void initializeUgOpts();
+
 protected:
 	void closeEvent(QCloseEvent *);
 

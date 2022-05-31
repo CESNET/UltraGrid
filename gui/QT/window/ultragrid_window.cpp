@@ -54,25 +54,11 @@ QStringList argStringToList(const std::string& argString){
 
 } //anonymous namespace
 
-UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
-	ui.setupUi(this);
-	//ui.terminal->setVisible(false);
-#ifdef DEBUG
-	ui.actionTest->setVisible(true);
-#endif //DEBUG
-
+void UltragridWindow::initializeUgOpts(){
 	ultragridExecutable = UltragridWindow::findUltragridExecutable();
-
-#ifndef __linux
-	ui.actionUse_hw_acceleration->setVisible(false);
-#endif
 
 	previewTimer.setSingleShot(true);
 	connect(&previewTimer, SIGNAL(timeout()), this, SLOT(startPreview()));
-
-	//connect(sourceOption, SIGNAL(changed()), this, SLOT(schedulePreview()));
-	//connect(audioSrcOption, SIGNAL(changed()), this, SLOT(schedulePreview()));
-
 	setupPreviewCallbacks();
 
 	availableSettings.queryAll(ultragridExecutable.toStdString());
@@ -106,6 +92,18 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	processStatus.setText("UG: Stopped");
 	ui.statusbar->addWidget(&processStatus);
 	ui.statusbar->addWidget(&previewStatus);
+}
+
+UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
+	ui.setupUi(this);
+	//ui.terminal->setVisible(false);
+#ifdef DEBUG
+	ui.actionTest->setVisible(true);
+#endif //DEBUG
+
+#ifndef __linux
+	ui.actionUse_hw_acceleration->setVisible(false);
+#endif
 
 	QString verString(GIT_CURRENT_SHA1);
 	verString += GIT_CURRENT_BRANCH;
