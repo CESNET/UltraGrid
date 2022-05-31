@@ -127,8 +127,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
                 }
                 unique_disp disp(d_ptr);
                 if (display_needs_mainloop(disp.get()) && !s->common->displays.empty()) {
-                        LOG(LOG_LEVEL_FATAL) << "[multiplier] Display " << display << " needs mainloop but is not given first!\n";
-                        return nullptr;
+                        LOG(LOG_LEVEL_ERROR) << "[multiplier] Display " << display << " needs mainloop and should be given first!\n";
                 }
 
                 s->common->displays.push_back(std::move(disp));
