@@ -156,6 +156,9 @@ COMMON_OBJS     = \
 		src/module.o \
 		src/rtsp/rtsp_utils.o \
 		src/ug_runtime_error.o \
+		tools/ipc_frame_ug.o \
+		tools/ipc_frame_unix.o \
+		tools/ipc_frame.o \
 		src/utils/audio_buffer.o \
 		src/utils/color_out.o \
 		src/utils/config_file.o \
