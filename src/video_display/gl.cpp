@@ -1309,10 +1309,23 @@ static void glfw_print_error(int error_code, const char* description) {
         LOG(LOG_LEVEL_ERROR) << "GLFW error " << error_code << ": " << description << "\n";
 }
 
+/**
+ * [mac specific] Sets user-specified color space.
+ * @note patched (by us) GLFW supporting GLFW_COCOA_NS_COLOR_SPACE required
+ */
+static void set_mac_color_space(void) {
+#ifdef GLFW_COCOA_NS_COLOR_SPACE
+        const char *col = get_commandline_param("color");
+        if (!col) {
+                return;
+        }
+        glfwWindowHint(GLFW_COCOA_NS_COLOR_SPACE, stoi(col, nullptr, 16));
+#endif // defined GLFW_COCOA_NS_COLOR_SPACE
+}
+
 ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
          "* " GL_DISABLE_10B_OPT_PARAM_NAME "\n"
          "  Disable 10 bit codec processing to improve performance\n");
-
 /**
  * Initializes OpenGL stuff. If this function succeeds, display_gl_cleanup_opengl() needs
  * to be called to release resources.
@@ -1340,6 +1353,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
         }
 
+        set_mac_color_space();
         glfwWindowHint(GLFW_DOUBLEBUFFER, s->vsync == SINGLE_BUF ? GLFW_FALSE : GLFW_TRUE);
         int width = splash_width;
         int height = splash_height;

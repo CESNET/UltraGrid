@@ -73,6 +73,7 @@ struct display_ndi {
         int audio_level; ///< audio reference level - usually 0 or 20
         NDIlib_send_instance_t pNDI_send;
         NDIlib_video_frame_v2_t NDI_video_frame;
+        char *video_metadata;
         struct video_desc desc;
         struct audio_desc audio_desc;
         struct video_frame *send_frame; ///< frame that is just being asynchronously sent
@@ -144,6 +145,33 @@ static void usage()
         printf("\t\t\tthe name of the server\n");
         color_out(COLOR_OUT_BOLD, "\t\taudio_level\n");
         printf("\t\t\taudio headroom above reference level (in dB, or mic/line, default %d)\n", DEFAULT_AUDIO_LEVEL);
+}
+
+/**
+ * Synthetises HDR metadata if given on command-line.
+ * http://sienna-tv.com/ndi/ndimetadatastandards.html
+ */
+static char *ndi_disp_format_video_metadata(void)
+{
+        const char *param = get_commandline_param("color");
+        if (param == NULL || strlen(param) != 2) {
+                return NULL;
+        }
+        int eotf = strtol(param + 1, NULL, 16);
+        const char *space = NULL;
+        switch (eotf) {
+                case 0: return NULL;
+                case 1: space = "Default"; break;
+                case 2: space = "HLG"; break;
+                case 3: space = "PQ"; break;
+                default:
+                        log_msg(LOG_LEVEL_ERROR, "Wrong/unsupported HDR EOTF value %d!\n", eotf);
+                        return NULL;
+        }
+        size_t metadata_len = 128;
+        char *out = malloc(metadata_len);
+        snprintf(out, metadata_len, "<HDR_PROFILE>%s</HDR_PROFILE>", space);
+        return out;
 }
 
 #define BEGIN_TRY int ret = 0; do
@@ -227,6 +255,8 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                 return NULL;
         }
 
+        s->NDI_video_frame.p_metadata = s->video_metadata = ndi_disp_format_video_metadata();
+
         return s;
 }
 
@@ -239,6 +269,7 @@ static void display_ndi_done(void *state)
         s->NDIlib->destroy();
         close_ndi_library(s->lib);
         vf_free(s->send_frame);
+        free(s->video_metadata);
         free(s);
 }
 

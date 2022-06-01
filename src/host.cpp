@@ -784,6 +784,8 @@ ADD_TO_PARAM("audio-cap-frames", "* audio-cap-frames=<f>\n"
                 "  Sets number of audio frames captured at once (CoreAudio)\n");
 ADD_TO_PARAM("audio-disable-adaptive-buffer", "* audio-disable-adaptive-buffer\n"
                 "  Disables audio adaptive playback buffer (CoreAudio/JACK)\n");
+ADD_TO_PARAM("color", "* color=CT\n"
+                "  [experimental] Color space to use, C - colorimetry: 0 - undefined, 1 - BT.709, 2 - BT.2020/2100, 3 - P3; T - transfer fn: 0 - undefined, 1 - 709, 2 - HLG; 3 - PQ (signalized to GLFW on mac, NDI receiver)\n");
 #ifdef DEBUG
 ADD_TO_PARAM("debug-dump", "* debug-dump=<module>[=<n>][,<module2>[=<n>]\n"
                 "  Dumps specified buffer for debugging, n-th buffer may be selected, name is <module>.dump.\n"
