@@ -68,9 +68,10 @@ install_deltacast() {
 }
 
 install_glfw() {(
-        git clone --depth 1 https://github.com/glfw/glfw.git
+        git clone --depth 500 https://github.com/glfw/glfw.git
         cd glfw
-        git apply $GITHUB_WORKSPACE/.github/scripts/macOS/0001-mac-set-use-16-bit-depth-framebuffer.patch
+        git fetch --depth 500 https://github.com/MartinPulec/glfw.git
+        git merge FETCH_HEAD
         cmake -DBUILD_SHARED_LIBS=ON .
         cmake --build . --parallel
         sudo cmake --install .
