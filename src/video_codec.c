@@ -2801,6 +2801,10 @@ static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
         codec_t codec_b = *(const codec_t *) b;
         codec_t orig_codec = *(codec_t *) orig_c;
 
+        if (orig_codec == codec_a || orig_codec == codec_b) { // exact match
+                return orig_codec == codec_a ? -1 : 1;
+        }
+
         bool slow_a = get_decoder_from_to_internal(orig_codec, codec_a, false) == NULL;
         bool slow_b = get_decoder_from_to_internal(orig_codec, codec_b, false) == NULL;
         if (slow_a != slow_b) {
@@ -2815,7 +2819,21 @@ static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
                 return bits_b - bits_a;
         }
         // both are equal or higher - sort lower bit depth first
-        return bits_a - bits_b;
+        if (bits_a != bits_b) {
+                return bits_a - bits_b;
+        }
+
+        int subs_a = get_subsampling(codec_a);
+        int subs_b = get_subsampling(codec_b);
+        if (subs_a != subs_b) {
+                int subs_orig = get_subsampling(orig_codec);
+                if (subs_a < subs_orig || subs_b < subs_orig) {
+                        return subs_b - subs_a; // return better subs
+                }
+                return subs_a - subs_b;
+        }
+
+        return (int) codec_a - (int) codec_b;
 }
 
 /**
