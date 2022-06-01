@@ -2813,13 +2813,13 @@ static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
 
         int bits_a = get_bits_per_component(codec_a);
         int bits_b = get_bits_per_component(codec_b);
-        int bits_orig = get_bits_per_component(orig_codec);
-        // either a or b is lower than orig - sort higher bit depth first
-        if (bits_a < bits_orig || bits_b < bits_orig) {
-                return bits_b - bits_a;
-        }
-        // both are equal or higher - sort lower bit depth first
         if (bits_a != bits_b) {
+                int bits_orig = get_bits_per_component(orig_codec);
+                // either a or b is lower than orig - sort higher bit depth first
+                if (bits_a < bits_orig || bits_b < bits_orig) {
+                        return bits_b - bits_a;
+                }
+                // both are equal or higher - sort lower bit depth first
                 return bits_a - bits_b;
         }
 
