@@ -73,6 +73,7 @@
 
 #define DEFAULT_POOL_SIZE 16
 #define DEFAULT_THREAD_COUNT 8
+#define MOD_NAME "[cineform] "
 
 struct state_video_compress_cineform{
         struct module module_data;
@@ -83,7 +84,7 @@ struct state_video_compress_cineform{
         struct video_desc precompress_desc;
         struct video_desc compressed_desc;
 
-        void (*convertFunc)(video_frame *dst, video_frame *src);
+        decoder_t dec;
 
         CFHD_EncodingQuality requested_quality;
         int requested_threads;
@@ -228,88 +229,17 @@ static struct module * cineform_compress_init(struct module *parent, const char 
         return &s->module_data;
 }
 
-static void I420toUYVY(video_frame *dst, video_frame *src)
-{
-        size_t y_len = src->tiles[0].width * src->tiles[0].height;
-        size_t chroma_len = ((src->tiles[0].width + 1) / 2) * ((src->tiles[0].height + 1) / 2);
-        char *y = src->tiles[0].data;
-        char *out = dst->tiles[0].data;
-        size_t chroma_pitch = ((dst->tiles[0].width + 1) & ~1) / 2; // handle also odd line widths
-        for (size_t i = 0; i < dst->tiles[0].height; i += 1) {
-                char *u = src->tiles[0].data + y_len + i / 2 * chroma_pitch;
-                char *v = src->tiles[0].data + y_len + chroma_len + i / 2 * chroma_pitch;
-                size_t j;
-                for (j = 0; j <= dst->tiles[0].width - 2; j += 2) {
-                        *out++ = *u++;
-                        *out++ = *y++;
-                        *out++ = *v++;
-                        *out++ = *y++;
-                }
-                if (j < dst->tiles[0].width) { // last pixel on line with odd width
-                        *out++ = *u++;
-                        *out++ = *y++;
-                        *out++ = *v++;
-                        *out++ = 0;
-                }
-        }
-}
-
-static void RGBtoBGR_invert(video_frame *dst, video_frame *src){
-        int pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
-
-        unsigned char *s = (unsigned char *) src->tiles[0].data + (src->tiles[0].height - 1) * pitch;
-        unsigned char *d = (unsigned char *) dst->tiles[0].data;
-        decoder_t vc_copylineBGRtoRGB = get_decoder_from_to(BGR, RGB);
-
-        for(unsigned i = 0; i < src->tiles[0].height; i++){
-                vc_copylineBGRtoRGB(d, s, pitch, 0, 8, 16);
-                s -= pitch;
-                d += pitch;
-        }
-}
-
-static void RGBAtoBGRA(video_frame *dst, video_frame *src){
-        int pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
-
-        unsigned char *s = (unsigned char *) src->tiles[0].data;
-        unsigned char *d = (unsigned char *) dst->tiles[0].data;
-
-        for(unsigned i = 0; i < src->tiles[0].height; i++){
-                vc_copylineRGBA(d, s, pitch, 16, 8, 0);
-                s += pitch;
-                d += pitch;
-        }
-}
-
-static void R12L_to_RG48(video_frame *dst, video_frame *src){
-        int src_pitch = vc_get_linesize(src->tiles[0].width, src->color_spec);
-        int dst_pitch = vc_get_linesize(dst->tiles[0].width, dst->color_spec);
-
-        unsigned char *s = (unsigned char *) src->tiles[0].data;
-        unsigned char *d = (unsigned char *) dst->tiles[0].data;
-        decoder_t vc_copylineR12LtoRG48 = get_decoder_from_to(R12L, RG48);
-
-        for(unsigned i = 0; i < src->tiles[0].height; i++){
-                vc_copylineR12LtoRG48(d, s, dst_pitch, 0, 0, 0);
-                s += src_pitch;
-                d += dst_pitch;
-        }
-}
-
 static struct {
         codec_t ug_codec;
         CFHD_PixelFormat cfhd_pixel_format;
         CFHD_EncodedFormat cfhd_encoded_format;
-        codec_t convert_codec;
-        void (*convertFunc)(video_frame *dst, video_frame *src);
 } codecs[] = {
-        {I420, CFHD_PIXEL_FORMAT_2VUY, CFHD_ENCODED_FORMAT_YUV_422, UYVY, I420toUYVY},
-        {UYVY, CFHD_PIXEL_FORMAT_2VUY, CFHD_ENCODED_FORMAT_YUV_422, VIDEO_CODEC_NONE, nullptr},
-        {RGB, CFHD_PIXEL_FORMAT_RG24, CFHD_ENCODED_FORMAT_RGB_444, VIDEO_CODEC_NONE, RGBtoBGR_invert},
-        {RGBA, CFHD_PIXEL_FORMAT_BGRa, CFHD_ENCODED_FORMAT_RGBA_4444, VIDEO_CODEC_NONE, RGBAtoBGRA},
-        {v210, CFHD_PIXEL_FORMAT_V210, CFHD_ENCODED_FORMAT_YUV_422, VIDEO_CODEC_NONE, nullptr},
-        {R10k, CFHD_PIXEL_FORMAT_DPX0, CFHD_ENCODED_FORMAT_RGB_444, VIDEO_CODEC_NONE, nullptr},
-        {R12L, CFHD_PIXEL_FORMAT_RG48, CFHD_ENCODED_FORMAT_RGB_444, RG48, R12L_to_RG48},
+        {UYVY, CFHD_PIXEL_FORMAT_2VUY, CFHD_ENCODED_FORMAT_YUV_422},
+        {RGB, CFHD_PIXEL_FORMAT_RG24, CFHD_ENCODED_FORMAT_RGB_444},
+        {RGBA, CFHD_PIXEL_FORMAT_BGRa, CFHD_ENCODED_FORMAT_RGBA_4444},
+        {v210, CFHD_PIXEL_FORMAT_V210, CFHD_ENCODED_FORMAT_YUV_422},
+        {R10k, CFHD_PIXEL_FORMAT_DPX0, CFHD_ENCODED_FORMAT_RGB_444},
+        {RG48, CFHD_PIXEL_FORMAT_RG48, CFHD_ENCODED_FORMAT_RGB_444},
 };
 
 static bool configure_with(struct state_video_compress_cineform *s, struct video_desc desc)
@@ -326,17 +256,21 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
                 }
         }
 
+        codec_t to_convs[VIDEO_CODEC_COUNT] = { VIDEO_CODEC_NONE };
+        int i = 0;
+        for(const auto &codec : codecs) {
+                to_convs[i++] = codec.ug_codec;
+        }
+        s->precompress_desc = desc;
+        s->dec = get_best_decoder_from(desc.color_spec, to_convs, &s->precompress_desc.color_spec, true);
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Using " << get_codec_name(s->precompress_desc.color_spec) << " as intermediate.\n";
+
         CFHD_PixelFormat pix_fmt = CFHD_PIXEL_FORMAT_UNKNOWN;
         CFHD_EncodedFormat enc_fmt = CFHD_ENCODED_FORMAT_UNKNOWN;
         for(const auto &codec : codecs){
-                if(codec.ug_codec == desc.color_spec){
+                if (codec.ug_codec == s->precompress_desc.color_spec){
                         pix_fmt = codec.cfhd_pixel_format;
                         enc_fmt = codec.cfhd_encoded_format;
-                        s->convertFunc = codec.convertFunc;
-                        s->precompress_desc = desc;
-                        if(codec.convert_codec != VIDEO_CODEC_NONE){
-                                s->precompress_desc.color_spec = codec.convert_codec;
-                        }
                         break;
                 }
         }
@@ -401,15 +335,19 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
 }
 
 static video_frame *get_copy(struct state_video_compress_cineform *s, video_frame *frame){
-        if(!s->convertFunc){
-                video_frame *ret = vf_get_copy(frame);
-                vf_copy_metadata(ret, frame); // seq and compress_start
-                return ret;
-        }
-
         video_frame *ret = vf_alloc_desc_data(s->precompress_desc);
-        s->convertFunc(ret, frame);
         vf_copy_metadata(ret, frame); // seq and compress_start
+        int src_linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
+        int dst_linesize = vc_get_linesize(frame->tiles[0].width, ret->color_spec);
+        auto *dst = (unsigned char *) ret->tiles[0].data;
+        int dst_sign = 1;
+        if (s->precompress_desc.color_spec == RGB) { // upside down
+                dst += static_cast<size_t>(dst_linesize) * frame->tiles[0].height - 1;
+                dst_sign = -1;
+        }
+        for (long int i = 0; i < frame->tiles[0].height; ++i) {
+                s->dec(dst + dst_sign * i * dst_linesize, (unsigned char *) frame->tiles[0].data + i * src_linesize, dst_linesize, 16, 8, 0);
+        }
 
         return ret;
 }
