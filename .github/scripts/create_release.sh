@@ -16,7 +16,7 @@ fi
 DATE=$(date -Iminutes)
 if [ $VERSION = continuous ]; then
         TITLE='continuous builds'
-        SUMMARY='Current builds from Git master branch. macOS alternative build is rebuilt daily, Linux ARM builds occasionally. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).'
+        SUMMARY='Current builds from Git master branch. macOS alternative build is rebuilt daily, Linux ARM builds monthly. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).'
         PRERELEASE=true
 else
         TITLE="UltraGrid $VERSION"
