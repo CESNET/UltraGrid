@@ -112,7 +112,7 @@ void config_file_close(struct config_file *s)
 static string get_nth_word(struct config_file *s, const char *prefix, int index)
 {
         if (!s->f)
-                return NULL;
+                return {};
 
         char line[1024];
         fseek(s->f, 0, SEEK_SET); // rewind
@@ -129,7 +129,7 @@ static string get_nth_word(struct config_file *s, const char *prefix, int index)
                                 tmp = NULL;
                                 if (i++ == index) {
                                         if (strlen(item) == 0) {
-                                                return NULL;
+                                                return {};
                                         }
                                         return item;
                                 }
