@@ -111,12 +111,12 @@ void main()
         yuv.rgba  = texture2D(image, gl_TexCoord[0].xy).grba;
         if(gl_TexCoord[0].x * imageWidth / 2.0 - floor(gl_TexCoord[0].x * imageWidth / 2.0) > 0.5)
                 yuv.r = yuv.a;
-        yuv.r = 1.1643 * (yuv.r - 0.0625);
+        yuv.r = Y_SCALED_PLACEHOLDER * (yuv.r - 0.0625);
         yuv.g = yuv.g - 0.5;
         yuv.b = yuv.b - 0.5;
-        gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
-        gl_FragColor.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
-        gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
+        gl_FragColor.r = yuv.r + R_CR_PLACEHOLDER * yuv.b;
+        gl_FragColor.g = yuv.r + G_CB_PLACEHOLDER * yuv.g + G_CR_PLACEHOLDER * yuv.b;
+        gl_FragColor.b = yuv.r + B_CB_PLACEHOLDER * yuv.g;
         gl_FragColor.a = 1.0;
 }
 )raw";
@@ -128,19 +128,16 @@ void main()
 {
         vec4 yuv;
         yuv.rgba  = texture2D(image, gl_TexCoord[0].xy).grba;
-        yuv.r = 1.1643 * (yuv.r - 0.0625);
+        yuv.r = Y_SCALED_PLACEHOLDER * (yuv.r - 0.0625);
         yuv.g = yuv.g - 0.5;
         yuv.b = yuv.b - 0.5;
-        gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
-        gl_FragColor.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
-        gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
+        gl_FragColor.r = yuv.r + R_CR_PLACEHOLDER * yuv.b;
+        gl_FragColor.g = yuv.r + G_CB_PLACEHOLDER * yuv.g + G_CR_PLACEHOLDER * yuv.b;
+        gl_FragColor.b = yuv.r + B_CB_PLACEHOLDER * yuv.g;
         gl_FragColor.a = yuv.a;
 }
 )raw";
 
-#define RCOEF(kr,kb) TOSTRING(Y_LIMIT_INV) "," TOSTRING(R_CB(kr,kb)) ", " TOSTRING(R_CR(kr,kb))
-#define GCOEF(kr,kb) TOSTRING(Y_LIMIT_INV) "," TOSTRING(G_CB(kr,kb)) ", " TOSTRING(G_CR(kr,kb))
-#define BCOEF(kr,kb) TOSTRING(Y_LIMIT_INV) "," TOSTRING(B_CB(kr,kb)) ", " TOSTRING(B_CR(kr,kb))
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
 /// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
 static const char * v210_to_rgb_fp = R"raw(
@@ -153,9 +150,9 @@ uniform float imageWidth;
 const vec3 yuvOffset = vec3(-0.0625, -0.5, -0.5);
 
 // RGB coefficients
-const vec3 Rcoeff = vec3()raw" RCOEF(KR_709,KB_709) R"raw();
-const vec3 Gcoeff = vec3()raw" GCOEF(KR_709,KB_709) R"raw();
-const vec3 Bcoeff = vec3()raw" BCOEF(KR_709,KB_709) R"raw();
+const vec3 Rcoeff = vec3(Y_SCALED_PLACEHOLDER, 0.0, R_CR_PLACEHOLDER);
+const vec3 Gcoeff = vec3(Y_SCALED_PLACEHOLDER, G_CB_PLACEHOLDER, G_CR_PLACEHOLDER);
+const vec3 Bcoeff = vec3(Y_SCALED_PLACEHOLDER, B_CB_PLACEHOLDER, 0.0);
 
 // U Y V A | Y U Y A | V Y U A | Y V Y A
 
@@ -1323,6 +1320,27 @@ static void set_mac_color_space(void) {
 #endif // defined GLFW_COCOA_NS_COLOR_SPACE
 }
 
+static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprogram)
+{
+        char *fp = strdup(fprogram);
+        const char *placeholders[] = { "Y_SCALED_PLACEHOLDER", "R_CR_PLACEHOLDER", "G_CB_PLACEHOLDER", "G_CR_PLACEHOLDER", "B_CB_PLACEHOLDER" };
+        double kr = KR_709;
+        double kb = KB_709;
+        double values[] =            { Y_LIMIT_INV,            R_CR(kr,kb),        G_CB(kr,kb),         G_CR(kr,kb),        B_CB(kr,kb)};
+
+        for (size_t i = 0; i < sizeof placeholders / sizeof placeholders[0]; ++i) {
+                char *tok = fp;
+                while ((tok = strstr(fp, placeholders[i])) != nullptr) {
+                        memset(tok, ' ', strlen(placeholders[i]));
+                        int written = snprintf(tok, sizeof placeholders - 1, "%.6f", values[i]);
+                        tok[written] = ' ';
+                }
+        }
+        GLuint ret = glsl_compile_link(vprogram, fp);
+        free(fp);
+        return ret;
+}
+
 ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
          "* " GL_DISABLE_10B_OPT_PARAM_NAME "\n"
          "  Disable 10 bit codec processing to improve performance\n");
@@ -1412,9 +1430,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        s->PHandle_uyvy = glsl_compile_link(vert, uyvy_to_rgb_fp);
-        s->PHandle_yuva = glsl_compile_link(vert, yuva_to_rgb_fp);
-        s->PHandle_v210 = glsl_compile_link(vert, v210_to_rgb_fp);
+        s->PHandle_uyvy = gl_substitute_compile_link(vert, uyvy_to_rgb_fp);
+        s->PHandle_yuva = gl_substitute_compile_link(vert, yuva_to_rgb_fp);
+        s->PHandle_v210 = gl_substitute_compile_link(vert, v210_to_rgb_fp);
         // Create fbo
         glGenFramebuffersEXT(1, &s->fbo_id);
         s->PHandle_dxt = glsl_compile_link(vert, fp_display_dxt1);
