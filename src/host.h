@@ -154,27 +154,9 @@ void register_should_exit_callback(struct module *mod, void (*callback)(void *),
 #endif
 
 #ifdef __cplusplus
-#include <optional>
 #include <string>
 #include <unordered_map>
 extern std::unordered_map<std::string, std::string> commandline_params;
-
-template<typename T> struct ref_count_init_once {
-        std::optional<T> operator()(T (*init)(void), int &i) {
-                if (i++ == 0) {
-                        return std::optional<T>(init());
-                }
-                return std::nullopt;
-        }
-};
-
-struct ref_count_terminate_last {
-        void operator()(void (*terminate)(void), int &i) {
-                if (--i == 0) {
-                        terminate();
-                }
-        }
-};
 #endif
 
 #define MERGE_(a,b)  a##b

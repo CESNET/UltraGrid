@@ -50,7 +50,7 @@
 #include "config_common.h" // MAX
 #include "debug.h"
 #include "utils/color_out.h" // MERGE, TOSTRING
-#include "utils/misc.h" // MERGE, TOSTRING
+#include "utils/macros.h" // MERGE, TOSTRING
 
 #define NDILIB_DEFAULT_PATH "/usr/local/lib"
 #ifndef USE_NDI_VERSION

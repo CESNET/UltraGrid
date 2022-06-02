@@ -48,7 +48,7 @@
 #include "tv.h"
 #include "video.h"
 #include "video_decompress.h"
-#include "utils/misc.h" // to_fourcc
+#include "utils/macros.h" // to_fourcc
 
 #include "CFHDTypes.h"
 #include "CFHDDecoder.h"

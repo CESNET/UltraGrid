@@ -59,6 +59,7 @@
 #include "module.h"
 #include "perf.h"
 #include "rang.hpp"
+#include "utils/misc.h" // unit_evaluate
 #include "video_capture.h"
 #include "video_compress.h"
 #include "video_display.h"

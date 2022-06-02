@@ -46,7 +46,7 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
-#include "utils/misc.h"
+#include "utils/macros.h"
 #ifdef HAVE_SPEEXDSP
 #include <speex/speex_resampler.h>
 #endif

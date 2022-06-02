@@ -47,7 +47,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/fs.h"
-#include "utils/misc.h"
+#include "utils/macros.h"
 #include "utils/thread.h"
 #include "video.h"
 #include "video_capture.h"

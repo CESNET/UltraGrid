@@ -80,6 +80,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "utils/jpeg_reader.h"
+#include "utils/misc.h" // unit_evaluate
 #include "video.h"
 #include "video_codec.h"
 

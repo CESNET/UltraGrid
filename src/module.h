@@ -71,7 +71,7 @@
 #endif
 
 #include "messaging.h"
-#include "utils/misc.h"
+#include "utils/macros.h"
 
 #ifdef __cplusplus
 extern "C" {

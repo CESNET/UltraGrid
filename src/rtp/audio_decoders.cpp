@@ -64,6 +64,7 @@
 #include "crypto/openssl_decrypt.h"
 #include "rang.hpp"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/packet_counter.h"
 #include "utils/worker.h"
 

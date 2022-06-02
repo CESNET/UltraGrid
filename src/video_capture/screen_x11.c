@@ -48,7 +48,8 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "utils/misc.h"
+#include "utils/macros.h"
+#include "utils/misc.h" // get_cpu_core_count
 #include "utils/parallel_conv.h"
 #include "video.h"
 #include "video_capture.h"

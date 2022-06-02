@@ -1,9 +1,10 @@
 /**
  * @file   utils/misc.h
  * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2021 CESNET z.s.p.o.
+ * Copyright (c) 2014-2022 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,13 +46,6 @@
 #include <stddef.h>
 #endif
 
-#define MERGE(a,b)  a##b
-#define STRINGIFY(A) #A
-#define TOSTRING(A) STRINGIFY(A) // https://stackoverflow.com/questions/240353/convert-a-preprocessor-token-to-a-string
-#define IF_NOT_NULL_ELSE(val, default_val) ((val) ? (val) : (default_val))
-#define UNDEF -1
-#define IF_NOT_UNDEF_ELSE(val, default_val) ((val) != UNDEF ? (val) : (default_val))
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -76,19 +70,6 @@ size_t urldecode(char *out, size_t max_len, const char *in);
 const char *ug_strerror(int errnum);
 int get_cpu_core_count(void);
 
-/**
- * @brief Creates FourCC word
- *
- * The main idea of FourCC is that it can be anytime read by human (by hexa editor, gdb, tcpdump).
- * Therefore, this is stored as a big endian even on little-endian architectures - first byte
- * of FourCC is in the memory on the lowest address.
- */
-#ifdef WORDS_BIGENDIAN
-#define to_fourcc(a,b,c,d)     (((uint32_t)(d)) | ((uint32_t)(c)<<8U) | ((uint32_t)(b)<<16U) | ((uint32_t)(a)<<24U))
-#else
-#define to_fourcc(a,b,c,d)     (((uint32_t)(a)) | ((uint32_t)(b)<<8U) | ((uint32_t)(c)<<16U) | ((uint32_t)(d)<<24U))
-#endif
-
 unsigned char *base64_decode(const char *in, unsigned int *length);
 
 #ifdef __cplusplus
@@ -96,6 +77,7 @@ unsigned char *base64_decode(const char *in, unsigned int *length);
 #endif
 
 #ifdef __cplusplus
+#include <optional>
 #include <string_view>
 
 /**
@@ -113,6 +95,23 @@ unsigned char *base64_decode(const char *in, unsigned int *length);
  * ~~~~~~~~~~~~~~~~~~~
  */
 std::string_view tokenize(std::string_view& str, char delim);
+
+template<typename T> struct ref_count_init_once {
+        std::optional<T> operator()(T (*init)(void), int &i) {
+                if (i++ == 0) {
+                        return std::optional<T>(init());
+                }
+                return std::nullopt;
+        }
+};
+
+struct ref_count_terminate_last {
+        void operator()(void (*terminate)(void), int &i) {
+                if (--i == 0) {
+                        terminate();
+                }
+        }
+};
 #endif //__cplusplus
 
 #endif// UTILS_MISC_H_

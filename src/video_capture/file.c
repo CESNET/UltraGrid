@@ -76,7 +76,8 @@
 #include "playback.h"
 #include "utils/color_out.h"
 #include "utils/list.h"
-#include "utils/misc.h"
+#include "utils/macros.h"
+#include "utils/misc.h" // clampi
 #include "utils/time.h"
 #include "utils/thread.h"
 #include "video.h"

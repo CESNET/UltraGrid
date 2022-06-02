@@ -56,7 +56,7 @@
 
 #include "debug.h"
 #include "gl_context.h"
-#include "utils/misc.h"
+#include "utils/macros.h"
 
 /**
  * @brief initializes specified OpenGL context

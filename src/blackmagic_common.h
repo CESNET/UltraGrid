@@ -51,7 +51,7 @@
 #include <string>
 #include <utility>
 
-#include "utils/misc.h"
+#include "utils/macros.h"
 #include "video.h"
 
 std::string bmd_hresult_to_string(HRESULT res);

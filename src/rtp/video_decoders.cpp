@@ -114,6 +114,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "rtp/video_decoders.h"
+#include "utils/macros.h"
 #include "utils/synchronized_queue.h"
 #include "utils/thread.h"
 #include "utils/timed_message.h"

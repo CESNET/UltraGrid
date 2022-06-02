@@ -51,7 +51,7 @@
 #include "compat/dlfunc.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
-#include "utils/misc.h"
+#include "utils/macros.h"
 #include "video.h"
 #include "video_capture.h"
 

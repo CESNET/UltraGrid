@@ -43,6 +43,7 @@
 #include "debug.h"
 #include "audio/types.h"
 #include "filter_chain.hpp"
+#include "utils/misc.h"
 
 Filter_chain::Filter_chain(struct module *parent) :
         mod(MODULE_CLASS_FILTER, parent, this) { }
