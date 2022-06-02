@@ -79,8 +79,8 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define RGB_TO_Y_709_SCALED(r, g, b) ((r) * Y_R + (g) * Y_G + (b) * Y_B)
 #define RGB_TO_CB_709_SCALED(r, g, b) ((r) * CB_R + (g) * CB_G + (b) * CB_B)
 #define RGB_TO_CR_709_SCALED(r, g, b) ((r) * CR_R + (g) * CR_G + (b) * CR_B)
-#define CLAMP_LIMITED_Y(val, depth) MIN(MAX(val, 1<<(depth-4)), 235 * (1<<(depth-8)));
-#define CLAMP_LIMITED_CBCR(val, depth) MIN(MAX(val, 1<<(depth-4)), 240 * (1<<(depth-8)));
+#define CLAMP_LIMITED_Y(val, depth) MIN(MAX(val, 1<<(depth-4)), 235 * (1<<(depth-8)))
+#define CLAMP_LIMITED_CBCR(val, depth) MIN(MAX(val, 1<<(depth-4)), 240 * (1<<(depth-8)))
 
 #define R_CB(kr,kb) 0.0
 #define R_CR(kr,kb) ((2.*(1.-kr))/CBCR_LIMIT)
