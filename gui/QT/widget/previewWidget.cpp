@@ -140,6 +140,7 @@ void PreviewWidget::initializeGL(){
 	f->glBindTexture(GL_TEXTURE_2D, frame_texture);
 	f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	f->glPixelStorei(GL_UNPACK_ALIGNMENT, 1); //UltraGrid formats dont have padding between rows
 
 	f->glBindTexture(GL_TEXTURE_2D, 0);
 
