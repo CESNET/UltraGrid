@@ -141,9 +141,9 @@ void main()
 }
 )raw";
 
-#define RCOEF(kr,kb) TOSTRING(Y_LIMIT) "," TOSTRING(R_CB(kr,kb)) ", " TOSTRING(R_CR(kr,kb))
-#define GCOEF(kr,kb) TOSTRING(Y_LIMIT) "," TOSTRING(G_CB(kr,kb)) ", " TOSTRING(G_CR(kr,kb))
-#define BCOEF(kr,kb) TOSTRING(Y_LIMIT) "," TOSTRING(B_CB(kr,kb)) ", " TOSTRING(B_CR(kr,kb))
+#define RCOEF(kr,kb) TOSTRING(Y_LIMIT_INV) "," TOSTRING(R_CB(kr,kb)) ", " TOSTRING(R_CR(kr,kb))
+#define GCOEF(kr,kb) TOSTRING(Y_LIMIT_INV) "," TOSTRING(G_CB(kr,kb)) ", " TOSTRING(G_CR(kr,kb))
+#define BCOEF(kr,kb) TOSTRING(Y_LIMIT_INV) "," TOSTRING(B_CB(kr,kb)) ", " TOSTRING(B_CR(kr,kb))
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
 /// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
 static const char * v210_to_rgb_fp = R"raw(
