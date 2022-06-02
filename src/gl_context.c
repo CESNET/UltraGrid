@@ -56,6 +56,7 @@
 
 #include "debug.h"
 #include "gl_context.h"
+#include "utils/misc.h"
 
 /**
  * @brief initializes specified OpenGL context
@@ -155,6 +156,8 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
         phandle = glCreateProgram();
         vhandle = glCreateShader(GL_VERTEX_SHADER);
         fhandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+        log_msg(LOG_LEVEL_DEBUG, "Compiling program:\nVertex:%s\nShader:\n%s\n", IF_NOT_NULL_ELSE(vprogram, "(none)"), IF_NOT_NULL_ELSE(fprogram, "(none)"));
 
         /* compile */
         /* fragmemt */
