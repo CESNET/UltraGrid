@@ -979,7 +979,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cb = *src_cbcr++ - 128;
                         comp_type_t cr = *src_cbcr++ - 128;
-                        comp_type_t y = *src_y++ * Y_SCALE;
+                        comp_type_t y = (*src_y++ - 16) * Y_SCALE;
                         comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr);
                         comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr);
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr);
@@ -992,7 +992,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                                 *dst++ = CLAMP_FULL(b >> COMP_BASE, 8);
                         }
 
-                        y = *src_y++ * Y_SCALE;
+                        y = (*src_y++ - 16) * Y_SCALE;
                         if (rgba) {
                                 *((uint32_t *)(void *) dst) = FORMAT_RGBA(r >> COMP_BASE, g >> COMP_BASE, b >> COMP_BASE, 8);
                                 dst += 4;
@@ -1060,13 +1060,13 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
                         comp_type_t cb = *src_cb1++ - 128;
                         comp_type_t cr = *src_cr1++ - 128;
-                        comp_type_t y = *src_y1++ * Y_SCALE;
+                        comp_type_t y = (*src_y1++ - 16) * Y_SCALE;
                         comp_type_t r = YCBCR_TO_R_709_SCALED(y, cb, cr);
                         comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr);
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
-                        y = *src_y1++ * Y_SCALE;
+                        y = (*src_y1++ - 16) * Y_SCALE;
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
                         if (subsampling == 422) {
@@ -1076,10 +1076,10 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                                 g = YCBCR_TO_G_709_SCALED(y, cb, cr);
                                 b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         }
-                        y = *src_y2++ * Y_SCALE;
+                        y = (*src_y2++ - 16) * Y_SCALE;
                         WRITE_RES_YUV8P_TO_RGB(dst2)
 
-                        y = *src_y2++ * Y_SCALE;
+                        y = (*src_y2++ - 16) * Y_SCALE;
                         WRITE_RES_YUV8P_TO_RGB(dst2)
                 }
         }
