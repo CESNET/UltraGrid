@@ -72,27 +72,23 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define CLAMP_LIMITED_Y(val, depth) MIN(MAX(val, 1<<(depth-4)), 235 * (1<<(depth-8)));
 #define CLAMP_LIMITED_CBCR(val, depth) MIN(MAX(val, 1<<(depth-4)), 240 * (1<<(depth-8)));
 
-#define Y_709     1.164383
-#define R_CB_709  0.0
-#define R_CR_709  1.792741
-#define G_CB_709 -0.213249
-#define G_CR_709 -0.532909
-#define B_CB_709  2.112402
-#define B_CR_709  0.0
-//  matrix Y1^-1 = inv(Y)
-#define Y_SCALE ((comp_type_t) (Y_709 * (1<<COMP_BASE))) // precomputed value, Y multiplier is same for all channels
-//static const comp_type_t r_y = 1; // during computation already contained in y_scale
-//static const comp_type_t r_cb = 0;
-#define R_CR ((comp_type_t) (R_CR_709 * (1<<COMP_BASE)))
-//static const comp_type_t g_y = 1;
-#define G_CB ((comp_type_t) (G_CB_709 * (1<<COMP_BASE)))
-#define G_CR ((comp_type_t) (G_CR_709 * (1<<COMP_BASE)))
-//static const comp_type_t b_y = 1;
-#define B_CB ((comp_type_t) (B_CB_709 * (1<<COMP_BASE)))
-//static const comp_type_t b_cr = 0;
-#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * r_cb */ + (cr) * R_CR)
-#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * G_CB    + (cr) * G_CR)
-#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * B_CB /* + (cr) * b_cr */)
+#define KR_709 .212639
+#define KB_709 .072192
+
+#define KG(kr,kb)  (1.-kr-kb)
+#define Y_LIMIT    (255.0/219.0)
+#define CBCR_LIMIT (255.0/224.0)
+#define R_CB(kr,kb) 0.0
+#define R_CR(kr,kb) (CBCR_LIMIT*(2.*(1.-kr)))
+#define G_CB(kr,kb) (-CBCR_LIMIT*kb*(2.*(kr+KG(kr,kb)))/KG(kr,kb))
+#define G_CR(kr,kb) (-CBCR_LIMIT*kr*(2.*(1.-kr))/KG(kr,kb))
+#define B_CB(kr,kb) (CBCR_LIMIT*(2.*(kr+KG(kr,kb))))
+#define B_CR(kr,kb) 0.0
+#define SCALED(x) ((comp_type_t) ((x) * (1<<COMP_BASE)))
+#define Y_SCALE SCALED(Y_LIMIT) // precomputed value, Y multiplier is same for all channels
+#define YCBCR_TO_R_709_SCALED(y, cb, cr) ((y) /* * r_y */ /* + (cb) * SCALED(r_cb(KR_709,KB_709)) */ + (cr) * SCALED(R_CR(KR_709,KB_709)))
+#define YCBCR_TO_G_709_SCALED(y, cb, cr) ((y) /* * g_y */    + (cb) * SCALED(G_CB(KR_709,KB_709))    + (cr) * SCALED(G_CR(KR_709,KB_709)))
+#define YCBCR_TO_B_709_SCALED(y, cb, cr) ((y) /* * b_y */    + (cb) * SCALED(B_CB(KR_709,KB_709)) /* + (cr) * SCALED(b_cr(KR_709,KB_709))) */)
 
 #define FULL_FOOT(depth) (1<<((depth)-8))
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)

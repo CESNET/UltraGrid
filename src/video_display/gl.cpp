@@ -141,6 +141,9 @@ void main()
 }
 )raw";
 
+#define RCOEF(kr,kb) TOSTRING(Y_LIMIT) "," TOSTRING(R_CB(kr,kb)) ", " TOSTRING(R_CR(kr,kb))
+#define GCOEF(kr,kb) TOSTRING(Y_LIMIT) "," TOSTRING(G_CB(kr,kb)) ", " TOSTRING(G_CR(kr,kb))
+#define BCOEF(kr,kb) TOSTRING(Y_LIMIT) "," TOSTRING(B_CB(kr,kb)) ", " TOSTRING(B_CR(kr,kb))
 /// with courtesy of https://stackoverflow.com/questions/20317882/how-can-i-correctly-unpack-a-v210-video-frame-using-glsl
 /// adapted to GLSL 1.1 with help of https://stackoverflow.com/questions/5879403/opengl-texture-coordinates-in-pixel-space/5879551#5879551
 static const char * v210_to_rgb_fp = R"raw(
@@ -153,9 +156,9 @@ uniform float imageWidth;
 const vec3 yuvOffset = vec3(-0.0625, -0.5, -0.5);
 
 // RGB coefficients
-const vec3 Rcoeff = vec3()raw" TOSTRING(Y_709) ", " TOSTRING(R_CB_709) ", " TOSTRING(R_CR_709) R"raw();
-const vec3 Gcoeff = vec3()raw" TOSTRING(Y_709) ", " TOSTRING(G_CB_709) ", " TOSTRING(G_CR_709) R"raw();
-const vec3 Bcoeff = vec3()raw" TOSTRING(Y_709) ", " TOSTRING(B_CB_709) ", " TOSTRING(B_CR_709) R"raw();
+const vec3 Rcoeff = vec3()raw" RCOEF(KR_709,KB_709) R"raw();
+const vec3 Gcoeff = vec3()raw" GCOEF(KR_709,KB_709) R"raw();
+const vec3 Bcoeff = vec3()raw" BCOEF(KR_709,KB_709) R"raw();
 
 // U Y V A | Y U Y A | V Y U A | Y V Y A
 
