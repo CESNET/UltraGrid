@@ -114,11 +114,8 @@ void main()
         yuv.r = 1.1643 * (yuv.r - 0.0625);
         yuv.g = yuv.g - 0.5;
         yuv.b = yuv.b - 0.5;
-        float tmp; // this is a workaround over broken Gallium3D with Nouveau in U14.04 (and perhaps others)
-        tmp = -0.2664 * yuv.b;
-        tmp = 2.0 * tmp;
         gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
-        gl_FragColor.g = yuv.r - 0.2132 * yuv.g + tmp;
+        gl_FragColor.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
         gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
         gl_FragColor.a = 1.0;
 }
