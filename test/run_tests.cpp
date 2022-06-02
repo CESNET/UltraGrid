@@ -125,12 +125,14 @@ static bool run_standard_tests()
         return success;
 }
 
+#ifdef HAVE_CPPUNIT
 class MyCustomProgressTestListener : public CppUnit::TextTestProgressListener {
  public:
      virtual void startTest(CppUnit::Test *test) {
          cerr << "starting test " << test->getName() << "\n";
      }
 };
+#endif
 
 static bool run_unit_tests([[maybe_unused]] string const &test)
 {
