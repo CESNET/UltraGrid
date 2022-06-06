@@ -203,8 +203,10 @@ void UltragridWindow::outputAvailable(){
 void UltragridWindow::start(){
 	if(process.processId() > 0){
 		process.terminate();
-		if(!process.waitForFinished(1000))
+		if(!process.waitForFinished(1000)){
+			log.write("UltraGrid process could not be terminated gracefully. Killing...\n");
 			process.kill();
+		}
 		return;
 	}
 
@@ -252,6 +254,7 @@ void UltragridWindow::stopPreview(){
 	 * can be created. Here we wait 0.5s to allow the preview process
 	 * exit gracefully. If it is still running after that we kill it */
 	if(!previewProcess.waitForFinished(500)){
+		log.write("Preview could not be terminated gracefully. Killing...\n");
 		previewProcess.kill();
 	}
 }
