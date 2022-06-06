@@ -1323,10 +1323,21 @@ static void set_mac_color_space(void) {
 static GLuint gl_substitute_compile_link(const char *vprogram, const char *fprogram)
 {
         char *fp = strdup(fprogram);
+        int index = 1;
+        const char *col = get_commandline_param("color");
+        if (col) {
+                int color = stol(col, nullptr, 16) >> 4; // first nibble
+                if (color > 0 && color <= 3) {
+                        index = color;
+                } else {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Wrong chromicities index " << color << "\n";
+                }
+        }
+        double cs_coeffs[2*4] = { 0, 0, KR_709, KB_709, KR_2020, KB_2020, KR_P3, KB_P3 };
+        double kr = cs_coeffs[2 * index];
+        double kb = cs_coeffs[2 * index + 1];
         const char *placeholders[] = { "Y_SCALED_PLACEHOLDER", "R_CR_PLACEHOLDER", "G_CB_PLACEHOLDER", "G_CR_PLACEHOLDER", "B_CB_PLACEHOLDER" };
-        double kr = KR_709;
-        double kb = KB_709;
-        double values[] =            { Y_LIMIT_INV,            R_CR(kr,kb),        G_CB(kr,kb),         G_CR(kr,kb),        B_CB(kr,kb)};
+        double values[] =            {  Y_LIMIT_INV,            R_CR(kr,kb),        G_CB(kr,kb),        G_CR(kr,kb),        B_CB(kr,kb)};
 
         for (size_t i = 0; i < sizeof placeholders / sizeof placeholders[0]; ++i) {
                 char *tok = fp;

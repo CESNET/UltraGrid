@@ -63,8 +63,12 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 
 #define KR_709 .212639
 #define KB_709 .072192
-#define KG_709 KG(KR_709,KB_709)
+#define KR_2020 .262700
+#define KB_2020 .059302
+#define KR_P3 .228975
+#define KB_P3 .079287
 
+#define KG_709 KG(KR_709,KB_709)
 #define D (2.*(KR_709+KG_709))
 #define E (2.*(1.-KR_709))
 #define Y_R ((comp_type_t) ((KR_709*Y_LIMIT) * (1<<COMP_BASE)))
