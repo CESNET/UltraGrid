@@ -135,6 +135,7 @@ COMMON_OBJS     = \
 		src/capture_filter/matrix.o \
 		src/capture_filter/mirror.o \
 		src/capture_filter/none.o \
+		src/capture_filter/preview.o \
 		src/capture_filter/split.o \
 		src/compat/alarm.o \
 		src/compat/dlfunc.o \
@@ -508,20 +509,6 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	@#echo "static const char vp_display_rgba_to_yuv422[] = " >> $@
 	@#cat $(srcdir)/dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	@#echo ";" >> $@
-
-# QT-dependent objects
-src/shared_mem_frame.o: $(srcdir)/src/shared_mem_frame.cpp
-	$(MKDIR_P) $(dir $@)
-	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -MD -c $< -o $@
-	$(POSTPROCESS_DEPS)
-src/video_display/preview.o: $(srcdir)/src/video_display/preview.cpp
-	$(MKDIR_P) $(dir $@)
-	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -MD -c  $< -o $@
-	$(POSTPROCESS_DEPS)
-src/capture_filter/preview.o: $(srcdir)/src/capture_filter/preview.cpp
-	$(MKDIR_P) $(dir $@)
-	$(CXX) $(CXXFLAGS) $(QT_CFLAGS) $(INC) -MD -c $< -o $@
-	$(POSTPROCESS_DEPS)
 
 gui/QT/Makefile: gui/QT/uv-qt.pro
 	@if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi

@@ -2863,9 +2863,6 @@ fi
 
 if test $qt_req != no -a $FOUND_QT_DEP = yes
 then
-	ADD_MODULE("display_preview", "src/video_display/preview.o src/shared_mem_frame.o", "$QT_LIBS")
-	ADD_MODULE("capture_filter_preview", "src/capture_filter/preview.o src/shared_mem_frame.o", "$QT_LIBS $GL_LIB")
-
 	#AC_MSG_NOTICE("Qmake: $QMAKE")
         GUI_TARGET=gui/QT/uv-qt$APPEXT
         GUI_EXE=$GUI_TARGET

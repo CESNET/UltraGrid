@@ -41,7 +41,6 @@
 #include "debug.h"
 #include "lib_common.h"
 
-#include <fstream>
 #include <condition_variable>
 #include <chrono>
 #include <list>
@@ -50,12 +49,13 @@
 #include <memory>
 #include <mutex>
 #include <queue>
-#include <unordered_map>
 #include <cmath>
 
 #include "video.h"
 #include "video_display.h"
 #include "video_codec.h"
+#include "utils/misc.h"
+#include "utils/sv_parse_num.hpp"
 #include "tools/ipc_frame.h"
 #include "tools/ipc_frame_ug.h"
 #include "tools/ipc_frame_unix.h"
@@ -80,6 +80,9 @@ struct state_unix_sock {
         Ipc_frame_uniq ipc_frame;
         Ipc_frame_writer_uniq frame_writer;
 
+        int target_width = -1;
+        int target_height = -1;
+
         struct module *parent;
 };
 
@@ -87,31 +90,54 @@ static void show_help(){
         printf("unix socket display\n");
 }
 
-static void *display_unix_sock_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_unix_sock_init(struct module *parent,
+                const char *fmt,
+                unsigned int flags,
+                bool is_preview)
 {
         UNUSED(flags);
         UNUSED(fmt);
 
         auto s = std::make_unique<state_unix_sock>();
 
+        std::string_view fmt_sv = fmt ? fmt : "";
+
+        std::string socket_path = PLATFORM_TMP_DIR "ug_unix";
+
+        if(is_preview){
+                socket_path = PLATFORM_TMP_DIR "ug_preview_disp_unix";
+                s->target_width = 960;
+                s->target_height = 540;
+        }
+
+        while(!fmt_sv.empty()){
+                auto tok = tokenize(fmt_sv, ':');
+                auto key = tokenize(tok, '=');
+
+                if(key == "help"){
+                        show_help();
+                        return nullptr;
+                } else if(key == "path"){
+                        socket_path = tokenize(tok, '=');
+                } else if(key == "target_size"){
+                        auto val = tokenize(tok, '=');
+                        if(!parse_num(tokenize(val, 'x'), s->target_width)
+                            || !parse_num(tokenize(val, 'x'), s->target_height))
+                        {
+                                log_msg(LOG_LEVEL_ERROR, "Failed to parse resolution\n");
+                                return nullptr;
+                        }
+                }
+        }
+
         s->parent = parent;
         s->ipc_frame.reset(ipc_frame_new());
-        s->frame_writer.reset(ipc_frame_writer_new("/tmp/ug_unix"));
+        s->frame_writer.reset(ipc_frame_writer_new(socket_path.c_str()));
         if(!s->frame_writer){
                 exit(EXIT_FAILURE);
         }
 
         return s.release();
-}
-
-static void write_frame(state_unix_sock *s, video_frame *f){
-        ipc_frame_from_ug_frame(s->ipc_frame.get(), f, VIDEO_CODEC_NONE, 0);
-
-        errno = 0;
-        if(!ipc_frame_writer_write(s->frame_writer.get(), s->ipc_frame.get())){
-                perror("Unable to send frame");
-                exit(1);
-        }
 }
 
 static void display_unix_sock_run(void *state)
@@ -139,7 +165,25 @@ static void display_unix_sock_run(void *state)
                         continue;
                 }
 
-                write_frame(s, frame.get());
+                assert(frame->tile_count == 1);
+                const tile *tile = &frame->tiles[0];
+
+                int scale = ipc_frame_get_scale_factor(tile->width, tile->height,
+                                s->target_width, s->target_height);
+
+                if(!ipc_frame_from_ug_frame(s->ipc_frame.get(), frame.get(),
+                                        RGB, scale))
+                {
+                        log_msg(LOG_LEVEL_WARNING, "Unable to convert\n");
+                        continue;
+                }
+
+                errno = 0;
+                if(!ipc_frame_writer_write(s->frame_writer.get(), s->ipc_frame.get())){
+                        perror("Unable to send frame");
+                        exit(1);
+                }
+
         }
 }
 
@@ -166,11 +210,10 @@ static int display_unix_sock_putf(void *state, struct video_frame *frame, int fl
                 return 0;
 
         std::unique_lock<std::mutex> lg(s->lock);
-        if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN)
+        if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN){
                 log_msg(LOG_LEVEL_WARNING, "Named pipe: queue full!\n");
-
-        if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN)
                 return 1;
+        }
 
         s->frame_consumed_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
         s->incoming_queue.push(std::move(f));
@@ -254,7 +297,29 @@ static const struct video_display_info display_unix_sock_info = {
                 *available_cards = nullptr;
                 *count = 0;
         },
-        display_unix_sock_init,
+        [](struct module *parent, const char *fmt, unsigned int flags){
+                return display_unix_sock_init(parent, fmt, flags, false);
+        },
+        display_unix_sock_run,
+        display_unix_sock_done,
+        display_unix_sock_getf,
+        display_unix_sock_putf,
+        display_unix_sock_reconfigure,
+        display_unix_sock_get_property,
+        display_unix_sock_put_audio_frame,
+        display_unix_sock_reconfigure_audio,
+        DISPLAY_DOESNT_NEED_MAINLOOP,
+};
+
+static const struct video_display_info display_preview_info = {
+        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+                UNUSED(deleter);
+                *available_cards = nullptr;
+                *count = 0;
+        },
+        [](struct module *parent, const char *fmt, unsigned int flags){
+                return display_unix_sock_init(parent, fmt, flags, true);
+        },
         display_unix_sock_run,
         display_unix_sock_done,
         display_unix_sock_getf,
@@ -267,4 +332,6 @@ static const struct video_display_info display_unix_sock_info = {
 };
 
 REGISTER_HIDDEN_MODULE(unix_sock, &display_unix_sock_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+
+REGISTER_HIDDEN_MODULE(preview, &display_preview_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
