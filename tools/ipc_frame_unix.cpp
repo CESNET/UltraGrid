@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
+#include <cerrno>
 #include "ipc_frame_unix.h"
 
 struct Ipc_frame_reader{
@@ -23,7 +24,8 @@ Ipc_frame_reader *ipc_frame_reader_new(const char *path){
 	sockaddr_un addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-	snprintf(addr.sun_path, sizeof(addr.sun_path), path);
+	strncpy(addr.sun_path, path, sizeof(addr.sun_path));
+	addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
 	unlink(path);
 
 	bind(reader->listen_fd, (const sockaddr *) &addr, sizeof(addr.sun_path)); //TODO check return
@@ -115,3 +117,65 @@ bool ipc_frame_reader_read(Ipc_frame_reader *reader, Ipc_frame *dst){
 
 	return ret;
 }
+
+struct Ipc_frame_writer{
+	int data_fd;
+};
+
+Ipc_frame_writer *ipc_frame_writer_new(const char *path){
+	auto writer = new Ipc_frame_writer;
+	writer->data_fd = -1;
+
+	sockaddr_un addr;
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strncpy(addr.sun_path, path, sizeof(addr.sun_path));
+	addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
+
+	writer->data_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+	int ret = connect(writer->data_fd, (const struct sockaddr *) &addr, sizeof(addr));
+	if(ret == -1){
+		close(writer->data_fd);
+		delete writer;
+		return nullptr;
+	}
+
+	return writer;
+}
+
+void ipc_frame_writer_free(struct Ipc_frame_writer *writer){
+	if(writer->data_fd >= 0)
+		close(writer->data_fd);
+
+	delete writer;
+}
+
+namespace{
+
+void block_write(int fd, void *buf, size_t size){
+        size_t written = 0;
+        char *src = static_cast<char *>(buf);
+
+        while(written < size){
+                int ret = send(fd, src + written, size - written, MSG_NOSIGNAL);
+                if(ret == -1)
+                        return;
+                written += ret;
+        }
+}
+
+} //anon namespace
+
+bool ipc_frame_writer_write(struct Ipc_frame_writer *writer, const struct Ipc_frame *f){
+	std::array<char, IPC_FRAME_HEADER_LEN> header;
+
+	ipc_frame_write_header(&f->header, header.data());
+
+	errno = 0;
+	block_write(writer->data_fd, header.data(), header.size());
+	block_write(writer->data_fd, f->data, f->header.data_len);
+
+	return errno == 0;
+}
+

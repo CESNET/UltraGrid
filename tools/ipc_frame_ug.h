@@ -21,4 +21,6 @@ bool ipc_frame_from_ug_frame(struct Ipc_frame *dst,
 		codec_t codec,
 		unsigned scale_factor);
 
+bool ipc_frame_write_to_fd(const struct Ipc_frame *f, int fd);
+
 #endif //IPC_FRAME_UG_32ee5c748f3e
