@@ -45,16 +45,18 @@
 
 #include "video_capture.h"
 
-#include <arpa/inet.h> // ntohl
 #include <libv4l2.h>
 #include <libv4lconvert.h>
-#include <linux/videodev2.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+
+#define DEFAULT_BUF_COUNT 2
+#define MAX_BUF_COUNT 30
+#define MOD_NAME "[V4L cap.] "
 
 #include "debug.h"
 #include "host.h"
@@ -63,24 +65,17 @@
 #include "utils/list.h"
 #include "utils/misc.h" // ug_strerror
 #include "video.h"
+#include "v4l2_common.h"
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
 static void print_fps(int fd, struct v4l2_frmivalenum *param);
 
-#define DEFAULT_BUF_COUNT 2
-#define MAX_BUF_COUNT 30
-#define MOD_NAME "[V4L cap.] "
-#define V4L2_PROBE_MAX 64
-
 struct vidcap_v4l2_state {
         struct video_desc desc;
 
         int fd;
-        struct {
-                void *start;
-                size_t length;
-        } buffers[MAX_BUF_COUNT];
+        struct v4l2_buffer_data buffers[MAX_BUF_COUNT];
 
         bool conversion_needed;
         struct v4lconvert_data *convert;
@@ -100,34 +95,6 @@ struct vidcap_v4l2_state {
 struct v4l2_dispose_deq_buffer_data {
         struct vidcap_v4l2_state *s;
         struct v4l2_buffer buf;
-};
-
-/**
- * In theory, direct mapping (get_codec_from_fcc/get_fourcc) of FourCC obtained by VIDIOC_ENUM_FMT,
- * could be used. But UG uses different FCC for some codecs than V4l2 (RGB, I420).
- */
-static struct {
-        uint32_t v4l2_fcc;
-        codec_t ug_codec;
-} v4l2_ug_map[] = {
-        {V4L2_PIX_FMT_YUYV, YUYV},
-        {V4L2_PIX_FMT_UYVY, UYVY},
-        {V4L2_PIX_FMT_YUV420, I420},
-        {V4L2_PIX_FMT_RGB24, RGB},
-        {V4L2_PIX_FMT_RGB32, RGBA},
-#ifdef V4L2_PIX_FMT_RGBX32
-        {V4L2_PIX_FMT_RGBX32, RGBA},
-#endif
-        {V4L2_PIX_FMT_MJPEG, MJPG},
-        {V4L2_PIX_FMT_JPEG, MJPG},
-        {V4L2_PIX_FMT_H264, H264},
-        {V4L2_PIX_FMT_H264_NO_SC, H264}, ///< H.264 without start codes
-#ifdef V4L2_PIX_FMT_HEVC
-        {V4L2_PIX_FMT_HEVC, H265},
-#endif
-#ifdef V4L2_PIX_FMT_HEVC
-        {V4L2_PIX_FMT_VP9, VP9},
-#endif
 };
 
 static void enqueue_all_finished_frames(struct vidcap_v4l2_state *s) {
@@ -491,46 +458,6 @@ static codec_t get_v4l2_to_ug(uint32_t fcc) {
         return VIDEO_CODEC_NONE;
 }
 
-static int try_open_device(const char *dev_name) {
-        int fd = open(dev_name, O_RDWR);
-        if (fd == -1) {
-                char errbuf[1024];
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to open input device %s: %s\n",
-                                dev_name, strerror_r(errno, errbuf, sizeof errbuf));
-                return -1;
-        }
-
-        struct v4l2_capability capability;
-        memset(&capability, 0, sizeof(capability));
-        if (ioctl(fd, VIDIOC_QUERYCAP, &capability) != 0) {
-                log_perror(LOG_LEVEL_ERROR, MOD_NAME "ioctl VIDIOC_QUERYCAP");
-                close(fd);
-                return -1;
-        }
-
-        if (!(capability.device_caps & V4L2_CAP_VIDEO_CAPTURE)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s, %s can't capture\n",capability.card,capability.bus_info);
-                close(fd);
-                return -1;
-        }
-
-        if (!(capability.device_caps & V4L2_CAP_STREAMING)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Streaming capability not present.\n");
-                close(fd);
-                return -1;
-        }
-
-        int index = 0;
-
-        if (ioctl(fd, VIDIOC_S_INPUT, &index) != 0) {
-                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Could not enable input (VIDIOC_S_INPUT)");
-                close(fd);
-                return -1;
-        }
-
-        return fd;
-}
-
 static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 {
         struct vidcap_v4l2_state *s;
@@ -635,11 +562,11 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         static_assert(V4L2_PROBE_MAX < 100, "Pattern below has place only for 2 digits");
         char dev_name_try[] = "/dev/videoXX";
         if (dev_name != NULL) {
-                s->fd = try_open_device(dev_name);
+                s->fd = try_open_v4l2_device(LOG_LEVEL_ERROR, dev_name, V4L2_CAP_VIDEO_CAPTURE);
         } else {
                 for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
                         snprintf(dev_name_try, sizeof dev_name_try, "/dev/video%d", i);
-                        s->fd = try_open_device(dev_name_try);
+                        s->fd = try_open_v4l2_device(LOG_LEVEL_WARNING, dev_name_try, V4L2_CAP_VIDEO_CAPTURE);
                         if (s->fd != -1) {
                                 dev_name = dev_name_try;
                                 break;
@@ -738,27 +665,16 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 s->desc.color_spec = v4l2_convert_to;
         }
 
-        switch(fmt.fmt.pix.field) {
-                case V4L2_FIELD_NONE:
-                        s->desc.interlacing = PROGRESSIVE;
+        unsigned i = 0;
+        for ( ; i < sizeof v4l2_field_map / sizeof v4l2_field_map[0]; ++i) {
+                if (v4l2_field_map[i].v4l_f == fmt.fmt.pix.field) {
+                        s->desc.interlacing = v4l2_field_map[i].ug_f;
                         break;
-                case V4L2_FIELD_SEQ_TB:
-                        s->desc.interlacing = UPPER_FIELD_FIRST;
-                        break;
-                case V4L2_FIELD_SEQ_BT:
-                        s->desc.interlacing = LOWER_FIELD_FIRST;
-                        break;
-                case V4L2_FIELD_INTERLACED:
-                        s->desc.interlacing = INTERLACED_MERGED;
-                        break;
-                case V4L2_FIELD_TOP:
-                case V4L2_FIELD_BOTTOM:
-                case V4L2_FIELD_ALTERNATE:
-                case V4L2_FIELD_INTERLACED_TB:
-                case V4L2_FIELD_INTERLACED_BT:
-                default:
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported interlacing format reported from driver (%d).\n", fmt.fmt.pix.field);
-                        goto error;
+                }
+        }
+        if (i == sizeof v4l2_field_map / sizeof v4l2_field_map[0]) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported interlacing format reported from driver (%d).\n", fmt.fmt.pix.field);
+                goto error;
         }
         s->desc.fps = (double) stream_params.parm.capture.timeperframe.denominator /
                 stream_params.parm.capture.timeperframe.numerator;
@@ -778,54 +694,10 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         reqbuf.memory = V4L2_MEMORY_MMAP;
         reqbuf.count = s->buffer_count;
 
-        if (ioctl (s->fd, VIDIOC_REQBUFS, &reqbuf) != 0) {
-                if (errno == EINVAL)
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Video capturing or mmap-streaming is not supported\n");
-                else
-                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "VIDIOC_REQBUFS");
-                goto error;
-
-        }
-
-        if (reqbuf.count < 2) {
-                /* You may need to free the buffers here. */
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Not enough buffer memory\n");
+        if (!set_v4l2_buffers(s->fd, &reqbuf, s->buffers)) {
                 goto error;
         }
-
-        for (unsigned int i = 0; i < reqbuf.count; i++) {
-                struct v4l2_buffer buf;
-                memset(&buf, 0, sizeof(buf));
-                buf.type = reqbuf.type;
-                buf.memory = V4L2_MEMORY_MMAP;
-                buf.index = i;
-
-                if (-1 == ioctl (s->fd, VIDIOC_QUERYBUF, &buf)) {
-                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "VIDIOC_QUERYBUF");
-                        goto error;
-                }
-
-                s->buffers[i].length = buf.length; /* remember for munmap() */
-
-                s->buffers[i].start = mmap(NULL, buf.length,
-                                PROT_READ | PROT_WRITE, /* recommended */
-                                MAP_SHARED,             /* recommended */
-                                s->fd, buf.m.offset);
-
-                if (MAP_FAILED == s->buffers[i].start) {
-                        /* If you do not exit here you should unmap() and free()
-                           the buffers mapped so far. */
-                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "mmap");
-                        goto error;
-                }
-
-                buf.flags = 0;
-
-                if(ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
-                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to enqueue buffer");
-                        goto error;
-                }
-        }
+        s->buffer_count = reqbuf.count;
 
         if(ioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to start stream");

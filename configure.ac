@@ -2908,13 +2908,18 @@ if test $system = Linux; then
         PKG_CHECK_MODULES([V4L2], [libv4l2 libv4lconvert], [found_v4l2=yes], [found_v4l2=no])
 fi
 
-if test $v4l2_req != no -a $found_v4l2 = yes
+if test $v4l2_req != no
 then
-        V4L2_OBJ="src/video_capture/v4l2.o"
-        AC_DEFINE([HAVE_V4L2], [1], [Build with V4L2 support])
-        ADD_MODULE("vidcap_v4l2", "$V4L2_OBJ", "$V4L2_LIBS")
+        V4L2_CAP_OBJ="src/video_capture/v4l2.o"
+        V4L2_DISP_OBJ="src/video_display/v4l2.o"
+        if test $found_v4l2 = yes; then
+                ADD_MODULE("vidcap_v4l2", "$V4L2_CAP_OBJ", "$V4L2_LIBS")
+                v4l2=yes
+        else
+                v4l2=d/o
+        fi
+        ADD_MODULE("display_v4l2", "$V4L2_DISP_OBJ", "$V4L2_LIBS")
         CFLAGS="$CFLAGS $V4L2_CFLAGS"
-        v4l2=yes
 fi
 
 if test $v4l2_req = yes -a $v4l2 = no; then
