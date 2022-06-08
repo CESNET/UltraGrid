@@ -66,6 +66,7 @@ HEADERS += window/ultragrid_window.hpp \
 	option/video_opts.hpp \
 	util/overload.hpp \
 	util/extra_callback_data.hpp \
+	util/ug_process_manager.hpp \
 
 FORMS += ui/ultragrid_window.ui \
 	ui/log_window.ui \
@@ -91,6 +92,7 @@ SOURCES += window/ultragrid_window.cpp \
 	option/radioButton_ui.cpp \
 	option/audio_opts.cpp \
 	option/video_opts.cpp \
+	util/ug_process_manager.cpp \
 	../../src/shared_mem_frame.cpp \
 	../../tools/astat.cpp \
 	../../src/compat/platform_pipe.cpp \

@@ -12,6 +12,7 @@
 #include "available_settings.hpp"
 #include "settings.hpp"
 #include "settings_ui.hpp"
+#include "ug_process_manager.hpp"
 
 class UltragridWindow : public QMainWindow{
 	Q_OBJECT
@@ -38,8 +39,7 @@ private:
 	Ui::UltragridWindow ui;
 
 	QString ultragridExecutable;
-	QProcess process;
-	QProcess previewProcess;
+	UgProcessManager processMngr;
 
 	AvailableSettings availableSettings;
 
@@ -69,18 +69,17 @@ public slots:
 	void showLog();
 	void showSettings();
 
-	void startPreview();
-	void stopPreview();
+	void updatePreview();
+	void switchToPreview();
+	bool launchPreview();
 
 	void saveSettings();
 	void loadSettings();
 
 private slots:
-	void setStartBtnText(QProcess::ProcessState);
-	void processStateChanged(QProcess::ProcessState);
-	void processFinished(int, QProcess::ExitStatus);
-	void previewStateChanged(QProcess::ProcessState);
-	void previewFinished(int, QProcess::ExitStatus);
+	void processStateChanged(UgProcessManager::State state);
+	void unexpectedExit(UgProcessManager::State state,
+		int code, QProcess::ExitStatus status);
 	void enablePreview(bool);
 
 	void refresh();

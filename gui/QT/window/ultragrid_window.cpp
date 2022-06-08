@@ -57,8 +57,10 @@ QStringList argStringToList(const std::string& argString){
 void UltragridWindow::initializeUgOpts(){
 	ultragridExecutable = UltragridWindow::findUltragridExecutable();
 
+	processMngr.setUgExecutable(ultragridExecutable);
+
 	previewTimer.setSingleShot(true);
-	connect(&previewTimer, SIGNAL(timeout()), this, SLOT(startPreview()));
+	connect(&previewTimer, SIGNAL(timeout()), this, SLOT(updatePreview()));
 	setupPreviewCallbacks();
 
 	availableSettings.queryAll(ultragridExecutable.toStdString());
@@ -85,7 +87,7 @@ void UltragridWindow::initializeUgOpts(){
 	}
 
 	checkPreview();
-	startPreview();
+	launchPreview();
 	setupPreviewCallbacks();
 
 	previewStatus.setText("Preview: Stopped");
@@ -191,7 +193,7 @@ void UltragridWindow::about(){
 void UltragridWindow::outputAvailable(){
 	//ui.terminal->append(process.readAll());
 
-	QString str = process.readAll();
+	QString str = processMngr.readUgOut();
 #if 0
 	ui.terminal->moveCursor(QTextCursor::End);
 	ui.terminal->insertPlainText(str);
@@ -201,20 +203,13 @@ void UltragridWindow::outputAvailable(){
 }
 
 void UltragridWindow::start(){
-	if(process.processId() > 0){
-		process.terminate();
-		if(!process.waitForFinished(1000)){
-			log.write("UltraGrid process could not be terminated gracefully. Killing...\n");
-			process.kill();
-		}
-		return;
-	}
-
-	stopPreview();
-
-	process.setProcessChannelMode(QProcess::MergedChannels);
 	log.write("Command args: " + argListToString(launchArgs) + "\n\n");
-	process.start(ultragridExecutable, launchArgs);
+
+	if(processMngr.getState() != UgProcessManager::State::UgRunning)
+		processMngr.launchUg(launchArgs);
+	else
+		switchToPreview();
+	
 }
 
 void UltragridWindow::schedulePreview(Option&, bool, void *opaque){
@@ -222,41 +217,37 @@ void UltragridWindow::schedulePreview(Option&, bool, void *opaque){
 	obj->previewTimer.start(1000);
 }
 
-void UltragridWindow::startPreview(){
-	if(!ui.previewCheckBox->isEnabled()
-			|| process.state() != QProcess::NotRunning
-			|| !ui.previewCheckBox->isChecked())
+void UltragridWindow::updatePreview(){
+	if(processMngr.getState() == UgProcessManager::State::UgRunning ||
+			processMngr.getState() == UgProcessManager::State::PreviewToUg)
 	{
 		return;
 	}
 
-	while(previewProcess.state() != QProcess::NotRunning)
-		stopPreview();
+	launchPreview();
+}
+
+void UltragridWindow::switchToPreview(){
+	if(!launchPreview())
+	{
+		processMngr.stopUg();
+	}
+}
+
+bool UltragridWindow::launchPreview(){
+	if(!ui.previewCheckBox->isEnabled()
+			|| !ui.previewCheckBox->isChecked())
+	{
+		return false;
+	}
 
 	QStringList previewArgs = argStringToList(settings.getPreviewParams());
-	/*
-	if(sourceOption->getCurrentValue() != "none"){
-		//We prevent video from network overriding local sources
-		//by listening on port 0
-		command += " -P 0:0:0:0 ";
-	}
-	*/
 
 #ifdef DEBUG
 	log.write("Preview: " + argListToString(previewArgs) + "\n\n");
 #endif
-	previewProcess.start(ultragridExecutable, previewArgs);
-}
-
-void UltragridWindow::stopPreview(){
-	previewProcess.terminate();
-	/* The shared preview memory must be released before a new one
-	 * can be created. Here we wait 0.5s to allow the preview process
-	 * exit gracefully. If it is still running after that we kill it */
-	if(!previewProcess.waitForFinished(500)){
-		log.write("Preview could not be terminated gracefully. Killing...\n");
-		previewProcess.kill();
-	}
+	processMngr.launchPreview(previewArgs);
+	return true;
 }
 
 void UltragridWindow::editArgs(const QString &text){
@@ -276,7 +267,7 @@ void UltragridWindow::setArgs(){
 
 void UltragridWindow::closeEvent(QCloseEvent *e){
 
-	if(process.processId() > 0){
+	if(processMngr.getState() == UgProcessManager::State::UgRunning){
 		QMessageBox sureMsg;
 		sureMsg.setIcon(QMessageBox::Question);
 		sureMsg.setText(tr("Are you sure?"));
@@ -288,14 +279,9 @@ void UltragridWindow::closeEvent(QCloseEvent *e){
 			e->ignore();
 			return;
 		}
-
-		disconnect(&process, 0, 0, 0);
-		process.terminate();
-		if(!process.waitForFinished(1000))
-			process.kill();
 	}
 
-	stopPreview();
+	processMngr.stopAll(true);
 
 	log.close();
 	exit(0);
@@ -305,13 +291,11 @@ void UltragridWindow::closeEvent(QCloseEvent *e){
 void UltragridWindow::connectSignals(){
 	connect(ui.actionAbout_UltraGrid, SIGNAL(triggered()), this, SLOT(about()));
 	connect(ui.startButton, SIGNAL(clicked()), this, SLOT(start()));
-	connect(&process, SIGNAL(readyReadStandardOutput()), this, SLOT(outputAvailable()));
-	connect(&process, SIGNAL(readyReadStandardError()), this, SLOT(outputAvailable()));
-	connect(&process, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(processStateChanged(QProcess::ProcessState)));
-	connect(&process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
-
-	connect(&previewProcess, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(previewStateChanged(QProcess::ProcessState)));
-	connect(&previewProcess, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(previewFinished(int, QProcess::ExitStatus)));
+	connect(&processMngr, SIGNAL(ugOutputAvailable()), this, SLOT(outputAvailable()));
+	connect(&processMngr, &UgProcessManager::stateChanged,
+			this, &UltragridWindow::processStateChanged);
+	connect(&processMngr, &UgProcessManager::unexpectedExit,
+			this, &UltragridWindow::unexpectedExit);
 
 	connect(ui.arguments, SIGNAL(textChanged(const QString &)), this, SLOT(editArgs(const QString &)));
 	connect(ui.editCheckBox, SIGNAL(toggled(bool)), this, SLOT(setArgs()));
@@ -410,65 +394,65 @@ void UltragridWindow::loadSettings(){
 
 }
 
-void UltragridWindow::setStartBtnText(QProcess::ProcessState s){
-	if(s == QProcess::Running){
-		ui.startButton->setText("Stop");
-	} else {
-		ui.startButton->setText("Start");
-	}
-}
-
 void UltragridWindow::enablePreview(bool enable){
 	if(enable)
-		startPreview();
+		updatePreview();
 	else
-		stopPreview();
+		processMngr.stopPreview();
 }
 
-void UltragridWindow::processStateChanged(QProcess::ProcessState s){
-	setStartBtnText(s);
-
-	if(s == QProcess::NotRunning){
-		startPreview();
-	} else if(s == QProcess::Running){
-		processStatus.setText("UG: Running");
-	}
-}
-
-void UltragridWindow::processFinished(int code, QProcess::ExitStatus status){
-	log.write("Process exited with code: " + QString::number(code) + "\n\n");
-	if(status == QProcess::CrashExit || code != 0){
-		QMessageBox msgBox(this);
-		msgBox.setIcon(QMessageBox::Critical);
-		msgBox.setWindowTitle("UltraGrid error!");
-		msgBox.setText("Ultragrid has exited with an error! If you need help, please send an email "
-				"to ultragrid-dev@cesnet.cz with log attached.");
-		QPushButton *showLogBtn = msgBox.addButton(tr("Show log"), QMessageBox::ActionRole);
-		msgBox.addButton(tr("Dismiss"), QMessageBox::RejectRole);
-		msgBox.exec();
-
-		if(msgBox.clickedButton() == showLogBtn){
-			showLog();
+void UltragridWindow::processStateChanged(UgProcessManager::State state){
+	struct Vals{
+		const char *btnText;
+		bool btnEnabled;
+		const char *previewText;
+		const char *ugText;
+	} vals = [](UgProcessManager::State s) -> Vals {
+		typedef UgProcessManager::State ps;
+		switch(s){
+		case ps::NotRunning: return {"Start", true, "Preview: Stopped", "UG: Stopped"};
+		case ps::PreviewRunning: return {"Start", true, "Preview: Running", "UG: Stopped"};
+		case ps::PreviewToUg: return {"Starting...", false, "Preview: Stopping", "UG: Starting"};
+		case ps::UgRunning: return {"Stop", true, "Preview: Stopped", "UG: Running"};
+		case ps::UgToPreview: return {"Stopping...", false, "Preview: Starting", "UG: Stopping"};
+		case ps::PreviewToPreview: return {"Start", true, "Preview: Changing", "UG: Stopped"};
+		case ps::StoppingAll: return {"Stopping...", false, "Preview: Stopping", "UG: Stopping"};
+		default: assert("Invalid state" && false);
 		}
-
-		processStatus.setText("UG: Crashed");
-	} else {
-		processStatus.setText("UG: Stopped");
-	}
+	}(state);
+	ui.startButton->setText(vals.btnText);
+	ui.startButton->setEnabled(vals.btnEnabled);
+	previewStatus.setText(vals.previewText);
+	processStatus.setText(vals.ugText);
 }
 
-void UltragridWindow::previewStateChanged(QProcess::ProcessState s){
-	if(s == QProcess::Running){
-		previewStatus.setText("Preview: Running");
-	}
-}
-
-void UltragridWindow::previewFinished(int code, QProcess::ExitStatus status){
-	if(status == QProcess::CrashExit || code != 0){
+void UltragridWindow::unexpectedExit(UgProcessManager::State state,
+		int code, QProcess::ExitStatus)
+{
+	if(state == UgProcessManager::State::PreviewRunning){
 		previewStatus.setText("Preview: Crashed");
-	} else {
-		previewStatus.setText("Preview: Stopped");
+		return;
 	}
+
+	if(state != UgProcessManager::State::UgRunning)
+		return; //Don't care about crashes of terminating processes
+
+	processStatus.setText("UG: Crashed");
+
+	log.write("Process exited with code: " + QString::number(code) + "\n\n");
+	QMessageBox msgBox(this);
+	msgBox.setIcon(QMessageBox::Critical);
+	msgBox.setWindowTitle("UltraGrid error!");
+	msgBox.setText("Ultragrid has exited with an error! If you need help, please send an email "
+			"to ultragrid-dev@cesnet.cz with log attached.");
+	QPushButton *showLogBtn = msgBox.addButton(tr("Show log"), QMessageBox::ActionRole);
+	msgBox.addButton(tr("Dismiss"), QMessageBox::RejectRole);
+	msgBox.exec();
+
+	if(msgBox.clickedButton() == showLogBtn){
+		showLog();
+	}
+
 }
 
 QString UltragridWindow::findUltragridExecutable() {
