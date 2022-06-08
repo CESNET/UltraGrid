@@ -149,14 +149,14 @@ typedef bool (*display_needs_mainloop_t)(void *);
 struct video_display_info {
         void                    (*probe)(struct device_info **available_cards, int *count, void (**deleter)(void *));
         void                   *(*init) (struct module *parent, const char *fmt, unsigned int flags);
-        void                    (*run) (void *state);
+        void                    (*run) (void *state);                                               ///< may be NULL
         void                    (*done) (void *state);
         struct video_frame     *(*getf) (void *state);
         int                     (*putf) (void *state, struct video_frame *frame, int nonblock);
         int                     (*reconfigure_video)(void *state, struct video_desc desc);
         int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
-        void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);
-        int                     (*reconfigure_audio) (void *state, int quant_samples, int channels,
+        void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);  ///< may be NULL
+        int                     (*reconfigure_audio) (void *state, int quant_samples, int channels, ///< may be NULL
                         int sample_rate);
         display_needs_mainloop_t needs_mainloop;
 };

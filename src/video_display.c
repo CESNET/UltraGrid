@@ -80,6 +80,7 @@ struct display {
         const struct video_display_info *funcs;
         void *state;       ///< state of the created video capture driver
         pthread_t thread_id; ///< thread ID of the display thread (@see display_run_new_thread)
+        _Bool thread_started;
 
         struct vo_postprocess_state *postprocess;
         int pp_output_frames_count, display_pitch;
@@ -238,7 +239,9 @@ static void *display_run_helper(void *args)
 void display_run_this_thread(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        d->funcs->run(d->state);
+        if (d->funcs->run) {
+                d->funcs->run(d->state);
+        }
 }
 
 /**
@@ -261,7 +264,10 @@ void display_run_new_thread(struct display *d)
                 log_msg(LOG_LEVEL_WARNING, "Display requires mainloop, but is "
                                 "being run in a new thread!\n");
         }
-        CHECK(pthread_create(&d->thread_id, NULL, display_run_helper, d));
+        if (d->funcs->run) {
+                CHECK(pthread_create(&d->thread_id, NULL, display_run_helper, d));
+                d->thread_started = 1;
+        }
 }
 
 /**
@@ -274,7 +280,7 @@ void display_run_new_thread(struct display *d)
 void display_join(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        if (!display_needs_mainloop(d)) {
+        if (d->thread_started) {
                 CHECK(pthread_join(d->thread_id, NULL));
         }
 }
