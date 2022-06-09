@@ -1212,10 +1212,12 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                         * get_video_mode_tiles_y(decoder->video_mode);
 
         out_codec = choose_codec_and_decoder(decoder, desc, &decode_line, comp_int_fmt);
-        if(out_codec == VIDEO_CODEC_NONE)
+        if (out_codec == VIDEO_CODEC_NONE) {
+                LOG(LOG_LEVEL_ERROR) << "Could not find neither line conversion nor decompress from " <<
+                        get_codec_name(desc.color_spec) << " to display supported formats (" << codec_list_to_str(decoder->native_codecs) << ").\n";
                 return false;
-        else
-                decoder->out_codec = out_codec;
+        }
+        decoder->out_codec = out_codec;
         struct video_desc display_desc = desc;
 
         int display_mode;
