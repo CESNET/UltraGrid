@@ -215,7 +215,7 @@ void UltragridWindow::start(){
 
 void UltragridWindow::schedulePreview(Option&, bool, void *opaque){
 	UltragridWindow *obj = static_cast<UltragridWindow *>(opaque);
-	obj->previewTimer.start(1000);
+	obj->previewTimer.start(200);
 }
 
 void UltragridWindow::updatePreview(){
