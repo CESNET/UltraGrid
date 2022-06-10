@@ -159,6 +159,14 @@ static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
         }
         pthread_mutex_unlock(&s->lock);
 
+        for (int i = 0; i < s->buffer_count; ++i) {
+                if (s->buffers[i].start) {
+                        if (-1 == munmap(s->buffers[i].start, s->buffers[i].length)) {
+                                log_perror(LOG_LEVEL_ERROR, MOD_NAME "munmap");
+                        }
+                }
+        }
+
         pthread_cond_destroy(&s->cv);
         pthread_mutex_destroy(&s->lock);
         simple_linked_list_destroy(s->buffers_to_enqueue);
