@@ -96,18 +96,28 @@ void UgProcessManager::stopUg(bool block){
 }
 
 void UgProcessManager::doLaunch(State target){
+	killTimer.stop();
+
+	QProcess *processToLaunch = nullptr;
 	switch(target){
 	case State::PreviewRunning:
-		previewProcess.start(ultragridExecutable, launchArgs);
+		processToLaunch = &previewProcess;
 		break;
 	case State::UgRunning:
-		ugProcess.setProcessChannelMode(QProcess::MergedChannels);
-		ugProcess.start(ultragridExecutable, launchArgs);
+		processToLaunch = &ugProcess;
+		processToLaunch->setProcessChannelMode(QProcess::MergedChannels);
 		break;
 	default:
 		assert("Invalid doLaunch target" && false);
+		break;
 	}
-	killTimer.stop();
+
+	assert(processToLaunch);
+	processToLaunch->start(ultragridExecutable, launchArgs);
+	if(!processToLaunch->waitForStarted()){
+		//Shouldn't happen as we probe ug executability at startup
+		abort_msgBox("Failed to launch process. Did the ug executable disappear?");
+	}
 	changeStateAndEmit(target);
 }
 
