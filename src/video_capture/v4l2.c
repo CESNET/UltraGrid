@@ -45,8 +45,10 @@
 
 #include "video_capture.h"
 
-#include <libv4l2.h>
+#ifdef HAVE_LIBV4LCONVERT
 #include <libv4lconvert.h>
+#endif
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,6 +64,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "utils/color_out.h"
 #include "utils/list.h"
 #include "utils/misc.h" // ug_strerror
 #include "video.h"
@@ -78,7 +81,9 @@ struct vidcap_v4l2_state {
         struct v4l2_buffer_data buffers[MAX_BUF_COUNT];
 
         bool conversion_needed;
+#ifdef HAVE_LIBV4LCONVERT
         struct v4lconvert_data *convert;
+#endif
         struct v4l2_format src_fmt, dst_fmt;
 
         struct timeval t0;
@@ -141,9 +146,11 @@ static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
         if (s->fd != -1)
                 close(s->fd);
 
+#ifdef HAVE_LIBV4LCONVERT
         if (s->convert) {
                 v4lconvert_destroy(s->convert);
         }
+#endif
 
         free(s);
 }
@@ -199,11 +206,15 @@ static void show_help()
         printf("\t\t<tpf> or <fps> should be given as a single integer or a fraction\n");
         printf("\t\t<conv> - SW conversion, eg. to RGB (useful eg. to convert captured MJPG from USB 2.0 webcam to uncompressed),\n"
                "\t\t         codecs available to convert to:");
+#ifdef HAVE_LIBV4LCONVERT
         for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
                 if (v4lconvert_supported_dst_format(v4l2_ug_map[i].v4l2_fcc)) {
                         printf(" %s", get_codec_name(v4l2_ug_map[i].ug_codec));
                 }
         }
+#else
+        color_out(COLOR_OUT_RED, " v4lconvert support not compiled in!");
+#endif
         printf("\n\n");
 
         for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
@@ -440,6 +451,8 @@ next_device:
         return vt;
 }
 
+
+#ifdef HAVE_LIBV4LCONVERT
 static uint32_t get_ug_to_v4l2(codec_t ug_codec) {
         for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
                 if (v4l2_ug_map[i].ug_codec == ug_codec) {
@@ -448,6 +461,7 @@ static uint32_t get_ug_to_v4l2(codec_t ug_codec) {
         }
         return 0;
 }
+#endif
 
 static codec_t get_v4l2_to_ug(uint32_t fcc) {
         for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
@@ -540,16 +554,18 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                                         strlen("buffers=")) == 0) {
                                 s->buffer_count = atoi(item + strlen("buffers="));
                                 assert (s->buffer_count <= MAX_BUF_COUNT);
-                        } else if (strcasecmp(item, "RGB") == 0) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Deprecated, use: ':convert=RGB' instead");
-                                v4l2_convert_to = RGB;
                         } else if (strstr(item, "convert=") == item) {
+#ifdef HAVE_LIBV4LCONVERT
                                 const char *codec = item + strlen("convert=");
                                 v4l2_convert_to = get_codec_from_name(codec);
                                 if (v4l2_convert_to == VIDEO_CODEC_NONE) {
                                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown codec: %s\n", codec);
                                         goto error;
                                 }
+#else
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "v4lconvert support not compiled in!");
+                                goto error;
+#endif
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Invalid configuration argument: %s\n",
                                                 item);
@@ -653,6 +669,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 }
         }
         if (v4l2_convert_to != VIDEO_CODEC_NONE) {
+#ifdef HAVE_LIBV4LCONVERT
                 s->dst_fmt.fmt.pix.pixelformat = get_ug_to_v4l2(v4l2_convert_to);
                 if (!v4lconvert_supported_dst_format(s->dst_fmt.fmt.pix.pixelformat)) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Conversion to %s doesn't seem to be supported by v4lconvert but proceeding as requested...\n", get_codec_name(v4l2_convert_to));
@@ -663,6 +680,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                         goto error;
                 }
                 s->desc.color_spec = v4l2_convert_to;
+#endif
         }
 
         unsigned i = 0;
@@ -681,11 +699,12 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         s->desc.width = fmt.fmt.pix.width;
         s->desc.height = fmt.fmt.pix.height;
 
+#ifdef HAVE_LIBV4LCONVERT
+        s->convert = NULL;
         if (v4l2_convert_to != VIDEO_CODEC_NONE) {
                 s->convert = v4lconvert_create(s->fd);
-        } else {
-                s->convert = NULL;
         }
+#endif
 
         struct v4l2_requestbuffers reqbuf;
 
@@ -775,15 +794,8 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
         out = vf_alloc_desc(s->desc);
         out->callbacks.dispose = vidcap_v4l2_dispose_video_frame;
 
-        if (!s->convert) {
-                struct v4l2_dispose_deq_buffer_data *frame_data =
-                        malloc(sizeof(struct v4l2_dispose_deq_buffer_data));
-                frame_data->s = s;
-                memcpy(&frame_data->buf, &buf, sizeof(buf));
-                out->tiles[0].data = s->buffers[frame_data->buf.index].start;
-                out->tiles[0].data_len = frame_data->buf.bytesused;
-                out->callbacks.dispose_udata = frame_data;
-        } else {
+#ifdef HAVE_LIBV4LCONVERT
+        if (s->convert) {
                 out->callbacks.dispose_udata = NULL;
                 out->tiles[0].data = (char *) malloc(out->tiles[0].data_len);
                 int ret = v4lconvert_convert(s->convert,
@@ -808,6 +820,17 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
                 }
 
                 out->tiles[0].data_len = ret;
+#else
+        if (0) {
+#endif // HAVE_LIBV4LCONVERT
+        } else {
+                struct v4l2_dispose_deq_buffer_data *frame_data =
+                        malloc(sizeof(struct v4l2_dispose_deq_buffer_data));
+                frame_data->s = s;
+                memcpy(&frame_data->buf, &buf, sizeof(buf));
+                out->tiles[0].data = s->buffers[frame_data->buf.index].start;
+                out->tiles[0].data_len = frame_data->buf.bytesused;
+                out->callbacks.dispose_udata = frame_data;
         }
 
         s->frames++;

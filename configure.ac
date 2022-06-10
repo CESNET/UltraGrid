@@ -2895,31 +2895,26 @@ fi
 v4l2=no
 found_v4l2=no
 
-define(v4l2_deps, libv4l2 libv4lconvert)
-
 AC_ARG_ENABLE(v4l2,
-[  --disable-v4l2          disable V4L2 support (default is auto)]
-[                          Requires: v4l2_deps],
+    AS_HELP_STRING([--disable-v4l2], [disable V4L2 support (default is auto); requires: Linux, v4lconvert (optional)]),
     [v4l2_req=$enableval],
     [v4l2_req=$build_default]
     )
 
-if test $system = Linux; then
-        PKG_CHECK_MODULES([V4L2], [libv4l2 libv4lconvert], [found_v4l2=yes], [found_v4l2=no])
-fi
-
-if test $v4l2_req != no
+if test "$system" = Linux && test "$v4l2_req" != no
 then
+        PKG_CHECK_MODULES([V4LCONVERT], [libv4lconvert], [found_v4lconvert=yes], [found_v4lconvert=no])
+        if test $found_v4lconvert = yes; then
+                AC_DEFINE([HAVE_LIBV4LCONVERT], [1], [Build with libv4lconvert support])
+        elif test if "$v4l2_req" = yes; then
+                UG_MSG_WARN([Compiling V4L2 capture without v4lconvert support (not found).])
+        fi
         V4L2_CAP_OBJ="src/video_capture/v4l2.o"
         V4L2_DISP_OBJ="src/video_display/v4l2.o"
-        if test $found_v4l2 = yes; then
-                ADD_MODULE("vidcap_v4l2", "$V4L2_CAP_OBJ", "$V4L2_LIBS")
-                v4l2=yes
-        else
-                v4l2=d/o
-        fi
-        ADD_MODULE("display_v4l2", "$V4L2_DISP_OBJ", "$V4L2_LIBS")
-        CFLAGS="$CFLAGS $V4L2_CFLAGS"
+        ADD_MODULE("vidcap_v4l2", "$V4L2_CAP_OBJ", "$V4LCONVERT_LIBS")
+        ADD_MODULE("display_v4l2", "$V4L2_DISP_OBJ", "")
+        CFLAGS="$CFLAGS $V4LCONVERT_CFLAGS"
+        v4l2=yes
 fi
 
 if test $v4l2_req = yes -a $v4l2 = no; then
