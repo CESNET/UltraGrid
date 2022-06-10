@@ -428,7 +428,7 @@ void UltragridWindow::processStateChanged(UgProcessManager::State state){
 }
 
 void UltragridWindow::unexpectedExit(UgProcessManager::State state,
-		int code, QProcess::ExitStatus)
+		int code, QProcess::ExitStatus es)
 {
 	if(state == UgProcessManager::State::PreviewRunning){
 		previewStatus.setText("Preview: Crashed");
@@ -437,6 +437,12 @@ void UltragridWindow::unexpectedExit(UgProcessManager::State state,
 
 	if(state != UgProcessManager::State::UgRunning)
 		return; //Don't care about crashes of terminating processes
+
+	if(code == 0 && es == QProcess::ExitStatus::NormalExit){
+		//Ug exit was not initiated by GUI, but exited normally
+		switchToPreview();
+		return;
+	}
 
 	processStatus.setText("UG: Crashed");
 
