@@ -16,7 +16,7 @@ void UgProcessManager::setUgExecutable(QString executable){
 }
 
 void UgProcessManager::launchUg(QStringList args){
-	assert(state != State::UgRunning || state != UgToPreview)
+	ASSERT_GUI(state != State::UgRunning || state != State::UgToPreview);
 
 	launchArgs = std::move(args);
 
