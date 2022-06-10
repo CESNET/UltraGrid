@@ -67,6 +67,7 @@ HEADERS += window/ultragrid_window.hpp \
 	util/overload.hpp \
 	util/extra_callback_data.hpp \
 	util/ug_process_manager.hpp \
+	util/debug.hpp \
 
 FORMS += ui/ultragrid_window.ui \
 	ui/log_window.ui \

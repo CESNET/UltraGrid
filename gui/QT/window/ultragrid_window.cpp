@@ -11,6 +11,7 @@
 #endif
 
 #include "ultragrid_window.hpp"
+#include "debug.hpp"
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>

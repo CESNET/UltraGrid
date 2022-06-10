@@ -1,4 +1,5 @@
 #include "ug_process_manager.hpp"
+#include "debug.hpp"
 
 UgProcessManager::UgProcessManager(){
 	connect(&killTimer, &QTimer::timeout, this, &UgProcessManager::killTimerTimeout);
@@ -114,8 +115,8 @@ void UgProcessManager::processFinished(int exitCode, QProcess::ExitStatus es){
 	killTimer.stop();
 	switch(state){
 	case State::StoppingAll:
-		assert(ugProcess.state() == QProcess::NotRunning);
-		assert(previewProcess.state() == QProcess::NotRunning);
+		DEBUG_ASSERT(ugProcess.state() == QProcess::NotRunning);
+		DEBUG_ASSERT(previewProcess.state() == QProcess::NotRunning);
 		changeStateAndEmit(State::NotRunning);
 		break;
 	case State::PreviewToUg:
@@ -146,7 +147,7 @@ void UgProcessManager::killTimerTimeout(){
 		ugProcess.kill();
 		break;
 	default:
-		assert("killTimer expired in invalid state" && false);
+		DEBUG_ASSERT("killTimer expired in invalid state" && false);
 	}
 }
 
