@@ -243,7 +243,6 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "::set-output name=aja::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkwin.zip)"
         echo "::set-output name=ndi::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe)"
         echo "::set-output name=ximea::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe)"
       shell: bash
@@ -272,15 +271,6 @@ jobs:
       run: Invoke-WebRequest https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe -OutFile C:\XIMEA_API_Installer.exe
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
-    - name: Cache AJA
-      id: cache-aja
-      uses: actions/cache@v2
-      with:
-        path: 'C:\AJA'
-        key: cache-aja-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_aja.ps1') }}-${{ steps.etags.outputs.aja }}
-    - name: Build AJA
-      if: steps.cache-aja.outputs.cache-hit != 'true'
-      run: .github/scripts/Windows/build_aja.ps1
     - name: Cache JACK
       id: cache-jack
       uses: actions/cache@v2

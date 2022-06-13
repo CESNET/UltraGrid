@@ -52,11 +52,21 @@ $PACMAN_INSTALL libtool # PCP
 pacman -Scc --noconfirm
 
 # Build AJA wrapper if we have SDK
-if test -d /c/AJA; then
+install_aja() {(
+        git clone --depth 1 https://github.com/aja-video/ntv2 AJA
+        cd AJA
+        AJA_GH_PATH=https://github.com/$(curl https://github.com/aja-video/ntv2/releases  | grep libs_windows_ | head -n 1 | cut -d '"' -f 2)
+        curl -L $AJA_GH_PATH -o aja_build.zip
+        rm README.md # would be overriden from zip below
+        unzip aja_build.zip
+        mkdir -p lib
+        cp Release/*.lib lib
+        cp Release/*.dll /usr/local/bin
         FEATURES="$FEATURES --enable-aja"
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
+        cd ..
         data/scripts/build_aja_lib_win64.sh
-fi
+)}
 
 # DELTACAST
 if [ -n "$SDK_URL" ]; then
@@ -94,4 +104,5 @@ $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
 ( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local || exit 1 )
 
 build_cineform
+install_aja
 
