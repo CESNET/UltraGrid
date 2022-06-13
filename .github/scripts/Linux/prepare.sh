@@ -1,6 +1,6 @@
 #!/bin/bash -eux
 
-echo "AJA_DIRECTORY=/var/tmp/ntv2sdk" >> $GITHUB_ENV
+echo "AJA_DIRECTORY=/var/tmp/ntv2" >> $GITHUB_ENV
 echo "CPATH=/usr/local/qt/include" >> $GITHUB_ENV
 echo "LIBRARY_PATH=/usr/local/qt/lib" >> $GITHUB_ENV
 echo "PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig" >> $GITHUB_ENV
@@ -69,17 +69,14 @@ install_ximea() {
 }
 
 # Install AJA
-if [ -n "$SDK_URL" ]; then
-        if curl -f -S $SDK_URL/ntv2sdklinux.zip -O; then
-                FEATURES="${FEATURES:+$FEATURES }--enable-aja"
-                echo "FEATURES=$FEATURES" >> $GITHUB_ENV
-                unzip ntv2sdklinux.zip -d /var/tmp
-                mv /var/tmp/ntv2sdk* /var/tmp/ntv2sdk
-                cd /var/tmp/ntv2sdk/ajalibraries/ajantv2
-                export CXX='g++ -std=gnu++11'
-                make -j $(nproc)
-        fi
-fi
+install_aja() {(
+        FEATURES="${FEATURES:+$FEATURES }--enable-aja"
+        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
+        cd /var/tmp
+        git clone --depth 1 https://github.com/aja-video/ntv2
+        cd ntv2/ajalibraries/ajantv2/build
+        make -j $(nproc)
+)}
 
 install_cineform() {(
         sudo apt install uuid-dev
@@ -112,6 +109,7 @@ make -j $(nproc) CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
 sudo make install
 cd ..
 
+install_aja
 install_cineform
 install_ndi
 install_ximea
