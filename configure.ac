@@ -938,7 +938,7 @@ then
                 AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
         else # mac
                 AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
-                AJA_LIB="-lajantv2"
+                AJA_LIB="-lajantv2 -framework IOKit"
         fi
         AJA_CAP_OBJ="src/video_capture/aja.o"
         AJA_DISP_OBJ="src/video_display/aja.o"

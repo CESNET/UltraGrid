@@ -44,16 +44,15 @@ install_ximea() {
 }
 
 install_aja() {
-        AJA_DIRECTORY=$SDK_NONFREE_PATH/ntv2sdk
-        if [ ! -d $AJA_DIRECTORY ]; then
-                return 0
-        fi
+        AJA_DIRECTORY=/private/var/tmp/ntv2sdk
+        git clone --depth 1 https://github.com/aja-video/ntv2 $AJA_DIRECTORY
+        cd $AJA_DIRECTORY
         echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> $GITHUB_ENV
         FEATURES="$FEATURES --enable-aja"
         echo "FEATURES=$FEATURES" >> $GITHUB_ENV
-        sudo rm -f /usr/local/lib/libajantv2.dylib
-        sudo cp $AJA_DIRECTORY/bin/ajantv2.dylib /usr/local/lib/libajantv2.dylib
-        sudo ln -fs /usr/local/lib/libajantv2.dylib /usr/local/lib/ajantv2.dylib
+        AJA_GH_PATH=https://github.com/$(curl https://github.com/aja-video/ntv2/releases  | grep _libs_mac_ | head -n 1 | cut -d '"' -f 2)
+        curl -L $AJA_GH_PATH | tar xzf -
+        sudo cp Release/x64/* /usr/local/lib
         cd $TEMP_INST
 }
 
