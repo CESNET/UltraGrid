@@ -3,7 +3,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,15 +41,24 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
+#include <vector>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+
 #include "capture_filter.h"
 
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/misc.h"
+#include "utils/sv_parse_num.hpp"
 #include "video.h"
 #include "video_codec.h"
-
-#include "shared_mem_frame.hpp"
+#include "tools/ipc_frame.h"
+#include "tools/ipc_frame_unix.h"
+#include "tools/ipc_frame_ug.h"
 
 struct module;
 
@@ -58,35 +67,130 @@ static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
 struct state_preview_filter{
-        Shared_mem shared_mem;
+        std::mutex mut;
+        std::condition_variable frame_submitted_cv;
+
+        std::vector<Ipc_frame_uniq> free_frames;
+        std::queue<Ipc_frame_uniq> frame_queue;
+
+        int target_width = 960;
+        int target_height = 540;
+
+        std::thread worker_thread;
 };
+
+static void worker(struct state_preview_filter *s, std::string path){
+        Ipc_frame_uniq frame;
+        Ipc_frame_writer_uniq writer;
+
+        for(;;){
+                if(!writer){
+                        writer.reset(ipc_frame_writer_new(path.c_str()));
+                        if(!writer){
+                                sleep(1);
+                                continue;
+                        }
+                }
+
+                {
+                        std::unique_lock<std::mutex> lock(s->mut);
+                        s->frame_submitted_cv.wait(lock,
+                                        [=]{ return !s->frame_queue.empty(); });
+                        frame = std::move(s->frame_queue.front());
+                        s->frame_queue.pop();
+                }
+
+                if(!frame)
+                        break;
+
+                if(!ipc_frame_writer_write(writer.get(), frame.get())){;
+                        writer.reset();
+                }
+
+                std::lock_guard<std::mutex> lock(s->mut);
+                s->free_frames.push_back(std::move(frame));
+        }
+}
 
 
 static int init(struct module *parent, const char *cfg, void **state){
         UNUSED(parent);
-        if (strlen(cfg) > 0) {
-                std::cout << RED(BOLD("preview")) << " capture filter serves as a proxy for passing frames to GUI\n";
-                return strcmp(cfg, "help") == 0 ? 1 : -1;
+        auto s = std::make_unique<state_preview_filter>();
+
+        s->free_frames.emplace_back(ipc_frame_new());
+        s->free_frames.emplace_back(ipc_frame_new());
+
+        std::string socket_path = PLATFORM_TMP_DIR "ug_preview_cap_unix";
+
+        std::string_view cfg_sv = cfg ? cfg : "";
+        while(!cfg_sv.empty()){
+                auto tok = tokenize(cfg_sv, ':');
+                auto key = tokenize(tok, '=');
+                auto val = tokenize(tok, '=');
+
+                if(key == "help"){
+                        std::cout << RED(BOLD("preview")) << " capture filter serves as a proxy for passing frames to GUI\n";
+                        return 1;
+                } else if(key == "path"){
+                        socket_path = val;
+                } else if(key == "target_size"){
+                        parse_num(tokenize(val, 'x'), s->target_width);
+                        parse_num(tokenize(val, 'x'), s->target_height);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "Invalid option\n");
+                        return -1;
+                }
         }
 
-        struct state_preview_filter *s = new state_preview_filter();
-        s->shared_mem.setKey("ultragrid_preview_capture");
-        s->shared_mem.create();
+        s->worker_thread = std::thread(worker, s.get(), socket_path);
 
-        *state = s;
+        *state = s.release();
 
         return 0;
 }
 
 static void done(void *state){
-        delete (state_preview_filter *) state;
+        auto s = static_cast<state_preview_filter *> (state);
+
+        {
+                std::lock_guard<std::mutex> lock(s->mut);
+                s->frame_queue.push(nullptr);
+        }
+        s->frame_submitted_cv.notify_one();
+        s->worker_thread.join();
+
+        delete s;
 }
 
 static struct video_frame *filter(void *state, struct video_frame *in){
         struct state_preview_filter *s = (state_preview_filter *) state;
 
-        s->shared_mem.put_frame(in);
-        
+        Ipc_frame_uniq ipc_frame;
+        {
+                std::lock_guard<std::mutex> lock(s->mut);
+                if(!s->free_frames.empty()){
+                        ipc_frame = std::move(s->free_frames.back());
+                        s->free_frames.pop_back();
+                }
+        }
+
+        if(!ipc_frame)
+                return in;
+
+        assert(in->tile_count == 1);
+        const tile *tile = &in->tiles[0];
+
+        int scale = ipc_frame_get_scale_factor(tile->width, tile->height,
+                        s->target_width, s->target_height);
+
+        if(ipc_frame_from_ug_frame(ipc_frame.get(), in, RGB, scale)){
+                std::lock_guard<std::mutex> lock(s->mut);
+                s->frame_queue.push(std::move(ipc_frame));
+                s->frame_submitted_cv.notify_one();
+        } else {
+                log_msg(LOG_LEVEL_WARNING, "Unable to convert\n");
+        }
+
         return in;
 }
 
