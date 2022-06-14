@@ -70,8 +70,6 @@ install_ximea() {
 
 # Install AJA
 install_aja() {(
-        FEATURES="${FEATURES:+$FEATURES }--enable-aja"
-        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         cd /var/tmp
         git clone --depth 1 https://github.com/aja-video/ntv2
         cd ntv2/ajalibraries/ajantv2/build

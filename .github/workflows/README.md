@@ -25,21 +25,16 @@ These additional dependencies must be provided at URL specified by a secret **SD
 Further subsection briefly describe individual assets and how to obtain them.  All assets
 are unmodified files downloaded from vendor website. However, rename may be required.
 
-### Linux
-- **ntv2sdklinux.zip** - Linux NTV2 SDK ([AJA](https://sdksupport.aja.com/))
-
-**Note:** _VideoMaster SDK_ is not used because DELTACAST doesn't provide redistributable
-libraries for Linux (as does for macOS and Windows).
-
 ### macOS
-- **ntv2sdkmac.zip** - NTV2 SDK downloaded from AJA
 - **VideoMaster\_SDK\_MacOSX.zip** - VideoMaster SDK for Mac from
   [DELTACAST](https://www.deltacast.tv/support/download-center)
 
 ### Windows
-- **ntv2sdkwin.zip** - NTV2 SDK downloaded from AJA
 - **VideoMaster\_SDK\_Windows.zip** - VideoMaster SDK from DELTACAST for Windows
 
+### Linux
+**Note:** _VideoMaster SDK_ is not used because DELTACAST doesn't provide redistributable
+libraries for Linux (as does for macOS and Windows).
 
 Secrets
 -------

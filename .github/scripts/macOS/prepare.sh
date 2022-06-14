@@ -48,8 +48,6 @@ install_aja() {
         git clone --depth 1 https://github.com/aja-video/ntv2 $AJA_DIRECTORY
         cd $AJA_DIRECTORY
         echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> $GITHUB_ENV
-        FEATURES="$FEATURES --enable-aja"
-        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         AJA_GH_PATH=https://github.com/$(curl https://github.com/aja-video/ntv2/releases  | grep _libs_mac_ | head -n 1 | cut -d '"' -f 2)
         curl -L $AJA_GH_PATH | tar xzf -
         sudo cp Release/x64/* /usr/local/lib

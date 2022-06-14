@@ -62,8 +62,6 @@ install_aja() {(
         mkdir -p lib
         cp Release/*.lib lib
         cp Release/*.dll /usr/local/bin
-        FEATURES="$FEATURES --enable-aja"
-        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
         cd ..
         data/scripts/build_aja_lib_win64.sh
 )}
