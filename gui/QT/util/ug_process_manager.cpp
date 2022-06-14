@@ -69,12 +69,12 @@ void waitAndKill(QProcess& p){
 
 void UgProcessManager::stopPreview(bool block){
 	if(previewProcess.state() != QProcess::NotRunning){
+		changeStateAndEmit(State::StoppingAll);
 		if(block){
 			previewProcess.terminate();
 			waitAndKill(previewProcess);
 			changeStateAndEmit(State::NotRunning);
 		} else {
-			changeStateAndEmit(State::StoppingAll);
 			previewProcess.terminate();
 			killTimer.start(terminateTimeoutMs);
 		}
@@ -83,12 +83,12 @@ void UgProcessManager::stopPreview(bool block){
 
 void UgProcessManager::stopUg(bool block){
 	if(ugProcess.state() != QProcess::NotRunning){
+		changeStateAndEmit(State::StoppingAll);
 		if(block){
 			ugProcess.terminate();
 			waitAndKill(ugProcess);
 			changeStateAndEmit(State::NotRunning);
 		} else {
-			changeStateAndEmit(State::StoppingAll);
 			ugProcess.terminate();
 			killTimer.start(terminateTimeoutMs);
 		}
