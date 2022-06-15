@@ -147,6 +147,7 @@ void UgProcessManager::processFinished(int exitCode, QProcess::ExitStatus es){
 void UgProcessManager::killTimerTimeout(){
 	switch(state){
 	case State::PreviewToUg:
+	case State::PreviewToPreview:
 		previewProcess.kill();
 		break;
 	case State::UgToPreview:
