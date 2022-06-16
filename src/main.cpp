@@ -1262,6 +1262,17 @@ static int adjust_params(struct ug_options *opt) {
                 opt->video_rxtx_mode |= MODE_SENDER;
         }
 
+        // use dyn ports if sending only to ourselves
+        const unsigned mode_both = MODE_RECEIVER | MODE_SENDER;
+        if (is_host_loopback(opt->requested_receiver) && ((opt->video_rxtx_mode & mode_both) == mode_both)
+                        && (opt->video_rx_port == -1 && opt->video_tx_port == -1)) {
+                opt->video_rx_port = opt->video_tx_port = 0;
+        }
+        if (is_host_loopback(opt->requested_receiver) && ((audio_rxtx_mode & mode_both) == mode_both)
+                        && (opt->audio.recv_port == -1 && opt->audio.recv_port == -1)) {
+                opt->audio.recv_port = opt->audio.send_port = 0;
+        }
+
         if (opt->video_rx_port == -1) {
                 if ((opt->video_rxtx_mode & MODE_RECEIVER) == 0U) {
                         // do not occupy recv port if we are not receiving (note that this disables communication with
