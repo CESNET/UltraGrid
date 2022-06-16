@@ -2,13 +2,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <array>
+
+#ifndef __MINGW32__
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
+#define CLOSESOCKET close
+#else
+#include <winsock2.h>
+#include <afunix.h>
+#define CLOSESOCKET closesocket
+#endif
+
 #include <cerrno>
 #include "ipc_frame_unix.h"
+
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
 
 struct Ipc_frame_reader{
 	int listen_fd;
@@ -37,9 +52,9 @@ Ipc_frame_reader *ipc_frame_reader_new(const char *path){
 
 void ipc_frame_reader_free(struct Ipc_frame_reader *reader){
 	if(reader->data_fd >= 0)
-		close(reader->data_fd);
+		CLOSESOCKET(reader->data_fd);
 	if(reader->listen_fd >= 0)
-		close(reader->listen_fd);
+		CLOSESOCKET(reader->listen_fd);
 
 	free(reader);
 }
@@ -48,7 +63,7 @@ static size_t blocking_read(int fd, char *dst, size_t size){
 	size_t bytes_read = 0;
 
 	while(bytes_read < size){
-		int read_now = read(fd, dst + bytes_read, size - bytes_read);
+		int read_now = recv(fd, dst + bytes_read, size - bytes_read, 0);
 		if(read_now <= 0)
 			break;
 
@@ -111,7 +126,7 @@ static bool do_frame_read(Ipc_frame_reader *reader, Ipc_frame *dst){
 bool ipc_frame_reader_read(Ipc_frame_reader *reader, Ipc_frame *dst){
 	bool ret = do_frame_read(reader, dst);
 	if(!ret){
-		close(reader->data_fd);
+		CLOSESOCKET(reader->data_fd);
 		reader->data_fd = -1;
 	}
 
@@ -136,7 +151,7 @@ Ipc_frame_writer *ipc_frame_writer_new(const char *path){
 
 	int ret = connect(writer->data_fd, (const struct sockaddr *) &addr, sizeof(addr));
 	if(ret == -1){
-		close(writer->data_fd);
+		CLOSESOCKET(writer->data_fd);
 		delete writer;
 		return nullptr;
 	}
@@ -146,7 +161,7 @@ Ipc_frame_writer *ipc_frame_writer_new(const char *path){
 
 void ipc_frame_writer_free(struct Ipc_frame_writer *writer){
 	if(writer->data_fd >= 0)
-		close(writer->data_fd);
+		CLOSESOCKET(writer->data_fd);
 
 	delete writer;
 }

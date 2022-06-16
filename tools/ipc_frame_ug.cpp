@@ -5,17 +5,12 @@
 #include "debug.h"
 #endif
 
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <array>
 
 #include "ipc_frame_ug.h"
 #include "ipc_frame.h"
 #include "types.h"
 #include "video_codec.h"
-
-#ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
-#endif
 
 namespace {
 void scale_frame(char *dst, char *src,
