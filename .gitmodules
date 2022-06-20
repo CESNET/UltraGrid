@@ -4,3 +4,6 @@
 [submodule "ext-deps/zfec"]
 	path = ext-deps/zfec
 	url = https://github.com/tahoe-lafs/zfec
+[submodule "ext-deps/soxr"]
+	path = ext-deps/soxr
+	url = https://github.com/chirlu/soxr.git
