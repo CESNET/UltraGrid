@@ -5,6 +5,7 @@
 #include <QOpenGLVersionFunctionsFactory>
 #endif
 #include "previewWidget.hpp"
+#include "debug.hpp"
 
 static const GLfloat rectangle[] = {
 	 1.0f,  1.0f,  1.0f,  0.0f,
