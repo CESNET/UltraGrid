@@ -2592,6 +2592,26 @@ elif test "$found_speexdsp" = no -a "$speexdsp_req" != no; then
 fi
 
 # ---------------------------------------------------------------------------
+# SOXR
+# ---------------------------------------------------------------------------
+soxr=no
+
+AC_ARG_ENABLE(soxr,
+              AS_HELP_STRING([--disable-soxr], [disable Soxr (default is auto)]),
+              [soxr_req=$enableval],
+              [soxr_req=$build_default])
+PKG_CHECK_MODULES([LIBSOXR], [soxr], [found_soxr=yes], [found_soxr=no])
+
+if test "$found_soxr" = yes -a "$soxr_req" != no; then
+        LIBS="$LIBS $LIBSOXR_LIBS"
+        COMMON_FLAGS="$COMMON_FLAGS${SOXR_COMMON_FLAGS:+${COMMON_FLAGS:+ }}$SOXR_COMMON_FLAGS"
+        AC_DEFINE([HAVE_SOXR], [1], [Build with Soxr support])
+        soxr=yes
+elif test "$soxr_req" = yes; then
+        AC_MSG_ERROR([Soxr not found]);
+fi
+
+# ---------------------------------------------------------------------------
 # Zfec
 # ---------------------------------------------------------------------------
 zfec=no
@@ -3467,6 +3487,7 @@ RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
 RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
 RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
 RESULT=`add_column "$RESULT" "SpeexDSP" $speexdsp $?`
+RESULT=`add_column "$RESULT" "Soxr" $soxr $?`
 RESULT=`add_column "$RESULT" "Standalone modules" $build_libraries $?`
 RESULT=`add_column "$RESULT" "zfec" $zfec $?`
 RESULT=`end_section "$RESULT"`

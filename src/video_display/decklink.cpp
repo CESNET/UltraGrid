@@ -670,7 +670,7 @@ public:
                 // Calculate the average
                 uint32_t average_buffer_depth = (uint32_t)(this->average_buffer_samples.avg());
 
-                int resample_hz = 0;
+                int resample_hz = dst_frame_rate = (bmdAudioSampleRate48kHz) * BASE;
 
                 // Check to see if our buffered samples has enough to calculate a good average
                 if (this->average_buffer_samples.filled()) {
@@ -701,7 +701,7 @@ public:
                         }       
                 }
 
-                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " UPDATE playing speed " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.avg() << " average_velocity " << resample_hz << " resample_hz\n";
+                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " UPDATE playing speed " <<  average_buffer_depth << " vs " << buffered_count << " " << average_delta.avg() << " average_velocity " << resample_hz << " resample_hz\n";
 
    
                 if (dst_frame_rate != 0) {
@@ -798,7 +798,7 @@ struct state_decklink {
 
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
 
-        AudioDriftFixer audio_drift_fixer{250, 25, 2700, 600, 600};
+        AudioDriftFixer audio_drift_fixer{250, 25, 2700, 5, 5};
 
         uint32_t            last_buffered_samples;
         int32_t             drift_since_last_correction;
@@ -815,12 +815,14 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square][:HDR[=<t>]][:maxresample=<N>][:minresample=<N>][:targetbuffer=<N>]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:fullhelp][:device=<device(s)>][:timecode][:<X>-link][:Level{A|B}][:3D[:HDMI3DPacking=<packing>]][:audio_level={line|mic}][:conversion=<fourcc>][:Use1080PsF][:[no-]low-latency][:profile=<X>|:half-duplex][:quad-[no-]square][:HDR[=<t>]][:maxresample=<N>][:minresample=<N>][:targetbuffer=<N>][:drift_fix]\n" << style::reset;
         cout << "Options:\n";
         cout << style::bold << "\tfullhelp" << style::reset << " displays help for further options\n";
         cout << style::bold << "\t<device(s)>" << style::reset << " is comma-separated indices or names of output devices\n";
         cout << style::bold << "\tsingle-link/dual-link/quad-link" << style::reset << " specifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
         cout << style::bold << "\tLevelA/LevelB" << style::reset << " specifies 3G-SDI output level\n";
+        cout << style::bold << "\tdrift_fix" << style::reset << " activates a drift fix for the Decklink cards. The decklink card clocks will slowly drift overtime which can eventually cause a\n";
+        cout << "\tbuffer underflow or overflow. A dynamic resampler is utilised in order to stretch (or reduce) audio by a small amount to counter the drift.\n";
         cout << style::bold << "\tmaxresample=<N> - " << style::reset << "The maximum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
         cout << style::bold << "\tminresample=<N> - " << style::reset << "The minimum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
         cout << style::bold << "\ttargetbuffer=<N> - " << style::reset << "The target amount of samples to have in the buffer (per channel).\n";
@@ -1557,8 +1559,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                         return false;
                                 }
                         }
-                } else if (strstr(ptr, "no_drift_fix") == ptr) {
-                        s->audio_drift_fixer.m_enabled = false;
+                } else if (strstr(ptr, "drift_fix") == ptr) {
+                        s->audio_drift_fixer.m_enabled = true;
                 }
                 else if (strncasecmp(ptr, "maxresample=", strlen("maxresample=")) == 0) {
                         uint32_t max_resample_delta = 0;
