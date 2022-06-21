@@ -22,3 +22,7 @@
 * backported fixed RTSP capture from master
 * build fixes
 
+#### 1.7.5
+* build Linux version with SVT VP9/HEVC again
+* minor fixes
+
