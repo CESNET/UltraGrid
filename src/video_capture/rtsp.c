@@ -427,7 +427,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
                 if (!video_desc_eq(s->vrtsp_state.decompress_desc, curr_desc)) {
                     decompress_done(s->vrtsp_state.sd);
                     if (init_decompressor(&s->vrtsp_state, curr_desc) == 0) {
-                        pthread_mutex_unlock(&s->vrtsp_state.lock);
                         return NULL;
                     }
                     s->vrtsp_state.decompress_desc = curr_desc;
