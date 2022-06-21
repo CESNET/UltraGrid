@@ -58,8 +58,13 @@ typedef int32_t comp_type_t; // int32_t provides much better performance than in
 static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide enough (we are computing in up to 16 bits!)");
 
 #define KG(kr,kb)  (1.-kr-kb)
+#ifdef YCBCR_FULL
+#define Y_LIMIT    1.0
+#define CBCR_LIMIT 1.0
+#else
 #define Y_LIMIT    (219.0/255.0)
 #define CBCR_LIMIT (224.0/255.0)
+#endif // !defined YCBCR_FULL
 
 #define KR_709 .212639
 #define KB_709 .072192
@@ -83,8 +88,13 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define RGB_TO_Y_709_SCALED(r, g, b) ((r) * Y_R + (g) * Y_G + (b) * Y_B)
 #define RGB_TO_CB_709_SCALED(r, g, b) ((r) * CB_R + (g) * CB_G + (b) * CB_B)
 #define RGB_TO_CR_709_SCALED(r, g, b) ((r) * CR_R + (g) * CR_G + (b) * CR_B)
+#ifdef YCBCR_FULL
+#define CLAMP_LIMITED_Y(val, depth) (val)
+#define CLAMP_LIMITED_CBCR(val, depth) (val)
+#else
 #define CLAMP_LIMITED_Y(val, depth) MIN(MAX(val, 1<<(depth-4)), 235 * (1<<(depth-8)))
 #define CLAMP_LIMITED_CBCR(val, depth) MIN(MAX(val, 1<<(depth-4)), 240 * (1<<(depth-8)))
+#endif
 
 #define R_CB(kr,kb) 0.0
 #define R_CR(kr,kb) ((2.*(1.-kr))/CBCR_LIMIT)
