@@ -50,6 +50,7 @@
 #include <mutex>
 #include <queue>
 #include <cmath>
+#include <chrono>
 
 #include "video.h"
 #include "video_display.h"
@@ -148,6 +149,12 @@ static void display_unix_sock_run(void *state)
         auto s = static_cast<state_unix_sock *>(state);
         int skipped = 0;
 
+        using clk = std::chrono::steady_clock;
+
+        clk::duration report_period = std::chrono::seconds(5);
+        auto next_report = clk::now() + report_period;
+        int frames_sent = 0;
+
         while (1) {
                 auto frame = [&]{
                         std::unique_lock<std::mutex> l(s->lock);
@@ -186,7 +193,14 @@ static void display_unix_sock_run(void *state)
                         perror("Unable to send frame");
                         exit(1);
                 }
+                frames_sent++;
 
+                if(clk::now() > next_report){
+                        float seconds = std::chrono::duration_cast<std::chrono::seconds>(report_period).count();
+                        log_msg(LOG_LEVEL_NOTICE, "%d frames in %f seconds (%f fps)\n", frames_sent, seconds, (float) frames_sent / seconds); 
+                        frames_sent = 0;
+                        next_report = clk::now() + report_period;
+                }
         }
 }
 
