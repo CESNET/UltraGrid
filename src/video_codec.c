@@ -526,11 +526,11 @@ int get_pf_block_bytes(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].block_size_bytes;
-        } else {
-                return 0;
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
+                abort();
         }
+        assert(codec_info[i].block_size_bytes > 0);
+        return codec_info[i].block_size_bytes;
 }
 
 /// @brief returns @ref codec_info_t::block_size_pixels
@@ -538,10 +538,11 @@ int get_pf_block_pixels(codec_t codec)
 {
         unsigned int i = (unsigned int) codec;
 
-        if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].block_size_pixels;
+        if (i >= sizeof codec_info / sizeof(struct codec_info_t)) {
+                abort();
         }
-        return 0;
+        assert(codec_info[i].block_size_pixels > 0);
+        return codec_info[i].block_size_pixels;
 }
 
 /** @brief Deinterlaces framebuffer.
