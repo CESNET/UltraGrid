@@ -136,11 +136,17 @@ static void *display_v4l2_init(struct module *parent, const char *fmt, unsigned 
         UNUSED(flags);
         UNUSED(parent);
         const char *dev_name = NULL;
-        if (strstr(fmt, "device=") == fmt) {
-                dev_name = strchr(fmt, '=') + 1;
-        } else {
-                usage();
-                return strstr(fmt, "help") != 0 ? &display_init_noerr : NULL;
+        char *tok = NULL;
+        char *save_ptr = NULL;
+        char *fmt_c = strdupa(fmt);
+        while ((tok = strtok_r(fmt_c, ":", &save_ptr)) != NULL) {
+                fmt_c = NULL;
+                if (strstr(tok, "device=") == tok) {
+                        dev_name = strchr(fmt, '=') + 1;
+                } else {
+                        usage();
+                        return strstr(fmt, "help") != 0 ? &display_init_noerr : NULL;
+                }
         }
 
         struct display_v4l2_state *s = calloc(1, sizeof(struct display_v4l2_state));
@@ -165,6 +171,7 @@ static void *display_v4l2_init(struct module *parent, const char *fmt, unsigned 
                 free(s);
                 return NULL;
         }
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using display: %s\n", dev_name);
 
         s->buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
         s->buf.memory = V4L2_MEMORY_MMAP;

@@ -145,6 +145,7 @@ static _Bool set_v4l2_buffers(int fd, struct v4l2_requestbuffers *reqbuf, struct
 }
 
 static int try_open_v4l2_device(int log_level, const char *dev_name, int cap) {
+        log_msg(LOG_LEVEL_VERBOSE, "Trying device: %s\n", dev_name);
         int fd = open(dev_name, O_RDWR);
         if (fd == -1) {
                 char errbuf[1024];
