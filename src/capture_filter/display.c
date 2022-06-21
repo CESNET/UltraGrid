@@ -183,7 +183,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         pthread_mutex_lock(&s->lock);
         if (simple_linked_list_size(s->frame_queue) == MAX_QUEUE_LEN) {
                 pthread_mutex_unlock(&s->lock);
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Queue full, frame dropped.\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Queue full, frame not displayed.\n");
+                vf_free(f);
                 return in;
         }
         simple_linked_list_append(s->frame_queue, f);
