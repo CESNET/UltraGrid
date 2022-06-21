@@ -149,6 +149,7 @@ static auto configure_sdl_mixer_audio(struct testcard_state *s) {
         FILE *f = fopen(filename, "wb");
 #else
         char filename[] = P_tmpdir "/uv.midiXXXXXX";
+        umask(S_IRWXG|S_IRWXO);
         int fd = mkstemp(filename);
         FILE *f = fd == -1 ? nullptr : fdopen(fd, "wb");
 #endif
