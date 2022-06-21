@@ -1269,7 +1269,7 @@ static int adjust_params(struct ug_options *opt) {
                 opt->video_rx_port = opt->video_tx_port = 0;
         }
         if (is_host_loopback(opt->requested_receiver) && ((audio_rxtx_mode & mode_both) == mode_both)
-                        && (opt->audio.recv_port == -1 && opt->audio.recv_port == -1)) {
+                        && (opt->audio.recv_port == -1 && opt->audio.send_port == -1)) {
                 opt->audio.recv_port = opt->audio.send_port = 0;
         }
 
