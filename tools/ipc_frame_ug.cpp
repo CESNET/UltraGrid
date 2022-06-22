@@ -6,6 +6,7 @@
 #endif
 
 #include <array>
+#include <cmath>
 
 #include "ipc_frame_ug.h"
 #include "ipc_frame.h"
@@ -108,4 +109,17 @@ bool ipc_frame_from_ug_frame(struct Ipc_frame *dst,
 	}
 
 	return true;
+}
+
+int ipc_frame_get_scale_factor(int src_w, int src_h, int target_w, int target_h){
+	if(target_w== -1 || target_h== -1)
+		return 0;
+
+	float scale = std::sqrt((static_cast<float>(src_w) * src_h)
+			/ (static_cast<float>(target_w) * target_h));
+
+	if(scale < 1)
+		scale = 1;
+
+	return std::round(scale);
 }
