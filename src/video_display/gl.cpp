@@ -1193,6 +1193,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                                         refresh_rate = mode->refreshRate;
                                 }
                                 glfwSetWindowMonitor(s->window, mon, 0, 0, width, height, refresh_rate);
+                                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Setting fullscreen: " << (s->fs ? "ON" : "OFF") << "\n";
                                 glfw_print_video_mode(s);
                                 break;
                         }
@@ -1205,7 +1206,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         break;
                 case 'p':
                         s->paused = !s->paused;
-                        LOG(LOG_LEVEL_NOTICE) << "[s] " << (s->paused ? "Paused (press 'p' to unpause)" : "Unpaused") << "\n";
+                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << (s->paused ? "Paused (press 'p' to unpause)" : "Unpaused") << "\n";
                         break;
                 case K_ALT('s'):
                         screenshot(s->current_frame);
