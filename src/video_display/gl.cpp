@@ -665,7 +665,12 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
 static void * display_gl_init(struct module *parent, const char *fmt, unsigned int flags) {
         UNUSED(flags);
 
-	struct state_gl *s = new state_gl(parent);
+	struct state_gl *s = nullptr;
+        try {
+                s = new state_gl(parent);
+        } catch (...) {
+                return nullptr;
+        }
 
         if (fmt != NULL) {
                 char *tmp = strdup(fmt);
@@ -676,7 +681,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Invalid numeric value for an option!\n";
                 }
                 free(tmp);
-                if (ret != s) {
+                if (ret != s) { // ret is either nullptr or &display_init_noerr (help requested)
                         delete s;
                         return ret;
                 }
