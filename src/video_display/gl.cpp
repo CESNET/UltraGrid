@@ -678,7 +678,6 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                 free(tmp);
                 if (ret != s) {
                         delete s;
-                        ref_count_terminate_last()(glfwTerminate, glfw_init_count);
                         return ret;
                 }
         }
