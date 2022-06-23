@@ -61,6 +61,8 @@
 #include "tools/ipc_frame_ug.h"
 #include "tools/ipc_frame_unix.h"
 
+#define MOD_NAME "[unix sock disp] "
+
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
@@ -128,7 +130,7 @@ static void *display_unix_sock_init(struct module *parent,
                         if(!parse_num(tokenize(val, 'x'), s->target_width)
                             || !parse_num(tokenize(val, 'x'), s->target_height))
                         {
-                                log_msg(LOG_LEVEL_ERROR, "Failed to parse resolution\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse resolution\n");
                                 return nullptr;
                         }
                 }
@@ -184,20 +186,20 @@ static void display_unix_sock_run(void *state)
                 if(!ipc_frame_from_ug_frame(s->ipc_frame.get(), frame.get(),
                                         RGB, scale))
                 {
-                        log_msg(LOG_LEVEL_WARNING, "Unable to convert\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to convert\n");
                         continue;
                 }
 
                 errno = 0;
                 if(!ipc_frame_writer_write(s->frame_writer.get(), s->ipc_frame.get())){
-                        perror("Unable to send frame");
+                        perror(MOD_NAME "Unable to send frame");
                         exit(1);
                 }
                 frames_sent++;
 
                 if(clk::now() > next_report){
                         float seconds = std::chrono::duration_cast<std::chrono::seconds>(report_period).count();
-                        log_msg(LOG_LEVEL_NOTICE, "%d frames in %f seconds (%f fps)\n", frames_sent, seconds, (float) frames_sent / seconds); 
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "%d frames in %f seconds (%f fps)\n", frames_sent, seconds, (float) frames_sent / seconds); 
                         frames_sent = 0;
                         next_report = clk::now() + report_period;
                 }
@@ -229,7 +231,7 @@ static int display_unix_sock_putf(void *state, struct video_frame *frame, int fl
         std::unique_lock<std::mutex> lg(s->lock);
         if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN){
                 if(flags == PUTF_NONBLOCK){
-                        log_msg(LOG_LEVEL_WARNING, "Unix sock disp: queue full!\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "queue full!\n");
                         return 1;
                 }
                 if(s->ignore_putf_blocking){
