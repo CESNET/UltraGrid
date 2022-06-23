@@ -122,7 +122,7 @@ static void *display_unix_sock_init(struct module *parent,
 
                 if(key == "help"){
                         show_help();
-                        return nullptr;
+                        return &display_init_noerr;
                 } else if(key == "path"){
                         socket_path = tokenize(tok, '=');
                 } else if(key == "target_size"){
@@ -140,7 +140,7 @@ static void *display_unix_sock_init(struct module *parent,
         s->ipc_frame.reset(ipc_frame_new());
         s->frame_writer.reset(ipc_frame_writer_new(socket_path.c_str()));
         if(!s->frame_writer){
-                exit(EXIT_FAILURE);
+                return nullptr;
         }
 
         return s.release();
@@ -193,7 +193,7 @@ static void display_unix_sock_run(void *state)
                 errno = 0;
                 if(!ipc_frame_writer_write(s->frame_writer.get(), s->ipc_frame.get())){
                         perror(MOD_NAME "Unable to send frame");
-                        exit(1);
+                        continue;
                 }
                 frames_sent++;
 
