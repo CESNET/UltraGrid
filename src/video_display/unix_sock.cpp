@@ -51,17 +51,26 @@
 #include <queue>
 #include <cmath>
 #include <chrono>
+#include <iostream>
 
 #include "video.h"
 #include "video_display.h"
 #include "video_codec.h"
 #include "utils/misc.h"
+#include "utils/macros.h"
+#include "utils/color_out.h"
 #include "utils/sv_parse_num.hpp"
 #include "tools/ipc_frame.h"
 #include "tools/ipc_frame_ug.h"
 #include "tools/ipc_frame_unix.h"
 
 #define MOD_NAME "[unix sock disp] "
+
+#define DEFAULT_PREVIEW_FILENAME "ug_preview_disp_unix"
+#define DEFAULT_DISP_FILENAME "ug_unix"
+
+#define DEFAULT_SCALE_W 960
+#define DEFAULT_SCALE_H 540
 
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
@@ -92,7 +101,16 @@ struct state_unix_sock {
 };
 
 static void show_help(){
-        printf("unix socket display\n");
+        std::cout << "unix_socket/preview display. The two display are identical apart from their defaults and the fact that preview never blocks on putf().\n";
+        std::cout << "usage:\n";
+        std::cout << rang::style::bold << rang::fg::red << "\t-d (unix_socket|preview)" << rang::fg::reset << "[:path=<path>][:target_size=<w>x<h>]"
+                << "\n\n" << rang::style::reset;
+        std::cout << "options:\n";
+        std::cout << BOLD("\tpath=<path>")           << "\tpath to unix socket to connect to. Defaults are \""
+                << PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME "\" for preview and \""
+                << PLATFORM_TMP_DIR DEFAULT_DISP_FILENAME "\" for unix_sock\n";
+        std::cout << BOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
+                << "Defaults are -1x-1 for unix_sock and " TOSTRING(DEFAULT_SCALE_W) "x" TOSTRING(DEFAULT_SCALE_H) " for preview.\n";
 }
 
 static void *display_unix_sock_init(struct module *parent,
@@ -107,12 +125,12 @@ static void *display_unix_sock_init(struct module *parent,
 
         std::string_view fmt_sv = fmt ? fmt : "";
 
-        std::string socket_path = PLATFORM_TMP_DIR "ug_unix";
+        std::string socket_path = PLATFORM_TMP_DIR DEFAULT_DISP_FILENAME;
 
         if(is_preview){
-                socket_path = PLATFORM_TMP_DIR "ug_preview_disp_unix";
-                s->target_width = 960;
-                s->target_height = 540;
+                socket_path = PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME;
+                s->target_width = DEFAULT_SCALE_W;
+                s->target_height = DEFAULT_SCALE_H;
                 s->ignore_putf_blocking = true;
         }
 
