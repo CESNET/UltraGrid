@@ -53,12 +53,20 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
+#include "utils/macros.h"
 #include "utils/sv_parse_num.hpp"
 #include "video.h"
 #include "video_codec.h"
 #include "tools/ipc_frame.h"
 #include "tools/ipc_frame_unix.h"
 #include "tools/ipc_frame_ug.h"
+
+#define MOD_NAME "[capture filter preview] "
+
+#define DEFAULT_PREVIEW_FILENAME "ug_preview_cap_unix"
+
+#define DEFAULT_SCALE_W 960
+#define DEFAULT_SCALE_H 540
 
 struct module;
 
@@ -73,8 +81,8 @@ struct state_preview_filter{
         std::vector<Ipc_frame_uniq> free_frames;
         std::queue<Ipc_frame_uniq> frame_queue;
 
-        int target_width = 960;
-        int target_height = 540;
+        int target_width = DEFAULT_SCALE_W;
+        int target_height = DEFAULT_SCALE_H;
 
         std::thread worker_thread;
 };
@@ -112,6 +120,17 @@ static void worker(struct state_preview_filter *s, std::string path){
         }
 }
 
+static void show_help(){
+        std::cout << "preview capture filter\n";
+        std::cout << "usage:\n";
+        std::cout << rang::style::bold << rang::fg::red << "\t--capture-filter preview" << rang::fg::reset << "[:path=<path>][:target_size=<w>x<h>]"
+                << "\n\n" << rang::style::reset;
+        std::cout << "options:\n";
+        std::cout << BOLD("\tpath=<path>")           << "\tpath to unix socket to connect to. Default is \""
+                << PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME "\"\n";
+        std::cout << BOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
+                << " Defaults are " TOSTRING(DEFAULT_SCALE_W) "x" TOSTRING(DEFAULT_SCALE_H) ".\n";
+}
 
 static int init(struct module *parent, const char *cfg, void **state){
         UNUSED(parent);
@@ -120,7 +139,7 @@ static int init(struct module *parent, const char *cfg, void **state){
         s->free_frames.emplace_back(ipc_frame_new());
         s->free_frames.emplace_back(ipc_frame_new());
 
-        std::string socket_path = PLATFORM_TMP_DIR "ug_preview_cap_unix";
+        std::string socket_path = PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME;
 
         std::string_view cfg_sv = cfg ? cfg : "";
         while(!cfg_sv.empty()){
@@ -129,7 +148,7 @@ static int init(struct module *parent, const char *cfg, void **state){
                 auto val = tokenize(tok, '=');
 
                 if(key == "help"){
-                        std::cout << RED(BOLD("preview")) << " capture filter serves as a proxy for passing frames to GUI\n";
+                        show_help();
                         return 1;
                 } else if(key == "path"){
                         socket_path = val;
@@ -188,7 +207,7 @@ static struct video_frame *filter(void *state, struct video_frame *in){
                 s->frame_queue.push(std::move(ipc_frame));
                 s->frame_submitted_cv.notify_one();
         } else {
-                log_msg(LOG_LEVEL_WARNING, "Unable to convert\n");
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to convert\n");
         }
 
         return in;
