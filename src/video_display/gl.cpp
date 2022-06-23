@@ -404,9 +404,16 @@ struct state_gl {
                 module_init_default(&mod);
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
+
+                if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
+                        LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
+                        throw false;
+                }
         }
 
         ~state_gl() {
+                ref_count_terminate_last()(glfwTerminate, glfw_init_count);
+
                 module_done(&mod);
         }
 
@@ -1363,14 +1370,11 @@ static bool display_gl_init_opengl(struct state_gl *s)
 {
         glfwSetErrorCallback(glfw_print_error);
 
-        if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
-                LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
-                return false;
-        }
-
-        s->monitor = glfwGetPrimaryMonitor();
         if (s->monitor == nullptr) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "No monitor found! Continuing but full-screen will be disabled.\n";
+                s->monitor = glfwGetPrimaryMonitor();
+                if (s->monitor == nullptr) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "No monitor found! Continuing but full-screen will be disabled.\n";
+                }
         }
 
         if (commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end()) {
@@ -1484,8 +1488,6 @@ static void display_gl_cleanup_opengl(struct state_gl *s){
                 spout_sender_unregister(s->syphon_spout);
 #endif
         }
-
-        ref_count_terminate_last()(glfwTerminate, glfw_init_count);
 }
 
 static void display_gl_run(void *arg)
