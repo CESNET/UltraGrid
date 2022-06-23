@@ -83,6 +83,8 @@ struct state_unix_sock {
         int target_width = -1;
         int target_height = -1;
 
+        bool ignore_putf_blocking = false;
+
         struct module *parent;
 };
 
@@ -108,6 +110,7 @@ static void *display_unix_sock_init(struct module *parent,
                 socket_path = PLATFORM_TMP_DIR "ug_preview_disp_unix";
                 s->target_width = 960;
                 s->target_height = 540;
+                s->ignore_putf_blocking = true;
         }
 
         while(!fmt_sv.empty()){
@@ -211,8 +214,13 @@ static int display_unix_sock_putf(void *state, struct video_frame *frame, int fl
 
         std::unique_lock<std::mutex> lg(s->lock);
         if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN){
-                log_msg(LOG_LEVEL_WARNING, "Named pipe: queue full!\n");
-                return 1;
+                if(flags == PUTF_NONBLOCK){
+                        log_msg(LOG_LEVEL_WARNING, "Unix sock disp: queue full!\n");
+                        return 1;
+                }
+                if(s->ignore_putf_blocking){
+                        return 1;
+                }
         }
 
         s->frame_consumed_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
