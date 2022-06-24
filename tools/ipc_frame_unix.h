@@ -3,6 +3,12 @@
 
 #include "ipc_frame.h"
 
+#ifdef _WIN32
+#define PLATFORM_TMP_DIR "C:/temp/"
+#else
+#define PLATFORM_TMP_DIR "/tmp/"
+#endif
+
 struct Ipc_frame_reader;
 
 Ipc_frame_reader *ipc_frame_reader_new(const char *path);
