@@ -72,7 +72,6 @@
 #include "v4l2_common.h"
 
 /* prototypes of functions defined in this module */
-static void show_help(void);
 static void print_fps(int fd, struct v4l2_frmivalenum *param);
 
 struct vidcap_v4l2_state {
@@ -197,12 +196,12 @@ static void write_fcc(char *out, int pixelformat){
         }
 }
 
-static void show_help()
+static void show_help(_Bool full)
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
         color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t-t v4l2[:device=<dev>]");
-        color_out(COLOR_OUT_BOLD, "[:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:convert=<conv>][:permissive] | -t v4l2:help\n");
+        color_out(COLOR_OUT_BOLD, "[:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:convert=<conv>][:permissive] | -t v4l2:[short]help\n");
         printf("where\n");
         color_out(COLOR_OUT_BOLD, "<dev> -"); printf("\tuse device to grab from (default: first usable)\n");
         color_out(COLOR_OUT_BOLD, "\t<tpf>"); printf(" - time per frame in format <numerator>/<denominator>\n");
@@ -250,7 +249,7 @@ static void show_help()
 
                 printf("\t%sDevice ", (i == 0 ? "(*) " : "    "));
                 color_out(COLOR_OUT_BOLD,"%s ", name);
-                printf("%s, %s):\n", capab.card, capab.bus_info);
+                printf("%s, %s)%s\n", capab.card, capab.bus_info, full ? ":" : "");
 
 
                 struct v4l2_fmtdesc format;
@@ -266,7 +265,7 @@ static void show_help()
                         goto next_device;
                 }
 
-                while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
+                while (full && ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
                         printf("\t\t");
                         if(fmt.fmt.pix.pixelformat == format.pixelformat) {
                                 printf("(*) ");
@@ -506,7 +505,6 @@ static _Bool v4l2_cap_verify_params(_Bool permissive, const struct v4l2_format *
 
 static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 {
-        struct vidcap_v4l2_state *s;
         const char *dev_name = NULL;
         uint32_t pixelformat = 0;
         uint32_t width = 0,
@@ -521,13 +519,13 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
         }
 
-        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-               show_help(); 
+        const char *cfg = vidcap_params_get_fmt(params);
+        if (cfg && strstr(cfg, "help") != NULL) {
+               show_help(strcmp(cfg, "shorthelp") != 0);
                return VIDCAP_INIT_NOERR;
         }
 
-
-        s = (struct vidcap_v4l2_state *) calloc(1, sizeof(struct vidcap_v4l2_state));
+        struct vidcap_v4l2_state *s = calloc(1, sizeof(struct vidcap_v4l2_state));
         if(s == NULL) {
                 printf("Unable to allocate v4l2 capture state\n");
                 return VIDCAP_INIT_FAIL;
