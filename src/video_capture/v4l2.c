@@ -474,7 +474,7 @@ static codec_t get_v4l2_to_ug(uint32_t fcc) {
         return VIDEO_CODEC_NONE;
 }
 
-static _Bool v4l2_cap_verify_fmt(const struct v4l2_format *req_format, const struct v4l2_format *actual_format)
+static _Bool v4l2_cap_verify_params(const struct v4l2_format *req_format, const struct v4l2_format *actual_format, struct v4l2_streamparm *req_stream_params, struct v4l2_streamparm *actual_stream_params)
 {
         if (req_format->fmt.pix.pixelformat != actual_format->fmt.pix.pixelformat) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set requested format \"%.4s\", got \"%.4s\".\n",
@@ -487,6 +487,12 @@ static _Bool v4l2_cap_verify_fmt(const struct v4l2_format *req_format, const str
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set requested size %" PRIu32 "x%" PRIu32 ", got %" PRIu32 "x%" PRIu32 ".\n",
                                 req_format->fmt.pix.width, req_format->fmt.pix.height,
                                 actual_format->fmt.pix.width, actual_format->fmt.pix.height);
+                return 0;
+        }
+
+        if (req_stream_params->parm.capture.timeperframe.numerator != actual_stream_params->parm.capture.timeperframe.numerator ||
+                        req_stream_params->parm.capture.timeperframe.denominator != actual_stream_params->parm.capture.timeperframe.denominator) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set requested TPF %" PRIu32 "/%" PRIu32 ", got %" PRIu32 "/%" PRIu32 ".\n", req_stream_params->parm.capture.timeperframe.numerator, req_stream_params->parm.capture.timeperframe.denominator, actual_stream_params->parm.capture.timeperframe.numerator, actual_stream_params->parm.capture.timeperframe.denominator);
                 return 0;
         }
 
@@ -620,9 +626,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 goto error;
         }
 
-        struct v4l2_streamparm stream_params;
-        memset(&stream_params, 0, sizeof(stream_params));
-        stream_params.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        struct v4l2_streamparm stream_params = { .type = V4L2_BUF_TYPE_VIDEO_CAPTURE };
         if (ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get stream params");
                 goto error;
@@ -645,18 +649,17 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set video format");
                 goto error;
         }
-        if (!v4l2_cap_verify_fmt(&req_fmt, &fmt)) {
-                goto error;
-        }
-
-        if(numerator != 0 && denominator != 0) {
+        if (numerator != 0 && denominator != 0) {
                 stream_params.parm.capture.timeperframe.numerator = numerator;
                 stream_params.parm.capture.timeperframe.denominator = denominator;
-
-                if(ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
-                        log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set stream params");
-                        goto error;
-                }
+        }
+        struct v4l2_streamparm req_stream_params = stream_params;
+        if (numerator != 0 && denominator != 0 && ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
+                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set stream params");
+                goto error;
+        }
+        if (!v4l2_cap_verify_params(&req_fmt, &fmt, &req_stream_params, &stream_params)) {
+                goto error;
         }
 
         assert(fmt.type == V4L2_BUF_TYPE_VIDEO_CAPTURE);
