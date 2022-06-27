@@ -5,13 +5,17 @@ next
 * added support for RPI4 hw. acceleration
 * added holepunching support for where both hosts are behind NAT
 * added experimental echo canceller support
+* added unix_sock display for passing video frames to other processes via unix sockets
+* added audio filter 'delay' for delaying audio on sender
+* added audio filter 'playback' for monitoring audio on sender
 * testcard (audio) - file playback now respects bps from --audio-capture-format
 * converting sound samples to a lower bit depth now uses dithering
 * transcoding reflector - ports with same the compression now reuse compressed
   frames instead of doing the same work
 * conference mode now automatically sends back video to all participants
-* audio filter 'delay' for delaying audio on sender
 * improve H.265 recovery from packet drops (enabled constrained-intra)
+* GUI: preview now uses unix sockets instead of shared memory
+* GUI: don't show crash dialog if UltraGrid crashed when exiting
 
 1.7
 ====
