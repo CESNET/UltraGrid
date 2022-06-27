@@ -49,6 +49,7 @@
 #include <libv4lconvert.h>
 #endif
 
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,7 +85,8 @@ struct vidcap_v4l2_state {
 #ifdef HAVE_LIBV4LCONVERT
         struct v4lconvert_data *convert;
 #endif
-        struct v4l2_format src_fmt, dst_fmt;
+        struct v4l2_format src_fmt; ///< captured format
+        struct v4l2_format dst_fmt; ///< converted format if v4lconvert is used
 
         struct timeval t0;
         int frames;
@@ -472,6 +474,25 @@ static codec_t get_v4l2_to_ug(uint32_t fcc) {
         return VIDEO_CODEC_NONE;
 }
 
+static _Bool v4l2_cap_verify_fmt(const struct v4l2_format *req_format, const struct v4l2_format *actual_format)
+{
+        if (req_format->fmt.pix.pixelformat != actual_format->fmt.pix.pixelformat) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set requested format \"%.4s\", got \"%.4s\".\n",
+                                (const char *) &req_format->fmt.pix.pixelformat, (const char *) &actual_format->fmt.pix.pixelformat);
+                return 0;
+        }
+
+        if (req_format->fmt.pix.width != actual_format->fmt.pix.width ||
+                        req_format->fmt.pix.height != actual_format->fmt.pix.height) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set requested size %" PRIu32 "x%" PRIu32 ", got %" PRIu32 "x%" PRIu32 ".\n",
+                                req_format->fmt.pix.width, req_format->fmt.pix.height,
+                                actual_format->fmt.pix.width, actual_format->fmt.pix.height);
+                return 0;
+        }
+
+        return 1;
+}
+
 static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 {
         struct vidcap_v4l2_state *s;
@@ -593,9 +614,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 goto error;
         }
 
-        struct v4l2_format fmt;
-        memset(&fmt, 0, sizeof(fmt));
-        fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        struct v4l2_format fmt = { .type = V4L2_BUF_TYPE_VIDEO_CAPTURE };
         if (ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get video format");
                 goto error;
@@ -621,14 +640,14 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         fmt.fmt.pix.field = V4L2_FIELD_ANY;
         fmt.fmt.pix.bytesperline = 0;
 
+        struct v4l2_format req_fmt = fmt;
         if (ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set video format");
                 goto error;
         }
-        char fourcc[5];
-        memcpy(fourcc, &fmt.fmt.pix.pixelformat, sizeof(uint32_t));
-        fourcc[4] = '\0';
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Capturing %dx%d %s from %s\n", fmt.fmt.pix.width, fmt.fmt.pix.height, fourcc, dev_name);
+        if (!v4l2_cap_verify_fmt(&req_fmt, &fmt)) {
+                goto error;
+        }
 
         if(numerator != 0 && denominator != 0) {
                 stream_params.parm.capture.timeperframe.numerator = numerator;
@@ -645,11 +664,6 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         memcpy(&s->dst_fmt, &fmt, sizeof(fmt));
         s->dst_fmt.fmt.pix.bytesperline = 0;
         s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_DEFAULT;
-
-        if(ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
-                log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get video format");
-                goto error;
-        }
 
         if(ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get stream params");
@@ -728,7 +742,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
 
         free(tmp);
 
-        printf("Enable video input: %dx%d %f fps %s, codec %s\n", s->desc.width, s->desc.height, s->desc.fps, get_interlacing_description(s->desc.interlacing), get_codec_name(s->desc.color_spec));
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Capturing %dx%d @%.2f %s, codec %s\n", s->desc.width, s->desc.height, s->desc.fps, get_interlacing_description(s->desc.interlacing), get_codec_name(s->desc.color_spec));
 
         *state = s;
         return VIDCAP_INIT_OK;
