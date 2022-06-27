@@ -26,3 +26,9 @@ uyvy2yuv422p
 
 Simple conversion from UYVY to planar YUV 4:2:2 (i420) utilized eg. by FFmpeg.
 
+ipc\_frame*
+------------
+
+Structures and functions to hold and parse video frames when transferring
+between ultragrid and some other process through the unix\_socket display for
+example.
