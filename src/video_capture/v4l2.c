@@ -201,17 +201,19 @@ static void show_help()
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
-        printf("\t-t v4l2[:device=<dev>][:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:convert=<conv>]\n");
-        printf("\t\tuse device <dev> for grab (default: first usable)\n");
-        printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
-        printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
-        printf("\t\t<tpf> or <fps> should be given as a single integer or a fraction\n");
-        printf("\t\t<conv> - SW conversion, eg. to RGB (useful eg. to convert captured MJPG from USB 2.0 webcam to uncompressed),\n"
-               "\t\t         codecs available to convert to:");
+        color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t-t v4l2[:device=<dev>]");
+        color_out(COLOR_OUT_BOLD, "[:codec=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>|:fps=<fps>][:buffers=<bufcnt>][:convert=<conv>][:permissive] | -t v4l2:help\n");
+        printf("where\n");
+        color_out(COLOR_OUT_BOLD, "<dev> -"); printf("\tuse device to grab from (default: first usable)\n");
+        color_out(COLOR_OUT_BOLD, "\t<tpf>"); printf(" - time per frame in format <numerator>/<denominator>\n");
+        color_out(COLOR_OUT_BOLD, "\t<bufcnt>"); printf(" - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
+        color_out(COLOR_OUT_BOLD, "\t<tpf>"); printf(" or "); color_out(COLOR_OUT_BOLD, "<fps>"); printf(" should be given as a single integer or a fraction\n");
+        color_out(COLOR_OUT_BOLD, "\t<conv>"); printf(" - SW conversion, eg. to RGB (useful eg. to convert captured MJPG from USB 2.0 webcam to uncompressed),\n"
+               "\t         codecs available to convert to:");
 #ifdef HAVE_LIBV4LCONVERT
         for (unsigned int i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; ++i) {
                 if (v4lconvert_supported_dst_format(v4l2_ug_map[i].v4l2_fcc)) {
-                        printf(" %s", get_codec_name(v4l2_ug_map[i].ug_codec));
+                        color_out(COLOR_OUT_BOLD, " %s", get_codec_name(v4l2_ug_map[i].ug_codec));
                 }
         }
 #else
@@ -221,6 +223,7 @@ static void show_help()
         printf("\t\tpermissive - do not fail if configuration values (size, FPS) are adjusted by driver and not set exactly\n");
         printf("\n");
 
+        printf("Available devices:\n");
         for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
                 char name[32];
 
@@ -245,9 +248,9 @@ static void show_help()
                         goto next_device;
                 }
 
-                printf("\t%sDevice %s (%s, %s):\n",
-                                (i == 0 ? "(*) " : "    "),
-                                name, capab.card, capab.bus_info);
+                printf("\t%sDevice ", (i == 0 ? "(*) " : "    "));
+                color_out(COLOR_OUT_BOLD,"%s ", name);
+                printf("%s, %s):\n", capab.card, capab.bus_info);
 
 
                 struct v4l2_fmtdesc format;
@@ -270,10 +273,9 @@ static void show_help()
                         } else {
                                 printf("    ");
                         }
-                        char codec[5];
-                        write_fcc(codec, format.pixelformat);
-                        printf("Pixel format %4s (%s). Available frame sizes:\n",
-                                        codec, format.description);
+                        printf("Pixel format ");
+                        color_out(COLOR_OUT_BOLD, "%4.4s", (const char *) &format.pixelformat);
+                        printf(" (%s). Available frame sizes:\n", format.description);
 
                         struct v4l2_frmsizeenum size;
                         memset(&size, 0, sizeof(size));
