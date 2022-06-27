@@ -81,7 +81,7 @@ struct vidcap_v4l2_state {
         int fd;
         struct v4l2_buffer_data buffers[MAX_BUF_COUNT];
 
-        bool conversion_needed;
+        _Bool permissive; ///< do not fail if parameters (size, FPS...) not set exactly
 #ifdef HAVE_LIBV4LCONVERT
         struct v4lconvert_data *convert;
 #endif
@@ -217,7 +217,9 @@ static void show_help()
 #else
         color_out(COLOR_OUT_RED, " v4lconvert support not compiled in!");
 #endif
-        printf("\n\n");
+        printf("\n");
+        printf("\t\tpermissive - do not fail if configuration values (size, FPS) are adjusted by driver and not set exactly\n");
+        printf("\n");
 
         for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
                 char name[32];
@@ -474,17 +476,18 @@ static codec_t get_v4l2_to_ug(uint32_t fcc) {
         return VIDEO_CODEC_NONE;
 }
 
-static _Bool v4l2_cap_verify_params(const struct v4l2_format *req_format, const struct v4l2_format *actual_format, struct v4l2_streamparm *req_stream_params, struct v4l2_streamparm *actual_stream_params)
+static _Bool v4l2_cap_verify_params(_Bool permissive, const struct v4l2_format *req_format, const struct v4l2_format *actual_format, struct v4l2_streamparm *req_stream_params, struct v4l2_streamparm *actual_stream_params)
 {
+        int level = permissive ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR;
         if (req_format->fmt.pix.pixelformat != actual_format->fmt.pix.pixelformat) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set requested format \"%.4s\", got \"%.4s\".\n",
+                log_msg(level, MOD_NAME "Unable to set requested format \"%.4s\", got \"%.4s\".\n",
                                 (const char *) &req_format->fmt.pix.pixelformat, (const char *) &actual_format->fmt.pix.pixelformat);
                 return 0;
         }
 
         if (req_format->fmt.pix.width != actual_format->fmt.pix.width ||
                         req_format->fmt.pix.height != actual_format->fmt.pix.height) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set requested size %" PRIu32 "x%" PRIu32 ", got %" PRIu32 "x%" PRIu32 ".\n",
+                log_msg(level, MOD_NAME "Unable to set requested size %" PRIu32 "x%" PRIu32 ", got %" PRIu32 "x%" PRIu32 ".\n",
                                 req_format->fmt.pix.width, req_format->fmt.pix.height,
                                 actual_format->fmt.pix.width, actual_format->fmt.pix.height);
                 return 0;
@@ -492,7 +495,7 @@ static _Bool v4l2_cap_verify_params(const struct v4l2_format *req_format, const 
 
         if (req_stream_params->parm.capture.timeperframe.numerator != actual_stream_params->parm.capture.timeperframe.numerator ||
                         req_stream_params->parm.capture.timeperframe.denominator != actual_stream_params->parm.capture.timeperframe.denominator) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set requested TPF %" PRIu32 "/%" PRIu32 ", got %" PRIu32 "/%" PRIu32 ".\n", req_stream_params->parm.capture.timeperframe.numerator, req_stream_params->parm.capture.timeperframe.denominator, actual_stream_params->parm.capture.timeperframe.numerator, actual_stream_params->parm.capture.timeperframe.denominator);
+                log_msg(level, MOD_NAME "Unable to set requested TPF %" PRIu32 "/%" PRIu32 ", got %" PRIu32 "/%" PRIu32 ".\n", req_stream_params->parm.capture.timeperframe.numerator, req_stream_params->parm.capture.timeperframe.denominator, actual_stream_params->parm.capture.timeperframe.numerator, actual_stream_params->parm.capture.timeperframe.denominator);
                 return 0;
         }
 
@@ -593,6 +596,8 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "v4lconvert support not compiled in!");
                                 goto error;
 #endif
+                        } else if (strstr(item, "permissive") == item) {
+                                s->permissive = 1;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Invalid configuration argument: %s\n",
                                                 item);
@@ -658,7 +663,7 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set stream params");
                 goto error;
         }
-        if (!v4l2_cap_verify_params(&req_fmt, &fmt, &req_stream_params, &stream_params)) {
+        if (!v4l2_cap_verify_params(s->permissive, &req_fmt, &fmt, &req_stream_params, &stream_params) && !s->permissive) {
                 goto error;
         }
 
