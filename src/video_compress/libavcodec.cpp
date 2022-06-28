@@ -237,7 +237,7 @@ struct state_video_compress_libav {
 
         AVFrame            *in_frame = nullptr;
         // for every core - parts of the above
-        AVFrame           **in_frame_part = nullptr;
+        vector<AVFrame *>   in_frame_part;
         AVCodecContext     *codec_ctx = nullptr;
 
         unsigned char      *decoded = nullptr; ///< intermediate representation for codecs
@@ -601,7 +601,7 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
                 return ret > 0 ? &compress_init_noerr : NULL;
         }
 
-        s->in_frame_part = static_cast<AVFrame **>(calloc(s->conv_thread_count, sizeof(AVFrame *)));
+        s->in_frame_part.resize(s->conv_thread_count);
         for(int i = 0; i < s->conv_thread_count; i++) {
                 s->in_frame_part[i] = av_frame_alloc();
         }
@@ -1611,10 +1611,9 @@ static void libavcodec_compress_done(struct module *mod)
 
         cleanup(s);
 
-        for(int i = 0; i < s->conv_thread_count; i++) {
-                av_free(s->in_frame_part[i]);
+        for (auto &f : s->in_frame_part) {
+                av_free(f);
         }
-        free(s->in_frame_part);
         delete s;
 }
 
