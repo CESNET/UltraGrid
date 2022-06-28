@@ -1032,9 +1032,9 @@ static void gl_render(struct state_gl *s, char *data)
         gl_check_error();
 }
 
-static void pop_frame(struct state_gl *s)
+/// @note lk will be unlocked!
+static void pop_frame(struct state_gl *s, unique_lock<mutex> &lk)
 {
-        unique_lock<mutex> lk(s->lock);
         s->frame_queue.pop();
         lk.unlock();
         s->frame_consumed_cv.notify_one();
@@ -1089,25 +1089,21 @@ static void gl_process_frames(struct state_gl *s)
                         return;
                 }
                 frame = s->frame_queue.front();
-
+                if (!frame) {
+                        pop_frame(s, lk);
+                        return;
+                }
+                if (s->paused) {
+                        vf_recycle(frame);
+                        s->free_frame_queue.push(frame);
+                        pop_frame(s, lk);
+                        return;
+                }
                 if (s->current_frame) {
                         vf_recycle(s->current_frame);
                         s->free_frame_queue.push(s->current_frame);
                 }
                 s->current_frame = frame;
-        }
-
-        if (!frame) {
-                pop_frame(s);
-                return;
-        }
-
-        if (s->paused) {
-                pop_frame(s);
-                unique_lock<mutex> lk(s->lock);
-                vf_recycle(frame);
-                s->free_frame_queue.push(frame);
-                return;
         }
 
         if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
@@ -1133,7 +1129,10 @@ static void gl_process_frames(struct state_gl *s)
                 glfwSwapBuffers(s->window);
         }
         log_msg(LOG_LEVEL_DEBUG, "Render buffer %dx%d\n", frame->tiles[0].width, frame->tiles[0].height);
-        pop_frame(s);
+        {
+                unique_lock<mutex> lk(s->lock);
+                pop_frame(s, lk);
+        }
 
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;
