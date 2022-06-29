@@ -68,6 +68,7 @@
 #include "perf.h"
 #include "tv.h"
 #include "utils/thread.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
@@ -398,7 +399,11 @@ int display_put_frame(struct display *d, struct video_frame *frame, int flags)
         time_ns_t t = get_time_in_ns();
         long long seconds_ns = t - d->t0;
         if (seconds_ns > 5 * NS_IN_SEC) {
-                log_msg(LOG_LEVEL_INFO, "[%s] %d frames in %g seconds = %g FPS\n", d->display_name, d->frames, (double) seconds_ns / NS_IN_SEC, (double) d->frames * NS_IN_SEC / seconds_ns);
+                if (log_level >= LOG_LEVEL_INFO) {
+                        color_out(COLOR_OUT_BOLD | COLOR_OUT_MAGENTA, "[%s]", d->display_name);
+                        color_out(0, " %d frames in %g seconds = ", d->frames, (double) seconds_ns / NS_IN_SEC);
+                        color_out(COLOR_OUT_BOLD, "%g FPS\n", (double) d->frames * NS_IN_SEC / seconds_ns);
+                }
                 d->frames = 0;
                 d->t0 = t;
         }
