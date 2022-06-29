@@ -129,44 +129,44 @@ int initialize_video_display(struct module *parent, const char *requested_displa
         const struct video_display_info *vdi = (const struct video_display_info *)
                         load_library(requested_display, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
-        if (vdi) {
-                struct display *d = calloc(1, sizeof(struct display));
-                d->magic = DISPLAY_MAGIC;
-                d->funcs = vdi;
-
-                module_init_default(&d->mod);
-                d->mod.cls = MODULE_CLASS_DISPLAY;
-                module_register(&d->mod, parent);
-
-                d->state  = d->funcs->init(&d->mod, fmt, flags);
-
-                if (d->state == NULL) {
-                        debug_msg("Unable to start display %s\n",
-                                        requested_display);
-                        module_done(&d->mod);
-                        free(d);
-                        return -1;
-                } else if (d->state == &display_init_noerr) {
-                        module_done(&d->mod);
-                        free(d);
-                        return 1;
-                }
-
-                if (postprocess) {
-                        d->postprocess = vo_postprocess_init(postprocess);
-                        if (!d->postprocess) {
-                                display_done(d);
-                                return 1;
-                        }
-                }
-
-                *out = d;
-                return 0;
+        if (!vdi) {
+                log_msg(LOG_LEVEL_ERROR, "WARNING: Selected '%s' display card "
+                                "was not found.\n", requested_display);
+                return -1;
         }
 
-        log_msg(LOG_LEVEL_ERROR, "WARNING: Selected '%s' display card "
-                        "was not found.\n", requested_display);
-        return -1;
+        struct display *d = calloc(1, sizeof(struct display));
+        d->magic = DISPLAY_MAGIC;
+        d->funcs = vdi;
+
+        module_init_default(&d->mod);
+        d->mod.cls = MODULE_CLASS_DISPLAY;
+        module_register(&d->mod, parent);
+
+        d->state  = d->funcs->init(&d->mod, fmt, flags);
+
+        if (d->state == NULL) {
+                debug_msg("Unable to start display %s\n",
+                                requested_display);
+                module_done(&d->mod);
+                free(d);
+                return -1;
+        } else if (d->state == &display_init_noerr) {
+                module_done(&d->mod);
+                free(d);
+                return 1;
+        }
+
+        if (postprocess) {
+                d->postprocess = vo_postprocess_init(postprocess);
+                if (!d->postprocess) {
+                        display_done(d);
+                        return 1;
+                }
+        }
+
+        *out = d;
+        return 0;
 }
 
 /**
