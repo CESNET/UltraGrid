@@ -73,6 +73,7 @@
 #include <iostream>
 #include <list>
 #include <sstream>
+#include <utility>
 
 #if defined HAVE_X || defined BUILD_LIBRARIES
 #include <dlfcn.h>
@@ -150,9 +151,9 @@ ADD_TO_PARAM("stderr-buf",
          "* stderr-buf={no|line|full}\n"
          "  Buffering for stderr\n");
 bool set_output_buffering() {
-        const unordered_map<const char *, FILE *> outs = {
-                { "stdout-buf", stdout },
-                { "stderr-buf", stderr }
+        const unordered_map<const char *, pair<FILE *, int>> outs = { // pair<output, default mode>
+                { "stdout-buf", pair{stdout, _IOLBF} },
+                { "stderr-buf", pair{stderr, _IONBF} }
         };
         for (auto outp : outs) {
                 if (get_commandline_param(outp.first)) {
@@ -165,15 +166,11 @@ bool set_output_buffering() {
                                 log_msg(LOG_LEVEL_ERROR, "Wrong buffer type: %s\n", get_commandline_param(outp.first));
                                 return false;
                         } else {
-                                setvbuf(outp.second, NULL, it->second, 0);
+                                setvbuf(outp.second.first, NULL, it->second, 0);
                         }
-                } else {
-#ifdef _WIN32
-                        if (rang::rang_implementation::isMsysPty(_fileno(outp.second))) {
-                                cout << rang::fg::cyan << "MSYS terminal detected, setting \"--param " << outp.first << "=no\" automatically." << rang::fg::reset << endl;
-                                setvbuf(outp.second, NULL, _IONBF, 0);
-                        }
-#endif
+                } else { // default
+                        //if (rang::rang_implementation::isMsysPty(_fileno(outp.second))) {
+                        setvbuf(outp.second.first, NULL, outp.second.second, 0);
                 }
         }
         return true;
