@@ -210,7 +210,7 @@ static int vidcap_testcard2_init(struct vidcap_params *params, void **state)
                         r.h = s->desc.height;
                         r.x = i;
                         r.y = 0;
-                        printf("Fill rect at %d,%d\n", r.x, r.y);
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
                         testcard_fillRect(&surface, &r,
                                         rect_colors[col_num]);
                         col_num = (col_num + 1) % COL_NUM;

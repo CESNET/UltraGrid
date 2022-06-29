@@ -180,7 +180,7 @@ class image_pattern_bars : public image_pattern {
                                 r.y = j;
                                 r.w = rect_size;
                                 r.h = min<int>(rect_size, height - r.y);
-                                printf("Fill rect at %d,%d\n", r.x, r.y);
+                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Fill rect at " << r.x << "," << r.y << "\n";
                                 if (j != rect_size * 2) {
                                         testcard_fillRect(&pixmap, &r,
                                                         rect_colors[col_num]);
