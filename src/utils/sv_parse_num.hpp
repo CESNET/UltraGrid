@@ -47,6 +47,7 @@
  * Clang - partial since 7
  */
 
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
