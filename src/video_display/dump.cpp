@@ -219,6 +219,7 @@ static const struct video_display_info display_dump_info = {
         display_dump_put_audio_frame,
         display_dump_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
+        false,
 };
 
 REGISTER_MODULE(dump, &display_dump_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

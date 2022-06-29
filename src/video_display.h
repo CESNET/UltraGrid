@@ -140,7 +140,7 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 13
+#define VIDEO_DISPLAY_ABI_VERSION 14
 
 typedef bool (*display_needs_mainloop_t)(void *);
 #define DISPLAY_DOESNT_NEED_MAINLOOP ((display_needs_mainloop_t) 0x00)
@@ -159,6 +159,7 @@ struct video_display_info {
         int                     (*reconfigure_audio) (void *state, int quant_samples, int channels, ///< may be NULL
                         int sample_rate);
         display_needs_mainloop_t needs_mainloop;
+        bool                    use_generic_fps_indicator;
 };
 
 /* 

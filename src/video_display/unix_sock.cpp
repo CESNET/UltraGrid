@@ -351,6 +351,7 @@ static const struct video_display_info display_unix_sock_info = {
         display_unix_sock_put_audio_frame,
         display_unix_sock_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
+        false,
 };
 
 static const struct video_display_info display_preview_info = {
@@ -371,6 +372,7 @@ static const struct video_display_info display_preview_info = {
         display_unix_sock_put_audio_frame,
         display_unix_sock_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
+        false,
 };
 
 REGISTER_HIDDEN_MODULE(unix_sock, &display_unix_sock_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

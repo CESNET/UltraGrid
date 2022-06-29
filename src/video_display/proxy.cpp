@@ -417,6 +417,7 @@ static const struct video_display_info display_proxy_info = {
         display_proxy_put_audio_frame,
         display_proxy_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
+        false,
 };
 
 REGISTER_HIDDEN_MODULE(proxy, &display_proxy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

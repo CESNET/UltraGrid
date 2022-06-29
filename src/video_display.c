@@ -66,6 +66,7 @@
 #include "lib_common.h"
 #include "module.h"
 #include "perf.h"
+#include "tv.h"
 #include "utils/thread.h"
 #include "video.h"
 #include "video_display.h"
@@ -77,6 +78,7 @@
 struct display {
         struct module mod;
         uint32_t magic;    ///< For debugging. Conatins @ref DISPLAY_MAGIC
+        char *display_name;
         const struct video_display_info *funcs;
         void *state;       ///< state of the created video capture driver
         pthread_t thread_id; ///< thread ID of the display thread (@see display_run_new_thread)
@@ -86,6 +88,9 @@ struct display {
         int pp_output_frames_count, display_pitch;
         struct video_desc saved_desc;
         enum video_mode saved_mode;
+
+        time_ns_t t0;
+        int frames;
 };
 
 /**This variable represents a pseudostate and may be returned when initialization
@@ -165,6 +170,9 @@ int initialize_video_display(struct module *parent, const char *requested_displa
                 }
         }
 
+        d->t0 = get_time_in_ns();
+        d->display_name = strdup(requested_display);
+
         *out = d;
         return 0;
 }
@@ -179,6 +187,7 @@ void display_done(struct display *d)
         d->funcs->done(d->state);
         module_done(&d->mod);
         vo_postprocess_done(d->postprocess);
+        free(d->display_name);
         free(d);
 }
 
@@ -379,9 +388,21 @@ int display_put_frame(struct display *d, struct video_frame *frame, int flags)
 			display_ret = d->funcs->putf(d->state, display_frame, flags);
 		}
                 return display_ret;
-        } else {
-                return d->funcs->putf(d->state, frame, flags);
         }
+        int ret = d->funcs->putf(d->state, frame, flags);
+        if (ret != 0 || !d->funcs->use_generic_fps_indicator) {
+                return ret;
+        }
+        // display FPS
+        d->frames++;
+        time_ns_t t = get_time_in_ns();
+        long long seconds_ns = t - d->t0;
+        if (seconds_ns > 5 * NS_IN_SEC) {
+                log_msg(LOG_LEVEL_INFO, "[%s] %d frames in %g seconds = %g FPS\n", d->display_name, d->frames, (double) seconds_ns / NS_IN_SEC, (double) d->frames * NS_IN_SEC / seconds_ns);
+                d->frames = 0;
+                d->t0 = t;
+        }
+        return ret;
 }
 
 /**

@@ -465,6 +465,7 @@ static const struct video_display_info display_ndi_info = {
 #else
         DISPLAY_DOESNT_NEED_MAINLOOP,
 #endif
+        false,
 };
 
 REGISTER_MODULE(ndi, &display_ndi_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

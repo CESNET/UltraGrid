@@ -154,6 +154,7 @@ static const struct video_display_info display_null_info = {
         display_null_put_audio_frame,
         display_null_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
+        false,
 };
 
 REGISTER_HIDDEN_MODULE(none, &display_null_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
