@@ -369,11 +369,8 @@ struct state_gl {
 
         double          aspect = 0.0;
         double          video_aspect = 0.0;
-        unsigned long int frames = 0;
 
         int             dxt_height = 0;
-
-        time_ns_t       t0 = get_time_in_ns();
 
         int             vsync = 1;
         bool            paused = false;
@@ -1132,17 +1129,6 @@ static void gl_process_frames(struct state_gl *s)
         {
                 unique_lock<mutex> lk(s->lock);
                 pop_frame(s, lk);
-        }
-
-        /* FPS Data, this is pretty ghetto though.... */
-        s->frames++;
-        time_ns_t diff_ns = get_time_in_ns() - s->t0;
-        if (diff_ns > 5 * NS_IN_SEC) {
-                double seconds = static_cast<double>(diff_ns) / NS_IN_SEC;
-                double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-                s->frames = 0;
-                s->t0 += diff_ns;
         }
 }
 
@@ -2109,7 +2095,7 @@ static const struct video_display_info display_gl_info = {
         display_gl_put_audio_frame,
         display_gl_reconfigure_audio,
         DISPLAY_NEEDS_MAINLOOP, // many GLFW functions must be called from main thread (notably glfwPollEvents())
-        false,
+        true,
 };
 
 REGISTER_MODULE(gl, &display_gl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
