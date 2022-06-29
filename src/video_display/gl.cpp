@@ -756,11 +756,11 @@ static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspe
                 GLFWmonitor *mon = s->monitor;
                 if (s->modeset) {
                         int refresh_rate = s->modeset == state_gl::MODESET ? round(fps) : static_cast<int>(s->modeset);
-                        glfwSetWindowMonitor(win, mon, 0, 0, height * aspect, height, refresh_rate);
+                        glfwSetWindowMonitor(win, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, height * aspect, height, refresh_rate);
                         glfw_print_video_mode(s);
                 } else {
                         const GLFWvidmode* mode = glfwGetVideoMode(mon);
-                        glfwSetWindowMonitor(win, mon, 0, 0, mode->width, mode->height, mode->refreshRate);
+                        glfwSetWindowMonitor(win, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, mode->width, mode->height, mode->refreshRate);
                 }
         } else {
                 glfwSetWindowSize(win, window_size_factor * height * aspect, window_size_factor * height);
@@ -1191,7 +1191,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                                         height = mode->height;
                                         refresh_rate = mode->refreshRate;
                                 }
-                                glfwSetWindowMonitor(s->window, mon, 0, 0, width, height, refresh_rate);
+                                glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, refresh_rate);
                                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Setting fullscreen: " << (s->fs ? "ON" : "OFF") << "\n";
                                 glfw_print_video_mode(s);
                                 break;
