@@ -334,7 +334,6 @@ struct state_decklink {
         struct audio_desc   aud_desc{};
 
         unsigned long int   frames            = 0;
-        unsigned long int   frames_last       = 0;
         bool                stereo            = false;
         bool                initialized_audio = false;
         bool                initialized_video = false;
@@ -625,20 +624,10 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int non
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(t1 - t0).count() * 1000.0 << " ms.\n";
 
         if (chrono::duration_cast<chrono::seconds>(t1 - s->t0).count() > 5) {
-                double seconds = chrono::duration_cast<chrono::duration<double>>(t1 - s->t0).count();
-                double fps = (s->frames - s->frames_last) / seconds;
-                if (log_level <= LOG_LEVEL_INFO) {
-                        log_msg(LOG_LEVEL_INFO, MOD_NAME "%lu frames in %g seconds = %g FPS\n",
-                                        s->frames - s->frames_last, seconds, fps);
-                } else {
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->frames - s->frames_last <<
-                                " frames in " << seconds << " seconds = " << fps << " FPS ("
-                                << s->state.at(0).delegate->frames_late << " late, "
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->state.at(0).delegate->frames_late << " frames late, "
                                 << s->state.at(0).delegate->frames_dropped << " dropped, "
-                                << s->state.at(0).delegate->frames_flushed << " flushed cumulative)\n";
-                }
+                                << s->state.at(0).delegate->frames_flushed << " flushed cumulative\n";
                 s->t0 = t1;
-                s->frames_last = s->frames;
         }
 
         return 0;
@@ -2022,7 +2011,7 @@ static const struct video_display_info display_decklink_info = {
         display_decklink_put_audio_frame,
         display_decklink_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        false,
+        true,
 };
 
 REGISTER_MODULE(decklink, &display_decklink_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
