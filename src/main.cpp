@@ -1162,6 +1162,7 @@ static int adjust_params(struct ug_options *opt) {
         if (!set_output_buffering()) {
                 LOG(LOG_LEVEL_WARNING) << "Cannot set console output buffering!\n";
         }
+        std::clog.rdbuf(std::cout.rdbuf()); // use stdout for logs by default
 
         // default values for different RXTX protocols
         if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
