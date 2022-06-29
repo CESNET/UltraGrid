@@ -50,8 +50,10 @@ using std::cout;
 
 void color_out(uint32_t modificators, const char *format, ...) {
         rang::style style = static_cast<rang::style>(modificators & 0xf);
-        unsigned int color_idx = (modificators >> 4u) & 0xf;
-        rang::fg color = color_idx == 0 ? rang::fg::reset : static_cast<rang::fg>(29 + color_idx);
+        unsigned int fg_color_idx = (modificators >> 4u) & ((1U<<COLOR_OUT_FG_SHIFT)-1);
+        rang::fg fg = fg_color_idx == 0 ? rang::fg::reset : static_cast<rang::fg>(29 + fg_color_idx);
+        unsigned int bg_color_idx = (modificators >> COLOR_OUT_BG_SHIFT) & ((1U<<COLOR_OUT_BG_SHIFT)-1);
+        rang::bg bg = bg_color_idx == 0 ? rang::bg::reset : static_cast<rang::bg>(39 + bg_color_idx);
 
         va_list ap;
         va_start(ap, format);
@@ -67,6 +69,6 @@ void color_out(uint32_t modificators, const char *format, ...) {
         }
         va_end(ap);
 
-        cout << style << color << buffer << rang::style::reset << rang::fg::reset << std::flush;
+        cout << style << bg << fg << buffer << rang::style::reset << rang::fg::reset << rang::bg::reset;
 }
 

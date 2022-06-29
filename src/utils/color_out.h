@@ -58,6 +58,8 @@
 #define COLOR_OUT_CONCEAL   9u
 #define COLOR_OUT_CROSSED  10u
 
+#define COLOR_OUT_FG_SHIFT 4u
+#define COLOR_BITS 7
 #define COLOR_OUT_BLACK   (1u<<4u)
 #define COLOR_OUT_RED     (2u<<4u)
 #define COLOR_OUT_GREEN   (3u<<4u)
@@ -66,6 +68,15 @@
 #define COLOR_OUT_MAGENTA (6u<<4u)
 #define COLOR_OUT_CYAN    (7u<<4u)
 #define COLOR_OUT_GRAY    (8u<<4u)
+#define COLOR_OUT_BRIGHT_BLACK (61u<<4u)
+#define COLOR_OUT_BRIGHT_RED     (62u<<4u)
+#define COLOR_OUT_BRIGHT_GREEN   (63u<<4u)
+#define COLOR_OUT_BRIGHT_YELLOW  (64u<<4u)
+#define COLOR_OUT_BRIGHT_BLUE    (65u<<4u)
+#define COLOR_OUT_BRIGHT_MAGENTA (66u<<4u)
+#define COLOR_OUT_BRIGHT_CYAN    (67u<<4u)
+#define COLOR_OUT_BRIGHT_GRAY    (68u<<4u)
+#define COLOR_OUT_BG_SHIFT (COLOR_OUT_FG_SHIFT+COLOR_BITS)
 
 #ifdef __cplusplus
 extern "C"
