@@ -67,7 +67,14 @@ struct from_chars_available<T,
 template<typename T>
 inline constexpr bool from_chars_available_v = from_chars_available<T>::value;
 
-template<typename T, std::enable_if_t<from_chars_available_v<T>, bool> = true>
+template<typename T, std::enable_if_t<from_chars_available_v<T>, bool> = true,
+        std::enable_if_t<!std::is_floating_point_v<T>, bool> = true>
+bool parse_num(std::string_view sv, T& res, int base = 10){
+        return !sv.empty() && std::from_chars(sv.begin(), sv.end(), res, base).ec == std::errc();
+}
+
+template<typename T, std::enable_if_t<from_chars_available_v<T>, bool> = true,
+        std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
 bool parse_num(std::string_view sv, T& res){
         return !sv.empty() && std::from_chars(sv.begin(), sv.end(), res).ec == std::errc();
 }
@@ -80,7 +87,7 @@ inline constexpr bool from_chars_available_v = false;
 #endif // has_include(<charconv>)
 
 template<typename T, std::enable_if_t<!from_chars_available_v<T>, bool> = true>
-bool parse_num(std::string_view sv, T& res){
+bool parse_num(std::string_view sv, T& res, int base = 10){
         if(sv.empty())
                 return false;
 
@@ -93,7 +100,7 @@ bool parse_num(std::string_view sv, T& res){
         else if constexpr(std::is_same_v<T, float>)
                 num = strtof(tmp.data(), &endptr);
         else
-                num = strtol(tmp.data(), &endptr, 10);
+                num = strtol(tmp.data(), &endptr, base);
 
         if(tmp.data() == endptr)
                 return false;
