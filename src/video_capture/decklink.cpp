@@ -168,8 +168,6 @@ struct vidcap_decklink_state {
         BMDVideoInputConversionMode conversion_mode{};
         BMDDeckLinkCapturePassthroughMode passthrough{bmdDeckLinkCapturePassthroughModeDisabled};
 
-        struct timeval          t0;
-
         bool                    detect_format = false;
         unsigned int            requested_bit_depth = 0; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
         bool                    p_not_i = false;
@@ -1083,8 +1081,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 		return VIDCAP_INIT_FAIL;
 	}
 
-        gettimeofday(&s->t0, NULL);
-
 	// SET UP device and mode
         char *tmp_fmt = strdup(fmt);
         int ret = settings_init(s, tmp_fmt);
@@ -1698,16 +1694,6 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
         if (count == s->devices_cnt) {
                 s->frames++;
 
-                struct timeval t;
-                gettimeofday(&t, NULL);
-                double seconds = tv_diff(t, s->t0);
-                if (seconds >= 5) {
-                        float fps  = s->frames / seconds;
-                        log_msg(LOG_LEVEL_INFO, "[Decklink capture] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-                        s->t0 = t;
-                        s->frames = 0;
-                }
-
                 s->frame->timecode = s->state[0].delegate->timecode;
 
                 return s->frame;
@@ -1816,7 +1802,7 @@ static const struct video_capture_info vidcap_decklink_info = {
         vidcap_decklink_init,
         vidcap_decklink_done,
         vidcap_decklink_grab,
-        false
+        true,
 };
 
 REGISTER_MODULE(decklink, &vidcap_decklink_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
