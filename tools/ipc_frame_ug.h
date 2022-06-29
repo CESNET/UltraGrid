@@ -17,9 +17,9 @@ struct video_frame;
  * @param[in]  scale_factor   frame dimensions are divided by this amount. 0 for original size
  */
 bool ipc_frame_from_ug_frame(struct Ipc_frame *dst,
-		const struct video_frame *src,
-		codec_t codec,
-		unsigned scale_factor);
+                const struct video_frame *src,
+                codec_t codec,
+                unsigned scale_factor);
 
 bool ipc_frame_write_to_fd(const struct Ipc_frame *f, int fd);
 

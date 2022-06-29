@@ -28,12 +28,12 @@ bool ipc_frame_writer_write(struct Ipc_frame_writer *writer, const struct Ipc_fr
 #ifdef __cplusplus
 #include <memory>
 struct Ipc_frame_reader_deleter{
-	void operator()(Ipc_frame_reader *r){ ipc_frame_reader_free(r); }
+        void operator()(Ipc_frame_reader *r){ ipc_frame_reader_free(r); }
 };
 using Ipc_frame_reader_uniq = std::unique_ptr<Ipc_frame_reader, Ipc_frame_reader_deleter>;
 
 struct Ipc_frame_writer_deleter{
-	void operator()(Ipc_frame_writer *w){ ipc_frame_writer_free(w); }
+        void operator()(Ipc_frame_writer *w){ ipc_frame_writer_free(w); }
 };
 using Ipc_frame_writer_uniq = std::unique_ptr<Ipc_frame_writer, Ipc_frame_writer_deleter>;
 #endif //__cplusplus

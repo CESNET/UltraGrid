@@ -7,24 +7,24 @@
 #define IPC_FRAME_HEADER_LEN 128
 
 enum Ipc_frame_color_spec{
-	IPC_FRAME_COLOR_NONE = 0,
-	IPC_FRAME_COLOR_RGBA = 1,
-	IPC_FRAME_COLOR_UYVY = 2,
-	IPC_FRAME_COLOR_RGB = 11
+        IPC_FRAME_COLOR_NONE = 0,
+        IPC_FRAME_COLOR_RGBA = 1,
+        IPC_FRAME_COLOR_UYVY = 2,
+        IPC_FRAME_COLOR_RGB = 11
 };
 
 struct Ipc_frame_header{
-	int width;
-	int height;
-	int data_len;
-	enum Ipc_frame_color_spec color_spec;
+        int width;
+        int height;
+        int data_len;
+        enum Ipc_frame_color_spec color_spec;
 };
 
 struct Ipc_frame{
-	Ipc_frame_header header;
-	char *data;
+        Ipc_frame_header header;
+        char *data;
 
-	size_t alloc_size;
+        size_t alloc_size;
 };
 
 bool ipc_frame_parse_header(struct Ipc_frame_header *hdr, const char *buf);
