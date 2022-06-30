@@ -66,6 +66,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "rang.hpp"
+#include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/parallel_conv.h"
 #include "utils/worker.h"
@@ -99,6 +100,8 @@ static constexpr int DEFAULT_CQP = 21;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr int DEFAULT_SLICE_COUNT = 32;
 static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
+
+#define DEFAULT_RC_BUF_SIZE_FACTOR 2.5
 
 namespace {
 
@@ -1681,6 +1684,8 @@ static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_un
 
 ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
                  "  Use interlaced DCT for H.264\n");
+ADD_TO_PARAM("lavc-rc-buffer-size-factor", "* lavc-rc-buffer-size-factor=<val>\n"
+                 "  Multiplier how much can individual frame overshot average size (default: " TOSTRING(DEFAULT_RC_BUF_SIZE_FACTOR) ").\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         const char *tune = codec_ctx->codec->id == AV_CODEC_ID_H264 ? "zerolatency,fastdecode" : "zerolatency"; // x265 supports only single tune parameter
@@ -1693,7 +1698,11 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
         //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
         //codec_ctx->rc_buffer_aggressivity = 1.0;
-        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * 8; // "emulate" CBR. Note that less than 8 frame sizes causes encoder buffer overflows and artifacts in stream.
+        double lavc_rc_buffer_size_factor = DEFAULT_RC_BUF_SIZE_FACTOR;
+        if (const char *val = get_commandline_param("lavc-rc-buffer-size-factor")) {
+                lavc_rc_buffer_size_factor = stof(val);
+        }
+        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * lavc_rc_buffer_size_factor; // "emulate" CBR. Note that factor less than 8 used to cause encoder buffer overflows and artifacts in stream.
         codec_ctx->qcompress = codec_ctx->codec->id == AV_CODEC_ID_H265 ? 0.5F : 0.0F;
         //codec_ctx->qblur = 0.0f;
         //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
