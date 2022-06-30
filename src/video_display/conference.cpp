@@ -44,6 +44,7 @@
 #include "video.h"
 #include "video_display.h"
 #include "video_codec.h"
+#include "module.h"
 #include "utils/misc.h"
 #include "utils/sv_parse_num.hpp"
 
@@ -182,12 +183,15 @@ void Participant::to_cv_frame(){
 
 class Video_mixer{
 public:
-        enum class Layout{ Tiled, One_big };
+        enum class Layout{ Invalid, Tiled, One_big };
 
         Video_mixer(int width, int height, codec_t color_space, Layout l = Layout::Tiled);
 
         void process_frame(unique_frame&& f);
         void get_mixed(video_frame *result);
+
+        void set_layout(Layout new_layout) { layout = new_layout; recompute_layout(); }
+        void set_primary_ssrc (uint32_t ssrc) { primary_ssrc = ssrc; recompute_layout(); }
 
 private:
         void recompute_layout();
@@ -271,6 +275,9 @@ void Video_mixer::recompute_layout(){
                 break;
         case Layout::One_big:
                 one_big_layout();
+                break;
+        case Layout::Invalid:
+                assert("Invalid layout" && false);
                 break;
         }
 }
@@ -366,7 +373,12 @@ static constexpr std::chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 
 struct state_conference_common{
+        state_conference_common(struct module *parent) :
+                parent(parent),
+                mod(MODULE_CLASS_DATA, parent, this) {  }
+
         struct module *parent = nullptr;
+        module_raii mod;
 
         struct video_desc desc = {};
         Video_mixer::Layout layout = Video_mixer::Layout::Tiled;
@@ -425,8 +437,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
         std::string requested_display = "gl";
         std::string disp_conf;
 
-        s->common = std::make_shared<state_conference_common>();
-        s->common->parent = parent;
+        s->common = std::make_shared<state_conference_common>(parent);
 
         auto& desc = s->common->desc;
         desc.color_spec = UYVY;
@@ -489,6 +500,47 @@ static void display_conference_worker(std::shared_ptr<state_conference_common> s
         auto next_frame_time = clock::now() + std::chrono::hours(1); //workaround for gcc bug 58931
         auto last_frame_time = clock::time_point::min();
         for(;;){
+                struct message *msg;
+                while ((msg = check_message(s->mod.get()))) {
+                        auto msg_univ = reinterpret_cast<struct msg_universal *>(msg);
+                        std::string_view msg_text = msg_univ->text;
+                        auto key = tokenize(msg_text, '=');
+                        auto val = tokenize(msg_text, '=');
+
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Received message: %s\n", msg_univ->text);
+                        struct response *r;
+                        if (key == "layout") {
+                                Video_mixer::Layout new_layout = Video_mixer::Layout::Invalid;
+                                if(val == "tiled")
+                                        new_layout = Video_mixer::Layout::Tiled;
+                                else if(val == "one_big")
+                                        new_layout = Video_mixer::Layout::One_big;
+
+                                if(new_layout == Video_mixer::Layout::Invalid){
+                                        log_msg(LOG_LEVEL_ERROR, "Unknown layout %s\n", std::string(val).c_str());
+                                        r = new_response(RESPONSE_BAD_REQUEST, "Unknown layout!");
+                                } else {
+                                        log_msg(LOG_LEVEL_NOTICE, "Setting layout to %s\n", std::string(val).c_str());
+                                        mixer.set_layout(new_layout);
+                                        r = new_response(RESPONSE_OK, NULL);
+                                }
+
+                        } else if (key == "primary_ssrc"){
+                                uint32_t parsed_ssrc = 0;
+                                if(!parse_num(val, parsed_ssrc, 16)){
+                                        log_msg(LOG_LEVEL_ERROR, "Unable to parse ssrc!\n");
+                                        r = new_response(RESPONSE_BAD_REQUEST, "Unable to parse ssrc!");
+                                } else {
+                                        log_msg(LOG_LEVEL_NOTICE, "Setting primary ssrc to %x\n", parsed_ssrc);
+                                        mixer.set_primary_ssrc(parsed_ssrc);
+                                        r = new_response(RESPONSE_OK, NULL);
+                                }
+                        } else {
+                                r = new_response(RESPONSE_BAD_REQUEST, "Wrong message!");
+                        }
+                        free_message(msg, r);
+                }
+
                 unique_frame frame;
 
                 auto wait_p = [s]{ return !s->incoming_frames.empty(); };
