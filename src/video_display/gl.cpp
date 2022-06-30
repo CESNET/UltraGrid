@@ -1377,6 +1377,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         }
 
         set_mac_color_space();
+        glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
         glfwWindowHint(GLFW_DOUBLEBUFFER, s->vsync == SINGLE_BUF ? GLFW_FALSE : GLFW_TRUE);
         int width = splash_width;
         int height = splash_height;
