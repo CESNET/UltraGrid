@@ -690,6 +690,7 @@ bool validate_param(const char *param)
 static bool parse_params(char *optarg)
 {
         if (optarg != nullptr && strcmp(optarg, "help") == 0) {
+                puts("Use of params below is experimental and should be used with a caution and a knowledge of consequences and affected functionality!\n");
                 puts("Params can be one or more (separated by comma) of following:");
                 print_param_doc();
                 return false;
