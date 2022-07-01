@@ -613,9 +613,7 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         } else if(strcmp(argv[start_index], "--verbose") == 0) {
             parsed->verbose = true;
         } else if(strcmp(argv[start_index], "--param") == 0 && start_index < argc - 1) {
-            if (!parse_params(argv[++start_index])) {
-                return -1;
-            }
+            // already handled in common_preinit()
         } else {
             LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Unknown global parameter: " << argv[start_index] << "\n\n";
             usage(argv[0]);

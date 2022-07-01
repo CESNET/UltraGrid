@@ -124,6 +124,8 @@ struct init_data {
         list <void *> opened_libs;
 };
 
+static bool parse_params(char *optarg);
+
 void common_cleanup(struct init_data *init)
 {
         if (init) {
@@ -150,7 +152,7 @@ ADD_TO_PARAM("stdout-buf",
 ADD_TO_PARAM("stderr-buf",
          "* stderr-buf={no|line|full}\n"
          "  Buffering for stderr\n");
-bool set_output_buffering() {
+static bool set_output_buffering() {
         const unordered_map<const char *, pair<FILE *, int>> outs = { // pair<output, default mode>
                 { "stdout-buf", pair{stdout, _IOLBF} },
                 { "stderr-buf", pair{stderr, _IONBF} }
@@ -264,11 +266,18 @@ bool parse_audio_capture_format(const char *optarg)
         return true;
 }
 
-static bool parse_set_logging(int argc, char *argv[])
+/**
+ * Sets things that must be set before anything else (logging and params)
+ *
+ * (params because used by set
+ */
+static bool parse_opts_set_logging(int argc, char *argv[])
 {
         char *log_opt = nullptr;
         static struct option getopt_options[] = {
-                {"verbose", optional_argument, nullptr, 'V'}, { nullptr, 0, nullptr, 0 }
+                {"param", no_argument, nullptr, OPT_PARAM}, // no_argument -- sic (!), see below
+                {"verbose", optional_argument, nullptr, 'V'},
+                { nullptr, 0, nullptr, 0 }
         };
         int saved_opterr = opterr;
         opterr = 0; // options are further handled in main.cpp
@@ -289,7 +298,16 @@ static bool parse_set_logging(int argc, char *argv[])
                                         log_level += 1;
                                 }
                                 break;
-                        default:
+                        case OPT_PARAM:
+                                if (i == argc - 1) {
+                                        fprintf(stderr, "Missing argument to \"--param\"!\n");
+                                        return false;
+                                }
+                                if (!parse_params(argv[i + 1])) {
+                                        return false;
+                                }
+                                break;
+                        default: // will be handled in main
                                 break;
                         }
                 }
@@ -313,9 +331,14 @@ struct init_data *common_preinit(int argc, char *argv[])
         uv_argc = argc;
         uv_argv = argv;
 
-        if (!parse_set_logging(argc, argv)) {
+        if (!parse_opts_set_logging(argc, argv)) {
                 return nullptr;
         }
+
+        if (!set_output_buffering()) {
+                LOG(LOG_LEVEL_WARNING) << "Cannot set console output buffering!\n";
+        }
+        std::clog.rdbuf(std::cout.rdbuf()); // use stdout for logs by default
 
 #ifdef HAVE_X
         void *handle = dlopen(X11_LIB_NAME, RTLD_NOW);
@@ -664,7 +687,7 @@ bool validate_param(const char *param)
 /**
  * Parses command-line parameters given as "--param <key>=<val>[...".
  */
-bool parse_params(char *optarg)
+static bool parse_params(char *optarg)
 {
         if (optarg != nullptr && strcmp(optarg, "help") == 0) {
                 puts("Params can be one or more (separated by comma) of following:");

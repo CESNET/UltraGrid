@@ -65,6 +65,7 @@
 #define EXIT_FAIL_CONTROL_SOCK 9
 #define EXIT_FAIL_NETWORK      10
 #define EXIT_FAIL_AUDIO        11
+#define OPT_PARAM (('O' << 8) | 'P')
 
 #define BUG_MSG "Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
 
@@ -137,9 +138,7 @@ void print_configuration(void);
 
 const char *get_commandline_param(const char *key);
 
-bool set_output_buffering();
 bool parse_audio_capture_format(const char *optarg);
-bool parse_params(char *optarg);
 void register_param(const char *param, const char *doc);
 bool validate_param(const char *param);
 void print_param_doc(void);

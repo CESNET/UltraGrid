@@ -137,7 +137,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_IMPORT (('I' << 8) | 'M')
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_MCAST_IF (('M' << 8) | 'I')
-#define OPT_PARAM (('O' << 8) | 'P')
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
 #define OPT_PROTOCOL (('P' << 8) | 'R')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
@@ -1066,10 +1065,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         opt->start_paused = true;
                         break;
                 case OPT_PARAM:
-                        if (!parse_params(optarg)) {
-                                return EXIT_SUCCESS;
-                        }
-                        break;
+                        break; // already handled in common_preinit()
                 case OPT_PIX_FMTS:
                         print_pixel_formats();
                         return EXIT_SUCCESS;
@@ -1158,11 +1154,6 @@ static int adjust_params(struct ug_options *opt) {
                 LOG(LOG_LEVEL_WARNING) << "IPv6 support missing, setting IPv4-only mode.\n";
                 opt->force_ip_version = 4;
         }
-
-        if (!set_output_buffering()) {
-                LOG(LOG_LEVEL_WARNING) << "Cannot set console output buffering!\n";
-        }
-        std::clog.rdbuf(std::cout.rdbuf()); // use stdout for logs by default
 
         // default values for different RXTX protocols
         if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
