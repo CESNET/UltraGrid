@@ -165,12 +165,11 @@ bool set_output_buffering() {
                         if (it == buf_map.end()) {
                                 log_msg(LOG_LEVEL_ERROR, "Wrong buffer type: %s\n", get_commandline_param(outp.first));
                                 return false;
-                        } else {
-                                setvbuf(outp.second.first, NULL, it->second, 0);
                         }
+                        setvbuf(outp.second.first, NULL, it->second, BUFSIZ);
                 } else { // default
                         //if (rang::rang_implementation::isMsysPty(_fileno(outp.second))) {
-                        setvbuf(outp.second.first, NULL, outp.second.second, 0);
+                        setvbuf(outp.second.first, NULL, outp.second.second, BUFSIZ);
                 }
         }
         return true;
