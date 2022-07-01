@@ -103,7 +103,7 @@ struct echo_cancellation {
 };
 
 ADD_TO_PARAM("echo-cancel-dump-audio", "* echo-cancel-dump-audio\n"
-                "Dump near end, far end and output samples in separate channels to a wav file.\n");
+                "  Dump near end, far end and output samples in separate channels to a wav file.\n");
 
 static void reconfigure_echo (struct echo_cancellation *s, int sample_rate, int bps);
 
