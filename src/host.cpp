@@ -158,20 +158,25 @@ static bool set_output_buffering() {
                 { "stderr-buf", pair{stderr, _IONBF} }
         };
         for (auto outp : outs) {
+                int mode = outp.second.second; // default
                 if (get_commandline_param(outp.first)) {
                         const unordered_map<string, int> buf_map {
                                 { "no", _IONBF }, { "line", _IOLBF }, { "full", _IOFBF }
                         };
 
+                        if (string("help") == get_commandline_param(outp.first)) {
+                                printf("Available values for buffering are \"no\", \"line\" and \"full\"\n");
+                                return false;
+                        }
                         auto it = buf_map.find(get_commandline_param(outp.first));
                         if (it == buf_map.end()) {
                                 log_msg(LOG_LEVEL_ERROR, "Wrong buffer type: %s\n", get_commandline_param(outp.first));
                                 return false;
                         }
-                        setvbuf(outp.second.first, NULL, it->second, BUFSIZ);
-                } else { // default
-                        //if (rang::rang_implementation::isMsysPty(_fileno(outp.second))) {
-                        setvbuf(outp.second.first, NULL, outp.second.second, BUFSIZ);
+                        mode = it->second;
+                }
+                if (setvbuf(outp.second.first, NULL, mode , BUFSIZ) != 0) {
+                        log_msg(LOG_LEVEL_WARNING, "setvbuf: %s\n", ug_strerror(errno));
                 }
         }
         return true;
@@ -337,6 +342,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 
         if (!set_output_buffering()) {
                 LOG(LOG_LEVEL_WARNING) << "Cannot set console output buffering!\n";
+                return nullptr;
         }
         std::clog.rdbuf(std::cout.rdbuf()); // use stdout for logs by default
 
