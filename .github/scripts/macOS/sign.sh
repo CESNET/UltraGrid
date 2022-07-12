@@ -11,7 +11,7 @@
 
 APP=${1?Appname must be passed as a first argument}
 
-if [ -z "$apple_key_p12_b64" -o -z "$altool_credentials" ]; then
+if [ -z "$apple_key_p12_b64" ] || [ -z "$altool_credentials" ]; then
         echo "Could not find key to sign the application" 2>&1
         if [ "$GITHUB_REPOSITORY" = "CESNET/UltraGrid" ] && ! expr "$GITHUB_REF" : refs/pull >/dev/null; then
                 exit 1
@@ -35,8 +35,8 @@ security set-key-partition-list -S apple-tool:,apple: -s -k $KEY_CHAIN_PASS $KEY
 
 # Sign the application
 # Libs need to be signed explicitly for some reason
-for f in `find $APP/Contents/libs -type f` $APP; do
-        codesign --force --deep -s CESNET --options runtime --entitlements data/entitlements.mac.plist -v $f
+for f in $(find "$APP/Contents/libs" -type f) $APP; do
+        codesign --force --deep -s CESNET --options runtime --entitlements data/entitlements.mac.plist -v "$f"
 done
 #codesign --force --deep -s CESNET --options runtime -v $APP/Contents/MacOS/uv-qt
 
@@ -44,33 +44,34 @@ done
 ZIP_FILE=uv-qt.zip
 UPLOAD_INFO_PLIST=/tmp/uplinfo.plist
 REQUEST_INFO_PLIST=/tmp/reqinfo.plist
-ditto -c -k --keepParent $APP $ZIP_FILE
+ditto -c -k --keepParent "$APP" $ZIP_FILE
 set +x
 DEVELOPER_USERNAME=$(echo "$altool_credentials" | cut -d: -f1)
-export DEVELOPER_PASSWORD=$(echo "$altool_credentials" | cut -d: -f2)
+DEVELOPER_PASSWORD=$(echo "$altool_credentials" | cut -d: -f2)
+export DEVELOPER_PASSWORD
 set -x
-xcrun altool --notarize-app --primary-bundle-id cz.cesnet.ultragrid.uv-qt-$(uuidgen | tr A-Z a-z) --username $DEVELOPER_USERNAME --password "@env:DEVELOPER_PASSWORD" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
+xcrun altool --notarize-app --primary-bundle-id "cz.cesnet.ultragrid.uv-qt-$(uuidgen | tr '[:upper:]' '[:lower:]')" --username "$DEVELOPER_USERNAME" --password "@env:DEVELOPER_PASSWORD" --file $ZIP_FILE --output-format xml | tee $UPLOAD_INFO_PLIST
 
 # Wait for notarization status
 # Waiting inspired by https://nativeconnect.app/blog/mac-app-notarization-from-the-command-line/
 SLEPT=0
 TIMEOUT=7200
 while true; do
-        /usr/bin/xcrun altool --notarization-info `/usr/libexec/PlistBuddy -c "Print :notarization-upload:RequestUUID" $UPLOAD_INFO_PLIST` -u $DEVELOPER_USERNAME -p "@env:DEVELOPER_PASSWORD" --output-format xml | tee $REQUEST_INFO_PLIST
-        STATUS=`/usr/libexec/PlistBuddy -c "Print :notarization-info:Status" $REQUEST_INFO_PLIST`
-        if [ "$STATUS" != "in progress" -o $SLEPT -ge $TIMEOUT ]; then
+        /usr/bin/xcrun altool --notarization-info "$(/usr/libexec/PlistBuddy -c 'Print :notarization-upload:RequestUUID' $UPLOAD_INFO_PLIST)" -u "$DEVELOPER_USERNAME" -p "@env:DEVELOPER_PASSWORD" --output-format xml | tee $REQUEST_INFO_PLIST
+        STATUS=$(/usr/libexec/PlistBuddy -c "Print :notarization-info:Status" $REQUEST_INFO_PLIST)
+        if [ "$STATUS" != "in progress" ] || [ $SLEPT -ge $TIMEOUT ]; then
                 break
         fi
         sleep 60
-        SLEPT=$(($SLEPT + 60))
+        SLEPT=$((SLEPT + 60))
 done
-if [ $STATUS != success ]; then
-        UUID=`/usr/libexec/PlistBuddy -c "Print :notarization-info:RequestUUID" $REQUEST_INFO_PLIST`
-        xcrun altool --notarization-info $UUID -u $DEVELOPER_USERNAME -p "@env:DEVELOPER_PASSWORD"
+if [ "$STATUS" != success ]; then
+        UUID=$(/usr/libexec/PlistBuddy -c "Print :notarization-info:RequestUUID" $REQUEST_INFO_PLIST)
+        xcrun altool --notarization-info "$UUID" -u "$DEVELOPER_USERNAME" -p "@env:DEVELOPER_PASSWORD"
         echo "Could not notarize" 2>&1
         exit 1
 fi
 
 # If everything is ok, staple the app
-xcrun stapler staple $APP
+xcrun stapler staple "$APP"
 
