@@ -1,4 +1,7 @@
 #!/bin/sh -eux
+##
+## Signs given application bundle
+##
 ## Usage:
 ##  sign.sh <app_bundle_directory>
 ##
@@ -10,7 +13,7 @@ APP=${1?Appname must be passed as a first argument}
 
 if [ -z "$apple_key_p12_b64" -o -z "$altool_credentials" ]; then
         echo "Could not find key to sign the application" 2>&1
-        if [ "$GITHUB_REPOSITORY" = "CESNET/UltraGrid" ]; then
+        if [ "$GITHUB_REPOSITORY" = "CESNET/UltraGrid" ] && ! expr "$GITHUB_REF" : refs/pull >/dev/null; then
                 exit 1
         else
                 exit 0
