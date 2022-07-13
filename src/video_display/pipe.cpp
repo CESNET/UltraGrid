@@ -287,12 +287,14 @@ static int display_pipe_reconfigure_audio(void *state, int quant_samples, int ch
         return TRUE;
 }
 
+static void display_pipe_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *available_cards = nullptr;
+        *count = 0;
+}
+
 static const struct video_display_info display_pipe_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *available_cards = nullptr;
-                *count = 0;
-        },
+        display_pipe_probe,
         display_pipe_init,
         display_pipe_run,
         display_pipe_done,

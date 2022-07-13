@@ -96,6 +96,14 @@ static void none_compress_done(struct module *mod)
         free(s);
 }
 
+static auto none_compress_get_preset()
+{
+        static auto compute_bitrate = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * get_bpp(d->color_spec) * 8.0);};
+        return std::list<compress_preset>{
+                { "", 100, compute_bitrate, {0, 1, 0}, {0, 1, 0} },
+        };
+}
+
 const struct video_compress_info none_info = {
         "none",
         none_compress_init,
@@ -105,12 +113,7 @@ const struct video_compress_info none_info = {
         NULL,
         NULL,
         NULL,
-        [] {
-                return std::list<compress_preset>{
-                        { "", 100, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * get_bpp(d->color_spec) * 8.0);},
-                                {0, 1, 0}, {0, 1, 0} },
-                };
-        },
+        none_compress_get_preset,
         NULL
 };
 

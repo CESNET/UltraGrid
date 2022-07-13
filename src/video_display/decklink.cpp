@@ -476,10 +476,11 @@ display_decklink_getf(void *state)
         struct video_frame *out = vf_alloc_desc(s->vid_desc);
         auto deckLinkFrames =  new vector<IDeckLinkMutableVideoFrame *>(s->devices_cnt);
         out->callbacks.dispose_udata = (void *) deckLinkFrames;
-        out->callbacks.dispose = [](struct video_frame *frame) {
+        static auto dispose = [](struct video_frame *frame) {
                 delete (vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata;
                 vf_free(frame);
         };
+        out->callbacks.dispose = dispose;
 
         for (unsigned int i = 0; i < s->vid_desc.tile_count; ++i) {
                 const int linesize = vc_get_linesize(s->vid_desc.width, s->vid_desc.color_spec);

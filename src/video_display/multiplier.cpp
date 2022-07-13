@@ -301,12 +301,14 @@ static auto display_multiplier_needs_mainloop(void *state)
         return !s->displays.empty() && display_needs_mainloop(s->displays[0].get());
 }
 
+static void display_multiplier_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *available_cards = nullptr;
+        *count = 0;
+}
+
 static const struct video_display_info display_multiplier_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *available_cards = nullptr;
-                *count = 0;
-        },
+        display_multiplier_probe,
         display_multiplier_init,
         display_multiplier_run,
         display_multiplier_done,

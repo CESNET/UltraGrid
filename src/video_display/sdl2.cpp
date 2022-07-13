@@ -785,15 +785,17 @@ static int display_sdl2_reconfigure_audio([[maybe_unused]] void *state, [[maybe_
         return FALSE;
 }
 
+static void display_sdl2_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *count = 1;
+        *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+        strcpy((*available_cards)[0].dev, "");
+        strcpy((*available_cards)[0].name, "SDL2 SW display");
+        (*available_cards)[0].repeatable = true;
+}
+
 static const struct video_display_info display_sdl2_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *count = 1;
-                *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
-                strcpy((*available_cards)[0].dev, "");
-                strcpy((*available_cards)[0].name, "SDL2 SW display");
-                (*available_cards)[0].repeatable = true;
-        },
+        display_sdl2_probe,
         display_sdl2_init,
         display_sdl2_run,
         display_sdl2_done,

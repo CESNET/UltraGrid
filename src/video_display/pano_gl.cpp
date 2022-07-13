@@ -353,16 +353,17 @@ static int display_panogl_get_property(void *state, int property, void *val, siz
         return TRUE;
 }
 
+static void display_panogl_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *count = 1;
+        *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+        strcpy((*available_cards)[0].dev, "");
+        strcpy((*available_cards)[0].name, "Panorama Gl SW display");
+        (*available_cards)[0].repeatable = true;
+}
 
 static const struct video_display_info display_panogl_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *count = 1;
-                *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
-                strcpy((*available_cards)[0].dev, "");
-                strcpy((*available_cards)[0].name, "Panorama Gl SW display");
-                (*available_cards)[0].repeatable = true;
-        },
+        display_panogl_probe,
         display_panogl_init,
         display_panogl_run,
         display_panogl_done,

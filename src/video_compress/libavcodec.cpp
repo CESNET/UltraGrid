@@ -123,7 +123,7 @@ constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
 static constexpr const char *DEFAULT_QSV_PRESET = "medium";
 
 typedef struct {
-        const char *(*get_prefered_encoder)(bool is_rgb); ///< can be nullptr
+        function<const char*(bool)> get_prefered_encoder; ///< can be nullptr
         double avg_bpp;
         string (*get_preset)(string const & enc_name, int width, int height, double fps);
         void (*set_param)(AVCodecContext *, struct setparam_param *);
@@ -511,10 +511,14 @@ static list<compress_preset> get_libavcodec_presets() {
         avcodec_register_all();
 #endif
 
+        static auto get_0_096 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);};
+        static auto get_0_193 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);};
+        static auto get_0_289 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);};
+
         if (avcodec_find_encoder_by_name("libx264")) {
-                ret.push_back({"encoder=libx264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 1.5, 0}, {15, 1, 0}});
-                ret.push_back({"encoder=libx264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 1.5, 0}, {20, 1, 0}});
-                ret.push_back({"encoder=libx264:bpp=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 1.5, 0}, {25, 1, 0}});
+                ret.push_back({"encoder=libx264:bpp=0.096", 20, get_0_096, {25, 1.5, 0}, {15, 1, 0}});
+                ret.push_back({"encoder=libx264:bpp=0.193", 30, get_0_193, {28, 1.5, 0}, {20, 1, 0}});
+                ret.push_back({"encoder=libx264:bpp=0.289", 50, get_0_289, {30, 1.5, 0}, {25, 1, 0}});
         }
         // NVENC and MJPEG are disabled in order not to be chosen by CoUniverse.
         // Enable if needed (also possible to add H.265 etc).
@@ -1385,7 +1389,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 }
         }
 
-        auto dispose = [](struct video_frame *frame) {
+        static auto dispose = [](struct video_frame *frame) {
 #if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
                 AVPacket *pkt = (AVPacket *) frame->callbacks.dispose_udata;
                 av_packet_unref(pkt);
@@ -1467,11 +1471,12 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         }
                         // prevent leaving dangling pointer to the input buffer that may
                         // be freed by cleanup()
+                        static auto deleter = [](void *state) {
+                                auto s = (state_video_compress_libav *) state;
+                                s->in_frame->data[0] = s->in_frame->data[1] = s->in_frame->data[2] = s->in_frame->data[3] = nullptr;
+                        };
                         std::unique_ptr<state_video_compress_libav, void (*)(void*)> clean_data_ptr{s,
-                                static_cast<void(*)(void *)>([](void *state) {
-                                                auto s = (state_video_compress_libav *) state;
-                                                s->in_frame->data[0] = s->in_frame->data[1] = s->in_frame->data[2] = s->in_frame->data[3] = nullptr;
-                                                })};
+                                deleter};
                         cleanup_callbacks.push_back(move(clean_data_ptr));
                 }
         }

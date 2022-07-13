@@ -384,10 +384,11 @@ state_video_compress_gpujpeg::state_video_compress_gpujpeg(struct module *parent
         module_init_default(&m_module_data);
         m_module_data.cls = MODULE_CLASS_DATA;
         m_module_data.priv_data = this;
-        m_module_data.deleter = [](struct module *mod) {
+        static auto deleter = [](struct module *mod) {
                 struct state_video_compress_gpujpeg *s = (struct state_video_compress_gpujpeg *) mod->priv_data;
                 delete s;
         };
+        m_module_data.deleter = deleter;
 
         module_register(&m_module_data, parent);
 }
@@ -667,13 +668,13 @@ start:
 }
 
 static auto gpujpeg_get_presets() {
+        static auto compute_bw60 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);};
+        static auto compute_bw80 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.87);};
+        static auto compute_bw90 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);};
         return gpujpeg_init_device(cuda_devices[0], TRUE) == 0 ? list<compress_preset>{
-                { "60", 60, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);},
-                        {10, 0.6, 75}, {10, 0.6, 75} },
-                        { "80", 70, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.87);},
-                                {12, 0.6, 90}, {15, 0.6, 100} },
-                        { "90", 80, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);},
-                                {15, 0.6, 100}, {20, 0.6, 150} },
+                { "60", 60, compute_bw60, {10, 0.6, 75}, {10, 0.6, 75} },
+                { "80", 70, compute_bw80, {12, 0.6, 90}, {15, 0.6, 100} },
+                { "90", 80, compute_bw90, {15, 0.6, 100}, {20, 0.6, 150} },
         } : list<compress_preset>{};
 }
 
@@ -698,37 +699,39 @@ static compress_module_info get_gpujpeg_module_info(){
         return module_info;
 }
 
+static auto gpujpeg_compress_push(struct module *mod, std::shared_ptr<video_frame> in_frame) {
+        static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->push(in_frame);
+}
+
+static auto gpujpeg_compress_pull (struct module *mod) {
+        return static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->pop();
+}
+
 const struct video_compress_info gpujpeg_info = {
         "GPUJPEG",
         gpujpeg_compress_init,
         NULL,
         NULL,
-        [](struct module *mod, std::shared_ptr<video_frame> in_frame) {
-                static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->push(in_frame);
-        },
-        [](struct module *mod) {
-                return static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->pop();
-        },
+        gpujpeg_compress_push,
+        gpujpeg_compress_pull,
         NULL,
         NULL,
         gpujpeg_get_presets,
         get_gpujpeg_module_info
 };
 
+static auto gpujpeg_compress_init_deprecated(struct module *parent, const char *opts) {
+        log_msg(LOG_LEVEL_WARNING, "Name \"-c JPEG\" deprecated, use \"-c GPUJPEG\" instead.\n");
+        return gpujpeg_compress_init(parent, opts);
+}
+
 const struct video_compress_info deprecated_jpeg_info = {
         "JPEG",
-        [](struct module *parent, const char *opts) {
-                log_msg(LOG_LEVEL_WARNING, "Name \"-c JPEG\" deprecated, use \"-c GPUJPEG\" instead.\n");
-                return gpujpeg_compress_init(parent, opts);
-        },
+        gpujpeg_compress_init_deprecated,
         NULL,
         NULL,
-        [](struct module *mod, std::shared_ptr<video_frame> in_frame) {
-                static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->push(in_frame);
-        },
-        [](struct module *mod) {
-                return static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->pop();
-        },
+        gpujpeg_compress_push,
+        gpujpeg_compress_pull,
         NULL,
         NULL,
         [] {

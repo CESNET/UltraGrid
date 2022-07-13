@@ -333,15 +333,23 @@ static int display_unix_sock_reconfigure_audio(void *state, int quant_samples, i
         return FALSE;
 }
 
+static void display_unix_sock_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *available_cards = nullptr;
+        *count = 0;
+}
+
+static void *display_unix_sock_init_preview(struct module *parent, const char *fmt, unsigned int flags) {
+        return display_unix_sock_init(parent, fmt, flags, true);
+}
+
+static void *display_unix_sock_init_no_preview(struct module *parent, const char *fmt, unsigned int flags) {
+        return display_unix_sock_init(parent, fmt, flags, false);
+}
+
 static const struct video_display_info display_unix_sock_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *available_cards = nullptr;
-                *count = 0;
-        },
-        [](struct module *parent, const char *fmt, unsigned int flags){
-                return display_unix_sock_init(parent, fmt, flags, false);
-        },
+        display_unix_sock_probe,
+        display_unix_sock_init_no_preview,
         display_unix_sock_run,
         display_unix_sock_done,
         display_unix_sock_getf,
@@ -355,14 +363,8 @@ static const struct video_display_info display_unix_sock_info = {
 };
 
 static const struct video_display_info display_preview_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *available_cards = nullptr;
-                *count = 0;
-        },
-        [](struct module *parent, const char *fmt, unsigned int flags){
-                return display_unix_sock_init(parent, fmt, flags, true);
-        },
+        display_unix_sock_probe,
+        display_unix_sock_init_preview,
         display_unix_sock_run,
         display_unix_sock_done,
         display_unix_sock_getf,

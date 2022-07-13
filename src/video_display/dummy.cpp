@@ -231,12 +231,14 @@ static int display_dummy_reconfigure_audio(void *, int, int, int)
         return TRUE;
 }
 
+static void display_dummy_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *available_cards = nullptr;
+        *count = 0;
+}
+
 static const struct video_display_info display_dummy_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *available_cards = nullptr;
-                *count = 0;
-        },
+        display_dummy_probe,
         display_dummy_init,
         display_dummy_run,
         display_dummy_done,

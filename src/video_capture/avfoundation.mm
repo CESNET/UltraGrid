@@ -441,15 +441,14 @@ fromConnection:(AVCaptureConnection *)connection
 		CVPixelBufferLockBaseAddress(imageBuffer, 0);
 		ret->tiles[0].data = (char *) CVPixelBufferGetBaseAddress(imageBuffer);
 		ret->callbacks.dispose_udata = imageBuffer;
-		ret->callbacks.dispose = static_cast<void (*)(struct video_frame *)>([](struct video_frame *frame)
-				{
-				CVImageBufferRef imageBuffer = (CVImageBufferRef) frame->callbacks.dispose_udata;
-				// Unlock the pixel buffer
-				CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
-				[(id) imageBuffer release];
-				vf_free(frame);
-				});
-
+                static auto dispose = [](struct video_frame *frame) {
+                        CVImageBufferRef imageBuffer = (CVImageBufferRef) frame->callbacks.dispose_udata;
+                        // Unlock the pixel buffer
+                        CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+                        [(id) imageBuffer release];
+                        vf_free(frame);
+                };
+                ret->callbacks.dispose = dispose;
 	} else {
 		ret = vf_alloc_desc_data(desc);
 		CMBlockBufferCopyDataBytes(blockBuffer, 0, ret->tiles[0].data_len, ret->tiles[0].data);

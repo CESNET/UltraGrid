@@ -695,12 +695,14 @@ static auto display_conference_needs_mainloop(void *state)
         return display_needs_mainloop(s->real_display.get());
 }
 
+static void display_conference_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *available_cards = nullptr;
+        *count = 0;
+}
+
 static const struct video_display_info display_conference_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *available_cards = nullptr;
-                *count = 0;
-        },
+        display_conference_probe,
         display_conference_init,
         display_conference_run,
         display_conference_done,

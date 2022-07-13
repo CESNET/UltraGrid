@@ -314,6 +314,18 @@ static void dxt_glsl_compress_done(struct module *mod)
         delete s;
 }
 
+static auto dxt_glsl_compress_get_presets()
+{
+        static auto compute_dxt1_bitrate = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 4.0);};
+        static auto compute_dxt5_bitrate = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 8.0);};
+                return dxt_is_supported() ? list<compress_preset>{
+                        { "DXT1", 35, compute_dxt1_bitrate,
+                                {75, 0.3, 25}, {15, 0.1, 10} },
+                        { "DXT5", 50, compute_dxt5_bitrate,
+                                {75, 0.3, 35}, {15, 0.1, 20} },
+                } : list<compress_preset>{};
+}
+
 const struct video_compress_info rtdxt_info = {
         "RTDXT",
         dxt_glsl_compress_init,
@@ -323,14 +335,7 @@ const struct video_compress_info rtdxt_info = {
         NULL,
         NULL,
         NULL,
-        [] {
-                return dxt_is_supported() ? list<compress_preset>{
-                        { "DXT1", 35, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 4.0);},
-                                {75, 0.3, 25}, {15, 0.1, 10} },
-                        { "DXT5", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 8.0);},
-                                {75, 0.3, 35}, {15, 0.1, 20} },
-                } : list<compress_preset>{};
-        },
+        dxt_glsl_compress_get_presets,
         NULL
 };
 

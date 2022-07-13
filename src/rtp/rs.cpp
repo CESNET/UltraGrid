@@ -181,12 +181,11 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
         out->tiles[0].data_len = buffer_len;
         out->fec_params = fec_desc(FEC_RS, m_k, m_n - m_k, 0, 0, ss);
 
-        return {out,
-                [](video_frame *frame) {
-                        free(frame->tiles[0].data);
-                        vf_free(frame);
-                }
+        static auto deleter = [](video_frame *frame) {
+                free(frame->tiles[0].data);
+                vf_free(frame);
         };
+        return {out, deleter};
 #else
         (void) in;
         return {};

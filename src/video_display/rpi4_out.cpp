@@ -633,12 +633,14 @@ static int display_rpi4_reconfigure_audio(void *, int, int, int)
         return false;
 }
 
+static void display_rpi4_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *available_cards = nullptr;
+        *count = 0;
+};
+
 static const struct video_display_info display_rpi4_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *available_cards = nullptr;
-                *count = 0;
-        },
+        display_rpi4_probe,
         display_rpi4_init,
         display_rpi4_run,
         display_rpi4_done,

@@ -783,15 +783,17 @@ static void display_sdl_put_audio_frame(void *state, const struct audio_frame *f
         }
 }
 
+static void display_sdl_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *count = 1;
+        *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+        strcpy((*available_cards)[0].dev, "");
+        strcpy((*available_cards)[0].name, "SDL SW display");
+        (*available_cards)[0].repeatable = true;
+}
+
 static const struct video_display_info display_sdl_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *count = 1;
-                *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
-                strcpy((*available_cards)[0].dev, "");
-                strcpy((*available_cards)[0].name, "SDL SW display");
-                (*available_cards)[0].repeatable = true;
-        },
+        display_sdl_probe,
         display_sdl_init,
         display_sdl_run,
         display_sdl_done,

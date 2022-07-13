@@ -101,7 +101,7 @@ class image_pattern {
         public:
                 static unique_ptr<image_pattern> create(string const & config);
                 auto init(int width, int height, enum generator_depth depth) {
-                        auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
+                        static auto delarr_deleter = [](unsigned char *ptr){ delete [] ptr; };
                         size_t data_len = width * height * rg48_bpp + headroom;
                         auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
                         auto actual_bit_depth = fill(width, height, out.get());
@@ -401,8 +401,8 @@ unique_ptr<unsigned char [],void (*)(unsigned char*)>
 video_pattern_generate(std::string const & config, int width, int height, codec_t color_spec)
 {
         assert(width > 0 && height > 0);
-        auto free_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ free(ptr); });
-        auto delarr_deleter = static_cast<void (*)(unsigned char*)>([](unsigned char *ptr){ delete [] ptr; });
+        static auto free_deleter = [](unsigned char *ptr){ free(ptr); };
+        static auto delarr_deleter = [](unsigned char *ptr){ delete [] ptr; };
 
         unique_ptr<image_pattern> generator;
         try {

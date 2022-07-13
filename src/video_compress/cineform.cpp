@@ -480,7 +480,7 @@ static std::shared_ptr<video_frame> cineform_compress_pop(struct module *state)
                 return {};
         }
 
-        auto dispose = [](struct video_frame *frame) {
+        static auto dispose = [](struct video_frame *frame) {
                 std::tuple<CFHD_EncoderPoolRef, CFHD_SampleBufferRef> *t = 
                         static_cast<std::tuple<CFHD_EncoderPoolRef, CFHD_SampleBufferRef> *>(frame->callbacks.dispose_udata);
                 if(t)

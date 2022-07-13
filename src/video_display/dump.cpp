@@ -203,12 +203,14 @@ static int display_dump_reconfigure_audio(void *, int, int, int)
         return FALSE;
 }
 
+static void display_dump_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *available_cards = nullptr;
+        *count = 0;
+}
+
 static const struct video_display_info display_dump_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *available_cards = nullptr;
-                *count = 0;
-        },
+        display_dump_probe,
         display_dump_init,
         display_dump_run,
         display_dump_done,

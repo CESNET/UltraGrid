@@ -547,15 +547,17 @@ static int display_sage_reconfigure_audio(void *state, int quant_samples, int ch
         return FALSE;
 }
 
+static void display_sage_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+        UNUSED(deleter);
+        *count = 1;
+        *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+        strcpy((*available_cards)[0].dev, "");
+        strcpy((*available_cards)[0].name, "SAGE display wall");
+        (*available_cards)[0].repeatable = true;
+}
+
 static const struct video_display_info display_sage_info = {
-        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
-                UNUSED(deleter);
-                *count = 1;
-                *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
-                strcpy((*available_cards)[0].dev, "");
-                strcpy((*available_cards)[0].name, "SAGE display wall");
-                (*available_cards)[0].repeatable = true;
-        },
+        display_sage_probe,
         display_sage_init,
         display_sage_run,
         display_sage_done,
