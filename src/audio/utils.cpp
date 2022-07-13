@@ -43,6 +43,7 @@
 #endif // HAVE_CONFIG_H
 
 
+#include <algorithm>
 #include <cassert>
 #include <climits>
 #include <cmath>
