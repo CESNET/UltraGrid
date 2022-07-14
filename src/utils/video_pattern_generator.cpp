@@ -233,6 +233,50 @@ class image_pattern_ebu_smpte_bars : public image_pattern {
                 }
                 return generator_depth::bits8;
         }
+        friend class image_pattern_smpte_bars;
+};
+
+class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
+        static constexpr array bottom_bars{
+                uint32_t{0xFFU << 24U | 105 << 16U | 63 << 8U | 0U  },
+                uint32_t{0xFFFFFFFFU },
+                uint32_t{0xFFU << 24U | 119U << 16U | 0U << 8U | 0U },
+                uint32_t{0xFF000000U },
+                uint32_t{0xFF000000U },
+                uint32_t{0xFF000000U },
+        };
+        enum generator_depth fill(int width, int height, unsigned char *data) override {
+                auto ret = image_pattern_ebu_smpte_bars<0xBFU, 7>::fill(width, height, data); // upper 2 3rds
+                assert(ret == generator_depth::bits8);
+                int columns = 7;
+                struct testcard_pixmap pixmap{ .w = width, .h = height, .data = data };
+                const int mid_strip_height = height / 3 - width / 6;
+                struct testcard_rect r{ .x = 0, .y = height / 3 * 2, .w = (width + columns - 1) / columns, .h = mid_strip_height};
+                for (int i = 0; i < columns; i += 1) {
+                        r.x = i * r.w;
+                        printf("Fill rect at %d,%d\n", r.x, r.y);
+                        if (i % 2 == 1) testcard_fillRect(&pixmap, &r, 0);
+                        else testcard_fillRect(&pixmap, &r, image_pattern_ebu_smpte_bars<0xBFU, 7>::bars.at(columns - 1 - i));
+                }
+                columns = 6;
+                r.w = (width + columns - 1) / columns;
+                r.h = width / 6;
+                r.y += mid_strip_height;
+                for (int i = 0; i < columns; i += 1) {
+                        r.x = i * r.w;
+                        printf("Fill rect at %d,%d\n", r.x, r.y);
+                        testcard_fillRect(&pixmap, &r,
+                                        bottom_bars.at(i));
+                }
+                // pluge - skipping a "superblack" and black bar
+                r.x = 5 * (width / 7);
+                r.w = (width / 7) / 3;
+                r.x += 2 * r.w;
+                printf("Fill rect at %d,%d\n", r.x, r.y);
+                testcard_fillRect(&pixmap, &r,
+                                0xFFU << 24 | 0x0A0A0A);
+                return generator_depth::bits8;
+        }
 };
 
 class image_pattern_blank : public image_pattern {
@@ -383,7 +427,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 return make_unique<image_pattern_raw>(config.substr("raw=0x"s.length()));
         }
         if (config == "smpte_bars") {
-                return make_unique<image_pattern_ebu_smpte_bars<0xBFU, 7>>();
+                return make_unique<image_pattern_smpte_bars>();
         }
         if (config.substr(0, "0x"s.length()) == "0x") {
                 uint32_t blank_color = 0U;
