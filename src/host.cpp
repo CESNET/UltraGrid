@@ -124,7 +124,6 @@ struct init_data {
         list <void *> opened_libs;
 };
 
-static bool parse_params(char *optarg);
 static void print_param_doc(void);
 static bool validate_param(const char *param);
 
@@ -276,7 +275,7 @@ bool parse_audio_capture_format(const char *optarg)
 /**
  * Sets things that must be set before anything else (logging and params)
  *
- * (params because used by set
+ * (params because "std{out,err}-buf" param used by set_output_buffering())
  */
 static bool parse_opts_set_logging(int argc, char *argv[])
 {
@@ -310,7 +309,7 @@ static bool parse_opts_set_logging(int argc, char *argv[])
                                         fprintf(stderr, "Missing argument to \"--param\"!\n");
                                         return false;
                                 }
-                                if (!parse_params(argv[i + 1])) {
+                                if (!parse_params(argv[i + 1], true)) {
                                         return false;
                                 }
                                 break;
@@ -694,10 +693,18 @@ bool validate_param(const char *param)
 
 /**
  * Parses command-line parameters given as "--param <key>=<val>[...".
+ *
+ * @param optarg   command-line arguments given to "--param", will be modified by strtok_r(),
+ *                 must not be NULL
+ * @param preinit  true  - only parse/set known parameters (notably output buffer setting), ignore help
+ *                 false - set also remaining parameters including full check and "help" output
+ *
+ * @note
+ * This function will be usually called twice - first with preinit=true and then with false
  */
-static bool parse_params(char *optarg)
+bool parse_params(char *optarg, bool preinit)
 {
-        if (strcmp(optarg, "help") == 0) {
+        if (!preinit && strcmp(optarg, "help") == 0) {
                 puts("Use of params below is experimental and should be used with a caution and a knowledge of consequences and affected functionality!\n");
                 puts("Params can be one or more (separated by comma) of following:");
                 print_param_doc();
@@ -706,8 +713,12 @@ static bool parse_params(char *optarg)
         char *item = nullptr;
         char *save_ptr = nullptr;
         while ((item = strtok_r(optarg, ",", &save_ptr)) != nullptr) {
+                optarg = nullptr;
                 char *key_cstr = item;
                 if (!validate_param(key_cstr)) {
+                        if (preinit) {
+                                continue;
+                        }
                         LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key_cstr << "\n";
                         LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
                         return false;
@@ -719,7 +730,6 @@ static bool parse_params(char *optarg)
                 } else {
                         commandline_params[key_cstr] = string();
                 }
-                optarg = nullptr;
         }
         return true;
 }

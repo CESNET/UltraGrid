@@ -1065,7 +1065,10 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         opt->start_paused = true;
                         break;
                 case OPT_PARAM:
-                        break; // already handled in common_preinit()
+                        if (!parse_params(optarg, false)) {
+                                return EXIT_SUCCESS;
+                        }
+                        break;
                 case OPT_PIX_FMTS:
                         print_pixel_formats();
                         return EXIT_SUCCESS;

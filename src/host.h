@@ -139,6 +139,7 @@ void print_configuration(void);
 const char *get_commandline_param(const char *key);
 
 bool parse_audio_capture_format(const char *optarg);
+bool parse_params(char *optarg, bool preinit);
 void print_pixel_formats(void);
 void print_video_codecs(void);
 void register_param(const char *param, const char *doc);
