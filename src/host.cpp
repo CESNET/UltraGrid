@@ -705,17 +705,17 @@ static bool parse_params(char *optarg)
         char *save_ptr = nullptr;
         while ((item = strtok_r(optarg, ",", &save_ptr)) != nullptr) {
                 char *key_cstr = item;
+                if (!validate_param(key_cstr)) {
+                        LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key_cstr << "\n";
+                        LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
+                        return false;
+                }
                 if (strchr(item, '=') != nullptr) {
                         char *val_cstr = strchr(item, '=') + 1;
                         *strchr(item, '=') = '\0';
                         commandline_params[key_cstr] = val_cstr;
                 } else {
                         commandline_params[key_cstr] = string();
-                }
-                if (!validate_param(key_cstr)) {
-                        LOG(LOG_LEVEL_ERROR) << "Unknown parameter: " << key_cstr << "\n";
-                        LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
-                        return false;
                 }
                 optarg = nullptr;
         }
