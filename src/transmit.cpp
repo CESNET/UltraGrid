@@ -126,6 +126,12 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 static bool set_fec(struct tx *tx, const char *fec);
 static void fec_check_messages(struct tx *tx);
 
+struct rate_limit_dyn {
+        long avg_frame_size;   ///< moving average
+        long long last_excess; ///< nr of frames last excessive frame was emitted
+        static constexpr int EXCESS_GAP = 4; ///< minimal gap between excessive frames
+};
+
 struct tx {
         struct module mod;
 
@@ -150,6 +156,7 @@ struct tx {
         const struct openssl_encrypt_info *enc_funcs;
         struct openssl_encrypt *encryption;
         long long int bitrate;
+        struct rate_limit_dyn dyn_rate_limit_state;
 		
         char tmp_packet[RTP_MAX_MTU];
 };
@@ -196,6 +203,11 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 
         if (mtu > RTP_MAX_MTU) {
                 log_msg(LOG_LEVEL_ERROR, "Requested MTU exceeds maximal value allowed by RTP library (%d B).\n", RTP_MAX_MTU);
+                return NULL;
+        }
+
+        if (bitrate < RATE_MIN) {
+                log_msg(LOG_LEVEL_ERROR, "Invalid bitrate value %lld passed (either positive bitrate or magic values from %d supported)!\n", bitrate, RATE_MIN);
                 return NULL;
         }
 
@@ -331,7 +343,7 @@ static void fec_check_messages(struct tx *tx)
                 } else if (strstr(text, "rate ") == text) {
                         text += strlen("rate ");
                         auto new_rate = unit_evaluate(text);
-                        if (new_rate > 0 || new_rate == RATE_UNLIMITED || new_rate == RATE_AUTO) {
+                        if (new_rate >= RATE_MIN) {
                                 tx->bitrate = new_rate;
                                 r = new_response(RESPONSE_OK, nullptr);
                                 LOG(LOG_LEVEL_NOTICE) << "[Transmit] Bitrate set to: " << text << (new_rate > 0 ? "B" : "") << "\n";
@@ -566,6 +578,17 @@ get_packet_rate(struct tx *tx, struct video_frame *frame, int substream, long pa
         if (tx->bitrate == RATE_AUTO) { // adaptive (spread packets to 75% frame time)
                return packet_rate_auto;
         }
+        if (tx->bitrate == RATE_DYNAMIC) {
+                if (frame->tiles[substream].data_len > 2 * tx->dyn_rate_limit_state.avg_frame_size
+                                && tx->dyn_rate_limit_state.last_excess > rate_limit_dyn::EXCESS_GAP) {
+                        packet_rate_auto /= 2; // double packet rate for this frame
+                        tx->dyn_rate_limit_state.last_excess = 0;
+                } else {
+                        tx->dyn_rate_limit_state.last_excess += 1;
+                }
+                tx->dyn_rate_limit_state.avg_frame_size = (9 * tx->dyn_rate_limit_state.avg_frame_size + frame->tiles[substream].data_len) / 10;
+                return packet_rate_auto;
+        }
         long long int bitrate = tx->bitrate & ~RATE_FLAG_FIXED_RATE;
         int avg_packet_size = frame->tiles[substream].data_len / packet_count;
         long packet_rate = 1000'000'000L * avg_packet_size * 8 / bitrate; // fixed rate
@@ -796,13 +819,14 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         check_symbol_size(fec_symbol_size, tx->mtu - hdrs_len);
                 }
 
-                int packet_rate;
+                int packet_rate = 0;
+#if 0
                 if (tx->bitrate > 0) {
                         //packet_rate = 1000ll * 1000 * 1000 * tx->mtu * 8 / tx->bitrate;
 			packet_rate = 0;
                 } else if (tx->bitrate == RATE_UNLIMITED) {
                         packet_rate = 0;
-                } else if (tx->bitrate == RATE_AUTO) {
+                } else if (tx->bitrate == RATE_AUTO || tx->bitrate == RATE_DYNAMIC) {
                         /**
                          * @todo
                          * Following code would actually work but seems to be useless in most of cases (eg.
@@ -810,7 +834,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                          * unexpectable problems (I'd write them here but if I'd expect them they wouldn't
                          * be unexpectable.)
                          */
-#if 0
                         double time_for_frame = buffer->get_duration() / buffer->get_channel_count();
                         if (time_for_frame > 0.0) {
                                 long long req_bitrate = buffer->get_data_len(channel) * 8 / time_for_frame * tx->mult_count;
@@ -820,11 +843,11 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         } else {
                                 packet_rate = 0;
                         }
-#endif
                         packet_rate = 0;
                 } else {
                         abort();
                 }
+#endif
 
                 do {
                         if(tx->fec_scheme == FEC_MULT) {

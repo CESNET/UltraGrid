@@ -117,8 +117,10 @@ int get_audio_delay(void);
 void set_audio_delay(int val);
 
 #define RATE_UNLIMITED                0
-#define RATE_AUTO                   (-1)
-#define RATE_DEFAULT                (-2)
+#define RATE_AUTO                   (-1) ///< spread packets evenly across frame time (currently 3/4)
+#define RATE_DYNAMIC                (-2) ///< same as @ref RATE_AUTO but occasional excess frame allowed
+#define RATE_MIN                RATE_DYNAMIC
+#define RATE_DEFAULT                (-3) ///< imaginary value, must not be passed to trasmit module
 #define RATE_FLAG_FIXED_RATE (1ll<<62ll) ///< use the bitrate as fixed, not capped
 
 struct init_data;

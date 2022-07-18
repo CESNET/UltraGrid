@@ -505,6 +505,7 @@ static void *capture_thread(void *arg)
 static bool parse_bitrate(char *optarg, long long int *bitrate) {
         map<const char *, long long int> bitrate_spec_map = {
                 { "auto", RATE_AUTO },
+                { "dynamic", RATE_DYNAMIC },
                 { "unlimited", RATE_UNLIMITED },
         };
 
@@ -515,9 +516,10 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         if (strcmp(optarg, "help") == 0) {
                 const char numeric_pattern[] = "{1-9}{0-9}*[kMG][!][E]";
                 cout << "Usage:\n" <<
-                        "\tuv " << BOLD("-l [auto | unlimited | " << numeric_pattern << "]\n") <<
+                        "\tuv " << BOLD("-l [auto | dynamic | unlimited | " << numeric_pattern << "]\n") <<
                         "\twhere\n"
                         "\t\t" << BOLD("auto") << " - spread packets across frame time\n"
+                        "\t\t" << BOLD("dynamic") << " - similar to \"auto\" but more relaxed - occasional huge frame can spread 1.5x frame time (default)\n"
                         "\t\t" << BOLD("unlimited") << " - send packets at a wire speed (in bursts)\n"
                         "\t\t" << BOLD(numeric_pattern) << " - send packets at most at specified bitrate\n\n" <<
                         BOLD("Notes: ") << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
@@ -1306,7 +1308,7 @@ static int adjust_params(struct ug_options *opt) {
                 opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_UNLIMITED : opt->bitrate;
         } else {
                 opt->requested_mtu = opt->requested_mtu == 0 ? 1500 : opt->requested_mtu;
-                opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_AUTO : opt->bitrate;
+                opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_DYNAMIC : opt->bitrate;
         }
 
         if((strcmp("none", opt->audio.send_cfg) != 0 || strcmp("none", opt->audio.recv_cfg) != 0) && strcmp(opt->video_protocol, "rtsp") == 0){
