@@ -125,6 +125,8 @@ struct init_data {
 };
 
 static bool parse_params(char *optarg);
+static void print_param_doc(void);
+static bool validate_param(const char *param);
 
 void common_cleanup(struct init_data *init)
 {

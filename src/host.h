@@ -139,11 +139,9 @@ void print_configuration(void);
 const char *get_commandline_param(const char *key);
 
 bool parse_audio_capture_format(const char *optarg);
-void register_param(const char *param, const char *doc);
-bool validate_param(const char *param);
-void print_param_doc(void);
 void print_pixel_formats(void);
 void print_video_codecs(void);
+void register_param(const char *param, const char *doc);
 
 bool register_mainloop(mainloop_t, void *);
 void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata);
