@@ -561,16 +561,16 @@ get_packet_rate(struct tx *tx, struct video_frame *frame, int substream, long pa
         interval_between_pkts = interval_between_pkts * 0.75;
         // prevent bitrate to be "too low", here 1 Mbps at minimum
         interval_between_pkts = std::min<double>(interval_between_pkts, tx->mtu / 1000'000.0);
-        long long packet_rate_auto = interval_between_pkts * 1000'000'000LL;
+        long packet_rate_auto = interval_between_pkts * 1000'000'000L;
 
         if (tx->bitrate == RATE_AUTO) { // adaptive (spread packets to 75% frame time)
                return packet_rate_auto;
         }
         long long int bitrate = tx->bitrate & ~RATE_FLAG_FIXED_RATE;
         int avg_packet_size = frame->tiles[substream].data_len / packet_count;
-        long packet_rate = 1000'000'000LL * avg_packet_size * 8 / bitrate; // fixed rate
+        long packet_rate = 1000'000'000L * avg_packet_size * 8 / bitrate; // fixed rate
         if ((tx->bitrate & RATE_FLAG_FIXED_RATE) == 0) { // adaptive capped rate
-                packet_rate = std::max<long long>(packet_rate, packet_rate_auto);
+                packet_rate = std::max(packet_rate, packet_rate_auto);
         }
         return packet_rate;
 }
