@@ -545,6 +545,36 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
         return ret;
 }
 
+/**
+ * Returns inter-packet interval in nanoseconds.
+ */
+static long
+get_packet_rate(struct tx *tx, struct video_frame *frame, int substream, long packet_count)
+{
+        if (tx->bitrate == RATE_UNLIMITED) {
+                return 0;
+        }
+        double time_for_frame = 1.0 / frame->fps / frame->tile_count;
+        double interval_between_pkts = time_for_frame / tx->mult_count / packet_count;
+        // use only 75% of the time - we less likely overshot the frame time and
+        // can minimize risk of swapping packets between 2 frames (out-of-order ones)
+        interval_between_pkts = interval_between_pkts * 0.75;
+        // prevent bitrate to be "too low", here 1 Mbps at minimum
+        interval_between_pkts = std::min<double>(interval_between_pkts, tx->mtu / 1000'000.0);
+        long long packet_rate_auto = interval_between_pkts * 1000'000'000LL;
+
+        if (tx->bitrate == RATE_AUTO) { // adaptive (spread packets to 75% frame time)
+               return packet_rate_auto;
+        }
+        long long int bitrate = tx->bitrate & ~RATE_FLAG_FIXED_RATE;
+        int avg_packet_size = frame->tiles[substream].data_len / packet_count;
+        long packet_rate = 1000'000'000LL * avg_packet_size * 8 / bitrate; // fixed rate
+        if ((tx->bitrate & RATE_FLAG_FIXED_RATE) == 0) { // adaptive capped rate
+                packet_rate = std::max<long long>(packet_rate, packet_rate_auto);
+        }
+        return packet_rate;
+}
+
 static void
 tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
@@ -610,30 +640,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         vector<int> packet_sizes = get_packet_sizes(frame, substream, tx->mtu - hdrs_len);
         long packet_count = packet_sizes.size() * (tx->fec_scheme == FEC_MULT ? tx->mult_count : 1);
 
-        long packet_rate;
-        if (tx->bitrate == RATE_UNLIMITED) {
-                packet_rate = 0;
-        } else {
-                double time_for_frame = 1.0 / frame->fps / frame->tile_count;
-                double interval_between_pkts = time_for_frame / tx->mult_count / packet_count;
-                // use only 75% of the time - we less likely overshot the frame time and
-                // can minimize risk of swapping packets between 2 frames (out-of-order ones)
-                interval_between_pkts = interval_between_pkts * 0.75;
-                // prevent bitrate to be "too low", here 1 Mbps at minimum
-                interval_between_pkts = std::min<double>(interval_between_pkts, tx->mtu / 1000000.0);
-                long long packet_rate_auto = interval_between_pkts * 1000ll * 1000 * 1000;
-
-                if (tx->bitrate == RATE_AUTO) { // adaptive (spread packets to 75% frame time)
-                        packet_rate = packet_rate_auto;
-                } else { // bitrate given manually
-                        long long int bitrate = tx->bitrate & ~RATE_FLAG_FIXED_RATE;
-                        int avg_packet_size = tile->data_len / packet_count;
-                        packet_rate = 1000ll * 1000 * 1000 * avg_packet_size * 8 / bitrate; // fixed rate
-                        if ((tx->bitrate & RATE_FLAG_FIXED_RATE) == 0) { // adaptive capped rate
-                                packet_rate = std::max<long long>(packet_rate, packet_rate_auto);
-                        }
-                }
-        }
+        long packet_rate = get_packet_rate(tx, frame, substream, packet_count);
 
         // initialize header array with values (except offset which is different among
         // different packts)
