@@ -503,8 +503,13 @@ static void *capture_thread(void *arg)
 }
 
 static bool parse_bitrate(char *optarg, long long int *bitrate) {
-        if (strcmp(optarg, "auto") == 0) {
-                *bitrate = RATE_AUTO;
+        map<const char *, long long int> bitrate_spec_map = {
+                { "auto", RATE_AUTO },
+                { "unlimited", RATE_UNLIMITED },
+        };
+
+        if (auto it = bitrate_spec_map.find(optarg); it != bitrate_spec_map.end()) {
+                *bitrate = it->second;
                 return true;
         }
         if (strcmp(optarg, "help") == 0) {
@@ -517,10 +522,6 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
                         "\t\t" << BOLD(numeric_pattern) << " - send packets at most at specified bitrate\n\n" <<
                         BOLD("Notes: ") << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
                         "\n";
-                return true;
-        }
-        if (strcmp(optarg, "unlimited") == 0) {
-                *bitrate = RATE_UNLIMITED;
                 return true;
         }
         bool force = false, fixed = false;
