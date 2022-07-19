@@ -517,11 +517,11 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
                 const char numeric_pattern[] = "{1-9}{0-9}*[kMG][!][E]";
                 cout << "Usage:\n" <<
                         "\tuv " << BOLD("-l [auto | dynamic | unlimited | " << numeric_pattern << "]\n") <<
-                        "\twhere\n"
-                        "\t\t" << BOLD("auto") << " - spread packets across frame time\n"
-                        "\t\t" << BOLD("dynamic") << " - similar to \"auto\" but more relaxed - occasional huge frame can spread 1.5x frame time (default)\n"
-                        "\t\t" << BOLD("unlimited") << " - send packets at a wire speed (in bursts)\n"
-                        "\t\t" << BOLD(numeric_pattern) << " - send packets at most at specified bitrate\n\n" <<
+                        "where\n"
+                        "\t" << BOLD("auto") << " - spread packets across frame time\n"
+                        "\t" << BOLD("dynamic") << " - similar to \"auto\" but more relaxed - occasional huge frame can spread 1.5x frame time (default)\n"
+                        "\t" << BOLD("unlimited") << " - send packets at a wire speed (in bursts)\n"
+                        "\t" << BOLD(numeric_pattern) << " - send packets at most at specified bitrate\n\n" <<
                         BOLD("Notes: ") << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
                         "\n";
                 return true;
