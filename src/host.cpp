@@ -715,6 +715,11 @@ bool parse_params(char *optarg, bool preinit)
         while ((item = strtok_r(optarg, ",", &save_ptr)) != nullptr) {
                 optarg = nullptr;
                 char *key_cstr = item;
+                const char *val_cstr = "";
+                if (char *delim = strchr(item, '=')) {
+                        val_cstr = delim + 1;
+                        *delim = '\0';
+                }
                 if (!validate_param(key_cstr)) {
                         if (preinit) {
                                 continue;
@@ -723,13 +728,7 @@ bool parse_params(char *optarg, bool preinit)
                         LOG(LOG_LEVEL_INFO) << "Type '" << uv_argv[0] << " --param help' for list.\n";
                         return false;
                 }
-                if (strchr(item, '=') != nullptr) {
-                        char *val_cstr = strchr(item, '=') + 1;
-                        *strchr(item, '=') = '\0';
-                        commandline_params[key_cstr] = val_cstr;
-                } else {
-                        commandline_params[key_cstr] = string();
-                }
+                commandline_params[key_cstr] = val_cstr;
         }
         return true;
 }
