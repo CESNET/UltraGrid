@@ -199,8 +199,6 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
                 const char *fec, const char *encryption, long long int bitrate)
 {
-        struct tx *tx;
-
         if (mtu > RTP_MAX_MTU) {
                 log_msg(LOG_LEVEL_ERROR, "Requested MTU exceeds maximal value allowed by RTP library (%d B).\n", RTP_MAX_MTU);
                 return NULL;
@@ -211,48 +209,50 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 return NULL;
         }
 
-        tx = (struct tx *) calloc(1, sizeof(struct tx));
-        if (tx != NULL) {
-                module_init_default(&tx->mod);
-                tx->mod.cls = MODULE_CLASS_TX;
-                tx->mod.priv_data = tx;
-                tx->mod.deleter = tx_done;
-                module_register(&tx->mod, parent);
-
-                tx->magic = TRANSMIT_MAGIC;
-                tx->media_type = media_type;
-                tx->mult_count = 1;
-                tx->max_loss = 0.0;
-                tx->mtu = mtu;
-                tx->buffer = lrand48() & 0x3fffff;
-                tx->avg_len = tx->avg_len_last = tx->sent_frames = 0u;
-                tx->fec_scheme = FEC_NONE;
-                tx->last_frame_fragment_id = -1;
-                if (fec) {
-                        if(!set_fec(tx, fec)) {
-                                module_done(&tx->mod);
-                                return NULL;
-                        }
-                }
-                if (encryption) {
-                        tx->enc_funcs = static_cast<const struct openssl_encrypt_info *>(load_library("openssl_encrypt",
-                                        LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION));
-                        if (!tx->enc_funcs) {
-                                fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");
-                                module_done(&tx->mod);
-                                return NULL;
-                        }
-                        if (tx->enc_funcs->init(&tx->encryption,
-                                                encryption, DEFAULT_CIPHER_MODE) != 0) {
-                                fprintf(stderr, "Unable to initialize encryption\n");
-                                module_done(&tx->mod);
-                                return NULL;
-                        }
-                }
-
-                tx->bitrate = bitrate;
+        struct tx *tx = (struct tx *) calloc(1, sizeof(struct tx));
+        if (tx == nullptr) {
+                return tx;
         }
-		return tx;
+        module_init_default(&tx->mod);
+        tx->mod.cls = MODULE_CLASS_TX;
+        tx->mod.priv_data = tx;
+        tx->mod.deleter = tx_done;
+        module_register(&tx->mod, parent);
+
+        tx->magic = TRANSMIT_MAGIC;
+        tx->media_type = media_type;
+        tx->mult_count = 1;
+        tx->max_loss = 0.0;
+        tx->mtu = mtu;
+        tx->buffer = lrand48() & 0x3fffff;
+        tx->avg_len = tx->avg_len_last = tx->sent_frames = 0u;
+        tx->fec_scheme = FEC_NONE;
+        tx->last_frame_fragment_id = -1;
+        if (fec) {
+                if(!set_fec(tx, fec)) {
+                        module_done(&tx->mod);
+                        return NULL;
+                }
+        }
+        if (encryption) {
+                tx->enc_funcs = static_cast<const struct openssl_encrypt_info *>(load_library("openssl_encrypt",
+                                        LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION));
+                if (!tx->enc_funcs) {
+                        fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");
+                        module_done(&tx->mod);
+                        return NULL;
+                }
+                if (tx->enc_funcs->init(&tx->encryption,
+                                        encryption, DEFAULT_CIPHER_MODE) != 0) {
+                        fprintf(stderr, "Unable to initialize encryption\n");
+                        module_done(&tx->mod);
+                        return NULL;
+                }
+        }
+
+        tx->bitrate = bitrate;
+
+        return tx;
 }
 
 static bool set_fec(struct tx *tx, const char *fec_const)
