@@ -53,6 +53,7 @@
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
+#include "compat/misc.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "messaging.h"
@@ -694,15 +695,14 @@ bool validate_param(const char *param)
 /**
  * Parses command-line parameters given as "--param <key>=<val>[...".
  *
- * @param optarg   command-line arguments given to "--param", will be modified by strtok_r(),
- *                 must not be NULL
+ * @param optarg   command-line arguments given to "--param", must not be NULL
  * @param preinit  true  - only parse/set known parameters (notably output buffer setting), ignore help
  *                 false - set also remaining parameters including full check and "help" output
  *
  * @note
  * This function will be usually called twice - first with preinit=true and then with false
  */
-bool parse_params(char *optarg, bool preinit)
+bool parse_params(const char *optarg, bool preinit)
 {
         if (!preinit && strcmp(optarg, "help") == 0) {
                 puts("Use of params below is experimental and should be used with a caution and a knowledge of consequences and affected functionality!\n");
@@ -710,10 +710,11 @@ bool parse_params(char *optarg, bool preinit)
                 print_param_doc();
                 return false;
         }
+        char *tmp = strdupa(optarg);
         char *item = nullptr;
         char *save_ptr = nullptr;
-        while ((item = strtok_r(optarg, ",", &save_ptr)) != nullptr) {
-                optarg = nullptr;
+        while ((item = strtok_r(tmp, ",", &save_ptr)) != nullptr) {
+                tmp = nullptr;
                 char *key_cstr = item;
                 const char *val_cstr = "";
                 if (char *delim = strchr(item, '=')) {
