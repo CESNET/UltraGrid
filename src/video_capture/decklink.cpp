@@ -360,6 +360,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                 IDeckLinkTimecode *tc = NULL;
                 if (videoFrame->GetTimecode(bmdTimecodeRP188Any, &tc) == S_OK) {
                         timecode = tc->GetBCD();
+                        tc->Release();
                 } else {
                         timecode = 0;
                         if (s->sync_timecode) {
