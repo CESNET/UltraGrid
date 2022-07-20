@@ -886,11 +886,9 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)
 {
         BMD_STR displayModeString = NULL;
-        HRESULT result;
 
-        result = displayMode->GetName(&displayModeString);
-        if (FAILED(result)) {
-                return result;
+        if (HRESULT result = displayMode->GetName(&displayModeString); FAILED(result)) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "IDeckLinkDisplayMode::GetName failed: " << bmd_hresult_to_string(result) << "\n";
         }
 
         auto it = std::find_if(uv_to_bmd_codec_map.begin(),
@@ -932,7 +930,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                 s->frame->interlacing = PROGRESSIVE;
         }
 
-        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
+        char *displayModeCString = displayModeString ? get_cstr_from_bmd_api_str(displayModeString) : strdup("(ERROR!)");
         LOG(LOG_LEVEL_DEBUG) << displayModeCString << " \t " << tile->width << " x " << tile->height << " \t " <<
                 s->frame->fps << " FPS \t " << s->next_frame_time << " AVAREGE TIME BETWEEN FRAMES\n";
         cout << "Enable video input: " << displayModeCString << "\n";
@@ -948,7 +946,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                 s->frame->tiles[1].data_len = s->frame->tiles[0].data_len;
         }
 
-        return result;
+        return S_OK;
 }
 
 /**

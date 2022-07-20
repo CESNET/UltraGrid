@@ -99,6 +99,9 @@ char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
 
 void release_bmd_api_str(BMD_STR string)
 {
+        if (!string) {
+                return;
+        }
 #ifdef HAVE_MACOSX
         CFRelease(string);
 #elif defined WIN32
