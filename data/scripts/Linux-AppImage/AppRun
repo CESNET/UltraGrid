@@ -129,14 +129,15 @@ set_libva_ld_preload() {
         if [ -z "$LIBVA_LIB" ]; then
                 return 1
         fi
+        libva_libs=$LIBVA_LIB
         # add also libva-drm, libva-x11 if present
         for n in libva-drm libva-x11; do
                 NAME=$(echo "$LIBVA_LIB" | sed s/libva/$n/)
                 if [ -f "$NAME" ]; then
-                        LIBVA_LIB=$LIBVA_LIB:$NAME
+                        libva_libs=$libva_libs:$NAME
                 fi
         done
-        export LD_PRELOAD="$LIBVA_LIB${LD_PRELOAD:+:$LD_PRELOAD}"
+        export LD_PRELOAD="$libva_libs${LD_PRELOAD:+:$LD_PRELOAD}"
         return 0
 }
 
