@@ -84,6 +84,9 @@ string bmd_hresult_to_string(HRESULT res)
  */
 char *get_cstr_from_bmd_api_str(BMD_STR bmd_string)
 {
+        if (!bmd_string) {
+                return strdup("(NULL!)");
+        }
        char *cstr;
 #ifdef HAVE_MACOSX
        size_t len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(bmd_string), kCFStringEncodingUTF8) + 1;
@@ -128,6 +131,14 @@ void release_bmd_api_str(BMD_STR string)
 #else
         free(const_cast<char *>(string));
 #endif
+}
+
+std::string get_str_from_bmd_api_str(BMD_STR string)
+{
+        char *displayModeCString = get_cstr_from_bmd_api_str(string);
+        std::string out = displayModeCString;
+        free(displayModeCString);
+        return out;
 }
 
 /**
