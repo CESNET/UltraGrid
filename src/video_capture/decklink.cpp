@@ -217,9 +217,7 @@ public:
 		return mRefCount++;
 	}
 	virtual ULONG STDMETHODCALLTYPE  Release(void) override {
-		int32_t newRefValue;
-        	
-		newRefValue = mRefCount--;
+		int32_t newRefValue = mRefCount--;
 		if (newRefValue == 0)
 		{
 			delete this;
@@ -450,10 +448,6 @@ static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
 static int
 decklink_help(bool full)
 {
-	IDeckLinkIterator*		deckLinkIterator;
-	IDeckLink*			deckLink;
-	int				numDevices = 0;
-
 	printf("\nDecklink options:\n");
         cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}* | decklink:[full]help\n" << style::reset;
         printf("\t\tor\n");
@@ -551,13 +545,15 @@ decklink_help(bool full)
         cout << "\n";
 
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-	deckLinkIterator = create_decklink_iterator();
-	if (deckLinkIterator == NULL) {
+        IDeckLinkIterator *deckLinkIterator = create_decklink_iterator();
+        if (deckLinkIterator == NULL) {
 		return 0;
 	}
 	
         cout << "Devices:\n";
 	// Enumerate all cards in this system
+        IDeckLink *deckLink = nullptr;
+        int numDevices = 0;
 	while (deckLinkIterator->Next(&deckLink) == S_OK)
 	{
                 string deviceName = bmd_get_device_name(deckLink);
