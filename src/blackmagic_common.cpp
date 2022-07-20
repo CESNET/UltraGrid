@@ -46,6 +46,7 @@
 #include "blackmagic_common.h"
 #include "DeckLinkAPIVersion.h"
 #include <iomanip>
+#include <sstream>
 #include <unordered_map>
 
 #define MOD_NAME "[DeckLink] "
@@ -69,11 +70,13 @@ static unordered_map<HRESULT, string> bmd_hresult_to_string_map = {
 
 string bmd_hresult_to_string(HRESULT res)
 {
+        ostringstream oss;
         auto it = bmd_hresult_to_string_map.find(res);
         if (it != bmd_hresult_to_string_map.end()) {
-                return it->second;
+                oss << it->second;
         }
-        return {};
+        oss << " " << "(0x" << hex << setfill('0') << setw(8) << res << ")";
+        return oss.str();
 }
 
 /**
