@@ -1,5 +1,8 @@
 #!/bin/sh -eu
 
+# defaults
+use_bundled_libva_default=0
+
 # if not run from AppImage (eg. extracted), use default values
 APPIMAGE=${APPIMAGE-none}
 ARGV0=${ARGV0-$0}
@@ -53,7 +56,7 @@ usage() {
 usage_aux() {
         printf "environment variables:\n"
         printf "\tULTRAGRID_AUTOUPDATE:    1 - try to autoupdate; 0 - disable update advice\n"
-        printf "\tULTRAGRID_BUNDLED_LIBVA: 1 - use bundled libva; 0 - use system libva (if available)\n"
+        printf "\tULTRAGRID_BUNDLED_LIBVA: 1 - use bundled libva; 0 - use system libva (if available), default %d\n" $use_bundled_libva_default
         printf "\tULTRAGRID_USE_FIREJAIL:  run the UltraGrid executable with firejail. If\n"
         printf "\t                         the variable contains printf a profile path\n"
         printf "\t                         (ends with '.profile'), it will be used.\n"
@@ -139,7 +142,14 @@ set_libva_ld_preload() {
 
 ## Tries to set LD_PRELOAD to system libva (see set_libva_ld_preload()). If failed, sets path to bundled libva drivers.
 setup_vaapi() {
-        if [ "${ULTRAGRID_BUNDLED_LIBVA:-0}" -eq 1 ] || ! set_libva_ld_preload; then
+        ULTRAGRID_BUNDLED_LIBVA=${ULTRAGRID_BUNDLED_LIBVA:-$use_bundled_libva_default}
+        if [ "$ULTRAGRID_BUNDLED_LIBVA" -ne 1 ]; then
+                if ! set_libva_ld_preload; then
+                        echo "$(tput bold)$(tput setaf 1)Could not set system libva, using bundled libraries instead!$(tput sgr0)" >&2
+                        ULTRAGRID_BUNDLED_LIBVA=1
+                fi
+        fi
+        if [ "$ULTRAGRID_BUNDLED_LIBVA" -eq 1 ]; then
                 if [ -d "$DIR/usr/lib/va" ] && [ -z "${LIBVA_DRIVERS_PATH:-}" ]; then
                         export LIBVA_DRIVERS_PATH="$AI_LIB_PATH/va"
                 fi
