@@ -59,6 +59,7 @@
 #include <iostream>
 #include <iomanip>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -137,7 +138,7 @@ class VideoDelegate;
 struct device_state {
         IDeckLink                  *deckLink              = nullptr;
         IDeckLinkInput             *deckLinkInput         = nullptr;
-        VideoDelegate              *delegate              = nullptr;
+        unique_ptr<VideoDelegate>  delegate;
         IDeckLinkProfileAttributes *deckLinkAttributes    = nullptr;
         IDeckLinkConfiguration     *deckLinkConfiguration = nullptr;
         string                      device_id = "0"; // either numeric value or device name
@@ -1201,8 +1202,8 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 }
 
                 // set Callback which returns frames
-                s->state[i].delegate = new VideoDelegate(s, i);
-                deckLinkInput->SetCallback(s->state[i].delegate);
+                s->state[i].delegate = make_unique<VideoDelegate>(s, i);
+                deckLinkInput->SetCallback(s->state[i].delegate.get());
 
                 BMDDisplayMode detectedDisplayMode = bmdModeUnknown;
                 if (s->detect_format) {
