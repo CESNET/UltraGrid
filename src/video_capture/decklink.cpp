@@ -1431,19 +1431,9 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
         for (int i = 0; i < s->devices_cnt; ++i) {
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkAttributes);
-
-		if(s->state[i].deckLinkInput != NULL)
-		{
-			s->state[i].deckLinkInput->Release();
-			s->state[i].deckLinkInput = NULL;
-		}
-
-		if(s->state[i].deckLink != NULL)
-		{
-			s->state[i].deckLink->Release();
-			s->state[i].deckLink = NULL;
-		}
-	}
+                RELEASE_IF_NOT_NULL(s->state[i].deckLinkInput);
+                RELEASE_IF_NOT_NULL(s->state[i].deckLink);
+        }
 
         free(s->audio.data);
 
