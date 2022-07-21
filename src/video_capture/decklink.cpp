@@ -1443,9 +1443,7 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
 
         for (int i = 0; i < s->devices_cnt; ++i) {
                 RELEASE_IF_NOT_NULL(s->state[i].deckLinkConfiguration);
-		if(s->state[i].deckLinkConfiguration != NULL) {
-			s->state[i].deckLinkConfiguration->Release();
-                }
+                RELEASE_IF_NOT_NULL(s->state[i].deckLinkAttributes);
 
 		if(s->state[i].deckLinkInput != NULL)
 		{
