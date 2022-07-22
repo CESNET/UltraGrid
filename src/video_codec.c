@@ -2246,14 +2246,27 @@ static void vc_copylineBGRtoUYVY(unsigned char * __restrict dst, const unsigned 
 /**
  * @brief Converts RGBA to UYVY.
  * @copydetails vc_copylinev210
+ *
+ * @note
+ * not using restricted pointers - vc_copylineR10ktoUYVY uses it in place.
  */
-static void vc_copylineRGBAtoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+static void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
         vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 4);
+}
+
+static void vc_copylineR10ktoUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        vc_copyliner10k(dst, src, dst_len * 2, DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
+        vc_copylineRGBAtoUYVY(dst, dst, dst_len, DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
 }
 
 static void vc_copylineRG48toUYVY(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
@@ -2751,6 +2764,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineUYVYtoRGBA,  UYVY,  RGBA, true },
         { vc_copylineYUYVtoRGB,   YUYV,  RGB, true },
         { vc_copylineBGRtoUYVY,   BGR,   UYVY, true },
+        { vc_copylineR10ktoUYVY,  R10k,  UYVY, true },
         { vc_copylineRGBAtoUYVY,  RGBA,  UYVY, true },
         { vc_copylineBGRtoRGB,    BGR,   RGB, false },
         { vc_copylineDPX10toRGBA, DPX10, RGBA, false },
