@@ -538,7 +538,11 @@ static void v210_to_p210le(AVFrame * __restrict out_frame, unsigned char * __res
 }
 #endif
 
-static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+#if defined __GNUC__
+static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, int v_subsampl_rate)
+        __attribute__((always_inline));
+#endif
+static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, int v_subsampl_rate)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
@@ -556,8 +560,8 @@ static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
         const int32_t cr_b = -49168;  //-0.04689 << 20
         for(int y = 0; y < height; y++) {
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
+                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * (y / v_subsampl_rate));
+                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * (y / v_subsampl_rate));
                 unsigned char *src = in_data + y * src_linesize;
                 int iterations = width / 2;
                 OPTIMIZED_FOR(int x = 0; x < iterations; x++){
@@ -589,13 +593,33 @@ static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
                         res_cr = MIN(MAX(res_cr, 64), 960);
 
                         dst_y[x * 2 + 1] = res_y;
-                        dst_cb[x] = res_cb;
-                        dst_cr[x] = res_cr;
+                        if (v_subsampl_rate == 1) {
+                                dst_cb[x] = res_cb;
+                                dst_cr[x] = res_cr;
+                        } else {
+                                if (x % 2 == 0) {
+                                        dst_cb[x] = res_cb;
+                                        dst_cr[x] = res_cr;
+                                } else {
+                                        dst_cb[x] = (dst_cb[x] + res_cb) / 2;
+                                        dst_cr[x] = (dst_cr[x] + res_cr) / 2;
+                                }
+                        }
 
                         src += 4;
                 }
 
         }
+}
+
+static void r10k_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r10k_to_yuv42Xp10le(out_frame, in_data, width, height, 2);
+}
+
+static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        r10k_to_yuv42Xp10le(out_frame, in_data, width, height, 1);
 }
 
 /**
@@ -1150,6 +1174,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_GBRP10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp10le },
                 { R10k, AV_PIX_FMT_GBRP16LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp16le },
                 { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },
+                { R10k, AV_PIX_FMT_YUV420P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv420p10le },
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
                 { R12L, AV_PIX_FMT_GBRP12LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r12l_to_gbrp12le },
                 { R12L, AV_PIX_FMT_GBRP16LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r12l_to_gbrp16le },
