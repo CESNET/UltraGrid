@@ -1233,15 +1233,15 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 #ifndef HAVE_SWSCALE
                 return false;
 #else
-                log_msg(LOG_LEVEL_NOTICE, "[lavc] Attempting to use swscale to convert.\n");
                 //get all AVPixelFormats we can convert to and pick the first
                 auto fmts = get_available_pix_fmts(desc, codec, s->requested_subsampling, VIDEO_CODEC_NONE);
                 s->sws_out_pixfmt = s->selected_pixfmt;
                 s->selected_pixfmt = fmts.front();
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(s->selected_pixfmt), av_get_pix_fmt_name(s->sws_out_pixfmt));
                 if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
                         //Should not happen as get_available_pix_fmts should only
                         //return formats we can decode to
-                        log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to convert even using swscale. Giving up.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "[lavc] Unable to find decoder from %s to %s before using swscale.\n", get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
                         return false;
                 }
 
