@@ -92,17 +92,18 @@ bool parse_num(std::string_view sv, T& res, int base = 10){
                 return false;
 
         std::string tmp(sv);
+        const char *c_str_ptr = tmp.c_str();
         char *endptr = nullptr;
         T num;
 
         if constexpr(std::is_same_v<T, double>)
-                num = strtod(tmp.data(), &endptr);
+                num = strtod(c_str_ptr, &endptr);
         else if constexpr(std::is_same_v<T, float>)
-                num = strtof(tmp.data(), &endptr);
+                num = strtof(c_str_ptr, &endptr);
         else
-                num = strtol(tmp.data(), &endptr, base);
+                num = strtol(c_str_ptr, &endptr, base);
 
-        if(tmp.data() == endptr)
+        if(c_str_ptr == endptr)
                 return false;
 
         res = num;
