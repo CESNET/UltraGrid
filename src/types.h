@@ -65,17 +65,17 @@ extern "C" {
 typedef enum {
         VIDEO_CODEC_NONE = 0, ///< dummy color spec
         VIDEO_CODEC_FIRST,
-        RGBA = VIDEO_CODEC_FIRST, ///< RGBA 8-bit
+        RGBA = VIDEO_CODEC_FIRST, ///< RGBA 8-bit, big-endian
         UYVY,     ///< YCbCr 422 8-bit - Cb Y0 Cr Y1
         YUYV,     ///< YCbCr 422 8-bit - Y0 Cb Y1 Cr
-        R10k,     ///< RGB 10-bit
+        R10k,     ///< RGB 10-bit packed - RGBX, big-endian (2 bit padding)
         R12L,     ///< RGB 12-bit packed, little-endian
-        v210,     ///< YCbCr 422 10-bit
+        v210,     ///< YCbCr 422 10-bit - UYVX|YUYX|VYUX|YVYX, little-endian (2 bit padding), line aligned to 128 B
         DVS10,    ///< DVS 10-bit format
         DXT1,     ///< S3 Texture Compression DXT1
         DXT1_YUV, ///< Structure same as DXT1, instead of RGB, YCbCr values are stored
         DXT5,     ///< S3 Texture Compression DXT5
-        RGB,      ///< RGBA 8-bit (packed into 24-bit word)
+        RGB,      ///< RGB 8-bit (packed into 24-bit word)
         DPX10,    ///< 10-bit DPX raw data
         JPEG,     ///< JPEG image, restart intervals may be used. Compatible with GPUJPEG
         RAW,      ///< RAW HD-SDI frame
@@ -92,7 +92,7 @@ typedef enum {
         HFYU,     ///< HuffYUV
         FFV1,     ///< FFV1
         CFHD,     ///< Cineform
-        RG48,     ///< Cineform 16-bit RGB
+        RG48,     ///< 16-bit RGB little-endian (RlRhGl...)
         AV1,      ///< AOMedia Video 1
         I420,     ///< planar YCbCr 4:2:0
         Y216,     ///< YCbCr 422 16-bit - Y0 Cb Y1 Cr
