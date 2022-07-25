@@ -31,10 +31,14 @@ struct Ipc_frame_reader{
 };
 
 Ipc_frame_reader *ipc_frame_reader_new(const char *path){
-        auto reader = static_cast<Ipc_frame_reader *>(malloc(sizeof(Ipc_frame_reader)));
+        auto reader = new Ipc_frame_reader();
         reader->data_fd = -1;
 
         reader->listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if(reader->listen_fd == -1){
+                delete reader;
+                return nullptr;
+        }
 
         sockaddr_un addr;
         memset(&addr, 0, sizeof(addr));
@@ -43,9 +47,20 @@ Ipc_frame_reader *ipc_frame_reader_new(const char *path){
         addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
         unlink(path);
 
-        bind(reader->listen_fd, (const sockaddr *) &addr, sizeof(addr.sun_path)); //TODO check return
+        int ret = 0;
+        ret = bind(reader->listen_fd, (const sockaddr *) &addr, sizeof(addr.sun_path));
+        if(ret == -1){
+                CLOSESOCKET(reader->listen_fd);
+                delete reader;
+                return nullptr;
+        }
 
-        listen(reader->listen_fd, 5);
+        ret = listen(reader->listen_fd, 5);
+        if(ret == -1){
+                CLOSESOCKET(reader->listen_fd);
+                delete reader;
+                return nullptr;
+        }
 
         return reader;
 }
@@ -56,7 +71,7 @@ void ipc_frame_reader_free(struct Ipc_frame_reader *reader){
         if(reader->listen_fd >= 0)
                 CLOSESOCKET(reader->listen_fd);
 
-        free(reader);
+        delete reader;
 }
 
 static size_t blocking_read(int fd, char *dst, size_t size){
@@ -148,6 +163,10 @@ Ipc_frame_writer *ipc_frame_writer_new(const char *path){
         addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
 
         writer->data_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if(writer->data_fd < 0){
+                delete writer;
+                return nullptr;
+        }
 
         int ret = connect(writer->data_fd, (const struct sockaddr *) &addr, sizeof(addr));
         if(ret == -1){
