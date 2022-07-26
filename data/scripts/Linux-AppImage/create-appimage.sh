@@ -78,6 +78,9 @@ while read -r x; do
         EXCLUDE_LIST="$EXCLUDE_LIST $NAME"
 done < excludelist
 for n in $EXCLUDE_LIST; do
+        if [ "$n" = libjack.so.0 ]; then # JACK is currently handled in AppRun
+                continue
+        fi
         if [ -f "$APPPREFIX/lib/$n" ]; then
                 rm "$APPPREFIX/lib/$n"
         fi
@@ -95,7 +98,7 @@ if [ -f "$(echo $APPPREFIX/lib/libva.so.* | cut -d\  -f 1)" ]; then
         done
 fi
 
-cp "$srcdir/data/scripts/Linux-AppImage/AppRun" "$srcdir/data/ultragrid.png" $APPDIR
+cp -r "$srcdir/data/scripts/Linux-AppImage/AppRun" "$srcdir/data/scripts/Linux-AppImage/scripts" "$srcdir/data/ultragrid.png" $APPDIR
 cp "$srcdir/data/uv-qt.desktop" $APPDIR/cz.cesnet.ultragrid.desktop
 APPIMAGEUPDATETOOL=$(command -v appimageupdatetool-x86_64.AppImage || true)
 if [ -n "$APPIMAGEUPDATETOOL" ]; then
