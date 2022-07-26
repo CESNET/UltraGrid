@@ -1591,9 +1591,9 @@ fi
 # Testcard stuff
 # -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(testcard-extras,
-      AS_HELP_STRING([--enable-testcard-extras[=mixer|ttf|all]], [enable testcard addons - audio and testcard2 (default is auto)]
-      [This includes testcard2 (optionally with TTF) and sound support (mixer) for normal testcard.]
-      [Requires: SDL(2)_mixer (optional) SDL(2)_ttf (optional)]),
+      AS_HELP_STRING([--enable-testcard-extras[=ttf|all]], [enable testcard addons - audio and testcard2 (default is auto)]
+      [This includes testcard2 (optionally with TTF).]
+      [Requires: SDL(2)_ttf (optional)]),
     [testcard_extras_req=$enableval],
     [testcard_extras_req=$build_default]
     )
@@ -1604,46 +1604,23 @@ TESTCARD2_OBJ=
 TESTCARD2_LIB=
 
 testcard2_req=auto
-testcard_sdl_mixer_req=auto
 testcard_sdl_ttf_req=auto
 
 testcard2=no
-testcard_sdl_mixer=no
 testcard_sdl_ttf=no
 
 if test $testcard_extras_req = "no"; then
         testcard2_req=no
-        testcard_sdl2_mixer_req=no
         testcard_sdl2_ttf_req=no
 fi
 if test $testcard_extras_req = "yes"; then
         testcard2_req=yes
 fi
 if expr $testcard_extras_req : '.*all' >/dev/null; then
-        testcard_sdl_mixer_req=yes
         testcard_sdl_ttf_req=yes
-fi
-if expr $testcard_extras_req : '.*mixer' >/dev/null; then
-        testcard_sdl_mixer_req=yes
 fi
 if expr $testcard_extras_req : '.*ttf' >/dev/null; then
         testcard_sdl_ttf_req=yes
-fi
-
-if test $testcard_sdl_mixer_req != no
-then
-        if test $sdl_version -eq 1; then
-                PKG_CHECK_MODULES([SDL_MIXER], [SDL_mixer], [FOUND_SDL_MIXER=yes], [FOUND_SDL_MIXER=no])
-        else
-                PKG_CHECK_MODULES([SDL_MIXER], [SDL2_mixer], [FOUND_SDL_MIXER=yes], [FOUND_SDL_MIXER=no])
-        fi
-        SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
-
-        if test "$FOUND_SDL_MIXER" = yes
-        then
-                AC_DEFINE([HAVE_LIBSDL_MIXER], [1], [Build testcard with SDL Mixer support])
-                TESTCARD_LIB="$SDL_MIXER_LIBS"
-        fi
 fi
 
 TESTCARD_OBJ="src/video_capture/testcard.o"
@@ -1669,7 +1646,6 @@ then
 fi
 
 if { test $testcard2_req = yes && test $testcard2 = no ;} \
-                || { test $testcard_sdl_mixer_req = yes && test $FOUND_SDL_MIXER = no ;} \
                 || { test $testcard_sdl_ttf_req = yes && test $FOUND_SDL_TTF = no ;} ; then
         AC_MSG_ERROR([Testcard2 dependencies not found])
 fi
