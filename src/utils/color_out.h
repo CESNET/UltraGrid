@@ -82,9 +82,10 @@
 #define COLOR_OUT_BRIGHT_GRAY    (68u<<4u)
 #define COLOR_OUT_BG_SHIFT (COLOR_OUT_FG_SHIFT+COLOR_BITS)
 
-#define TERM_BOLD "\e[1m"
-#define TERM_RED "\e[31m"
 #define TERM_RESET "\e[0m"
+#define TERM_BOLD "\e[1m"
+#define TERM_FG_RED "\e[31m"
+#define TERM_FG_RESET "\e[39m"
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,6 +97,7 @@ void color_out(uint32_t modificators, const char *format, ...) ATTRIBUTE(format 
 // new API
 void color_output_init(void);
 int color_fprintf(FILE *f, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
+#define color_printf(...) color_fprintf(stdout, __VA_ARGS__)
 // utils
 bool isMsysPty(int fd);
 

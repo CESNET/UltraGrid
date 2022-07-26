@@ -82,18 +82,13 @@ static void new_msg(struct module *mod) {
 }
 
 static void usage() {
-        color_out(0, "Usage:\n");
-        color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--record");
-        color_out(COLOR_OUT_BOLD, "[=<dir>[:limit=<n>][:noaudio][:novideo][:override][:paused]]\n");
-        color_out(0, "where\n");
-        color_out(COLOR_OUT_BOLD, "\tlimit=<n>");
-        color_out(0, " - write at most <n> video frames\n");
-        color_out(COLOR_OUT_BOLD, "\toverride");
-        color_out(0, " - export even if it would override existing files in the given directory\n");
-        color_out(COLOR_OUT_BOLD, "\tnoaudio | novideo");
-        color_out(0, " - do not export audio/video\n");
-        color_out(COLOR_OUT_BOLD, "\tpaused");
-        color_out(0, " - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
+        color_printf("Usage:\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t--record" TERM_FG_RESET "[=<dir>[:limit=<n>][:noaudio][:novideo][:override][:paused]]\n" TERM_RESET);
+        color_printf("where\n");
+        color_printf(TERM_BOLD "\tlimit=<n>" TERM_RESET "         - write at most <n> video frames\n");
+        color_printf(TERM_BOLD "\toverride" TERM_RESET "          - export even if it would override existing files in the given directory\n");
+        color_printf(TERM_BOLD "\tnoaudio | novideo" TERM_RESET " - do not export audio/video\n");
+        color_printf(TERM_BOLD "\tpaused" TERM_RESET "            - use specified directory but do not export immediately (can be started with a key or through control socket)\n");
 }
 
 static bool parse_options(struct exporter *s, char *save_ptr, bool *should_export) {
