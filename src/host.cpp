@@ -70,6 +70,7 @@
 
 #include <array>
 #include <chrono>
+#include <functional>
 #include <getopt.h>
 #include <iomanip>
 #include <iostream>
@@ -156,12 +157,13 @@ ADD_TO_PARAM("stderr-buf",
          "* stderr-buf={no|line|full}\n"
          "  Buffering for stderr\n");
 static bool set_output_buffering() {
-        const unordered_map<const char *, pair<FILE *, int>> outs = { // pair<output, default mode>
-                { "stdout-buf", pair{stdout, _IOLBF} },
-                { "stderr-buf", pair{stderr, _IONBF} }
+        const unordered_map<const char *, pair<FILE *, function<int(void)> >> outs = { // pair<output, default mode>
+                { "stdout-buf", pair{stdout, [](){ return isMsysPty(fileno(stdout)) ? _IONBF : _IOLBF; }} },
+                { "stderr-buf", pair{stderr, [](){ return _IONBF; }} }
         };
         for (auto outp : outs) {
-                int mode = outp.second.second; // default
+                int mode = outp.second.second(); // default
+
                 if (get_commandline_param(outp.first)) {
                         const unordered_map<string, int> buf_map {
                                 { "no", _IONBF }, { "line", _IOLBF }, { "full", _IOFBF }
@@ -178,7 +180,7 @@ static bool set_output_buffering() {
                         }
                         mode = it->second;
                 }
-                if (setvbuf(outp.second.first, NULL, mode , BUFSIZ) != 0) {
+                if (setvbuf(outp.second.first, NULL, mode, BUFSIZ) != 0) {
                         log_msg(LOG_LEVEL_WARNING, "setvbuf: %s\n", ug_strerror(errno));
                 }
         }

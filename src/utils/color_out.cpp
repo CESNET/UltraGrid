@@ -77,7 +77,7 @@ void color_out(uint32_t modificators, const char *format, ...) {
 
 #ifdef _WIN32
 /// Taken from [rang](https://github.com/agauniyal/rang)
-inline bool setWinTermAnsiColors(DWORD stream) {
+static bool setWinTermAnsiColors(DWORD stream) {
         HANDLE h = GetStdHandle(stream);
         if (h == INVALID_HANDLE_VALUE) {
                 return false;
@@ -92,9 +92,11 @@ inline bool setWinTermAnsiColors(DWORD stream) {
         }
         return true;
 }
+#endif
 
 /// Taken from [rang](https://github.com/agauniyal/rang)
-inline bool isMsysPty(int fd) {
+bool isMsysPty(int fd) {
+#ifdef _WIN32
         // Dynamic load for binary compability with old Windows
         const auto ptrGetFileInformationByHandleEx
                 = reinterpret_cast<decltype(&GetFileInformationByHandleEx)>(reinterpret_cast<void *>(
@@ -141,8 +143,11 @@ inline bool isMsysPty(int fd) {
         }
 
         return true;
-}
+#else
+        (void) fd;
+        return false;
 #endif // defined _WIN32
+}
 
 void color_output_init() {
 #ifdef _WIN32

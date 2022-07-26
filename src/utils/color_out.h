@@ -48,6 +48,7 @@
 #define RED(x) rang::fg::red << x << rang::fg::reset
 #include <cstdio>
 #else
+#include <stdbool.h>
 #include <stdio.h>
 #endif
 
@@ -95,6 +96,8 @@ void color_out(uint32_t modificators, const char *format, ...) ATTRIBUTE(format 
 // new API
 void color_output_init(void);
 int color_fprintf(FILE *f, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
+// utils
+bool isMsysPty(int fd);
 
 #ifdef __cplusplus
 } // extern "C"
