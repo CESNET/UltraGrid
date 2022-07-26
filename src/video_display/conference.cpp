@@ -191,7 +191,12 @@ public:
         void get_mixed(video_frame *result);
 
         void set_layout(Layout new_layout) { layout = new_layout; recompute_layout(); }
-        void set_primary_ssrc (uint32_t ssrc) { primary_ssrc = ssrc; recompute_layout(); }
+        Layout get_layout() const { return layout; }
+
+        void set_primary_ssrc(uint32_t ssrc) { primary_ssrc = ssrc; recompute_layout(); }
+        uint32_t get_primary_ssrc() const { return primary_ssrc; }
+
+        std::vector<uint32_t> get_participant_ssrc_list() const;
 
 private:
         void recompute_layout();
@@ -365,8 +370,39 @@ void Video_mixer::get_mixed(video_frame *result){
         }
 }
 
+std::vector<uint32_t> Video_mixer::get_participant_ssrc_list() const{
+        std::vector<uint32_t> ret;
+        ret.reserve(participants.size());
+        for(const auto& i : participants){
+                ret.push_back(i.first);
+        }
+        return ret;
+}
+
 struct display_deleter{ void operator()(display *d){ display_done(d); } };
 using unique_disp = std::unique_ptr<display, display_deleter>;
+
+struct { const char *name; Video_mixer::Layout layout; } layout_name_map[] = {
+        {"tiled", Video_mixer::Layout::Tiled},
+        {"one_big", Video_mixer::Layout::One_big},
+};
+
+Video_mixer::Layout layout_from_name(std::string_view name){
+        for(const auto& i : layout_name_map){
+                if(name == i.name)
+                        return i.layout;
+        }
+        return Video_mixer::Layout::Invalid;
+}
+
+const char *layout_get_name(Video_mixer::Layout layout){
+        for(const auto& i : layout_name_map){
+                if(layout == i.layout)
+                        return i.name;
+        }
+        return "invalid_layout";
+}
+
 }//anon namespace
 
 static constexpr std::chrono::milliseconds SOURCE_TIMEOUT(500);
@@ -510,11 +546,7 @@ static void display_conference_worker(std::shared_ptr<state_conference_common> s
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Received message: %s\n", msg_univ->text);
                         struct response *r;
                         if (key == "layout") {
-                                Video_mixer::Layout new_layout = Video_mixer::Layout::Invalid;
-                                if(val == "tiled")
-                                        new_layout = Video_mixer::Layout::Tiled;
-                                else if(val == "one_big")
-                                        new_layout = Video_mixer::Layout::One_big;
+                                Video_mixer::Layout new_layout = layout_from_name(val);
 
                                 if(new_layout == Video_mixer::Layout::Invalid){
                                         log_msg(LOG_LEVEL_ERROR, "Unknown layout %s\n", std::string(val).c_str());
@@ -535,6 +567,15 @@ static void display_conference_worker(std::shared_ptr<state_conference_common> s
                                         mixer.set_primary_ssrc(parsed_ssrc);
                                         r = new_response(RESPONSE_OK, NULL);
                                 }
+
+                        } else if (key == "info"){
+                                auto ssrcs = mixer.get_participant_ssrc_list();
+                                log_msg(LOG_LEVEL_NOTICE, "Conference layout: %s\n", layout_get_name(mixer.get_layout()));
+                                log_msg(LOG_LEVEL_NOTICE, "%ld participants \n", ssrcs.size());
+                                for(const auto& p : ssrcs){
+                                        log_msg(LOG_LEVEL_NOTICE, "%s   %x\n", p == mixer.get_primary_ssrc() ? "*" : " ", p);
+                                }
+                                r = new_response(RESPONSE_OK, NULL);
                         } else {
                                 r = new_response(RESPONSE_BAD_REQUEST, "Wrong message!");
                         }
