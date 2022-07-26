@@ -63,12 +63,9 @@ using rang::fg;
 using rang::style;
 
 struct dummy_display_state {
-        dummy_display_state() : f(nullptr), t0(steady_clock::now()), frames(0) {}
-        struct video_frame *f;
-        steady_clock::time_point t0;
+        struct video_frame *f = nullptr;
         vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R10k, R12L, RGBA, RGB, BGR, RG48};
         vector<int> rgb_shift = DEFAULT_RGB_SHIFT_INIT;
-        int frames = 0;
 
         size_t dump_bytes = 0;
         bool dump_to_file = false;
@@ -175,15 +172,6 @@ static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
                         s->dump_to_file = false;
                 }
         }
-        auto curr_time = steady_clock::now();
-        s->frames += 1;
-        double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
-        if (seconds >= 5.0) {
-                double fps = s->frames / seconds;
-                LOG(LOG_LEVEL_INFO) << MOD_NAME << s->frames << " frames in " << seconds << " seconds = " << fps << " FPS\n",
-                s->t0 = curr_time;
-                s->frames = 0;
-        }
 
         return 0;
 }
@@ -249,7 +237,7 @@ static const struct video_display_info display_dummy_info = {
         display_dummy_put_audio_frame,
         display_dummy_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        false,
+        true,
 };
 
 REGISTER_MODULE(dummy, &display_dummy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
