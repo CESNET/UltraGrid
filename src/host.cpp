@@ -60,6 +60,7 @@
 #include "module.h"
 #include "perf.h"
 #include "rang.hpp"
+#include "utils/color_out.h" // unit_evaluate
 #include "utils/misc.h" // unit_evaluate
 #include "video_capture.h"
 #include "video_compress.h"
@@ -347,6 +348,7 @@ struct init_data *common_preinit(int argc, char *argv[])
                 return nullptr;
         }
         std::clog.rdbuf(std::cout.rdbuf()); // use stdout for logs by default
+        color_output_init();
 
 #ifdef HAVE_X
         void *handle = dlopen(X11_LIB_NAME, RTLD_NOW);

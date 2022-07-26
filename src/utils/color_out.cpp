@@ -48,6 +48,9 @@
 
 using std::cout;
 
+static bool color_stdout;
+static bool color_stderr;
+
 void color_out(uint32_t modificators, const char *format, ...) {
         rang::style style = static_cast<rang::style>(modificators & 0xf);
         unsigned int fg_color_idx = (modificators >> 4u) & ((1U<<COLOR_OUT_FG_SHIFT)-1);
@@ -70,5 +73,127 @@ void color_out(uint32_t modificators, const char *format, ...) {
         va_end(ap);
 
         cout << style << bg << fg << buffer << rang::style::reset << rang::fg::reset << rang::bg::reset;
+}
+
+#ifdef _WIN32
+/// Taken from [rang](https://github.com/agauniyal/rang)
+inline bool setWinTermAnsiColors(DWORD stream) {
+        HANDLE h = GetStdHandle(stream);
+        if (h == INVALID_HANDLE_VALUE) {
+                return false;
+        }
+        DWORD dwMode = 0;
+        if (!GetConsoleMode(h, &dwMode)) {
+                return false;
+        }
+        dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        if (!SetConsoleMode(h, dwMode)) {
+                return false;
+        }
+        return true;
+}
+
+/// Taken from [rang](https://github.com/agauniyal/rang)
+inline bool isMsysPty(int fd) {
+        // Dynamic load for binary compability with old Windows
+        const auto ptrGetFileInformationByHandleEx
+                = reinterpret_cast<decltype(&GetFileInformationByHandleEx)>(reinterpret_cast<void *>(
+                                        GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
+                                                "GetFileInformationByHandleEx")));
+        if (!ptrGetFileInformationByHandleEx) {
+                return false;
+        }
+
+        HANDLE h = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+        if (h == INVALID_HANDLE_VALUE) {
+                return false;
+        }
+
+        // Check that it's a pipe:
+        if (GetFileType(h) != FILE_TYPE_PIPE) {
+                return false;
+        }
+
+        // POD type is binary compatible with FILE_NAME_INFO from WinBase.h
+        // It have the same alignment and used to avoid UB in caller code
+        struct MY_FILE_NAME_INFO {
+                DWORD FileNameLength;
+                WCHAR FileName[MAX_PATH];
+        };
+
+        auto pNameInfo = std::unique_ptr<MY_FILE_NAME_INFO>(
+                        new (std::nothrow) MY_FILE_NAME_INFO());
+        if (!pNameInfo) {
+                return false;
+        }
+
+        // Check pipe name is template of
+        // {"cygwin-","msys-"}XXXXXXXXXXXXXXX-ptyX-XX
+        if (!ptrGetFileInformationByHandleEx(h, FileNameInfo, pNameInfo.get(),
+                                sizeof(MY_FILE_NAME_INFO))) {
+                return false;
+        }
+        std::wstring name(pNameInfo->FileName, pNameInfo->FileNameLength / sizeof(WCHAR));
+        if ((name.find(L"msys-") == std::wstring::npos
+                                && name.find(L"cygwin-") == std::wstring::npos)
+                        || name.find(L"-pty") == std::wstring::npos) {
+                return false;
+        }
+
+        return true;
+}
+#endif // defined _WIN32
+
+void color_output_init() {
+#ifdef _WIN32
+        color_stdout = setWinTermAnsiColors(STD_OUTPUT_HANDLE) || isMsysPty(fileno(stdout));
+        color_stderr = setWinTermAnsiColors(STD_ERROR_HANDLE) || isMsysPty(fileno(stderr));
+#else
+        color_stdout = isatty(fileno(stdout));
+        color_stderr = isatty(fileno(stderr));
+#endif
+}
+
+static void prune_ansi_sequences(const char *in, char *out) {
+        char c = *in;
+        bool in_control = false;
+        while (c != '\0') {
+                switch (c) {
+                        case '\e':
+                                in_control = true;
+                                break;
+                        case 'm':
+                                   if (in_control) {
+                                           in_control = false;
+                                           break;
+                                   }
+                                   // fall through
+                        default:
+                                   if (!in_control) {
+                                           *out++ = c;
+                                   }
+                }
+                c = *++in;
+        }
+        *out = '\0';
+}
+
+int color_fprintf(FILE *f, const char *format, ...) {
+        va_list ap;
+        va_start(ap, format);
+        int size = vsnprintf(NULL, 0, format, ap);
+        va_end(ap);
+
+        // format the string
+        char *buffer = (char *) alloca(size + 1);
+        va_start(ap, format);
+        size = vsprintf(buffer, format, ap);
+        va_end(ap);
+
+        if (!((f == stdout && color_stdout) || (f == stderr && color_stderr))) {
+                prune_ansi_sequences(buffer, buffer);
+        }
+
+        return fputs(buffer, f) == EOF ? -1 : size;
 }
 

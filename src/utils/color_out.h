@@ -46,6 +46,9 @@
 #define BOLD(x) rang::style::bold << x << rang::style::reset
 #define GREEN(x) rang::fg::green << x << rang::fg::reset
 #define RED(x) rang::fg::red << x << rang::fg::reset
+#include <cstdio>
+#else
+#include <stdio.h>
 #endif
 
 #define COLOR_OUT_BOLD      1u
@@ -78,10 +81,25 @@
 #define COLOR_OUT_BRIGHT_GRAY    (68u<<4u)
 #define COLOR_OUT_BG_SHIFT (COLOR_OUT_FG_SHIFT+COLOR_BITS)
 
+#define TERM_BOLD "\e[1m"
+#define TERM_RED "\e[31m"
+#define TERM_RESET "\e[0m"
+
 #ifdef __cplusplus
-extern "C"
+extern "C" {
 #endif
-	void color_out(uint32_t modificators, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
+
+// old API
+void color_out(uint32_t modificators, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
+
+// new API
+void color_output_init(void);
+int color_fprintf(FILE *f, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 
 #endif // defined COLOR_OUT_H_
 

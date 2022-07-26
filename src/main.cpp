@@ -1328,6 +1328,7 @@ static int adjust_params(struct ug_options *opt) {
 
 int main(int argc, char *argv[])
 {
+
         struct init_data *init = nullptr;
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
         struct sched_param sp;
