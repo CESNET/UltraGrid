@@ -18,7 +18,7 @@ static void print_conversions() {
         for (int i = 0; i < VIDEO_CODEC_END; ++i) {
                 bool src_print = false;
                 for (int j = 0; j < VIDEO_CODEC_END; ++j) {
-                        if (get_decoder_from_to(static_cast<codec_t>(i), static_cast<codec_t>(j), true) == nullptr || i == j) {
+                        if (get_decoder_from_to(static_cast<codec_t>(i), static_cast<codec_t>(j)) == nullptr || i == j) {
                                 continue;
                         }
                         if (!src_print) {
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
         in.read(in_data.data(), in_size);
         std::vector<char> out_data(vc_get_datalen(width, height, out_codec));
 
-        auto *decode = get_decoder_from_to(in_codec, out_codec, true);
+        auto *decode = get_decoder_from_to(in_codec, out_codec);
         if (decode == nullptr) {
                 cerr << "Cannot find decoder from " << argv[3] << " to " << argv[4] << "! See '" << argv[0] << " conversions'\n";
                 return 1;
