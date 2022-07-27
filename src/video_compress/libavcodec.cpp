@@ -66,6 +66,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "rang.hpp"
+#include "tv.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/parallel_conv.h"
@@ -1427,6 +1428,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 decoded = (unsigned char *) tx->tiles[0].data;
         }
 
+        time_ns_t t0 = get_time_in_ns();
         auto pixfmt_conv_callback = select_pixfmt_callback(s->selected_pixfmt, s->decoded_codec);
         if (pixfmt_conv_callback != nullptr) {
                 vector<struct pixfmt_conv_task_data> data(s->conv_thread_count);
@@ -1481,6 +1483,8 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 }
         }
 
+        time_ns_t t1 = get_time_in_ns();
+
         debug_file_dump("lavc-avframe", serialize_video_avframe, s->in_frame);
         AVFrame *frame = s->in_frame;
 #ifdef HWACC_VAAPI
@@ -1502,6 +1506,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 frame = s->sws_frame;
         }
 #endif //HAVE_SWSCALE
+        time_ns_t t2 = get_time_in_ns();
 
         /* encode the image */
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
@@ -1563,6 +1568,10 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 return {};
         }
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
+        time_ns_t t3 = get_time_in_ns();
+        LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: " << (t1 - t0) / (double) NS_IN_SEC <<
+                " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<
+                " s, compression " << (t3 - t2) / (double) NS_IN_SEC << " s\n";
 
         if (out->tiles[0].data_len == 0) { // videotoolbox returns sometimes frames with pkt->size == 0 but got_output == true
                 return {};
