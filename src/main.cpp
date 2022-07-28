@@ -557,6 +557,41 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         return true;
 }
 
+static int parse_cuda_device(char *optarg) {
+#ifdef HAVE_GPUJPEG
+        if(strcmp("help", optarg) == 0) {
+                struct compress_state *compression;
+                int ret = compress_init(nullptr, "GPUJPEG:list_devices", &compression);
+                if(ret >= 0) {
+                        if(ret == 0) {
+                                module_done(CAST_MODULE(compression));
+                        }
+                        return EXIT_SUCCESS;
+                } else {
+                        return EXIT_FAILURE;
+                }
+        } else {
+                char *item, *save_ptr = NULL;
+                unsigned int i = 0;
+                while((item = strtok_r(optarg, ",", &save_ptr))) {
+                        if(i >= MAX_CUDA_DEVICES) {
+                                fprintf(stderr, "Maximal number of CUDA device exceeded.\n");
+                                return EXIT_FAILURE;
+                        }
+                        cuda_devices[i] = atoi(item);
+                        optarg = NULL;
+                        ++i;
+                }
+                cuda_devices_count = i;
+        }
+        return -1;
+#else
+        UNUSED(optarg);
+        fprintf(stderr, "CUDA support is not enabled!\n");
+        return EXIT_FAIL_USAGE;
+#endif // HAVE_CUDA
+}
+
 [[maybe_unused]] static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
 
         char *token = strchr(conf, ':');
@@ -960,37 +995,10 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         usage(uv_argv[0], true);
                         return EXIT_SUCCESS;
                 case OPT_CUDA_DEVICE:
-#ifdef HAVE_GPUJPEG
-                        if(strcmp("help", optarg) == 0) {
-                                struct compress_state *compression;
-                                int ret = compress_init(nullptr, "GPUJPEG:list_devices", &compression);
-                                if(ret >= 0) {
-                                        if(ret == 0) {
-                                                module_done(CAST_MODULE(compression));
-                                        }
-                                        return EXIT_SUCCESS;
-                                } else {
-                                        return EXIT_FAILURE;
-                                }
-                        } else {
-                                char *item, *save_ptr = NULL;
-                                unsigned int i = 0;
-                                while((item = strtok_r(optarg, ",", &save_ptr))) {
-                                        if(i >= MAX_CUDA_DEVICES) {
-                                                fprintf(stderr, "Maximal number of CUDA device exceeded.\n");
-                                                return EXIT_FAILURE;
-                                        }
-                                        cuda_devices[i] = atoi(item);
-                                        optarg = NULL;
-                                        ++i;
-                                }
-                                cuda_devices_count = i;
+                        if (int ret = parse_cuda_device(optarg); ret >= 0) {
+                                return ret;
                         }
                         break;
-#else
-                        fprintf(stderr, "CUDA support is not enabled!\n");
-                        return EXIT_FAIL_USAGE;
-#endif // HAVE_CUDA
                 case OPT_MCAST_IF:
                         opt->requested_mcast_if = optarg;
                         break;
