@@ -935,6 +935,27 @@ static inline void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned cha
         }
 }
 
+/**
+ * @todo
+ * Aspiring conversion from R10K to AV_PIX_FMT_X2RGB10LE. As is, it worked with
+ * current (130d19bf2) FFmpeg, but the resulting stream was weird 8-bit 4:2:0
+ * RGB because the module doesn't set 444 and 10-bit properties (IS_* macros).
+ * However, if those macros were toggled on, stream with artifacts is produded.
+ */
+static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height) ATTRIBUTE(unused);
+
+static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+{
+        int src_linesize = vc_get_linesize(width, R10k);
+        for (int y = 0; y < height; ++y) {
+                uint32_t *src = (uint32_t *) (in_data + y * src_linesize);
+                uint32_t *dst = (uint32_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                for (int x = 0; x < width; ++x) {
+                        *dst++ = htonl(*src++); /// @todo worked, but should be AFAIK htonl(*src++)>>2
+                }
+        }
+}
+
 static void rgb_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
 {
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, 3);
@@ -1162,6 +1183,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_BGR0,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_bgr0 },
                 { R10k, AV_PIX_FMT_GBRP10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp10le },
                 { R10k, AV_PIX_FMT_GBRP16LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp16le },
+                //{ R10k, AV_PIX_FMT_X2RGB10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_x2rgb10le },
                 { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },
                 { R10k, AV_PIX_FMT_YUV420P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv420p10le },
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
