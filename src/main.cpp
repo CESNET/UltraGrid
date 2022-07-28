@@ -557,9 +557,11 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         return true;
 }
 
+/// @retval -1  if parsing was successful
+/// @retval >=0 return code to be returned from main()
 static int parse_cuda_device(char *optarg) {
-#ifdef HAVE_GPUJPEG
         if(strcmp("help", optarg) == 0) {
+#ifdef HAVE_GPUJPEG
                 struct compress_state *compression;
                 int ret = compress_init(nullptr, "GPUJPEG:list_devices", &compression);
                 if(ret >= 0) {
@@ -567,29 +569,26 @@ static int parse_cuda_device(char *optarg) {
                                 module_done(CAST_MODULE(compression));
                         }
                         return EXIT_SUCCESS;
-                } else {
+                }
+#else
+                UNUSED(optarg);
+                LOG(LOG_LEVEL_ERROR) << "CUDA support is not enabled!\n";
+                return EXIT_FAILURE;
+#endif
+        }
+        char *item, *save_ptr = NULL;
+        unsigned int i = 0;
+        while((item = strtok_r(optarg, ",", &save_ptr))) {
+                if(i >= MAX_CUDA_DEVICES) {
+                        LOG(LOG_LEVEL_ERROR) << "Maximal number of CUDA device exceeded.\n";
                         return EXIT_FAILURE;
                 }
-        } else {
-                char *item, *save_ptr = NULL;
-                unsigned int i = 0;
-                while((item = strtok_r(optarg, ",", &save_ptr))) {
-                        if(i >= MAX_CUDA_DEVICES) {
-                                fprintf(stderr, "Maximal number of CUDA device exceeded.\n");
-                                return EXIT_FAILURE;
-                        }
-                        cuda_devices[i] = atoi(item);
-                        optarg = NULL;
-                        ++i;
-                }
-                cuda_devices_count = i;
+                cuda_devices[i] = atoi(item);
+                optarg = NULL;
+                ++i;
         }
+        cuda_devices_count = i;
         return -1;
-#else
-        UNUSED(optarg);
-        fprintf(stderr, "CUDA support is not enabled!\n");
-        return EXIT_FAIL_USAGE;
-#endif // HAVE_CUDA
 }
 
 [[maybe_unused]] static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
