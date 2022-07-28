@@ -51,14 +51,15 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
-#include "compat/misc.h" // strdupa
 #include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
 #include "rang.hpp"
 #include "utils/color_out.h"
+#include "utils/sv_parse_num.hpp"
 #include "utils/misc.h" // ug_strerror
 
 using std::string;
@@ -207,17 +208,24 @@ void debug_dump(void *lp, int len)
         }
 }
 
-bool parse_log_cfg(const char *optarg,
+namespace{
+
+bool sv_contains(std::string_view haystack, std::string_view needle){
+	return haystack.find(needle) != std::string_view::npos;
+}
+
+} //anon namespace
+
+bool parse_log_cfg(const char *conf_str,
                 int *log_lvl,
                 bool *logger_skip_repeats,
                 log_timestamp_mode *show_timestamps)
 {
-        assert(optarg != nullptr);
+        assert(conf_str != nullptr);
         assert(log_lvl != nullptr);
         assert(logger_skip_repeats != nullptr);
         assert(show_timestamps != nullptr);
 
-        using namespace std::string_literals;
         using std::clog;
         using std::cout;
 
@@ -233,7 +241,9 @@ bool parse_log_cfg(const char *optarg,
                 { "debug2", LOG_LEVEL_DEBUG2 },
         };
 
-        if ("help"s == optarg) {
+        std::string_view cfg = conf_str;
+
+        if (cfg == "help") {
                 cout << "log level: [0-" << LOG_LEVEL_MAX;
                 for (auto m : mapping) {
                         cout << "|" << m.name;
@@ -244,49 +254,49 @@ bool parse_log_cfg(const char *optarg,
                 return false;
         }
 
-        if (strstr(optarg, "+repeat") != nullptr) {
+        if (sv_contains(cfg, "+repeat")) {
                 *logger_skip_repeats = false;
         }
 
-        if (const char *timestamps = strstr(optarg, "timestamps")) {
-                if (timestamps > optarg) {
-                        if(timestamps[-1] == '+')
-                                *show_timestamps = LOG_TIMESTAMP_ENABLED;
-                        else
-                                *show_timestamps = LOG_TIMESTAMP_DISABLED;
-                }
+        if(auto ts_pos = cfg.find("timestamps"); ts_pos != cfg.npos && ts_pos > 0){
+                if(cfg[ts_pos - 1] == '+')
+                        *show_timestamps = LOG_TIMESTAMP_ENABLED;
+                else
+                        *show_timestamps = LOG_TIMESTAMP_DISABLED;
         }
 
         if (getenv("ULTRAGRID_VERBOSE") != nullptr) {
                 *log_lvl = LOG_LEVEL_VERBOSE;
         }
 
-        if (optarg[0] == '+' || optarg[0] == '-') { // only flags, no log level
+        if (cfg.empty() || cfg[0] == '+' || cfg[0] == '-') { // only flags, no log level
                 return true;
         }
 
-        if (isdigit(optarg[0])) {
-                long val = strtol(optarg, nullptr, 0);
+        if (isdigit(cfg[0])) {
+                long val = -1;
+                parse_num(cfg, val);
                 if (val < 0 || val > LOG_LEVEL_MAX) {
-                        clog << "Log: wrong value: " << optarg << " (allowed range [0.." << LOG_LEVEL_MAX << "])\n";
+                        clog << "Log: wrong value: " << cfg << " (allowed range [0.." << LOG_LEVEL_MAX << "])\n";
                         return false;
                 }
                 *log_lvl = val;
                 return true;
         }
 
-        char *log_level_str = strdupa(optarg);
-        if (char *delim = strpbrk(log_level_str, "+-")) {
-                *delim = '\0';
-        }
+        auto log_lvl_sv = cfg;
+        auto sign_pos = log_lvl_sv.find_first_of("+-");
+        if(sign_pos != log_lvl_sv.npos)
+                log_lvl_sv.remove_suffix(log_lvl_sv.size() - sign_pos);
+
         for (auto m : mapping) {
-                if (strcmp(log_level_str, m.name) == 0) {
+                if (log_lvl_sv == m.name) {
                         *log_lvl = m.level;
                         return true;
                 }
         }
 
-        LOG(LOG_LEVEL_ERROR) << "Wrong log level specification: " << optarg << "\n";
+        LOG(LOG_LEVEL_ERROR) << "Wrong log level specification: " << cfg << "\n";
         return false;
 }
 
