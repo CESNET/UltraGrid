@@ -56,6 +56,7 @@
 #include "module.h"
 #include "playback.h"
 #include "ug_runtime_error.hpp"
+#include "utils/color_out.h"
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
 #include "video_export.h"
@@ -384,10 +385,11 @@ try {
 	printf("vidcap_import_init\n");
 
         if (strlen(tmp) == 0 || strcmp(tmp, "help") == 0) {
-                printf("Import usage:\n"
-                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|frames=<n>|:disable_audio}\n"
-                                "\t\t<fps> - overrides FPS from sequence metadata\n"
-                                "\t\t<n>   - use only N first frames fron sequence (if less than available frames)\n");
+                color_printf("Import usage:\n"
+                                TERM_BOLD TERM_FG_RED "\t<directory>" TERM_FG_RESET "{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|frames=<n>|:disable_audio}\n" TERM_RESET
+                                "where\n"
+                                TERM_BOLD "\t<fps>" TERM_RESET " - overrides FPS from sequence metadata\n"
+                                TERM_BOLD "\t<n>  " TERM_RESET " - use only N first frames fron sequence (if less than available frames)\n");
                 delete s;
                 free(tmp);
                 return VIDCAP_INIT_NOERR;
