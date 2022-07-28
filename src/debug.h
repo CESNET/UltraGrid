@@ -175,6 +175,10 @@ public:
                 oneshot_messages.insert(id);
                 oss << msg;
         }
+
+		inline void set_skip_repeats(bool val) { skip_repeated.store(val, std::memory_order_relaxed); }
+
+		inline void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
 private:
         int level;
         std::ostringstream oss;
