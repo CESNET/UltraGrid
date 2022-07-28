@@ -121,7 +121,7 @@ class keyboard_control; // friend
 class Logger
 {
 public:
-        static void preinit(bool skip_repeated, log_timestamp_mode show_timestamps);
+        static void preinit();
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
                 rang::fg color = rang::fg::reset;
@@ -176,9 +176,9 @@ public:
                 oss << msg;
         }
 
-		inline void set_skip_repeats(bool val) { skip_repeated.store(val, std::memory_order_relaxed); }
+		inline static void set_skip_repeats(bool val) { skip_repeated.store(val, std::memory_order_relaxed); }
 
-		inline void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
+		inline static void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
 private:
         int level;
         std::ostringstream oss;

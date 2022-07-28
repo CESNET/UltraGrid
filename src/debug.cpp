@@ -300,10 +300,8 @@ bool parse_log_cfg(const char *conf_str,
         return false;
 }
 
-void Logger::preinit(bool skip_repeated, log_timestamp_mode show_timestamps)
+void Logger::preinit()
 {
-        Logger::skip_repeated = skip_repeated;
-        Logger::show_timestamps = show_timestamps;
         if (rang::rang_implementation::supportsColor()
                         && rang::rang_implementation::isTerminal(std::cout.rdbuf())
                         && rang::rang_implementation::isTerminal(std::cerr.rdbuf())) {
