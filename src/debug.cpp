@@ -207,12 +207,14 @@ void debug_dump(void *lp, int len)
         }
 }
 
-bool set_log_level(const char *optarg,
-                bool *logger_repeat_msgs,
+bool parse_log_cfg(const char *optarg,
+                int *log_lvl,
+                bool *logger_skip_repeats,
                 log_timestamp_mode *show_timestamps)
 {
         assert(optarg != nullptr);
-        assert(logger_repeat_msgs != nullptr);
+        assert(log_lvl != nullptr);
+        assert(logger_skip_repeats != nullptr);
         assert(show_timestamps != nullptr);
 
         using namespace std::string_literals;
@@ -243,7 +245,7 @@ bool set_log_level(const char *optarg,
         }
 
         if (strstr(optarg, "+repeat") != nullptr) {
-                *logger_repeat_msgs = true;
+                *logger_skip_repeats = false;
         }
 
         if (const char *timestamps = strstr(optarg, "timestamps")) {
@@ -256,7 +258,7 @@ bool set_log_level(const char *optarg,
         }
 
         if (getenv("ULTRAGRID_VERBOSE") != nullptr) {
-                log_level = LOG_LEVEL_VERBOSE;
+                *log_lvl = LOG_LEVEL_VERBOSE;
         }
 
         if (optarg[0] == '+' || optarg[0] == '-') { // only flags, no log level
@@ -269,7 +271,7 @@ bool set_log_level(const char *optarg,
                         clog << "Log: wrong value: " << optarg << " (allowed range [0.." << LOG_LEVEL_MAX << "])\n";
                         return false;
                 }
-                log_level = val;
+                *log_lvl = val;
                 return true;
         }
 
@@ -279,7 +281,7 @@ bool set_log_level(const char *optarg,
         }
         for (auto m : mapping) {
                 if (strcmp(log_level_str, m.name) == 0) {
-                        log_level = m.level;
+                        *log_lvl = m.level;
                         return true;
                 }
         }

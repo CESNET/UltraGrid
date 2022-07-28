@@ -94,8 +94,9 @@ void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2
 void log_msg_once(int log_level, uint32_t id, const char *msg);
 void log_perror(int log_level, const char *msg);
 
-bool set_log_level(const char *optarg,
-		bool *logger_repeat_msgs,
+bool parse_log_cfg(const char *conf_str,
+		int *log_lvl,
+		bool *logger_skip_repeats,
 		enum log_timestamp_mode *show_timestamps);
 
 #ifdef __cplusplus

@@ -294,6 +294,11 @@ static bool parse_opts_set_logging(int argc, char *argv[])
         // modified getopt - process all "argv[0] argv[n]" pairs to avoid permutation
         // of argv arguments - we do not have the whole option set in optstring, so it
         // would put optargs to the end ("uv -t testcard -V" -> "uv -t -V testcard")
+
+        int logging_lvl = LOG_LEVEL_INFO;
+        bool logger_skip_repeats = true;
+        log_timestamp_mode logger_show_timestamps = LOG_TIMESTAMP_AUTO;
+
         for (int i = 1; i < argc; ++i) {
                 char *my_argv[] = { argv[0], argv[i] };
 
@@ -305,7 +310,7 @@ static bool parse_opts_set_logging(int argc, char *argv[])
                                 if (optarg) {
                                         log_opt = optarg;
                                 } else {
-                                        log_level += 1;
+                                        logging_lvl += 1;
                                 }
                                 break;
                         case OPT_PARAM:
@@ -325,12 +330,11 @@ static bool parse_opts_set_logging(int argc, char *argv[])
         }
         opterr = saved_opterr;
 
-        bool logger_repeat_msgs = false;
-        log_timestamp_mode logger_show_timestamps = LOG_TIMESTAMP_AUTO;
-        if (log_opt != nullptr && !set_log_level(log_opt, &logger_repeat_msgs, &logger_show_timestamps)) {
+        if (log_opt != nullptr && !parse_log_cfg(log_opt, &logging_lvl, &logger_skip_repeats, &logger_show_timestamps)) {
                 return false;
         }
-        Logger::preinit(!logger_repeat_msgs, logger_show_timestamps);
+        log_level = logging_lvl;
+        Logger::preinit(logger_skip_repeats, logger_show_timestamps);
         return true;
 }
 
