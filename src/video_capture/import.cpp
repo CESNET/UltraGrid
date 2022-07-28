@@ -385,8 +385,9 @@ try {
 
         if (strlen(tmp) == 0 || strcmp(tmp, "help") == 0) {
                 printf("Import usage:\n"
-                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|:disable_audio}\n"
-                                "\t\t<fps> - overrides FPS from sequence metadata\n");
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct|:exit_at_end|:fps=<fps>|frames=<n>|:disable_audio}\n"
+                                "\t\t<fps> - overrides FPS from sequence metadata\n"
+                                "\t\t<n>   - use only N first frames fron sequence (if less than available frames)\n");
                 delete s;
                 free(tmp);
                 return VIDCAP_INIT_NOERR;
@@ -439,6 +440,8 @@ try {
                         s->should_exit_at_end = true;
                 } else if (strncmp(suffix, "fps=", strlen("fps=")) == 0) {
                         s->force_fps = atof(suffix + strlen("fps="));
+                } else if (strstr(suffix, "frames=") == suffix) {
+                        s->video_frame_count = strtol(strchr(suffix, '=') + 1, nullptr, 10);
                 } else {
                         throw ug_runtime_error("Unrecognized option"s
                                         + suffix + ".\n");
@@ -478,7 +481,10 @@ try {
         }
 
         if (s->has_video) {
-                s->video_desc = parse_video_desc_info(info, &s->video_frame_count);
+                long frame_count = 0;
+                s->video_desc = parse_video_desc_info(info, &frame_count);
+                s->video_frame_count = s->video_frame_count == 0 ? frame_count : MIN(s->video_frame_count, frame_count);
+
                 fclose(info);
                 info = NULL;
 
