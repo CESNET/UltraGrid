@@ -210,6 +210,7 @@ void debug_dump(void *lp, int len)
 bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_timestamps) {
         assert(optarg != nullptr);
         assert(logger_repeat_msgs != nullptr);
+        assert(show_timestamps != nullptr);
 
         using namespace std::string_literals;
         using std::clog;
