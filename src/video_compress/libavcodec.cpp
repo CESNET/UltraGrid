@@ -1374,7 +1374,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         static int frame_seq = 0;
-        int ret;
         unsigned char *decoded;
         shared_ptr<video_frame> out{};
         list<unique_ptr<state_video_compress_libav, void (*)(void *)>> cleanup_callbacks; // at function exit handlers
@@ -1517,26 +1516,24 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 memcpy(out->tiles[0].data + sizeof(uint32_t), s->codec_ctx->extradata, s->codec_ctx->extradata_size);
         }
 
-        ret = avcodec_send_frame(s->codec_ctx, frame);
-        if (ret == 0) {
-                AVPacket *pkt = av_packet_alloc();
-                ret = avcodec_receive_packet(s->codec_ctx, pkt);
-                while (ret == 0) {
-                        assert(pkt->size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
-                        memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
-                                        pkt->data, pkt->size);
-                        out->tiles[0].data_len += pkt->size;
-                        av_packet_unref(pkt);
-                        ret = avcodec_receive_packet(s->codec_ctx, pkt);
-                }
-                if (ret != AVERROR(EAGAIN) && ret != 0) {
-                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
-                }
-                av_packet_free(&pkt);
-        } else {
-		print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
+        if (int ret = avcodec_send_frame(s->codec_ctx, frame)) {
+                print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
                 return {};
         }
+        AVPacket *pkt = av_packet_alloc();
+        int ret = avcodec_receive_packet(s->codec_ctx, pkt);
+        while (ret == 0) {
+                assert(pkt->size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
+                memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
+                                pkt->data, pkt->size);
+                out->tiles[0].data_len += pkt->size;
+                av_packet_unref(pkt);
+                ret = avcodec_receive_packet(s->codec_ctx, pkt);
+        }
+        if (ret != AVERROR(EAGAIN) && ret != 0) {
+                print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
+        }
+        av_packet_free(&pkt);
 #elif LIBAVCODEC_VERSION_MAJOR >= 54
         ret = avcodec_encode_video2(s->codec_ctx, pkt,
                         frame, &got_output);
