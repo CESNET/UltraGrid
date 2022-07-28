@@ -326,7 +326,7 @@ static bool parse_opts_set_logging(int argc, char *argv[])
         opterr = saved_opterr;
 
         bool logger_repeat_msgs = false;
-        int logger_show_timestamps = -1;
+        log_timestamp_mode logger_show_timestamps = LOG_TIMESTAMP_AUTO;
         if (log_opt != nullptr && !set_log_level(log_opt, &logger_repeat_msgs, &logger_show_timestamps)) {
                 return false;
         }

@@ -65,6 +65,11 @@
 #define LOG_LEVEL_MAX LOG_LEVEL_DEBUG2
 extern volatile int log_level;
 
+enum log_timestamp_mode{
+	LOG_TIMESTAMP_DISABLED = 0,
+	LOG_TIMESTAMP_ENABLED = 1,
+	LOG_TIMESTAMP_AUTO = -1
+};
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,7 +94,9 @@ void log_msg(int log_level, const char *format, ...) ATTRIBUTE(format (printf, 2
 void log_msg_once(int log_level, uint32_t id, const char *msg);
 void log_perror(int log_level, const char *msg);
 
-bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_timestamps);
+bool set_log_level(const char *optarg,
+		bool *logger_repeat_msgs,
+		enum log_timestamp_mode *show_timestamps);
 
 #ifdef __cplusplus
 }
@@ -113,7 +120,7 @@ class keyboard_control; // friend
 class Logger
 {
 public:
-        static void preinit(bool skip_repeated, int show_timetamps);
+        static void preinit(bool skip_repeated, log_timestamp_mode show_timestamps);
         inline Logger(int l) : level(l) {}
         inline ~Logger() {
                 rang::fg color = rang::fg::reset;
@@ -172,7 +179,7 @@ private:
         std::ostringstream oss;
 
         static std::atomic<bool> skip_repeated;
-        static int show_timestamps;
+        static log_timestamp_mode show_timestamps;
         struct last_message {
                 std::string msg;
                 int count{0};

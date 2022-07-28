@@ -207,7 +207,10 @@ void debug_dump(void *lp, int len)
         }
 }
 
-bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_timestamps) {
+bool set_log_level(const char *optarg,
+                bool *logger_repeat_msgs,
+                log_timestamp_mode *show_timestamps)
+{
         assert(optarg != nullptr);
         assert(logger_repeat_msgs != nullptr);
         assert(show_timestamps != nullptr);
@@ -245,7 +248,10 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_times
 
         if (const char *timestamps = strstr(optarg, "timestamps")) {
                 if (timestamps > optarg) {
-                        *show_timestamps = timestamps[-1] == '+' ? 1 : 0;
+                        if(timestamps[-1] == '+')
+                                *show_timestamps = LOG_TIMESTAMP_ENABLED;
+                        else
+                                *show_timestamps = LOG_TIMESTAMP_DISABLED;
                 }
         }
 
@@ -282,10 +288,7 @@ bool set_log_level(const char *optarg, bool *logger_repeat_msgs, int *show_times
         return false;
 }
 
-/**
- * @param show_timestamps 0 - no; 1 - yes; -1 auto
- */
-void Logger::preinit(bool skip_repeated, int show_timestamps)
+void Logger::preinit(bool skip_repeated, log_timestamp_mode show_timestamps)
 {
         Logger::skip_repeated = skip_repeated;
         Logger::show_timestamps = show_timestamps;
@@ -360,5 +363,5 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
 std::atomic<Logger::last_message *> Logger::last_msg{};
 thread_local std::set<uint32_t> Logger::oneshot_messages;
 std::atomic<bool> Logger::skip_repeated{true};
-int Logger::show_timestamps = -1;
+log_timestamp_mode Logger::show_timestamps = LOG_TIMESTAMP_AUTO;
 
