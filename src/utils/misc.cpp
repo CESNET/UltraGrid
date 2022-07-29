@@ -143,6 +143,27 @@ double unit_evaluate_dbl(const char *str) {
         return ret;
 }
 
+/**
+ * Formats number in format "ABCD.E [S]suffix" where 'S' is an SI unit prefix.
+ */
+const char *format_in_si_units(unsigned long long int val, const char *suffix) {
+    const char *si_prefixes[] = { "", "k", "M", "G", "T" };
+    int prefix_idx = 0;
+    int reminder = 0;
+    while (val > 10000) {
+        reminder = val % 1000;
+        val /= 1000;
+        prefix_idx += 1;
+        if (prefix_idx == sizeof si_prefixes / sizeof si_prefixes[0] - 1) {
+            break;
+        }
+    }
+    thread_local char buf[128];
+    snprintf(buf, sizeof buf, "%lld.%d %s%s", val, reminder / 100, si_prefixes[prefix_idx], suffix);
+    return buf;
+}
+
+
 bool is_wine() {
 #ifdef WIN32
         HMODULE hntdll = GetModuleHandle("ntdll.dll");
