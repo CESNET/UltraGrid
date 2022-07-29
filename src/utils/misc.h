@@ -55,7 +55,7 @@ int clampi(long long val, int lo, int hi);
 bool is_prefix_of(const char *haystack, const char *needle);
 bool is_wine(void);
 long long unit_evaluate(const char *str);
-const char *format_in_si_units(unsigned long long int val, const char *suffix);
+const char *format_in_si_units(unsigned long long int val);
 double unit_evaluate_dbl(const char *str);
 int get_framerate_n(double framerate);
 int get_framerate_d(double framerate);

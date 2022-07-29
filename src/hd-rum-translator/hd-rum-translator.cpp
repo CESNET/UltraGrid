@@ -995,7 +995,7 @@ int main(int argc, char **argv)
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
                 unsigned long long int bps = cur_data / seconds;
-                log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %s.\n", cur_data, seconds, format_in_si_units(bps * 8, "bps"));
+                log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %sbps.\n", cur_data, seconds, format_in_si_units(bps * 8));
                 t0 = t;
                 last_data = received_data;
             }

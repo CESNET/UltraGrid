@@ -144,9 +144,9 @@ double unit_evaluate_dbl(const char *str) {
 }
 
 /**
- * Formats number in format "ABCD.E [S]suffix" where 'S' is an SI unit prefix.
+ * Formats number in format "ABCD.E [S]" where 'S' is an SI unit prefix.
  */
-const char *format_in_si_units(unsigned long long int val, const char *suffix) {
+const char *format_in_si_units(unsigned long long int val) {
     const char *si_prefixes[] = { "", "k", "M", "G", "T" };
     int prefix_idx = 0;
     int reminder = 0;
@@ -159,7 +159,7 @@ const char *format_in_si_units(unsigned long long int val, const char *suffix) {
         }
     }
     thread_local char buf[128];
-    snprintf(buf, sizeof buf, "%lld.%d %s%s", val, reminder / 100, si_prefixes[prefix_idx], suffix);
+    snprintf(buf, sizeof buf, "%lld.%d %s", val, reminder / 100, si_prefixes[prefix_idx]);
     return buf;
 }
 
