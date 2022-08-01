@@ -1107,6 +1107,56 @@ static bool same_linesizes(codec_t codec, AVFrame *in_frame)
         }
 }
 
+static bool configure_swscale(struct state_video_compress_libav *s, struct video_desc desc, const AVCodec *codec) {
+#ifndef HAVE_SWSCALE
+        return false;
+#else
+        //get all AVPixelFormats we can convert to and pick the first
+        auto fmts = get_available_pix_fmts(desc, codec, s->requested_subsampling, VIDEO_CODEC_NONE);
+        s->sws_out_pixfmt = s->selected_pixfmt;
+        s->selected_pixfmt = fmts.empty() ? AV_PIX_FMT_UYVY422 : fmts.front();
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(s->selected_pixfmt), av_get_pix_fmt_name(s->sws_out_pixfmt));
+        if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
+                //Should not happen as get_available_pix_fmts should only
+                //return formats we can decode to
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "[lavc] Unable to find decoder from %s to %s before using swscale.\n", get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
+                return false;
+        }
+
+        s->sws_ctx = getSwsContext(desc.width,
+                        desc.height,
+                        s->selected_pixfmt,
+                        desc.width,
+                        desc.height,
+                        s->sws_out_pixfmt,
+                        SWS_POINT);
+        if(!s->sws_ctx){
+                log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init sws context.\n");
+                return false;
+        }
+
+        s->sws_frame = av_frame_alloc();
+        if (!s->sws_frame) {
+                log_msg(LOG_LEVEL_ERROR, "Could not allocate sws frame\n");
+                return false;
+        }
+        s->sws_frame->width = s->codec_ctx->width;
+        s->sws_frame->height = s->codec_ctx->height;
+        s->sws_frame->format = s->sws_out_pixfmt;
+        if (int ret = av_image_alloc(s->sws_frame->data, s->sws_frame->linesize,
+                        s->sws_frame->width, s->sws_frame->height,
+                        s->sws_out_pixfmt, 32); ret < 0) {
+                log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer for sws\n");
+                return false;
+        }
+
+        log_msg(LOG_LEVEL_NOTICE, "[lavc] Using swscale to convert %s to %s.\n",
+                        av_get_pix_fmt_name(s->selected_pixfmt),
+                        av_get_pix_fmt_name(s->sws_out_pixfmt));
+        return true;
+#endif //HAVE_SWSCALE
+}
+
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
         int ret;
@@ -1230,54 +1280,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
                 log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to find a way to convert %s to %s\n",
-                               get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
-#ifndef HAVE_SWSCALE
-                return false;
-#else
-                //get all AVPixelFormats we can convert to and pick the first
-                auto fmts = get_available_pix_fmts(desc, codec, s->requested_subsampling, VIDEO_CODEC_NONE);
-                s->sws_out_pixfmt = s->selected_pixfmt;
-                s->selected_pixfmt = fmts.empty() ? AV_PIX_FMT_UYVY422 : fmts.front();
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(s->selected_pixfmt), av_get_pix_fmt_name(s->sws_out_pixfmt));
-                if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
-                        //Should not happen as get_available_pix_fmts should only
-                        //return formats we can decode to
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "[lavc] Unable to find decoder from %s to %s before using swscale.\n", get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
+                                get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
+                if (!configure_swscale(s, desc, codec)) {
                         return false;
                 }
-
-                s->sws_ctx = getSwsContext(desc.width,
-                                            desc.height,
-                                            s->selected_pixfmt,
-                                            desc.width,
-                                            desc.height,
-                                            s->sws_out_pixfmt,
-                                            SWS_POINT);
-                if(!s->sws_ctx){
-                        log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init sws context.\n");
-                        return false;
-                }
-
-                s->sws_frame = av_frame_alloc();
-                if (!s->sws_frame) {
-                        log_msg(LOG_LEVEL_ERROR, "Could not allocate sws frame\n");
-                        return false;
-                }
-                s->sws_frame->width = s->codec_ctx->width;
-                s->sws_frame->height = s->codec_ctx->height;
-                s->sws_frame->format = s->sws_out_pixfmt;
-                ret = av_image_alloc(s->sws_frame->data, s->sws_frame->linesize,
-                                s->sws_frame->width, s->sws_frame->height,
-                                s->sws_out_pixfmt, 32);
-                if (ret < 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer for sws\n");
-                        return false;
-                }
-
-                log_msg(LOG_LEVEL_NOTICE, "[lavc] Using swscale to convert %s to %s.\n",
-                                av_get_pix_fmt_name(s->selected_pixfmt),
-                                av_get_pix_fmt_name(s->sws_out_pixfmt));
-#endif //HAVE_SWSCALE
         }
 
         s->decoded = (unsigned char *) malloc(vc_get_linesize(desc.width, s->decoded_codec) * desc.height);
