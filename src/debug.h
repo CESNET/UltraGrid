@@ -165,6 +165,7 @@ inline void Log_output::submit(){
                 if (buffer == last_msg) {
                         last_msg_repeats++;
                         std::clog << "    Last message repeated " << last_msg_repeats << " times\r";
+                        std::clog.flush();
                         return;
                 }
 
