@@ -120,11 +120,34 @@ bool parse_log_cfg(const char *conf_str,
 class keyboard_control; // friend
 
 class Log_output{
+        class Buffer{
+        public:
+                Buffer(Log_output& lo): lo(lo) { lo.buffer.clear();  }
+
+                std::string& get() { return lo.buffer; }
+
+                void append(std::string_view sv){
+                        get() += sv;
+                }
+                void append(int count, char c) { get().append(count, c); }
+
+                void reserve(size_t size){ if(get().capacity() < size) get().reserve(size); }
+                char *data() { return get().data(); }
+
+                void submit() { lo.submit(); }
+
+                Buffer(const Buffer&) = delete;
+                Buffer(Buffer&&) = delete;
+                Buffer& operator=(const Buffer&) = delete;
+                Buffer& operator=(Buffer&&) = delete;
+
+        private:
+                Log_output& lo;
+        };
 public:
         Log_output() = default;
         
-        std::string& get_buffer() { return buffer; }
-        void submit();
+        Buffer get_buffer() { return Buffer(*this); }
 
         void set_skip_repeats(bool val) { skip_repeated.store(val, std::memory_order_relaxed); }
 
@@ -137,6 +160,7 @@ public:
         Log_output& operator=(Log_output&&) = delete;
 
 private:
+        void submit();
 
         thread_local static std::string buffer;
 
@@ -152,6 +176,7 @@ private:
         int last_msg_repeats = 0;
 
         friend class keyboard_control;
+        friend class Buffer;
 };
 
 inline void Log_output::submit(){
@@ -217,14 +242,11 @@ public:
 
                 std::string msg = oss.str();
 
-                auto& buf = get_log_output().get_buffer();
-                buf.clear();
-
-                buf += msg;
-
-                get_log_output().submit();
-
+                auto buf = get_log_output().get_buffer();
+                buf.append(msg);
+                buf.submit();
         }
+
         inline std::ostream& Get() {
                 return oss;
         }
