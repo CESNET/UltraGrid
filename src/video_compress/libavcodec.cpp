@@ -1107,6 +1107,43 @@ static bool same_linesizes(codec_t codec, AVFrame *in_frame)
         }
 }
 
+const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_codec, bool src_rgb) {
+        // Open encoder specified by user if given
+        if (!s->backend.empty()) {
+                const AVCodec *codec = avcodec_find_encoder_by_name(s->backend.c_str());
+                if (!codec) {
+                        log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: requested encoder \"%s\" not found!\n",
+                                        s->backend.c_str());
+                        return nullptr;
+                }
+                if (s->requested_codec_id != VIDEO_CODEC_NONE && s->requested_codec_id != get_av_to_ug_codec(codec->id)) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Encoder \"" << s->backend << "\" doesn't encode requested codec!\n";
+                        return nullptr;
+
+                }
+                *ug_codec = get_av_to_ug_codec(codec->id);
+                if (*ug_codec == VIDEO_CODEC_NONE) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Requested encoder not supported in UG!\n");
+                        return nullptr;
+                }
+                return codec;
+        }
+
+        // Else, try to open prefered encoder for requested codec
+        if (codec_params.find(*ug_codec) != codec_params.end() && codec_params[*ug_codec].get_prefered_encoder) {
+                const char *prefered_encoder = codec_params[*ug_codec].get_prefered_encoder(
+                                src_rgb);
+                const AVCodec *codec = avcodec_find_encoder_by_name(prefered_encoder);
+                if (!codec) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: prefered encoder \"%s\" not found! Trying default encoder.\n",
+                                        prefered_encoder);
+                }
+                return codec;
+        }
+        // Finally, try to open any encoder for requested codec
+        return avcodec_find_encoder(get_ug_to_av_codec(*ug_codec));
+}
+
 static bool configure_swscale(struct state_video_compress_libav *s, struct video_desc desc, const AVCodec *codec) {
 #ifndef HAVE_SWSCALE
         return false;
@@ -1173,55 +1210,13 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->params.fps = desc.fps;
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
 
-        // Open encoder specified by user if given
-        if (!s->backend.empty()) {
-                codec = avcodec_find_encoder_by_name(s->backend.c_str());
-                if (!codec) {
-                        log_msg(LOG_LEVEL_ERROR, "[lavc] Warning: requested encoder \"%s\" not found!\n",
-                                        s->backend.c_str());
-                        return false;
-                }
-                if (s->requested_codec_id != VIDEO_CODEC_NONE && s->requested_codec_id != get_av_to_ug_codec(codec->id)) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Encoder \"" << s->backend << "\" doesn't encode requested codec!\n";
-                        return false;
-
-                }
-                ug_codec = get_av_to_ug_codec(codec->id);
-                if (ug_codec == VIDEO_CODEC_NONE) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Requested encoder not supported in UG!\n");
-                        return false;
-                }
-        }
-
-        if (codec_params.find(ug_codec) == codec_params.end()) {
-                log_msg(LOG_LEVEL_ERROR, "[lavc] Requested output codec isn't "
-                                "currently supported.\n");
-                return false;
-        }
-
-        // Else, try to open prefered encoder for requested codec
-        if (!codec && codec_params[ug_codec].get_prefered_encoder) {
-                const char *prefered_encoder = codec_params[ug_codec].get_prefered_encoder(
-                                codec_is_a_rgb(desc.color_spec));
-                codec = avcodec_find_encoder_by_name(prefered_encoder);
-                if (!codec) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: prefered encoder \"%s\" not found! Trying default encoder.\n",
-                                        prefered_encoder);
-                }
-        }
-        // Finally, try to open any encoder for requested codec
-        if (!codec) {
-                codec = avcodec_find_encoder(get_ug_to_av_codec(ug_codec));
-        }
-
-        if (!codec) {
+        if ((codec = get_av_codec(s, &ug_codec, codec_is_a_rgb(desc.color_spec))) == nullptr) {
                 log_msg(LOG_LEVEL_ERROR, "Libavcodec doesn't contain encoder for specified codec.\n"
                                 "Hint: Check if you have libavcodec-extra package installed.\n");
                 return false;
-        } else {
-                log_msg(LOG_LEVEL_NOTICE, "[lavc] Using codec: %s, encoder: %s\n",
-                                get_codec_name(ug_codec), codec->name);
         }
+        log_msg(LOG_LEVEL_NOTICE, "[lavc] Using codec: %s, encoder: %s\n",
+                        get_codec_name(ug_codec), codec->name);
 
         // Try to open the codec context
         // It is done in a loop because some pixel formats that are reported
