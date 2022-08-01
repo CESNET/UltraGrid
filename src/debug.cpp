@@ -117,15 +117,21 @@ void log_msg(int level, const char *format, ...)
         va_end(ap);
 
         // format the string
-        char *buffer = (char *) alloca(size + 1);
+        auto buf = get_log_output().get_buffer();
+        const auto& style = get_log_output().get_level_style(level);
+
+        buf.append(style);
+        buf.append(size, '\0');
+
         va_start(ap, format);
-        if (vsprintf(buffer, format, ap) != size) {
+        if (vsprintf(buf.data() + style.length(), format, ap) != size) {
                 va_end(ap);
                 return;
         }
         va_end(ap);
 
-        LOG(level) << buffer;
+        buf.append(TERM_RESET);
+        buf.submit();
 }
 
 void log_msg_once(int level, uint32_t id, const char *msg) {
