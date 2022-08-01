@@ -112,6 +112,7 @@ bool parse_log_cfg(const char *conf_str,
 #include <set>
 #include <sstream>
 #include <string>
+#include <mutex>
 #include "compat/platform_time.h"
 #include "rang.hpp"
 
@@ -120,13 +121,6 @@ class keyboard_control; // friend
 class Log_output{
 public:
         Log_output() = default;
-
-        Log_output(const Log_output&) = delete;
-        Log_output(Log_output&&) = delete;
-
-        Log_output& operator=(const Log_output&) = delete;
-        Log_output& operator=(Log_output&&) = delete;
-
         
         std::string& get_buffer() { return buffer; }
         void submit();
@@ -135,49 +129,55 @@ public:
 
         void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
 
+        Log_output(const Log_output&) = delete;
+        Log_output(Log_output&&) = delete;
+
+        Log_output& operator=(const Log_output&) = delete;
+        Log_output& operator=(Log_output&&) = delete;
+
 private:
+
         thread_local static std::string buffer;
 
         std::atomic<bool> skip_repeated;
         log_timestamp_mode show_timestamps;
-        struct last_message {
-                std::string msg;
-                int count{0};
-        };
-        std::atomic<last_message *> last_msg; // leaks last message upon exit
+
+
+        /* Since writing to stdout uses locks internally anyway (C11 standard
+         * 7.21.2 sections 7&8), using a mutex here does not cause any significant
+         * overhead, we just wait for the lock a bit earlier. */
+        std::mutex mut;
+        std::string last_msg;
+        int last_msg_repeats = 0;
 
         friend class keyboard_control;
 };
 
 inline void Log_output::submit(){
-        if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
-                auto last = last_msg.exchange(nullptr);
-                if (last != nullptr && last->msg == buffer) {
-                        int count = last->count += 1;
-                        auto current = last_msg.exchange(last);
-                        delete current;
-                        std::clog << "    Last message repeated " << count << " times\r";
-                        return;
-                }
-                if (last != nullptr) {
-                        if (last->count > 0) {
-                                std::clog << "\n";
-                        }
-                        delete last;
-                }
-        }
-
         std::ostringstream timestamp;
         if (show_timestamps == 1 || (show_timestamps == -1 && log_level >= LOG_LEVEL_VERBOSE)) {
                 auto time_ms = time_since_epoch_in_ms();
                 timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
         }
 
+        std::lock_guard<std::mutex> lock(mut);
+        if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
+                if (buffer == last_msg) {
+                        last_msg_repeats++;
+                        std::clog << "    Last message repeated " << last_msg_repeats << " times\r";
+                        return;
+                }
+
+                if (last_msg_repeats > 0) {
+                        std::clog << "\n";
+                }
+                last_msg_repeats = 0;
+        }
+
+
         std::clog << timestamp.str() << buffer << rang::style::reset << rang::fg::reset;
 
-        auto *lmsg = new last_message{std::move(buffer)};
-        auto current = last_msg.exchange(lmsg);
-        delete current;
+        std::swap(last_msg, buffer);
 }
 
 inline Log_output& get_log_output(){
