@@ -1160,7 +1160,7 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
         int ret;
-        codec_t ug_codec = VIDEO_CODEC_NONE;
+        codec_t ug_codec = s->requested_codec_id == VIDEO_CODEC_NONE ? DEFAULT_CODEC : s->requested_codec_id;
         AVPixelFormat pix_fmt;
         const AVCodec *codec = nullptr;
 #ifdef HAVE_SWSCALE
@@ -1193,13 +1193,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
         }
 
-        if (ug_codec == VIDEO_CODEC_NONE) {
-                if (s->requested_codec_id == VIDEO_CODEC_NONE) {
-                        ug_codec = DEFAULT_CODEC;
-                } else {
-                        ug_codec = s->requested_codec_id;
-                }
-        }
         if (codec_params.find(ug_codec) == codec_params.end()) {
                 log_msg(LOG_LEVEL_ERROR, "[lavc] Requested output codec isn't "
                                 "currently supported.\n");
