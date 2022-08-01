@@ -122,11 +122,21 @@ class Logger
 {
 public:
         static void preinit();
-        inline Logger(int l) : level(l) {}
-        inline ~Logger() {
+        inline Logger(int l) : level(l) {
                 rang::fg color = rang::fg::reset;
                 rang::style style = rang::style::reset;
 
+                switch (level) {
+                case LOG_LEVEL_FATAL:   color = rang::fg::red; style = rang::style::bold; break;
+                case LOG_LEVEL_ERROR:   color = rang::fg::red; break;
+                case LOG_LEVEL_WARNING: color = rang::fg::yellow; break;
+                case LOG_LEVEL_NOTICE:  color = rang::fg::green; break;
+                }
+
+                oss << style << color;
+        }
+
+        inline ~Logger() {
                 std::string msg = oss.str();
 
                 if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
@@ -146,20 +156,13 @@ public:
                         }
                 }
 
-                switch (level) {
-                case LOG_LEVEL_FATAL:   color = rang::fg::red; style = rang::style::bold; break;
-                case LOG_LEVEL_ERROR:   color = rang::fg::red; break;
-                case LOG_LEVEL_WARNING: color = rang::fg::yellow; break;
-                case LOG_LEVEL_NOTICE:  color = rang::fg::green; break;
-                }
-
                 std::ostringstream timestamp;
                 if (show_timestamps == 1 || (show_timestamps == -1 && log_level >= LOG_LEVEL_VERBOSE)) {
                         auto time_ms = time_since_epoch_in_ms();
                         timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
                 }
 
-                std::clog << style << color << timestamp.str() << msg << rang::style::reset << rang::fg::reset;
+                std::clog << timestamp.str() << msg << rang::style::reset << rang::fg::reset;
 
                 auto *lmsg = new last_message{std::move(msg)};
                 auto current = last_msg.exchange(lmsg);
