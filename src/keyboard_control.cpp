@@ -554,8 +554,8 @@ void keyboard_control::run()
                         break;
                 }
                 case 'r':
-                        Logger::skip_repeated = !Logger::skip_repeated;
-                        cout << "Skip repeated messages: " << std::boolalpha << Logger::skip_repeated << std::noboolalpha << "\n";
+                        get_log_output().skip_repeated = !get_log_output().skip_repeated;
+                        cout << "Skip repeated messages: " << std::boolalpha << get_log_output().skip_repeated << std::noboolalpha << "\n";
                         break;
                 case 's':
                         if (saved_log_level == -1) {

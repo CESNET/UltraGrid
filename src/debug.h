@@ -117,6 +117,74 @@ bool parse_log_cfg(const char *conf_str,
 
 class keyboard_control; // friend
 
+class Log_output{
+public:
+        Log_output() = default;
+
+        Log_output(const Log_output&) = delete;
+        Log_output(Log_output&&) = delete;
+
+        Log_output& operator=(const Log_output&) = delete;
+        Log_output& operator=(Log_output&&) = delete;
+
+        
+        std::string& get_buffer() { return buffer; }
+        void submit();
+
+        void set_skip_repeats(bool val) { skip_repeated.store(val, std::memory_order_relaxed); }
+
+        void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
+
+private:
+        thread_local static std::string buffer;
+
+        std::atomic<bool> skip_repeated;
+        log_timestamp_mode show_timestamps;
+        struct last_message {
+                std::string msg;
+                int count{0};
+        };
+        std::atomic<last_message *> last_msg; // leaks last message upon exit
+
+        friend class keyboard_control;
+};
+
+inline void Log_output::submit(){
+        if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
+                auto last = last_msg.exchange(nullptr);
+                if (last != nullptr && last->msg == buffer) {
+                        int count = last->count += 1;
+                        auto current = last_msg.exchange(last);
+                        delete current;
+                        std::clog << "    Last message repeated " << count << " times\r";
+                        return;
+                }
+                if (last != nullptr) {
+                        if (last->count > 0) {
+                                std::clog << "\n";
+                        }
+                        delete last;
+                }
+        }
+
+        std::ostringstream timestamp;
+        if (show_timestamps == 1 || (show_timestamps == -1 && log_level >= LOG_LEVEL_VERBOSE)) {
+                auto time_ms = time_since_epoch_in_ms();
+                timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
+        }
+
+        std::clog << timestamp.str() << buffer << rang::style::reset << rang::fg::reset;
+
+        auto *lmsg = new last_message{std::move(buffer)};
+        auto current = last_msg.exchange(lmsg);
+        delete current;
+}
+
+inline Log_output& get_log_output(){
+        static Log_output out;
+        return out;
+}
+
 // Log, version 0.1: a simple logging class
 class Logger
 {
@@ -139,34 +207,13 @@ public:
         inline ~Logger() {
                 std::string msg = oss.str();
 
-                if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
-                        auto last = last_msg.exchange(nullptr);
-                        if (last != nullptr && last->msg == msg) {
-                                int count = last->count += 1;
-                                auto current = last_msg.exchange(last);
-                                delete current;
-                                std::clog << "    Last message repeated " << count << " times\r" << std::flush;
-                                return;
-                        }
-                        if (last != nullptr) {
-                                if (last->count > 0) {
-                                        std::clog << "\n";
-                                }
-                                delete last;
-                        }
-                }
+                auto& buf = get_log_output().get_buffer();
+                buf.clear();
 
-                std::ostringstream timestamp;
-                if (show_timestamps == 1 || (show_timestamps == -1 && log_level >= LOG_LEVEL_VERBOSE)) {
-                        auto time_ms = time_since_epoch_in_ms();
-                        timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
-                }
+                buf += msg;
 
-                std::clog << timestamp.str() << msg << rang::style::reset << rang::fg::reset;
+                get_log_output().submit();
 
-                auto *lmsg = new last_message{std::move(msg)};
-                auto current = last_msg.exchange(lmsg);
-                delete current;
         }
         inline std::ostream& Get() {
                 return oss;
@@ -179,23 +226,11 @@ public:
                 oss << msg;
         }
 
-		inline static void set_skip_repeats(bool val) { skip_repeated.store(val, std::memory_order_relaxed); }
-
-		inline static void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
 private:
         int level;
         std::ostringstream oss;
 
-        static std::atomic<bool> skip_repeated;
-        static log_timestamp_mode show_timestamps;
-        struct last_message {
-                std::string msg;
-                int count{0};
-        };
-        static std::atomic<last_message *> last_msg; // leaks last message upon exit
         static thread_local std::set<uint32_t> oneshot_messages;
-
-        friend class keyboard_control;
 };
 
 #define LOG(level) \

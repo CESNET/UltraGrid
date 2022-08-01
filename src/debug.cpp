@@ -370,8 +370,6 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
 }
 #endif
 
-std::atomic<Logger::last_message *> Logger::last_msg{};
 thread_local std::set<uint32_t> Logger::oneshot_messages;
-std::atomic<bool> Logger::skip_repeated{true};
-log_timestamp_mode Logger::show_timestamps = LOG_TIMESTAMP_AUTO;
 
+thread_local std::string Log_output::buffer;

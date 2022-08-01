@@ -336,8 +336,8 @@ static bool parse_opts_set_logging(int argc, char *argv[])
                 return false;
         }
         log_level = logging_lvl;
-        Logger::set_skip_repeats(logger_skip_repeats);
-        Logger::set_timestamp_mode(logger_show_timestamps);
+        get_log_output().set_skip_repeats(logger_skip_repeats);
+        get_log_output().set_timestamp_mode(logger_show_timestamps);
         return true;
 }
 
