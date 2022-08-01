@@ -153,6 +153,8 @@ public:
 
         void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
 
+        const std::string& get_level_style(int lvl);
+
         Log_output(const Log_output&) = delete;
         Log_output(Log_output&&) = delete;
 
@@ -178,6 +180,31 @@ private:
         friend class keyboard_control;
         friend class Buffer;
 };
+
+inline const std::string& Log_output::get_level_style(int lvl){
+        switch(lvl){
+        case LOG_LEVEL_FATAL: {
+                static std::string style = (std::ostringstream() << rang::fg::red << rang::style::bold).str();
+                return style;
+        }
+        case LOG_LEVEL_ERROR: {
+                static std::string style = (std::ostringstream() << rang::fg::red).str();
+                return style;
+        }
+        case LOG_LEVEL_WARNING: {
+                static std::string style = (std::ostringstream() << rang::fg::yellow).str();
+                return style;
+        }
+        case LOG_LEVEL_NOTICE: {
+                static std::string style = (std::ostringstream() << rang::fg::green).str();
+                return style;
+        }
+        default: {
+                static std::string style = "";
+                return style;
+        }
+        }
+}
 
 inline void Log_output::submit(){
         static constexpr int ts_bufsize = 32; //log10(2^64) is 19.3, so should be enough
@@ -224,17 +251,7 @@ class Logger
 public:
         static void preinit();
         inline Logger(int l) : level(l) {
-                rang::fg color = rang::fg::reset;
-                rang::style style = rang::style::reset;
-
-                switch (level) {
-                case LOG_LEVEL_FATAL:   color = rang::fg::red; style = rang::style::bold; break;
-                case LOG_LEVEL_ERROR:   color = rang::fg::red; break;
-                case LOG_LEVEL_WARNING: color = rang::fg::yellow; break;
-                case LOG_LEVEL_NOTICE:  color = rang::fg::green; break;
-                }
-
-                oss << style << color;
+                oss << get_log_output().get_level_style(level);
         }
 
         inline ~Logger() {
