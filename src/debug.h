@@ -175,8 +175,7 @@ inline void Log_output::submit(){
                 last_msg_repeats = 0;
         }
 
-
-        std::clog << timestamp.str() << buffer << rang::style::reset << rang::fg::reset;
+        std::clog << timestamp.str() << buffer;
 
         std::swap(last_msg, buffer);
 }
@@ -206,6 +205,8 @@ public:
         }
 
         inline ~Logger() {
+                oss << rang::style::reset << rang::fg::reset;
+
                 std::string msg = oss.str();
 
                 auto& buf = get_log_output().get_buffer();
