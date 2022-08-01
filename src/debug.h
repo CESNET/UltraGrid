@@ -109,6 +109,7 @@ bool parse_log_cfg(const char *conf_str,
 #include <atomic>
 #include <iomanip>
 #include <iostream>
+#include <stdio.h>
 #include <set>
 #include <sstream>
 #include <string>
@@ -154,28 +155,35 @@ private:
 };
 
 inline void Log_output::submit(){
-        std::ostringstream timestamp;
-        if (show_timestamps == 1 || (show_timestamps == -1 && log_level >= LOG_LEVEL_VERBOSE)) {
+        static constexpr int ts_bufsize = 32; //log10(2^64) is 19.3, so should be enough
+        char ts_str[ts_bufsize];
+        ts_str[0] = '\0';
+                                              
+        if (show_timestamps == LOG_TIMESTAMP_ENABLED
+                || (show_timestamps == LOG_TIMESTAMP_AUTO && log_level >= LOG_LEVEL_VERBOSE))
+        {
                 auto time_ms = time_since_epoch_in_ms();
-                timestamp << "[" << std::fixed << std::setprecision(3) << time_ms / 1000.0  << "] ";
+                snprintf(ts_str, ts_bufsize - 1, "[%.3f] ", time_ms / 1000.0);
+                ts_str[ts_bufsize - 1] = '\0';
         }
 
+        const char *start_newline = "";
         std::lock_guard<std::mutex> lock(mut);
         if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
                 if (buffer == last_msg) {
                         last_msg_repeats++;
-                        std::clog << "    Last message repeated " << last_msg_repeats << " times\r";
-                        std::clog.flush();
+                        printf("    Last message repeated %d times\r", last_msg_repeats);
+                        fflush(stdout);
                         return;
                 }
 
                 if (last_msg_repeats > 0) {
-                        std::clog << "\n";
+                        start_newline = "\n";
                 }
                 last_msg_repeats = 0;
         }
 
-        std::clog << timestamp.str() << buffer;
+        printf("%s%s%s", start_newline, ts_str, buffer.c_str());
 
         std::swap(last_msg, buffer);
 }
