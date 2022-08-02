@@ -378,4 +378,8 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
 
 thread_local std::set<uint32_t> Logger::oneshot_messages;
 
-thread_local std::string Log_output::buffer;
+thread_local std::string Log_output::buffer(initial_buf_size, '\0');
+
+Log_output::Log_output(){
+        last_msg.reserve(initial_buf_size);
+}

@@ -145,7 +145,7 @@ class Log_output{
                 Log_output& lo;
         };
 public:
-        Log_output() = default;
+        Log_output();
         
         Buffer get_buffer() { return Buffer(*this); }
 
@@ -164,6 +164,7 @@ public:
 private:
         void submit();
 
+        constexpr static int initial_buf_size = 256;
         thread_local static std::string buffer;
 
         std::atomic<bool> skip_repeated;
