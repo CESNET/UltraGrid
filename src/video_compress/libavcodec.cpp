@@ -1289,11 +1289,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->in_frame->height = s->codec_ctx->height;
 #endif
 
-        /* the image can be allocated by any means and av_image_alloc() is
-         * just the most convenient way if av_malloc() is to be used */
-        ret = av_image_alloc(s->in_frame->data, s->in_frame->linesize,
-                        s->codec_ctx->width, s->codec_ctx->height,
-                        fmt, 32);
+        ret = av_frame_get_buffer(s->in_frame, 0);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer\n");
                 return false;
@@ -1410,6 +1406,10 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         s->compressed_desc.height * 4);
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
+        if (int ret = av_frame_make_writable(s->in_frame)) {
+                print_libav_error(LOG_LEVEL_ERROR, MOD_NAME "Cannot make frame writable", ret);
+                return {};
+        }
         s->in_frame->pts = frame_seq++;
 
         if (s->decoder != vc_memcpy) {
@@ -1596,9 +1596,7 @@ static void cleanup(struct state_video_compress_libav *s)
                 avcodec_free_context(&s->codec_ctx);
         }
         if(s->in_frame) {
-                av_freep(s->in_frame->data);
-                av_free(s->in_frame);
-                s->in_frame = NULL;
+                av_frame_free(&s->in_frame);
         }
         free(s->decoded);
         s->decoded = NULL;
