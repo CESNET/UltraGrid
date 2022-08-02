@@ -44,12 +44,19 @@
 #include <iostream>
 
 #include "rang.hpp"
+#include "debug.h"
 #include "utils/color_out.h"
 
 using std::cout;
 
 static bool color_stdout;
 static bool color_stderr;
+
+namespace{
+void str_append_ansi_esc(std::string& str, int esc){
+        str += "\e["; str += std::to_string(esc); str += "m";
+}
+} //anon namespace
 
 void color_out(uint32_t modificators, const char *format, ...) {
         rang::style style = static_cast<rang::style>(modificators & 0xf);
@@ -63,16 +70,31 @@ void color_out(uint32_t modificators, const char *format, ...) {
         int size = vsnprintf(NULL, 0, format, ap);
         va_end(ap);
 
+        auto buf = get_log_output().get_buffer();
+        int offset = 0;
+        if(color_stdout){
+                str_append_ansi_esc(buf.get(), static_cast<int>(style));
+                str_append_ansi_esc(buf.get(), static_cast<int>(bg));
+                str_append_ansi_esc(buf.get(), static_cast<int>(fg));
+                offset = buf.get().length();
+        }
+
         // format the string
-        char *buffer = (char *) alloca(size + 1);
+        buf.append(size, '\0');
         va_start(ap, format);
-        if (vsprintf(buffer, format, ap) != size) {
+        if (vsprintf(buf.data() + offset, format, ap) != size) {
                 va_end(ap);
                 return;
         }
         va_end(ap);
 
-        cout << style << bg << fg << buffer << rang::style::reset << rang::fg::reset << rang::bg::reset;
+        if(color_stdout){
+                str_append_ansi_esc(buf.get(), static_cast<int>(rang::style::reset));
+                str_append_ansi_esc(buf.get(), static_cast<int>(rang::fg::reset));
+                str_append_ansi_esc(buf.get(), static_cast<int>(rang::bg::reset));
+        }
+
+        buf.submit_raw();
 }
 
 #ifdef _WIN32
@@ -159,9 +181,10 @@ void color_output_init() {
 #endif
 }
 
-static void prune_ansi_sequences(const char *in, char *out) {
+static int prune_ansi_sequences(const char *in, char *out) {
         char c = *in;
         bool in_control = false;
+        int written = 0;
         while (c != '\0') {
                 switch (c) {
                         case '\e':
@@ -176,29 +199,34 @@ static void prune_ansi_sequences(const char *in, char *out) {
                         default:
                                    if (!in_control) {
                                            *out++ = c;
+                                           written++;
                                    }
                 }
                 c = *++in;
         }
         *out = '\0';
+        return written;
 }
 
-int color_fprintf(FILE *f, const char *format, ...) {
+int color_printf(const char *format, ...) {
         va_list ap;
         va_start(ap, format);
         int size = vsnprintf(NULL, 0, format, ap);
         va_end(ap);
 
         // format the string
-        char *buffer = (char *) alloca(size + 1);
+        auto buf = get_log_output().get_buffer();
+        buf.append(size, '\0');
         va_start(ap, format);
-        size = vsprintf(buffer, format, ap);
+        size = vsprintf(buf.data(), format, ap);
         va_end(ap);
 
-        if (!((f == stdout && color_stdout) || (f == stderr && color_stderr))) {
-                prune_ansi_sequences(buffer, buffer);
+        if (!color_stdout) {
+                int len = prune_ansi_sequences(buf.data(), buf.data());
+                buf.get().resize(len);
         }
 
-        return fputs(buffer, f) == EOF ? -1 : size;
+        buf.submit_raw();
+        return size;
 }
 

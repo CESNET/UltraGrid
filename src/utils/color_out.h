@@ -96,8 +96,7 @@ void color_out(uint32_t modificators, const char *format, ...) ATTRIBUTE(format 
 
 // new API
 void color_output_init(void);
-int color_fprintf(FILE *f, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
-#define color_printf(...) color_fprintf(stdout, __VA_ARGS__)
+int color_printf(const char *format, ...) ATTRIBUTE(format (printf, 1, 2));
 // utils
 bool isMsysPty(int fd);
 
