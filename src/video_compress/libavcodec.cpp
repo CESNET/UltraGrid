@@ -232,12 +232,16 @@ struct state_video_compress_libav {
                 module_data.deleter = libavcodec_compress_done;
                 module_register(&module_data, parent);
         }
+        ~state_video_compress_libav() {
+                av_packet_free(&pkt);
+        }
 
         struct module       module_data;
 
         struct video_desc   saved_desc{};
 
         AVFrame            *in_frame = nullptr;
+        AVPacket           *pkt = av_packet_alloc();
         // for every core - parts of the above
         vector<AVFrame *>   in_frame_part;
         AVCodecContext     *codec_ctx = nullptr;
@@ -1514,20 +1518,18 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 print_libav_error(LOG_LEVEL_WARNING, "[lavc] Error encoding frame", ret);
                 return {};
         }
-        AVPacket *pkt = av_packet_alloc();
-        int ret = avcodec_receive_packet(s->codec_ctx, pkt);
+        int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
         while (ret == 0) {
-                assert(pkt->size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
+                assert(s->pkt->size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
                 memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
-                                pkt->data, pkt->size);
-                out->tiles[0].data_len += pkt->size;
-                av_packet_unref(pkt);
-                ret = avcodec_receive_packet(s->codec_ctx, pkt);
+                                s->pkt->data, s->pkt->size);
+                out->tiles[0].data_len += s->pkt->size;
+                av_packet_unref(s->pkt);
+                ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
         }
         if (ret != AVERROR(EAGAIN) && ret != 0) {
                 print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
         }
-        av_packet_free(&pkt);
 #elif LIBAVCODEC_VERSION_MAJOR >= 54
         ret = avcodec_encode_video2(s->codec_ctx, pkt,
                         frame, &got_output);
