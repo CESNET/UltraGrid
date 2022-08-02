@@ -124,17 +124,17 @@ class Log_output{
         public:
                 Buffer(Log_output& lo): lo(lo) { lo.buffer.clear();  }
 
-                std::string& get() { return lo.buffer; }
-
                 void append(std::string_view sv){
                         get() += sv;
                 }
                 void append(int count, char c) { get().append(count, c); }
 
                 void reserve(size_t size){ if(get().capacity() < size) get().reserve(size); }
+                std::string& get() { return lo.buffer; }
                 char *data() { return get().data(); }
 
                 void submit() { lo.submit(); }
+                void submit_raw() { lo.submit_raw(); }
 
                 Buffer(const Buffer&) = delete;
                 Buffer(Buffer&&) = delete;
@@ -163,6 +163,7 @@ public:
 
 private:
         void submit();
+        void submit_raw(); //just pass to output as is, no styles, timestamps, etc.
 
         constexpr static int initial_buf_size = 256;
         thread_local static std::string buffer;
@@ -240,6 +241,15 @@ inline void Log_output::submit(){
         printf("%s%s%s", start_newline, ts_str, buffer.c_str());
 
         std::swap(last_msg, buffer);
+}
+
+inline void Log_output::submit_raw(){
+        std::lock_guard<std::mutex> lock(mut);
+        if(last_msg_repeats > 0)
+                fputc('\n', stdout);
+        fputs(buffer.c_str(), stdout);
+        std::swap(last_msg, buffer);
+        last_msg_repeats = 0;
 }
 
 inline Log_output& get_log_output(){
