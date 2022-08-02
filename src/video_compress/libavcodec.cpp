@@ -1281,6 +1281,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate video frame\n");
                 return false;
         }
+        s->in_frame->pts = -1;
 
         AVPixelFormat fmt = (s->hwenc) ? AV_PIX_FMT_NV12 : s->selected_pixfmt;
 #if LIBAVCODEC_VERSION_MAJOR >= 53
@@ -1363,7 +1364,6 @@ static void *pixfmt_conv_task(void *arg) {
 static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
-        static int frame_seq = 0;
         unsigned char *decoded;
         shared_ptr<video_frame> out{};
         list<unique_ptr<state_video_compress_libav, void (*)(void *)>> cleanup_callbacks; // at function exit handlers
@@ -1410,7 +1410,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 print_libav_error(LOG_LEVEL_ERROR, MOD_NAME "Cannot make frame writable", ret);
                 return {};
         }
-        s->in_frame->pts = frame_seq++;
+        s->in_frame->pts += 1;
 
         if (s->decoder != vc_memcpy) {
                 int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);
