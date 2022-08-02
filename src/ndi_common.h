@@ -49,7 +49,7 @@
 #include "compat/dlfunc.h"
 #include "config_common.h" // MAX
 #include "debug.h"
-#include "utils/color_out.h" // MERGE, TOSTRING
+#include "utils/color_out.h"
 #include "utils/macros.h" // MERGE, TOSTRING
 
 #define NDILIB_DEFAULT_PATH "/usr/local/lib"
@@ -161,8 +161,8 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
 }
 
 #define NDI_PRINT_COPYRIGHT \
-        color_out(COLOR_OUT_BOLD | COLOR_OUT_BLUE, u8"This application uses NDI® available from http://ndi.tv/\n" \
-                        u8"NDI® is a registered trademark of NewTek, Inc.\n\n"); int not_defined_function
+        color_printf(TERM_BOLD TERM_FG_BLUE u8"This application uses NDI® available from http://ndi.tv/\n" \
+                        u8"NDI® is a registered trademark of NewTek, Inc.\n\n" TERM_RESET); int not_defined_function
 
 #endif // defined NDI_COMMON_H_1A76D048_695C_4247_A24A_583C29010FC4
 

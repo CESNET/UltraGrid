@@ -120,7 +120,7 @@ static inline void audio_alsa_help(void)
         strcpy(available_devices[0].name, "default ALSA device (same as \"alsa:default\")");
         for(int i = 0; i < count; i++){
                 const char * const id = available_devices[i].dev;
-                color_out(COLOR_OUT_BOLD, "\talsa%s", id);
+                color_printf(TERM_FG_RED "\talsa%s" TERM_FG_RESET, id);
                 for (int j = 0; j < 30 - (int) strlen(id); ++j) putchar(' ');
                 printf(": %s\n", available_devices[i].name);
         }

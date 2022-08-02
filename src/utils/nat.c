@@ -501,17 +501,14 @@ struct ug_nat_traverse *start_nat_traverse(const char *config, const char *remot
 
         if (strcmp(config, "help") == 0) {
                 printf("Usage:\n");
-                color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-N");
-                color_out(COLOR_OUT_BOLD, "[protocol[:renewal-interval]]\n");
+                color_printf(TERM_BOLD TERM_FG_RED "\t-N" TERM_FG_RESET "[protocol[:renewal-interval]]\n" TERM_RESET);
                 printf("where:\n");
-                color_out(COLOR_OUT_BOLD, "\tprotocol");
-                printf(" - one of:");
+                color_printf(TERM_BOLD "\tprotocol" TERM_RESET " - one of:");
                 for (int i = UG_NAT_TRAVERSE_FIRST; i <= UG_NAT_TRAVERSE_LAST; ++i) {
-                        color_out(COLOR_OUT_BOLD, " %s", nat_traverse_info[i].name_short);
+                        color_printf(TERM_BOLD " %s" TERM_RESET, nat_traverse_info[i].name_short);
                 }
                 printf("\n");
-                color_out(COLOR_OUT_BOLD, "\trenewal-interval");
-                printf(" - mapping renew interval (in seconds, min: %d)\n", PREALLOCATE_S + 1);
+                color_printf(TERM_BOLD "\trenewal-interval" TERM_RESET " - mapping renew interval (in seconds, min: %d)\n", PREALLOCATE_S + 1);
                 return NULL;
         }
 

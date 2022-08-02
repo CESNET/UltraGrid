@@ -62,8 +62,7 @@ static int init(struct module *parent, const char *cfg, void **state)
         UNUSED(state);
 
         if (strlen(cfg) > 0) {
-                color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "none");
-                color_out(0, " capture filter - dummy (noop) filter, no options\n");
+                color_printf(TERM_BOLD TERM_FG_RED "none" TERM_FG_RESET " capture filter - dummy (noop) filter, no options\n" TERM_RESET);
                 return strcmp(cfg, "help") == 0 ? 1 : -1;
         }
 

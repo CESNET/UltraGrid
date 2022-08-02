@@ -271,7 +271,7 @@ static bool create_dir(struct exporter *s)
         }
 
         if (s->dir) {
-                color_out(COLOR_OUT_BOLD | COLOR_OUT_YELLOW, "Using export directory: %s\n", s->dir);
+                color_printf(TERM_BOLD TERM_FG_YELLOW "Using export directory: %s\n" TERM_RESET, s->dir);
                 return true;
         } else {
                 return false;

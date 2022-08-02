@@ -68,7 +68,7 @@ struct vo_postprocess_state {
 void show_vo_postprocess_help(bool full)
 {
         printf("Usage:\n");
-        color_out(COLOR_OUT_BOLD, "\t-p <postprocess_module>[:<args>] | help\n");
+        color_printf(TERM_BOLD "\t-p <postprocess_module>[:<args>] | help\n" TERM_RESET);
         printf("\n");
         printf("Possible postprocess modules:\n");
         list_modules(LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION, full);

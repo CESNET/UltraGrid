@@ -391,8 +391,7 @@ static void show_help(struct vidcap_dshow_state *s) {
 			// Ignore the device
 			continue;
 		}
-		printf("Device %d: ", n);
-		color_out(COLOR_OUT_BOLD, "%ls\n", var.bstrVal);
+		color_printf("Device %d: " TERM_BOLD "%ls\n" TERM_RESET, n, var.bstrVal);
 
 		// clean up structures
 		VariantClear(&var);

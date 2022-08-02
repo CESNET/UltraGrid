@@ -830,15 +830,14 @@ static void * audio_play_alsa_init(const char *cfg)
         if(cfg && strlen(cfg) > 0) {
                 if(strcmp(cfg, "help") == 0) {
                         printf("Usage\n");
-                        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-r alsa");
-                        color_out(COLOR_OUT_BOLD, "[:<device>] --param alsa-playback-api={thread|async|sync}[,alsa-playback-buffer=[<us>-]<us>][,audio-buffer-len=<ablen>]\n");
-                        color_out(0u, "where\n");
-                        color_out(COLOR_OUT_BOLD, "\talsa-playback-api={thread|async|sync}\n");
-                        color_out(0, "\t\tuse selected API ('thread' is default)\n");
-                        color_out(COLOR_OUT_BOLD, "\talsa-playback-buffer=[<us>-]<us>\n");
-                        color_out(0, "\t\tset buffer max and optionally max (thread and async API only)\n");
-                        color_out(COLOR_OUT_BOLD, "\taudio-buffer-len=<ablen>\n");
-                        color_out(0, "\t\tlength of UG internal ALSA buffer (in milliseconds)\n");
+                        color_printf(TERM_BOLD TERM_FG_RED "\t-r alsa" TERM_FG_RESET "[:<device>] --param alsa-playback-api={thread|async|sync}[,alsa-playback-buffer=[<us>-]<us>][,audio-buffer-len=<ablen>]\n" TERM_RESET);
+                        color_printf("where\n");
+                        color_printf(TERM_BOLD "\talsa-playback-api={thread|async|sync}\n" TERM_RESET);
+                        color_printf("\t\tuse selected API ('thread' is default)\n");
+                        color_printf(TERM_BOLD "\talsa-playback-buffer=[<us>-]<us>\n" TERM_RESET);
+                        color_printf("\t\tset buffer max and optionally max (thread and async API only)\n");
+                        color_printf(TERM_BOLD "\taudio-buffer-len=<ablen>\n" TERM_RESET);
+                        color_printf("\t\tlength of UG internal ALSA buffer (in milliseconds)\n");
                         printf("\n");
 
                         printf("Available ALSA playback devices:\n");

@@ -105,14 +105,12 @@ static void * audio_cap_alsa_init(const char *cfg)
 {
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Usage\n");
-                color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-s alsa\n");
-                color_out(COLOR_OUT_BOLD, "\t-s alsa:<device>\n");
-                color_out(COLOR_OUT_BOLD, "\t-s alsa:<device>:opts=<opts>\n");
-                color_out(COLOR_OUT_BOLD, "\t-s alsa:opts=<opts>\n\n");
-                color_out(COLOR_OUT_BOLD, "\t<opts>");
-                printf(" can be in format key1=value1:key2=value2, options are:\n");
-                color_out(COLOR_OUT_BOLD, "\t\tframes=<frames>");
-                printf(" number of audio frames captured at a moment\n");
+                color_printf(TERM_BOLD TERM_FG_RED "\t-s alsa\n" TERM_RESET);
+                color_printf(TERM_BOLD "\t-s alsa:<device>\n" TERM_RESET);
+                color_printf(TERM_BOLD "\t-s alsa:<device>:opts=<opts>\n" TERM_RESET);
+                color_printf(TERM_BOLD "\t-s alsa:opts=<opts>\n\n" TERM_RESET);
+                color_printf(TERM_BOLD "\t<opts>" TERM_RESET " can be in format key1=value1:key2=value2, options are:\n");
+                color_printf(TERM_BOLD "\t\tframes=<frames>" TERM_RESET " number of audio frames captured at a moment\n");
 
                 printf("\nAvailable ALSA capture devices\n");
                 audio_cap_alsa_help(NULL);

@@ -103,8 +103,7 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
 {
         if (cfg && (strcasecmp(cfg, "help") == 0 || strcasecmp(cfg, "fullhelp") == 0)) {
                 printf("Usage:\n");
-                color_out(COLOR_OUT_BOLD, "\t--capture-filter <filter1>[:opts][,<filter2>[:opts][,<filter3>[:<opts>]]]");
-                printf(" -t <capture>\n\n");
+                color_printf(TERM_BOLD "\t--capture-filter <filter1>[:opts][,<filter2>[:opts][,<filter3>[:<opts>]]]" TERM_RESET " -t <capture>\n\n");
                 printf("Available capture filters:\n");
                 list_modules(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION, strcasecmp(cfg, "fullhelp") == 0);
                 if (strcasecmp(cfg, "fullhelp") != 0) {

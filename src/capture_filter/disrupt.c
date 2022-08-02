@@ -91,7 +91,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 }
         } else {
                 usage();
-                color_out(COLOR_OUT_RED, MOD_NAME "Currently only supported filter is jitter\n");
+                color_printf(TERM_FG_RED MOD_NAME "Currently only supported filter is jitter\n" TERM_FG_RESET);
                 free(s);
                 return -1;
         }

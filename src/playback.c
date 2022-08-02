@@ -53,14 +53,10 @@
 #define MOD_NAME "[playback] "
 
 static void  playback_usage(void) {
-        color_out(0, "Usage:\n");
-        color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t--playback [<file>|<dir>|help]");
-        color_out(COLOR_OUT_BOLD, "[:loop]\n\n");
-        color_out(0, "Use ");
-        color_out(COLOR_OUT_BOLD, "-t file:help");
-        color_out(0, " or ");
-        color_out(COLOR_OUT_BOLD, "-t import:help");
-        color_out(0, " to see further specific configuration options.\n\n");
+        color_printf("Usage:\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t--playback [<file>|<dir>|help]" TERM_FG_RESET "[:loop]\n\n" TERM_RESET);
+        color_printf("Use ");
+        color_printf(TERM_BOLD "-t file:help" TERM_RESET " or " TERM_BOLD "-t import:help" TERM_RESET " to see further specific configuration options.\n\n");
 }
 
 int playback_set_device(char *device_string, size_t buf_len, const char *optarg) {

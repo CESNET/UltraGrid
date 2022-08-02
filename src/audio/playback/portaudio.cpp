@@ -154,8 +154,7 @@ static void * audio_play_portaudio_init(const char *cfg)
         if(cfg) {
                 if(strcmp(cfg, "help") == 0) {
                         printf("PortAudio playback usage:\n");
-                        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-r poraudio");
-                        color_out(COLOR_OUT_BOLD, "[:<index>]\n\n");
+                        color_printf(TERM_BOLD TERM_FG_RED "\t-r poraudio" TERM_FG_RESET "[:<index>]\n\n" TERM_RESET);
                         printf("Available PortAudio playback devices:\n");
                         audio_play_portaudio_help(NULL);
                         return &audio_init_state_ok;

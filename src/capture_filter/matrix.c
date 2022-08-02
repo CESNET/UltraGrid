@@ -64,7 +64,7 @@ static int init(struct module *parent, const char *cfg, void **state)
         if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
                 printf("Performs matrix transformation on input pixels.\n\n"
                        "usage:\n");
-                color_out(COLOR_OUT_BOLD, "\t--capture-filter matrix:a:b:c:d:e:f:g:h:i[:no-bounds-check]\n");
+                color_printf(TERM_BOLD "\t--capture-filter matrix:a:b:c:d:e:f:g:h:i[:no-bounds-check]\n" TERM_RESET);
                 printf("where numbers a-i are members of 3x3 transformation matrix [a b c; d e f; g h i], decimals.\n"
                        "Coefficients are applied at unpacked pixels (eg. on Y Cb and Cr channels of UYVY). Result is marked as RGB.\n"
                        "Currently only RGB and UYVY is supported on input. No additional color transformation is performed.\n");

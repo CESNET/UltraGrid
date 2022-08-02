@@ -109,8 +109,7 @@ next_device:
 
 static void usage() {
         printf("Usage:\n");
-        color_out(COLOR_OUT_BOLD|COLOR_OUT_RED, "\t-d v4l2");
-        color_out(COLOR_OUT_BOLD, "[:device=<path>] | -d v4l2:help\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-d v4l2" TERM_FG_RESET "[:device=<path>] | -d v4l2:help\n" TERM_RESET);
         printf("\n");
         printf("Available devices:\n");
         int count = 0;
@@ -118,15 +117,14 @@ static void usage() {
         void (*deleter)(void *) = free;
         display_v4l2_probe(&devices, &count, &deleter);
         if (count == 0) {
-                color_out(COLOR_OUT_RED, "\tNo V4L2 output devices available!\n");
+                color_printf(TERM_FG_RED "\tNo V4L2 output devices available!\n" TERM_FG_RESET);
         }
         for (int i = 0; i < count; ++i) {
                 const char *dev_path = strchr(devices[i].dev, '=');
                 if (strchr(dev_path, '=') != 0) {
                         dev_path = strchr(dev_path, '=') + 1;
                 } // else bogus, ":device=" should be stripped
-                printf("\t%s: ", dev_path);
-                color_out(COLOR_OUT_BOLD, "%s\n", devices[i].name);
+                color_printf("\t%s: " TERM_BOLD "%s\n" TERM_RESET, dev_path, devices[i].name);
         }
         deleter(devices);
 }

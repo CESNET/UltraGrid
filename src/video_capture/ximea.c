@@ -156,9 +156,8 @@ static void vidcap_ximea_close_lib(struct ximea_functions *f)
 
 
 static void vidcap_ximea_show_help() {
-        color_out(0, "XIMEA usage:\n");
-        color_out(COLOR_OUT_RED | COLOR_OUT_BOLD, "\t-t ximea");
-        color_out(COLOR_OUT_BOLD, "[:device=<d>][:exposure=<time_us>]\n");
+        color_printf("XIMEA usage:\n");
+        color_printf(TERM_BOLD TERM_FG_RED, "\t-t ximea" TERM_FG_RESET "[:device=<d>][:exposure=<time_us>]\n" TERM_RESET);
         printf("\n");
         printf("Available devices:\n");
 
@@ -182,11 +181,11 @@ static void vidcap_ximea_show_help() {
 
         for (DWORD i = 0; i < count; ++i) {
                 char name[256];
-                color_out(COLOR_OUT_BOLD, "\t%d) ", (int) i);
+                color_printf(TERM_BOLD "\t%d) " TERM_RESET, (int) i);
                 if (funcs.xiGetDeviceInfoString(i, XI_PRM_DEVICE_NAME, name, sizeof name) == XI_OK) {
-                        color_out(0, "%s", name);
+                        color_printf("%s", name);
                 }
-                color_out(0, "\n");
+                color_printf("\n");
         }
         vidcap_ximea_close_lib(&funcs);
 }

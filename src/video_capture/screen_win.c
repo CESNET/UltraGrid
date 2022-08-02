@@ -75,8 +75,7 @@ static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-t screen");
-        color_out(COLOR_OUT_BOLD, "[:width=<w>][:height=<h>][:fps=<f>]\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-t screen" TERM_FG_RESET "[:width=<w>][:height=<h>][:fps=<f>]\n" TERM_RESET);
 }
 
 static struct vidcap_type * vidcap_screen_win_probe(bool verbose, void (**deleter)(void *))

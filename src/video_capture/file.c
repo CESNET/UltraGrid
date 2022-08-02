@@ -128,29 +128,25 @@ struct vidcap_state_lavf_decoder {
 };
 
 static void vidcap_file_show_help(bool full) {
-        color_out(0, "Usage:\n");
-        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-t file:<name>");
-        color_out(COLOR_OUT_BOLD, "[:loop][:nodecode][:codec=<c>]");
+        color_printf("Usage:\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-t file:<name>" TERM_FG_RESET "[:loop][:nodecode][:codec=<c>]%s\n" TERM_RESET,
+                        full ? "[:opportunistic_audio][:queue=<len>][:threads=<n>[FS]]" : "");
+        color_printf("where\n");
+        color_printf(TERM_BOLD "\tloop\n" TERM_RESET);
+        color_printf("\t\tloop the playback\n");
+        color_printf(TERM_BOLD "\tnodecode\n" TERM_RESET);
+        color_printf("\t\tdon't decompress the video (may not work because required data for correct decompess are in container or UG doesn't recognize the codec)\n");
+        color_printf(TERM_BOLD "\tcodec\n" TERM_RESET);
+        color_printf("\t\tcodec to decode to\n");
         if (full) {
-                color_out(COLOR_OUT_BOLD, "[:opportunistic_audio][:queue=<len>][:threads=<n>[FS]]");
-        }
-        color_out(0, "\n");
-        color_out(0, "\t\twhere\n");
-        color_out(COLOR_OUT_BOLD, "\tloop\n");
-        color_out(0, "\t\tloop the playback\n");
-        color_out(COLOR_OUT_BOLD, "\tnodecode\n");
-        color_out(0, "\t\tdon't decompress the video (may not work because required data for correct decompess are in container or UG doesn't recognize the codec)\n");
-        color_out(COLOR_OUT_BOLD, "\tcodec\n");
-        color_out(0, "\t\tcodec to decode to\n");
-        if (full) {
-                color_out(COLOR_OUT_BOLD, "\topportunistic_audio\n");
-                color_out(0, "\t\tgrab audio if not present but do not fail if not\n");
-                color_out(COLOR_OUT_BOLD, "\tqueue\n");
-                color_out(0, "\t\tmax queue len (default: %d), increasing may help if video stutters\n", FILE_DEFAULT_QUEUE_LEN);
-                color_out(COLOR_OUT_BOLD, "\tthreads\n");
-                color_out(0, "\t\tnumber of threads (0 is default), 'S' and/or 'F' to use slice/frame threads, use at least one flag\n");
+                color_printf(TERM_BOLD "\topportunistic_audio\n" TERM_RESET);
+                color_printf("\t\tgrab audio if not present but do not fail if not\n");
+                color_printf(TERM_BOLD "\tqueue\n" TERM_RESET);
+                color_printf("\t\tmax queue len (default: %d), increasing may help if video stutters\n", FILE_DEFAULT_QUEUE_LEN);
+                color_printf(TERM_BOLD "\tthreads\n" TERM_RESET);
+                color_printf("\t\tnumber of threads (0 is default), 'S' and/or 'F' to use slice/frame threads, use at least one flag\n");
         } else {
-                color_out(0, "\n(use \":fullhelp\" to see all available options)\n");
+                color_printf("\n(use \":fullhelp\" to see all available options)\n");
         }
 }
 

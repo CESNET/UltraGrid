@@ -138,13 +138,10 @@ static int display_ndi_reconfigure(void *state, struct video_desc desc)
 static void usage()
 {
         printf("Usage:\n");
-        color_out(COLOR_OUT_BOLD | COLOR_OUT_RED, "\t-d ndi");
-        color_out(COLOR_OUT_BOLD, "[:help][:name=<n>][:audio_level=<x>]\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-d ndi" TERM_FG_RESET "[:help][:name=<n>][:audio_level=<x>]\n" TERM_RESET);
         printf("\twhere\n");
-        color_out(COLOR_OUT_BOLD, "\t\tname\n");
-        printf("\t\t\tthe name of the server\n");
-        color_out(COLOR_OUT_BOLD, "\t\taudio_level\n");
-        printf("\t\t\taudio headroom above reference level (in dB, or mic/line, default %d)\n", DEFAULT_AUDIO_LEVEL);
+        color_printf(TERM_BOLD "\t\tname\n" TERM_RESET "\t\t\tthe name of the server\n");
+        color_printf(TERM_BOLD "\t\taudio_level\n" TERM_RESET "\t\t\taudio headroom above reference level (in dB, or mic/line, default %d)\n", DEFAULT_AUDIO_LEVEL);
 }
 
 /**

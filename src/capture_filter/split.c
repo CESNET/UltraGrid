@@ -65,7 +65,7 @@ struct state_split {
 static void usage() {
         printf("Splits frame to XxY tiles:\n\n");
         printf("split usage:\n");
-        color_out(COLOR_OUT_BOLD, "\tsplit:x:y\n\n");
+        color_printf(TERM_BOLD "\tsplit:x:y\n\n" TERM_RESET);
 }
 
 static int init(struct module *parent, const char *cfg, void **state)
