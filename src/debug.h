@@ -170,6 +170,7 @@ private:
         std::atomic<bool> skip_repeated;
         log_timestamp_mode show_timestamps;
 
+        bool interactive = false;
 
         /* Since writing to stdout uses locks internally anyway (C11 standard
          * 7.21.2 sections 7&8), using a mutex here does not cause any significant
@@ -222,7 +223,7 @@ inline void Log_output::submit(){
 
         const char *start_newline = "";
         std::lock_guard<std::mutex> lock(mut);
-        if (skip_repeated && rang::rang_implementation::isTerminal(std::clog.rdbuf())) {
+        if (skip_repeated && interactive) {
                 if (buffer == last_msg) {
                         last_msg_repeats++;
                         printf("    Last message repeated %d times\r", last_msg_repeats);
