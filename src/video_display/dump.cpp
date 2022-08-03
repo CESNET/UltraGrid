@@ -45,13 +45,10 @@
 #include "debug.h"
 #include "export.h"
 #include "lib_common.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_display.h"
 
-
-using rang::fg;
-using rang::style;
 using namespace std;
 
 struct dump_display_state {
@@ -81,11 +78,11 @@ struct dump_display_state {
 
 static void usage()
 {
-        cout << "Usage:\n";
-        cout << style::bold << fg::red << "\t-d dump" << fg::reset << "[:<directory>] [--param decoder-use-codec=<c>]\n" << style::reset;
-        cout << "where\n";
-        cout << style::bold << "\t<directory>" << style::reset << " - directory to save the dumped stream\n";
-        cout << style::bold << "\t<c>" << style::reset << " - codec to use instead of the received (default), must be a way to convert\n";
+        color_printf("Usage:\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-d dump" TERM_FG_RESET "[:<directory>] [--param decoder-use-codec=<c>]\n" TERM_RESET);
+        color_printf("where\n");
+        color_printf(TERM_BOLD "\t<directory>" TERM_RESET " - directory to save the dumped stream\n");
+        color_printf(TERM_BOLD "\t<c>" TERM_RESET " - codec to use instead of the received (default), must be a way to convert\n");
 }
 
 static void *display_dump_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */)
