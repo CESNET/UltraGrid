@@ -187,19 +187,31 @@ private:
 inline const std::string& Log_output::get_level_style(int lvl){
         switch(lvl){
         case LOG_LEVEL_FATAL: {
-                static std::string style = (std::ostringstream() << rang::fg::red << rang::style::bold).str();
+                static std::string style = [](){
+                        std::ostringstream o; o << rang::fg::red << rang::style::bold;
+                        return o.str();
+                }();
                 return style;
         }
         case LOG_LEVEL_ERROR: {
-                static std::string style = (std::ostringstream() << rang::fg::red).str();
+                static std::string style = [](){
+                        std::ostringstream o; o << rang::fg::red;
+                        return o.str();
+                }();
                 return style;
         }
         case LOG_LEVEL_WARNING: {
-                static std::string style = (std::ostringstream() << rang::fg::yellow).str();
+                static std::string style = [](){
+                        std::ostringstream o; o << rang::fg::yellow;
+                        return o.str();
+                }();
                 return style;
         }
         case LOG_LEVEL_NOTICE: {
-                static std::string style = (std::ostringstream() << rang::fg::green).str();
+                static std::string style = [](){
+                        std::ostringstream o; o << rang::fg::green;
+                        return o.str();
+                }();
                 return style;
         }
         default: {
