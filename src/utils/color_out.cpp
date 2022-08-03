@@ -89,9 +89,7 @@ void color_out(uint32_t modificators, const char *format, ...) {
         va_end(ap);
 
         if(color_stdout){
-                str_append_ansi_esc(buf.get(), static_cast<int>(rang::style::reset));
-                str_append_ansi_esc(buf.get(), static_cast<int>(rang::fg::reset));
-                str_append_ansi_esc(buf.get(), static_cast<int>(rang::bg::reset));
+                buf.append(TERM_RESET);
         }
 
         buf.submit_raw();
