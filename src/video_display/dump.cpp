@@ -49,12 +49,10 @@
 #include "video.h"
 #include "video_display.h"
 
-#include <chrono>
 
 using rang::fg;
 using rang::style;
 using namespace std;
-using namespace std::chrono;
 
 struct dump_display_state {
         explicit dump_display_state(char const *cfg)
@@ -75,10 +73,10 @@ struct dump_display_state {
                 export_destroy(e);
         }
         struct video_frame *f = nullptr;
-        steady_clock::time_point t0 = steady_clock::now();
         int frames = 0;
         struct exporter *e;
         size_t max_tile_data_len = 0;
+        codec_t requested_codec = VIDEO_CODEC_NONE;
 };
 
 static void usage()
@@ -134,17 +132,6 @@ static int display_dump_putf(void *state, struct video_frame *frame, int flags)
         }
         assert(frame == s->f);
         export_video(s->e, frame);
-
-        auto curr_time = steady_clock::now();
-        s->frames += 1;
-        double seconds = duration_cast<duration<double>>(curr_time - s->t0).count();
-        if (seconds >= 5.0) {
-                double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[dump] %d frames in %g seconds = %g FPS\n",
-                                s->frames, seconds, fps);
-                s->t0 = curr_time;
-                s->frames = 0;
-        }
 
         return 0;
 }
@@ -221,7 +208,7 @@ static const struct video_display_info display_dump_info = {
         display_dump_put_audio_frame,
         display_dump_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        false,
+        true,
 };
 
 REGISTER_MODULE(dump, &display_dump_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
