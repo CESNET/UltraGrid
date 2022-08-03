@@ -70,7 +70,6 @@
 
 #include <array>
 #include <chrono>
-#include <functional>
 #include <getopt.h>
 #include <iomanip>
 #include <iostream>
@@ -157,12 +156,16 @@ ADD_TO_PARAM("stderr-buf",
          "* stderr-buf={no|line|full}\n"
          "  Buffering for stderr\n");
 static bool set_output_buffering() {
-        const unordered_map<const char *, pair<FILE *, function<int(void)> >> outs = { // pair<output, default mode>
-                { "stdout-buf", pair{stdout, [](){ return isMsysPty(fileno(stdout)) ? _IONBF : _IOLBF; }} },
-                { "stderr-buf", pair{stderr, [](){ return _IONBF; }} }
+        const unordered_map<const char *, pair<FILE *, int>> outs = { // pair<output, default mode>
+#ifdef WIN32
+                { "stdout-buf", pair{stdout, _IONBF} },
+#else
+                { "stdout-buf", pair{stdout, _IOLBF} },
+#endif
+                { "stderr-buf", pair{stderr, _IONBF} }
         };
         for (auto outp : outs) {
-                int mode = outp.second.second(); // default
+                int mode = outp.second.second; // default
 
                 if (get_commandline_param(outp.first)) {
                         const unordered_map<string, int> buf_map {
