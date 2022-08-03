@@ -360,7 +360,7 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         cout << style::bold << fg::red << "\t-c libavcodec" << fg::reset << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>][q=<q>]"
                         "[:subsampling=<subsampling>][:gop=<gop>]"
-                        "[:[disable_]intra_refresh][:threads=<thr_mode>][:slices=<slices>][:<lavc_opt>=<val>]*\n" <<
+                        "[:[disable_]intra_refresh][:threads=<threads>][:slices=<slices>][:<lavc_opt>=<val>]*\n" <<
                         style::reset;
         cout << "\nwhere\n";
         cout << style::bold << "\t<encoder>" << style::reset << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
@@ -391,7 +391,7 @@ static void usage() {
         cout << style::bold << "\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
         cout << style::bold << "\t<q>" << style::reset << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
         cout << style::bold << "\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
-        cout << style::bold << "\t<thr_mode>" << style::reset << " can be one of \"no\", \"frame[=count]\", \"slice[=count]\" or just a number\n";
+        cout << style::bold << "\t<threads>" << style::reset << " can be \"no\", or \"<number>[F][S]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice)\n";
         cout << style::bold << "\t<slices>" << style::reset << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         cout << style::bold << "\t<gop>" << style::reset << " specifies GOP size\n";
         cout << style::bold << "\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
@@ -1631,27 +1631,23 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                 return;
         }
 
+        size_t endpos = 0;
         try { // just a number
-                codec_ctx->thread_count = stoi(param->thread_mode);
-                return;
+                codec_ctx->thread_count = stoi(param->thread_mode, &endpos);
         } catch(invalid_argument &) { // not a number
         }
 
-        if (!param->thread_mode.empty()) {
-                codec_ctx->thread_type = strstr(param->thread_mode.c_str(), "slice") != nullptr ? FF_THREAD_SLICE :
-                        strstr(param->thread_mode.c_str(), "thread") != nullptr ? FF_THREAD_FRAME : 0;
-                if (codec_ctx->thread_type == 0) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown thread mode: %s.\n", param->thread_mode.c_str());
+        while (endpos != param->thread_mode.size()) {
+                switch (toupper(param->thread_mode[endpos])) {
+                        case 'F': codec_ctx->thread_type = FF_THREAD_FRAME; break;
+                        case 'S': codec_ctx->thread_type = FF_THREAD_SLICE; break;
+                        default: log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown thread mode: '%c'.\n", param->thread_mode[endpos]);
                 }
-                if ((codec_ctx->thread_type == FF_THREAD_SLICE && (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) == 0) ||
-                                (codec_ctx->thread_type == FF_THREAD_FRAME && (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) == 0)) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Codec doesn't support specified thread mode.\n");
-                }
-
-                if (auto pos = param->thread_mode.find('='); pos != string::npos) {
-                        codec_ctx->thread_count = stoi(param->thread_mode.substr(pos + 1));
-                }
-                return;
+                endpos += 1;
+        }
+        if ((codec_ctx->thread_type == FF_THREAD_SLICE && (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) == 0) ||
+                        (codec_ctx->thread_type == FF_THREAD_FRAME && (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) == 0)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Codec doesn't support specified thread mode.\n");
         }
 
 #ifdef AV_CODEC_CAP_OTHER_THREADS // compat - OTHER_THREADS is AUTO_THREADS in older FF
