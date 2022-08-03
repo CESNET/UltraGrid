@@ -135,7 +135,7 @@ public:
                                 int count = last->count += 1;
                                 auto current = last_msg.exchange(last);
                                 delete current;
-                                std::clog << "    Last message repeated " << count << " times\r";
+                                std::clog << "    Last message repeated " << count << " times\r" << std::flush;
                                 return;
                         }
                         if (last != nullptr) {
