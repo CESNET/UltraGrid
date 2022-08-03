@@ -148,39 +148,47 @@ static void deconfigure(struct state_libavcodec_decompress *s)
 #endif // defined HAVE_SWSCALE
 }
 
-ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F]\n"
+ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F][S]\n"
                 "  Use <thread_count> decoding threads (0 is usually auto).\n"
-                "  Flag 'F' enables frame parallelism (disabled by default).\n");
+                "  Flag 'F' enables frame parallelism (disabled by default), 'S' slice based, can be both.\n");
 static void set_codec_context_params(struct state_libavcodec_decompress *s)
 {
         int thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
-        bool use_frame_threads = false; // use frame threads
+        int req_thread_type = 0;
         const char *thread_count_opt = get_commandline_param("lavd-thread-count");
         if (thread_count_opt != NULL) {
                 char *endptr = NULL;
                 errno = 0;
                 long val = strtol(thread_count_opt, &endptr, 0);
-                if (errno == 0 && thread_count_opt[0] != '\0' && val >= 0 && val <= INT_MAX && (*endptr == '\0' || toupper(*endptr) == 'F')) {
+                if (errno == 0 && thread_count_opt[0] != '\0' && val >= 0 && val <= INT_MAX && (*endptr == '\0' || toupper(*endptr) == 'F' || toupper(*endptr) == 'S')) {
                         thread_count = val;
-                        if (toupper(*endptr) == 'F') {
-                                use_frame_threads = true;
+                        while (*endptr) {
+                                switch (toupper(*endptr)) {
+                                        case 'F': req_thread_type |= FF_THREAD_FRAME; break;
+                                        case 'S': req_thread_type |= FF_THREAD_SLICE; break;
+                                }
+                                endptr++;
                         }
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Wrong value for thread count: %s\n", thread_count_opt);
                 }
         }
 
-        s->codec_ctx->thread_count = thread_count;
-        // zero should mean count equal to the number of virtual cores
-        if (use_frame_threads) {
+        s->codec_ctx->thread_count = thread_count; // zero should mean count equal to the number of virtual cores
+        s->codec_ctx->thread_type = 0;
+        if (req_thread_type == 0) {
+                req_thread_type = FF_THREAD_SLICE;
+        }
+        if ((req_thread_type & FF_THREAD_FRAME) != 0U) {
                 if (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
-                        s->codec_ctx->thread_type = FF_THREAD_FRAME;
+                        s->codec_ctx->thread_type |= FF_THREAD_FRAME;
                 } else {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Codec doesn't support frame-based multithreading but requested.\n");
                 }
-        } else {
+        }
+        if ((req_thread_type & FF_THREAD_SLICE) != 0U) {
                 if (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) {
-                        s->codec_ctx->thread_type = FF_THREAD_SLICE;
+                        s->codec_ctx->thread_type |= FF_THREAD_SLICE;
                 } else {
                         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Warning: Codec doesn't support slice-based multithreading.\n");
                 }
