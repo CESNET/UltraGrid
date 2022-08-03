@@ -154,6 +154,7 @@ public:
         void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
 
         const std::string& get_level_style(int lvl);
+        bool is_interactive() const { return interactive; }
 
         Log_output(const Log_output&) = delete;
         Log_output(Log_output&&) = delete;

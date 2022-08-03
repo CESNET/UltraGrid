@@ -130,7 +130,8 @@ void log_msg(int level, const char *format, ...)
         }
         va_end(ap);
 
-        buf.append(TERM_RESET);
+        if(get_log_output().is_interactive())
+                buf.append(TERM_RESET);
         buf.submit();
 }
 
