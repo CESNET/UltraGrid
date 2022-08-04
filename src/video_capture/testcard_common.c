@@ -113,7 +113,7 @@ static void toI420(unsigned char *out, const unsigned char *input, int width, in
 void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, unsigned const char *in, int width, int height)
 {
         unsigned char *tmp_buffer = NULL;
-        if (out_c == I420 || out_c == YUYV || (in_c == RGBA || out_c == v210)) {
+        if (out_c == I420 || out_c == YUYV || (in_c == RGBA && out_c == v210)) {
                 decoder_t decoder = get_decoder_from_to(in_c, UYVY);
                 tmp_buffer =  malloc(2L * ((width + 1U) ^ 1U) * height);
                 long in_linesize = vc_get_linesize(width, in_c);
