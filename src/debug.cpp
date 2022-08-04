@@ -98,19 +98,6 @@ void log_msg(int level, const char *format, ...)
                 return;
         }
 
-#if 0 // WIN32
-        if (log_level == LOG_LEVEL_DEBUG) {
-                char msg[65535];
-                va_list ap;
-
-                va_start(ap, format);
-                _vsnprintf(msg, 65535, format, ap);
-                va_end(ap);
-                OutputDebugString(msg);
-                return;
-        }
-#endif                          /* WIN32 */
-
         // get number of required bytes
         va_start(ap, format);
         int size = vsnprintf(NULL, 0, format, ap);
