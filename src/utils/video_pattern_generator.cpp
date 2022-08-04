@@ -375,19 +375,6 @@ class image_pattern_raw : public image_pattern {
 
 
 unique_ptr<image_pattern> image_pattern::create(string const &config) {
-        if (config == "help") {
-                cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
-                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns with";
-                for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
-                        if (get_decoder_from_to(RG48, c) != NULL) {
-                                cout << " " << BOLD(get_codec_name(c));
-                        }
-                }
-                cout << "\n";
-                cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
-                cout << "\t\t- pattern 'smpte' uses the top bars from top 2 thirds only (doesn't render bottom third differently)\n";
-                return {};
-        }
         string pattern = config;
         string params;
         if (string::size_type delim = config.find('='); delim != string::npos) {
@@ -441,68 +428,98 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
 }
 
 struct video_pattern_generator {
+        virtual char *get_next() = 0;
+        virtual ~video_pattern_generator() {}
+};
+
+struct still_image_video_pattern_generator : public video_pattern_generator {
+        constexpr static auto delarr_deleter = [](unsigned char *ptr){ delete [] ptr; };
+        still_image_video_pattern_generator(std::string const & config, int w, int h, codec_t c, int o)
+                : width(w), height(h), color_spec(c), offset(o)
+        {
+
+                unique_ptr<image_pattern> generator;
+                try {
+                        generator = image_pattern::create(config);
+                } catch (exception const &e) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
+                        throw 1;
+                }
+                if (!generator) {
+                        throw 2;
+                }
+
+                data = generator->init(width, height, generator_depth::bits8);
+                codec_t codec_src = RGBA;
+                if (get_decoder_from_to(RG48, color_spec) != NULL) {
+                        data = generator->init(width, height, generator_depth::bits16);
+                        codec_src = RG48;
+                }
+
+                auto src = move(data);
+                long data_len = vc_get_datalen(width, height, color_spec);
+                data = decltype(data)(new unsigned char[data_len * 2], delarr_deleter);
+                testcard_convert_buffer(codec_src, color_spec, data.get(), src.get(), width, height);
+
+                if (auto *raw_generator = dynamic_cast<image_pattern_raw *>(generator.get())) {
+                        raw_generator->raw_fill(data.get(), data_len);
+                }
+
+                memcpy(data.get() + data_len, data.get(), data_len);
+        }
         int width;
         int height;
         codec_t color_spec;
-        unique_ptr<unsigned char [],void (*)(unsigned char*)> data;
+        unique_ptr<unsigned char [],void (*)(unsigned char*)> data = { nullptr, delarr_deleter };
         int offset;
         long cur_pos = 0;
         long data_len = vc_get_datalen(width, height, color_spec);
         long linesize = vc_get_linesize(width, color_spec);
+
+        char *get_next() override {
+                auto ret = (char *) data.get() + cur_pos;
+                cur_pos += offset;
+                if (cur_pos >= data_len) {
+                        cur_pos = 0;
+                }
+                return ret;
+        }
 };
 
 video_pattern_generator_t
 video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
 {
+        if (config == "help") {
+                cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
+                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns with";
+                for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
+                        if (get_decoder_from_to(RG48, c) != NULL) {
+                                cout << " " << BOLD(get_codec_name(c));
+                        }
+                }
+                cout << "\n";
+                cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
+                cout << "\t\t- pattern 'smpte' uses the top bars from top 2 thirds only (doesn't render bottom third differently)\n";
+                return nullptr;
+        }
         assert(width > 0 && height > 0);
-        static auto delarr_deleter = [](unsigned char *ptr){ delete [] ptr; };
-
-        unique_ptr<image_pattern> generator;
         try {
-                generator = image_pattern::create(config);
-        } catch (exception const &e) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
+                return new still_image_video_pattern_generator{config, width, height, color_spec, offset};
+        } catch (...) {
                 return nullptr;
         }
-        if (!generator) {
-                return nullptr;
-        }
-
-        auto data = generator->init(width, height, generator_depth::bits8);
-        codec_t codec_src = RGBA;
-        if (get_decoder_from_to(RG48, color_spec) != NULL) {
-                data = generator->init(width, height, generator_depth::bits16);
-                codec_src = RG48;
-        }
-
-        auto src = move(data);
-        long data_len = vc_get_datalen(width, height, color_spec);
-        data = decltype(data)(new unsigned char[data_len * 2], delarr_deleter);
-        testcard_convert_buffer(codec_src, color_spec, data.get(), src.get(), width, height);
-
-        if (auto *raw_generator = dynamic_cast<image_pattern_raw *>(generator.get())) {
-                raw_generator->raw_fill(data.get(), data_len);
-        }
-
-        memcpy(data.get() + data_len, data.get(), data_len);
-
-        return new video_pattern_generator{width, height, color_spec, move(data), offset};
 }
 
 char *video_pattern_generator_next_frame(video_pattern_generator_t s)
 {
-        auto ret = (char *) s->data.get() + s->cur_pos;
-        s->cur_pos += s->offset;
-        if (s->cur_pos >= s->data_len) {
-                s->cur_pos = 0;
-        }
-        return ret;
+        return s->get_next();
 }
 
 void video_pattern_generator_fill_data(video_pattern_generator_t s, const char *data)
 {
-        memcpy(s->data.get(), data, s->data_len);
-        memcpy(s->data.get() + s->data_len, data, s->data_len);
+        auto *state = dynamic_cast<still_image_video_pattern_generator *>(s);
+        memcpy(state->data.get(), data, state->data_len);
+        memcpy(state->data.get() + state->data_len, data, state->data_len);
 }
 
 void video_pattern_generator_destroy(video_pattern_generator_t s)
