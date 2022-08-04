@@ -336,8 +336,9 @@ void * vidcap_testcard2_thread(void *arg)
         }
 
 #endif
+        /// @note R12l has pixel block size 8 pixels, so the below won't work for that pixfmt
         unsigned char square_cols[2][48];
-        uint32_t src[6] = { 0 };
+        uint32_t src[6 + MAX_PADDING] = { 0 };
         testcard_convert_buffer(RGBA, s->desc.color_spec, square_cols[0], (unsigned char *) src, 6, 1);
         for (int i = 0; i < 6; ++i) src[i] = 0xffff00aa;
         testcard_convert_buffer(RGBA, s->desc.color_spec, square_cols[1], (unsigned char *) src, 6, 1);
