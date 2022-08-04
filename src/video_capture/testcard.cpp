@@ -91,7 +91,7 @@ using namespace std;
 struct testcard_state {
         std::chrono::steady_clock::time_point last_frame_time;
         int pan;
-        char *data {nullptr};
+        video_pattern_generator_t generator;
         std::chrono::steady_clock::time_point t0;
         struct video_frame *frame{nullptr};
         int frame_linesize;
@@ -392,25 +392,22 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         s->frame = vf_alloc_desc(desc);
-        vf_get_tile(s->frame, 0)->data = static_cast<char *>(malloc(s->frame->tiles[0].data_len * 2));
         s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
 
-        if (filename) {
-                if (!testcard_load_from_file(filename, s->frame->tiles[0].data_len, s->frame->tiles[0].data)) {
-                        goto error;
-                }
-        } else {
-                auto data = video_pattern_generate(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec);
-                if (!data) {
-                        ret = s->pattern == "help" ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
-                        goto error;
-                }
-
-                memcpy(vf_get_tile(s->frame, 0)->data, data.get(), s->frame->tiles[0].data_len);
+        s->generator = video_pattern_generator_create(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec,
+                        s->still_image ? 0 : s->frame_linesize + s->pan);
+        if (!s->generator) {
+                ret = s->pattern == "help" ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
+                goto error;
         }
 
-        // duplicate the image to allow scrolling
-        memcpy(vf_get_tile(s->frame, 0)->data + vf_get_tile(s->frame, 0)->data_len, vf_get_tile(s->frame, 0)->data, vf_get_tile(s->frame, 0)->data_len);
+        if (filename) {
+                vector<char> tmp(s->frame->tiles[0].data_len);
+                if (!testcard_load_from_file(filename, s->frame->tiles[0].data_len, tmp.data())) {
+                        goto error;
+                }
+                video_pattern_generator_fill_data(s->generator, tmp.data());
+        }
 
         if (!s->still_image && codec_is_planar(s->frame->color_spec)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(s->frame->color_spec));
@@ -438,14 +435,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         free(fmt);
 
-        s->data = s->frame->tiles[0].data;
-
         *state = s;
         return VIDCAP_INIT_OK;
 
 error:
         free(fmt);
-        free(s->data);
         vf_free(s->frame);
         delete s;
         return ret;
@@ -454,7 +448,6 @@ error:
 static void vidcap_testcard_done(void *state)
 {
         struct testcard_state *s = (struct testcard_state *) state;
-        free(s->data);
         if (s->tiled) {
                 int i;
                 for (i = 0; i < s->tiles_cnt_horizontal; ++i) {
@@ -464,6 +457,7 @@ static void vidcap_testcard_done(void *state)
         }
         vf_free(s->frame);
         ring_buffer_destroy(s->midi_buf);
+        video_pattern_generator_destroy(s->generator);
         delete s;
 }
 
@@ -493,12 +487,7 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
                 *audio = NULL;
         }
 
-        if(!state->still_image) {
-                vf_get_tile(state->frame, 0)->data += state->frame_linesize + state->pan;
-        }
-        if (vf_get_tile(state->frame, 0)->data > state->data + state->frame->tiles[0].data_len) {
-                vf_get_tile(state->frame, 0)->data = state->data;
-        }
+        vf_get_tile(state->frame, 0)->data = video_pattern_generator_next_frame(state->generator);
 
         if (state->tiled) {
                 /* update tile data instead */

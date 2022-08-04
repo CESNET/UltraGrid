@@ -43,8 +43,14 @@
 
 #include "video.h"
 
-std::unique_ptr<unsigned char [],void (*)(unsigned char*)>
-video_pattern_generate(std::string const & config, int width, int height, codec_t color_spec);
+struct video_pattern_generator;
 
+typedef struct video_pattern_generator *video_pattern_generator_t;
+
+/// @param offset   offset between still image frames (in bytes)
+video_pattern_generator_t video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset);
+char *video_pattern_generator_next_frame(video_pattern_generator_t);
+void video_pattern_generator_fill_data(video_pattern_generator_t, const char *data);
+void video_pattern_generator_destroy(video_pattern_generator_t);
 
 #endif // defined VIDEO_PATTERN_GENERATOR_H_411E8141_A7AE_4FCD_8464_41CE032CF81B

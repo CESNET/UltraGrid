@@ -440,11 +440,21 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         throw ug_runtime_error("Unknown pattern: "s +  config + "!"s);
 }
 
-unique_ptr<unsigned char [],void (*)(unsigned char*)>
-video_pattern_generate(std::string const & config, int width, int height, codec_t color_spec)
+struct video_pattern_generator {
+        int width;
+        int height;
+        codec_t color_spec;
+        unique_ptr<unsigned char [],void (*)(unsigned char*)> data;
+        int offset;
+        long cur_pos = 0;
+        long data_len = vc_get_datalen(width, height, color_spec);
+        long linesize = vc_get_linesize(width, color_spec);
+};
+
+video_pattern_generator_t
+video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
 {
         assert(width > 0 && height > 0);
-        static auto free_deleter = [](unsigned char *ptr){ free(ptr); };
         static auto delarr_deleter = [](unsigned char *ptr){ delete [] ptr; };
 
         unique_ptr<image_pattern> generator;
@@ -452,10 +462,10 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
                 generator = image_pattern::create(config);
         } catch (exception const &e) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
-                return {nullptr, free_deleter};
+                return nullptr;
         }
         if (!generator) {
-                return {nullptr, free_deleter};
+                return nullptr;
         }
 
         auto data = generator->init(width, height, generator_depth::bits8);
@@ -466,13 +476,38 @@ video_pattern_generate(std::string const & config, int width, int height, codec_
         }
 
         auto src = move(data);
-        data = decltype(data)(new unsigned char[vc_get_datalen(width, height, color_spec)], delarr_deleter);
+        long data_len = vc_get_datalen(width, height, color_spec);
+        data = decltype(data)(new unsigned char[data_len * 2], delarr_deleter);
         testcard_convert_buffer(codec_src, color_spec, data.get(), src.get(), width, height);
 
         if (auto *raw_generator = dynamic_cast<image_pattern_raw *>(generator.get())) {
-                raw_generator->raw_fill(data.get(), vc_get_datalen(width, height, color_spec));
+                raw_generator->raw_fill(data.get(), data_len);
         }
 
-        return data;
+        memcpy(data.get() + data_len, data.get(), data_len);
+
+        return new video_pattern_generator{width, height, color_spec, move(data), offset};
 }
+
+char *video_pattern_generator_next_frame(video_pattern_generator_t s)
+{
+        auto ret = (char *) s->data.get() + s->cur_pos;
+        s->cur_pos += s->offset;
+        if (s->cur_pos >= s->data_len) {
+                s->cur_pos = 0;
+        }
+        return ret;
+}
+
+void video_pattern_generator_fill_data(video_pattern_generator_t s, const char *data)
+{
+        memcpy(s->data.get(), data, s->data_len);
+        memcpy(s->data.get() + s->data_len, data, s->data_len);
+}
+
+void video_pattern_generator_destroy(video_pattern_generator_t s)
+{
+        delete s;
+}
+
 /* vim: set expandtab sw=8: */
