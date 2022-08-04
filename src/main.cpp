@@ -310,6 +310,8 @@ static void crash_signal_handler(int sig)
 
         write_all(ptr - buf, buf);
 
+        restore_old_tio();
+
         signal(sig, SIG_DFL);
         raise(sig);
 }
