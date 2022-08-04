@@ -85,7 +85,6 @@ using std::for_each;
 using std::make_unique;
 using std::max;
 using std::min;
-using std::move;
 using std::string;
 using std::swap;
 using std::unique_ptr;
@@ -101,15 +100,14 @@ class image_pattern {
         public:
                 static unique_ptr<image_pattern> create(string const & config);
                 auto init(int width, int height, enum generator_depth depth) {
-                        static auto delarr_deleter = [](unsigned char *ptr){ delete [] ptr; };
                         size_t data_len = width * height * rg48_bpp + headroom;
-                        auto out = unique_ptr<unsigned char[], void (*)(unsigned char*)>(new unsigned char[data_len], delarr_deleter);
-                        auto actual_bit_depth = fill(width, height, out.get());
+                        vector<unsigned char> out(data_len);
+                        auto actual_bit_depth = fill(width, height, out.data());
                         if (depth == generator_depth::bits8 && actual_bit_depth == generator_depth::bits16) {
-                                convert_rg48_to_rgba(width, height, out.get());
+                                convert_rg48_to_rgba(width, height, out.data());
                         }
                         if (depth == generator_depth::bits16 && actual_bit_depth == generator_depth::bits8) {
-                                convert_rgba_to_rg48(width, height, out.get());
+                                convert_rgba_to_rg48(width, height, out.data());
                         }
                         return out;
                 }
@@ -437,7 +435,6 @@ struct still_image_video_pattern_generator : public video_pattern_generator {
         still_image_video_pattern_generator(std::string const & config, int w, int h, codec_t c, int o)
                 : width(w), height(h), color_spec(c), offset(o)
         {
-
                 unique_ptr<image_pattern> generator;
                 try {
                         generator = image_pattern::create(config);
@@ -456,28 +453,29 @@ struct still_image_video_pattern_generator : public video_pattern_generator {
                         codec_src = RG48;
                 }
 
-                auto src = move(data);
+                vector<unsigned char> src;
+                data.swap(src);
                 long data_len = vc_get_datalen(width, height, color_spec);
-                data = decltype(data)(new unsigned char[data_len * 2], delarr_deleter);
-                testcard_convert_buffer(codec_src, color_spec, data.get(), src.get(), width, height);
+                data.resize(data_len * 2);
+                testcard_convert_buffer(codec_src, color_spec, data.data(), src.data(), width, height);
 
                 if (auto *raw_generator = dynamic_cast<image_pattern_raw *>(generator.get())) {
-                        raw_generator->raw_fill(data.get(), data_len);
+                        raw_generator->raw_fill(data.data(), data_len);
                 }
 
-                memcpy(data.get() + data_len, data.get(), data_len);
+                memcpy(data.data() + data_len, data.data(), data_len);
         }
         int width;
         int height;
         codec_t color_spec;
-        unique_ptr<unsigned char [],void (*)(unsigned char*)> data = { nullptr, delarr_deleter };
+        vector<unsigned char> data;
         int offset;
         long cur_pos = 0;
         long data_len = vc_get_datalen(width, height, color_spec);
         long linesize = vc_get_linesize(width, color_spec);
 
         char *get_next() override {
-                auto ret = (char *) data.get() + cur_pos;
+                auto ret = (char *) data.data() + cur_pos;
                 cur_pos += offset;
                 if (cur_pos >= data_len) {
                         cur_pos = 0;
@@ -518,8 +516,8 @@ char *video_pattern_generator_next_frame(video_pattern_generator_t s)
 void video_pattern_generator_fill_data(video_pattern_generator_t s, const char *data)
 {
         auto *state = dynamic_cast<still_image_video_pattern_generator *>(s);
-        memcpy(state->data.get(), data, state->data_len);
-        memcpy(state->data.get() + state->data_len, data, state->data_len);
+        memcpy(state->data.data(), data, state->data_len);
+        memcpy(state->data.data() + state->data_len, data, state->data_len);
 }
 
 void video_pattern_generator_destroy(video_pattern_generator_t s)
