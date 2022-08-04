@@ -1627,6 +1627,11 @@ static void libavcodec_compress_done(struct module *mod)
         delete s;
 }
 
+/**
+ * 1. sets required thread mode if specified, if not, set slice if available
+ * 2. sets required thread count if specified, if not but codec supports other (external) threading
+ *    set 0 (auto), otherwise if threading (slice/thread) was set, set it to number of cores
+ */
 static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         if (param->thread_mode == "no") { // disable threading (which may have been enabled previously
@@ -1635,31 +1640,44 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                 return;
         }
 
+        int req_thread_count = -1;
+        int req_thread_type = 0;
         size_t endpos = 0;
         try { // just a number
-                codec_ctx->thread_count = stoi(param->thread_mode, &endpos);
+                req_thread_count = stoi(param->thread_mode, &endpos);
         } catch(invalid_argument &) { // not a number
         }
-
         while (endpos != param->thread_mode.size()) {
                 switch (toupper(param->thread_mode[endpos])) {
-                        case 'F': codec_ctx->thread_type = FF_THREAD_FRAME; break;
-                        case 'S': codec_ctx->thread_type = FF_THREAD_SLICE; break;
+                        case 'F': req_thread_type |= FF_THREAD_FRAME; break;
+                        case 'S': req_thread_type |= FF_THREAD_SLICE; break;
                         default: log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown thread mode: '%c'.\n", param->thread_mode[endpos]);
                 }
                 endpos += 1;
         }
-        if ((codec_ctx->thread_type == FF_THREAD_SLICE && (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) == 0) ||
-                        (codec_ctx->thread_type == FF_THREAD_FRAME && (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) == 0)) {
+
+        if (req_thread_type == 0) {
+                if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) != 0) {
+                        req_thread_type = FF_THREAD_SLICE;
+                } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) == 0) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Slice-based or external multithreading not available, encoding won't be parallel. "
+                                        "You may select frame-based paralellism if needed.\n");
+                }
+        }
+        if ((req_thread_type == FF_THREAD_SLICE && (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) == 0) ||
+                        (req_thread_type == FF_THREAD_FRAME && (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) == 0)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Codec doesn't support specified thread mode.\n");
+        } else {
+                codec_ctx->thread_type = req_thread_type;
         }
 
-        if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
+        if (req_thread_count != -1) {
+                codec_ctx->thread_count = req_thread_count;
+        } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
                 // mainly for libvpx-vp9, libx264 has thread_count set implicitly to 0 (auto)
                 codec_ctx->thread_count = 0;
-        } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) != 0) {
+        } else if (codec_ctx->thread_type != 0) {
                 codec_ctx->thread_count = thread::hardware_concurrency();
-                codec_ctx->thread_type = FF_THREAD_SLICE;
         }
 }
 
