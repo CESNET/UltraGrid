@@ -91,6 +91,10 @@ extern "C"{
 
 #define MOD_NAME "[lavc] "
 
+#ifndef AV_CODEC_CAP_OTHER_THREADS // compat - OTHER_THREADS is AUTO_THREADS in older FF
+#define AV_CODEC_CAP_OTHER_THREADS AV_CODEC_CAP_AUTO_THREADS
+#endif
+
 using namespace std;
 using namespace std::string_literals;
 using namespace rang;
@@ -1650,11 +1654,7 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Codec doesn't support specified thread mode.\n");
         }
 
-#ifdef AV_CODEC_CAP_OTHER_THREADS // compat - OTHER_THREADS is AUTO_THREADS in older FF
         if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
-#else
-        if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_AUTO_THREADS) != 0) {
-#endif
                 // mainly for libvpx-vp9, libx264 has thread_count set implicitly to 0 (auto)
                 codec_ctx->thread_count = 0;
         } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) != 0) {
