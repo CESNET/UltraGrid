@@ -111,6 +111,7 @@ decoder_t        get_fastest_decoder_from(codec_t in, const codec_t *out_candida
 int get_pf_block_bytes(codec_t codec) ATTRIBUTE(const);
 int get_pf_block_pixels(codec_t codec) ATTRIBUTE(const);
 int vc_get_linesize(unsigned int width, codec_t codec) ATTRIBUTE(const);
+int vc_get_size(unsigned int width, codec_t codec) ATTRIBUTE(const);
 size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec) ATTRIBUTE(const);
 void codec_get_planes_subsampling(codec_t pix_fmt, int *sub);
 bool codec_is_420(codec_t pix_fmt);

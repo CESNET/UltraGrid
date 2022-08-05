@@ -498,6 +498,21 @@ int vc_get_linesize(unsigned int width, codec_t codec)
 }
 
 /**
+ * Returns size of "width" pixels in codec _excluding_ padding.
+ * This is most likely only distinctive for vc_get_linesize for v210,
+ * eg. for width=1 that function returns 128, while this function 16.
+ */
+int vc_get_size(unsigned int width, codec_t codec)
+{
+        if (codec >= sizeof codec_info / sizeof(struct codec_info_t)) {
+                return 0;
+        }
+
+        int pixs = codec_info[codec].block_size_pixels;
+        return (width + pixs - 1) / pixs * codec_info[codec].block_size_bytes;
+}
+
+/**
  * Returns storage requirements for given parameters
  */
 size_t vc_get_datalen(unsigned int width, unsigned int height, codec_t codec)

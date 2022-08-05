@@ -484,11 +484,48 @@ struct still_image_video_pattern_generator : public video_pattern_generator {
         }
 };
 
+struct gray_video_pattern_generator : public video_pattern_generator {
+        gray_video_pattern_generator(int w, int h, codec_t c)
+                : width(w), height(h), color_spec(c)
+        {
+        }
+        char *get_next() override {
+                int pixels = get_pf_block_pixels(color_spec);
+                unsigned char rgba[pixels * 4];
+                for (int i = 0; i < pixels * 4; ++i) {
+                        rgba[i] = (i + 1) % 4 != 0 ? col : 0xFFU; // handle alpha
+                }
+                int dst_bs = get_pf_block_bytes(color_spec);
+                unsigned char dst[dst_bs];
+                testcard_convert_buffer(RGBA, color_spec, dst, rgba, pixels, 1);
+
+                for (int y = 0; y < height; ++y) {
+                        for (int x = 0; x < width / pixels; x += 1) {
+                                memcpy(data.data() + y * vc_get_linesize(width, color_spec) + x * dst_bs, dst, dst_bs);
+                        }
+                }
+
+                if ((col += step) > 0xFF) { // update color
+                        col = 0;
+                }
+
+                return (char *) data.data();
+        }
+private:
+        constexpr static int step = 16;
+        int width;
+        int height;
+        codec_t color_spec;
+        int col = 0;
+        long data_len = vc_get_datalen(width, height, color_spec);
+        vector<unsigned char> data = vector<unsigned char>(data_len);
+};
+
 video_pattern_generator_t
 video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
 {
         if (config == "help") {
-                cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
+                cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, gray, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
                 cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL) {
@@ -502,6 +539,9 @@ video_pattern_generator_create(std::string const & config, int width, int height
         }
         assert(width > 0 && height > 0);
         try {
+                if (config == "gray") {
+                        return new gray_video_pattern_generator{width, height, color_spec};
+                }
                 return new still_image_video_pattern_generator{config, width, height, color_spec, offset};
         } catch (...) {
                 return nullptr;
