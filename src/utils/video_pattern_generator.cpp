@@ -488,37 +488,43 @@ struct gray_video_pattern_generator : public video_pattern_generator {
         gray_video_pattern_generator(int w, int h, codec_t c)
                 : width(w), height(h), color_spec(c)
         {
+                int col = 0;
+                while (col < 0xFF) {
+                        int pixels = get_pf_block_pixels(color_spec);
+                        unsigned char rgba[pixels * 4];
+                        for (int i = 0; i < pixels * 4; ++i) {
+                                rgba[i] = (i + 1) % 4 != 0 ? col : 0xFFU; // handle alpha
+                        }
+                        int dst_bs = get_pf_block_bytes(color_spec);
+                        unsigned char dst[dst_bs];
+                        testcard_convert_buffer(RGBA, color_spec, dst, rgba, pixels, 1);
+
+                        auto next_frame = vector<unsigned char>(data_len);
+                        for (int y = 0; y < height; ++y) {
+                                for (int x = 0; x < width / pixels; x += 1) {
+                                        memcpy(next_frame.data() + y * vc_get_linesize(width, color_spec) + x * dst_bs, dst, dst_bs);
+                                }
+                        }
+                        data.push_back(move(next_frame));
+                        col += step;
+                }
         }
         char *get_next() override {
-                int pixels = get_pf_block_pixels(color_spec);
-                unsigned char rgba[pixels * 4];
-                for (int i = 0; i < pixels * 4; ++i) {
-                        rgba[i] = (i + 1) % 4 != 0 ? col : 0xFFU; // handle alpha
-                }
-                int dst_bs = get_pf_block_bytes(color_spec);
-                unsigned char dst[dst_bs];
-                testcard_convert_buffer(RGBA, color_spec, dst, rgba, pixels, 1);
-
-                for (int y = 0; y < height; ++y) {
-                        for (int x = 0; x < width / pixels; x += 1) {
-                                memcpy(data.data() + y * vc_get_linesize(width, color_spec) + x * dst_bs, dst, dst_bs);
-                        }
+                auto *out = (char *) data[cur_idx++].data();
+                if (cur_idx * step >= 0xFF) {
+                        cur_idx = 0;
                 }
 
-                if ((col += step) > 0xFF) { // update color
-                        col = 0;
-                }
-
-                return (char *) data.data();
+                return out;
         }
 private:
         constexpr static int step = 16;
         int width;
         int height;
         codec_t color_spec;
-        int col = 0;
+        int cur_idx = 0;
         long data_len = vc_get_datalen(width, height, color_spec);
-        vector<unsigned char> data = vector<unsigned char>(data_len);
+        vector<vector<unsigned char>> data;
 };
 
 video_pattern_generator_t
