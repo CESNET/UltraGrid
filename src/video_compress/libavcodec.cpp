@@ -1239,7 +1239,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
                 print_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
-                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Codec %s capabilities: 0x%08X\n", codec->name, codec->capabilities);
         }
 
 #ifdef HAVE_SWSCALE
@@ -1268,6 +1267,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 return false;
         }
 
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Codec %s capabilities: 0x%08X using thread type %d, count %d\n", codec->name,
+                        codec->capabilities, s->codec_ctx->thread_type, s->codec_ctx->thread_count);
         log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
         s->selected_pixfmt = pix_fmt;
         if (!pixfmt_has_420_subsampling(pix_fmt)) {
