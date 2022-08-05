@@ -151,7 +151,6 @@ void debug_dump(void *lp, int len)
         char *p;
         int i, j, start;
         char Buff[81];
-        char stuffBuff[10];
         char tmpBuf[10];
 
         _dprintf("Dump of %d=%x bytes\n", len, len);
@@ -164,20 +163,8 @@ void debug_dump(void *lp, int len)
                 /* display each character as hex value */
                 for (i = start, j = 0; j < 16; p++, i++, j++) {
                         if (i < len) {
-                                sprintf(tmpBuf, "%X", ((int)(*p) & 0xFF));
-
-                                if (strlen((char *)tmpBuf) < 2) {
-                                        stuffBuff[0] = '0';
-                                        stuffBuff[1] = tmpBuf[0];
-                                        stuffBuff[2] = ' ';
-                                        stuffBuff[3] = '\0';
-                                } else {
-                                        stuffBuff[0] = tmpBuf[0];
-                                        stuffBuff[1] = tmpBuf[1];
-                                        stuffBuff[2] = ' ';
-                                        stuffBuff[3] = '\0';
-                                }
-                                strcat(Buff, stuffBuff);
+                                sprintf(tmpBuf, "%02X ", ((int)(*p) & 0xFF));
+                                strcat(Buff, tmpBuf);
                         } else
                                 strcat(Buff, " ");
                         if (j == 7)     /* space between groups of 8 */
