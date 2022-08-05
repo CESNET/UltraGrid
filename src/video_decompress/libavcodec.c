@@ -355,10 +355,10 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         log_msg(LOG_LEVEL_WARNING, "[lavd] Unable to open decoder %s.\n", (*codec_it)->name);
                         codec_it++;
                         continue;
-                } else {
-                        log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s\n", (*codec_it)->name);
-                        break;
                 }
+                log_msg(LOG_LEVEL_NOTICE, "[lavd] Using decoder: %s\n", (*codec_it)->name);
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Codec %s capabilities: 0x%08X\n", (*codec_it)->name, (*codec_it)->capabilities);
+                break;
         }
 
         if (s->codec_ctx == NULL) {
