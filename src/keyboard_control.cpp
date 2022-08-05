@@ -560,9 +560,12 @@ void keyboard_control::run()
                         break;
                 }
                 case 'r':
-                        get_log_output().skip_repeated = !get_log_output().skip_repeated;
-                        cout << "Skip repeated messages: " << std::boolalpha << get_log_output().skip_repeated << std::noboolalpha << "\n";
+                {
+                        bool skip = !get_log_output().get_skip_repeats();
+                        get_log_output().set_skip_repeats(skip);
+                        cout << "Skip repeated messages: " << std::boolalpha << skip << std::noboolalpha << "\n";
                         break;
+                }
                 case 's':
                         if (saved_log_level == -1) {
                                 saved_log_level = log_level;

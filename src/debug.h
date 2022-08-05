@@ -117,8 +117,6 @@ bool parse_log_cfg(const char *conf_str,
 #include "compat/platform_time.h"
 #include "rang.hpp"
 
-class keyboard_control; // friend
-
 class Log_output{
         class Buffer{
         public:
@@ -150,6 +148,7 @@ public:
         Buffer get_buffer() { return Buffer(*this); }
 
         void set_skip_repeats(bool val) { skip_repeated.store(val, std::memory_order_relaxed); }
+        bool get_skip_repeats() const { return skip_repeated.load(std::memory_order_relaxed); }
 
         void set_timestamp_mode(log_timestamp_mode val) { show_timestamps = val; }
 
@@ -181,7 +180,6 @@ private:
         std::string last_msg;
         int last_msg_repeats = 0;
 
-        friend class keyboard_control;
         friend class Buffer;
 };
 
