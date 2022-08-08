@@ -321,7 +321,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                cout << BOLD(RED("\t-t testcard") << "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") << "[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>][:apattern=sine|midi] " << BOLD("| -t testcard:help\n");
+                cout << BOLD(RED("\t-t testcard") << "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") << "[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " << BOLD("| -t testcard:help\n");
                 cout << "or\n";
                 cout << BOLD(RED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>") << "[:other_opts]\n";
                 cout << "where\n";
@@ -331,7 +331,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 cout << BOLD("\ti|sf") << "       - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
                 cout << BOLD("\tstill") << "      - send still image\n";
                 cout << BOLD("\tpattern") << "    - pattern to use, use \"" << BOLD("pattern=help") << "\" for options\n";
-                cout << BOLD("\tapattern") << "   - audio pattern to use - \"sine\" or an included \"midi\"\n";
                 cout << "\n";
                 testcard_show_codec_help("testcard", false);
                 cout << BOLD("Note:") << " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " << BOLD("pattern=help") << " for details.\n";
