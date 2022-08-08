@@ -131,11 +131,11 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('U','Y','V','Y'), 4, 2, 2, 8, FALSE, FALSE, FALSE, FALSE, 4220, "yuv"},
         [YUYV] = {"YUYV", "YUV 4:2:2",
                 to_fourcc('Y','U','Y','V'), 4, 2, 2, 8, FALSE, FALSE, FALSE, FALSE, 4220, "yuv"},
-        [R10k] = {"R10k", "RGB 4:4:4",
+        [R10k] = {"R10k", "10-bit RGB 4:4:4",
                 to_fourcc('R','1','0','k'), 4, 1, 64, 10, TRUE, FALSE, FALSE, FALSE, 4440, "r10k"},
         [R12L] = {"R12L", "12-bit packed RGB 4:4:4 little-endian", // SMPTE 268M DPX v1, Annex C, Method C4
                 to_fourcc('R','1','2','l'), 36, 8, 8, 12, TRUE, FALSE, FALSE, FALSE, 4440, "r12l"},
-        [v210] = {"v210", "YUV 4:2:2",
+        [v210] = {"v210", "10-bit YUV 4:2:2",
                 to_fourcc('v','2','1','0'), 16, 6, 48, 10, FALSE, FALSE, FALSE, FALSE, 4220, "v210"},
         [DVS10] = {"DVS10", "Centaurus 10bit YUV 4:2:2",
                 to_fourcc('D','S','1','0'), 16, 6, 48, 10, FALSE, FALSE, FALSE, FALSE, 4220, "dvs10"},
