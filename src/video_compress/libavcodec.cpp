@@ -1881,16 +1881,9 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* 
                         print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Slice Mode for SVT", ret);
                 }
         } else { // libsvtav1
-                // tile_columns and tile_rows are Log2 values
-                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_columns", 2, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Row Count for SVT", ret);
-                }
-                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_rows", 2, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Column Count for SVT", ret);
-                }
-                //Low-latency mode
-                if (int ret = av_opt_set_int(codec_ctx->priv_data, "pred_struct", 0, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable to set pred_struct for SVT", ret);
+                //pred-struct=1 is low-latency mode
+                if (int ret = av_opt_set(codec_ctx->priv_data, "svtav1-params", "pred-struct=1:tile-columns=2:tile-rows=2", 0)) {
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable to set svtav1-params for SVT", ret);
                 }
         }
 }
