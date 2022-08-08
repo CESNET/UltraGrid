@@ -395,7 +395,7 @@ static void usage() {
         cout << style::bold << "\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
         cout << style::bold << "\t<q>" << style::reset << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
         cout << style::bold << "\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
-        cout << style::bold << "\t<threads>" << style::reset << " can be \"no\", or \"<number>[F][S]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice)\n";
+        cout << style::bold << "\t<threads>" << style::reset << " can be \"no\", or \"<number>[F][S][n]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice), 'n' means none\n";
         cout << style::bold << "\t<slices>" << style::reset << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         cout << style::bold << "\t<gop>" << style::reset << " specifies GOP size\n";
         cout << style::bold << "\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
@@ -1651,6 +1651,7 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
         }
         while (endpos != param->thread_mode.size()) {
                 switch (toupper(param->thread_mode[endpos])) {
+                        case 'n': req_thread_type = -1; break;
                         case 'F': req_thread_type |= FF_THREAD_FRAME; break;
                         case 'S': req_thread_type |= FF_THREAD_SLICE; break;
                         default: log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown thread mode: '%c'.\n", param->thread_mode[endpos]);
@@ -1665,6 +1666,8 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Slice-based or external multithreading not available, encoding won't be parallel. "
                                         "You may select frame-based paralellism if needed.\n");
                 }
+        } else if (req_thread_type == -1) {
+                req_thread_type = 0;
         }
         if (((req_thread_type & FF_THREAD_SLICE) != 0 && (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) == 0) ||
                         ((req_thread_type & FF_THREAD_FRAME) != 0 && (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) == 0)) {

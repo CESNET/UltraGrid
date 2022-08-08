@@ -148,9 +148,9 @@ static void deconfigure(struct state_libavcodec_decompress *s)
 #endif // defined HAVE_SWSCALE
 }
 
-ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F][S]\n"
+ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F][S][n]\n"
                 "  Use <thread_count> decoding threads (0 is usually auto).\n"
-                "  Flag 'F' enables frame parallelism (disabled by default), 'S' slice based, can be both.\n");
+                "  Flag 'F' enables frame parallelism (disabled by default), 'S' slice based, can be both (default slice), 'n' for none\n");
 static void set_codec_context_params(struct state_libavcodec_decompress *s)
 {
         int thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
@@ -166,6 +166,7 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
                                 switch (toupper(*endptr)) {
                                         case 'F': req_thread_type |= FF_THREAD_FRAME; break;
                                         case 'S': req_thread_type |= FF_THREAD_SLICE; break;
+                                        case 'n': req_thread_type = -1; break;
                                 }
                                 endptr++;
                         }
@@ -178,6 +179,8 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
         s->codec_ctx->thread_type = 0;
         if (req_thread_type == 0) {
                 req_thread_type = FF_THREAD_SLICE | (strcmp(s->codec_ctx->codec->name, "hevc") == 0 ? FF_THREAD_FRAME : 0);
+        } if (req_thread_type == -1) {
+                req_thread_type = 0;
         }
         if ((req_thread_type & FF_THREAD_FRAME) != 0U) {
                 if (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
