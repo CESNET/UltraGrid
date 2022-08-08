@@ -41,6 +41,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture/testcard_common.h"
 
@@ -149,7 +150,7 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
         bool print_i420 = !src_8b_only; // testcard2 cannot handle planar format, anyway
         printf("Supported codecs (%s):\n", name);
 
-        printf("\t8 bits\n");
+        color_printf(TERM_FG_RED "\t8 bits\n" TERM_RESET);
         for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = (int) c + 1) {
                 if (is_codec_opaque(c) || get_bits_per_component(c) != 8 || (get_decoder_from_to(RGBA, c) == VIDEO_CODEC_NONE
                                         && !testcard_conv_handled_internally(c))) {
@@ -158,10 +159,10 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
                 if (c == I420 && !print_i420) {
                         continue;
                 }
-                printf("\t\t'%s' - %s\n", get_codec_name(c), get_codec_name_long(c));
+                color_printf(TERM_BOLD "\t\t%-4s" TERM_RESET " - %s\n", get_codec_name(c), get_codec_name_long(c));
         }
 
-        printf("\t10+ bits\n");
+        color_printf(TERM_FG_RED "\t10+ bits\n" TERM_RESET);
         for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = (int) c + 1) {
                 if (is_codec_opaque(c) || get_bits_per_component(c) == 8) {
                         continue;
@@ -170,7 +171,7 @@ void testcard_show_codec_help(const char *name, bool src_8b_only)
                                 ((src_8b_only && c != v210) || get_decoder_from_to(RG48, c) == VIDEO_CODEC_NONE)) {
                         continue;
                 }
-                printf("\t\t'%s' - %s\n", get_codec_name(c), get_codec_name_long(c));
+                color_printf(TERM_BOLD "\t\t%-4s" TERM_RESET " - %s\n", get_codec_name(c), get_codec_name_long(c));
         }
 }
 
