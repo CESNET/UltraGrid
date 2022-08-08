@@ -90,6 +90,10 @@
 #define TERM_FG_MAGENTA "\e[34m"
 #define TERM_FG_RESET   "\e[39m"
 
+#define TBOLD(x) TERM_BOLD x TERM_RESET
+#define TGREEN(x) TERM_FG_GREEN x TERM_FG_RESET
+#define TRED(x) TERM_FG_RED x TERM_FG_RESET
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -107,6 +111,29 @@ bool isMsysPty(int fd);
 } // extern "C"
 #endif
 
+#ifdef __cplusplus
+#include <iostream>
+/**
+ * Class wrapping color output to terminal. Sample usage:
+ *
+ *     col() << TERM_RED << "Red message: " << TERM_RESET << "normal font.\n"
+ */
+class col
+{
+public:
+        template<class T>
+        col &operator<< (T val) {
+                oss << val;
+                return *this;
+        }
+
+        inline ~col() {
+                color_printf("%s", oss.str().c_str());
+        }
+private:
+        std::ostringstream oss;
+};
+#endif
 
 #endif // defined COLOR_OUT_H_
 
