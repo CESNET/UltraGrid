@@ -1666,8 +1666,8 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                                         "You may select frame-based paralellism if needed.\n");
                 }
         }
-        if ((req_thread_type == FF_THREAD_SLICE && (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) == 0) ||
-                        (req_thread_type == FF_THREAD_FRAME && (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) == 0)) {
+        if (((req_thread_type & FF_THREAD_SLICE) != 0 && (codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) == 0) ||
+                        ((req_thread_type & FF_THREAD_FRAME) != 0 && (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) == 0)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Codec doesn't support specified thread mode.\n");
         } else {
                 codec_ctx->thread_type = req_thread_type;
