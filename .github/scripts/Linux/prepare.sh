@@ -51,13 +51,11 @@ sudo apt --no-install-recommends install asciidoc xmlto
 
 sudo apt install libopencv-dev
 sudo apt install libcurl4-nss-dev
-sudo apt install libtool # gpujpeg
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 
 # Install cross-platform deps
 $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 
-( ./ext-deps/bootstrap_gpujpeg.sh -d && mkdir ext-deps/gpujpeg/build && cd ext-deps/gpujpeg/build && CUDA_FLAGS=-D_FORCE_INLINES CXXFLAGS=-std=c++11 CC=$CUDA_HOST_COMPILER ../autogen.sh && make && sudo make install && sudo ldconfig || exit 1 )
 sudo apt install qtbase5-dev
 sudo chmod 777 /usr/local
 
@@ -82,6 +80,18 @@ install_cineform() {(
         cmake -DBUILD_TOOLS=OFF ..
         cmake --build . --parallel
         sudo cmake --install .
+)}
+
+
+install_gpujpeg() {(
+        cd $GITHUB_WORKSPACE
+        ./ext-deps/bootstrap_gpujpeg.sh -d
+        mkdir ext-deps/gpujpeg/build
+        cd ext-deps/gpujpeg/build
+        CC=$CUDA_HOST_COMPILER cmake ..
+        cmake --build . --parallel
+        sudo cmake --install .
+        sudo ldconfig
 )}
 
 # Install NDI
@@ -109,6 +119,7 @@ cd ..
 
 install_aja
 install_cineform
+install_gpujpeg
 install_ndi
 install_ximea
 
