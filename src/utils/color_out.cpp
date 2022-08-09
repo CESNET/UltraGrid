@@ -43,7 +43,6 @@
 
 #include <iostream>
 
-#include "rang.hpp"
 #include "debug.h"
 #include "utils/color_out.h"
 
@@ -51,49 +50,6 @@ using std::cout;
 using std::string;
 
 static bool color_stdout;
-
-namespace{
-void str_append_ansi_esc(std::string& str, int esc){
-        str += "\e["; str += std::to_string(esc); str += "m";
-}
-} //anon namespace
-
-void color_out(uint32_t modificators, const char *format, ...) {
-        rang::style style = static_cast<rang::style>(modificators & 0xf);
-        unsigned int fg_color_idx = (modificators >> 4u) & ((1U<<COLOR_OUT_FG_SHIFT)-1);
-        rang::fg fg = fg_color_idx == 0 ? rang::fg::reset : static_cast<rang::fg>(29 + fg_color_idx);
-        unsigned int bg_color_idx = (modificators >> COLOR_OUT_BG_SHIFT) & ((1U<<COLOR_OUT_BG_SHIFT)-1);
-        rang::bg bg = bg_color_idx == 0 ? rang::bg::reset : static_cast<rang::bg>(39 + bg_color_idx);
-
-        va_list ap;
-        va_start(ap, format);
-        int size = vsnprintf(NULL, 0, format, ap);
-        va_end(ap);
-
-        auto buf = get_log_output().get_buffer();
-        int offset = 0;
-        if(color_stdout){
-                str_append_ansi_esc(buf.get(), static_cast<int>(style));
-                str_append_ansi_esc(buf.get(), static_cast<int>(bg));
-                str_append_ansi_esc(buf.get(), static_cast<int>(fg));
-                offset = buf.get().length();
-        }
-
-        // format the string
-        buf.append(size, '\0');
-        va_start(ap, format);
-        if (vsprintf(buf.data() + offset, format, ap) != size) {
-                va_end(ap);
-                return;
-        }
-        va_end(ap);
-
-        if(color_stdout){
-                buf.append(TERM_RESET);
-        }
-
-        buf.submit_raw();
-}
 
 #ifdef _WIN32
 /// Taken from [rang](https://github.com/agauniyal/rang)

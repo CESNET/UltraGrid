@@ -99,10 +99,6 @@
 extern "C" {
 #endif
 
-// old API
-void color_out(uint32_t modificators, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
-
-// new API
 bool color_output_init(void);
 int color_printf(const char *format, ...) ATTRIBUTE(format (printf, 1, 2));
 // utils
