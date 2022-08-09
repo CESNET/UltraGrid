@@ -169,6 +169,11 @@ static bool set_output_buffering() {
         for (auto outp : outs) {
                 int mode = outp.second.second; // default
 
+                if(running_in_debugger()){
+                        mode = _IONBF;
+                        log_msg(LOG_LEVEL_WARNING, "Running inside debugger - disabling output buffering.\n");
+                }
+
                 if (get_commandline_param(outp.first)) {
                         const unordered_map<string, int> buf_map {
                                 { "no", _IONBF }, { "line", _IOLBF }, { "full", _IOFBF }
