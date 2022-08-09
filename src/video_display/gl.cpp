@@ -1790,26 +1790,26 @@ void state_vdpau::mixerRender(VdpVideoSurface f){
 /**
  * @brief Checks VdpMixer parameters and reinitializes it if they don't match the video parameters
  */
-static void check_mixer(struct state_gl *s, hw_vdpau_frame *frame){
+static void check_mixer(struct state_vdpau *vdp, hw_vdpau_frame *frame){
         uint32_t frame_w;
         uint32_t frame_h;
         VdpChromaType ct;
 
-        VdpStatus st = s->vdp.funcs.videoSurfaceGetParameters(frame->surface,
+        VdpStatus st = vdp->funcs.videoSurfaceGetParameters(frame->surface,
                         &ct,
                         &frame_w,
                         &frame_h);
 
         if(st != VDP_STATUS_OK){
-                log_msg(LOG_LEVEL_ERROR, "Failed to get surface parameters: %s\n", s->vdp.funcs.getErrorString(st));
+                log_msg(LOG_LEVEL_ERROR, "Failed to get surface parameters: %s\n", vdp->funcs.getErrorString(st));
         }
 
-        if(s->vdp.surf_width != frame_w ||
-                        s->vdp.surf_height != frame_h ||
-                        s->vdp.surf_ct != ct ||
-                        !s->vdp.mixerInitialized)
+        if(vdp->surf_width != frame_w ||
+                        vdp->surf_height != frame_h ||
+                        vdp->surf_ct != ct ||
+                        !vdp->mixerInitialized)
         {
-                s->vdp.initMixer(frame_w, frame_h, ct);
+                vdp->initMixer(frame_w, frame_h, ct);
         }
 }
 
@@ -1838,7 +1838,7 @@ static void gl_render_vdpau(struct state_gl *s, char *data)
                 glVDPAUUnmapSurfacesNV(1, &s->vdp.vdpgl_surf);
 
         s->vdp.checkInterop(frame->hwctx.device, frame->hwctx.get_proc_address);
-        check_mixer(s, frame);
+        check_mixer(&s->vdp, frame);
 
         s->vdp.mixerRender(frame->surface);
 
