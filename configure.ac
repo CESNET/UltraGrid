@@ -1933,8 +1933,14 @@ then
         GL_LIB="$GLFW_LIBS $OPENGL_LIB"
         gl_display=yes
         AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
-	INC="$INC $GLFW_INC"
-	ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_OBJ", "$GL_LIB $LAVC_HWACC_LIBS")
+
+        if test $lavc_hwacc_vdpau = yes
+        then
+                HW_ACC_OBJ="${HW_ACC_OBJ} src/video_display/gl_vdpau.o"
+        fi
+
+        INC="$INC $GLFW_INC"
+        ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_OBJ", "$GL_LIB $LAVC_HWACC_LIBS")
 fi
 
 if test $gl_display_req = yes -a $gl_display = no; then
