@@ -6,16 +6,6 @@ echo "LIBRARY_PATH=/usr/local/qt/lib" >> $GITHUB_ENV
 echo "PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig" >> $GITHUB_ENV
 echo "/usr/local/qt/bin" >> $GITHUB_PATH
 
-# TOREMOVE: needed only for older CUDA found in Ubuntu 16.04 and 18.04
-if command -v gcc-5; then
-        CUDA_HOST_COMPILER=gcc-5
-elif command -v gcc-6; then
-        CUDA_HOST_COMPILER=gcc-6
-else
-        CUDA_HOST_COMPILER=
-fi
-echo "CUDA_HOST_COMPILER=$CUDA_HOST_COMPILER" >> $GITHUB_ENV
-
 sudo add-apt-repository ppa:devilutionx/dev # SDL 2.0.14 - CESNET/UltraGrid#168
 sudo add-apt-repository ppa:savoury1/vlc3 # new x265
 sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
@@ -88,7 +78,7 @@ install_gpujpeg() {(
         ./ext-deps/bootstrap_gpujpeg.sh -d
         mkdir ext-deps/gpujpeg/build
         cd ext-deps/gpujpeg/build
-        CC=$CUDA_HOST_COMPILER cmake ..
+        cmake ..
         cmake --build . --parallel
         sudo cmake --install .
         sudo ldconfig
