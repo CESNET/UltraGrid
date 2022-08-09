@@ -360,14 +360,13 @@ struct state_gl {
 #endif
 
         state_gl(struct module *parent) {
-                module_init_default(&mod);
-                mod.cls = MODULE_CLASS_DATA;
-                module_register(&mod, parent);
-
                 if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
                         LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
                         throw false;
                 }
+                module_init_default(&mod);
+                mod.cls = MODULE_CLASS_DATA;
+                module_register(&mod, parent);
         }
 
         ~state_gl() {
