@@ -455,7 +455,7 @@ static void upload_texture(struct state_gl *s, char *data);
 static bool check_rpi_pbo_quirks();
 
 #ifdef HWACC_VDPAU
-static void gl_render_vdpau(struct state_gl *s, char *data) ATTRIBUTE(unused);
+static void gl_vdpau_load_frame(struct state_vdpau *vdp, char *data) ATTRIBUTE(unused);
 #endif
 
 static void gl_print_monitors(bool fullhelp) {
@@ -1017,7 +1017,7 @@ static void gl_render(struct state_gl *s, char *data)
                         break;
 #ifdef HWACC_VDPAU
                 case HW_VDPAU:
-                        gl_render_vdpau(s, data);
+                        gl_vdpau_load_frame(&s->vdp, data);
                         break;
 #endif
                 default:
@@ -1813,20 +1813,17 @@ static void check_mixer(struct state_vdpau *vdp, hw_vdpau_frame *frame){
         }
 }
 
-/**
- * @brief Renders a vdpau frame
- */
-static void gl_render_vdpau(struct state_gl *s, char *data)
+static void gl_vdpau_load_frame(struct state_vdpau *vdp, char *data)
 {
-        assert(s->vdp.initialized);
+        assert(vdp->initialized);
         hw_vdpau_frame * frame = (hw_vdpau_frame *)(void *) data;
 
         glBindTexture(GL_TEXTURE_2D, 0);
 
         int state = 0;
         int len = 0;
-        if(s->vdp.vdpgl_surf){
-                glVDPAUGetSurfaceivNV(s->vdp.vdpgl_surf,
+        if(vdp->vdpgl_surf){
+                glVDPAUGetSurfaceivNV(vdp->vdpgl_surf,
                                 GL_SURFACE_STATE_NV,
                                 1,
                                 &len,
@@ -1835,19 +1832,19 @@ static void gl_render_vdpau(struct state_gl *s, char *data)
         }
 
         if(state == GL_SURFACE_MAPPED_NV)
-                glVDPAUUnmapSurfacesNV(1, &s->vdp.vdpgl_surf);
+                glVDPAUUnmapSurfacesNV(1, &vdp->vdpgl_surf);
 
-        s->vdp.checkInterop(frame->hwctx.device, frame->hwctx.get_proc_address);
-        check_mixer(&s->vdp, frame);
+        vdp->checkInterop(frame->hwctx.device, frame->hwctx.get_proc_address);
+        check_mixer(vdp, frame);
 
-        s->vdp.mixerRender(frame->surface);
+        vdp->mixerRender(frame->surface);
 
-        glVDPAUMapSurfacesNV(1, &s->vdp.vdpgl_surf);
+        glVDPAUMapSurfacesNV(1, &vdp->vdpgl_surf);
 
-        glBindTexture(GL_TEXTURE_2D, s->vdp.textures[0]);
+        glBindTexture(GL_TEXTURE_2D, vdp->textures[0]);
 
-        hw_vdpau_frame_unref(&s->vdp.lastFrame);
-        s->vdp.lastFrame = hw_vdpau_frame_copy(frame);
+        hw_vdpau_frame_unref(&vdp->lastFrame);
+        vdp->lastFrame = hw_vdpau_frame_copy(frame);
 }
 
 /**
