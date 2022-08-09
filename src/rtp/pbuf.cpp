@@ -58,7 +58,6 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "perf.h"
-#include "rang.hpp"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/ptime.h"
@@ -79,7 +78,6 @@ static_assert(DEFAULT_STATS_INTERVAL % STAT_INT_MIN_DIVISOR == 0,
 constexpr const char *MOD_NAME = "[Pbuf] ";
 
 using namespace std::string_literals;
-using rang::fg;
 using std::dec;
 using std::hex;
 using std::max;
@@ -392,8 +390,8 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
                         pkt->ssrc << ": " << setw(0) << dec
                         << playout_buf->received_pkts << "/"
                         << playout_buf->expected_pkts << " packets received ("
-                        << (loss_pct < 100.0 ? fg::red : fg::reset)
-                        << setprecision(4) << loss_pct << "%" << fg::reset
+                        << (loss_pct < 100.0 ? TERM_FG_RED : "")
+                        << setprecision(4) << loss_pct << "%" << TERM_FG_RESET
                         << "), " << playout_buf->expected_pkts - playout_buf->received_pkts
                         << " lost, max loss " << playout_buf->longest_gap
                         << (playout_buf->out_of_order_pkts > 0 ? ", "s + to_string(playout_buf->out_of_order_pkts) + " reordered pkts (max dist "s + to_string(playout_buf->max_out_of_order_dist) + ")"s : ""s)
