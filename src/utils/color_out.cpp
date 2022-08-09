@@ -50,7 +50,6 @@
 using std::cout;
 
 static bool color_stdout;
-static bool color_stderr;
 
 namespace{
 void str_append_ansi_esc(std::string& str, int esc){
@@ -172,10 +171,8 @@ bool isMsysPty(int fd) {
 void color_output_init() {
 #ifdef _WIN32
         color_stdout = setWinTermAnsiColors(STD_OUTPUT_HANDLE) || isMsysPty(fileno(stdout));
-        color_stderr = setWinTermAnsiColors(STD_ERROR_HANDLE) || isMsysPty(fileno(stderr));
 #else
         color_stdout = isatty(fileno(stdout));
-        color_stderr = isatty(fileno(stderr));
 #endif
 }
 
