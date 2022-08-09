@@ -400,7 +400,7 @@ int display_put_frame(struct display *d, struct video_frame *frame, int flags)
         long long seconds_ns = t - d->t0;
         if (seconds_ns > 5 * NS_IN_SEC) {
                 if (log_level >= LOG_LEVEL_INFO) {
-                        color_printf(TERM_BOLD TERM_FG_MAGENTA "[%s]" TERM_RESET " %d frames in %g seconds = " TERM_BOLD "%g FPS\n",
+                        color_printf(TERM_BOLD TERM_FG_MAGENTA "[%s]" TERM_RESET " %d frames in %g seconds = " TERM_BOLD "%g FPS\n" TERM_RESET,
                                         d->display_name,
                                         d->frames, (double) seconds_ns / NS_IN_SEC,
                                         (double) d->frames * NS_IN_SEC / seconds_ns);
