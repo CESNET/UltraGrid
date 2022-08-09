@@ -75,6 +75,8 @@
 #include <iostream>
 #include <list>
 #include <sstream>
+#include <fstream>
+#include <string>
 #include <utility>
 
 #if defined HAVE_X || defined BUILD_LIBRARIES
@@ -828,6 +830,20 @@ void handle_error(int status) {
         if (get_commandline_param("errors-fatal")) {
                 exit_uv(status);
         }
+}
+
+bool running_in_debugger(){
+#ifdef __linux__
+        ifstream ppid_f("/proc/" + to_string(getppid()) + "/comm", ifstream::in);
+        if (ppid_f.is_open()) {
+                string comm;
+                ppid_f >> comm;
+                if (comm == "gdb") {
+                        return true;
+                }
+        }
+#endif
+        return false;
 }
 
 // some common parameters used within multiple modules

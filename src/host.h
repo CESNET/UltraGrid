@@ -149,6 +149,8 @@ void register_param(const char *param, const char *doc);
 bool register_mainloop(mainloop_t, void *);
 void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata);
 
+bool running_in_debugger();
+
 #ifdef __cplusplus
 }
 #endif

@@ -56,11 +56,9 @@
 #include <cinttypes>
 #include <climits>
 #include <cstdint>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <string>
 
 #include "debug.h"
 #include "host.h"
@@ -158,17 +156,12 @@ void keyboard_control::start()
         if (get_commandline_param("disable-keyboard-control")) {
                 return;
         }
-#ifdef __linux__
-        ifstream ppid_f("/proc/" + to_string(getppid()) + "/comm", ifstream::in);
-        if (ppid_f.is_open()) {
-                string comm;
-                ppid_f >> comm;
-                if (comm == "gdb") {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Running inside gdb - disabling interactive keyboard control\n";
-                        return;
-                }
+
+        if(running_in_debugger()){
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Running inside gdb - disabling interactive keyboard control\n";
+                return;
         }
-#endif
+
 #ifdef HAVE_TERMIOS_H
         if (pipe(m_event_pipe) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "[key control] Cannot create control pipe!\n");
