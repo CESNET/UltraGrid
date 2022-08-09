@@ -276,6 +276,10 @@ public:
 
                 std::string msg = oss.str();
 
+                if (!get_log_output().is_interactive()) {
+                        msg = prune_ansi_sequences_str(msg.c_str());
+                }
+
                 auto buf = get_log_output().get_buffer();
                 buf.append(msg);
                 buf.submit();

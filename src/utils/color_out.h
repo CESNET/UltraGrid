@@ -114,6 +114,10 @@ bool isMsysPty(int fd);
 
 #ifdef __cplusplus
 #include <iostream>
+#include <string>
+
+std::string prune_ansi_sequences_str(const char *in);
+
 /**
  * Class wrapping color output to terminal. Sample usage:
  *

@@ -48,6 +48,7 @@
 #include "utils/color_out.h"
 
 using std::cout;
+using std::string;
 
 static bool color_stdout;
 
@@ -180,7 +181,8 @@ bool color_output_init() {
         return color_stdout;
 }
 
-static int prune_ansi_sequences(const char *in, char *out) {
+template<class OutputIt>
+static int prune_ansi_sequences(const char *in, OutputIt out) {
         char c = *in;
         bool in_control = false;
         int written = 0;
@@ -205,6 +207,12 @@ static int prune_ansi_sequences(const char *in, char *out) {
         }
         *out = '\0';
         return written;
+}
+
+string prune_ansi_sequences_str(const char *in) {
+        string out;
+        prune_ansi_sequences(in, std::back_inserter(out));
+        return out;
 }
 
 int color_printf(const char *format, ...) {
