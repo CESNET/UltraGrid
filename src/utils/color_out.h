@@ -85,6 +85,7 @@
 #define TERM_RESET      "\e[0m"
 #define TERM_BOLD       "\e[1m"
 #define TERM_FG_RED     "\e[31m"
+#define TERM_FG_GREEN   "\e[32m"
 #define TERM_FG_YELLOW  "\e[33m"
 #define TERM_FG_BLUE    "\e[34m"
 #define TERM_FG_MAGENTA "\e[34m"
@@ -102,7 +103,7 @@ extern "C" {
 void color_out(uint32_t modificators, const char *format, ...) ATTRIBUTE(format (printf, 2, 3));
 
 // new API
-void color_output_init(void);
+bool color_output_init(void);
 int color_printf(const char *format, ...) ATTRIBUTE(format (printf, 1, 2));
 // utils
 bool isMsysPty(int fd);

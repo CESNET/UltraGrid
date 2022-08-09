@@ -115,7 +115,7 @@ bool parse_log_cfg(const char *conf_str,
 #include <string>
 #include <mutex>
 #include "compat/platform_time.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
 
 class Log_output{
         class Buffer{
@@ -184,39 +184,31 @@ private:
 };
 
 inline const std::string& Log_output::get_level_style(int lvl){
+        static std::string empty = "";
+
+        if (!is_interactive()) {
+                return empty;
+        }
+
         switch(lvl){
         case LOG_LEVEL_FATAL: {
-                static std::string style = [](){
-                        std::ostringstream o; o << rang::fg::red << rang::style::bold;
-                        return o.str();
-                }();
+                static std::string style = TERM_BOLD TERM_FG_RED;
                 return style;
         }
         case LOG_LEVEL_ERROR: {
-                static std::string style = [](){
-                        std::ostringstream o; o << rang::fg::red;
-                        return o.str();
-                }();
+                static std::string style = TERM_FG_RED;
                 return style;
         }
         case LOG_LEVEL_WARNING: {
-                static std::string style = [](){
-                        std::ostringstream o; o << rang::fg::yellow;
-                        return o.str();
-                }();
+                static std::string style = TERM_FG_YELLOW;
                 return style;
         }
         case LOG_LEVEL_NOTICE: {
-                static std::string style = [](){
-                        std::ostringstream o; o << rang::fg::green;
-                        return o.str();
-                }();
+                static std::string style = TERM_FG_GREEN;
                 return style;
         }
-        default: {
-                static std::string style = "";
-                return style;
-        }
+        default:
+                return empty;
         }
 }
 
@@ -278,7 +270,9 @@ public:
         }
 
         inline ~Logger() {
-                oss << rang::style::reset << rang::fg::reset;
+                if (get_log_output().is_interactive()) {
+                        oss << TERM_RESET;
+                }
 
                 std::string msg = oss.str();
 

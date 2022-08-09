@@ -357,5 +357,5 @@ thread_local std::string Log_output::buffer(initial_buf_size, '\0');
 
 Log_output::Log_output(){
         last_msg.reserve(initial_buf_size);
-        interactive = rang::rang_implementation::isTerminal(std::cout.rdbuf());
+        interactive = color_output_init();
 }

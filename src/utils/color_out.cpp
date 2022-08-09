@@ -168,12 +168,16 @@ bool isMsysPty(int fd) {
 #endif // defined _WIN32
 }
 
-void color_output_init() {
+/**
+ * @returns whether stdout can process ANSI escape sequences
+ */
+bool color_output_init() {
 #ifdef _WIN32
         color_stdout = setWinTermAnsiColors(STD_OUTPUT_HANDLE) || isMsysPty(fileno(stdout));
 #else
         color_stdout = isatty(fileno(stdout));
 #endif
+        return color_stdout;
 }
 
 static int prune_ansi_sequences(const char *in, char *out) {
