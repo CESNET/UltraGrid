@@ -46,13 +46,14 @@
 #define HWACCEL_LIBAV_COMMON_H
 
 #include "types.h"
-#include <libavcodec/avcodec.h>
-#ifdef HWACC_COMMON_IMPL
-#include <libavutil/hwcontext.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#include <libavcodec/avcodec.h>
+#ifdef HWACC_COMMON_IMPL
+#include <libavutil/hwcontext.h>
 #endif
 
 enum hw_accel_type {

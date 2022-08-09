@@ -47,11 +47,12 @@
 
 #ifdef HWACC_VDPAU
 
+#include "hwaccel_libav_common.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "hwaccel_libav_common.h"
 #include <libavutil/hwcontext_vdpau.h>
 #include <libavcodec/vdpau.h>
 
