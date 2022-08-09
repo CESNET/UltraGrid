@@ -905,7 +905,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2,
                                 desc.width, desc.height, 0,
-                                GL_RGBA, GL_UNSIGNED_INT_10_10_10_2,
+                                GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
                                 nullptr);
         } else if (desc.color_spec == DXT5) {
                 glUseProgram(s->PHandle_dxt5);
@@ -1562,9 +1562,7 @@ static void upload_texture(struct state_gl *s, char *data)
 {
         GLuint format = s->current_display_desc.color_spec == RGB ? GL_RGB : GL_RGBA;
         GLenum type = GL_UNSIGNED_BYTE;
-        if (s->current_display_desc.color_spec == R10k) {
-                type = GL_UNSIGNED_INT_10_10_10_2;
-        } else if (s->current_display_desc.color_spec == v210) {
+        if (s->current_display_desc.color_spec == R10k || s->current_display_desc.color_spec == v210) {
                 type = GL_UNSIGNED_INT_2_10_10_10_REV;
         } else if (s->current_display_desc.color_spec == Y416) {
                 type = GL_UNSIGNED_SHORT;
@@ -1575,7 +1573,7 @@ static void upload_texture(struct state_gl *s, char *data)
         }
         auto byte_swap_r10k = [](uint32_t *out, uint32_t *in, long data_len) {
                 for (int i = 0; i < data_len / 4; i += 1) {
-                        *out++ = ntohl(*in++);
+                        *out++ = ntohl(*in++) >> 2;
                 }
         };
         int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
