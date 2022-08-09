@@ -78,7 +78,7 @@ install_gpujpeg() {(
         ./ext-deps/bootstrap_gpujpeg.sh -d
         mkdir ext-deps/gpujpeg/build
         cd ext-deps/gpujpeg/build
-        cmake ..
+        cmake -DBUILD_OPENGL=OFF ..
         cmake --build . --parallel
         sudo cmake --install .
         sudo ldconfig
