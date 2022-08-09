@@ -974,7 +974,7 @@ static void gl_render(struct state_gl *s, char *data)
                         break;
 #ifdef HWACC_VDPAU
                 case HW_VDPAU:
-                        gl_vdpau_load_frame(&s->vdp, data);
+                        s->vdp.loadFrame(reinterpret_cast<hw_vdpau_frame *>(data));
                         break;
 #endif
                 default:

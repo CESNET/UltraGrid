@@ -15,8 +15,6 @@
 typedef GLintptr vdpauSurfaceNV;
 #define NV_CAST(x) ((void *)(uintptr_t)(x))
 
-void gl_vdpau_load_frame(struct state_vdpau *vdp, char *data);
-
 struct state_vdpau {
         bool initialized = false;
         GLuint textures[4] = {0};
@@ -39,6 +37,8 @@ struct state_vdpau {
         void checkInterop(VdpDevice device, VdpGetProcAddress *get_proc_address);
         void initInterop(VdpDevice device, VdpGetProcAddress *get_proc_address);
         void uninitInterop();
+
+        void loadFrame(hw_vdpau_frame *frame);
 
         void initMixer(uint32_t w, uint32_t h, VdpChromaType ct);
         void mixerRender(VdpVideoSurface f);
