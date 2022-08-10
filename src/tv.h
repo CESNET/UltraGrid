@@ -54,6 +54,10 @@
 #include <time.h>
 #endif
 
+#ifndef HAVE_TIMESPEC_GET
+#include <sys/time.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

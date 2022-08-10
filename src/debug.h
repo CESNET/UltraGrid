@@ -43,9 +43,11 @@
 
 #ifdef __cplusplus
 #include <cstdint>
+#include <cstdio> // FILE
 #else
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h> // FILE
 #endif // defined __cplusplus
 
 #define UNUSED(x)	(x=x)
