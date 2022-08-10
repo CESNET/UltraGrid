@@ -69,8 +69,11 @@ uint32_t get_std_video_local_mediatime(void);
 
 typedef long long time_ns_t;
 #define US_IN_SEC 1000000LL
+#define US_IN_SEC_DBL ((double) US_IN_SEC)
 #define NS_IN_SEC 1000000000LL
+#define NS_IN_SEC_DBL ((double) NS_IN_SEC)
 #define NS_IN_US (NS_IN_SEC/US_IN_SEC)
+#define NS_IN_US_DBL ((double) NS_IN_US)
 static inline time_ns_t get_time_in_ns() {
 #ifdef HAVE_TIMESPEC_GET
         struct timespec ts = { 0, 0 };
