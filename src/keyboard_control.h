@@ -114,7 +114,7 @@ private:
 #define K_CTRL(x) (1 + ((x) >= 'A' && (x) <= 'Z' ? (x) - 'A' + 'a' : (x)) - 'a')
 #define K_CTRL_UP 0x1b5b313b3541LL
 #define K_CTRL_DOWN 0x1b5b313b3542LL
-#define K_ALT(x) ('\e' << 8 | (x)) /// exception - include ESC, otherwise Alt-a would become 'a'
+#define K_ALT(x) ('\033' << 8 | (x)) /// exception - include ESC, otherwise Alt-a would become 'a'
 
 #define MAX_KEYCODE_NAME_LEN 8
 

@@ -229,7 +229,7 @@ void keyboard_control::stop()
 
 /**
  * Tries to parse at least some small subset of ANSI control sequences not to
- * be ArrowUp interpreted as '\E', '[' and 'A' individually.
+ * be ArrowUp interpreted as '\033', '[' and 'A' individually.
  *
  * @todo
  * * improve coverage and/or find some suitable implemnation (ideally one file,
@@ -240,7 +240,7 @@ static int64_t get_ansi_code() {
         int64_t c = GETCH();
         debug_msg(MOD_NAME "Pressed %" PRId64 "\n", c);
         if (c == '[') { // CSI
-                c = '\E' << 8 | '[';
+                c = '\033' << 8 | '[';
                 while (true) {
                         if ((c >> 56u) != 0) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Long control sequence detected!\n";
@@ -261,7 +261,7 @@ static int64_t get_ansi_code() {
                 int tmp = GETCH();
                 debug_msg(MOD_NAME "Pressed %d\n", tmp);
                 CHECK_EOF(tmp);
-                c = '\E' << 16 | c << 8 | tmp;
+                c = '\033' << 16 | c << 8 | tmp;
         } else if (c >= 'a' && c <= 'z') {
                 return K_ALT(c);
         } else {
@@ -364,7 +364,7 @@ static string get_keycode_representation(int64_t ch) {
                 return string("Ctrl-") + string(1, 'a' + ch - 1);
         }
 
-        if (ch >> 16 == 0 && ch >> 8 == '\e') {
+        if (ch >> 16 == 0 && ch >> 8 == '\033') {
                 return string("Alt-") + string(1, ch & 0xff);
         }
 
@@ -421,7 +421,7 @@ int64_t keyboard_control::get_next_key()
 #endif
                         int64_t c = GETCH();
                         debug_msg(MOD_NAME "Pressed %" PRId64 "\n", c);
-                        if (c == '\E') {
+                        if (c == '\033') {
                                 if ((c = get_ansi_code()) < 0) {
                                         continue;
                                 }

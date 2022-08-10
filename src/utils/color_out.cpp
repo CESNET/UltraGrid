@@ -144,7 +144,7 @@ static int prune_ansi_sequences(const char *in, OutputIt out) {
         int written = 0;
         while (c != '\0') {
                 switch (c) {
-                        case '\e':
+                        case '\033':
                                 in_control = true;
                                 break;
                         case 'm':

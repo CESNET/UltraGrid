@@ -82,14 +82,14 @@
 #define COLOR_OUT_BRIGHT_GRAY    (68u<<4u)
 #define COLOR_OUT_BG_SHIFT (COLOR_OUT_FG_SHIFT+COLOR_BITS)
 
-#define TERM_RESET      "\e[0m"
-#define TERM_BOLD       "\e[1m"
-#define TERM_FG_RED     "\e[31m"
-#define TERM_FG_GREEN   "\e[32m"
-#define TERM_FG_YELLOW  "\e[33m"
-#define TERM_FG_BLUE    "\e[34m"
-#define TERM_FG_MAGENTA "\e[34m"
-#define TERM_FG_RESET   "\e[39m"
+#define TERM_RESET      "\033[0m"
+#define TERM_BOLD       "\033[1m"
+#define TERM_FG_RED     "\033[31m"
+#define TERM_FG_GREEN   "\033[32m"
+#define TERM_FG_YELLOW  "\033[33m"
+#define TERM_FG_BLUE    "\033[34m"
+#define TERM_FG_MAGENTA "\033[34m"
+#define TERM_FG_RESET   "\033[39m"
 
 #define TBOLD(x) TERM_BOLD x TERM_RESET
 #define TGREEN(x) TERM_FG_GREEN x TERM_FG_RESET
