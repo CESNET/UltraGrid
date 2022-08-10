@@ -57,7 +57,6 @@
 #include "compat/platform_time.h"
 #include "debug.h"
 #include "host.h"
-#include "rang.hpp"
 #include "utils/color_out.h"
 #include "utils/sv_parse_num.hpp"
 #include "utils/misc.h" // ug_strerror
@@ -279,23 +278,6 @@ bool parse_log_cfg(const char *conf_str,
 
         LOG(LOG_LEVEL_ERROR) << "Wrong log level specification: " << cfg << "\n";
         return false;
-}
-
-void Logger::preinit()
-{
-        if (rang::rang_implementation::supportsColor()
-                        && rang::rang_implementation::isTerminal(std::cout.rdbuf())
-                        && rang::rang_implementation::isTerminal(std::cerr.rdbuf())) {
-                // force ANSI sequences even when written to ostringstream
-                rang::setControlMode(rang::control::Force);
-#ifdef _WIN32
-                // ANSI control sequences need to be explicitly set in Windows
-                if ((rang::rang_implementation::setWinTermAnsiColors(std::cout.rdbuf()) || rang::rang_implementation::isMsysPty(_fileno(stdout))) &&
-                                (rang::rang_implementation::setWinTermAnsiColors(std::cerr.rdbuf()) || rang::rang_implementation::isMsysPty(_fileno(stderr)))) {
-                        rang::setWinTermMode(rang::winTerm::Ansi);
-                }
-#endif
-        }
 }
 
 #ifdef DEBUG

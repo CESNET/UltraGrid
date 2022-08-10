@@ -340,8 +340,6 @@ static bool parse_opts_set_logging(int argc, char *argv[])
         }
         opterr = saved_opterr;
 
-        Logger::preinit();
-
         if (log_opt != nullptr && !parse_log_cfg(log_opt, &logging_lvl, &logger_skip_repeats, &logger_show_timestamps)) {
                 return false;
         }

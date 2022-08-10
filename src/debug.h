@@ -264,7 +264,6 @@ inline Log_output& get_log_output(){
 class Logger
 {
 public:
-        static void preinit();
         inline Logger(int l) : level(l) {
                 oss << get_log_output().get_level_style(level);
         }
