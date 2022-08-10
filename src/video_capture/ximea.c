@@ -157,7 +157,7 @@ static void vidcap_ximea_close_lib(struct ximea_functions *f)
 
 static void vidcap_ximea_show_help() {
         color_printf("XIMEA usage:\n");
-        color_printf(TERM_BOLD TERM_FG_RED, "\t-t ximea" TERM_FG_RESET "[:device=<d>][:exposure=<time_us>]\n" TERM_RESET);
+        color_printf(TERM_BOLD TERM_FG_RED "\t-t ximea" TERM_FG_RESET "[:device=<d>][:exposure=<time_us>]\n" TERM_RESET);
         printf("\n");
         printf("Available devices:\n");
 
