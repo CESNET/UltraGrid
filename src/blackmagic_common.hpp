@@ -1,5 +1,5 @@
 /**
- * @file   blackmagic_common.h
+ * @file   blackmagic_common.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,8 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BLACKMAGIC_COMMON_H
-#define BLACKMAGIC_COMMON_H
+#ifndef BLACKMAGIC_COMMON_HPP
+#define BLACKMAGIC_COMMON_HPP
 
 #ifdef WIN32
 #include "DeckLinkAPI_h.h" /*  From DeckLink SDK */
@@ -127,5 +127,5 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
         }\
 } while (0)
 
-#endif // defined BLACKMAGIC_COMMON_H
+#endif // defined BLACKMAGIC_COMMON_HPP
 

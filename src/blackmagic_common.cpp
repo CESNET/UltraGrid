@@ -43,7 +43,7 @@
 
 #include "debug.h"
 
-#include "blackmagic_common.h"
+#include "blackmagic_common.hpp"
 #include "DeckLinkAPIVersion.h"
 #include <iomanip>
 #include <sstream>

@@ -46,7 +46,7 @@
 #include "audio/audio_playback.h"
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "blackmagic_common.h"
+#include "blackmagic_common.hpp"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
