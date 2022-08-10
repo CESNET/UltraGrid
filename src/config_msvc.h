@@ -71,6 +71,8 @@
 #define aligned_free _aligned_free
 #endif // defined HAVE_ALIGNED_ALLOC
 
+#define HAVE_TIMESPEC_GET 1
+
 #endif // defined _MSC_VER
 
 #endif // defined CONFIG_MSVC_H
