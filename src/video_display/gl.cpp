@@ -1527,10 +1527,16 @@ static void upload_texture(struct state_gl *s, char *data)
         if (s->current_display_desc.color_spec == UYVY || s->current_display_desc.color_spec == v210) {
                 width = vc_get_linesize(width, s->current_display_desc.color_spec) / 4;
         }
-        auto byte_swap_r10k = [](uint32_t *out, uint32_t *in, long data_len) {
-                for (int i = 0; i < data_len / 4; i += 1) {
-                        *out++ = ntohl(*in++) >> 2;
+        auto byte_swap_r10k = [](uint32_t * __restrict out, const uint32_t *__restrict in, long data_len) {
+                DEBUG_TIMER_START(byte_swap_r10k);
+                OPTIMIZED_FOR (int i = 0; i < data_len / 4; i += 1) {
+                        uint32_t x = *in++;
+                        *out++ =
+                                (x & 0xFF) << 2 | (x & 0xC000) >> 12 | // R
+                                (x & 0x3F00) << 6 | (x & 0xF00000) >> 2 | // G
+                                (x & 0xF0000U) << 10U | (x & 0xFC000000U) >> 6U; // B
                 }
+                DEBUG_TIMER_STOP(byte_swap_r10k);
         };
         int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
         if (s->use_pbo) {
