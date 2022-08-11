@@ -187,6 +187,9 @@ void ug_control_connection_done(struct ug_connection *c) {
         c->should_exit = true;
         char ch = 0;
         int ret = send(c->should_exit_fd[1], &ch, 1, MSG_DONTWAIT);
+        if (ret == -1) {
+                perror("ug_control_connection_done send");
+        }
         c->t.join();
         platform_pipe_close(c->should_exit_fd[0]);
         platform_pipe_close(c->should_exit_fd[1]);

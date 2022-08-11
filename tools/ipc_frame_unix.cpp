@@ -4,17 +4,20 @@
 #include <stdio.h>
 #include <array>
 
-#ifndef __MINGW32__
+#ifndef _WIN32
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #define CLOSESOCKET close
+#define INVALID_SOCKET -1
+typedef int fd_t;
 #else
 #include <winsock2.h>
 #include <afunix.h>
 #define CLOSESOCKET closesocket
+typedef SOCKET fd_t;
 #endif
 
 #include <cerrno>
@@ -24,18 +27,17 @@
 #define MSG_NOSIGNAL 0
 #endif
 
-
 struct Ipc_frame_reader{
-        int listen_fd;
-        int data_fd;
+        fd_t listen_fd;
+        fd_t data_fd;
 };
 
 Ipc_frame_reader *ipc_frame_reader_new(const char *path){
         auto reader = new Ipc_frame_reader();
-        reader->data_fd = -1;
+        reader->data_fd = INVALID_SOCKET;
 
         reader->listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-        if(reader->listen_fd == -1){
+        if(reader->listen_fd == INVALID_SOCKET){
                 delete reader;
                 return nullptr;
         }
@@ -74,7 +76,7 @@ void ipc_frame_reader_free(struct Ipc_frame_reader *reader){
         delete reader;
 }
 
-static size_t blocking_read(int fd, char *dst, size_t size){
+static size_t blocking_read(fd_t fd, char *dst, size_t size){
         size_t bytes_read = 0;
 
         while(bytes_read < size){
@@ -88,7 +90,7 @@ static size_t blocking_read(int fd, char *dst, size_t size){
         return bytes_read;
 }
 
-static bool socket_read_avail(int fd){
+static bool socket_read_avail(fd_t fd){
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(fd, &fds);
@@ -149,12 +151,12 @@ bool ipc_frame_reader_read(Ipc_frame_reader *reader, Ipc_frame *dst){
 }
 
 struct Ipc_frame_writer{
-        int data_fd;
+        fd_t data_fd;
 };
 
 Ipc_frame_writer *ipc_frame_writer_new(const char *path){
         auto writer = new Ipc_frame_writer;
-        writer->data_fd = -1;
+        writer->data_fd = INVALID_SOCKET;
 
         sockaddr_un addr;
         memset(&addr, 0, sizeof(addr));
@@ -187,7 +189,7 @@ void ipc_frame_writer_free(struct Ipc_frame_writer *writer){
 
 namespace{
 
-void block_write(int fd, void *buf, size_t size){
+void block_write(fd_t fd, void *buf, size_t size){
         size_t written = 0;
         char *src = static_cast<char *>(buf);
 

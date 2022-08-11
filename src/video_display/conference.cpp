@@ -185,7 +185,7 @@ class Video_mixer{
 public:
         enum class Layout{ Invalid, Tiled, One_big };
 
-        Video_mixer(int width, int height, codec_t color_space, Layout l = Layout::Tiled);
+        Video_mixer(int width, int height, Layout l = Layout::Tiled);
 
         void process_frame(unique_frame&& f);
         void get_mixed(video_frame *result);
@@ -205,7 +205,6 @@ private:
 
         unsigned width;
         unsigned height;
-        codec_t color_space;
         Layout layout = Layout::Tiled;
 
         uint32_t primary_ssrc = 0;
@@ -216,10 +215,9 @@ private:
         std::map<uint32_t, Participant> participants;
 };
 
-Video_mixer::Video_mixer(int width, int height, codec_t color_space, Layout layout):
+Video_mixer::Video_mixer(int width, int height, Layout layout):
         width(width),
         height(height),
-        color_space(color_space),
         layout(layout)
 {
         mixed_luma.create(cv::Size(width, height), CV_8UC1);
@@ -405,7 +403,7 @@ const char *layout_get_name(Video_mixer::Layout layout){
 
 }//anon namespace
 
-static constexpr std::chrono::milliseconds SOURCE_TIMEOUT(500);
+[[maybe_unused]] static constexpr std::chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 
 struct state_conference_common{
@@ -531,7 +529,7 @@ static void check_reconf(struct state_conference_common *s, struct video_desc de
 
 static void display_conference_worker(std::shared_ptr<state_conference_common> s){
         PROFILE_FUNC;
-        Video_mixer mixer(s->desc.width, s->desc.height, UYVY, s->layout);
+        Video_mixer mixer(s->desc.width, s->desc.height, s->layout);
 
         auto next_frame_time = clock::now() + std::chrono::hours(1); //workaround for gcc bug 58931
         auto last_frame_time = clock::time_point::min();
@@ -571,7 +569,7 @@ static void display_conference_worker(std::shared_ptr<state_conference_common> s
                         } else if (key == "info"){
                                 auto ssrcs = mixer.get_participant_ssrc_list();
                                 log_msg(LOG_LEVEL_NOTICE, "Conference layout: %s\n", layout_get_name(mixer.get_layout()));
-                                log_msg(LOG_LEVEL_NOTICE, "%ld participants \n", ssrcs.size());
+                                log_msg(LOG_LEVEL_NOTICE, "%zu participants \n", ssrcs.size());
                                 for(const auto& p : ssrcs){
                                         log_msg(LOG_LEVEL_NOTICE, "%s   %x\n", p == mixer.get_primary_ssrc() ? "*" : " ", p);
                                 }

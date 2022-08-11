@@ -948,8 +948,8 @@ static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, unsigned char * __
 {
         int src_linesize = vc_get_linesize(width, R10k);
         for (int y = 0; y < height; ++y) {
-                uint32_t *src = (uint32_t *) (in_data + y * src_linesize);
-                uint32_t *dst = (uint32_t *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                uint32_t *src = (uint32_t *)(void *) (in_data + y * src_linesize);
+                uint32_t *dst = (uint32_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 for (int x = 0; x < width; ++x) {
                         *dst++ = htonl(*src++); /// @todo worked, but should be AFAIK htonl(*src++)>>2
                 }

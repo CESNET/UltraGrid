@@ -431,7 +431,6 @@ struct video_pattern_generator {
 };
 
 struct still_image_video_pattern_generator : public video_pattern_generator {
-        constexpr static auto delarr_deleter = [](unsigned char *ptr){ delete [] ptr; };
         still_image_video_pattern_generator(std::string const & config, int w, int h, codec_t c, int o)
                 : width(w), height(h), color_spec(c), offset(o)
         {

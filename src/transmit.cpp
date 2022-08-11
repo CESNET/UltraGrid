@@ -127,7 +127,7 @@ static bool set_fec(struct tx *tx, const char *fec);
 static void fec_check_messages(struct tx *tx);
 
 struct rate_limit_dyn {
-        long avg_frame_size;   ///< moving average
+        unsigned long avg_frame_size;   ///< moving average
         long long last_excess; ///< nr of frames last excessive frame was emitted
         static constexpr int EXCESS_GAP = 4; ///< minimal gap between excessive frames
 };
