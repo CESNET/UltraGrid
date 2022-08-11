@@ -1018,7 +1018,7 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba) __attribute__((always_inline));
 #endif
 /**
- * Changes pixel format from planar 8-bit YUV to packed RGB/A.
+ * Changes pixel format from planar 8-bit 422 and 420 YUV to packed RGB/A.
  * Color space is assumed ITU-T Rec. 709 limited range.
  */
 static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
@@ -1063,19 +1063,25 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
                         y = (*src_y1++ - 16) * Y_SCALE;
+                        r = YCBCR_TO_R_709_SCALED(y, cb, cr);
+                        g = YCBCR_TO_G_709_SCALED(y, cb, cr);
+                        b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst1)
 
                         if (subsampling == 422) {
                                 cb = *src_cb2++ - 128;
                                 cr = *src_cr2++ - 128;
-                                r = YCBCR_TO_R_709_SCALED(y, cb, cr);
-                                g = YCBCR_TO_G_709_SCALED(y, cb, cr);
-                                b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         }
                         y = (*src_y2++ - 16) * Y_SCALE;
+                        r = YCBCR_TO_R_709_SCALED(y, cb, cr);
+                        g = YCBCR_TO_G_709_SCALED(y, cb, cr);
+                        b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst2)
 
                         y = (*src_y2++ - 16) * Y_SCALE;
+                        r = YCBCR_TO_R_709_SCALED(y, cb, cr);
+                        g = YCBCR_TO_G_709_SCALED(y, cb, cr);
+                        b = YCBCR_TO_B_709_SCALED(y, cb, cr);
                         WRITE_RES_YUV8P_TO_RGB(dst2)
                 }
         }
