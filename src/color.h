@@ -38,6 +38,8 @@
 #ifndef COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25
 #define COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25
 
+#include "config_common.h" // CLAMP
+
 /* @brief Color space coedfficients - RGB full range to YCbCr bt. 709 limited range
  *
  * RGB should use SDI full range [1<<(depth-8)..255<<(depth-8)-1], see [limits]
@@ -92,8 +94,8 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define CLAMP_LIMITED_Y(val, depth) (val)
 #define CLAMP_LIMITED_CBCR(val, depth) (val)
 #else
-#define CLAMP_LIMITED_Y(val, depth) MIN(MAX(val, 1<<(depth-4)), 235 * (1<<(depth-8)))
-#define CLAMP_LIMITED_CBCR(val, depth) MIN(MAX(val, 1<<(depth-4)), 240 * (1<<(depth-8)))
+#define CLAMP_LIMITED_Y(val, depth) CLAMP((val), 1<<(depth-4), 235 * (1<<(depth-8)))
+#define CLAMP_LIMITED_CBCR(val, depth) CLAMP((val), 1<<(depth-4), 240 * (1<<(depth-8)))
 #endif
 
 #define R_CB(kr,kb) 0.0
@@ -111,7 +113,7 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 
 #define FULL_FOOT(depth) (1<<((depth)-8))
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
-#define CLAMP_FULL(val, depth) MIN(FULL_HEAD(depth), MAX((val), FULL_FOOT(depth)))
+#define CLAMP_FULL(val, depth) CLAMP((val), FULL_FOOT(depth), FULL_HEAD(depth))
 
 #define FORMAT_RGBA(r, g, b, depth) (~(0xFFU << (rgb_shift[R]) | 0xFFU << (rgb_shift[G]) | 0xFFU << (rgb_shift[B])) | \
         (CLAMP_FULL((r), (depth)) << rgb_shift[R] | CLAMP_FULL((g), (depth)) << rgb_shift[G] | CLAMP_FULL((b), (depth)) << rgb_shift[B]))

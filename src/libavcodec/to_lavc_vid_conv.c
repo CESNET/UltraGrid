@@ -52,6 +52,7 @@
 #include <stdint.h>
 
 #include "color.h"
+#include "config_common.h"
 #include "host.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "video.h"
@@ -59,11 +60,6 @@
 #ifdef __SSE3__
 #include "pmmintrin.h"
 #endif
-
-#undef MAX
-#undef MIN
-#define MAX(a, b)      (((a) > (b))? (a): (b))
-#define MIN(a, b)      (((a) < (b))? (a): (b))
 
 #if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
 #define HAVE_12_AND_14_PLANAR_COLORSPACES 1
@@ -639,9 +635,9 @@ static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
                         comp_type_t res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+10-depth)) + (1<<(depth-1));
                         comp_type_t res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE+10-depth)) + (1<<(depth-1));
 
-                        *dst_y++ = MIN(MAX(res_y, 1<<(depth-4)), 235 * (1<<(depth-8)));
-                        *dst_cb++ = MIN(MAX(res_cb, 1<<(depth-4)), 240 * (1<<(depth-8)));
-                        *dst_cr++ = MIN(MAX(res_cr, 1<<(depth-4)), 240 * (1<<(depth-8)));
+                        *dst_y++ = CLAMP(res_y, 1<<(depth-4), 235 * (1<<(depth-8)));
+                        *dst_cb++ = CLAMP(res_cb, 1<<(depth-4), 240 * (1<<(depth-8)));
+                        *dst_cr++ = CLAMP(res_cr, 1<<(depth-4), 240 * (1<<(depth-8)));
                         src += 4;
                 }
         }
@@ -677,9 +673,9 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         res_y = (RGB_TO_Y_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-4));\
         res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-1));\
         res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE+12-depth)) + (1<<(depth-1));\
-        *dst_y++ = MIN(MAX(res_y, 1<<(depth-4)), 235 * (1<<(depth-8)));\
-        *dst_cb++ = MIN(MAX(res_cb, 1<<(depth-4)), 240 * (1<<(depth-8)));\
-        *dst_cr++ = MIN(MAX(res_cr, 1<<(depth-4)), 240 * (1<<(depth-8)));
+        *dst_y++ = CLAMP(res_y, 1<<(depth-4), 235 * (1<<(depth-8)));\
+        *dst_cb++ = CLAMP(res_cb, 1<<(depth-4), 240 * (1<<(depth-8)));\
+        *dst_cr++ = CLAMP(res_cr, 1<<(depth-4), 240 * (1<<(depth-8)));
 
         const int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
@@ -806,9 +802,9 @@ static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
                         comp_type_t res_cb = (RGB_TO_CB_709_SCALED(r, g, b) >> (COMP_BASE+16-depth)) + (1<<(depth-1));
                         comp_type_t res_cr = (RGB_TO_CR_709_SCALED(r, g, b) >> (COMP_BASE+16-depth)) + (1<<(depth-1));
 
-                        *dst_y++ = MIN(MAX(res_y, 1<<(depth-4)), 235 * (1<<(depth-8)));
-                        *dst_cb++ = MIN(MAX(res_cb, 1<<(depth-4)), 240 * (1<<(depth-8)));
-                        *dst_cr++ = MIN(MAX(res_cr, 1<<(depth-4)), 240 * (1<<(depth-8)));
+                        *dst_y++ = CLAMP(res_y, 1<<(depth-4), 235 * (1<<(depth-8)));
+                        *dst_cb++ = CLAMP(res_cb, 1<<(depth-4), 240 * (1<<(depth-8)));
+                        *dst_cr++ = CLAMP(res_cr, 1<<(depth-4), 240 * (1<<(depth-8)));
                 }
         }
 }

@@ -9,6 +9,8 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #undef MAX
 #define MAX(a,b) (((a)>(b))?(a):(b))
+#undef CLAMP
+#define CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
 #ifndef EXTERN_C
 #ifdef __cplusplus

@@ -55,6 +55,7 @@
 #include <stdint.h>
 
 #include "color.h"
+#include "config_common.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
 #include "hwaccel_rpi4.h"
@@ -64,11 +65,6 @@
 #ifdef __SSE3__
 #include "pmmintrin.h"
 #endif
-
-#undef MAX
-#undef MIN
-#define MAX(a, b)      (((a) > (b))? (a): (b))
-#define MIN(a, b)      (((a) < (b))? (a): (b))
 
 #if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
 #define HAVE_12_AND_14_PLANAR_COLORSPACES 1
@@ -1141,9 +1137,9 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
                                 *((uint32_t *)(void *) dst) = FORMAT_RGBA((r) >> COMP_BASE, (g) >> COMP_BASE, (b) >> COMP_BASE, 8);
                                 dst += 4;
                         } else {
-                                *dst++ = MIN(MAX((r) >> COMP_BASE, 1), 254);
-                                *dst++ = MIN(MAX((g) >> COMP_BASE, 1), 254);
-                                *dst++ = MIN(MAX((b) >> COMP_BASE, 1), 254);
+                                *dst++ = CLAMP((r) >> COMP_BASE, 1, 254);
+                                *dst++ = CLAMP((g) >> COMP_BASE, 1, 254);
+                                *dst++ = CLAMP((b) >> COMP_BASE, 1, 254);
                         }
                 }
         }

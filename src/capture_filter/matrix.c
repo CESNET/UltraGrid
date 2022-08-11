@@ -141,24 +141,30 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                 a[0] = *in_data++;
                                 a[2] = b[2] = *in_data++;
                                 b[0] = *in_data++;
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[0] * (a[0] - 16) +
+                                *out_data++ = CLAMP(s->transform_matrix[0] * (a[0] - 16) +
                                                         s->transform_matrix[1] * (a[1] - 128) +
-                                                        s->transform_matrix[2] * (a[2] - 128)));
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[3] * (a[0] - 16) +
+                                                        s->transform_matrix[2] * (a[2] - 128),
+                                                        0, 255);
+                                *out_data++ = CLAMP(s->transform_matrix[3] * (a[0] - 16) +
                                                         s->transform_matrix[4] * (a[1] - 128) +
-                                                        s->transform_matrix[5] * (a[2] - 128)));
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[6] * (a[0] - 16) +
+                                                        s->transform_matrix[5] * (a[2] - 128),
+                                                        0, 255);
+                                *out_data++ = CLAMP(s->transform_matrix[6] * (a[0] - 16) +
                                                         s->transform_matrix[7] * (a[1] - 128) +
-                                                        s->transform_matrix[8] * (a[2] - 128)));
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[0] * (b[0] - 16) +
+                                                        s->transform_matrix[8] * (a[2] - 128),
+                                                        0, 255);
+                                *out_data++ = CLAMP(s->transform_matrix[0] * (b[0] - 16) +
                                                         s->transform_matrix[1] * (b[1] - 128) +
-                                                        s->transform_matrix[2] * (b[2] - 128)));
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[3] * (b[0] - 16) +
+                                                        s->transform_matrix[2] * (b[2] - 128),
+                                                        0, 255);
+                                *out_data++ = CLAMP(s->transform_matrix[3] * (b[0] - 16) +
                                                         s->transform_matrix[4] * (b[1] - 128) +
-                                                        s->transform_matrix[5] * (b[2] - 128)));
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[6] * (b[0] - 16) +
+                                                        s->transform_matrix[5] * (b[2] - 128),
+                                                        0, 255);
+                                *out_data++ = CLAMP(s->transform_matrix[6] * (b[0] - 16) +
                                                         s->transform_matrix[7] * (b[1] - 128) +
-                                                        s->transform_matrix[8] * (b[2] - 128)));
+                                                        s->transform_matrix[8] * (b[2] - 128),
+                                                        0, 255);
                         }
                 } else if (in->color_spec == RGB) {
                         unsigned char *in_data = (unsigned char *) in->tiles[0].data;
@@ -169,15 +175,18 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                 a[0] = *in_data++;
                                 a[1] = *in_data++;
                                 a[2] = *in_data++;
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[0] * a[0] +
+                                *out_data++ = CLAMP(s->transform_matrix[0] * a[0] +
                                                         s->transform_matrix[1] * a[1] +
-                                                        s->transform_matrix[2] * a[2]));
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[3] * a[0] +
+                                                        s->transform_matrix[2] * a[2],
+                                                        0, 255);
+                                *out_data++ = CLAMP(s->transform_matrix[3] * a[0] +
                                                         s->transform_matrix[4] * a[1] +
-                                                        s->transform_matrix[5] * a[2]));
-                                *out_data++ = MIN(255, MAX(0, s->transform_matrix[6] * a[0] +
+                                                        s->transform_matrix[5] * a[2],
+                                                        0, 255);
+                                *out_data++ = CLAMP(s->transform_matrix[6] * a[0] +
                                                         s->transform_matrix[7] * a[1] +
-                                                        s->transform_matrix[8] * a[2]));
+                                                        s->transform_matrix[8] * a[2],
+                                                        0, 255);
                         }
                 } else if (in->color_spec == RG48) {
                         uint16_t *in_data = (uint16_t *)(void *) in->tiles[0].data;
@@ -188,15 +197,18 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                                 a[0] = *in_data++;
                                 a[1] = *in_data++;
                                 a[2] = *in_data++;
-                                *out_data++ = MIN(65535, MAX(0, s->transform_matrix[0] * a[0] +
+                                *out_data++ = CLAMP(s->transform_matrix[0] * a[0] +
                                                         s->transform_matrix[1] * a[1] +
-                                                        s->transform_matrix[2] * a[2]));
-                                *out_data++ = MIN(65535, MAX(0, s->transform_matrix[3] * a[0] +
+                                                        s->transform_matrix[2] * a[2],
+                                                        0, 65535);
+                                *out_data++ = CLAMP(s->transform_matrix[3] * a[0] +
                                                         s->transform_matrix[4] * a[1] +
-                                                        s->transform_matrix[5] * a[2]));
-                                *out_data++ = MIN(65535, MAX(0, s->transform_matrix[6] * a[0] +
+                                                        s->transform_matrix[5] * a[2],
+                                                        0, 65535);
+                                *out_data++ = CLAMP(s->transform_matrix[6] * a[0] +
                                                         s->transform_matrix[7] * a[1] +
-                                                        s->transform_matrix[8] * a[2]));
+                                                        s->transform_matrix[8] * a[2],
+                                                        0, 65535);
                         }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only UYVY, RGB or RG48 is currently supported!\n");
