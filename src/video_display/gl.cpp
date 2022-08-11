@@ -1531,10 +1531,10 @@ static void upload_texture(struct state_gl *s, char *data)
                 DEBUG_TIMER_START(byte_swap_r10k);
                 OPTIMIZED_FOR (int i = 0; i < data_len / 4; i += 1) {
                         uint32_t x = *in++;
-                        *out++ =
-                                (x & 0xFF) << 2 | (x & 0xC000) >> 12 | // R
-                                (x & 0x3F00) << 6 | (x & 0xF00000) >> 2 | // G
-                                (x & 0xF0000U) << 10U | (x & 0xFC000000U) >> 6U; // B
+                        *out++ = /* output is x2b8g8r8 little-endian */
+                                (x & 0xFFU) << 2U | (x & 0xC0'00U) >> 14U | // R
+                                (x & 0x3F'00U) << 6U | (x & 0xF0'00'00) >> 10U | // G
+                                (x & 0x0F'00'00U) << 10U | (x & 0xFC'00'00'00U) >> 6U; // B
                 }
                 DEBUG_TIMER_STOP(byte_swap_r10k);
         };
