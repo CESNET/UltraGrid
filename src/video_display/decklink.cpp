@@ -577,20 +577,29 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
         tc->SetBCD(bcd);
 }
 
-static int display_decklink_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_decklink_putf(void *state, struct video_frame *frame, int flag)
 {
         struct state_decklink *s = (struct state_decklink *)state;
 
         if (frame == NULL)
                 return FALSE;
 
-        UNUSED(nonblock);
-
         assert(s->magic == DECKLINK_MAGIC);
 
         uint32_t i;
-
         s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i);
+        if ((flag == PUTF_NONBLOCK && i > 2) || flag == PUTF_DISCARD) {
+                if (flag == PUTF_NONBLOCK) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Frame dropped!\n");
+                }
+                for (int j = 0; j < s->devices_cnt; ++j) {
+                        IDeckLinkMutableVideoFrame *deckLinkFrame =
+                                (*((vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata))[j];
+                        deckLinkFrame->Release();
+                }
+                frame->callbacks.dispose(frame);
+                return 1;
+        }
 
         auto t0 = chrono::high_resolution_clock::now();
 
