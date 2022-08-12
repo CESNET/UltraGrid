@@ -1659,6 +1659,9 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         ++count;
                 }
         }
+        if (count < s->devices_cnt) {
+                return NULL;
+        }
         if (s->codec == RGBA) {
                 for (unsigned i = 0; i < s->frame->tile_count; ++i) {
                         vc_copylineToRGBA_inplace((unsigned char*) s->frame->tiles[i].data,
@@ -1666,15 +1669,10 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                                         s->frame->tiles[i].data_len, 16, 8, 0);
                 }
         }
-        if (count == s->devices_cnt) {
-                s->frames++;
 
-                s->frame->timecode = s->state[0].delegate->timecode;
-
-                return s->frame;
-        }
-
-	return NULL;
+        s->frames++;
+        s->frame->timecode = s->state[0].delegate->timecode;
+        return s->frame;
 }
 
 /* function from DeckLink SDK sample DeviceList */
