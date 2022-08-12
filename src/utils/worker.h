@@ -51,10 +51,17 @@ extern "C" {
 typedef void *task_result_handle_t;
 typedef void *(*runnable_t)(void *);
 
+// fuctions documented at definition
 task_result_handle_t task_run_async(runnable_t task, void *data);
 void task_run_async_detached(runnable_t task, void *data);
 void *wait_task(task_result_handle_t handle);
 void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
+
+/**
+ * @param data_len   in/out processed block length in bytes
+ */
+typedef void (*respawn_parallel_callback_t)(void *in, void *out, size_t data_len, void *udata);
+void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata);
 
 #ifdef __cplusplus
 }

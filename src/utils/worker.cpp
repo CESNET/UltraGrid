@@ -41,6 +41,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "utils/misc.h" // get_cpu_core_count
 #include "utils/thread.h"
 #include "utils/worker.h"
 
@@ -308,5 +309,42 @@ void task_run_parallel(runnable_t task, int worker_count, void *data, size_t dat
                         wait_task(tasks[i]);
                 }
         }
+}
+
+struct respawn_parallel_data {
+        respawn_parallel_callback_t c;
+        void *in;
+        void *out;
+        size_t data_len;
+        void *udata;
+};
+static void *respawn_parallel_task(void *arg) {
+        auto data = (struct respawn_parallel_data *) arg;
+        data->c(data->in, data->out, data->data_len, data->udata);
+        return NULL;
+}
+/**
+ * Automatically respawns threads to convert in to out
+ *
+ * Botn input and output elements must currently have the same size (can be changed in future).
+ * Option semantics is similar to qsort().
+ */
+void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata)
+{
+        int threads = get_cpu_core_count();
+        struct respawn_parallel_data data[threads];
+
+        for (int i = 0; i < threads; ++i) {
+                data[i].c = c;
+                data[i].in = (char *) in + i * (nmemb / threads) * size;
+                data[i].out = (char *) out + i * (nmemb / threads) * size;
+                data[i].data_len = (nmemb / threads) * size;
+                data[i].udata = udata;
+                if (i == threads - 1) {
+                        data[i].data_len = size * (nmemb - (threads - 1) * (nmemb / threads));
+                }
+        }
+
+        task_run_parallel(respawn_parallel_task, threads, data, sizeof data[0], NULL);
 }
 
