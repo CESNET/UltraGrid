@@ -603,29 +603,24 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int fla
 
         auto t0 = chrono::high_resolution_clock::now();
 
-        //if (i > 2) 
-        if (0) 
-                fprintf(stderr, "Frame dropped!\n");
-        else {
-                for (int j = 0; j < s->devices_cnt; ++j) {
-                        IDeckLinkMutableVideoFrame *deckLinkFrame =
-                                (*((vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata))[j];
-                        if(s->emit_timecode) {
-                                deckLinkFrame->SetTimecode(bmdTimecodeRP188Any, s->timecode);
-                        }
-
-                        if (s->low_latency) {
-                                s->state[j].deckLinkOutput->DisplayVideoFrameSync(deckLinkFrame);
-                                deckLinkFrame->Release();
-                        } else {
-                                s->state[j].deckLinkOutput->ScheduleVideoFrame(deckLinkFrame,
-                                                s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
-                        }
-                }
-                s->frames++;
+        for (int j = 0; j < s->devices_cnt; ++j) {
+                IDeckLinkMutableVideoFrame *deckLinkFrame =
+                        (*((vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata))[j];
                 if(s->emit_timecode) {
-                        update_timecode(s->timecode, s->vid_desc.fps);
+                        deckLinkFrame->SetTimecode(bmdTimecodeRP188Any, s->timecode);
                 }
+
+                if (s->low_latency) {
+                        s->state[j].deckLinkOutput->DisplayVideoFrameSync(deckLinkFrame);
+                        deckLinkFrame->Release();
+                } else {
+                        s->state[j].deckLinkOutput->ScheduleVideoFrame(deckLinkFrame,
+                                        s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
+                }
+        }
+        s->frames++;
+        if(s->emit_timecode) {
+                update_timecode(s->timecode, s->vid_desc.fps);
         }
 
         frame->callbacks.dispose(frame);
