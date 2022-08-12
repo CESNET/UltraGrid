@@ -56,6 +56,7 @@
 #include "ndi_common.h"
 #include "types.h"
 #include "utils/color_out.h"
+#include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/misc.h"
 #include "video.h"
 #include "video_display.h"

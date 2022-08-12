@@ -63,6 +63,7 @@
 #include "ndi_common.h"
 #include "rang.hpp"
 #include "utils/color_out.h"
+#include "utils/macros.h" // OPTIMIZED_FOR
 #include "video.h"
 #include "video_capture.h"
 

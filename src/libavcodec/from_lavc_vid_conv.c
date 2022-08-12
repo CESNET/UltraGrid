@@ -60,6 +60,7 @@
 #include "hwaccel_vdpau.h"
 #include "hwaccel_rpi4.h"
 #include "libavcodec/from_lavc_vid_conv.h"
+#include "utils/macros.h" // OPTIMIZED_FOR
 #include "video.h"
 
 #ifdef __SSE3__

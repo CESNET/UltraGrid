@@ -55,6 +55,7 @@
 #include "config_common.h"
 #include "host.h"
 #include "libavcodec/to_lavc_vid_conv.h"
+#include "utils/macros.h" // OPTIMIZED_FOR
 #include "video.h"
 
 #ifdef __SSE3__

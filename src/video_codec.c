@@ -69,7 +69,7 @@
 #include "host.h"
 #include "hwaccel_vdpau.h"
 #include "hwaccel_rpi4.h"
-#include "utils/macros.h" // to_fourcc
+#include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR
 #include "video_codec.h"
 
 #ifdef __SSSE3__

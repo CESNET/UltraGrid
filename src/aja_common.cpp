@@ -52,9 +52,7 @@
 #endif
 #endif
 
-#ifndef OPTIMIZED_FOR
-# define OPTIMIZED_FOR for
-#endif
+#include "utils/macros.h" // OPTIMIZED_FOR
 
 #ifndef UNUSED
 # define UNUSED(x) ((void) x)
