@@ -603,6 +603,12 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int fla
 
         auto t0 = chrono::high_resolution_clock::now();
 
+        if (frame->color_spec == R10k) {
+                for (unsigned i = 0; i < frame->tile_count; ++i) {
+                        r10k_full_to_limited(frame->tiles[i].data, frame->tiles[i].data, frame->tiles[i].data_len);
+                }
+        }
+
         for (int j = 0; j < s->devices_cnt; ++j) {
                 IDeckLinkMutableVideoFrame *deckLinkFrame =
                         (*((vector<IDeckLinkMutableVideoFrame *> *) frame->callbacks.dispose_udata))[j];

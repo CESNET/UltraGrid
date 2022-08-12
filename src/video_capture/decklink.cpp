@@ -1669,6 +1669,12 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                                         s->frame->tiles[i].data_len, 16, 8, 0);
                 }
         }
+        if (s->codec == R10k) {
+                for (unsigned i = 0; i < s->frame->tile_count; ++i) {
+                        r10k_limited_to_full(s->frame->tiles[i].data, s->frame->tiles[i].data,
+                                        s->frame->tiles[i].data_len);
+                }
+        }
 
         s->frames++;
         s->frame->timecode = s->state[0].delegate->timecode;

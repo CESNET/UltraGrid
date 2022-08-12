@@ -41,13 +41,14 @@
 #include "config_win32.h"
 #endif
 
-#include "debug.h"
-
-#include "blackmagic_common.hpp"
-#include "DeckLinkAPIVersion.h"
 #include <iomanip>
 #include <sstream>
 #include <unordered_map>
+
+#include "blackmagic_common.hpp"
+#include "debug.h"
+#include "DeckLinkAPIVersion.h"
+#include "utils/worker.h"
 
 #define MOD_NAME "[DeckLink] "
 
@@ -452,5 +453,73 @@ int invert_bmd_flag(int val)
                 return BMD_OPT_TRUE;
         }
         return val;
+}
+
+static void apply_r10k_lut(void *i, void *o, size_t len, void *udata)
+{
+        auto lut = (const unsigned int * __restrict) udata;
+        auto *in = (const unsigned char *) i;
+        auto *out = (unsigned char *) o;
+        const unsigned char *in_end = in + len;
+        while (in < in_end) {
+                unsigned r = in[0] << 2U | in[1] >> 6U;
+                unsigned g = (in[1] & 0x3FU) << 4U | in[2] >> 4U;
+                unsigned b = (in[2] & 0xFU) << 6U | in[3] >> 2U;
+                r = lut[r];
+                g = lut[g];
+                b = lut[b];
+                out[0] = r >> 2U;
+                out[1] = (r & 0x3U) << 6U | (g >> 4U);
+                out[2] = (g & 0xFU) << 4U | (b >> 6U);
+                out[3] = (b & 0x3FU) << 2U;
+                in += 4;
+                out += 4;
+        }
+}
+
+static void fill_limited_to_full_lut(unsigned int *lut) {
+        for (int i = 0; i < 1024; ++i) {
+                int val = clamp(i, 64, 960);
+                val = 4 + (val - 64) * 1015 / 896;
+                lut[i] = val;
+        }
+}
+/**
+ * converts from range 64-960 to 4-1019
+ *
+ * in and out pointers can point to the same address
+ */
+void r10k_limited_to_full(const char *in, char *out, size_t len)
+{
+        static unsigned int lut[1024];
+        if (lut[1023] == 0) {
+                fill_limited_to_full_lut(lut);
+        }
+        DEBUG_TIMER_START(r10k_limited_to_full);
+        respawn_parallel(const_cast<char *>(in), out, len / 4, 4, apply_r10k_lut, lut);
+        DEBUG_TIMER_STOP(r10k_limited_to_full);
+}
+
+static void fill_full_to_limited_lut(unsigned int *lut) {
+        for (int i = 0; i < 1024; ++i) {
+                int val = clamp(i, 4, 1019);
+                val = 64 + (val - 4) * 896 / 1015;
+                lut[i] = val;
+        }
+}
+/**
+ * converts from full range (4-1019) to  64-960
+ *
+ * in and out pointers can point to the same address
+ */
+void r10k_full_to_limited(const char *in, char *out, size_t len)
+{
+        static unsigned int lut[1024];
+        if (lut[1023] == 0) {
+                fill_full_to_limited_lut(lut);
+        }
+        DEBUG_TIMER_START(r10k_limited_to_full);
+        respawn_parallel(const_cast<char *>(in), out, len / 4, 4, apply_r10k_lut, lut);
+        DEBUG_TIMER_STOP(r10k_limited_to_full);
 }
 
