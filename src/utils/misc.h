@@ -94,8 +94,12 @@ unsigned char *base64_decode(const char *in, unsigned int *length);
  *     cout << tokenize(sv, ':') << "\n";
  * }
  * ~~~~~~~~~~~~~~~~~~~
+ *
+ * The 'quot' param allows for a basic quotation based deilimiter escape,
+ * however the whole token must be escaped.
+ * i.e. sync:"opts=a=1:b=2":fs is fine, but sync:opts="a=1:b=2":fs is not.
  */
-std::string_view tokenize(std::string_view& str, char delim);
+std::string_view tokenize(std::string_view& str, char delim, char quot = '\0');
 
 template<typename T> struct ref_count_init_once {
         std::optional<T> operator()(T (*init)(void), int &i) {
