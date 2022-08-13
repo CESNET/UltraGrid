@@ -2072,41 +2072,38 @@ else
         screen_cap=no
 fi
 
-if test $screen_cap_req = yes -a $screen_cap = no; then
-        AC_MSG_ERROR([Screen capture not found]);
+
+
+
+PKG_CHECK_MODULES([SCREEN_PW_DEPS], [libpipewire-0.3  glib-2.0 gobject-2.0 gio-unix-2.0 ], [FOUND_SCREEN_SCREEN_PW_DEPS=yes], [FOUND_SCREEN_SCREEN_PW_DEPS=no])
+screen_cap_pw=no
+if test $screen_cap_pw_req = yes -a $FOUND_SCREEN_SCREEN_PW_DEPS = no; then
+        AC_MSG_ERROR([Screen capture pipewire not found]);
 fi
 
-SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/screen_pw.o"
+if test $FOUND_SCREEN_SCREEN_PW_DEPS = yes; then
+        screen_cap_pw=yes
+        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs libpipewire-0.3)"
+        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs glib-2.0)"
+        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gobject-2.0)"
+        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gio)"
+        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gio-unix-2.0)"
 
-# SCREEN_CAP_PIPEWIRE_LIBS="$LIBS -lpipewire-0.3 -lglib-2.0  -lgobject-2.0 -lgio -lgio-unix-2.0"
+        # include pipewire headers as system headers to supress warnings in the headers (instead of -Ipath use -isystem path)
+        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I libpipewire-0.3 | sed 's/\(^\| \)-I\//\1-isystem \//g')"
+        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I glib-2.0)"
+        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gobject-2.0)"
+        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-2.0)"
+        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
 
-SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs libpipewire-0.3)"
-SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs glib-2.0)"
-SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gobject-2.0)"
-SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gio)"
-SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gio-unix-2.0)"
+        SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/screen_pw.o"
 
-# include pipewire headers as system headers to supress warnings in the headers (instead of -Ipath use -isystem path)
-SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I libpipewire-0.3 | sed 's/\(^\| \)-I\//\1-isystem \//g')"
-SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I glib-2.0)"
-SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gobject-2.0)"
-SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-2.0)"
-SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
+        INC="$INC $INCSCREEN_CAP_PIPEWIRE_INC"
+        CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
 
-screen_cap_pw=yes
-
-AC_ARG_ENABLE(screen_pw,
-[  --disable-screen-pw        disable pipewire screen capture (default is auto)]
-[                                   Requires: TODO],
-[screen_cap_pipewire_req=$enableval],
-[screen_cap_pipewire_req=$build_default]
-)
-
-INC="$INC $INCSCREEN_CAP_PIPEWIRE_INC"
-CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
-
-#BLANK_OBJ="$BLANK_OBJ src/libavcodec_common.o" # get_ug_to_av_pixfmt()
-ADD_MODULE("vidcap_screen_pipewire", "$SCREEN_CAP_PIPEWIRE_OBJ", "$SCREEN_CAP_PIPEWIRE_LIBS")
+        #BLANK_OBJ="$BLANK_OBJ src/libavcodec_common.o" # get_ug_to_av_pixfmt()
+        ADD_MODULE("vidcap_screen_pipewire", "$SCREEN_CAP_PIPEWIRE_OBJ", "$SCREEN_CAP_PIPEWIRE_LIBS")
+fi
 
 
 # -------------------------------------------------------------------------------------------------
