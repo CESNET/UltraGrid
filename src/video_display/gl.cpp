@@ -703,21 +703,39 @@ static void glfw_print_video_mode(struct state_gl *s) {
         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Display mode set to: " << mode->width << "x" << mode->height << "@" << mode->refreshRate << "\n";
 }
 
+static int get_refresh_rate(enum state_gl::modeset_t modeset, GLFWmonitor *mon, double video_refresh_rate) {
+        if (!mon) {
+                return GLFW_DONT_CARE;
+        }
+        switch (modeset) {
+                case state_gl::modeset_t::MODESET:
+                        return round(video_refresh_rate);
+                case state_gl::modeset_t::MODESET_SIZE_ONLY:
+                        return GLFW_DONT_CARE;
+                case state_gl::modeset_t::NOMODESET: {
+                        const GLFWvidmode* mode = glfwGetVideoMode(mon);
+                        return mode->refreshRate;
+                }
+                default:
+                        return static_cast<int>(modeset);
+        }
+}
+
 static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspect, double fps, double window_size_factor)
 {
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "glfw - fullscreen: %d, aspect: %lf, factor %lf\n",
                         (int) fs, aspect, window_size_factor);
         auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
         if (fs && s->monitor != nullptr) {
+                int width = height * aspect;
                 GLFWmonitor *mon = s->monitor;
-                if (s->modeset) {
-                        int refresh_rate = s->modeset == state_gl::MODESET ? round(fps) : static_cast<int>(s->modeset);
-                        glfwSetWindowMonitor(win, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, height * aspect, height, refresh_rate);
-                        glfw_print_video_mode(s);
-                } else {
+                int refresh_rate = get_refresh_rate(s->modeset, mon, fps);
+                if (s->modeset == state_gl::modeset_t::NOMODESET) {
                         const GLFWvidmode* mode = glfwGetVideoMode(mon);
-                        glfwSetWindowMonitor(win, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, mode->width, mode->height, mode->refreshRate);
+                        width = mode->width;
+                        height = mode->height;
                 }
+                glfwSetWindowMonitor(win, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, refresh_rate);
         } else {
                 glfwSetWindowSize(win, window_size_factor * height * aspect, window_size_factor * height);
         }
@@ -1128,14 +1146,13 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                                 s->fs = !s->fs;
                                 int width = s->current_display_desc.width;
                                 int height = s->current_display_desc.height;
-                                int refresh_rate = s->modeset == state_gl::MODESET ? round(s->current_display_desc.fps) : static_cast<int>(s->modeset);
                                 GLFWmonitor *mon = s->fs ? s->monitor : nullptr;
-                                if (mon && !s->modeset) {
+                                if (mon && s->modeset == state_gl::modeset_t::NOMODESET) {
                                         const GLFWvidmode* mode = glfwGetVideoMode(mon);
                                         width = mode->width;
                                         height = mode->height;
-                                        refresh_rate = mode->refreshRate;
                                 }
+                                int refresh_rate = get_refresh_rate(s->modeset, mon, s->current_display_desc.fps);
                                 glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, refresh_rate);
                                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Setting fullscreen: " << (s->fs ? "ON" : "OFF") << "\n";
                                 glfw_print_video_mode(s);
@@ -1370,7 +1387,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (s->fixed_size && s->fixed_w && s->fixed_h) {
                 width = s->fixed_w;
                 height = s->fixed_h;
-        } else if (!s->modeset && mon != nullptr) {
+        } else if (mon != nullptr && s->modeset == state_gl::modeset_t::NOMODESET) {
                 const GLFWvidmode* mode = glfwGetVideoMode(mon);
                 width = mode->width;
                 height = mode->height;
