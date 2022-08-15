@@ -2326,8 +2326,10 @@ static void vc_copylineRG48toV210(unsigned char * __restrict dst, const unsigned
                 v += RGB_TO_CR_709_SCALED(r, g, b) >> COMP_OFF; \
                 y1 = CLAMP_LIMITED_Y(y1, 10); \
                 y2 = CLAMP_LIMITED_Y(y2, 10); \
-                u = CLAMP_LIMITED_CBCR(u / 2 + (1<<9), 10); \
-                v = CLAMP_LIMITED_CBCR(v / 2 + (1<<9), 10);
+                u = u / 2 + (1<<9); \
+                v = v / 2 + (1<<9); \
+                u = CLAMP_LIMITED_CBCR(u, 10); \
+                v = CLAMP_LIMITED_CBCR(v, 10);
 
         UNUSED(rshift);
         UNUSED(gshift);
@@ -2368,19 +2370,23 @@ static void vc_copylineRG48toY216(unsigned char * __restrict dst, const unsigned
         uint16_t *d = (void *) dst;
         OPTIMIZED_FOR (int x = 0; x < dst_len; x += 8) {
                 comp_type_t r, g, b;
-                comp_type_t u, v;
+                comp_type_t y, u, v;
                 r = *in++;
                 g = *in++;
                 b = *in++;
-                *d++ = CLAMP_LIMITED_Y((RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12), 16); // Y
+                y = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12);
+                *d++ = CLAMP_LIMITED_Y(y, 16);
                 u = (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE);
                 v = (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE);
                 r = *in++;
                 g = *in++;
                 b = *in++;
-                *d++ = CLAMP_LIMITED_CBCR((u + (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) / 2) + (1<<15), 16); // U
-                *d++ = CLAMP_LIMITED_Y((RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12), 16); // Y
-                *d++ = CLAMP_LIMITED_CBCR((v + (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) / 2) + (1<<15), 16); // V
+                u = (u + (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) / 2) + (1<<15);
+                *d++ = CLAMP_LIMITED_CBCR(u, 16);
+                y = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12);
+                *d++ = CLAMP_LIMITED_Y(y, 16);
+                v = (v + (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) / 2) + (1<<15);
+                *d++ = CLAMP_LIMITED_CBCR(v, 16);
         }
 }
 
@@ -2398,9 +2404,12 @@ static void vc_copylineRG48toY416(unsigned char * __restrict dst, const unsigned
                 r = *in++;
                 g = *in++;
                 b = *in++;
-                *d++ = CLAMP_LIMITED_CBCR((RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15), 16);
-                *d++ = CLAMP_LIMITED_Y((RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12), 16);
-                *d++ = CLAMP_LIMITED_CBCR((RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15), 16);
+                comp_type_t u = (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15);
+                *d++ = CLAMP_LIMITED_CBCR(u, 16);
+                comp_type_t y = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12);
+                *d++ = CLAMP_LIMITED_Y(y, 16);
+                comp_type_t v = (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15);
+                *d++ = CLAMP_LIMITED_CBCR(v, 16);
                 *d++ = 0xFFFFU;
         }
 }
