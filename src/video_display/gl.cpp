@@ -1394,8 +1394,11 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
         }
         display_gl_set_user_window_hints();
-        if ((s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), mon, NULL)) == nullptr) {
+        if ((s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), nullptr, nullptr)) == nullptr) {
                 return false;
+        }
+        if (mon != nullptr) { /// @todo remove/revert when no needed (see particular commit message
+                glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, get_refresh_rate(s->modeset, mon, GLFW_DONT_CARE));
         }
         glfw_print_video_mode(s);
         glfwSetWindowUserPointer(s->window, s);
