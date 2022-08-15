@@ -2414,6 +2414,29 @@ static void vc_copylineRG48toY416(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void vc_copylineY416toRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift);
+        UNUSED(gshift);
+        UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        assert((uintptr_t) dst % 2 == 0);
+        const uint16_t *in = (const void *) src;
+        uint16_t *d = (void *) dst;
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 6) {
+                comp_type_t u = *in++ - (1<<15);
+                comp_type_t y = Y_SCALE * (*in++ - (1<<12));
+                comp_type_t v = *in++ - (1<<15);
+                in++;
+                comp_type_t r = (YCBCR_TO_R_709_SCALED(y, u, v) >> COMP_BASE) + FULL_FOOT(16);
+                comp_type_t g = (YCBCR_TO_G_709_SCALED(y, u, v) >> COMP_BASE) + FULL_FOOT(16);
+                comp_type_t b = (YCBCR_TO_B_709_SCALED(y, u, v) >> COMP_BASE) + FULL_FOOT(16);
+                *d++ = CLAMP_FULL(r, 16);
+                *d++ = CLAMP_FULL(g, 16);
+                *d++ = CLAMP_FULL(b, 16);
+        }
+}
+
 /**
  * Converts BGR to RGB.
  * @copydetails vc_copylinev210
@@ -2791,6 +2814,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineRG48toV210,  RG48,  v210, true },
         { vc_copylineRG48toY216,  RG48,  Y216, true },
         { vc_copylineRG48toY416,  RG48,  Y416, true },
+        { vc_copylineY416toRG48,  Y416,  RG48, true },
         { vc_copylineRGBA,        RGBA,  RGBA, false },
         { vc_copylineDVS10toV210, DVS10, v210, false },
         { vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
