@@ -6,6 +6,7 @@
 #include <QSharedMemory>
 #include <QOpenGLVertexArrayObject>
 #include <QTimer>
+#include <string_view>
 
 #include "ipc_frame.h"
 #include "ipc_frame_unix.h"
@@ -15,7 +16,7 @@ public:
 	PreviewWidget(QWidget *parent);
 	~PreviewWidget();
 
-	void setKey(const char *key);
+	void setKey(std::string_view key);
 	void start();
 	void stop();
 
