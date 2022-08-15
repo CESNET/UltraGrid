@@ -395,7 +395,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         s->generator = video_pattern_generator_create(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec,
                         s->still_image ? 0 : s->frame_linesize + s->pan);
         if (!s->generator) {
-                ret = s->pattern == "help" ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
+                ret = s->pattern.find("help") != string::npos ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
                 goto error;
         }
 
