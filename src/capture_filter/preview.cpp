@@ -95,6 +95,7 @@ static void worker(struct state_preview_filter *s, std::string path){
                 if(!writer){
                         writer.reset(ipc_frame_writer_new(path.c_str()));
                         if(!writer){
+                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Unable to init ipc writer for path %s\n", path.c_str());
                                 sleep(1);
                                 continue;
                         }
@@ -143,7 +144,7 @@ static int init(struct module *parent, const char *cfg, void **state){
 
         std::string_view cfg_sv = cfg ? cfg : "";
         while(!cfg_sv.empty()){
-                auto tok = tokenize(cfg_sv, ':');
+                auto tok = tokenize(cfg_sv, ':', '"');
                 auto key = tokenize(tok, '=');
                 auto val = tokenize(tok, '=');
 
