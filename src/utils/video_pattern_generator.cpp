@@ -64,6 +64,7 @@
 #include <utility>
 #include <vector>
 
+#include "color.h"
 #include "debug.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
@@ -318,7 +319,7 @@ class image_pattern_gradient2 : public image_pattern {
         private:
                 const unsigned int val_max;
                 enum generator_depth fill(int width, int height, unsigned char *data) override {
-                        width = max(width, 2); // avoid division by zero
+                        assert(width > 1); // avoid division by zero
                         auto *ptr = reinterpret_cast<uint16_t *>(data);
                         for (int j = 0; j < height; j += 1) {
                                 for (int i = 0; i < width; i += 1) {
@@ -326,6 +327,35 @@ class image_pattern_gradient2 : public image_pattern {
                                         *ptr++ = gray;
                                         *ptr++ = gray;
                                         *ptr++ = gray;
+                                }
+                        }
+                        return generator_depth::bits16;
+                }
+};
+
+class image_pattern_uv_plane : public image_pattern {
+        public:
+                explicit image_pattern_uv_plane(string &y_lvl) {
+                        if (!y_lvl.empty()) {
+                                y_level = LIMIT_LO(16) + stof(y_lvl) * (LIMIT_LO(16) + LIMIT_HI_Y(16));
+                        }
+                }
+        private:
+                int y_level = LIMIT_HI_Y(16);
+                enum generator_depth fill(int width, int height, unsigned char *data) override {
+                        assert(width > 1 && height > 1); // avoid division by zero
+                        auto *ptr = reinterpret_cast<uint16_t *>(data);
+                        auto *conv = get_decoder_from_to(Y416, RG48);
+                        int scale_cbcr = LIMIT_HI_CBCR(16) - LIMIT_LO(16);
+                        for (int j = 0; j < height; j += 1) {
+                                for (int i = 0; i < width; i += 1) {
+                                        uint16_t uyva[4];
+                                        uyva[0] = LIMIT_LO(16) + i * scale_cbcr / (width - 1);
+                                        uyva[1] = y_level;
+                                        uyva[2] = LIMIT_LO(16) + j * scale_cbcr / (height - 1);
+                                        uyva[3] = 0xFF'FF;
+                                        conv((unsigned char *) ptr, (unsigned char *) uyva, 6, DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
+                                        ptr += 3;
                                 }
                         }
                         return generator_depth::bits16;
@@ -413,6 +443,9 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         }
         if (config == "smpte_bars") {
                 return make_unique<image_pattern_smpte_bars>();
+        }
+        if (pattern == "uv_plane") {
+                return make_unique<image_pattern_uv_plane>(params);
         }
         if (config.substr(0, "0x"s.length()) == "0x") {
                 uint32_t blank_color = 0U;
@@ -530,13 +563,8 @@ video_pattern_generator_t
 video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
 {
         if (config == "help") {
-<<<<<<< Updated upstream
-                col() << "Pattern to use, one of: " << TBOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, gray, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
-                col() << "\t\t- patterns " TBOLD("'gradient2'") " and " TBOLD("'noise'") " generate full bit-depth patterns with";
-=======
-                col() << "Pattern to use, one of: " << TBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
+                col() << "Pattern to use, one of: " << TBOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>], 0x<AABBGGRR>\n");
                 col() << "\t\t- patterns " TBOLD("'gradient2'") ", " TBOLD("'noise'") " and " TBOLD("'uv_plane'") " generate full bit-depth patterns with";
->>>>>>> Stashed changes
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL) {
                                 col() << " " << TERM_BOLD << get_codec_name(c) << TERM_RESET;
@@ -544,7 +572,6 @@ video_pattern_generator_create(std::string const & config, int width, int height
                 }
                 col() << "\n";
                 col() << "\t\t- pattern " << TBOLD("'raw'") " generates repeating sequence of given bytes without any color conversion\n";
-                col() << "\t\t- patterns marked with " << TBOLD("'*'") " provide help as its option\n";
                 return nullptr;
         }
         assert(width > 0 && height > 0);

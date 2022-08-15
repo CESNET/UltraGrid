@@ -90,12 +90,15 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define RGB_TO_Y_709_SCALED(r, g, b) ((r) * Y_R + (g) * Y_G + (b) * Y_B)
 #define RGB_TO_CB_709_SCALED(r, g, b) ((r) * CB_R + (g) * CB_G + (b) * CB_B)
 #define RGB_TO_CR_709_SCALED(r, g, b) ((r) * CR_R + (g) * CR_G + (b) * CR_B)
+#define LIMIT_LO(depth) (1<<((depth)-4))
+#define LIMIT_HI_Y(depth) (235 * (1<<((depth)-8)))
+#define LIMIT_HI_CBCR(depth) (240 * (1<<((depth)-8)))
 #ifdef YCBCR_FULL
 #define CLAMP_LIMITED_Y(val, depth) (val)
 #define CLAMP_LIMITED_CBCR(val, depth) (val)
 #else
-#define CLAMP_LIMITED_Y(val, depth) CLAMP((val), 1<<(depth-4), 235 * (1<<(depth-8)))
-#define CLAMP_LIMITED_CBCR(val, depth) CLAMP((val), 1<<(depth-4), 240 * (1<<(depth-8)))
+#define CLAMP_LIMITED_Y(val, depth) CLAMP((val), LIMIT_LO(depth), LIMIT_HI_Y(depth))
+#define CLAMP_LIMITED_CBCR(val, depth) CLAMP((val), 1<<(depth-4), LIMIT_HI_CBCR(depth))
 #endif
 
 #define R_CB(kr,kb) 0.0
