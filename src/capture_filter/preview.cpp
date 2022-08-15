@@ -158,6 +158,9 @@ static int init(struct module *parent, const char *cfg, void **state){
                         return 1;
                 } else if(key == "path"){
                         socket_path = val;
+                } else if(key == "key"){
+                        socket_path = PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME;
+                        socket_path += val;
                 } else if(key == "target_size"){
                         parse_num(tokenize(val, 'x'), s->target_width);
                         parse_num(tokenize(val, 'x'), s->target_height);

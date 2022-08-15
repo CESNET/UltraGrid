@@ -143,6 +143,8 @@ static void *display_unix_sock_init(struct module *parent,
                         return &display_init_noerr;
                 } else if(key == "path"){
                         socket_path = tokenize(tok, '=');
+                } else if(key == "key"){
+                        socket_path += tokenize(tok, '=');
                 } else if(key == "target_size"){
                         auto val = tokenize(tok, '=');
                         if(!parse_num(tokenize(val, 'x'), s->target_width)
