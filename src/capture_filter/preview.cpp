@@ -44,6 +44,7 @@
 #include <vector>
 #include <queue>
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
 #include <thread>
 
@@ -77,6 +78,7 @@ static struct video_frame *filter(void *state, struct video_frame *in);
 struct state_preview_filter{
         std::mutex mut;
         std::condition_variable frame_submitted_cv;
+        std::atomic<bool> should_exit = false;
 
         std::vector<Ipc_frame_uniq> free_frames;
         std::queue<Ipc_frame_uniq> frame_queue;
@@ -93,6 +95,9 @@ static void worker(struct state_preview_filter *s, std::string path){
 
         for(;;){
                 if(!writer){
+                        if(s->should_exit)
+                                break;
+
                         writer.reset(ipc_frame_writer_new(path.c_str()));
                         if(!writer){
                                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Unable to init ipc writer for path %s\n", path.c_str());
@@ -175,6 +180,7 @@ static void done(void *state){
         {
                 std::lock_guard<std::mutex> lock(s->mut);
                 s->frame_queue.push(nullptr);
+                s->should_exit = true;
         }
         s->frame_submitted_cv.notify_one();
         s->worker_thread.join();
