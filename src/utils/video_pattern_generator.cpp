@@ -280,7 +280,11 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
 
 class image_pattern_blank : public image_pattern {
         public:
-                explicit image_pattern_blank(uint32_t c = 0xFF000000U) : color(c) {}
+                explicit image_pattern_blank(string const &init) {
+                        if (!init.empty()) {
+                                color = stoi(init, nullptr, 0);
+                        }
+                }
 
         private:
                 enum generator_depth fill(int width, int height, unsigned char *data) override {
@@ -289,12 +293,16 @@ class image_pattern_blank : public image_pattern {
                         }
                         return generator_depth::bits8;
                 }
-                uint32_t color;
+                uint32_t color = 0xFF000000U;
 };
 
 class image_pattern_gradient : public image_pattern {
         public:
-                explicit image_pattern_gradient(uint32_t c) : color(c) {}
+                explicit image_pattern_gradient(const string &config) {
+                        if (!config.empty()) {
+                                color = stol(config, nullptr, 0);
+                        }
+                }
                 static constexpr uint32_t red = 0xFFU;
         private:
                 enum generator_depth fill(int width, int height, unsigned char *data) override {
@@ -310,14 +318,23 @@ class image_pattern_gradient : public image_pattern {
                         }
                         return generator_depth::bits8;
                 }
-                uint32_t color;
+                uint32_t color = image_pattern_gradient::red;;
 };
 
 class image_pattern_gradient2 : public image_pattern {
         public:
-                explicit image_pattern_gradient2(long maxval = 0XFFFFU) : val_max(maxval) {}
+                explicit image_pattern_gradient2(string const &config) {
+                        if (config.empty()) {
+                                return;
+                        }
+                        if (config == "help"s) {
+                                cout << "Testcard gradient2 usage:\n\t-t testcard:gradient2[=maxval] - maxval is 16-bit number\n";
+                                throw 1;
+                        }
+                        val_max = stol(config, nullptr, 0);
+                }
         private:
-                const unsigned int val_max;
+                unsigned int val_max = 0XFFFFU;
                 enum generator_depth fill(int width, int height, unsigned char *data) override {
                         assert(width > 1); // avoid division by zero
                         auto *ptr = reinterpret_cast<uint16_t *>(data);
@@ -377,6 +394,9 @@ class image_pattern_raw : public image_pattern {
                         if (config.empty()) {
                                 throw ug_runtime_error("Empty raw pattern is not allowed!");
                         }
+                        if (config.substr(0, "0x"s.length()) == "0x") { // strip optional "0x"
+                                config = config.substr(2);
+                        }
                         while (!config.empty()) {
                                 unsigned char byte = 0;
                                 if (sscanf(config.c_str(), "%2hhx", &byte) == 1) {
@@ -409,51 +429,32 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 pattern = config.substr(0, delim);
                 params = config.substr(delim + 1);
         }
-        if (config == "bars") {
+        if (pattern == "bars") {
                 return make_unique<image_pattern_bars>();
         }
-        if (config == "blank") {
-                return make_unique<image_pattern_blank>();
+        if (pattern == "blank") {
+                return make_unique<image_pattern_blank>(params);
         }
-        if (config == "ebu_bars") {
+        if (pattern == "ebu_bars") {
                 return make_unique<image_pattern_ebu_smpte_bars<0xFFU, 8>>();
         }
-        if (pattern == "gradient2") {
-                if (!params.empty()) {
-                        if (params == "help"s) {
-                                cout << "Testcard gradient2 usage:\n\t-t testcard:gradient2[=maxval] - maxval is 16-bit resolution\n";
-                                return {};
-                        }
-                        return make_unique<image_pattern_gradient2>(stol(params, nullptr, 0));
-                }
-                return make_unique<image_pattern_gradient2>();
-        }
         if (pattern == "gradient") {
-                uint32_t color = image_pattern_gradient::red;
-                if (!params.empty()) {
-                        color = stol(params, nullptr, 0);
-                }
-                return make_unique<image_pattern_gradient>(color);
+                return make_unique<image_pattern_gradient>(params);
+        }
+        if (pattern == "gradient2") {
+                return make_unique<image_pattern_gradient2>(params);
         }
         if (config == "noise") {
                 return make_unique<image_pattern_noise>();
         }
-        if (config.substr(0, "raw=0x"s.length()) == "raw=0x") {
-                return make_unique<image_pattern_raw>(config.substr("raw=0x"s.length()));
+        if (pattern == "raw") {
+                return make_unique<image_pattern_raw>(params);
         }
-        if (config == "smpte_bars") {
+        if (pattern == "smpte_bars") {
                 return make_unique<image_pattern_smpte_bars>();
         }
         if (pattern == "uv_plane") {
                 return make_unique<image_pattern_uv_plane>(params);
-        }
-        if (config.substr(0, "0x"s.length()) == "0x") {
-                uint32_t blank_color = 0U;
-                if (sscanf(config.substr("0x"s.length()).c_str(), "%x", &blank_color) == 1) {
-                        return make_unique<image_pattern_blank>(blank_color);
-                } else {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong color!\n";
-                }
         }
         throw ug_runtime_error("Unknown pattern: "s +  config + "!"s);
 }
@@ -563,7 +564,7 @@ video_pattern_generator_t
 video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
 {
         if (config == "help") {
-                col() << "Pattern to use, one of: " << TBOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>], 0x<AABBGGRR>\n");
+                col() << "Pattern to use, one of: " << TBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
                 col() << "\t\t- patterns " TBOLD("'gradient2'") ", " TBOLD("'noise'") " and " TBOLD("'uv_plane'") " generate full bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL) {
