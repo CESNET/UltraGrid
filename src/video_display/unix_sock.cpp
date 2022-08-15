@@ -135,7 +135,7 @@ static void *display_unix_sock_init(struct module *parent,
         }
 
         while(!fmt_sv.empty()){
-                auto tok = tokenize(fmt_sv, ':');
+                auto tok = tokenize(fmt_sv, ':', '"');
                 auto key = tokenize(tok, '=');
 
                 if(key == "help"){
@@ -158,6 +158,7 @@ static void *display_unix_sock_init(struct module *parent,
         s->ipc_frame.reset(ipc_frame_new());
         s->frame_writer.reset(ipc_frame_writer_new(socket_path.c_str()));
         if(!s->frame_writer){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to init ipc writer for path %s\n", socket_path.c_str());
                 return nullptr;
         }
 
