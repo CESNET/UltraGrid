@@ -1,5 +1,6 @@
 #include <iostream>
 #include <algorithm>
+#include <QRandomGenerator>
 #include "settings.hpp"
 #include "available_settings.hpp"
 
@@ -260,6 +261,15 @@ const struct {
 };
 
 Settings::Settings() : dummy(this){
+	int bounds = ('9' - '0') + ('z' - 'a');
+	for(int i = 0; i < 8; i++){
+		int rand = QRandomGenerator::global()->bounded(bounds);
+		if(rand <= 9)
+			sessRndKey += '0' + rand;
+		else
+			sessRndKey += 'a' + (rand - 9);
+	}
+
 	for(const auto &i : optionList){
 		auto &opt = addOption(i.name,
 				i.type,
