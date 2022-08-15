@@ -566,9 +566,9 @@ video_pattern_generator_create(std::string const & config, int width, int height
 {
         if (config == "help") {
                 col() << "Pattern to use, one of: " << TBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
-                col() << "\t\t- patterns " TBOLD("'gradient'") ", " TBOLD("'gradient2'") ", " TBOLD("'noise'") " and " TBOLD("'uv_plane'") " generate full bit-depth patterns with";
+                col() << "\t\t- patterns " TBOLD("'gradient'") ", " TBOLD("'gradient2'") ", " TBOLD("'noise'") " and " TBOLD("'uv_plane'") " generate higher bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
-                        if (get_decoder_from_to(RG48, c) != NULL) {
+                        if (get_decoder_from_to(RG48, c) != NULL && get_bits_per_component(c) > 8) {
                                 col() << " " << TERM_BOLD << get_codec_name(c) << TERM_RESET;
                         }
                 }
