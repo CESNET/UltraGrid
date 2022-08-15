@@ -573,6 +573,7 @@ video_pattern_generator_create(std::string const & config, int width, int height
                 }
                 col() << "\n";
                 col() << "\t\t- pattern " << TBOLD("'raw'") " generates repeating sequence of given bytes without any color conversion\n";
+                col() << "\t\t- patterns marked with " << TBOLD("'*'") " provide help as its option\n";
                 return nullptr;
         }
         assert(width > 0 && height > 0);
