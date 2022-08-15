@@ -297,6 +297,7 @@ std::string Settings::getLaunchParams() const{
 
 	if(getOption("preview").isEnabled()){
 		out += "--capture-filter preview";
+		out += ":key=" + getSessRndKey();
 	}
 
 	out += getOption("video.source").getLaunchOption();
@@ -307,6 +308,7 @@ std::string Settings::getLaunchParams() const{
 			out += dispOpt.getParam();
 			out += "multiplier:" + dispOpt.getValue() + dispOpt.getSubVals();
 			out += "#preview";
+			out += ":key=" + getSessRndKey();
 		} else {
 			out += getOption("video.display").getLaunchOption();
 		}
@@ -314,6 +316,7 @@ std::string Settings::getLaunchParams() const{
 		if(getOption("preview").isEnabled()){
 			out += dispOpt.getParam();
 			out += "preview";
+			out += ":key=" + getSessRndKey();
 		}
 	}
 
@@ -338,9 +341,12 @@ std::string Settings::getLaunchParams() const{
 std::string Settings::getPreviewParams() const{
 	std::string out;
 
-	out += " --capture-filter preview,every:0";
+	out += " --capture-filter preview";
+	out += ":key=" + getSessRndKey();
+	out += ",every:0";
 	out += getOption("video.source").getLaunchOption();
 	out += " -d preview";
+	out += ":key=" + getSessRndKey();
 	out += getOption("audio.source").getLaunchOption();
 	out += getOption("audio.source.channels").getLaunchOption();
 	out += " -r dummy";

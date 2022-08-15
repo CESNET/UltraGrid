@@ -75,9 +75,9 @@ void UltragridWindow::initializeUgOpts(){
 
 	setArgs();
 
-	ui.displayPreview->setKey("ug_preview_disp_unix");
+	ui.displayPreview->setKey("ug_preview_disp_unix" + settings.getSessRndKey());
 	ui.displayPreview->start();
-	ui.capturePreview->setKey("ug_preview_cap_unix");
+	ui.capturePreview->setKey("ug_preview_cap_unix" + settings.getSessRndKey());
 	ui.capturePreview->start();
 
 	QStringList args = QCoreApplication::arguments();
