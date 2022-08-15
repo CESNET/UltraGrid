@@ -530,16 +530,21 @@ video_pattern_generator_t
 video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
 {
         if (config == "help") {
-                cout << "Pattern to use, one of: " << BOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, gray, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
-                cout << "\t\t- patterns 'gradient2' and 'noise' generate full bit-depth patterns with";
+<<<<<<< Updated upstream
+                col() << "Pattern to use, one of: " << TBOLD("bars, blank, ebu_bars, gradient[=0x<AABBGGRR>], gradient2, gray, noise, raw=0xXX[YYZZ..], smpte_bars, 0x<AABBGGRR>\n");
+                col() << "\t\t- patterns " TBOLD("'gradient2'") " and " TBOLD("'noise'") " generate full bit-depth patterns with";
+=======
+                col() << "Pattern to use, one of: " << TBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
+                col() << "\t\t- patterns " TBOLD("'gradient2'") ", " TBOLD("'noise'") " and " TBOLD("'uv_plane'") " generate full bit-depth patterns with";
+>>>>>>> Stashed changes
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL) {
-                                cout << " " << BOLD(get_codec_name(c));
+                                col() << " " << TERM_BOLD << get_codec_name(c) << TERM_RESET;
                         }
                 }
-                cout << "\n";
-                cout << "\t\t- pattern 'raw' generates repeating sequence of given bytes without any color conversion\n";
-                cout << "\t\t- pattern 'smpte' uses the top bars from top 2 thirds only (doesn't render bottom third differently)\n";
+                col() << "\n";
+                col() << "\t\t- pattern " << TBOLD("'raw'") " generates repeating sequence of given bytes without any color conversion\n";
+                col() << "\t\t- patterns marked with " << TBOLD("'*'") " provide help as its option\n";
                 return nullptr;
         }
         assert(width > 0 && height > 0);
