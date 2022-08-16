@@ -22,7 +22,7 @@ greaterThan(QT_MAJOR_VERSION, 5) {
     QT += opengl openglwidgets
 }
 
-CONFIG += c++17
+CONFIG += c++1z #c++17, but older qmake does not support the flag
 CONFIG += silent
 
 LIBS += -pthread
