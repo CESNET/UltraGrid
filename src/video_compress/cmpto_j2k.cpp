@@ -291,13 +291,13 @@ static void usage() {
         cout << "where:\n";
         for(const auto& opt : usage_opts){
                 if (opt.is_boolean) {
-                        cout << BOLD("\t" << opt.opt_str + 1);
+                        col() << TBOLD("\t" << opt.opt_str + 1 <<);
                 } else {
-                        cout << BOLD("\t<" << opt.opt_str[1] << ">");
+                        col() << TBOLD("\t<" << opt.opt_str[1] << ">");
                 }
                 cout << " - " << opt.description << "\n";
         }
-        cout << BOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
+        col() << TBOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
 }
 
 #define ASSIGN_CHECK_VAL(var, str, minval) do { long long val = unit_evaluate(str); \

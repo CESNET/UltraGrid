@@ -87,13 +87,13 @@ struct state_vidcap_spout {
 
 static void usage()
 {
-        cout << "Usage:\n";
-        cout << "\t" << BOLD(RED("-t spout") << "[:name=<server_name>|device=<idx>][:fps=<fps>][:codec=<codec>]") << "\n";
-        cout << "where\n";
-        cout << "\t" << BOLD("name") << "\n\t\tSPOUT server name\n";
-        cout << "\t" << BOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
-        cout << "\t" << BOLD("codec") << "\n\t\tvideo codec (default: " << get_codec_name(DEFAULT_CODEC) << ")\n";
-        cout << "\nServers:\n";
+        col() << "Usage:\n";
+        col() << "\t" << TBOLD(TRED("-t spout") << "[:name=<server_name>|device=<idx>][:fps=<fps>][:codec=<codec>]") << "\n";
+        col() << "where\n";
+        col() << "\t" << TBOLD("name") << "\n\t\tSPOUT server name\n";
+        col() << "\t" << TBOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
+        col() << "\t" << TBOLD("codec") << "\n\t\tvideo codec (default: " << get_codec_name(DEFAULT_CODEC) << ")\n";
+        col() << "\nServers:\n";
         auto receiver = shared_ptr<SpoutReceiver>(new SpoutReceiver);
         int count = receiver->GetSenderCount();
 
@@ -110,7 +110,7 @@ static void usage()
                 if (!receiver->GetSenderInfo(name.data(), width, height, dxShareHandle, dwFormat)) {
                         LOG(LOG_LEVEL_ERROR) << "Cannot get server " << name.data() << "details\n";
                 }
-                cout << "\t" << i << ") " << BOLD(name.data()) << " - width: " << width << ", height: " << height << "\n";
+                col() << "\t" << i << ") " << TBOLD(<< name.data() <<) << " - width: " << width << ", height: " << height << "\n";
         }
 }
 

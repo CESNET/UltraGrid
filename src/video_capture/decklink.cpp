@@ -541,7 +541,7 @@ decklink_help(bool full)
         }
         cout << "\n";
         if (!full) {
-                cout << "Possible connections: " << BOLD("SDI") << ", " << BOLD("HDMI") << ", " << BOLD("OpticalSDI") << ", " << BOLD("Component") << ", " << BOLD("Composite") << ", " << BOLD("SVideo") << "\n";
+                col() << "Possible connections: " << TBOLD("SDI") << ", " << TBOLD("HDMI") << ", " << TBOLD("OpticalSDI") << ", " << TBOLD("Component") << ", " << TBOLD("Composite") << ", " << TBOLD("SVideo") << "\n";
         }
         cout << "\n";
 
@@ -563,7 +563,7 @@ decklink_help(bool full)
                 }
 		
 		// *** Print the model name of the DeckLink card
-                cout << "\t" << BOLD(numDevices) << ") " << BOLD(GREEN(deviceName)) << "\n";
+                col() << "\t" << TBOLD(<< numDevices <<) << ") " << TBOLD(TGREEN(<< deviceName <<)) << "\n";
 		
 		// Increment the total number of DeckLink cards found
 		numDevices++;

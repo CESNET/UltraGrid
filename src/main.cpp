@@ -337,7 +337,7 @@ void exit_uv(int status) {
 static void print_help_item(const string &name, const vector<string> &help) {
         int help_lines = 0;
 
-        cout << BOLD("\t" << name);
+        col() << "\t" << TBOLD(<< name <<);
 
         for (auto line : help) {
                 int spaces = help_lines == 0 ? 31 - (int) name.length() : 39;
@@ -356,7 +356,7 @@ static void print_help_item(const string &name, const vector<string> &help) {
 
 static void usage(const char *exec_path, bool full = false)
 {
-        cout << "Usage: " << BOLD(RED((exec_path ? exec_path : "<executable_path>")) << " [options] address\n\n");
+        col() << "Usage: " << TERM_BOLD TERM_FG_RED << (exec_path ? exec_path : "<executable_path>") << TERM_FG_RESET << " [options] address\n\n" TERM_RESET;
         printf("Options:\n");
         print_help_item("-h | --fullhelp", {"show usage (basic/full)"});
         print_help_item("-d <display_device>", {"select display device, use '-d help'",
@@ -435,7 +435,7 @@ static void print_fps(steady_clock::time_point *t0, int *frames, const string &n
         double seconds = duration_cast<duration<double>>(t1 - *t0).count();
         if (seconds >= 5.0) {
                 double fps = *frames / seconds;
-                LOG(LOG_LEVEL_INFO) << BOLD(rang::bg::black << rang::fg::bright_green << "[" << name << "]" << rang::fg::reset << rang::bg::reset) << " " << *frames << " frames in " << seconds << " seconds = " << BOLD(fps << " FPS\n");
+                log_msg(LOG_LEVEL_INFO, TERM_BG_BLACK TERM_FG_BRIGHT_GREEN "[%s]" TERM_RESET " %d frames in %g seconds = " TBOLD("%g FPS") "\n", name.c_str(), *frames, seconds, fps);
                 *t0 = t1;
                 *frames = 0;
         }
@@ -516,15 +516,15 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
                 return true;
         }
         if (strcmp(optarg, "help") == 0) {
-                const char numeric_pattern[] = "{1-9}{0-9}*[kMG][!][E]";
-                cout << "Usage:\n" <<
-                        "\tuv " << BOLD("-l [auto | dynamic | unlimited | " << numeric_pattern << "]\n") <<
+#               define NUMERIC_PATTERN "{1-9}{0-9}*[kMG][!][E]"
+                col() << "Usage:\n" <<
+                        "\tuv " << TERM_BOLD "-l [auto | dynamic | unlimited | " << NUMERIC_PATTERN << "]\n" TERM_RESET <<
                         "where\n"
-                        "\t" << BOLD("auto") << " - spread packets across frame time\n"
-                        "\t" << BOLD("dynamic") << " - similar to \"auto\" but more relaxed - occasional huge frame can spread 1.5x frame time (default)\n"
-                        "\t" << BOLD("unlimited") << " - send packets at a wire speed (in bursts)\n"
-                        "\t" << BOLD(numeric_pattern) << " - send packets at most at specified bitrate\n\n" <<
-                        BOLD("Notes: ") << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
+                        "\t" << TBOLD("auto") << " - spread packets across frame time\n"
+                        "\t" << TBOLD("dynamic") << " - similar to \"auto\" but more relaxed - occasional huge frame can spread 1.5x frame time (default)\n"
+                        "\t" << TBOLD("unlimited") << " - send packets at a wire speed (in bursts)\n"
+                        "\t" << TBOLD(NUMERIC_PATTERN) << " - send packets at most at specified bitrate\n\n" <<
+                        TBOLD("Notes: ") << "Use an exclamation mark to indicate intentionally very low bitrate. 'E' to use the value as a fixed bitrate, not cap /i. e. even the frames that may be sent at lower bitrate are sent at the nominal bitrate)\n" <<
                         "\n";
                 return true;
         }
@@ -604,12 +604,12 @@ static int parse_cuda_device(char *optarg) {
                 }
 
                 if(strncmp(token, "help", strlen("help")) == 0){
-                        cout << "Usage:\n" <<
-                                "\tuv " << BOLD("-Nholepunch:room=<room>:(server=<host> | coord_srv=<host:port>:stun_srv=<host:port>)[:client_name=<name>] \n") <<
+                        col() << "Usage:\n" <<
+                                "\tuv " << TBOLD("-Nholepunch:room=<room>:(server=<host> | coord_srv=<host:port>:stun_srv=<host:port>)[:client_name=<name>] \n") <<
                                 "\twhere\n"
-                                "\t\t" << BOLD("server") << " - used if both stun & coord server are on the same host on standard ports (3478, 12558)\n"
-                                "\t\t" << BOLD("room") << " - name of room to join\n"
-                                "\t\t" << BOLD("client_name") << " - name to identify as to the coord server, if not specified hostname is used\n"
+                                "\t\t" << TBOLD("server") << " - used if both stun & coord server are on the same host on standard ports (3478, 12558)\n"
+                                "\t\t" << TBOLD("room") << " - name of room to join\n"
+                                "\t\t" << TBOLD("client_name") << " - name to identify as to the coord server, if not specified hostname is used\n"
                                 "\n";
                         return false;
                 }
@@ -881,8 +881,8 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case OPT_PROTOCOL:
                         if (strcmp(optarg, "help") == 0 ||
                                         strcmp(optarg, "fullhelp") == 0) {
-                                cout << "Specify a " << BOLD("common") << " protocol for both audio and video.\n";
-                                cout << "Audio protocol can be one of: " << BOLD(AUDIO_PROTOCOLS "\n");
+                                col() << "Specify a " << TBOLD("common") << " protocol for both audio and video.\n";
+                                col() << "Audio protocol can be one of: " << TBOLD(AUDIO_PROTOCOLS) "\n";
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
                                 return EXIT_SUCCESS;
                         }
@@ -1385,17 +1385,17 @@ int main(int argc, char *argv[])
                 EXIT(ret);
         }
 
-        cout << BOLD("Display device   : ") << opt.requested_display << "\n";
-        cout << BOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
-        cout << BOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
-        cout << BOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
-        cout << BOLD("MTU              : ") << opt.requested_mtu << " B\n";
-        cout << BOLD("Video compression: ") << opt.requested_compression << "\n";
-        cout << BOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(opt.audio.codec_cfg)) << "\n";
-        cout << BOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
-        cout << BOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
-        cout << BOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
-        cout << "\n";
+        col() << TBOLD("Display device   : ") << opt.requested_display << "\n";
+        col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
+        col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
+        col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
+        col() << TBOLD("MTU              : ") << opt.requested_mtu << " B\n";
+        col() << TBOLD("Video compression: ") << opt.requested_compression << "\n";
+        col() << TBOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(opt.audio.codec_cfg)) << "\n";
+        col() << TBOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
+        col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
+        col() << TBOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
+        col() << "\n";
 
         exporter = export_init(&uv.root_module, opt.export_opts, opt.should_export);
         if (!exporter) {

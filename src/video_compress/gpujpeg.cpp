@@ -464,17 +464,17 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
 
         if(opts && strcmp(opts, "help") == 0) {
                 cout << "GPUJPEG comperssion usage:\n";
-                cout << "\t" << BOLD(RED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|Y601|Y601full|Y709]][:subsampling=<sub>][:alpha]\n");
+                col() << "\t" << TBOLD(TRED("-c GPUJPEG") << "[:<quality>[:<restart_interval>]][:interleaved][:RGB|Y601|Y601full|Y709]][:subsampling=<sub>][:alpha]\n");
                 cout << "where\n";
 
                 for(const auto& i : usage_opts){
-                    cout << "\t" <<BOLD(i.help_name) << "\n" << i.description;
+                    col() << "\t" << TBOLD(<< i.help_name <<) << "\n" << i.description;
                 }
 
-                cout << "\n";
-                cout << BOLD("Note:") << " instead of positional parameters for "
-                        "quality and restart intervals " << BOLD("\"q=\"") << " and " << BOLD("\"restart=\"") << " can be used.\n";
-                cout << "\n";
+                col() << "\n";
+                col() << TBOLD("Note:") << " instead of positional parameters for "
+                        "quality and restart intervals " << TBOLD("\"q=\"") << " and " << TBOLD("\"restart=\"") << " can be used.\n";
+                col() << "\n";
                 return &compress_init_noerr;
         }
         if (opts && strcmp(opts, "check") == 0) {

@@ -207,7 +207,6 @@ bool parse_log_cfg(const char *conf_str,
         assert(show_timestamps != nullptr);
 
         using std::clog;
-        using std::cout;
 
         static const struct { const char *name; int level; } mapping[] = {
                 { "quiet", LOG_LEVEL_QUIET },
@@ -224,13 +223,13 @@ bool parse_log_cfg(const char *conf_str,
         std::string_view cfg = conf_str;
 
         if (cfg == "help") {
-                cout << "log level: [0-" << LOG_LEVEL_MAX;
+                col() << "log level: [0-" << LOG_LEVEL_MAX;
                 for (auto m : mapping) {
-                        cout << "|" << m.name;
+                        col() << "|" << m.name;
                 }
-                cout << "][+repeat][+/-timestamps]\n";
-                cout << BOLD("\trepeat") << " - print repeating log messages\n";
-                cout << BOLD("\ttimestamps") << " - enable/disable timestamps\n";
+                col() << "][+repeat][+/-timestamps]\n";
+                col() << TBOLD("\trepeat") << " - print repeating log messages\n";
+                col() << TBOLD("\ttimestamps") << " - enable/disable timestamps\n";
                 return false;
         }
 

@@ -101,15 +101,15 @@ struct state_unix_sock {
 };
 
 static void show_help(){
-        std::cout << "unix_socket/preview display. The two display are identical apart from their defaults and the fact that preview never blocks on putf().\n";
-        std::cout << "usage:\n";
-        std::cout << rang::style::bold << rang::fg::red << "\t-d (unix_socket|preview)" << rang::fg::reset << "[:path=<path>][:target_size=<w>x<h>]"
-                << "\n\n" << rang::style::reset;
-        std::cout << "options:\n";
-        std::cout << BOLD("\tpath=<path>")           << "\tpath to unix socket to connect to. Defaults are \""
+        col() << "unix_socket/preview display. The two display are identical apart from their defaults and the fact that preview never blocks on putf().\n";
+        col() << "usage:\n";
+        col() << TBOLD(TRED("\t-d (unix_socket|preview)") << "[:path=<path>][:target_size=<w>x<h>]")
+                << "\n\n";
+        col() << "options:\n";
+        col() << TBOLD("\tpath=<path>")           << "\tpath to unix socket to connect to. Defaults are \""
                 << PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME "\" for preview and \""
                 << PLATFORM_TMP_DIR DEFAULT_DISP_FILENAME "\" for unix_sock\n";
-        std::cout << BOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
+        col() << TBOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
                 << "Defaults are -1x-1 for unix_sock and " TOSTRING(DEFAULT_SCALE_W) "x" TOSTRING(DEFAULT_SCALE_H) " for preview.\n";
 }
 

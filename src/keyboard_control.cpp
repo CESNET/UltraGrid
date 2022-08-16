@@ -471,11 +471,11 @@ void keyboard_control::run()
                 }
                 if (c == K_CTRL('X')) {
                         m_locked_against_changes = !m_locked_against_changes; // ctrl-x pressed
-                        cout << GREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
+                        col() << TGREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
                         continue;
                 }
                 if (m_locked_against_changes && guarded_keys.find(c) != guarded_keys.end()) {
-                        cout << GREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
+                        col() << TGREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
                         continue;
                 }
 
@@ -562,7 +562,7 @@ void keyboard_control::run()
                 case 's':
                         if (saved_log_level == -1) {
                                 saved_log_level = log_level;
-                                cout << GREEN("Output suspended, press 'q' to continue.\n");
+                                col() << TGREEN("Output suspended, press 'q' to continue.\n");
                                 log_level = LOG_LEVEL_QUIET;
                         }
                         break;
@@ -570,7 +570,7 @@ void keyboard_control::run()
                         if (saved_log_level != -1) {
                                 log_level = saved_log_level;
                                 saved_log_level = -1;
-                                cout << GREEN( "Output resumed.\n");
+                                col() << TGREEN( "Output resumed.\n");
                         }
                         break;
                 case 'h':
@@ -592,11 +592,11 @@ void keyboard_control::run()
 
 void keyboard_control::info()
 {
-        cout << BOLD("UltraGrid version: ") << get_version_details() << "\n";
-        cout << BOLD("Start time: ") << asctime(localtime(&m_start_time));
-        cout << BOLD("Verbosity level: ") << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
-        cout << BOLD("Locked against changes: ") << (m_locked_against_changes ? "true" : "false") << "\n";
-        cout << BOLD("Audio playback delay: " << get_audio_delay()) << " ms\n";
+        col() << TBOLD("UltraGrid version: ") << get_version_details() << "\n";
+        col() << TBOLD("Start time: ") << asctime(localtime(&m_start_time));
+        col() << TBOLD("Verbosity level: ") << log_level << (log_level == LOG_LEVEL_INFO ? " (default)" : "") << "\n";
+        col() << TBOLD("Locked against changes: ") << (m_locked_against_changes ? "true" : "false") << "\n";
+        col() << TBOLD("Audio playback delay: ") << get_audio_delay() << " ms\n";
 
         {
                 int muted_sender = -1;
@@ -609,11 +609,7 @@ void keyboard_control::info()
                         double vol = 0;
                         sscanf(response_get_text(resp), "%lf,%d", &vol, &muted_receiver);
                         double db = 20.0 * log10(vol);
-                        std::streamsize p = cout.precision();
-                        ios_base::fmtflags f = cout.flags();
-                        cout << BOLD("Playback volume: ") << fixed << setprecision(2) << vol * 100.0 << "% (" << (db >= 0.0 ? "+" : "") <<  db << " dB)\n";
-                        cout.precision(p);
-                        cout.flags(f);
+                        color_printf(TBOLD("Playback volume: ") "%.2f%% (%s%.2f dB)\n", vol * 100.0, (db >= 0.0 ? "+" : ""), db);
                 }
                 free_response(resp);
                 path = "audio.sender";
@@ -631,7 +627,7 @@ void keyboard_control::info()
                                 default: return "(unknown)";
                         }
                 };
-                cout << BOLD("Audio muted - sender: ") << muted_to_string(muted_sender) << ", " << BOLD("receiver: ") << muted_to_string(muted_receiver) << "\n";
+                col() << TBOLD("Audio muted - sender: ") << muted_to_string(muted_sender) << ", " << TBOLD("receiver: ") << muted_to_string(muted_receiver) << "\n";
         }
 
 	{
@@ -643,7 +639,7 @@ void keyboard_control::info()
                         const char *text = response_get_text(r);
                         istringstream iss(text);
                         iss >> desc;
-                        cout << BOLD("Captured video format: ") << desc << "\n";
+                        col() << TBOLD("Captured video format: ") << desc << "\n";
                 }
                 free_response(r);
 	}
@@ -657,7 +653,7 @@ void keyboard_control::info()
                         const char *text = response_get_text(r);
                         istringstream iss(text);
                         iss >> desc;
-                        cout << BOLD("Received video format: ") <<  desc << "\n";
+                        col() << TBOLD("Received video format: ") <<  desc << "\n";
                 }
                 free_response(r);
 	}
@@ -667,7 +663,7 @@ void keyboard_control::info()
                 strcpy(m->text, "get_port");
                 struct response *r = send_message_sync(m_root, "control", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) == RESPONSE_OK) {
-                        cout << BOLD("Control port: ") << response_get_text(r) << "\n";
+                        col() << TBOLD("Control port: ") << response_get_text(r) << "\n";
                 }
                 free_response(r);
 	}
@@ -677,7 +673,7 @@ void keyboard_control::info()
                 strcpy(m->text, "status");
                 struct response *r = send_message_sync(m_root, "exporter", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) == RESPONSE_OK) {
-                        cout << BOLD("Exporting: ") << response_get_text(r) << "\n";
+                        col() << TBOLD("Exporting: ") << response_get_text(r) << "\n";
                 }
                 free_response(r);
 	}
@@ -689,33 +685,33 @@ void keyboard_control::info()
 
 void keyboard_control::usage()
 {
-        cout << "\nAvailable keybindings:\n" <<
-                BOLD("\t  * 0  ") << "- increase volume" << G('*') << "\n" <<
-                BOLD("\t  / 9  ") << "- decrease volume" << G('/') << "\n" <<
-                BOLD("\t   >   ") << "- increase audio delay by 10 ms" << G('>') << "\n" <<
-                BOLD("\t   <   ") << "- decrease audio delay by 10 ms" << G('<') << "\n" <<
-                BOLD("\t   m   ") << "- mute/unmute receiver" << G('m') << "\n" <<
-                BOLD("\t   M   ") << "- mute/unmute sender" << G('M') << "\n" <<
-                BOLD("\t   v   ") << "- increase verbosity level" << G('v') << "\n" <<
-                BOLD("\t   V   ") << "- decrease verbosity level" << G('V') << "\n" <<
-                BOLD("\t   r   ") << "- skip repeated messages (toggle) " << G('r') << "\n" <<
-                BOLD("\t   e   ") << "- record captured content (toggle)" << G('e') << "\n" <<
-                BOLD("\t   h   ") << "- show help" << G('h') << "\n" <<
-                BOLD("\t   i   ") << "- show various information" << G('i') << "\n" <<
-                BOLD("\t  s S  ") << "- suspend/resume output" << G('s') << G('S') << "\n" <<
-                BOLD("\t  c C  ") << "- execute command through control socket (capital for multiple)" << G('c') << G('C') << "\n" <<
-                BOLD("\tCtrl-x ") << "- unlock/lock against changes" << G(K_CTRL('X')) << "\n" <<
-                BOLD("\tCtrl-c ") << "- exit " << G(K_CTRL('c')) << "\n" <<
+        col() << "\nAvailable keybindings:\n" <<
+                TBOLD("\t  * 0  ") << "- increase volume" << G('*') << "\n" <<
+                TBOLD("\t  / 9  ") << "- decrease volume" << G('/') << "\n" <<
+                TBOLD("\t   >   ") << "- increase audio delay by 10 ms" << G('>') << "\n" <<
+                TBOLD("\t   <   ") << "- decrease audio delay by 10 ms" << G('<') << "\n" <<
+                TBOLD("\t   m   ") << "- mute/unmute receiver" << G('m') << "\n" <<
+                TBOLD("\t   M   ") << "- mute/unmute sender" << G('M') << "\n" <<
+                TBOLD("\t   v   ") << "- increase verbosity level" << G('v') << "\n" <<
+                TBOLD("\t   V   ") << "- decrease verbosity level" << G('V') << "\n" <<
+                TBOLD("\t   r   ") << "- skip repeated messages (toggle) " << G('r') << "\n" <<
+                TBOLD("\t   e   ") << "- record captured content (toggle)" << G('e') << "\n" <<
+                TBOLD("\t   h   ") << "- show help" << G('h') << "\n" <<
+                TBOLD("\t   i   ") << "- show various information" << G('i') << "\n" <<
+                TBOLD("\t  s S  ") << "- suspend/resume output" << G('s') << G('S') << "\n" <<
+                TBOLD("\t  c C  ") << "- execute command through control socket (capital for multiple)" << G('c') << G('C') << "\n" <<
+                TBOLD("\tCtrl-x ") << "- unlock/lock against changes" << G(K_CTRL('X')) << "\n" <<
+                TBOLD("\tCtrl-c ") << "- exit " << G(K_CTRL('c')) << "\n" <<
                 "\n";
 
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
                 for (auto it : key_mapping) {
-                        cout << BOLD("\t" << setw(10) << get_keycode_representation(it.first) << setw(0)) << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << G(it.first) << "\n";
+                        col() << TBOLD("\t" << setw(10) << get_keycode_representation(it.first) << setw(0) <<) << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << G(it.first) << "\n";
                 }
                 cout << "\n";
         }
-        cout << BOLD("[g]") << " indicates that that option is guarded (Ctrl-x needs to be pressed first)\n";
+        col() << TBOLD("[g]") << " indicates that that option is guarded (Ctrl-x needs to be pressed first)\n";
 }
 
 void keyboard_control::load_config_map() {

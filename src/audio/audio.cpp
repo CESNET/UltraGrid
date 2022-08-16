@@ -213,15 +213,15 @@ static void audio_channel_map_usage(void)
 
 static void audio_scale_usage(void)
 {
-        cout << "Usage:\n";
-        cout << BOLD(RED("\t--audio-scale [<factor>|<method>]\n"));
-        cout << "\t        Floating point number that tells a static scaling factor for all\n";
-        cout << "\t        output channels. Scaling method can be one from these:\n";
-        cout << BOLD("\t          0.0-1.0") << " - factor to scale to (usually 0-1 but can be more)\n";
-        cout << BOLD("\t          mixauto") << " - automatically adjust volume if using channel\n";
-        cout << "\t                    mixing/remapping (default)\n";
-        cout << BOLD("\t          auto") << " - automatically adjust volume\n";
-        cout << BOLD("\t          none") << " - no scaling will be performed\n";
+        col() << "Usage:\n";
+        col() << TBOLD(TRED("\t--audio-scale [<factor>|<method>]\n"));
+        col() << "\t        Floating point number that tells a static scaling factor for all\n";
+        col() << "\t        output channels. Scaling method can be one from these:\n";
+        col() << TBOLD("\t          0.0-1.0") << " - factor to scale to (usually 0-1 but can be more)\n";
+        col() << TBOLD("\t          mixauto") << " - automatically adjust volume if using channel\n";
+        col() << "\t                    mixing/remapping (default)\n";
+        col() << TBOLD("\t          auto") << " - automatically adjust volume\n";
+        col() << TBOLD("\t          none") << " - no scaling will be performed\n";
 }
 
 /**
@@ -928,7 +928,7 @@ static void *asend_compute_and_print_stats(void *arg) {
                 volume << (i > 0 ? " "s : ""s) << 20.0 * log(rms) / log(10.0) << "/" << 20.0 * log(peak) / log(10.0);
         }
 
-        LOG(LOG_LEVEL_INFO) << "[Audio sender] Volume: " << fg::green << style::bold << volume.str() << style::reset << fg::reset << " dBFS RMS/peak" << BOLD(RED((d->muted_sender ? " (muted)" : ""))) << "\n" ;
+        LOG(LOG_LEVEL_INFO) << "[Audio sender] Volume: " << TBOLD(TGREEN(<< volume.str() <<)) << " dBFS RMS/peak" << (d->muted_sender ? TBOLD(TRED(" (muted)")) : "") << "\n" ;
 
         delete d;
 

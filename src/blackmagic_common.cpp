@@ -41,6 +41,7 @@
 #include "config_win32.h"
 #endif
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 #include <unordered_map>

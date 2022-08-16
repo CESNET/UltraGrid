@@ -129,23 +129,23 @@ static void show_help(struct vidcap_state_ndi *s) {
                 "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:progressive]\n" << rang::style::reset <<
                 "where\n";
 
-        cout << BOLD("\tname\n") <<
+        col() << TBOLD("\tname\n") <<
                 "\t\tname of the NDI source in form "
                 "\"MACHINE_NAME (NDI_SOURCE_NAME)\"\n";
-        cout << BOLD("\turl\n") <<
+        col() << TBOLD("\turl\n") <<
                 "\t\tURL, typically <ip> or <ip>:<port>\n";
-        cout << BOLD("\taudio_level\n") <<
+        col() << TBOLD("\taudio_level\n") <<
                 "\t\taudio headroom above reference level (in dB, or mic/line, default " << 20 * log(DEFAULT_AUDIO_DIVISOR) / log(10) << ")\n";
-        cout << BOLD("\tbandwidth\n") <<
-                "\t\trequired bandwidth, " << BOLD(NDIlib_recv_bandwidth_audio_only) << " - audio only, " << BOLD(NDIlib_recv_bandwidth_lowest) << " - lowest, " << BOLD(NDIlib_recv_bandwidth_highest) << " - highest (default)\n";
-        cout << BOLD("\tcolor\n") <<
-                "\t\tcolor format, " << BOLD(NDIlib_recv_color_format_BGRX_BGRA) << " - BGRX/BGRA, " << BOLD(NDIlib_recv_color_format_UYVY_BGRA)  << " - UYVY/BGRA, " <<
-                BOLD(NDIlib_recv_color_format_RGBX_RGBA) << " - RGBX/RGBA, " << BOLD(NDIlib_recv_color_format_UYVY_RGBA)  << " - UYVY/RGBA, " << BOLD(NDIlib_recv_color_format_fastest) <<
-                " - fastest (UYVY), " << BOLD(NDIlib_recv_color_format_best) << " - best (default, P216/UYVY)\n"
+        col() << TBOLD("\tbandwidth\n") <<
+                "\t\trequired bandwidth, " << TBOLD(<< NDIlib_recv_bandwidth_audio_only << ) << " - audio only, " TBOLD(<< NDIlib_recv_bandwidth_lowest <<) " - lowest, " TBOLD(<< NDIlib_recv_bandwidth_highest <<) " - highest (default)\n";
+        col() << TBOLD("\tcolor\n") <<
+                "\t\tcolor format, " << TBOLD(<< NDIlib_recv_color_format_BGRX_BGRA <<) << " - BGRX/BGRA, " << TBOLD(<< NDIlib_recv_color_format_UYVY_BGRA <<)  << " - UYVY/BGRA, " <<
+                TBOLD(<< NDIlib_recv_color_format_RGBX_RGBA <<) << " - RGBX/RGBA, " << TBOLD(<< NDIlib_recv_color_format_UYVY_RGBA <<)  << " - UYVY/RGBA, " << TBOLD(<< NDIlib_recv_color_format_fastest <<) <<
+                " - fastest (UYVY), " << TBOLD(<< NDIlib_recv_color_format_best <<) << " - best (default, P216/UYVY)\n"
                 "\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n";
-        cout << BOLD("\textra_ips\n") <<
+        col() << TBOLD("\textra_ips\n") <<
                 "\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\"\n";
-        cout << BOLD("\tprogressive\n") <<
+        col() << TBOLD("\tprogressive\n") <<
                 "\t\tprefer progressive capture for interlaced input\n"
                 "\n";
 

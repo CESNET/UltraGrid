@@ -60,7 +60,7 @@ struct state_flip {
 static int init(struct module *, const char *cfg, void **state)
 {
         if (strlen(cfg) > 0) {
-                std::cout << RED(BOLD("flip")) << " capture filter flips the video vertically (across horizontal axis), takes no arguments\n";
+                col() << TRED(TBOLD("flip")) << " capture filter flips the video vertically (across horizontal axis), takes no arguments\n";
                 return strcmp(cfg, "help") == 0 ? 1 : -1;
         }
         *state = static_cast<state_flip *>(calloc(1, sizeof(state_flip)));

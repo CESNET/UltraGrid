@@ -366,12 +366,12 @@ struct rpi4_display_state{
 };
 
 static void print_rpi4_out_help(){
-        std::cout << "usage:\n";
-        std::cout << rang::style::bold << rang::fg::red << "\t-d rpi4" << rang::fg::reset << "[:force-size=<w>x<h>|:position=<x>x<y>|:fs]* | help\n\n" << rang::style::reset;
-        std::cout << "options:\n";
-        std::cout << BOLD("\tfs")          << "\t\tfullscreen\n";
-        std::cout << BOLD("\tforce-size")  << "\t\tspecifies desired size of output\n";
-        std::cout << BOLD("\tposition")    << "\t\tspecifies the desired position of output (coordinates of top left corner)\n";
+        col() << "usage:\n";
+        col() << TBOLD(TRED("\t-d rpi4") << "[:force-size=<w>x<h>|:position=<x>x<y>|:fs]* | help\n\n");
+        col() << "options:\n";
+        col() << TBOLD("\tfs")          << "\t\tfullscreen\n";
+        col() << TBOLD("\tforce-size")  << "\t\tspecifies desired size of output\n";
+        col() << TBOLD("\tposition")    << "\t\tspecifies the desired position of output (coordinates of top left corner)\n";
 }
 
 static void *display_rpi4_init(struct module *parent, const char *cfg, unsigned int flags)

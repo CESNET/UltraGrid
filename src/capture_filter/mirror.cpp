@@ -60,7 +60,7 @@ struct state_mirror {
 static int init(struct module *, const char *cfg, void **state)
 {
         if (strlen(cfg) > 0) {
-                std::cout << RED(BOLD("mirror")) << " capture filter flips the video horizontally (across vertical axis), takes no arguments\n";
+                col() << TRED(TBOLD("mirror")) << " capture filter flips the video horizontally (across vertical axis), takes no arguments\n";
                 return strcmp(cfg, "help") == 0 ? 1 : -1;
         }
         *state = static_cast<state_mirror *>(calloc(1, sizeof(state_mirror)));

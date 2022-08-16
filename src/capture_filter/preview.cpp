@@ -127,14 +127,13 @@ static void worker(struct state_preview_filter *s, std::string path){
 }
 
 static void show_help(){
-        std::cout << "preview capture filter\n";
-        std::cout << "usage:\n";
-        std::cout << rang::style::bold << rang::fg::red << "\t--capture-filter preview" << rang::fg::reset << "[:path=<path>][:target_size=<w>x<h>]"
-                << "\n\n" << rang::style::reset;
-        std::cout << "options:\n";
-        std::cout << BOLD("\tpath=<path>")           << "\tpath to unix socket to connect to. Default is \""
+        col() << "preview capture filter\n";
+        col() << "usage:\n";
+        col() << TBOLD(TRED("\t--capture-filter preview") "[:path=<path>][:target_size=<w>x<h>]\n\n");
+        col() << "options:\n";
+        col() << TBOLD("\tpath=<path>")           << "\tpath to unix socket to connect to. Default is \""
                 << PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME "\"\n";
-        std::cout << BOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
+        col() << TBOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
                 << " Defaults are " TOSTRING(DEFAULT_SCALE_W) "x" TOSTRING(DEFAULT_SCALE_H) ".\n";
 }
 

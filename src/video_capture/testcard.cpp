@@ -84,8 +84,6 @@ constexpr int AUDIO_BUFFER_SIZE(int ch_count) { return AUDIO_SAMPLE_RATE * AUDIO
 #define MOD_NAME "[testcard] "
 constexpr video_desc default_format = { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 };
 
-using rang::fg;
-using rang::style;
 using namespace std;
 
 struct testcard_state {
