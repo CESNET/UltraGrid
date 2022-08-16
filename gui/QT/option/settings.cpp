@@ -1,6 +1,6 @@
 #include <iostream>
 #include <algorithm>
-#include <QRandomGenerator>
+#include <random>
 #include "settings.hpp"
 #include "available_settings.hpp"
 
@@ -261,9 +261,11 @@ const struct {
 };
 
 Settings::Settings() : dummy(this){
-	int bounds = ('9' - '0') + ('z' - 'a');
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution<> bounds(0, ('9' - '0') + ('z' - 'a'));
 	for(int i = 0; i < 8; i++){
-		int rand = QRandomGenerator::global()->bounded(bounds);
+		int rand = bounds(gen);
 		if(rand <= 9)
 			sessRndKey += '0' + rand;
 		else
