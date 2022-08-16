@@ -68,9 +68,9 @@ Ipc_frame_reader *ipc_frame_reader_new(const char *path){
 }
 
 void ipc_frame_reader_free(struct Ipc_frame_reader *reader){
-        if(reader->data_fd >= 0)
+        if(reader->data_fd != INVALID_SOCKET)
                 CLOSESOCKET(reader->data_fd);
-        if(reader->listen_fd >= 0)
+        if(reader->listen_fd != INVALID_SOCKET)
                 CLOSESOCKET(reader->listen_fd);
 
         delete reader;
@@ -91,6 +91,9 @@ static size_t blocking_read(fd_t fd, char *dst, size_t size){
 }
 
 static bool socket_read_avail(fd_t fd){
+        if(fd == INVALID_SOCKET)
+                return false;
+
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(fd, &fds);
@@ -113,14 +116,14 @@ static bool try_accept(struct Ipc_frame_reader *reader){
 }
 
 bool ipc_frame_reader_has_frame(struct Ipc_frame_reader *reader){
-        if(reader->data_fd < 0 && !try_accept(reader))
+        if(reader->data_fd == INVALID_SOCKET && !try_accept(reader))
                 return false;
 
         return socket_read_avail(reader->data_fd);
 }
 
 bool ipc_frame_reader_is_connected(struct Ipc_frame_reader *reader){
-        return reader->data_fd >= 0 || try_accept(reader);
+        return reader->data_fd != INVALID_SOCKET || try_accept(reader);
 }
 
 static bool do_frame_read(Ipc_frame_reader *reader, Ipc_frame *dst){
@@ -144,7 +147,7 @@ bool ipc_frame_reader_read(Ipc_frame_reader *reader, Ipc_frame *dst){
         bool ret = do_frame_read(reader, dst);
         if(!ret){
                 CLOSESOCKET(reader->data_fd);
-                reader->data_fd = -1;
+                reader->data_fd = INVALID_SOCKET;
         }
 
         return ret;
@@ -165,7 +168,7 @@ Ipc_frame_writer *ipc_frame_writer_new(const char *path){
         addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
 
         writer->data_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-        if(writer->data_fd < 0){
+        if(writer->data_fd == INVALID_SOCKET){
                 delete writer;
                 return nullptr;
         }
@@ -181,7 +184,7 @@ Ipc_frame_writer *ipc_frame_writer_new(const char *path){
 }
 
 void ipc_frame_writer_free(struct Ipc_frame_writer *writer){
-        if(writer->data_fd >= 0)
+        if(writer->data_fd != INVALID_SOCKET)
                 CLOSESOCKET(writer->data_fd);
 
         delete writer;
