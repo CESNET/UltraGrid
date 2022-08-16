@@ -68,11 +68,9 @@ static bool setWinTermAnsiColors(DWORD stream) {
         }
         return true;
 }
-#endif
 
 /// Taken from [rang](https://github.com/agauniyal/rang)
-bool isMsysPty(int fd) {
-#ifdef _WIN32
+static bool isMsysPty(int fd) {
         // Dynamic load for binary compability with old Windows
         const auto ptrGetFileInformationByHandleEx
                 = reinterpret_cast<decltype(&GetFileInformationByHandleEx)>(reinterpret_cast<void *>(
@@ -119,11 +117,8 @@ bool isMsysPty(int fd) {
         }
 
         return true;
-#else
-        (void) fd;
-        return false;
-#endif // defined _WIN32
 }
+#endif // defined _WIN32
 
 /**
  * @returns whether stdout can process ANSI escape sequences

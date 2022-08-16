@@ -38,6 +38,10 @@
 #ifndef COLOR_OUT_H_
 #define COLOR_OUT_H_
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
+
 #define TERM_RESET      "\033[0m"
 #define TERM_BOLD       "\033[1m"
 #define TERM_FG_RED     "\033[31m"
@@ -60,8 +64,6 @@ extern "C" {
 
 bool color_output_init(void);
 int color_printf(const char *format, ...) ATTRIBUTE(format (printf, 1, 2));
-// utils
-bool isMsysPty(int fd);
 
 #ifdef __cplusplus
 } // extern "C"
