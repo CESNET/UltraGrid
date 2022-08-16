@@ -56,6 +56,9 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include <inttypes.h>
+
 #include "debug.h"
 #include "perf.h"
 #include "rtp/rtp.h"
@@ -63,28 +66,15 @@
 #include "rtp/ptime.h"
 #include "rtp/pbuf.h"
 #include "tv.h"
-
-#include <algorithm>
-#include <climits>
-#include <iostream>
-#include <iomanip>
+#include "utils/color_out.h"
 
 #define PBUF_MAGIC	0xcafebabe
 
-constexpr int DEFAULT_STATS_INTERVAL = 128;
-constexpr size_t STAT_INT_MIN_DIVISOR = (sizeof(unsigned long long) * CHAR_BIT);
+#define DEFAULT_STATS_INTERVAL 128
+#define STAT_INT_MIN_DIVISOR (sizeof(unsigned long long) * CHAR_BIT)
 static_assert(DEFAULT_STATS_INTERVAL % STAT_INT_MIN_DIVISOR == 0,
                 "STATS_INTERVAL must be divisible by (sizeof(ull) * CHAR_BIT)");
-constexpr const char *MOD_NAME = "[Pbuf] ";
-
-using namespace std::string_literals;
-using std::dec;
-using std::hex;
-using std::max;
-using std::setfill;
-using std::setprecision;
-using std::setw;
-using std::to_string;
+#define MOD_NAME "[Pbuf] "
 
 struct pbuf_node {
         struct pbuf_node *nxt;
@@ -228,7 +218,7 @@ void pbuf_destroy(struct pbuf *playout_buf) {
                                 curr->prv->nxt = curr->nxt;
                         }
                         free_cdata(curr->cdata);
-                        delete curr;
+                        free(curr);
                         curr = temp;
                 }
                 free(playout_buf);
@@ -286,11 +276,10 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
 
 static struct pbuf_node *create_new_pnode(rtp_packet * pkt, long long playout_delay_us)
 {
-        struct pbuf_node *tmp;
 
         perf_record(UVP_CREATEPBUF, pkt->ts);
 
-        tmp = new struct pbuf_node();
+        struct pbuf_node *tmp = calloc(1, sizeof(struct pbuf_node));
         if (tmp != NULL) {
                 tmp->magic = PBUF_MAGIC;
                 tmp->rtp_timestamp = pkt->ts;
@@ -308,7 +297,7 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, long long playout_de
                         tmp->cdata->data = pkt;
                 } else {
                         free(pkt);
-                        delete tmp;
+                        free(tmp);
                         return NULL;
                 }
         } else {
@@ -319,22 +308,22 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, long long playout_de
 
 static void compute_longest_gap(int *longest_gap, unsigned long long int packets)
 {
-        constexpr int number_of_bits = sizeof(packets) * CHAR_BIT;
-        if (*longest_gap == number_of_bits) {
+#       define NUMBER_OF_BITS (sizeof packets * CHAR_BIT)
+        if (*longest_gap == NUMBER_OF_BITS) {
                 return;
         }
         if (packets == 0) {
-                *longest_gap = number_of_bits;
+                *longest_gap = NUMBER_OF_BITS;
                 return;
         }
         if (packets == ULLONG_MAX) {
                 return;
         }
 
-        *longest_gap = max<unsigned long long>(*longest_gap, __builtin_clzll(packets));
+        *longest_gap = MAX(*longest_gap, __builtin_clzll(packets));
 
         while (packets != 0) {
-                *longest_gap = max<unsigned long long>(*longest_gap, __builtin_ctzll(packets));
+                *longest_gap = MAX(*longest_gap, __builtin_ctzll(packets));
                 packets >>= 1;
         }
 }
@@ -342,36 +331,37 @@ static void compute_longest_gap(int *longest_gap, unsigned long long int packets
 static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt)
 {
         // collect statistics
-        constexpr size_t number_word_bytes = sizeof(unsigned long long);
-        constexpr size_t number_word_bits = number_word_bytes * CHAR_BIT;
+#       define NUMBER_WORD_BYTES sizeof(unsigned long long)
+#       define NUMBER_WORD_BITS (NUMBER_WORD_BYTES * CHAR_BIT)
         if (playout_buf->last_report_seq == -1) { // init
                 playout_buf->last_seq = pkt->seq - 1;
                 playout_buf->last_report_seq = pkt->seq / playout_buf->stats_interval * playout_buf->stats_interval;
                 for (uint16_t i = playout_buf->last_report_seq; i != pkt->seq; ++i) {
-                        unsigned long long current_bit = 1ull << (i % number_word_bits);
-                        playout_buf->packets[i / number_word_bits] |= current_bit;
+                        unsigned long long current_bit = 1ull << (i % NUMBER_WORD_BITS);
+                        playout_buf->packets[i / NUMBER_WORD_BITS] |= current_bit;
                 }
         }
-        unsigned long long current_bit = 1ull << (pkt->seq % number_word_bits);
-        if ((playout_buf->packets[pkt->seq / number_word_bits] & ~current_bit) > current_bit) {
+        unsigned long long current_bit = 1ull << (pkt->seq % NUMBER_WORD_BITS);
+        if ((playout_buf->packets[pkt->seq / NUMBER_WORD_BITS] & ~current_bit) > current_bit) {
                 playout_buf->out_of_order_pkts += 1;
                 int dist = ((pkt->seq + (1<<16U)) - playout_buf->last_seq) % (1<<16U);
-                playout_buf->max_out_of_order_dist = max<int>(playout_buf->max_out_of_order_dist, dist < 1<<15U ? dist : abs(dist - (1<<16U)));
+                dist = dist < 1<<15U ? dist : abs(dist - (1<<16U));
+                playout_buf->max_out_of_order_dist = MAX(playout_buf->max_out_of_order_dist, dist);
         }
         playout_buf->last_seq = pkt->seq;
-        if (playout_buf->packets[pkt->seq / number_word_bits] & current_bit) {
+        if (playout_buf->packets[pkt->seq / NUMBER_WORD_BITS] & current_bit) {
                 playout_buf->dups += 1;
         }
-        playout_buf->packets[pkt->seq / number_word_bits] |= current_bit;
+        playout_buf->packets[pkt->seq / NUMBER_WORD_BITS] |= current_bit;
         uint16_t dist = (uint16_t) (pkt->seq - playout_buf->last_report_seq);
         if (dist >= playout_buf->stats_interval * 2 && dist < 1U<<15U) {
                 uint16_t report_seq_until = (uint16_t) ((pkt->seq / playout_buf->stats_interval * playout_buf->stats_interval) - playout_buf->stats_interval); // sum up only up to current-playout_buf->stats_interval to be able to catch out-of-order packets
                 for (uint16_t i = playout_buf->last_report_seq;
-                                i != report_seq_until; i += number_word_bits) {
-                        playout_buf->expected_pkts += number_word_bits;
-                        playout_buf->received_pkts += __builtin_popcountll(playout_buf->packets[i / number_word_bits]);
-                        compute_longest_gap(&playout_buf->longest_gap, playout_buf->packets[i / number_word_bits]);
-                        playout_buf->packets[i / number_word_bits] = 0;
+                                i != report_seq_until; i += NUMBER_WORD_BITS) {
+                        playout_buf->expected_pkts += NUMBER_WORD_BITS;
+                        playout_buf->received_pkts += __builtin_popcountll(playout_buf->packets[i / NUMBER_WORD_BITS]);
+                        compute_longest_gap(&playout_buf->longest_gap, playout_buf->packets[i / NUMBER_WORD_BITS]);
+                        playout_buf->packets[i / NUMBER_WORD_BITS] = 0;
                 }
 
                 playout_buf->received_pkts_cum += playout_buf->received_pkts;
@@ -386,22 +376,23 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
                 // print stats
                 double loss_pct = (double) playout_buf->received_pkts /
                         playout_buf->expected_pkts * 100.0;
-                LOG(LOG_LEVEL_INFO) << "SSRC " << hex << setfill('0') << setw(8) <<
-                        pkt->ssrc << ": " << setw(0) << dec
-                        << playout_buf->received_pkts << "/"
-                        << playout_buf->expected_pkts << " packets received ("
-                        << (loss_pct < 100.0 ? TERM_FG_RED : "")
-                        << setprecision(4) << loss_pct << "%" << TERM_FG_RESET
-                        << "), " << playout_buf->expected_pkts - playout_buf->received_pkts
-                        << " lost, max loss " << playout_buf->longest_gap
-                        << (playout_buf->out_of_order_pkts > 0 ? ", "s + to_string(playout_buf->out_of_order_pkts) + " reordered pkts (max dist "s + to_string(playout_buf->max_out_of_order_dist) + ")"s : ""s)
-                        << (playout_buf->dups > 0 ? ", "s + std::to_string(playout_buf->dups) + " dups"s : ""s)
-                        << ".\n";
+                char oo_dups_str[1024];
+                oo_dups_str[0] = '\0';
+                if (playout_buf->out_of_order_pkts > 0) {
+                        snprintf(oo_dups_str, sizeof oo_dups_str, ", %d reordered pkts (max dist %d)", playout_buf->out_of_order_pkts, playout_buf->max_out_of_order_dist);
+                }
+                if (playout_buf->dups > 0) {
+                        snprintf(oo_dups_str + strlen(oo_dups_str), sizeof oo_dups_str - strlen(oo_dups_str), ", %d dups", playout_buf->dups);
+                }
+                log_msg(LOG_LEVEL_INFO, "SSRC 0x%08" PRIx32 ": %d/%d packets received (%s%.4f%%" TERM_FG_RESET "), %d lost, max loss %d%s\n",
+                                pkt->ssrc, playout_buf->received_pkts, playout_buf->expected_pkts, (loss_pct < 100.0 ? TERM_FG_RED : ""), loss_pct,
+                                playout_buf->expected_pkts - playout_buf->received_pkts, playout_buf->longest_gap, oo_dups_str);
+
                 if (playout_buf->max_out_of_order_dist >= playout_buf->stats_interval) {
                         size_t new_val = (playout_buf->max_out_of_order_dist + STAT_INT_MIN_DIVISOR - 1) / STAT_INT_MIN_DIVISOR * STAT_INT_MIN_DIVISOR;
                         if (new_val < 1U<<14U) {
                                 playout_buf->stats_interval = new_val;
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Adjusting stats interval to " << new_val << "\n";
+                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Adjusting stats interval to %zu\n", new_val);
                         }
                 }
                 playout_buf->expected_pkts = playout_buf->received_pkts = 0;
@@ -429,7 +420,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
 
         if (playout_buf->last->rtp_timestamp == pkt->ts) {
                 if (playout_buf->last->decoded) {
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Late data for already decoded frame!\n";
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Late data for already decoded frame!\n");
                 }
                 /* Packet belongs to last frame in playout_buf this is the */
                 /* most likely scenario - although...                      */
@@ -514,7 +505,7 @@ void pbuf_remove(struct pbuf *playout_buf, time_ns_t curr_time)
                                 curr->prv->nxt = curr->nxt;
                         }
                         free_cdata(curr->cdata);
-                        delete curr;
+                        free(curr);
                 } else {
                         /* The playout buffer is stored in order, so once  */
                         /* we see one packet that has not yet reached it's */
