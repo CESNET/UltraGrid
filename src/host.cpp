@@ -304,8 +304,9 @@ static bool parse_opts_set_logging(int argc, char *argv[])
         // of argv arguments - we do not have the whole option set in optstring, so it
         // would put optargs to the end ("uv -t testcard -V" -> "uv -t -V testcard")
 
-        int logging_lvl = LOG_LEVEL_INFO;
+        int logging_lvl = getenv("ULTRAGRID_VERBOSE") != nullptr ? LOG_LEVEL_VERBOSE : LOG_LEVEL_INFO;
         bool logger_skip_repeats = true;
+
         log_timestamp_mode logger_show_timestamps = LOG_TIMESTAMP_AUTO;
 
         for (int i = 1; i < argc; ++i) {

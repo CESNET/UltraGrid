@@ -244,10 +244,6 @@ bool parse_log_cfg(const char *conf_str,
                         *show_timestamps = LOG_TIMESTAMP_DISABLED;
         }
 
-        if (getenv("ULTRAGRID_VERBOSE") != nullptr) {
-                *log_lvl = LOG_LEVEL_VERBOSE;
-        }
-
         if (cfg.empty() || cfg[0] == '+' || cfg[0] == '-') { // only flags, no log level
                 return true;
         }
