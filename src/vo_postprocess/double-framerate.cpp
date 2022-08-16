@@ -69,27 +69,24 @@ static void usage()
 }
 
 static void * df_init(const char *config) {
-        struct state_df *s;
         bool deinterlace = false;
         bool nodelay = false;
 
-        if (config) {
-                if (strcmp(config, "help") == 0) {
-                        usage();
-                        return NULL;
-                } else if (strcmp(config, "d") == 0) {
-                        deinterlace = true;
-                } else if (strcmp(config, "nodelay") == 0) {
-                        nodelay = true;
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "Unknown config: %s\n", config);
-                        return NULL;
-                }
+        if (strcmp(config, "help") == 0) {
+                usage();
+                return NULL;
+        } else if (strcmp(config, "d") == 0) {
+                deinterlace = true;
+        } else if (strcmp(config, "nodelay") == 0) {
+                nodelay = true;
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "Unknown config: %s\n", config);
+                return NULL;
         }
 
-        s = new state_df{};
-
+        struct state_df *s = new state_df{};
         assert(s != NULL);
+
         s->in = vf_alloc(1);
         s->buffers[0] = s->buffers[1] = NULL;
         s->buffer_current = 0;

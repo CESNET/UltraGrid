@@ -62,64 +62,59 @@ static bool border_get_property(void * /* state */, int /* property */, void * /
 }
 
 static void * border_init(const char *config) {
-        struct state_border *s;
+        struct state_border *s = new state_border();
 
-        s = new state_border();
+        if (strcmp(config, "help") == 0) {
+                printf("border video postprocess takes optional parameters: color to be the border drawn with and border width. Example:\n");
+                printf("\t-p border[:color=rrggbb][:width=<x>][:height=<y>]\n");
+                printf("\n");
+                delete s;
+                return NULL;
+        }
+        char *tmp = strdup(config);
+        char *config_copy = tmp;
+        char *item, *save_ptr;
+        while ((item = strtok_r(config_copy, ":", &save_ptr))) {
+                if (strncasecmp(item, "color=", strlen("color=")) == 0) {
+                        const char *color = item + strlen("color=");
+                        if (color[0] == '#') {
+                                color += 1; //skip #
+                        }
+                        if (strlen(color) == 6) {
+                                char color_str[3] = "";
+                                color += 1; //skip #
 
-        if (config) {
-                if (strcmp(config, "help") == 0) {
-                        printf("border video postprocess takes optional parameters: color to be the border drawn with and border width. Example:\n");
-                        printf("\t-p border[:color=rrggbb][:width=<x>][:height=<y>]\n");
-                        printf("\n");
+                                for (int i = 0; i < 3; ++i) {
+                                        color_str[0] = color[0];
+                                        color_str[1] = color[1];
+
+                                        s->color[i] = strtol(color_str, NULL, 16);
+
+                                        color += 2;
+                                }
+                        } else {
+                                log_msg(LOG_LEVEL_ERROR, "Wrong color format!\"");
+                                free(tmp);
+                                delete s;
+                                return NULL;
+                        }
+                } else if (strncasecmp(item, "width=", strlen("width=")) == 0) {
+                        s->width = atoi(item + strlen("width="));
+                        s->width = (s->width + 1) / 2 * 2;
+                } else if (strncasecmp(item, "height=", strlen("height=")) == 0) {
+                        s->height = atoi(item + strlen("height="));
+                        s->height = (s->height + 1) / 2 * 2;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "Wrong config!\"");
+                        free(tmp);
                         delete s;
                         return NULL;
-                } else {
-                        char *tmp = strdup(config);
-                        char *config_copy = tmp;
-                        char *item, *save_ptr;
-                        while ((item = strtok_r(config_copy, ":", &save_ptr))) {
-                                if (strncasecmp(item, "color=", strlen("color=")) == 0) {
-                                        const char *color = item + strlen("color=");
-                                        if (color[0] == '#') {
-                                                color += 1; //skip #
-                                        }
-                                        if (strlen(color) == 6) {
-                                                char color_str[3] = "";
-                                                color += 1; //skip #
-
-                                                for (int i = 0; i < 3; ++i) {
-                                                        color_str[0] = color[0];
-                                                        color_str[1] = color[1];
-
-                                                        s->color[i] = strtol(color_str, NULL, 16);
-
-                                                        color += 2;
-                                                }
-                                        } else {
-                                                log_msg(LOG_LEVEL_ERROR, "Wrong color format!\"");
-                                                free(tmp);
-                                                delete s;
-                                                return NULL;
-                                        }
-                                } else if (strncasecmp(item, "width=", strlen("width=")) == 0) {
-                                        s->width = atoi(item + strlen("width="));
-                                        s->width = (s->width + 1) / 2 * 2;
-                                } else if (strncasecmp(item, "height=", strlen("height=")) == 0) {
-                                        s->height = atoi(item + strlen("height="));
-                                        s->height = (s->height + 1) / 2 * 2;
-                                } else {
-                                        log_msg(LOG_LEVEL_ERROR, "Wrong config!\"");
-                                        free(tmp);
-                                        delete s;
-                                        return NULL;
-                                }
-
-                                config_copy = NULL;
-                        }
-
-                        free(tmp);
                 }
+
+                config_copy = NULL;
         }
+
+        free(tmp);
 
         return s;
 }

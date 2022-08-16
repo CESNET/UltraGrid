@@ -86,15 +86,14 @@ static void usage()
 }
 
 static void * split_init(const char *config) {
-        struct state_split *s;
         char *save_ptr = NULL;
         char *item;
 
-        if(!config || strcmp(config, "help") == 0) {
+        if (strcmp(config, "help") == 0) {
                 usage();
                 return NULL;
         }
-        s = (struct state_split *) 
+        struct state_split *s = (struct state_split *)
                         malloc(sizeof(struct state_split));
 
         char *tmp = strdup(config);

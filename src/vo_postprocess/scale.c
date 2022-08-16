@@ -91,15 +91,10 @@ static void usage()
 }
 
 static void * scale_init(const char *config) {
-        struct state_scale *s;
         char *save_ptr = NULL;
         char *ptr;
 
-        if(!config) {
-                fprintf(stderr, "Scale postprocessor incorrect usage.\n");
-        }
-
-        if(!config || strcmp(config, "help") == 0) {
+        if (strcmp(config, "help") == 0) {
                 usage();
                 return NULL;
         }
@@ -107,8 +102,8 @@ static void * scale_init(const char *config) {
         char *tmp = strdup(config);
         assert(tmp != NULL);
 
-        s = (struct state_scale *) 
-                        calloc(1, sizeof(struct state_scale));
+        struct state_scale *s = (struct state_scale *)
+                calloc(1, sizeof(struct state_scale));
         assert(s != NULL);
 
         ptr = strtok_r(tmp, ":", &save_ptr);
@@ -120,6 +115,7 @@ static void * scale_init(const char *config) {
                 s->scaled_height = atoi(ptr);
         }
         if (s->scaled_width <= 0 || s->scaled_height <= 0) {
+                fprintf(stderr, "Scale postprocessor incorrect usage.\n");
                 usage();
                 free(s);
                 free(tmp);

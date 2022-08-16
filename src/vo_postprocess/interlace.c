@@ -67,15 +67,13 @@ static void usage()
 }
 
 static void * interlace_init(const char *config) {
-        struct state_interlace *s;
-
-        if(config && strcmp(config, "help") == 0) {
+        if (strcmp(config, "help") == 0) {
                 usage();
                 return NULL;
         }
 
-        s = (struct state_interlace *) 
-                        malloc(sizeof(struct state_interlace));
+        struct state_interlace *s = (struct state_interlace *)
+                malloc(sizeof(struct state_interlace));
 
         assert(s != NULL);
         s->odd = NULL;

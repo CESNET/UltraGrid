@@ -111,7 +111,7 @@ static void * text_init(const char *config) {
 
         struct state_text *s;
 
-        if(!config || strcmp(config, "help") == 0) {
+        if (strlen(config) == 0 || strcmp(config, "help") == 0) {
                 cout << "text video postprocess takes as a parameter text to be drawed. Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
                 cout << "Usage:\n";
                 cout << style::bold << "\t-p text:<text>\n" << style::reset;

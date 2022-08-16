@@ -66,14 +66,12 @@ static bool interlaced_3d_get_property(void *state, int property, void *val, siz
 
 
 static void * interlaced_3d_init(const char *config) {
-        struct state_interlaced_3d *s;
-        
-        if(config && strcmp(config, "help") == 0) {
+        if (strcmp(config, "help") == 0) {
                 printf("3d-interlaced takes no parameters.\n");
                 return NULL;
         }
-        s = (struct state_interlaced_3d *) 
-                        malloc(sizeof(struct state_interlaced_3d));
+        struct state_interlaced_3d *s = (struct state_interlaced_3d *)
+                malloc(sizeof(struct state_interlaced_3d));
         s->in = vf_alloc(2);
         
         return s;

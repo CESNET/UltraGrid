@@ -74,11 +74,7 @@ static bool crop_get_property(void * /* state */, int /* property */, void * /* 
 }
 
 static void * crop_init(const char *config) {
-        struct state_crop *s;
 
-        if (config == nullptr) {
-                return new state_crop();
-        }
         if (strcmp(config, "help") == 0) {
                 cout << "crop video postprocess takes optional parameters: "
                         << style::bold << "width" << style::reset << ", "
@@ -89,7 +85,7 @@ static void * crop_init(const char *config) {
                 return nullptr;
         }
 
-        s = new state_crop();
+        struct state_crop *s = new state_crop();
 
         char *tmp = strdup(config);
         char *config_copy = tmp;
