@@ -58,7 +58,6 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "perf.h"
 #include "rang.hpp"
 #include "utils/color_out.h" // unit_evaluate
 #include "utils/misc.h" // unit_evaluate
@@ -421,9 +420,6 @@ struct init_data *common_preinit(int argc, char *argv[])
 #ifdef __linux__
         mtrace();
 #endif
-
-        perf_init();
-        perf_record(UVP_INIT, 0);
 
         load_libgcc();
 

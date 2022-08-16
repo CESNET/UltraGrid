@@ -69,7 +69,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "perf.h"
 #include "crypto/openssl_encrypt.h"
 #include "module.h"
 #include "rang.hpp"
@@ -633,8 +632,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         tx_update(tx, frame, substream);
 
-        perf_record(UVP_SEND, ts);
-
         if (frame->fec_params.type == FEC_NONE) {
                 hdrs_len += (sizeof(video_payload_hdr_t));
                 rtp_hdr_len = sizeof(video_payload_hdr_t);
@@ -776,7 +773,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
         fec_check_messages(tx);
 
         timestamp = get_local_mediatime();
-        perf_record(UVP_SEND, timestamp);
 
         for (int channel = 0; channel < buffer->get_channel_count(); ++channel)
         {

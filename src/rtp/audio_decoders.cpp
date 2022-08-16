@@ -48,7 +48,6 @@
 #include "host.h"
 #include "lib_common.h"
 #include "module.h"
-#include "perf.h"
 #include "tv.h"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"

@@ -65,7 +65,6 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "module.h"
-#include "perf.h"
 #include "tv.h"
 #include "utils/thread.h"
 #include "utils/color_out.h"
@@ -343,7 +342,6 @@ struct video_frame *display_get_frame(struct display *d)
                 free_message(msg, r);
         }
 
-        perf_record(UVP_GETFRAME, d);
         assert(d->magic == DISPLAY_MAGIC);
         if (d->postprocess) {
                 return vo_postprocess_getf(d->postprocess);
@@ -365,7 +363,6 @@ struct video_frame *display_get_frame(struct display *d)
  */
 int display_put_frame(struct display *d, struct video_frame *frame, int flags)
 {
-        perf_record(UVP_PUTFRAME, frame);
         assert(d->magic == DISPLAY_MAGIC);
 
         if (!frame) {

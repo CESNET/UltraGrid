@@ -47,7 +47,6 @@
 #endif // HAVE_CONFIG_H
 
 #include "debug.h"
-#include "perf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"

@@ -38,7 +38,6 @@ DYLIBBUNDLER  = @DYLIBBUNDLER@
 DYLIBBUNDLER_FLAGS += @DYLIBBUNDLER_FLAGS@
 EXEEXT        = @EXEEXT@
 TARGET        = bin/uv$(EXEEXT)
-PERF          = bin/uv_perf
 BUNDLE        = uv.app
 GUI_BUNDLE    = gui/QT/uv-qt.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
@@ -83,7 +82,6 @@ COMMON_OBJS     = \
 		src/host.o \
 		src/keyboard_control.o \
 		src/messaging.o \
-		src/perf.o \
 		src/playback.o \
 		src/ntp.o \
 		src/pdb.o \
@@ -580,7 +578,6 @@ clean:
 	$(COND_SILENCE)-rm -f data/ag_plugin/uvReceiverService.zip data/ag_plugin/uvSenderService.zip
 	$(COND_SILENCE)-rm -rf $(BUNDLE)
 	$(COND_SILENCE)-rm -rf $(GUI_BUNDLE)
-	$(COND_SILENCE)-rm -rf $(PERF) src/uv_perf.o
 	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	$(COND_SILENCE)-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@
 	$(COND_SILENCE)-rm -rf $(DEP_FILES)
@@ -673,9 +670,6 @@ gui-bundle: $(GUI_BUNDLE)/Contents/libs
 osx-gui-dmg:
 	[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg
 	hdiutil create -fs HFS+ -volname ULTRAGRID -srcdir $(GUI_BUNDLE) -format UDZO -imagekey zlib-level=9 -o UltraGrid.dmg
-
-perf: src/tv.o src/crypto/random.o
-	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
 
 @TARGETS@
 

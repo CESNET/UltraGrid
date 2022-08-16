@@ -107,7 +107,6 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "perf.h"
 #include "rang.hpp"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
@@ -1512,8 +1511,6 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         int buffer_length = 0;
         int pt = 0;
         bool buffer_swapped = false;
-
-        perf_record(UVP_DECODEFRAME, cdata);
 
         // We have no framebuffer assigned, exitting
         if(!decoder->display) {

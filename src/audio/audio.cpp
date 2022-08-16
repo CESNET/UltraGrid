@@ -78,7 +78,6 @@
 #include "../export.h" // not audio/export.h
 #include "host.h"
 #include "module.h"
-#include "perf.h"
 #include "rang.hpp"
 #include "rtp/audio_decoders.h"
 #include "rtp/fec.h"

@@ -60,7 +60,6 @@
 #include <inttypes.h>
 
 #include "debug.h"
-#include "perf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/ptime.h"
@@ -276,9 +275,6 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
 
 static struct pbuf_node *create_new_pnode(rtp_packet * pkt, long long playout_delay_us)
 {
-
-        perf_record(UVP_CREATEPBUF, pkt->ts);
-
         struct pbuf_node *tmp = calloc(1, sizeof(struct pbuf_node));
         if (tmp != NULL) {
                 tmp->magic = PBUF_MAGIC;
