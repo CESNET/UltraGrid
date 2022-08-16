@@ -52,6 +52,9 @@ extern "C" {
 
 struct vo_postprocess_state;
 
+/**
+ * @param init optional configuration, cannot be null
+ */
 typedef  void *(*vo_postprocess_init_t)(const char *cfg);
 
 /**

@@ -81,7 +81,7 @@ static _Bool init(struct vo_postprocess_state *s, const char *config_string) {
         char *item = NULL;
 
         while ((item = strtok_r(tmp, ",", &save_ptr)) != NULL) {
-                char *vo_postprocess_options = NULL;
+                const char *vo_postprocess_options = "";
                 char *lib_name = item;
                 if (strchr(lib_name, ':')) {
                         vo_postprocess_options = strchr(lib_name, ':') + 1;
