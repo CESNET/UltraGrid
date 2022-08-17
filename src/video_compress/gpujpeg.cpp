@@ -258,8 +258,6 @@ bool encoder_state::configure_with(struct video_desc desc)
                                 m_encoder_param.quality);
         }
 
-        m_encoder_param.restart_interval = IF_NOT_UNDEF_ELSE(m_parent_state->m_restart_interval,
-                codec_is_a_rgb(m_enc_input_codec) ? 8 : 4);
 	m_encoder_param.verbose = max<int>(0, log_level - LOG_LEVEL_INFO);
 	m_encoder_param.segment_info = 1;
         int subsampling = IF_NOT_NULL_ELSE(m_parent_state->m_subsampling, get_subsampling(m_enc_input_codec) / 10);
@@ -294,6 +292,12 @@ bool encoder_state::configure_with(struct video_desc desc)
                                 get_codec_name(m_enc_input_codec));
                 abort();
         }
+        m_encoder_param.restart_interval = IF_NOT_UNDEF_ELSE(m_parent_state->m_restart_interval,
+#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 20, 4)
+                gpujpeg_encoder_suggest_restart_interval(&m_param_image, subsampling, m_encoder_param.interleaved, m_encoder_param.verbose);
+#else
+                codec_is_a_rgb(m_enc_input_codec) ? 8 : 4);
+#endif
         m_encoder = gpujpeg_encoder_create(NULL);
 
         int data_len = desc.width * desc.height * 3;
