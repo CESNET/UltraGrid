@@ -178,6 +178,8 @@ struct vidcap_decklink_state {
         uint32_t                link = 0; /// @deprecated TOREMOVE? It sets output link configuration, not input thus it should not be used here.
         bool                    nosig_send = false; ///< send video even when no signal detected
         bool                    keep_device_defaults = false;
+
+        void set_codec(codec_t c);
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -282,10 +284,9 @@ public:
                 }
 
                 unique_lock<mutex> lk(s->lock);
-                s->codec = m.at(csBitDepth);
+                s->set_codec(m.at(csBitDepth));
                 configuredCsBitDepth = csBitDepth;
 
-                LOG(LOG_LEVEL_INFO) << MODULE_NAME "Using codec: " << get_codec_name(s->codec) << "\n";
                 IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
                 deckLinkInput->PauseStreams();
                 BMDPixelFormat pf{};
@@ -663,7 +664,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if(strncasecmp(opt, "codec=",
                                 strlen("codec=")) == 0) {
                 const char *codec = opt + strlen("codec=");
-                s->codec = get_codec_from_name(codec);
+                s->set_codec(get_codec_from_name(codec));
                 if(s->codec == VIDEO_CODEC_NONE) {
                         fprintf(stderr, "Wrong config. Unknown color space %s\n", codec);
                         return false;
@@ -746,7 +747,7 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
 
                         tmp = strtok_r(NULL, ":", &save_ptr);
                         if (tmp) {
-                                s->codec = get_codec_from_name(tmp);
+                                s->set_codec(get_codec_from_name(tmp));
                                 if(s->codec == VIDEO_CODEC_NONE) {
                                         fprintf(stderr, "Wrong config. Unknown color space %s\n", tmp);
                                         return 0;
@@ -989,7 +990,7 @@ static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDi
                                 if (s->state[card_idx].delegate->newFrameReady) {
                                         *outDisplayMode = displayMode->GetDisplayMode();
                                         // set also detected codec (!)
-                                        s->codec = pf == bmdFormat8BitYUV ? UYVY : RGBA;
+                                        s->set_codec(pf == bmdFormat8BitYUV ? UYVY : RGBA);
                                         displayMode->Release();
                                         displayModeIterator->Release();
                                         return true;
@@ -1103,7 +1104,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
         default: abort();
         }
         if (s->codec == VIDEO_CODEC_NONE) {
-                s->codec = UYVY; // default one
+                s->set_codec(UYVY); // default one
         }
 
         if (!decklink_cap_configure_audio(s, vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY, &audioConnection)) {
@@ -1669,7 +1670,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                                         s->frame->tiles[i].data_len, 16, 8, 0);
                 }
         }
-        if (s->codec == R10k) {
+        if (s->codec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
                 for (unsigned i = 0; i < s->frame->tile_count; ++i) {
                         r10k_limited_to_full(s->frame->tiles[i].data, s->frame->tiles[i].data,
                                         s->frame->tiles[i].data_len);
@@ -1775,6 +1776,16 @@ static void print_input_modes (IDeckLink* deckLink)
                         get<3>(i) << "\n";
         }
 }
+
+void vidcap_decklink_state::set_codec(codec_t c) {
+        codec = c;
+        LOG(LOG_LEVEL_INFO) << MODULE_NAME "Using codec: " << get_codec_name(codec) << "\n";
+        if (c == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Using limited range R10k as specified by BMD, use '--param "
+                                R10K_FULL_OPT "' to override.\n");
+        }
+}
+
 
 static const struct video_capture_info vidcap_decklink_info = {
         vidcap_decklink_probe,

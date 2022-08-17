@@ -603,7 +603,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, int fla
 
         auto t0 = chrono::high_resolution_clock::now();
 
-        if (frame->color_spec == R10k) {
+        if (frame->color_spec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
                 for (unsigned i = 0; i < frame->tile_count; ++i) {
                         r10k_full_to_limited(frame->tiles[i].data, frame->tiles[i].data, frame->tiles[i].data_len);
                 }
@@ -726,6 +726,11 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         assert(s->magic == DECKLINK_MAGIC);
         
         s->vid_desc = desc;
+
+        if (desc.color_spec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Using limited range R10k as specified by BMD, use '--param "
+                                R10K_FULL_OPT "' to override.\n");
+        }
 
         auto it = std::find_if(uv_to_bmd_codec_map.begin(),
                         uv_to_bmd_codec_map.end(),

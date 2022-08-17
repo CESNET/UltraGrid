@@ -48,6 +48,7 @@
 
 #include "blackmagic_common.hpp"
 #include "debug.h"
+#include "host.h"
 #include "DeckLinkAPIVersion.h"
 #include "utils/worker.h"
 
@@ -523,4 +524,7 @@ void r10k_full_to_limited(const char *in, char *out, size_t len)
         respawn_parallel(const_cast<char *>(in), out, len / 4, 4, apply_r10k_lut, lut);
         DEBUG_TIMER_STOP(r10k_limited_to_full);
 }
+
+ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
+                "  Do not do conversion from/to limited range on in/out for R10k on BMD devs.\n");
 

@@ -129,5 +129,8 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
         }\
 } while (0)
 
+
+#define R10K_FULL_OPT "bmd-r10k-full-range"
+
 #endif // defined BLACKMAGIC_COMMON_HPP
 
