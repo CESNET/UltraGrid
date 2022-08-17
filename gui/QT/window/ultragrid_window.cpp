@@ -285,7 +285,6 @@ void UltragridWindow::closeEvent(QCloseEvent *e){
 	processMngr.stopAll(true);
 
 	log.close();
-	exit(0);
 	settingsWindow.close();
 }
 
