@@ -5,6 +5,7 @@
 #include <QWidget>
 #include <QPaintEvent>
 #include <memory>
+#include <atomic>
 
 #include <future>
 
@@ -31,6 +32,7 @@ public:
   	}
 
 	~VuMeterWidget(){
+		should_exit = true;
 		ug_control_cleanup();
 	}
 
@@ -41,6 +43,7 @@ private:
 	QTimer timer;
 	std::unique_ptr<ug_connection, void(*)(ug_connection *)> connection;
 	std::future<ug_connection *> future_connection;
+	std::atomic<bool> should_exit = false;
 
 	int port;
 

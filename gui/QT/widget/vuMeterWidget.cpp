@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <thread>
+#include <functional>
 #include <QPainter>
 #include <QBrush>
 #include <QLinearGradient>
@@ -11,16 +12,12 @@
 
 namespace{
 
-ug_connection *connectLoop(int port){
-	const int max_tries = 2;
-	int tries = 0;
-
+ug_connection *connectLoop(int port, const std::atomic<bool>& should_exit){
 	ug_connection *connection = nullptr;
 	connection = ug_control_connection_init(port);
-	while(!connection && tries < max_tries){
+	while(!connection && !should_exit){
 		std::this_thread::sleep_for (std::chrono::seconds(2));
 		connection = ug_control_connection_init(port);
-		tries++;
 	}
 
 	return connection;
@@ -192,7 +189,7 @@ void VuMeterWidget::connect_ug(){
 			c = future_connection.get();
 		}
 	} else {
-		future_connection = std::async(std::launch::async, connectLoop, port);
+		future_connection = std::async(std::launch::async, connectLoop, port, std::ref(should_exit));
 	}
 
 	if(!c)
