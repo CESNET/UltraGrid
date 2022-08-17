@@ -24,9 +24,9 @@ Shell tool to parse UltraGrid stack trace (produced when UG crashes).
 uyvy2yuv422p
 ------------
 
-Simple conversion from UYVY to planar YUV 4:2:2 (i420) utilized eg. by FFmpeg.
+Simple conversion from UYVY to planar YUV 4:2:2 (i422) utilized eg. by FFmpeg.
 
-ipc\_frame*
+ipc\_frame
 ------------
 
 Structures and functions to hold and parse video frames when transferring
