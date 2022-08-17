@@ -42,9 +42,12 @@
 #include "config_win32.h"
 #endif
 
-#include <assert.h>
-#include <limits.h>
-#include <math.h>
+#include <unistd.h>
+
+#include <cassert>
+#include <climits>
+#include <cmath>
+#include <cstring>
 
 #include "debug.h"
 #include "utils/misc.h"

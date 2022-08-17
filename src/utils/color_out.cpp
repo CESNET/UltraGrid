@@ -41,6 +41,9 @@
 #include "config_win32.h"
 #endif
 
+#include <unistd.h>
+
+#include <cstdarg>
 #include <iostream>
 
 #include "debug.h"
