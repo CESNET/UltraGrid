@@ -68,6 +68,7 @@ unsigned int          vidcap_params_get_flags(const struct vidcap_params *params
 const char           *vidcap_params_get_fmt(const struct vidcap_params *params);
 const char           *vidcap_params_get_name(const struct vidcap_params *params);
 struct module        *vidcap_params_get_parent(const struct vidcap_params *params);
+void                  vidcap_params_set_parent(struct vidcap_params *params, struct module *mod);
 void                  vidcap_params_set_device(struct vidcap_params *params, const char *config);
 void                  vidcap_params_set_capture_filter(struct vidcap_params *params,
                 const char *req_capture_filter);
