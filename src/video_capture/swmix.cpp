@@ -880,7 +880,7 @@ static bool get_slave_param_from_file(FILE* config_file, const char *slave_name,
         ret = fgets(line, sizeof(line), config_file);  // skip first line
         if(!ret) return false;
         while (fgets(line, sizeof(line), config_file)) {
-                char name[128];
+                char name[129];
                 int x_, y_, width_, height_;
                 if(sscanf(line, "%128s %d %d %d %d", name, &x_, &y_, &width_, &height_) != 5)
                         continue;
@@ -904,8 +904,8 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
         ret = fgets(line, sizeof(line), config_file);  // skip first line
         if(!ret) return false;
         while (fgets(line, sizeof(line), config_file)) {
-                char name[128];
-                char dev_config[128];
+                char name[129];
+                char dev_config[129];
                 int x_, y_, width_, height_;
                 if(sscanf(line, "%128s %d %d %d %d %128s", name, &x_, &y_, &width_, &height_, dev_config) != 6)
                         continue;
