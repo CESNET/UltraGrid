@@ -229,6 +229,10 @@ struct module *vidcap_params_get_parent(const struct vidcap_params *params)
         return params->parent;
 }
 
+void vidcap_params_set_parent(struct vidcap_params *params, struct module *mod){
+       params->parent = mod;
+}
+
 /**
  * Creates deep copy of @ref vidcap_params structure.
  */

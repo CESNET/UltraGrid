@@ -222,6 +222,7 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
         s->filter_registered = true;
         struct vidcap_params *params_dshow = vidcap_params_allocate();
         vidcap_params_set_device(params_dshow, "dshow:device=screen-capture-recorder");
+        vidcap_params_set_parent(params_dshow, vidcap_params_get_parent(params));
         int ret = vidcap_dshow_info.init(params_dshow, &s->dshow_state);
         if (ret != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "DirectShow init failed: %d\n", ret);
