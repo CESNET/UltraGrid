@@ -9,7 +9,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2022 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -385,14 +385,14 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                                 if(result == S_OK) {
                                         if (rightEyeFrame->GetFlags() & bmdFrameHasNoInputSource)
                                         {
-                                                fprintf(stderr, "Right Eye Frame received (#%d) - No input signal detected\n", s->frames);
+                                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Right Eye Frame received (#%d) - No input signal detected\n", s->frames);
                                         }
                                         rightEyeFrame->GetBytes(&pixelFrameRight);
                                 }
                         }
                         rightEye->Release();
                         if(!pixelFrameRight) {
-                                fprintf(stderr, "[DeckLink] Sending right eye error.\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Sending right eye error.\n");
                         }
                 }
         }
@@ -640,7 +640,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                         }
                 }
                 if (!found) {
-                        fprintf(stderr, "[DeckLink] Unrecognized connection %s.\n", connection);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized connection %s.\n", connection);
                         return false;
                 }
         } else if(strncasecmp(opt, "audio_level=",
@@ -666,7 +666,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 const char *codec = opt + strlen("codec=");
                 s->set_codec(get_codec_from_name(codec));
                 if(s->codec == VIDEO_CODEC_NONE) {
-                        fprintf(stderr, "Wrong config. Unknown color space %s\n", codec);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong config. Unknown color space %s\n", codec);
                         return false;
                 }
         } else if (strcasecmp(opt, "detect-format") == 0) {
@@ -749,7 +749,7 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
                         if (tmp) {
                                 s->set_codec(get_codec_from_name(tmp));
                                 if(s->codec == VIDEO_CODEC_NONE) {
-                                        fprintf(stderr, "Wrong config. Unknown color space %s\n", tmp);
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong config. Unknown color space %s\n", tmp);
                                         return 0;
                                 }
                         }
@@ -807,7 +807,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
                 }
                 int64_t connections_bitmap;
                 if(deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections_bitmap) != S_OK) {
-                        fprintf(stderr, "[DeckLink] Could not get connections.\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could not get connections, skipping device.\n");
                         continue;
                 }
 
@@ -1116,7 +1116,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 s->enable_flags |= bmdVideoInputDualStream3D;
                 s->supported_flags = (BMDSupportedVideoModeFlags) (s->supported_flags | bmdSupportedVideoModeDualStream3D);
                 if (s->devices_cnt > 1) {
-                        fprintf(stderr, "[DeckLink] Passed more than one device while setting 3D mode. "
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Passed more than one device while setting 3D mode. "
                                         "In this mode, only one device needs to be passed.");
                         delete s;
                         return VIDCAP_INIT_FAIL;
@@ -1330,17 +1330,15 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 if (result != S_OK) {
                         switch (result) {
                                 case E_INVALIDARG:
-                                        fprintf(stderr, "You have required invalid video mode and pixel format combination.\n");
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "You have required invalid video mode and pixel format combination.\n");
                                         break;
                                 case E_ACCESSDENIED:
-                                        fprintf(stderr, "Unable to access the hardware or input "
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to access the hardware or input "
                                                         "stream currently active (another application using it?).\n");
                                         break;
+                                default:
+                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not enable video input: " << bmd_hresult_to_string(result) << "\n";
                         }
-                        string err_msg = bmd_hresult_to_string(result);
-
-                        fprintf(stderr, "Could not enable video input: %s\n",
-                                        err_msg.c_str());
                         goto error;
                 }
 
@@ -1359,16 +1357,16 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                         { bmdAudioConnectionMicrophone, "microphone" },
                                         { bmdAudioConnectionHeadphones, "headphones" },
                                 };
-                                printf("[Decklink capture] Audio input set to: %s\n", mapping.find(audioConnection) != mapping.end() ? mapping.at(audioConnection).c_str() : "unknown");
+                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Audio input set to: %s\n", mapping.find(audioConnection) != mapping.end() ? mapping.at(audioConnection).c_str() : "unknown");
                         } else {
-                                fprintf(stderr, "[Decklink capture] Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
 
                         }
                         if (s->audio.ch_count != 1 &&
                                         s->audio.ch_count != 2 &&
                                         s->audio.ch_count != 8 &&
                                         s->audio.ch_count != 16) {
-                                fprintf(stderr, "[DeckLink] Decklink cannot grab %d audio channels. "
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Decklink cannot grab %d audio channels. "
                                                 "Only 1, 2, 8 or 16 are possible.", s->audio.ch_count);
                                 goto error;
                         }
@@ -1376,7 +1374,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                 result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
                                                 s->audio_consumer_levels == 1 ? true : false);
                                 if(result != S_OK) {
-                                        fprintf(stderr, "[DeckLink capture] Unable set input audio consumer levels.\n");
+                                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Unable set input audio consumer levels.\n");
                                 }
                         }
                         CALL_AND_CHECK(deckLinkInput->EnableAudioInput(
@@ -1460,21 +1458,18 @@ vidcap_decklink_done(void *state)
         {
 		result = s->state[i].deckLinkInput->StopStreams();
 		if (result != S_OK) {
-                        string err_msg = bmd_hresult_to_string(result);
-			fprintf(stderr, MODULE_NAME "Could not stop stream: %s\n", err_msg.c_str());
+                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Could not stop stream: " << bmd_hresult_to_string(result) << "\n";
 		}
 
                 if(s->grab_audio && i == 0) {
                         result = s->state[i].deckLinkInput->DisableAudioInput();
                         if (result != S_OK) {
-                                string err_msg = bmd_hresult_to_string(result);
-                                fprintf(stderr, MODULE_NAME "Could disable audio input: %s\n", err_msg.c_str());
+                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Could disable audio input: " << bmd_hresult_to_string(result) << "\n";
                         }
                 }
 		result = s->state[i].deckLinkInput->DisableVideoInput();
                 if (result != S_OK) {
-                        string err_msg = bmd_hresult_to_string(result);
-                        fprintf(stderr, MODULE_NAME "Could disable video input: %s\n", err_msg.c_str());
+                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Could disable video input: " << bmd_hresult_to_string(result) << "\n";
                 }
         }
 
@@ -1693,23 +1688,17 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
 	int 					displayModeNumber = 0;
 
 	// Query the DeckLink for its configuration interface
-	result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
-	if (result != S_OK)
-	{
-                string err_msg = bmd_hresult_to_string(result);
-		fprintf(stderr, "Could not obtain the IDeckLinkInput interface: %s\n", err_msg.c_str());
+        if ((result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput)) != S_OK) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not obtain the IDeckLinkInput interface: " << bmd_hresult_to_string(result) << "\n";
                 if (result == E_NOINTERFACE) {
-                        printf("Device doesn't support video capture.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Device doesn't support video capture.\n");
                 }
 		goto bail;
 	}
 
 	// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
-	result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
-	if (result != S_OK)
-	{
-                string err_msg = bmd_hresult_to_string(result);
-		fprintf(stderr, "Could not obtain the video input display mode iterator: %s\n", err_msg.c_str());
+        if ((result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator)) != S_OK) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not obtain the video input display mode iterator: " << bmd_hresult_to_string(result) << "\n";
 		goto bail;
 	}
 
