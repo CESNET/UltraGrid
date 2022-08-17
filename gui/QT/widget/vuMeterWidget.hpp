@@ -16,7 +16,6 @@ class VuMeterWidget : public QWidget{
 public:
 	VuMeterWidget(QWidget *parent) :
 		QWidget(parent),
-		connection(nullptr, ug_control_connection_done),
 		port(8888),
 		peak {0.0},
 		rms {0.0},
@@ -40,8 +39,11 @@ protected:
 	void paintEvent(QPaintEvent *paintEvent);
 
 private:
+	struct ug_connection_deleter{ void operator()(ug_connection *c){ ug_control_connection_done(c); } };
+	using unique_ug_connection = std::unique_ptr<ug_connection, ug_connection_deleter>;
+
 	QTimer timer;
-	std::unique_ptr<ug_connection, void(*)(ug_connection *)> connection;
+	unique_ug_connection connection;
 	std::future<ug_connection *> future_connection;
 	std::atomic<bool> should_exit = false;
 

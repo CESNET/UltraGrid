@@ -51,14 +51,13 @@ void VuMeterWidget::updateVal(){
 }
 
 void VuMeterWidget::updateVolumes(){
-	ug_connection *ug_c = connection.get();
-	if(ug_c == nullptr){
+	if(!connection){
 		connect_ug();
 		return;
 	}
 
 	int count; 
-	bool ret = ug_control_get_volumes(ug_c, peak, rms, &count);
+	bool ret = ug_control_get_volumes(connection.get(), peak, rms, &count);
 
 	connected = ret;
 	setToolTip(connected ? "" : "Unable to read volume info from UG");
@@ -178,10 +177,7 @@ void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 }
 
 void VuMeterWidget::connect_ug(){
-	disconnect_ug();
-
 	ug_connection *c = nullptr;
-
 	if(future_connection.valid()){
 		std::future_status status;
 		status = future_connection.wait_for(std::chrono::seconds(0));
@@ -192,12 +188,5 @@ void VuMeterWidget::connect_ug(){
 		future_connection = std::async(std::launch::async, connectLoop, port, std::ref(should_exit));
 	}
 
-	if(!c)
-		return;
-
-	connection = std::unique_ptr<ug_connection, void(*)(ug_connection *)>(c, ug_control_connection_done);
-}
-
-void VuMeterWidget::disconnect_ug(){
-	connection = std::unique_ptr<ug_connection, void(*)(ug_connection *)>(nullptr, ug_control_connection_done);
+	connection.reset(c);
 }
