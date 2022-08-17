@@ -946,9 +946,9 @@ rtsp_get_parameters(CURL *curl, const char *uri) {
  */
 static int
 rtsp_options(CURL *curl, const char *uri) {
-    char control[1500] = "",
-         user[1500] = "",
-         pass[1500] = "",
+    char control[1501] = "",
+         user[1501] = "",
+         pass[1501] = "",
          *strtoken;
 
     verbose_msg("\n[rtsp] OPTIONS %s\n", uri);
