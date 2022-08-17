@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <array>
+#include <string>
 
 #ifndef _WIN32
 #include <sys/types.h>
@@ -12,11 +13,13 @@
 #include <netinet/in.h>
 #define CLOSESOCKET close
 #define INVALID_SOCKET -1
+#define UNLINK unlink
 typedef int fd_t;
 #else
 #include <winsock2.h>
 #include <afunix.h>
 #define CLOSESOCKET closesocket
+#define UNLINK DeleteFileA
 typedef SOCKET fd_t;
 #endif
 
@@ -30,10 +33,12 @@ typedef SOCKET fd_t;
 struct Ipc_frame_reader{
         fd_t listen_fd;
         fd_t data_fd;
+        std::string path;
 };
 
 Ipc_frame_reader *ipc_frame_reader_new(const char *path){
         auto reader = new Ipc_frame_reader();
+        reader->path = path;
         reader->data_fd = INVALID_SOCKET;
 
         reader->listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -47,7 +52,7 @@ Ipc_frame_reader *ipc_frame_reader_new(const char *path){
         addr.sun_family = AF_UNIX;
         strncpy(addr.sun_path, path, sizeof(addr.sun_path));
         addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
-        unlink(path);
+        UNLINK(path);
 
         int ret = 0;
         ret = bind(reader->listen_fd, (const sockaddr *) &addr, sizeof(addr.sun_path));
@@ -72,6 +77,8 @@ void ipc_frame_reader_free(struct Ipc_frame_reader *reader){
                 CLOSESOCKET(reader->data_fd);
         if(reader->listen_fd != INVALID_SOCKET)
                 CLOSESOCKET(reader->listen_fd);
+
+        UNLINK(reader->path.c_str());
 
         delete reader;
 }
