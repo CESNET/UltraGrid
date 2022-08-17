@@ -189,6 +189,11 @@ void vidcap_params_set_capture_filter(struct vidcap_params *params,
         params->requested_capture_filter = strdup(req_capture_filter);
 }
 
+const char *vidcap_params_get_capture_filter(const struct vidcap_params *params)
+{
+        return params->requested_capture_filter;
+}
+
 void vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags)
 {
         params->flags = flags;

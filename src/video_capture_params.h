@@ -72,6 +72,7 @@ void                  vidcap_params_set_parent(struct vidcap_params *params, str
 void                  vidcap_params_set_device(struct vidcap_params *params, const char *config);
 void                  vidcap_params_set_capture_filter(struct vidcap_params *params,
                 const char *req_capture_filter);
+const char           *vidcap_params_get_capture_filter(const struct vidcap_params *params);
 void                  vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags);
 /// @}
 

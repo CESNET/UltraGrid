@@ -97,6 +97,7 @@
 #define _VIDEO_CAPTURE_H_
 
 #include "types.h"
+#include "video_capture_params.h"
 
 #define VIDEO_CAPTURE_ABI_VERSION 9
 
@@ -114,8 +115,6 @@ struct vidcap_type {
         int                      card_count;
         struct device_info      *cards;
 };
-
-struct vidcap_params;
 
 /// @name vidcap_retval
 /// @anchor vidcap_retval
@@ -159,8 +158,6 @@ bool                     vidcap_generic_fps(struct vidcap *state);
 #ifdef __cplusplus
 }
 #endif // __cplusplus
-
-#include "video_capture_params.h"
 
 #endif // _VIDEO_CAPTURE_H_
 /**

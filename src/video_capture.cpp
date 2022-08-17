@@ -71,23 +71,6 @@ using namespace std;
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
-struct vidcap_params;
-
-/**
- * Defines parameters passed to video capture driver.
-  */
-struct vidcap_params {
-        char  *driver; ///< driver name
-        char  *fmt;    ///< driver options
-        unsigned int flags;  ///< one of @ref vidcap_flags
-
-        char *requested_capture_filter;
-        char  *name;   ///< input name (capture alias in config file or complete config if not alias)
-        struct vidcap_params *next; /**< Pointer to next vidcap params. Used by aggregate capture drivers.
-                                     *   Last device in list has @ref driver set to NULL. */
-        struct module *parent;
-};
-
 /// @brief This struct represents video capture state.
 struct vidcap {
         struct module mod;
@@ -176,7 +159,8 @@ int initialize_video_capture(struct module *parent,
         while ((t = vidcap_params_get_next(t0))) {
                 t0 = t;
         }
-        if (t0->driver == NULL && t0->requested_capture_filter != NULL) {
+        if (vidcap_params_get_driver(t0) == NULL
+                        && vidcap_params_get_capture_filter(t0) != NULL) {
                 log_msg(LOG_LEVEL_ERROR, "Capture filter (--capture-filter) needs to be "
                                 "specified before capture (-t)\n");
                 return -1;
@@ -200,7 +184,7 @@ int initialize_video_capture(struct module *parent,
         d->mod.cls = MODULE_CLASS_CAPTURE;
         module_register(&d->mod, parent);
 
-        param->parent = &d->mod;
+        vidcap_params_set_parent(param, &d->mod);
         int ret = vci->init(param, &d->state);
 
         switch (ret) {
@@ -224,11 +208,11 @@ int initialize_video_capture(struct module *parent,
                 return ret;
         }
 
-        ret = capture_filter_init(&d->mod, param->requested_capture_filter,
+        ret = capture_filter_init(&d->mod, vidcap_params_get_capture_filter(param),
                 &d->capture_filter);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to initialize capture filter: %s.\n",
-                        param->requested_capture_filter);
+                        vidcap_params_get_capture_filter(param));
         }
 
         if (ret != 0) {
