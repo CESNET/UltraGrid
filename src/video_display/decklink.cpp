@@ -1271,19 +1271,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 if (s->play_audio && i == 0) {
                         /* Actually no action is required to set audio connection because Blackmagic card plays audio through all its outputs (AES/SDI/analog) ....
                          */
-                        printf(MOD_NAME "Audio output set to: ");
-                        switch(audioConnection) {
-                                case bmdAudioOutputSwitchAESEBU:
-                                        printf("AES/EBU");
-                                        break;
-                                case bmdAudioOutputSwitchAnalog:
-                                        printf("analog");
-                                        break;
-                                default:
-                                        printf("default");
-                                        break;
-                        }
-                        printf(".\n");
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Audio output set to: " << bmd_get_audio_connection_name(audioConnection) << "\n";
                          /*
                           * .... one exception is a card that has switchable cables between AES/EBU and analog. (But this applies only for channels 3 and above.)
                          */

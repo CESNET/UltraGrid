@@ -525,6 +525,17 @@ void r10k_full_to_limited(const char *in, char *out, size_t len)
         DEBUG_TIMER_STOP(r10k_limited_to_full);
 }
 
+string bmd_get_audio_connection_name(BMDAudioOutputAnalogAESSwitch audioConnection) {
+        switch(audioConnection) {
+                case bmdAudioOutputSwitchAESEBU:
+                        return "AES/EBU";
+                case bmdAudioOutputSwitchAnalog:
+                        return "analog";
+                default:
+                        return "default";
+        }
+}
+
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
                 "  Do not do conversion from/to limited range on in/out for R10k on BMD devs.\n");
 

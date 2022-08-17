@@ -105,6 +105,7 @@ void print_decklink_version(void);
 
 bool decklink_set_duplex(IDeckLink *decklink, uint32_t profileID);
 std::string bmd_get_device_name(IDeckLink *decklink);
+std::string bmd_get_audio_connection_name(BMDAudioOutputAnalogAESSwitch audioConnection);
 uint32_t bmd_read_fourcc(const char *);
 int parse_bmd_flag(const char *val);
 int invert_bmd_flag(int val);
