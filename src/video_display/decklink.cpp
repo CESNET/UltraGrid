@@ -1944,9 +1944,9 @@ static void print_output_modes (IDeckLink* deckLink)
         result = deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&deckLinkOutput);
         if (result != S_OK)
         {
-                fprintf(stderr, "Could not obtain the IDeckLinkOutput interface - result = %08x\n", (int) result);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not obtain the IDeckLinkOutput interface - result = %08x\n", (int) result);
                 if (result == E_NOINTERFACE) {
-                        printf("Device doesn't support video playback.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Device doesn't support video playback.\n");
                 }
                 goto bail;
         }
@@ -1955,7 +1955,7 @@ static void print_output_modes (IDeckLink* deckLink)
         result = deckLinkOutput->GetDisplayModeIterator(&displayModeIterator);
         if (result != S_OK)
         {
-                fprintf(stderr, "Could not obtain the video output display mode iterator - result = %08x\n", (int) result);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not obtain the video output display mode iterator - result = %08x\n", (int) result);
                 goto bail;
         }
 
