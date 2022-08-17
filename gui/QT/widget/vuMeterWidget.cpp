@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <thread>
 #include <QPainter>
 #include <QBrush>
 #include <QLinearGradient>
@@ -66,7 +67,6 @@ void VuMeterWidget::updateVolumes(){
 	setToolTip(connected ? "" : "Unable to read volume info from UG");
 
 	if(!ret){
-		last_connect = std::chrono::system_clock::now();
 		connect_ug();
 	}
 }

@@ -6,9 +6,7 @@
 #include <QPaintEvent>
 #include <memory>
 
-#include <chrono>
 #include <future>
-#include <thread>
 
 #include "astat.h"
 
@@ -60,8 +58,6 @@ private:
 	void updateVolumes();
 	void connect_ug();
 	void disconnect_ug();
-
-	std::chrono::system_clock::time_point last_connect;
 
 	void paintMeter(QPainter&, int x, int y, int width, int height, double peak, double rms);
 	void paintScale(QPainter&, int x, int y, int width, int height);
