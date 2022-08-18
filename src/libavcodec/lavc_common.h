@@ -1,5 +1,5 @@
 /**
- * @file   libavcodec_common.h
+ * @file   libavcodec/lavc_common.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
@@ -34,8 +34,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LIBAVCODEC_COMMON_H_
-#define LIBAVCODEC_COMMON_H_
+#ifndef LAVC_COMMON_H_C9D57362_067F_45AD_A491_A8084A39E675
+#define LAVC_COMMON_H_C9D57362_067F_45AD_A491_A8084A39E675
 
 #include "debug.h"
 #include "types.h"
@@ -237,5 +237,5 @@ void ug_set_av_log_level(void);
 }
 #endif
 
-#endif // LIBAVCODEC_COMMON_H_
+#endif // defined LAVC_COMMON_H_C9D57362_067F_45AD_A491_A8084A39E675
 

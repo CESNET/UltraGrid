@@ -44,7 +44,7 @@
 #include <stdio.h>
 #endif
 
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -1579,7 +1579,7 @@ then
         CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
         BLANK_OBJ="src/capture_filter/blank.o"
-        BLANK_OBJ="$BLANK_OBJ src/libavcodec_common.o" # get_ug_to_av_pixfmt()
+        BLANK_OBJ="$BLANK_OBJ src/libavcodec/lavc_common.o" # get_ug_to_av_pixfmt()
         ADD_MODULE("vcapfilter_blank", "$BLANK_OBJ", "$BLANK_LIBS")
         blank=yes
 fi
@@ -1839,7 +1839,7 @@ fi
 
 if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
 then
-        LIBAVCODEC_COMMON="src/libavcodec_common.o"
+        LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o"
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
         LIBAVCODEC_AUDIO_CODEC_OBJ="$LIBAVCODEC_COMMON src/audio/codec/libavcodec.o"
@@ -1902,7 +1902,7 @@ then
 
         COMMON_FLAGS="$COMMON_FLAGS $LIBAVFORMAT_CFLAGS"
         file=yes
-        ADD_MODULE("vidcap_file", "src/libavcodec_common.o src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
+        ADD_MODULE("vidcap_file", "src/libavcodec/lavc_common.o src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
 fi
 
 if test $file_req = yes -a $file = no; then

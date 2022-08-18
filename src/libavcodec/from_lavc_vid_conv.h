@@ -38,7 +38,7 @@
 #ifndef LIBAVCODEC_FROM_LAVC_VID_CONV_H_97E7417B_773A_453F_BB1A_37841E167152
 #define LIBAVCODEC_FROM_LAVC_VID_CONV_H_97E7417B_773A_453F_BB1A_37841E167152
 
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 
 #ifdef __cplusplus
 extern "C" {

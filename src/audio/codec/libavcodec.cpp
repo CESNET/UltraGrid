@@ -65,7 +65,7 @@ extern "C" {
 #include "audio/audio.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 
 #define MAGIC 0xb135ca11
 #define LOW_LATENCY_AUDIOENC_FRAME_DURATION 2.5

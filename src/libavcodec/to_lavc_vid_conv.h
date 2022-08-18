@@ -38,7 +38,7 @@
 #ifndef LIBAVCODEC_TO_LAVC_VID_CONV_0C22E28C_A3F1_489D_87DC_E56D76E3598B
 #define LIBAVCODEC_TO_LAVC_VID_CONV_0C22E28C_A3F1_489D_87DC_E56D76E3598B
 
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 
 #ifdef __cplusplus
 extern "C" {

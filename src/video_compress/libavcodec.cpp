@@ -60,7 +60,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 #include "libavcodec/lavc_video.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "messaging.h"

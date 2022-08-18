@@ -1,5 +1,5 @@
 /**
- * @file   libavcodec_common.c
+ * @file   lavc_common.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
@@ -55,7 +55,7 @@
 #include <stdint.h>
 
 #include "host.h"
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 #include "video.h"
 
 //

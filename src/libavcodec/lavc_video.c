@@ -50,8 +50,8 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "libavcodec_common.h"
 #include "lib_common.h"
+#include "libavcodec/lavc_common.h"
 #include "libavcodec/lavc_video.h"
 
 #ifdef HAVE_SWSCALE

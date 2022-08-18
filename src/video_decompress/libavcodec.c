@@ -43,7 +43,7 @@
 
 #include "debug.h"
 #include "host.h"
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 #include "libavcodec/lavc_video.h"
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "lib_common.h"

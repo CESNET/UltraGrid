@@ -69,7 +69,7 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "messaging.h"
 #include "module.h"

@@ -48,7 +48,7 @@
 #endif
 
 #include "hwaccel_libav_common.h"
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 
 void hwaccel_state_init(struct hw_accel_state *hwaccel){
         hwaccel->type = HWACCEL_NONE;
