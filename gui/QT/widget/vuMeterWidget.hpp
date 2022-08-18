@@ -14,26 +14,8 @@
 class VuMeterWidget : public QWidget{
 	Q_OBJECT
 public:
-	VuMeterWidget(QWidget *parent) :
-		QWidget(parent),
-		port(8888),
-		peak {0.0},
-		rms {0.0},
-		barLevel {0.0},
-		rmsLevel {0.0},
-		updatesPerSecond(24)
-   	{
-		connect(&timer, SIGNAL(timeout()), this, SLOT(updateVal()));
-		timer.start(1000/updatesPerSecond);
-		//setValue(50);
-		ug_control_init();
-		connect_ug();
-  	}
-
-	~VuMeterWidget(){
-		should_exit = true;
-		ug_control_cleanup();
-	}
+	VuMeterWidget(QWidget *parent);
+	~VuMeterWidget();
 
 protected:
 	void paintEvent(QPaintEvent *paintEvent);

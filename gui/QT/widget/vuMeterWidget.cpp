@@ -26,8 +26,29 @@ ug_connection *connectLoop(int port, const std::atomic<bool>& should_exit){
 	static constexpr int meterVerticalPad = 5;
 	static constexpr int meterBarPad = 2;
 	static constexpr double zeroLevel = -40.0;
+
 }//anon namespace
 
+VuMeterWidget::VuMeterWidget(QWidget *parent) :
+	QWidget(parent),
+	port(8888),
+	peak {0.0},
+	rms {0.0},
+	barLevel {0.0},
+	rmsLevel {0.0},
+	updatesPerSecond(24)
+{
+	connect(&timer, SIGNAL(timeout()), this, SLOT(updateVal()));
+	timer.start(1000/updatesPerSecond);
+	//setValue(50);
+	ug_control_init();
+	connect_ug();
+}
+
+VuMeterWidget::~VuMeterWidget(){
+	should_exit = true;
+	ug_control_cleanup();
+}
 
 void VuMeterWidget::updateVal(){
 	updateVolumes();
