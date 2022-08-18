@@ -9,7 +9,9 @@
 
 #include <future>
 
-#include "astat.h"
+struct ug_connection;
+struct ug_connection_deleter{ void operator()(ug_connection *c); };
+using unique_ug_connection = std::unique_ptr<ug_connection, ug_connection_deleter>;
 
 class VuMeterWidget : public QWidget{
 	Q_OBJECT
@@ -21,9 +23,6 @@ protected:
 	void paintEvent(QPaintEvent *paintEvent);
 
 private:
-	struct ug_connection_deleter{ void operator()(ug_connection *c){ ug_control_connection_done(c); } };
-	using unique_ug_connection = std::unique_ptr<ug_connection, ug_connection_deleter>;
-
 	QTimer timer;
 	unique_ug_connection connection;
 	std::future<ug_connection *> future_connection;

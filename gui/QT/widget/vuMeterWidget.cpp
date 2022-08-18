@@ -9,6 +9,7 @@
 #include <QString>
 #include <QStyle>
 #include "vuMeterWidget.hpp"
+#include "astat.h"
 
 namespace{
 
@@ -198,16 +199,18 @@ void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 }
 
 void VuMeterWidget::connect_ug(){
-	ug_connection *c = nullptr;
 	if(future_connection.valid()){
 		std::future_status status;
 		status = future_connection.wait_for(std::chrono::seconds(0));
 		if(status == std::future_status::ready){
-			c = future_connection.get();
+			unique_ug_connection c(future_connection.get());
+			connection = std::move(c);
 		}
 	} else {
 		future_connection = std::async(std::launch::async, connectLoop, port, std::ref(should_exit));
 	}
+}
 
-	connection.reset(c);
+void ug_connection_deleter::operator()(ug_connection *c){
+	ug_control_connection_done(c);
 }
