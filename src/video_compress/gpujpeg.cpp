@@ -294,7 +294,7 @@ bool encoder_state::configure_with(struct video_desc desc)
         }
         m_encoder_param.restart_interval = IF_NOT_UNDEF_ELSE(m_parent_state->m_restart_interval,
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 20, 4)
-                gpujpeg_encoder_suggest_restart_interval(&m_param_image, subsampling, m_encoder_param.interleaved, m_encoder_param.verbose);
+                gpujpeg_encoder_suggest_restart_interval(&m_param_image, subsampling, m_encoder_param.interleaved, m_encoder_param.verbose));
 #else
                 codec_is_a_rgb(m_enc_input_codec) ? 8 : 4);
 #endif
