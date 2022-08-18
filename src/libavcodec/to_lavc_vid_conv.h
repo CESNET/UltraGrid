@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-typedef void uv_to_av_convert(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height);
+typedef void uv_to_av_convert(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height);
 typedef uv_to_av_convert *pixfmt_callback_t;
 
 /**

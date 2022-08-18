@@ -76,14 +76,14 @@
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic warning "-Wpass-failed"
 
-static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         int y;
         for (y = 0; y < height - 1; y += 2) {
                 /*  every even row */
-                unsigned char *src = in_data + y * (((width + 1) & ~1) * 2);
+                const unsigned char *src = in_data + y * (((width + 1) & ~1) * 2);
                 /*  every odd row */
-                unsigned char *src2 = in_data + (y + 1) * (((width + 1) & ~1) * 2);
+                const unsigned char *src2 = in_data + (y + 1) * (((width + 1) & ~1) * 2);
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
                 unsigned char *dst_y2 = out_frame->data[0] + out_frame->linesize[0] * (y + 1);
                 unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * (y / 2);
@@ -106,7 +106,7 @@ static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __re
                 }
         }
         if (y < height) {
-                unsigned char *src = in_data + y * (((width + 1) & ~1) * 2);
+                const unsigned char *src = in_data + y * (((width + 1) & ~1) * 2);
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
                 unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * (y / 2);
                 unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * (y / 2);
@@ -125,7 +125,7 @@ static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, unsigned char * __re
         }
 }
 
-static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, unsigned char * __restrict src, int width, int height)
+static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
 {
         for(int y = 0; y < (int) height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -141,7 +141,7 @@ static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, unsigned char * __re
         }
 }
 
-static void uyvy_to_yuv444p(AVFrame * __restrict out_frame, unsigned char * __restrict src, int width, int height)
+static void uyvy_to_yuv444p(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
 {
         for(int y = 0; y < height; ++y) {
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
@@ -159,13 +159,13 @@ static void uyvy_to_yuv444p(AVFrame * __restrict out_frame, unsigned char * __re
         }
 }
 
-static void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void uyvy_to_nv12(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
-                unsigned char *src = in_data + y * (width * 2);
+                const unsigned char *src = in_data + y * (width * 2);
                 /*  every odd row */
-                unsigned char *src2 = in_data + (y + 1) * (width * 2);
+                const unsigned char *src2 = in_data + (y + 1) * (width * 2);
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
                 unsigned char *dst_y2 = out_frame->data[0] + out_frame->linesize[0] * (y + 1);
                 unsigned char *dst_cbcr = out_frame->data[1] + out_frame->linesize[1] * y / 2;
@@ -241,7 +241,7 @@ static void uyvy_to_nv12(AVFrame * __restrict out_frame, unsigned char * __restr
         }
 }
 
-static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -250,9 +250,9 @@ static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * 
 
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
-                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
                 /*  every odd row */
-                uint32_t *src2 = (uint32_t *)(void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                const uint32_t *src2 = (const void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_y2 = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
@@ -308,7 +308,7 @@ static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * 
         }
 }
 
-static void v210_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_yuv422p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -316,7 +316,7 @@ static void v210_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         for(int y = 0; y < height; y += 1) {
-                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -347,7 +347,7 @@ static void v210_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
         }
 }
 
-static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -355,7 +355,7 @@ static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * 
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         for(int y = 0; y < height; y += 1) {
-                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -392,7 +392,7 @@ static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * 
         }
 }
 
-static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -400,7 +400,7 @@ static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         for(int y = 0; y < height; y += 1) {
-                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -435,7 +435,7 @@ static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
         }
 }
 
-static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_p010le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -443,9 +443,9 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __res
 
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
-                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
                 /*  every odd row */
-                uint32_t *src2 = (uint32_t *)(void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                const uint32_t *src2 = (const void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_y2 = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
                 uint16_t *dst_cbcr = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
@@ -500,14 +500,14 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, unsigned char * __res
 }
 
 #ifdef HAVE_P210
-static void v210_to_p210le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void v210_to_p210le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
 
         for(int y = 0; y < height; y++) {
-                uint32_t *src = (uint32_t *)(void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cbcr = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
 
@@ -536,10 +536,10 @@ static void v210_to_p210le(AVFrame * __restrict out_frame, unsigned char * __res
 #endif
 
 #if defined __GNUC__
-static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, int v_subsampl_rate)
+static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, int v_subsampl_rate)
         __attribute__((always_inline));
 #endif
-static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, int v_subsampl_rate)
+static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, int v_subsampl_rate)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
@@ -550,7 +550,7 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, unsigned 
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * (y / v_subsampl_rate));
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * (y / v_subsampl_rate));
-                unsigned char *src = in_data + y * src_linesize;
+                const unsigned char *src = in_data + y * src_linesize;
                 int iterations = width / 2;
                 OPTIMIZED_FOR(int x = 0; x < iterations; x++){
                         comp_type_t r = src[0] << 2 | src[1] >> 6;
@@ -598,12 +598,12 @@ static inline void r10k_to_yuv42Xp10le(AVFrame * __restrict out_frame, unsigned 
         }
 }
 
-static void r10k_to_yuv420p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_yuv420p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r10k_to_yuv42Xp10le(out_frame, in_data, width, height, 2);
 }
 
-static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r10k_to_yuv42Xp10le(out_frame, in_data, width, height, 1);
 }
@@ -612,10 +612,10 @@ static void r10k_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * 
  * Converts to yuv444p 10/12/14 le
  */
 #if defined __GNUC__
-static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
         __attribute__((always_inline));
 #endif
-static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
@@ -626,7 +626,7 @@ static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                unsigned char *src = in_data + y * src_linesize;
+                const unsigned char *src = in_data + y * src_linesize;
                 OPTIMIZED_FOR(int x = 0; x < width; x++){
                         comp_type_t r = src[0] << 2 | src[1] >> 6;
                         comp_type_t g = (src[1] & 0x3F ) << 4 | src[2] >> 4;
@@ -644,27 +644,27 @@ static inline void r10k_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         }
 }
 
-static void r10k_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_yuv444p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r10k_to_yuv444pXXle(10, out_frame, in_data, width, height);
 }
 
-static void r10k_to_yuv444p12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_yuv444p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r10k_to_yuv444pXXle(12, out_frame, in_data, width, height);
 }
 
-static void r10k_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r10k_to_yuv444pXXle(16, out_frame, in_data, width, height);
 }
 
 // RGB full range to YCbCr bt. 709 limited range
 #if defined __GNUC__
-static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
         __attribute__((always_inline));
 #endif
-static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
@@ -680,7 +680,7 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
 
         const int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
-                unsigned char *src = in_data + y * src_linesize;
+                const unsigned char *src = in_data + y * src_linesize;
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -761,27 +761,27 @@ static inline void r12l_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         }
 }
 
-static void r12l_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r12l_to_yuv444p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r12l_to_yuv444pXXle(10, out_frame, in_data, width, height);
 }
 
-static void r12l_to_yuv444p12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r12l_to_yuv444p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r12l_to_yuv444pXXle(12, out_frame, in_data, width, height);
 }
 
-static void r12l_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r12l_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r12l_to_yuv444pXXle(16, out_frame, in_data, width, height);
 }
 
 /// @brief Converts RG48 to yuv444p 10/12/14 le
 #if defined __GNUC__
-static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
         __attribute__((always_inline));
 #endif
-static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 2 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -793,7 +793,7 @@ static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                uint16_t *src = (uint16_t *)(void *) (in_data + y * src_linesize);
+                const uint16_t *src = (const void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < width; x++){
                         comp_type_t r = *src++;
                         comp_type_t g = *src++;
@@ -810,26 +810,26 @@ static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
         }
 }
 
-static void rg48_to_yuv444p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rg48_to_yuv444p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         rg48_to_yuv444pXXle(10, out_frame, in_data, width, height);
 }
 
-static void rg48_to_yuv444p12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rg48_to_yuv444p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         rg48_to_yuv444pXXle(12, out_frame, in_data, width, height);
 }
 
-static void rg48_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rg48_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         rg48_to_yuv444pXXle(16, out_frame, in_data, width, height);
 }
 
 #if defined __GNUC__
-static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
+static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, unsigned int depth)
         __attribute__((always_inline));
 #endif
-static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
+static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, unsigned int depth)
 {
         assert((uintptr_t) in_data % 2 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -842,7 +842,7 @@ static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, unsigned 
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                uint16_t *src = (uint16_t *)(void *) (in_data + y * src_linesize);
+                const uint16_t *src = (const void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < (width + 1) / 2; x++){
                         *dst_y++ = *src++ >> (16U - depth);
                         *dst_cb++ = *src++ >> (16U - depth);
@@ -852,17 +852,17 @@ static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, unsigned 
         }
 }
 
-static void y216_to_yuv422p10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void y216_to_yuv422p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         y216_to_yuv422pXXle(out_frame, in_data, width, height, 10);
 }
 
-static void y216_to_yuv422p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void y216_to_yuv422p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         y216_to_yuv422pXXle(out_frame, in_data, width, height, 16);
 }
 
-static void y216_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void y216_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 2 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -875,7 +875,7 @@ static void y216_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                uint16_t *src = (uint16_t *)(void *) (in_data + y * src_linesize);
+                const uint16_t *src = (const void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < (width + 1) / 2; x++){
                         *dst_y++ = *src++;
                         dst_cb[0] = dst_cb[1] = *src++;
@@ -887,38 +887,38 @@ static void y216_to_yuv444p16le(AVFrame * __restrict out_frame, unsigned char * 
         }
 }
 
-static void rgb_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rgb_to_bgr0(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, RGB);
         int dst_linesize = vc_get_linesize(width, RGBA);
         for (int y = 0; y < height; ++y) {
-                unsigned char *src = in_data + y * src_linesize;
+                const unsigned char *src = in_data + y * src_linesize;
                 unsigned char *dst = out_frame->data[0] + out_frame->linesize[0] * y;
                 vc_copylineRGBtoRGBA(dst, src, dst_linesize, 16, 8, 0);
         }
 }
 
-static void r10k_to_bgr0(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_bgr0(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, R10k);
         int dst_linesize = vc_get_linesize(width, RGBA);
         decoder_t vc_copyliner10k = get_decoder_from_to(R10k, RGBA);
         for (int y = 0; y < height; ++y) {
-                unsigned char *src = in_data + y * src_linesize;
+                const unsigned char *src = in_data + y * src_linesize;
                 unsigned char *dst = out_frame->data[0] + out_frame->linesize[0] * y;
                 vc_copyliner10k(dst, src, dst_linesize, 16, 8, 0);
         }
 }
 
 #if defined __GNUC__
-static inline void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, int bpp)
+static inline void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, int bpp)
         __attribute__((always_inline));
 #endif
-static inline void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, int bpp)
+static inline void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, int bpp)
 {
         int src_linesize = bpp * width;
         for (int y = 0; y < height; ++y) {
-                unsigned char *src = in_data + y * src_linesize;
+                const unsigned char *src = in_data + y * src_linesize;
                 unsigned char *dst_g = out_frame->data[0] + out_frame->linesize[0] * y;
                 unsigned char *dst_b = out_frame->data[1] + out_frame->linesize[1] * y;
                 unsigned char *dst_r = out_frame->data[2] + out_frame->linesize[2] * y;
@@ -939,13 +939,13 @@ static inline void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned cha
  * RGB because the module doesn't set 444 and 10-bit properties (IS_* macros).
  * However, if those macros were toggled on, stream with artifacts is produded.
  */
-static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height) ATTRIBUTE(unused);
+static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height) ATTRIBUTE(unused);
 
-static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         int src_linesize = vc_get_linesize(width, R10k);
         for (int y = 0; y < height; ++y) {
-                uint32_t *src = (uint32_t *)(void *) (in_data + y * src_linesize);
+                const uint32_t *src = (const void *) (in_data + y * src_linesize);
                 uint32_t *dst = (uint32_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 for (int x = 0; x < width; ++x) {
                         *dst++ = htonl(*src++); /// @todo worked, but should be AFAIK htonl(*src++)>>2
@@ -953,21 +953,21 @@ static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, unsigned char * __
         }
 }
 
-static void rgb_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rgb_to_gbrp(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, 3);
 }
 
-static void rgba_to_gbrp(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rgba_to_gbrp(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, 4);
 }
 
 #if defined __GNUC__
-static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
+static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, unsigned int depth)
         __attribute__((always_inline));
 #endif
-static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int depth)
+static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, unsigned int depth)
 {
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
@@ -975,7 +975,7 @@ static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned cha
 
         int src_linesize = vc_get_linesize(width, R10k);
         for (int y = 0; y < height; ++y) {
-                unsigned char *src = in_data + y * src_linesize;
+                const unsigned char *src = in_data + y * src_linesize;
                 uint16_t *dst_g = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_b = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_r = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -992,12 +992,12 @@ static inline void r10k_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned cha
         }
 }
 
-static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_gbrp10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r10k_to_gbrpXXle(out_frame, in_data, width, height, 10U);
 }
 
-static void r10k_to_gbrp16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r10k_to_gbrp16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r10k_to_gbrpXXle(out_frame, in_data, width, height, 16U);
 }
@@ -1010,10 +1010,10 @@ static void r10k_to_gbrp16le(AVFrame * __restrict out_frame, unsigned char * __r
 
 /// @note out_depth needs to be at least 12
 #if defined __GNUC__
-static inline void r12l_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int out_depth)
+static inline void r12l_to_gbrpXXle(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, unsigned int out_depth)
         __attribute__((always_inline));
 #endif
-static inline void r12l_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height, unsigned int out_depth)
+static inline void r12l_to_gbrpXXle(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height, unsigned int out_depth)
 {
         assert(out_depth >= 12);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -1025,7 +1025,7 @@ static inline void r12l_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned cha
 
         int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
-                unsigned char *src = in_data + y * src_linesize;
+                const unsigned char *src = in_data + y * src_linesize;
                 uint16_t *dst_g = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_b = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_r = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -1095,18 +1095,18 @@ static inline void r12l_to_gbrpXXle(AVFrame * __restrict out_frame, unsigned cha
         }
 }
 
-static void r12l_to_gbrp16le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r12l_to_gbrp16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r12l_to_gbrpXXle(out_frame, in_data, width, height, 16U);
 }
 
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
-static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r12l_to_gbrpXXle(out_frame, in_data, width, height, 12U);
 }
 
-static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __restrict in_data, int width, int height)
+static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 2 == 0);
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
@@ -1115,7 +1115,7 @@ static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, unsigned char * __r
 
         int src_linesize = vc_get_linesize(width, RG48);
         for (int y = 0; y < height; ++y) {
-                uint16_t *src = (uint16_t *)(void *) (in_data + y * src_linesize);
+                const uint16_t *src = (const void *) (in_data + y * src_linesize);
                 uint16_t *dst_g = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_b = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_r = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);

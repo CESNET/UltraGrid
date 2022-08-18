@@ -145,7 +145,6 @@ static void setparam_jpeg(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8_vp9(AVCodecContext *, struct setparam_param *);
 static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_param *param);
 
-typedef void (*pixfmt_callback_t)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src);
 static void show_encoder_help(string const &name);
 static void print_codec_supp_pix_fmts(const enum AVPixelFormat *first);
@@ -1358,7 +1357,7 @@ static pixfmt_callback_t select_pixfmt_callback(AVPixelFormat fmt, codec_t src) 
 }
 
 struct pixfmt_conv_task_data {
-        void (*callback)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+        pixfmt_callback_t callback;
         AVFrame *out_frame;
         unsigned char *in_data;
         int width;
