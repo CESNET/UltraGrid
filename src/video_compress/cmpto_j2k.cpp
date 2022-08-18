@@ -276,26 +276,26 @@ struct {
 };
 
 static void usage() {
-        cout << "J2K compress usage:\n";
-        cout << rang::style::bold << RED("\t-c cmpto_j2k");
+        col() << "J2K compress usage:\n";
+        col() << TERM_BOLD << TRED("\t-c cmpto_j2k");
         for(const auto& opt : usage_opts){
                 assert(strlen(opt.opt_str) >= 2);
-                cout << "[" << opt.opt_str;
+                col() << "[" << opt.opt_str;
                 if (!opt.is_boolean) {
-                        cout << "<" << opt.opt_str[1] << ">"; // :quality -> <q> (first letter used as ":quality=<q>")
+                        col() << "<" << opt.opt_str[1] << ">"; // :quality -> <q> (first letter used as ":quality=<q>")
                 }
-                cout << "]";
+                col() << "]";
         }
-        cout << " [--cuda-device <c_index>]\n" << rang::style::reset;
+        col() << " [--cuda-device <c_index>]\n" << TERM_RESET;
 
-        cout << "where:\n";
+        col() << "where:\n";
         for(const auto& opt : usage_opts){
                 if (opt.is_boolean) {
                         col() << TBOLD("\t" << opt.opt_str + 1 <<);
                 } else {
                         col() << TBOLD("\t<" << opt.opt_str[1] << ">");
                 }
-                cout << " - " << opt.description << "\n";
+                col() << " - " << opt.description << "\n";
         }
         col() << TBOLD("\t<c_index>") << " - CUDA device(s) to use (comma separated)\n";
 }
