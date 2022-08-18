@@ -9,7 +9,7 @@
 #include <list>
 #include <tuple>
 
-#include "libavcodec_common.h"
+#include "libavcodec/lavc_common.h"
 #include "libavcodec_test.hpp"
 #include "video_codec.h"
 #include "video_compress/libavcodec.cpp" // including source because get_decoder_from_uv_to_uv() is in anonymous namespace
