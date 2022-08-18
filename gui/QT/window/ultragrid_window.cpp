@@ -210,6 +210,10 @@ void UltragridWindow::start(){
 		processMngr.launchUg(launchArgs);
 	else
 		switchToPreview();
+
+	const auto& portStr = settings.getOption("network.control_port").getValue();
+	int port = strtol(portStr.c_str(), nullptr, 10);
+	ui.vuMeter->setPort(port);
 	
 }
 
@@ -247,7 +251,11 @@ bool UltragridWindow::launchPreview(){
 #ifdef DEBUG
 	log.write("Preview: " + argListToString(previewArgs) + "\n\n");
 #endif
+
 	processMngr.launchPreview(previewArgs);
+	const auto& portStr = settings.getOption("network.control_port").getValue();
+	int port = strtol(portStr.c_str(), nullptr, 10);
+	ui.vuMeter->setPort(port);
 	return true;
 }
 
