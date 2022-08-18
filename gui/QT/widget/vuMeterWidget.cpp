@@ -14,14 +14,14 @@
 namespace{
 
 ug_connection *connectLoop(int port, const std::atomic<bool>& should_exit){
-	ug_connection *connection = nullptr;
-	connection = ug_control_connection_init(port);
-	while(!connection && !should_exit){
-		std::this_thread::sleep_for (std::chrono::seconds(2));
-		connection = ug_control_connection_init(port);
-	}
+	while(!should_exit){
+		auto connection = ug_control_connection_init(port);
+		if(connection)
+			return connection;
 
-	return connection;
+		std::this_thread::sleep_for (std::chrono::seconds(2));
+	}
+	return nullptr;
 }
 
 	static constexpr int meterVerticalPad = 5;
@@ -47,8 +47,14 @@ VuMeterWidget::VuMeterWidget(QWidget *parent) :
 }
 
 VuMeterWidget::~VuMeterWidget(){
-	should_exit = true;
+	cancelConnect = true;
 	ug_control_cleanup();
+}
+
+void VuMeterWidget::setPort(int port){
+	this->port = port;
+	cancelConnect = true;
+	connection.reset();
 }
 
 void VuMeterWidget::updateVal(){
@@ -204,10 +210,12 @@ void VuMeterWidget::connect_ug(){
 		status = future_connection.wait_for(std::chrono::seconds(0));
 		if(status == std::future_status::ready){
 			unique_ug_connection c(future_connection.get());
-			connection = std::move(c);
+			if(!cancelConnect)
+				connection = std::move(c);
 		}
 	} else {
-		future_connection = std::async(std::launch::async, connectLoop, port, std::ref(should_exit));
+		cancelConnect = false;
+		future_connection = std::async(std::launch::async, connectLoop, port, std::ref(cancelConnect));
 	}
 }
 

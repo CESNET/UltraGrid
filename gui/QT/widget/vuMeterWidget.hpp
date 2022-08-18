@@ -19,6 +19,8 @@ public:
 	VuMeterWidget(QWidget *parent);
 	~VuMeterWidget();
 
+	void setPort(int port);
+
 protected:
 	void paintEvent(QPaintEvent *paintEvent);
 
@@ -26,7 +28,7 @@ private:
 	QTimer timer;
 	unique_ug_connection connection;
 	std::future<ug_connection *> future_connection;
-	std::atomic<bool> should_exit = false;
+	std::atomic<bool> cancelConnect = false;
 
 	int port;
 
