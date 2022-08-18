@@ -208,11 +208,8 @@ public:
         }
 	
         virtual ~VideoDelegate () {
-		if(rightEyeFrame)
-                        rightEyeFrame->Release();
-                if (lastFrame) {
-                        lastFrame->Release();
-                }
+                RELEASE_IF_NOT_NULL(rightEyeFrame);
+                RELEASE_IF_NOT_NULL(lastFrame);
 	}
 
 	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID *) override { return E_NOINTERFACE; }
@@ -280,7 +277,7 @@ public:
                 }
                 if (s->requested_bit_depth == 0 && (flags & bmdDetectedVideoInput8BitDepth) == 0) {
                         const string & depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? "10"s : "12"s;
-                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Capturing detected " << depth << "-bit signal, use \":codec=UYVY\" to enforce 8-bit capture (old behavior).\n";
+                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Detected " << depth << "-bit signal, use \":codec=UYVY\" to enforce 8-bit capture (old behavior).\n";
                 }
 
                 unique_lock<mutex> lk(s->lock);
@@ -351,9 +348,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                 /// @todo videoFrame should be actually retained until the data are processed
                 videoFrame->GetBytes(&pixelFrame);
 
-                if (lastFrame) {
-                        lastFrame->Release();
-                }
+                RELEASE_IF_NOT_NULL(lastFrame);
                 lastFrame = videoFrame;
                 lastFrame->AddRef();
 
@@ -369,10 +364,8 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                         }
                 }
 
-                if(rightEyeFrame)
-                        rightEyeFrame->Release();
+                RELEASE_IF_NOT_NULL(rightEyeFrame);
                 pixelFrameRight = NULL;
-                rightEyeFrame = NULL;
 
                 if(s->stereo) {
                         IDeckLinkVideoFrame3DExtensions *rightEye;
@@ -1745,11 +1738,8 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
 
 bail:
 	// Ensure that the interfaces we obtained are released to prevent a memory leak
-	if (displayModeIterator != NULL)
-		displayModeIterator->Release();
-
-	if (deckLinkInput != NULL)
-		deckLinkInput->Release();
+	RELEASE_IF_NOT_NULL(displayModeIterator);
+	RELEASE_IF_NOT_NULL(deckLinkInput);
 
         return ret;
 }
@@ -1774,7 +1764,6 @@ void vidcap_decklink_state::set_codec(codec_t c) {
                                 R10K_FULL_OPT "' to override.\n");
         }
 }
-
 
 static const struct video_capture_info vidcap_decklink_info = {
         vidcap_decklink_probe,
