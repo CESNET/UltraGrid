@@ -61,23 +61,40 @@
            </property>
           </widget>
          </item>
+         <item row="1" column="1">
+          <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <item>
+            <widget class="QLineEdit" name="controlPort">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="inputMask">
+              <string/>
+             </property>
+             <property name="maxLength">
+              <number>5</number>
+             </property>
+             <property name="placeholderText">
+              <string>8888</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="controlPortRandom">
+             <property name="text">
+              <string>Random</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
          <item row="1" column="0">
           <widget class="QLabel" name="label_2">
            <property name="text">
             <string>Control port</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QLineEdit" name="controlPort">
-           <property name="inputMask">
-            <string/>
-           </property>
-           <property name="maxLength">
-            <number>5</number>
-           </property>
-           <property name="placeholderText">
-            <string>8888</string>
            </property>
           </widget>
          </item>
@@ -512,8 +529,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>98</width>
-            <height>28</height>
+            <width>323</width>
+            <height>363</height>
            </rect>
           </property>
          </widget>
@@ -687,6 +704,22 @@
     <hint type="destinationlabel">
      <x>272</x>
      <y>168</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>controlPortRandom</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>controlPort</receiver>
+   <slot>setDisabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>420</x>
+     <y>87</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>238</x>
+     <y>87</y>
     </hint>
    </hints>
   </connection>

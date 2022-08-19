@@ -153,6 +153,7 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 
 	addControl(new LineEditUi(ui->basePort, settings, "network.port"));
 	addControl(new LineEditUi(ui->controlPort, settings, "network.control_port"));
+	addControl(new CheckboxUi(ui->controlPortRandom, settings, "network.control_port.random"));
 	addControl(new CheckboxUi(ui->fecAutoCheck, settings, "network.fec.auto"));
 	addControl(new GroupBoxUi(ui->fecGroupBox, settings, "network.fec.enabled"));
 	addControl(new SpinBoxUi(ui->multSpin, settings, "network.fec.mult.factor"));

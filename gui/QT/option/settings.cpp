@@ -232,6 +232,7 @@ const static struct{
 	{"network.destination", Option::StringOpt, " ", "", false, "", ""},
 	{"network.port", Option::StringOpt, " -P ", "5004", false, "", ""},
 	{"network.control_port", Option::StringOpt, " --control-port ", "8888", true, "", ""},
+	{"network.control_port.random", Option::BoolOpt, "", "", true, "", ""},
 	{"network.fec", Option::StringOpt, " -f ", "", false, "", ""},
 	{"type", Option::SilentOpt, "", "", false, "network.fec", ""},
 	{"enabled", Option::BoolOpt, "", "f", false, "network.fec", ""},
@@ -272,6 +273,9 @@ Settings::Settings() : dummy(this){
 			sessRndKey += 'a' + (rand - 9);
 	}
 
+	std::uniform_int_distribution<> ephemeralPorts(49152, 65535);
+	randomPort = ephemeralPorts(gen);
+
 	for(const auto &i : optionList){
 		auto &opt = addOption(i.name,
 				i.type,
@@ -292,6 +296,13 @@ Settings::Settings() : dummy(this){
 	}
 
 	std::cout << getLaunchParams() << std::endl;
+}
+
+int Settings::getControlPort() const{
+	if(getOption("network.control_port.random").isEnabled())
+		return randomPort;
+
+	return strtol(getOption("network.control_port").getValue().c_str(), nullptr, 10);
 }
 
 std::string Settings::getLaunchParams() const{
@@ -333,7 +344,8 @@ std::string Settings::getLaunchParams() const{
 	out += getOption("network.fec").getLaunchOption();
 	out += getOption("encryption").getLaunchOption();
 	out += getOption("network.port").getLaunchOption();
-	out += getOption("network.control_port").getLaunchOption();
+	out += getOption("network.control_port").getParam();
+	out += std::to_string(getControlPort());
 	out += getOption("network.destination").getLaunchOption();
 	out += getOption("decode.hwaccel").getLaunchOption();
 	out += getOption("errors_fatal").getLaunchOption();
@@ -352,7 +364,8 @@ std::string Settings::getPreviewParams() const{
 	out += getOption("audio.source").getLaunchOption();
 	out += getOption("audio.source.channels").getLaunchOption();
 	out += " -r dummy";
-	out += getOption("network.control_port").getLaunchOption();
+	out += getOption("network.control_port").getParam();
+	out += std::to_string(getControlPort());
 	out += getOption("encryption").getLaunchOption();
 
 	return out;
