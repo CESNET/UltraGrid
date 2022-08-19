@@ -14,7 +14,9 @@ next
   frames instead of doing the same work
 * conference mode now automatically sends back video to all participants
 * improve H.265 recovery from packet drops (enabled constrained-intra)
+* improve svt-av1 compatibility
 * GUI: preview now uses unix sockets instead of shared memory
+* GUI: should now behave correctly when running multiple instances
 * GUI: don't show crash dialog if UltraGrid crashed when exiting
 
 1.7
