@@ -261,6 +261,8 @@ TEST_OBJS = $(COMMON_OBJS) \
 DEP_FILES_1 = $(OBJS) $(REFLECTOR_OBJS) $(TEST_OBJS) $(ULTRAGRID_OBJS)
 DEP_FILES = $(patsubst %.lib,%.P,$(DEP_FILES_1:.o=.P)) # replace .o and also .lib (Windows) with .P
 # -------------------------------------------------------------------------------------------------
+.PHONY: doc
+
 all: $(TARGET) $(GUI_TARGET) $(REFLECTOR_TARGET) @MODULES@ configure-messages
 
 src/dir-stamp:
