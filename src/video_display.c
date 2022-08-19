@@ -358,15 +358,15 @@ struct video_frame *display_get_frame(struct display *d)
  * @param frame    frame that has been obtained from display_get_frame() and has not yet been put.
  *                 Should not be NULL unless we want to quit display mainloop.
  * @param flags specifies blocking behavior (@ref display_put_frame_flags)
- * @retval      0  if displayed succesfully
- * @retval      1  if not displayed
+ * @retval      0  if displayed succesfully (or discarded if flag=PUTF_DISCARD)
+ * @retval      1  if not displayed when flag=PUTF_NONBLOCK and it would block
  */
-int display_put_frame(struct display *d, struct video_frame *frame, int flags)
+int display_put_frame(struct display *d, struct video_frame *frame, int flag)
 {
         assert(d->magic == DISPLAY_MAGIC);
 
         if (!frame) {
-                return d->funcs->putf(d->state, frame, flags);
+                return d->funcs->putf(d->state, frame, flag);
         }
 
         if (d->postprocess) {
@@ -383,11 +383,11 @@ int display_put_frame(struct display *d, struct video_frame *frame, int flags)
 				return 1;
 			}
 
-			display_ret = d->funcs->putf(d->state, display_frame, flags);
+			display_ret = d->funcs->putf(d->state, display_frame, flag);
 		}
                 return display_ret;
         }
-        int ret = d->funcs->putf(d->state, frame, flags);
+        int ret = d->funcs->putf(d->state, frame, flag);
         if (ret != 0 || !d->funcs->use_generic_fps_indicator) {
                 return ret;
         }

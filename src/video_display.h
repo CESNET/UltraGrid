@@ -52,6 +52,7 @@
  */
 
 /**
+ * @file
  * @defgroup display Video Display
  *
  * API for video display . Normal operation is something like:
@@ -152,7 +153,7 @@ struct video_display_info {
         void                    (*run) (void *state);                                               ///< may be NULL
         void                    (*done) (void *state);
         struct video_frame     *(*getf) (void *state);
-        int                     (*putf) (void *state, struct video_frame *frame, int nonblock);
+        int                     (*putf) (void *state, struct video_frame *frame, int nonblock); ///< @copydoc display_put_frame
         int                     (*reconfigure_video)(void *state, struct video_desc desc);
         int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
         void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);  ///< may be NULL
@@ -189,7 +190,8 @@ enum display_put_frame_flags {
         PUTF_DISCARD  = 2,
 };
 
-int 		         display_put_frame(struct display *d, struct video_frame *frame, int flags);
+// documented at definition
+int                      display_put_frame(struct display *d, struct video_frame *frame, int flag);
 int                      display_reconfigure(struct display *d, struct video_desc desc, enum video_mode mode);
 /** @brief Get/set property (similar to ioctl)
  *  @retval TRUE  if succeeds
