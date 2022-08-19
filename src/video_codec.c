@@ -2497,8 +2497,9 @@ vc_copylineDPX10toRGB(unsigned char * __restrict dst, const unsigned char * __re
         register const unsigned int *in = (const unsigned int *)(const void *) src;
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r1,g1,b1,r2,g2,b2;
-       
-        OPTIMIZED_FOR (int x = 0; x <= dst_len - 12; x += 12) {
+
+        int x = 0;
+        OPTIMIZED_FOR (; x <= dst_len - 12; x += 12) {
                 register unsigned int val;
                 
                 val = *in++;
@@ -2527,9 +2528,12 @@ vc_copylineDPX10toRGB(unsigned char * __restrict dst, const unsigned char * __re
                 
                 *out++ = b1 | r2 << 8 | g2 << 16 | b2 << 24;
         }
-        if (dst_len != 0) {
-                /// @todo
-                log_msg(LOG_LEVEL_WARNING, "TODO: incomplete %s implementation!\n", __func__);
+        unsigned char *out_c = (void *) out;
+        for (; x < dst_len; x += 3) {
+                uint32_t val = *in++;
+                *out_c++ = val >> 24;
+                *out_c++ = 0xff & (val >> 14);
+                *out_c++ = 0xff & (val >> 4);
         }
 }
 
