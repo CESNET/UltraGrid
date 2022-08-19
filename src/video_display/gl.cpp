@@ -1289,8 +1289,7 @@ static void set_mac_color_space(void) {
         if (!col) {
                 return;
         }
-        int eotf = stoi(col, nullptr, 16) & 0xFU;
-        glfwWindowHint(GLFW_COCOA_NS_COLOR_SPACE, eotf);
+        glfwWindowHint(GLFW_COCOA_NS_COLOR_SPACE, stoi(col, nullptr, 16));
 #endif // defined GLFW_COCOA_NS_COLOR_SPACE
 }
 
