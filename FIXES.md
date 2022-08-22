@@ -26,3 +26,6 @@
 * build Linux version with SVT VP9/HEVC again
 * minor fixes
 
+#### 1.7.6
+* fixed NDI recv using `NDIlib_recv_bandwidth_lowest`
+
