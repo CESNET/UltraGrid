@@ -1,5 +1,7 @@
 #!/bin/sh -eux
 
+. $(dirname $0)/json-common.sh
+
 # Joins line that starts with space to previous:
 # https://www.gnu.org/software/sed/manual/html_node/Joining-lines.html
 MERG_LN=':a ; $!N ; s/\n\s+/ / ; ta ; P ; D'
@@ -36,10 +38,16 @@ else
         PRERELEASE=false
 fi
 
-curl -S -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - <<EOF
+TMP=$(mktemp)
+STATUS=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - -o "$TMP" -w %{http_code} <<EOF
 {
   "tag_name": "$TAG", "name": "$TITLE",
   "body": "Built $DATE\n\n$SUMMARY",
   "draft": false, "prerelease": $PRERELEASE
 }
 EOF
+)
+
+check_status "$STATUS" "$TMP"
+rm "$TMP"
+
