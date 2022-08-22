@@ -1,4 +1,4 @@
-#!/bin/sh -eu
+#!/bin/sh -eux
 
 # Joins line that starts with space to previous:
 # https://www.gnu.org/software/sed/manual/html_node/Joining-lines.html
