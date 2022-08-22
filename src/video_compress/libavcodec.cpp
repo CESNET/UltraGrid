@@ -1163,7 +1163,7 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
         if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
                 //Should not happen as get_available_pix_fmts should only
                 //return formats we can decode to
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "[lavc] Unable to find decoder from %s to %s before using swscale.\n", get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find decoder from %s to %s before using swscale.\n", get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
                 return false;
         }
 
@@ -1871,19 +1871,19 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* 
 
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
                 if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", 4, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Row Count for SVT", ret);
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Row Count for SVT", ret);
                 }
                 if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", 4, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Column Count for SVT", ret);
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Column Count for SVT", ret);
                 }
                 if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_slice_mode", 1, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable Tile Slice Mode for SVT", ret);
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Slice Mode for SVT", ret);
                 }
         } else { // libsvtav1
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
                 //pred-struct=1 is low-latency mode
                 if (int ret = av_opt_set(codec_ctx->priv_data, "svtav1-params", "pred-struct=1:tile-columns=2:tile-rows=2", 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "[lavc] Unable to set svtav1-params for SVT", ret);
+                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to set svtav1-params for SVT", ret);
                 }
 #else
                 // tile_columns and tile_rows are log2 values
