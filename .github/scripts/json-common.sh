@@ -37,13 +37,15 @@ fetch_json() {
         echo "$JSON"
 }
 
+is_int () { test "$@" -eq "$@"; }
+
 ## @brief Checks HTTP error code for success
 ## @param $1 returned HTTP status code
 ## @param $2 (optional) returned JSON (to be printed in case of error)
 check_status() {
-        if [ $1 -lt 200 -o $1 -ge 300 ]; then
+        if ! is_int "$1" || [ "$1" -lt 200 ] || [ "$1" -ge 300 ]; then
                 echo "Wrong response status $STATUS!" >&2
-                if [ -n ${2-""} ]; then
+                if [ -n "${2-}" ]; then
                         echo "JSON: $(cat $2)" >&2
                 fi
                 exit 1
