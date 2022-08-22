@@ -426,7 +426,7 @@ static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not get connections.\n";
         } else {
                 cout << "\n\tConnection can be one of following:\n";
-                for (auto it : connection_string_map) {
+                for (auto const &it : connection_string_map) {
                         if (connections & it.first) {
                                 cout << style::bold << "\t\t" <<
                                         it.second << style::reset << "\n";
@@ -626,7 +626,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if(strncasecmp(opt, "connection=", strlen("connection=")) == 0) {
                 const char *connection = opt + strlen("connection=");
                 bool found = false;
-                for (auto it : connection_string_map) {
+                for (auto const & it : connection_string_map) {
                         if (strcasecmp(connection, it.second.c_str()) == 0) {
                                 s->connection = it.first;
                                 found = true;
@@ -822,7 +822,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
 
 
                 list<string> connections;
-                for (auto it : connection_string_map) {
+                for (auto const &it : connection_string_map) {
                         if (connections_bitmap & it.first) {
                                 connections.push_back(it.second);
                         }

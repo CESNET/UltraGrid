@@ -165,7 +165,7 @@ static bool set_output_buffering() {
 #endif
                 { "stderr-buf", pair{stderr, _IONBF} }
         };
-        for (auto outp : outs) {
+        for (auto const &outp : outs) {
                 int mode = outp.second.second; // default
 
                 if(running_in_debugger()){
@@ -460,7 +460,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
         cout << "[cap] Compressions:" << endl;
         auto compressions = get_libraries_for_class(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
 
-        for (auto it : compressions) {
+        for (auto const &it : compressions) {
                 auto vci = static_cast<const struct video_compress_info *>(it.second);
                 auto presets = vci->get_presets();
                 cout << "[cap][compress] " << it.first << std::endl;
@@ -523,7 +523,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
         cout << "[cap] Capture filters:" << endl;
         auto cap_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
-        for (auto it : cap_filters) {
+        for (auto const &it : cap_filters) {
                 cout << "[cap][capture_filter] " << it.first << std::endl;
         }
 

@@ -706,7 +706,7 @@ void keyboard_control::usage()
 
         if (key_mapping.size() > 0) {
                 cout << "Custom keybindings:\n";
-                for (auto it : key_mapping) {
+                for (auto const &it : key_mapping) {
                         col() << TBOLD("\t" << setw(10) << get_keycode_representation(it.first) << setw(0) <<) << " - " << (it.second.second.empty() ? it.second.first : it.second.second) << G(it.first) << "\n";
                 }
                 cout << "\n";

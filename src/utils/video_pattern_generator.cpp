@@ -595,9 +595,9 @@ char *video_pattern_generator_next_frame(video_pattern_generator_t s)
 
 void video_pattern_generator_fill_data(video_pattern_generator_t s, const char *data)
 {
-        auto *state = dynamic_cast<still_image_video_pattern_generator *>(s);
-        memcpy(state->data.data(), data, state->data_len);
-        memcpy(state->data.data() + state->data_len, data, state->data_len);
+        auto &state = dynamic_cast<still_image_video_pattern_generator &>(*s);
+        memcpy(state.data.data(), data, state.data_len);
+        memcpy(state.data.data() + state.data_len, data, state.data_len);
 }
 
 void video_pattern_generator_destroy(video_pattern_generator_t s)

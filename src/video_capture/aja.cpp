@@ -211,7 +211,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
 {
         bool colorSpaceSet = false; // explicitly set input color spec
 
-        for (auto it : parameters) {
+        for (auto const &it : parameters) {
                 if (it.first == "progressive") {
                         mProgressive = true;
                 } else if (it.first == "4K" || it.first == "4k") {
@@ -227,7 +227,7 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                                 throw string("Unknown codec " + it.second + "!");
                         }
                         mPixelFormat = NTV2_FBF_INVALID;
-                        for (auto c : aja::codec_map) {
+                        for (auto const &c : aja::codec_map) {
                                 if (c.second == get_codec_from_name(it.second.c_str())) {
                                         mPixelFormat = c.first;
                                         break;

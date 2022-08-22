@@ -391,7 +391,7 @@ static void show_help(void)
         }
         printf("\n");
         cout << "\n\tKeyboard shortcuts:\n";
-        for (auto i : display_sdl2_keybindings) {
+        for (auto const &i : display_sdl2_keybindings) {
                 cout << style::bold << "\t\t'" << i.first << style::reset << "'\t - " << i.second << "\n";
         }
         SDL_Quit();
@@ -440,7 +440,7 @@ static auto get_supported_pfs() {
         vector<codec_t> codecs;
         codecs.reserve(sizeof pf_mapping / sizeof pf_mapping[0]);
 
-        for (auto item : pf_mapping) {
+        for (auto const &item : pf_mapping) {
                 codecs.push_back(item.first);
         }
         if (get_commandline_param("sdl2-r10k") != nullptr) {
@@ -648,7 +648,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         SDL_DisableScreenSaver();
 
         loadSplashscreen(s);
-        for (auto i : display_sdl2_keybindings) {
+        for (auto const &i : display_sdl2_keybindings) {
                 if (i.first == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
                         continue;
                 }

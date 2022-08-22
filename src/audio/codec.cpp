@@ -145,7 +145,7 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
 
         auto audio_compressions = get_libraries_for_class(LIBRARY_CLASS_AUDIO_COMPRESS, AUDIO_COMPRESS_ABI_VERSION);
 
-        for (auto it : audio_compressions) {
+        for (auto const &it : audio_compressions) {
                 aci = static_cast<const struct audio_compress_info *>(it.second);
                 for (unsigned int j = 0; aci->supported_codecs[j] != AC_NONE; ++j) {
                         if (aci->supported_codecs[j] == audio_codec) {

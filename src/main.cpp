@@ -183,7 +183,7 @@ struct state_uv {
                         perror("PLATFORM_PIPE_READ");
                 }
                 unique_lock<mutex> lk(s->lock);
-                for (auto c : s->should_exit_callbacks) {
+                for (auto const &c : s->should_exit_callbacks) {
                         get<0>(c)(get<1>(c));
                 }
         }
@@ -339,7 +339,7 @@ static void print_help_item(const string &name, const vector<string> &help) {
 
         col() << "\t" << TBOLD(<< name <<);
 
-        for (auto line : help) {
+        for (auto const &line : help) {
                 int spaces = help_lines == 0 ? 31 - (int) name.length() : 39;
                 for (int i = 0; i < max(spaces, 0) + 1; ++i) {
                         cout << " ";

@@ -91,7 +91,7 @@ enum video_mode get_video_mode_from_str(const char *requested_mode) {
                 }
                 return VIDEO_UNKNOWN;
         } else {
-                for (auto it : video_mode_info) {
+                for (auto const &it : video_mode_info) {
                         if (strcasecmp(requested_mode, it.second.name) == 0) {
                                 return it.first;
                         }

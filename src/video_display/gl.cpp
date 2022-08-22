@@ -485,7 +485,7 @@ static void gl_show_help(bool full) {
         }
 
         printf("\nkeyboard shortcuts:\n");
-        for (auto i : keybindings) {
+        for (auto const &i : keybindings) {
                 char keyname[50];
                 get_keycode_name(i.first, keyname, sizeof keyname);
                 col() << "\t" << TBOLD(<< keyname <<) << "\t\t" << i.second << "\n";
@@ -661,7 +661,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         }
 
         gl_load_splashscreen(s);
-        for (auto i : keybindings) {
+        for (auto const &i : keybindings) {
                 if (i.first == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
                         continue;
                 }

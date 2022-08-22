@@ -88,7 +88,7 @@ using namespace std;
 
 struct testcard_state {
         std::chrono::steady_clock::time_point last_frame_time;
-        int pan;
+        int pan = 0;
         video_pattern_generator_t generator;
         std::chrono::steady_clock::time_point t0;
         struct video_frame *frame{nullptr};

@@ -789,7 +789,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         }
 
         // set user supplied parameters
-        for (auto item : s->lavc_opts) {
+        for (auto const &item : s->lavc_opts) {
                 if(av_opt_set(s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str(), 0) != 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Error: Unable to set '%s' to '%s'. Check command-line options.\n", item.first.c_str(), item.second.c_str());
                         return false;
