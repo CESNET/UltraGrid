@@ -3,6 +3,7 @@
 #include <random>
 #include "settings.hpp"
 #include "available_settings.hpp"
+#include "random_port.hpp"
 
 Option::Callback::Callback(fcn_type func_ptr, void *opaque) :
 	func_ptr(func_ptr),
@@ -273,8 +274,11 @@ Settings::Settings() : dummy(this){
 			sessRndKey += 'a' + (rand - 9);
 	}
 
-	std::uniform_int_distribution<> ephemeralPorts(49152, 65535);
-	randomPort = ephemeralPorts(gen);
+	randomPort = getRandomFreePort();
+	if(randomPort < 0){
+		std::uniform_int_distribution<> ephemeralPorts(49152, 65535);
+		randomPort = ephemeralPorts(gen);
+	}
 
 	for(const auto &i : optionList){
 		auto &opt = addOption(i.name,

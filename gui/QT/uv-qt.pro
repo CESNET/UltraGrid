@@ -69,6 +69,7 @@ HEADERS += window/ultragrid_window.hpp \
 	util/extra_callback_data.hpp \
 	util/ug_process_manager.hpp \
 	util/debug.hpp \
+	util/random_port.hpp \
 
 FORMS += ui/ultragrid_window.ui \
 	ui/log_window.ui \
@@ -95,6 +96,7 @@ SOURCES += window/ultragrid_window.cpp \
 	option/audio_opts.cpp \
 	option/video_opts.cpp \
 	util/ug_process_manager.cpp \
+	util/random_port.cpp \
 	../../tools/astat.cpp \
 	../../tools/ipc_frame.cpp \
 	../../tools/ipc_frame_unix.cpp \
