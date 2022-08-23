@@ -46,7 +46,7 @@ struct request_path_t {
                         .path = std::string("/org/freedesktop/portal/desktop/request/") + name + "/" + token
                 };
 
-                std::cout << "new request: '" << result.path << "'" << std::endl;
+                LOG(LOG_LEVEL_DEBUG) << "new request: '" << result.path << "'\n";
                 return result;
         }
 
@@ -125,7 +125,7 @@ static void portal_call(GDBusConnection *connection, GDBusProxy *screencast_prox
                 const char *path = nullptr;
                 g_variant_get(result_finished, "(o)", &path);
                 g_variant_unref(result_finished);
-                std::cout << "call finished: " << path << std::endl;
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: call finished: " << path << "\n";
         };
 
         GVariantBuilder builder;
@@ -209,7 +209,7 @@ struct screen_cast_session {
                 pw_stream_disconnect(stream);
                 //pw_thread_loop_destroy(loop);
                 //pw_core_disconnect(core);
-                std::cout<<"screen_cast_session destructor finished"<<std::endl;
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: screen_cast_session destructor finished\n";
         }
 };
 
@@ -244,7 +244,7 @@ static void on_stream_io_changed(void *_data, uint32_t id, void *area, uint32_t 
 static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct spa_pod *param) {
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
         (void) id;
-        std::cout << "[cap_pipewire] param changed:\n" << std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: [cap_pipewire] param changed:\n";
         spa_debug_format(2, nullptr, param);
 
         // from example code, not sure what this is
@@ -260,8 +260,8 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         spa_format_video_raw_parse(param, &session.format.info.raw);
         session.size = SPA_RECTANGLE(session.format.info.raw.size.width,
                                                                 session.format.info.raw.size.height);
-        std::cout << "size: " << session.format.info.raw.size.width << " x " << session.format.info.raw.size.height
-                                << std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: size: " << session.format.info.raw.size.width << " x " << session.format.info.raw.size.height
+                                << "\n";
         int mult = 1;
 
         int linesize = vc_get_linesize(session.size.width, RGBA);
@@ -335,7 +335,7 @@ static void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
 
 static void on_process(void *session_ptr) {
         screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
-        //std::cout<<"on process"<<std::endl;
+        //LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: on process\n"
         static int frame_count = 0;
         static uint64_t begin_time = time_since_epoch_in_ms();
 
@@ -348,14 +348,14 @@ static void on_process(void *session_ptr) {
                 
                 if(session.dequed_blank_frame == nullptr && !session.blank_frames.try_dequeue(session.dequed_blank_frame))
                 {
-                        //std::cout << "dropping - no blank frame" << std::endl;
+                        //LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping - no blank frame\n";
                         pw_stream_queue_buffer(session.stream, buffer);
                         continue;
                 }
                         
 
                 if(buffer == nullptr){
-                        std::cout<<"pipewire is out of buffers"<<std::endl;
+                        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: pipewire is out of buffers\n";
                         return;
                 }
 
@@ -375,7 +375,7 @@ static void on_process(void *session_ptr) {
 
                 uint64_t delta = time_now - begin_time;
                 if(delta >= 5000) {
-                        std::cout<<"on process: average fps in last 5 seconds: " <<  frame_count / (delta / 1000.0) << std::endl;
+                        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: on process: average fps in last 5 seconds: " <<  frame_count / (delta / 1000.0) << "\n";
                         frame_count = 0;
                         begin_time = time_since_epoch_in_ms();
                 }
@@ -383,25 +383,25 @@ static void on_process(void *session_ptr) {
 
         static uint8_t counter = 0;
         if( (++counter)%40 == 0)
-                std::cout<<"from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << std::endl;
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << "\n";
 }
 
 static void on_drained(void*)
 {
-        std::cout<<"drained\n"<<std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: drained\n";
 }
 
 static void on_add_buffer(void *session_ptr, struct pw_buffer *)
 {
         (void) session_ptr;
 
-        std::cout<<"add_buffer\n"<<std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: add_buffer\n";
 }
 
 static void on_remove_buffer(void *session_ptr, struct pw_buffer *)
 {
         (void) session_ptr;
-        std::cout<<"remove_buffer\n"<<std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: remove_buffer\n";
 }
 
 static const struct pw_stream_events stream_events = {
@@ -461,7 +461,7 @@ static int start_pipewire(screen_cast_session &session)
 
 
         int new_pipewire_fd = fcntl(session.pipewire_fd, F_DUPFD_CLOEXEC, 5);
-        std::cout << "duplicating fd " << session.pipewire_fd << " -> " << new_pipewire_fd << std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: duplicating fd " << session.pipewire_fd << " -> " << new_pipewire_fd << "\n";
         pw_core *core = pw_context_connect_fd(context, new_pipewire_fd, nullptr,
                                                                                   0); //why does obs dup the fd?
         assert(core != nullptr);
@@ -518,10 +518,8 @@ static int start_pipewire(screen_cast_session &session)
                 fprintf(stderr, "can't connect: %s\n", spa_strerror(res));
                 return -1;
         }
-        
-        std::cout<<"thread loop unlock"<<std::endl;
+
         pw_thread_loop_unlock(session.loop);
-        std::cout<<"thread loop unlocked"<<std::endl;
         return 0;
 }
 
@@ -549,7 +547,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
         assert(screencast_proxy != nullptr);
 
         session_path_t session_path = session_path_t::create(sender_name);
-        std::cout << "session path: '" << session_path.path << "'" << "token: '" << session_path.token << "'\n";
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: session path: '" << session_path.path << "'" << "token: '" << session_path.token << "'\n";
 
         auto pipewire_opened = [](GObject *source, GAsyncResult *res, void *user_data) {
                 auto session = static_cast<screen_cast_session*>(user_data);
@@ -569,12 +567,12 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 assert(session->pipewire_fd != -1);
                 assert(session->pipewire_node != UINT32_MAX);
                 
-                std::cout<<"starting pipewire"<<std::endl;
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: starting pipewire\n";
                 start_pipewire(*session);
         };
 
         auto started = [&](GVariant *parameters) {
-                std::cout << "started: " << g_variant_print(parameters, true) << std::endl;
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: started: " << g_variant_print(parameters, true) << "\n";
                 GVariant *result;
                 uint32_t response;
                 g_variant_get(parameters, "(u@a{sv})", &response, &result);
@@ -603,7 +601,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
 
         auto sources_selected = [&](GVariant *parameters) {
                 gchar *pretty = g_variant_print(parameters, true);
-                std::cout << "selected sources: " << pretty << std::endl;
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: selected sources: " << pretty << "\n";
                 g_free((gpointer) pretty);
 
                 uint32_t result;
@@ -624,7 +622,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 g_variant_lookup(result, "session_handle", "s", &session_handle);
                 g_variant_unref(result);
 
-                std::cout << "session created with handle: " << session_handle << std::endl;
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: session created with handle: " << session_handle << "\n";
                 assert(session_path.path == session_handle);
 
                 portal_call(connection, screencast_proxy, session_handle, "SelectSources",
@@ -644,12 +642,12 @@ static void run_screencast(screen_cast_session *session_ptr) {
         );
 
         g_dbus_connection_flush(connection, nullptr, nullptr, nullptr);
-        std::cout << "running dbus loop" << std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: running dbus loop\n";
         g_main_loop_run(session.dbus_loop);
         g_object_unref(screencast_proxy);
         g_object_unref(connection);
         //g_main_loop_unref(session.dbus_loop); //FIXME
-        std::cout << "finished dbus loop " << std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: finished dbus loop \n";
 }
 
 static struct vidcap_type * vidcap_screen_pipewire_probe(bool verbose, void (**deleter)(void *))
@@ -657,7 +655,7 @@ static struct vidcap_type * vidcap_screen_pipewire_probe(bool verbose, void (**d
         (void) verbose;
         (void) deleter;
         
-        std::cout<<"[cap_pipewire] probe\n";
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: [cap_pipewire] probe\n";
         exit(0);
         return nullptr;
 }
@@ -670,7 +668,7 @@ static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **stat
         screen_cast_session *session = new screen_cast_session();
         *state = session;
         
-        std::cout<<"[cap_pipewire] init\n";
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: [cap_pipewire] init\n";
         pw_init(&uv_argc, &uv_argv);
 
         std::future<std::string> future_error = session->init_error.get_future();
@@ -684,13 +682,13 @@ static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **stat
         }
 
         dbus_thread.detach();
-        std::cout<<"ready"<<std::endl;
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: init ok\n";
         return VIDCAP_INIT_OK;
 }
 
 static void vidcap_screen_pipewire_done(void *session_ptr)
 {
-        std::cout<<"[cap_pipewire] done\n";   
+        LOG(LOG_LEVEL_DEBUG) <<"[cap_pipewire] done\n";   
         delete static_cast<screen_cast_session*>(session_ptr);
 }
 
