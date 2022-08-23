@@ -153,7 +153,6 @@ public:
         {
                 assert(method_name != nullptr);
                 request_path_t request_path = request_path_t::create(sender_name());
-                //std::cout<<"DEBUG::: call " << request_path.path << "\n";
                 LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: call_with_request: '" << method_name << "' request: '" << request_path.path << "'\n";
                 auto response_callback = [](GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
                                         const gchar *interface_name, const gchar *signal_name, GVariant *parameters,
@@ -526,32 +525,8 @@ static const struct pw_stream_events stream_events = {
                 .trigger_done = nullptr,
 };
 
-static void on_core_error_cb(void *session_ptr, uint32_t id, int seq, int res,
-                                                         const char *message) {
-        (void) session_ptr;
-        printf("[on_core_error_cb] Error id:%u seq:%d res:%d (%s): %s", id,
-                   seq, res, strerror(res), message);
-}
-
-static void on_core_done_cb(void *session_ptr, uint32_t id, int seq) {
-        (void) session_ptr;
-        printf("[on_core_done_cb] id=%d seq=%d", id, seq);
-}
-
-static const struct pw_core_events core_events = {
-                PW_VERSION_CORE_EVENTS,
-                .info = nullptr,
-                .done = on_core_done_cb,
-                .ping = nullptr,
-                .error = on_core_error_cb,
-                .remove_id = nullptr,
-                .bound_id = nullptr,
-                .add_mem = nullptr,
-                .remove_mem = nullptr
-};
-
 static int start_pipewire(screen_cast_session &session)
-{
+{    
         const struct spa_pod *params[2] = {};
         uint8_t params_buffer[1024];
         struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
@@ -572,8 +547,6 @@ static int start_pipewire(screen_cast_session &session)
                                                                                   0); //why does obs dup the fd?
         assert(core != nullptr);
 
-        pw_core_add_listener(core, &session.pw.core_listener, &core_events, &session);
- 
         session.pw.stream = pw_stream_new(core, "my_screencast", pw_properties_new(
                         PW_KEY_MEDIA_TYPE, "Video",
                         PW_KEY_MEDIA_CATEGORY, "Capture",
@@ -828,9 +801,7 @@ static void show_help() {
 
 
 static int parse_params(struct vidcap_params *params, screen_cast_session &session) {
-        if(const char *fmt = vidcap_params_get_fmt(params)) {
-                std::cout<<"fmt: '" << fmt<<"'" << "\n";
-                
+        if(const char *fmt = vidcap_params_get_fmt(params)) {        
                 std::istringstream params_stream(fmt);
                 
                 std::string param;
