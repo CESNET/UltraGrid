@@ -15,6 +15,7 @@ CXX_0         = @echo "Compiling $<..."; $(REAL_CXX)
 CXX_1         = $(REAL_CXX)
 CXX           = $(CXX_$(VERBOSE))
 QMAKE         = @QMAKE@
+QMAKE_FLAGS  ?=
 REAL_LINKER   = @LINKER@
 LINKER_0      = @echo "Linking $@..."; $(REAL_LINKER)
 LINKER_1      = $(REAL_LINKER)
@@ -513,7 +514,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 
 gui/QT/Makefile: gui/QT/uv-qt.pro
 	@if test -z "$(QMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" $(QMAKE) -makefile $< "DESTDIR+=./" -o $@
+	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" $(QMAKE) -makefile $< "DESTDIR+=./" -o $@ $(QMAKE_FLAGS)
 
 
 .PHONY: $(GUI_TARGET)
