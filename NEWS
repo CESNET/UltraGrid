@@ -1,6 +1,5 @@
 next
 ====
-
 * added Reed-Solomon for audio
 * added support for RPI4 hw. acceleration
 * added holepunching support for where both hosts are behind NAT

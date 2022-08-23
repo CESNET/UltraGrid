@@ -1,5 +1,14 @@
 #!/bin/sh -eux
 
+## == NEWS/FIXES.md processing description (release)
+## NEWS: 1. first line is stripped; then all content is used until new line
+## FIXES.md: if present, whole file is used
+## both:
+## a. if there is a line starting with space, it is appended to previous one (markdown)
+## b. <NL> are replaced with '\n' (to create valid JSON)
+## c. introductionary text ("Changes:" etc) is added to the string
+## d. backlash in MD special escape sequences ('\_', \*') are escaped (again to gain valid JSON)
+
 . $(dirname $0)/json-common.sh
 
 # Joins line that starts with space to previous:
