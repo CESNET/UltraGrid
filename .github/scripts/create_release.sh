@@ -7,6 +7,7 @@
 MERG_LN=':a ; $!N ; s/\n\s+/ / ; ta ; P ; D'
 # https://unix.stackexchange.com/questions/114943/can-sed-replace-new-line-characters
 REPL_NL=':a;N;$!ba;s/\n/\\n/g'
+markdown_replaces='s/\\_/\\\\_/g;s/\\\*/\\\\*/g' # escape MD escape sequences
 
 sudo apt install jq
 URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG | jq -r '.url')
@@ -33,7 +34,7 @@ else
         TMP=$(mktemp)
         sed -e '1,2d' -e '/^$/q' < NEWS | sed -E "$MERG_LN" | sed -e "$REPL_NL" > "$TMP"
         N=$(cat "$TMP")
-        SUMMARY="### Changes:\n$N\n$FIXES\n**Full changelog:** https://github.com/$GITHUB_REPOSITORY/commits/$TAG"
+        SUMMARY=$(printf "%s" "### Changes:\n$N\n$FIXES\n**Full changelog:** https://github.com/$GITHUB_REPOSITORY/commits/$TAG" | sed -e "$markdown_replaces")
         rm "$TMP"
         PRERELEASE=false
 fi
