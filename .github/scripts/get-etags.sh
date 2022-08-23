@@ -5,10 +5,10 @@
 OUT=
 
 while [ $# -gt 0 ]; do
-        ETAG=$(curl -LI $1 | grep -i '^etag' | sed 's/.*"\(.*\)".*/\1/')
+        ETAG=$(curl -LI "$1" | grep -i '^etag' | sed 's/.*"\(.*\)".*/\1/')
         OUT=$OUT${OUT:+_}${ETAG:-NOTFOUND}
         shift
 done
 
-echo $OUT
+echo "$OUT"
 

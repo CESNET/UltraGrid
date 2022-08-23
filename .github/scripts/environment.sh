@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if expr $GITHUB_REF : 'refs/tags/'; then
+if expr "$GITHUB_REF" : 'refs/tags/'; then
   TAG=${GITHUB_REF#refs/tags/}
   VERSION=${TAG#v}
   CHANNEL=release
@@ -15,6 +15,4 @@ fi
 
 export CHANNEL TAG VERSION
 
-echo "CHANNEL=$CHANNEL" >> $GITHUB_ENV
-echo "TAG=$TAG" >> $GITHUB_ENV
-echo "VERSION=$VERSION" >> $GITHUB_ENV
+printf '%b' "CHANNEL=$CHANNEL\nTAG=$TAG\nVERSION=$VERSION\n" >> "$GITHUB_ENV"
