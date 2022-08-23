@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <atomic>
+#include <chrono>
 
 #include <pipewire/pipewire.h>
 #include <gio/gio.h>
@@ -17,11 +18,19 @@
 #include <spa/param/props.h>
 #include <spa/debug/format.h>
 
+#include "utils/synchronized_queue.h"
 #include "debug.h"
-#include "host.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
+#include "concurrent_queue/readerwritercircularbuffer.h"
+#include "concurrent_queue/readerwriterqueue.h"
+
+#define MAX_BUFFERS 2
+static constexpr int SENDING_FRAMES_QUEUE_SIZE = 4;
+static constexpr int BLANK_FRAMES_QUEUE_SIZE = 6;
+static constexpr int BLANK_FRAMES_COUNT = 6;
+static_assert(BLANK_FRAMES_COUNT <= BLANK_FRAMES_QUEUE_SIZE);
 
 
 struct request_path_t {
@@ -109,11 +118,13 @@ static void portal_call(GDBusConnection *connection, GDBusProxy *screencast_prox
                                                                            [](gpointer user_data) { delete static_cast< PortalCallCallback * >(user_data); });
 
         auto call_finished = [](GObject *source_object, GAsyncResult *result, gpointer user_data) {
+                (void) user_data;
                 GError *error = nullptr;
                 GVariant *result_finished = g_dbus_proxy_call_finish(G_DBUS_PROXY(source_object), result, &error);
                 g_assert_no_error(error);
                 const char *path = nullptr;
                 g_variant_get(result_finished, "(o)", &path);
+                g_variant_unref(result_finished);
                 std::cout << "call finished: " << path << std::endl;
         };
 
@@ -136,20 +147,16 @@ static void portal_call(GDBusConnection *connection, GDBusProxy *screencast_prox
                 assert(g_variant_is_object_path(object_path));
                 args = g_variant_new("(oa{sv})", object_path, &builder);
         }
-
-        g_dbus_proxy_call(screencast_proxy, method_name, args,
-                                          G_DBUS_CALL_FLAGS_NONE,
-                                          -1,
-                                          nullptr, call_finished, screencast_proxy);
-
+        g_variant_builder_clear(&builder);
+        g_dbus_proxy_call(screencast_proxy, method_name, args, G_DBUS_CALL_FLAGS_NONE, -1, nullptr, call_finished, screencast_proxy);
 }
 
 struct screen_cast_session {
-        GDBusConnection *connection = nullptr;
-        GDBusProxy *screencast_proxy = nullptr;
+        GMainLoop *dbus_loop = nullptr;
+
         int pipewire_fd = -1;
         uint32_t pipewire_node = -1;
-
+        
         struct pw_thread_loop *loop = nullptr;
         struct pw_core *core = nullptr;
 
@@ -163,19 +170,52 @@ struct screen_cast_session {
         //int32_t output_line_size = 0;
         struct spa_rectangle size = {};
 
-        // TODO: atomically exchange the pointer instead of a mutex?
-        std::mutex frame_mutex;
-        //struct video_frame *frame;
-        struct video_frame *frame;
-        std::promise<void> screen_cast_is_ready;
+        char padding1[1000];
+        // used exlusively by ultragrid thread
+        struct video_frame *in_flight_frame = nullptr;
+        char padding2[1000];
+
+        // used exclusively by pipewire thread
+        struct video_frame *dequed_blank_frame = nullptr;
+        char padding3[1000];
+
+        moodycamel::BlockingReaderWriterCircularBuffer<video_frame*> blank_frames {BLANK_FRAMES_QUEUE_SIZE};
+        moodycamel::BlockingReaderWriterCircularBuffer<video_frame*> sending_frames {SENDING_FRAMES_QUEUE_SIZE};
         
+        std::promise<void> screen_cast_is_ready;
+
+        struct video_frame *new_blank_frame()
+        {
+                struct video_frame *frame = vf_alloc(1);
+                frame->color_spec = RGBA;
+                frame->interlacing = PROGRESSIVE;
+                frame->fps = 60;
+                frame->callbacks.data_deleter = vf_data_deleter;
+                
+                struct tile* tile = vf_get_tile(frame, 0);
+                assert(tile != nullptr);
+                tile->width = size.width; //TODO
+                tile->height = size.height; //TODO
+
+                tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
+                tile->data = (char *) malloc(tile->data_len);
+                return frame;
+        }
+
+        ~screen_cast_session() {
+                pw_thread_loop_stop(loop);
+                g_main_loop_quit(dbus_loop);
+                pw_stream_disconnect(stream);
+                //pw_thread_loop_destroy(loop);
+                //pw_core_disconnect(core);
+                std::cout<<"screen_cast_session destructor finished"<<std::endl;
+        }
 };
 
-static void on_stream_state_changed(void *_data, enum pw_stream_state old,
-                                                                        enum pw_stream_state state, const char *error) {
-        (void) old;
-        auto *data = static_cast<screen_cast_session*>(_data);
-        printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
+static void on_stream_state_changed(void *session_ptr, enum pw_stream_state old, enum pw_stream_state state, const char *error) {
+        (void) session_ptr;
+
+        printf("stream state change : \"%s\" -> \"%s\"\n", pw_stream_state_as_string(old), pw_stream_state_as_string(state));
         printf("error: %s\n", error ? error : "(nullptr)");
         switch (state) {
                 case PW_STREAM_STATE_UNCONNECTED:
@@ -183,7 +223,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
                         break;
                 case PW_STREAM_STATE_PAUSED:
                         //pw_main_loop_quit(data->loop);
-                        pw_stream_set_active(data->stream, true);
+                        //pw_stream_set_active(data->stream, true);
                         break;
                 default:
                         break;
@@ -199,8 +239,6 @@ static void on_stream_io_changed(void *_data, uint32_t id, void *area, uint32_t 
                         break;
         }
 }
-
-#define MAX_BUFFERS  64
 
 static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct spa_pod *param) {
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
@@ -274,9 +312,14 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         );
 
         pw_stream_update_params(session.stream, params, 4);
+
+        for(int i = 0; i < BLANK_FRAMES_COUNT; ++i)
+                session.blank_frames.wait_enqueue(session.new_blank_frame());
+        
+        session.screen_cast_is_ready.set_value();
 }
 
-void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
+static void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
         int linesize = 4*width;
         for (int line_offset = 0; line_offset < height * linesize; line_offset += linesize) {
                 for(int x = 0; x < 4*width; x += 4) {
@@ -290,63 +333,56 @@ void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
 }
 
 static void on_process(void *session_ptr) {
-        auto &session = *static_cast<screen_cast_session*>(session_ptr);
-        pw_stream* stream = session.stream; 
-        
-        std::cout<<"on_process"<<std::endl;
+        screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
+        //std::cout<<"on process"<<std::endl;
+        static int frame_count = 0;
+        static uint64_t begin_time = time_since_epoch_in_ms();
 
-        pw_buffer *buffer = nullptr;
-        while (true) {
-                struct pw_buffer *temp = pw_stream_dequeue_buffer(stream);
-                if (temp == nullptr)
-                        break;
-                if (buffer)
-                        pw_stream_queue_buffer(stream, buffer);
-                buffer = temp;
+
+        pw_buffer *buffer;
+        int n_buffers_from_pw = 0;
+        while((buffer = pw_stream_dequeue_buffer(session.stream)) != nullptr){    
+                ++n_buffers_from_pw;
+
+                
+                if(session.dequed_blank_frame == nullptr && !session.blank_frames.try_dequeue(session.dequed_blank_frame))
+                {
+                        //std::cout << "dropping - no blank frame" << std::endl;
+                        pw_stream_queue_buffer(session.stream, buffer);
+                        continue;
+                }
+                        
+
+                if(buffer == nullptr){
+                        std::cout<<"pipewire is out of buffers"<<std::endl;
+                        return;
+                }
+
+                assert(buffer->buffer != nullptr);
+                assert(buffer->buffer->datas != nullptr);
+                assert(buffer->buffer->datas[0].data != nullptr);
+                //memcpy(session.dequed_blank_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.height * vc_get_linesize(session.size.width, RGBA));
+                copy_bgra_to_rgba(session.dequed_blank_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.width, session.size.height);
+                
+                session.sending_frames.wait_enqueue(session.dequed_blank_frame);
+                
+                session.dequed_blank_frame = nullptr;
+                pw_stream_queue_buffer(session.stream, buffer);
+                
+                ++frame_count;
+                uint64_t time_now = time_since_epoch_in_ms();
+
+                uint64_t delta = time_now - begin_time;
+                if(delta >= 5000) {
+                        std::cout<<"on process: average fps in last 5 seconds: " <<  frame_count / (delta / 1000.0) << std::endl;
+                        frame_count = 0;
+                        begin_time = time_since_epoch_in_ms();
+                }
         }
 
-        if (buffer == nullptr) {
-                pw_log_warn("out of buffers: %m");
-                return;
-        }
-
-        struct video_frame* frame = vf_alloc(1);
-        frame->color_spec = RGBA; //TODO: or BGRx (BGRA)?
-        frame->interlacing = PROGRESSIVE;
-        frame->fps = 30; //TODO
-
-        
-        struct tile* tile = vf_get_tile(frame, 0);
-        tile->width = session.size.width; //TODO
-        tile->height = session.size.height; //TODO
-
-        tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
-        tile->data = (char *) malloc(tile->data_len);
-        
-        char *src = static_cast<char*>(buffer->buffer->datas[0].data);
-        char *dest = tile->data;
-        int linesize = buffer->buffer->datas[0].chunk->stride;
-        
-        assert(linesize == vc_get_linesize(tile->width, frame->color_spec));
-        if (src == nullptr) {
-                std::cout<<"no data"<<std::endl;
-                pw_stream_queue_buffer(stream, buffer);
-                return;
-        }
-
-        copy_bgra_to_rgba(dest, src, session.size.width, session.size.height);
-        //memcpy(dest, src, session.size.height*linesize);
-        
-        //copy memory while converting BGRA -> RGBA
-        
-        std::lock_guard<std::mutex> frame_guard(session.frame_mutex);
-        // if the frame is nullptr it hasn't been returned by grab, 
-        // but we already have a newer frame so we free it and update the frame to a newer one
-        vf_free(session.frame); //this is noop if frame is nullptr
-
-        session.frame = frame;
-
-        pw_stream_queue_buffer(stream, buffer);
+        static uint8_t counter = 0;
+        if( (++counter)%40 == 0)
+                std::cout<<"from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << std::endl;
 }
 
 static void on_drained(void*)
@@ -354,35 +390,44 @@ static void on_drained(void*)
         std::cout<<"drained\n"<<std::endl;
 }
 
-static void on_add_buffer(void *data, struct pw_buffer *buffer)
+static void on_add_buffer(void *session_ptr, struct pw_buffer *)
 {
-         std::cout<<"add_buffer\n"<<std::endl;
+        (void) session_ptr;
+
+        std::cout<<"add_buffer\n"<<std::endl;
 }
 
-static void on_remove_buffer(void *data, struct pw_buffer *buffer)
+static void on_remove_buffer(void *session_ptr, struct pw_buffer *)
 {
-         std::cout<<"remove_buffer\n"<<std::endl;
+        (void) session_ptr;
+        std::cout<<"remove_buffer\n"<<std::endl;
 }
 
 static const struct pw_stream_events stream_events = {
                 PW_VERSION_STREAM_EVENTS,
+                .destroy = nullptr,
                 .state_changed = on_stream_state_changed,
+                .control_info = nullptr,
                 .io_changed = on_stream_io_changed,
                 .param_changed = on_stream_param_changed,
                 .add_buffer = on_add_buffer,
                 .remove_buffer = on_remove_buffer,
                 .process = on_process,
                 .drained = on_drained,
+                .command = nullptr,
+                .trigger_done = nullptr,
 };
 
-static void on_core_error_cb(void *user_data, uint32_t id, int seq, int res,
+static void on_core_error_cb(void *session_ptr, uint32_t id, int seq, int res,
                                                          const char *message) {
+        (void) session_ptr;
         printf("[on_core_error_cb] Error id:%u seq:%d res:%d (%s): %s", id,
                    seq, res, strerror(res), message);
 }
 
-static void on_core_done_cb(void *user_data, uint32_t id, int seq) {
-        printf("[on_core_done_cb] user_data=%p id=%d seq=%d", user_data, id, seq);
+static void on_core_done_cb(void *session_ptr, uint32_t id, int seq) {
+        (void) session_ptr;
+        printf("[on_core_done_cb] id=%d seq=%d", id, seq);
 }
 
 static const struct pw_core_events core_events = {
@@ -483,25 +528,24 @@ static void run_screencast(screen_cast_session *session_ptr) {
         auto& session = *session_ptr;
 
         session.pipewire_fd = -1;
-        session.pipewire_node = -1;
+        session.pipewire_node = UINT32_MAX;
+        session.dbus_loop = g_main_loop_new(nullptr, false);
 
         GError *error = nullptr;
-        GMainLoop *loop = g_main_loop_new(nullptr, false);
 
-        session.connection = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
+        GDBusConnection *connection = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
         g_assert_no_error(error);
-        assert(session.connection != nullptr);
+        assert(connection != nullptr);
 
-        std::string sender_name = g_dbus_connection_get_unique_name(session.connection) + 1;
+        std::string sender_name = g_dbus_connection_get_unique_name(connection) + 1;
         std::replace(sender_name.begin(), sender_name.end(), '.', '_');
-
-        session.screencast_proxy = g_dbus_proxy_new_sync(
-                        session.connection, G_DBUS_PROXY_FLAGS_NONE, nullptr,
+        GDBusProxy *screencast_proxy = g_dbus_proxy_new_sync(
+                        connection, G_DBUS_PROXY_FLAGS_NONE, nullptr,
                         "org.freedesktop.portal.Desktop",
                         "/org/freedesktop/portal/desktop",
                         "org.freedesktop.portal.ScreenCast", nullptr, &error);
         g_assert_no_error(error);
-        assert(session.screencast_proxy != nullptr);
+        assert(screencast_proxy != nullptr);
 
         session_path_t session_path = session_path_t::create(sender_name);
         std::cout << "session path: '" << session_path.path << "'" << "token: '" << session_path.token << "'\n";
@@ -521,16 +565,11 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 session->pipewire_fd = g_unix_fd_list_get(fd_list, handle, &error);
                 g_assert_no_error(error);
 
-                assert(session->screencast_proxy != nullptr);
-                assert(session->connection != nullptr);
                 assert(session->pipewire_fd != -1);
-                assert(session->pipewire_node != -1);
+                assert(session->pipewire_node != UINT32_MAX);
                 
-                session->screen_cast_is_ready.set_value();
                 std::cout<<"starting pipewire"<<std::endl;
                 start_pipewire(*session);
-                //screen_cast_is_ready.set_value(); //FIXME
-                //pipewire_main(session->pipewire_fd, session->pipewire_node);
         };
 
         auto started = [&](GVariant *parameters) {
@@ -550,10 +589,11 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 g_variant_unref(result);
                 GVariantBuilder builder;
                 g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
-                g_dbus_proxy_call_with_unix_fd_list(session.screencast_proxy, "OpenPipeWireRemote",
+                g_dbus_proxy_call_with_unix_fd_list(screencast_proxy, "OpenPipeWireRemote",
                                                                                         g_variant_new("(oa{sv})", session_path.path.c_str(), &builder),
                                                                                         G_DBUS_CALL_FLAGS_NONE, -1,
                                                                                         nullptr, nullptr, pipewire_opened, &session);
+                g_variant_builder_clear(&builder);
         };
 
         auto sources_selected = [&](GVariant *parameters) {
@@ -565,22 +605,24 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 GVariant *response;
                 g_variant_get(parameters, "(u@a{sv})", &result, &response);
                 assert(result == 0 && "Failed to select sources");
-
-                portal_call(session.connection, session.screencast_proxy, session_path.path.c_str(), "Start", {}, started);
+                g_variant_unref(response);
+                portal_call(connection, screencast_proxy, session_path.path.c_str(), "Start", {}, started);
         };
 
         auto session_created = [&](GVariant *parameters) {
                 guint32 response;
+                const char *session_handle;
+                
                 GVariant *result;
                 g_variant_get(parameters, "(u@a{sv})", &response, &result);
                 assert(response == 0 && "Failed to create session");
-
-                const char *session_handle;
                 g_variant_lookup(result, "session_handle", "s", &session_handle);
+                g_variant_unref(result);
+
                 std::cout << "session created with handle: " << session_handle << std::endl;
                 assert(session_path.path == session_handle);
 
-                portal_call(session.connection, session.screencast_proxy, session_handle, "SelectSources",
+                portal_call(connection, screencast_proxy, session_handle, "SelectSources",
                                         {
                                                         {"types",    g_variant_new_uint32(3)}, // 1 full screen, 2 - a window, 3 - both
                                                         {"multiple", g_variant_new_boolean(false)}
@@ -589,18 +631,20 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 );
         };
 
-        portal_call(session.connection, session.screencast_proxy, nullptr, "CreateSession",
+        portal_call(connection, screencast_proxy, nullptr, "CreateSession",
                                 {
                                                 {"session_handle_token", g_variant_new_string(session_path.token.c_str())}
                                 },
                                 session_created
         );
 
-        g_dbus_connection_flush(session.connection, nullptr, nullptr, nullptr);
-        std::cout << "running loop" << std::endl;
-        g_main_loop_run(loop);
-        g_main_loop_unref(loop);
-        std::cout << "finished loop " << std::endl;
+        g_dbus_connection_flush(connection, nullptr, nullptr, nullptr);
+        std::cout << "running dbus loop" << std::endl;
+        g_main_loop_run(session.dbus_loop);
+        g_object_unref(screencast_proxy);
+        g_object_unref(connection);
+        //g_main_loop_unref(session.dbus_loop); //FIXME
+        std::cout << "finished dbus loop " << std::endl;
 }
 
 static struct vidcap_type * vidcap_screen_pipewire_probe(bool verbose, void (**deleter)(void *))
@@ -628,28 +672,32 @@ static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **stat
         std::thread dbus_thread(run_screencast, session);
         ready.wait();
         dbus_thread.detach();
+        std::cout<<"ready"<<std::endl;
         return VIDCAP_INIT_OK;
 }
 
-static void vidcap_screen_pipewire_done(void *state)
+static void vidcap_screen_pipewire_done(void *session_ptr)
 {
-        (void) state;
-        std::cout<<"[cap_pipewire] done\n";
+        std::cout<<"[cap_pipewire] done\n";   
+        delete static_cast<screen_cast_session*>(session_ptr);
 }
 
 static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct audio_frame **audio)
-{
-        //TODO: dont send a frame that has already been sent
+{    
+        using namespace std::chrono_literals;
         assert(session_ptr != nullptr);
-        //usleep(1000);
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
-        audio = nullptr;
-        std::lock_guard<std::mutex> frame_guard(session.frame_mutex);
-        struct video_frame *frame = session.frame;
-        if (frame != nullptr)
-                std::cout<<"grab"<<std::endl;
-        session.frame = nullptr;
-        return frame;
+        *audio = nullptr;
+   
+        if(session.in_flight_frame != nullptr){
+                session.blank_frames.wait_enqueue(session.in_flight_frame);
+        }
+        session.in_flight_frame = nullptr;
+
+        {
+                session.sending_frames.wait_dequeue(session.in_flight_frame);
+        }
+        return session.in_flight_frame;
 }
 
 static const struct video_capture_info vidcap_screen_pipewire_info = {
@@ -657,7 +705,7 @@ static const struct video_capture_info vidcap_screen_pipewire_info = {
         vidcap_screen_pipewire_init,
         vidcap_screen_pipewire_done,
         vidcap_screen_pipewire_grab,
-        false, //TODO what is this?
+        true,
 };
 
 REGISTER_MODULE(screen_pipewire, &vidcap_screen_pipewire_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
