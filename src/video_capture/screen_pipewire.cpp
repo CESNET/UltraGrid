@@ -87,6 +87,11 @@ private:
         GDBusProxy *screencast_proxy;
         std::string sender_name;
 public:
+        // see https://flatpak.github.io/xdg-desktop-portal/#gdbus-signal-org-freedesktop-portal-Request.Response
+        static constexpr uint32_t REQUEST_RESPONSE_OK = 0;
+        static constexpr uint32_t REQUEST_RESPONSE_CANCELLED_BY_USER = 1;
+        static constexpr uint32_t REQUEST_RESPONSE_OTHER_ERROR = 2;
+
         Portal(GDBusConnection *connection, GDBusProxy *screencast_proxy) 
                 : connection(connection), screencast_proxy(screencast_proxy)
         {
@@ -131,7 +136,7 @@ public:
                         (void) user_data;
                         GError *error = nullptr;
                         GVariant *result_finished = g_dbus_proxy_call_finish(G_DBUS_PROXY(source_object), result, &error);
-                        g_assert_no_error(error);
+                        g_assert_no_error(error); //TODO: this should set init_error
                         const char *path = nullptr;
                         g_variant_get(result_finished, "(o)", &path);
                         g_variant_unref(result_finished);
@@ -535,7 +540,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                         "org.freedesktop.portal.Desktop",
                         "/org/freedesktop/portal/desktop",
                         "org.freedesktop.portal.ScreenCast", nullptr, &error);
-        g_assert_no_error(error);
+        g_assert_no_error(error); 
         assert(screencast_proxy != nullptr);
 
         session_path_t session_path = session_path_t::create(sender_name);
@@ -568,31 +573,39 @@ static void run_screencast(screen_cast_session *session_ptr) {
 
         auto started = [&](GVariant *parameters) {
                 LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: started: " << g_variant_print(parameters, true) << "\n";
-                GVariant *result;
+                
                 uint32_t response;
-                g_variant_get(parameters, "(u@a{sv})", &response, &result);
-                if(response != 0) {
-                        session.init_error.set_value("failed to start (possibly canceled by user)");
+                GVariant *results;
+                g_variant_get(parameters, "(u@a{sv})", &response, &results);
+                if(response == Portal::REQUEST_RESPONSE_CANCELLED_BY_USER) {
+                        session.init_error.set_value("failed to start (dialog cancelled by user)");
+                        g_main_loop_quit(session.dbus_loop);
+                        return;
+                } else if(response != Portal::REQUEST_RESPONSE_OK) {
+                        session.init_error.set_value("failed to start (unknown reason)");
                         g_main_loop_quit(session.dbus_loop);
                         return;
                 }
 
                 const char *restore_token = nullptr;
-                if (g_variant_lookup(result, "restore_token", "s", &restore_token)){
-                        std::ofstream file(session.user_options.persistence_filename);
-                        std::cout<<"DEBUG:::: '"<<restore_token<<"'\n";
-                        file<<restore_token;
+                if (g_variant_lookup(results, "restore_token", "s", &restore_token)){
+                        if(session.user_options.persistence_filename.empty()){
+                                LOG(LOG_LEVEL_WARNING) << "[screen_pw]: got unexpected restore_token from ScreenCast portal, ignoring it\n";
+                        }else{
+                                std::ofstream file(session.user_options.persistence_filename);
+                                file<<restore_token;
+                        }
                 }
 
-                GVariant *streams = g_variant_lookup_value(result, "streams", G_VARIANT_TYPE_ARRAY);
+                GVariant *streams = g_variant_lookup_value(results, "streams", G_VARIANT_TYPE_ARRAY);
                 GVariant *stream_properties;
                 GVariantIter iter;
                 g_variant_iter_init(&iter, streams);
-                assert(g_variant_iter_n_children(&iter) == 1);
+                assert(g_variant_iter_n_children(&iter) == 1); //TODO: do I need the KDE work-around like in OBS for this bug?
                 bool got_item = g_variant_iter_loop(&iter, "(u@a{sv})", &session.pipewire_node, &stream_properties);
                 assert(got_item);
                 g_variant_unref(stream_properties);
-                g_variant_unref(result);
+                g_variant_unref(results);
                 GVariantBuilder builder;
                 g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
                 g_dbus_proxy_call_with_unix_fd_list(screencast_proxy, "OpenPipeWireRemote",
@@ -604,15 +617,18 @@ static void run_screencast(screen_cast_session *session_ptr) {
 
         auto sources_selected = [&](GVariant *parameters) {
                 gchar *pretty = g_variant_print(parameters, true);
-                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: selected sources: " << pretty << "\n";
+                LOG(LOG_LEVEL_INFO) << "[screen_pw]: selected sources: " << pretty << "\n";
                 g_free((gpointer) pretty);
 
-                uint32_t status;
-                GVariant *response;
-                g_variant_get(parameters, "(u@a{sv})", &status, &response);
-                assert(status == 0 && "Failed to select sources"); //todo: LOG
-                
-                g_variant_unref(response);
+                uint32_t response;
+                GVariant *results;
+                g_variant_get(parameters, "(u@a{sv})", &response, &results);
+                if(response != Portal::REQUEST_RESPONSE_OK) {
+                        session.init_error.set_value("Failed to select sources");
+                        g_main_loop_quit(session.dbus_loop);
+                        return;
+                }
+                g_variant_unref(results);
 
                 {
                         GVariantBuilder params;
@@ -622,14 +638,18 @@ static void run_screencast(screen_cast_session *session_ptr) {
         };
 
         auto session_created = [&](GVariant *parameters) {
-                guint32 response; //TODO: rename to status
-                const char *session_handle;
-                
-                GVariant *result; //TODO: rename to respone
-                g_variant_get(parameters, "(u@a{sv})", &response, &result);
-                assert(response == 0 && "Failed to create session");
-                g_variant_lookup(result, "session_handle", "s", &session_handle);
-                g_variant_unref(result);
+                uint32_t response; 
+                GVariant *results;
+
+                g_variant_get(parameters, "(u@a{sv})", &response, &results);
+                if(response != Portal::REQUEST_RESPONSE_OK) {
+                        session.init_error.set_value("Failed to create session");
+                        g_main_loop_quit(session.dbus_loop);
+                        return;
+                }
+                const char *session_handle = nullptr;
+                g_variant_lookup(results, "session_handle", "s", &session_handle);
+                g_variant_unref(results);
 
                 LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: session created with handle: " << session_handle << "\n";
                 assert(session_path.path == session_handle);
