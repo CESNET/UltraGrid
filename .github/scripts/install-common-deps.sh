@@ -10,6 +10,10 @@ case "$(uname -s)" in
                 ;;
 esac
 
+if ! command -v nproc >/dev/null; then
+        nproc() { sysctl -n hw.logicalcpu; } # mac
+fi
+
 # only download here, compilation is handled per-platform
 download_cineform() {(
         cd $GITHUB_WORKSPACE
@@ -38,7 +42,7 @@ install_pcp() {
                 cd pcp
                 ./autogen.sh || true # autogen exits with 1
                 CFLAGS=-fPIC ./configure --disable-shared
-                make -j 5
+                make -j "$(nproc)"
                 ${SUDO}make install
         )
         rm -rf pcp
