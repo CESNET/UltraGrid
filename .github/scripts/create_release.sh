@@ -50,7 +50,7 @@ else
 fi
 
 tmp=$(mktemp)
-status=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X "$REQ $URL" -T - -o "$tmp" -w '%{http_code}' <<EOF
+status=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X "$REQ" "$URL" -T - -o "$tmp" -w '%{http_code}' <<EOF
 {
   "tag_name": "$TAG", "name": "$TITLE",
   "body": "Built $DATE\n\n$SUMMARY",
