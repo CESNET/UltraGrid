@@ -80,32 +80,43 @@ unsigned int session_path_t::token_counter = 0;
 
 using PortalCallCallback = std::function<void(GVariant *parameters)>;
 
-class Portal {
+class ScreenCastPortal {
 private:
-        std::string object_path;
+        GMainLoop *dbus_loop;
         GDBusConnection *connection;
         GDBusProxy *screencast_proxy;
-        std::string sender_name;
+        std::string sender_name_;
 public:
         // see https://flatpak.github.io/xdg-desktop-portal/#gdbus-signal-org-freedesktop-portal-Request.Response
         static constexpr uint32_t REQUEST_RESPONSE_OK = 0;
         static constexpr uint32_t REQUEST_RESPONSE_CANCELLED_BY_USER = 1;
         static constexpr uint32_t REQUEST_RESPONSE_OTHER_ERROR = 2;
 
-        Portal(GDBusConnection *connection, GDBusProxy *screencast_proxy) 
-                : connection(connection), screencast_proxy(screencast_proxy)
+        ScreenCastPortal() 
         {
+                GError *error = nullptr;
+                
+                dbus_loop = g_main_loop_new(nullptr, false);
+                connection = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
+                g_assert_no_error(error);
                 assert(connection != nullptr);
-                assert(screencast_proxy != nullptr);
 
-                sender_name = g_dbus_connection_get_unique_name(connection) + 1;
-                std::replace(sender_name.begin(), sender_name.end(), '.', '_');
+                sender_name_ = g_dbus_connection_get_unique_name(connection) + 1;
+                std::replace(sender_name_.begin(), sender_name_.end(), '.', '_');
+                screencast_proxy = g_dbus_proxy_new_sync(
+                                connection, G_DBUS_PROXY_FLAGS_NONE, nullptr,
+                                "org.freedesktop.portal.Desktop",
+                                "/org/freedesktop/portal/desktop",
+                                "org.freedesktop.portal.ScreenCast", nullptr, &error);
+                g_assert_no_error(error); 
+                assert(screencast_proxy != nullptr);
         }
         
-        void call(const char* method_name, std::initializer_list<GVariant*> arguments, GVariantBuilder &params_builder, PortalCallCallback on_response) {
+        void call_with_request(const char* method_name, std::initializer_list<GVariant*> arguments, GVariantBuilder &params_builder, PortalCallCallback on_response)
+        {
                 assert(method_name != nullptr);
-                
-                request_path_t request_path = request_path_t::create(sender_name);
+                request_path_t request_path = request_path_t::create(sender_name());
+                LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: call_with_request: '" << method_name << "' request: '" << request_path.path << "'\n";
                 
                 auto callback = [](GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
                                         const gchar *interface_name, const gchar *signal_name, GVariant *parameters,
@@ -140,7 +151,7 @@ public:
                         const char *path = nullptr;
                         g_variant_get(result_finished, "(o)", &path);
                         g_variant_unref(result_finished);
-                        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: call finished: " << path << "\n";
+                        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: call_with_request finished: '" << path << "'\n";
                 };
 
 
@@ -153,8 +164,33 @@ public:
                 }
                 g_variant_builder_add_value(&args_builder, g_variant_builder_end(&params_builder));
 
-                g_dbus_proxy_call(screencast_proxy, method_name, g_variant_builder_end(&args_builder), G_DBUS_CALL_FLAGS_NONE, -1, nullptr, call_finished, screencast_proxy);                
-        }   
+                g_dbus_proxy_call(screencast_proxy, method_name, g_variant_builder_end(&args_builder), G_DBUS_CALL_FLAGS_NONE, -1, nullptr, call_finished, screencast_proxy);     
+        }
+
+        void run_loop() {
+                g_main_loop_run(dbus_loop);
+                LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: finished dbus loop \n";
+        }
+
+        void quit_loop() {
+                g_main_loop_quit(dbus_loop);
+        }
+
+        //TODO: remove
+        GDBusProxy *proxy() {
+                return screencast_proxy;
+        }
+
+        const std::string& sender_name() const
+        {
+                return sender_name_;
+        }
+
+        ~ScreenCastPortal() {
+                //g_main_loop_unref(session.dbus_loop); //FIXME
+                g_object_unref(screencast_proxy);
+                g_object_unref(connection);
+        } 
 };
 
 struct screen_cast_session { 
@@ -164,7 +200,8 @@ struct screen_cast_session {
                 std::string persistence_filename = "";
         } user_options;
 
-        GMainLoop *dbus_loop = nullptr;
+        std::unique_ptr<ScreenCastPortal> portal;
+
         int pipewire_fd = -1;
         uint32_t pipewire_node = -1;
         
@@ -210,7 +247,7 @@ struct screen_cast_session {
 
         ~screen_cast_session() {
                 pw_thread_loop_stop(loop);
-                g_main_loop_quit(dbus_loop);
+                //g_main_loop_quit(dbus_loop);
                 pw_stream_disconnect(stream);
                 //pw_thread_loop_destroy(loop);
                 //pw_core_disconnect(core);
@@ -523,31 +560,13 @@ static int start_pipewire(screen_cast_session &session)
 
 static void run_screencast(screen_cast_session *session_ptr) {
         auto& session = *session_ptr;
+        session.portal = std::make_unique<ScreenCastPortal>();
 
         session.pipewire_fd = -1;
         session.pipewire_node = UINT32_MAX;
-        session.dbus_loop = g_main_loop_new(nullptr, false);
-        GError *error = nullptr;
-
-        GDBusConnection *connection = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
-        g_assert_no_error(error);
-        assert(connection != nullptr);
-
-        std::string sender_name = g_dbus_connection_get_unique_name(connection) + 1;
-        std::replace(sender_name.begin(), sender_name.end(), '.', '_');
-        GDBusProxy *screencast_proxy = g_dbus_proxy_new_sync(
-                        connection, G_DBUS_PROXY_FLAGS_NONE, nullptr,
-                        "org.freedesktop.portal.Desktop",
-                        "/org/freedesktop/portal/desktop",
-                        "org.freedesktop.portal.ScreenCast", nullptr, &error);
-        g_assert_no_error(error); 
-        assert(screencast_proxy != nullptr);
-
-        session_path_t session_path = session_path_t::create(sender_name);
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: session path: '" << session_path.path << "'" << "token: '" << session_path.token << "'\n";
-
-
-        Portal portal(connection, screencast_proxy);
+        
+        session_path_t session_path = session_path_t::create(session.portal->sender_name());
+        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: session path: '" << session_path.path << "'" << " token: '" << session_path.token << "'\n";
 
         auto pipewire_opened = [](GObject *source, GAsyncResult *res, void *user_data) {
                 auto session = static_cast<screen_cast_session*>(user_data);
@@ -577,13 +596,11 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 uint32_t response;
                 GVariant *results;
                 g_variant_get(parameters, "(u@a{sv})", &response, &results);
-                if(response == Portal::REQUEST_RESPONSE_CANCELLED_BY_USER) {
+                if(response == ScreenCastPortal::REQUEST_RESPONSE_CANCELLED_BY_USER) {
                         session.init_error.set_value("failed to start (dialog cancelled by user)");
-                        g_main_loop_quit(session.dbus_loop);
                         return;
-                } else if(response != Portal::REQUEST_RESPONSE_OK) {
+                } else if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
                         session.init_error.set_value("failed to start (unknown reason)");
-                        g_main_loop_quit(session.dbus_loop);
                         return;
                 }
 
@@ -608,7 +625,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 g_variant_unref(results);
                 GVariantBuilder builder;
                 g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
-                g_dbus_proxy_call_with_unix_fd_list(screencast_proxy, "OpenPipeWireRemote",
+                g_dbus_proxy_call_with_unix_fd_list(session.portal->proxy(), "OpenPipeWireRemote",
                                                                                         g_variant_new("(oa{sv})", session_path.path.c_str(), &builder),
                                                                                         G_DBUS_CALL_FLAGS_NONE, -1,
                                                                                         nullptr, nullptr, pipewire_opened, &session);
@@ -623,9 +640,8 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 uint32_t response;
                 GVariant *results;
                 g_variant_get(parameters, "(u@a{sv})", &response, &results);
-                if(response != Portal::REQUEST_RESPONSE_OK) {
+                if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
                         session.init_error.set_value("Failed to select sources");
-                        g_main_loop_quit(session.dbus_loop);
                         return;
                 }
                 g_variant_unref(results);
@@ -633,7 +649,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 {
                         GVariantBuilder params;
                         g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
-                        portal.call("Start", {g_variant_new_object_path(session_path.path.c_str()),  /*parent window: */ g_variant_new_string("")}, params, started);
+                        session.portal->call_with_request("Start", {g_variant_new_object_path(session_path.path.c_str()),  /*parent window: */ g_variant_new_string("")}, params, started);
                 }
         };
 
@@ -642,9 +658,8 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 GVariant *results;
 
                 g_variant_get(parameters, "(u@a{sv})", &response, &results);
-                if(response != Portal::REQUEST_RESPONSE_OK) {
+                if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
                         session.init_error.set_value("Failed to create session");
-                        g_main_loop_quit(session.dbus_loop);
                         return;
                 }
                 const char *session_handle = nullptr;
@@ -680,7 +695,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                                         g_variant_builder_add(&params, "{sv}", "restore_token", g_variant_new_string(token.c_str())); 
                         }
 
-                        portal.call("SelectSources", {g_variant_new_object_path(session_path.path.c_str())}, params, sources_selected);
+                        session.portal->call_with_request("SelectSources", {g_variant_new_object_path(session_path.path.c_str())}, params, sources_selected);
                 }
         };
 
@@ -690,16 +705,10 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
                 g_variant_builder_add(&params, "{sv}", "session_handle_token", g_variant_new_string(session_path.token.c_str()));
                 
-                portal.call("CreateSession", {}, params, session_created);
+                session.portal->call_with_request("CreateSession", {}, params, session_created);
         }
 
-        g_dbus_connection_flush(connection, nullptr, nullptr, nullptr);
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: running dbus loop\n";
-        g_main_loop_run(session.dbus_loop);
-        g_object_unref(screencast_proxy);
-        g_object_unref(connection);
-        //g_main_loop_unref(session.dbus_loop); //FIXME
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: finished dbus loop \n";
+        session.portal->run_loop();
 }
 
 static struct vidcap_type * vidcap_screen_pipewire_probe(bool verbose, void (**deleter)(void *))
@@ -750,6 +759,7 @@ static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **stat
         if (std::string error_msg = future_error.get(); !error_msg.empty()) {
                 LOG(LOG_LEVEL_FATAL) << "[screen_pw]: " << error_msg << "\n";
                 dbus_thread.join();
+                session->portal->quit_loop();
                 return VIDCAP_INIT_FAIL;
         }
 
