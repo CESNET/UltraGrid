@@ -165,7 +165,7 @@ public:
                         uint32_t response;
                         GVariant *results;
                         g_variant_get(parameters, "(u@a{sv})", &response, &results);
-                        ScopeExit scope_exit([&](){ g_variant_unref(results); });
+                        //ScopeExit scope_exit([&](){ g_variant_unref(results); });
                         
                         static_cast<const PortalCallCallback *> (user_data)->operator()(response, results);
                         g_dbus_connection_call(connection, "org.freedesktop.portal.Desktop",
@@ -284,29 +284,40 @@ struct screen_cast_session {
         struct {
                 bool show_cursor = false;
                 std::string persistence_filename = "";
-                int target_fps = 60;
+                int target_fps = -1;
         } user_options;
 
         std::unique_ptr<ScreenCastPortal> portal;
 
-        int pipewire_fd = -1;
-        uint32_t pipewire_node = -1;
-        
-        struct pw_thread_loop *loop = nullptr;
-        struct pw_core *core = nullptr;
+        struct {
+                int fd = -1;
+                uint32_t node = -1;
+                
+                struct pw_thread_loop *loop = nullptr;
+                struct pw_core *core = nullptr;
 
-        struct pw_stream *stream = nullptr;
-        struct spa_hook stream_listener = {};
-        struct spa_hook core_listener = {};
+                struct pw_stream *stream = nullptr;
+                struct spa_hook stream_listener = {};
+                struct spa_hook core_listener = {};
 
-        struct spa_io_position *position = nullptr;
+                struct spa_io_position *position = nullptr;
 
-        struct spa_video_info format = {};
-        //int32_t output_line_size = 0;
-        struct spa_rectangle size = {};
-        int pw_frame_count = 0;
-        uint64_t pw_begin_time = time_since_epoch_in_ms();
-        uint64_t pw_approx_average_fps = std::max(1, user_options.target_fps);
+                struct spa_video_info format = {};
+                //int32_t output_line_size = 0;
+                int frame_count = 0;
+                
+                int width() {
+                        return format.info.raw.size.width;
+                }
+                
+                int height() {
+                        return format.info.raw.size.height;
+                }
+           
+                //std::chrono::duration<uint64_t, std::milli> pw_begin_time =std::chrono::system_clock::now();
+                uint64_t frame_counter_begin_time = time_since_epoch_in_ms();
+                uint64_t expecting_fps = DEFAULT_EXCPETING_FPS;
+        }pw;
 
         // used exlusively by ultragrid thread
         video_frame_wrapper in_flight_frame;
@@ -328,8 +339,8 @@ struct screen_cast_session {
                 
                 struct tile* tile = vf_get_tile(frame, 0);
                 assert(tile != nullptr);
-                tile->width = size.width; //TODO
-                tile->height = size.height; //TODO
+                tile->width = pw.width(); //TODO
+                tile->height = pw.height(); //TODO
                 tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
                 tile->data = (char *) malloc(tile->data_len);
                 return video_frame_wrapper(frame);
@@ -338,9 +349,9 @@ struct screen_cast_session {
         ~screen_cast_session() {
                 LOG(LOG_LEVEL_INFO) << "[screen_pw]: screen_cast_session begin desructor\n";
                 //pw_thread_loop_unlock();
-                pw_thread_loop_stop(loop);
+                pw_thread_loop_stop(pw.loop);
                 //pw_stream_disconnect(stream);
-                pw_stream_destroy(stream);
+                pw_stream_destroy(pw.stream);
                 //pw_thread_loop_destroy(loop);
                 //pw_core_disconnect(core);
                 LOG(LOG_LEVEL_INFO) << "[screen_pw]: screen_cast_session destroyed\n";
@@ -371,20 +382,11 @@ static void on_stream_state_changed(void *session_ptr, enum pw_stream_state old,
         }
 }
 
-static void on_stream_io_changed(void *_data, uint32_t id, void *area, uint32_t size) {
-        auto *data = static_cast<screen_cast_session*>(_data);
-        printf("stream changed: id=%d size=%d\n", id, size);
-        switch (id) {
-                case SPA_IO_Position:
-                        data->position = static_cast<spa_io_position *>(area);
-                        break;
-        }
-}
 
 static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct spa_pod *param) {
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
         (void) id;
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: [cap_pipewire] param changed:\n";
+        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: [cap_pipewire] param changed:\n";
         spa_debug_format(2, nullptr, param);
 
         if(id == SPA_PARAM_Invalid)
@@ -396,20 +398,17 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         if (param == NULL || id != SPA_PARAM_Format)
                 return;
 
-        int parse_format_ret = spa_format_parse(param, &session.format.media_type, &session.format.media_subtype);
+        int parse_format_ret = spa_format_parse(param, &session.pw.format.media_type, &session.pw.format.media_subtype);
         assert(parse_format_ret > 0);
 
-        assert(session.format.media_type == SPA_MEDIA_TYPE_video);
-        assert(session.format.media_subtype == SPA_MEDIA_SUBTYPE_raw);
+        assert(session.pw.format.media_type == SPA_MEDIA_TYPE_video);
+        assert(session.pw.format.media_subtype == SPA_MEDIA_SUBTYPE_raw);
 
-        spa_format_video_raw_parse(param, &session.format.info.raw);
-        session.size = SPA_RECTANGLE(session.format.info.raw.size.width,
-                                                                session.format.info.raw.size.height);
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: size: " << session.format.info.raw.size.width << " x " << session.format.info.raw.size.height
-                                << "\n";
+        spa_format_video_raw_parse(param, &session.pw.format.info.raw);
+        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: size: " << session.pw.width() << " x " << session.pw.height() << "\n";
 
-        int linesize = vc_get_linesize(session.size.width, RGBA);
-        int32_t size = linesize * session.size.height;
+        int linesize = vc_get_linesize(session.pw.width(), RGBA);
+        int32_t size = linesize * session.pw.height();
 
         uint8_t params_buffer[1024];
 
@@ -428,7 +427,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         );
         
         pw_stream_update_params(session.stream, params, 1);
-
+        
         for(int i = 0; i < QUEUE_SIZE; ++i)
                 session.blank_frames.enqueue(session.new_blank_frame());
         
@@ -458,7 +457,7 @@ static void on_process(void *session_ptr) {
         screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
         pw_buffer *buffer;
         int n_buffers_from_pw = 0;
-        while((buffer = pw_stream_dequeue_buffer(session.stream)) != nullptr){    
+        while((buffer = pw_stream_dequeue_buffer(session.pw.stream)) != nullptr){    
                 ++n_buffers_from_pw;
 
                 video_frame_wrapper next_frame;
@@ -470,36 +469,36 @@ static void on_process(void *session_ptr) {
                 // assert(buffer->size != 0);
                 if(buffer->buffer->datas[0].chunk == nullptr || buffer->buffer->datas[0].chunk->size == 0) {
                         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping - empty pw frame " << "\n";
-                        pw_stream_queue_buffer(session.stream, buffer);
+                        pw_stream_queue_buffer(session.pw.stream, buffer);
                         continue;
                 }
 
-                if(!session.blank_frames.wait_dequeue_timed(next_frame, 1000ms / session.pw_approx_average_fps)) {
+                if(!session.blank_frames.wait_dequeue_timed(next_frame, 1000ms / session.pw.expecting_fps)) {
                         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping frame (blank frame dequeue timed out)\n";
-                        pw_stream_queue_buffer(session.stream, buffer);
+                        pw_stream_queue_buffer(session.pw.stream, buffer);
                         continue;
                 }
 
 
                 //memcpy(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.height * vc_get_linesize(session.size.width, RGBA));
-                copy_bgra_to_rgba(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.width, session.size.height);
+                copy_bgra_to_rgba(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.pw.width(), session.pw.height());
                 
                 session.sending_frames.enqueue(std::move(next_frame));
                 
-                pw_stream_queue_buffer(session.stream, buffer);
+                pw_stream_queue_buffer(session.pw.stream, buffer);
                 
-                ++session.pw_frame_count;
+                ++session.pw.frame_count;
                 uint64_t time_now = time_since_epoch_in_ms();
 
-                uint64_t delta = time_now - session.pw_begin_time;
+                uint64_t delta = time_now - session.pw.frame_counter_begin_time;
                 if(delta >= 5000) {
-                        double average_fps = session.pw_frame_count / (delta / 1000.0);
+                        double average_fps = session.pw.frame_count / (delta / 1000.0);
                         LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: on process: average fps in last 5 seconds: " << average_fps << "\n";
-                        session.pw_approx_average_fps = average_fps;
-                        if(session.pw_approx_average_fps == 0)
-                                session.pw_approx_average_fps = 1;
-                        session.pw_frame_count = 0;
-                        session.pw_begin_time = time_since_epoch_in_ms();
+                        session.pw.expecting_fps = average_fps;
+                        if(session.pw.expecting_fps == 0)
+                                session.pw.expecting_fps = 1;
+                        session.pw.frame_count = 0;
+                        session.pw.frame_counter_begin_time = time_since_epoch_in_ms();
                 }
         }
         
@@ -530,7 +529,7 @@ static const struct pw_stream_events stream_events = {
                 .destroy = nullptr,
                 .state_changed = on_stream_state_changed,
                 .control_info = nullptr,
-                .io_changed = on_stream_io_changed,
+                .io_changed = nullptr,
                 .param_changed = on_stream_param_changed,
                 .add_buffer = on_add_buffer,
                 .remove_buffer = on_remove_buffer,
@@ -570,32 +569,31 @@ static int start_pipewire(screen_cast_session &session)
         uint8_t params_buffer[1024];
         struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 
-        session.loop = pw_thread_loop_new("pipewire_thread_loop", nullptr);
-        assert(session.loop != nullptr);
-        pw_thread_loop_lock(session.loop);
-        pw_context *context = pw_context_new(pw_thread_loop_get_loop(session.loop), nullptr, 0);
+        session.pw.loop = pw_thread_loop_new("pipewire_thread_loop", nullptr);
+        assert(session.pw.loop != nullptr);
+        pw_thread_loop_lock(session.pw.loop);
+        pw_context *context = pw_context_new(pw_thread_loop_get_loop(session.pw.loop), nullptr, 0);
         assert(context != nullptr);
 
-        if (pw_thread_loop_start(session.loop) != 0) {
+        if (pw_thread_loop_start(session.pw.loop) != 0) {
                 assert(false && "error starting pipewire thread loop");
         }
 
-
-        int new_pipewire_fd = fcntl(session.pipewire_fd, F_DUPFD_CLOEXEC, 5);
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: duplicating fd " << session.pipewire_fd << " -> " << new_pipewire_fd << "\n";
+        int new_pipewire_fd = fcntl(session.pw.fd, F_DUPFD_CLOEXEC, 5);
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: duplicating fd " << session.pw.fd << " -> " << new_pipewire_fd << "\n";
         pw_core *core = pw_context_connect_fd(context, new_pipewire_fd, nullptr,
                                                                                   0); //why does obs dup the fd?
         assert(core != nullptr);
 
-        pw_core_add_listener(core, &session.core_listener, &core_events, &session);
+        pw_core_add_listener(core, &session.pw.core_listener, &core_events, &session);
  
-        session.stream = pw_stream_new(core, "my_screencast", pw_properties_new(
+        session.pw.stream = pw_stream_new(core, "my_screencast", pw_properties_new(
                         PW_KEY_MEDIA_TYPE, "Video",
                         PW_KEY_MEDIA_CATEGORY, "Capture",
                         PW_KEY_MEDIA_ROLE, "Screen",
                         nullptr));
-        assert(session.stream != nullptr);
-        pw_stream_add_listener(session.stream, &session.stream_listener, &stream_events, &session);
+        assert(session.pw.stream != nullptr);
+        pw_stream_add_listener(session.pw.stream, &session.pw.stream_listener, &stream_events, &session);
 
         auto size_rect_def = SPA_RECTANGLE(1920, 1080);
         auto size_rect_min = SPA_RECTANGLE(1, 1);
@@ -603,7 +601,7 @@ static int start_pipewire(screen_cast_session &session)
 
         auto framerate_def = SPA_FRACTION(DEFAULT_EXPECTING_FPS, 1);
         auto framerate_min = SPA_FRACTION(0, 1);
-        auto framerate_max = SPA_FRACTION(90, 1);
+        auto framerate_max = SPA_FRACTION(300 , 1);
 
 
         const int n_params = 1;
@@ -627,9 +625,9 @@ static int start_pipewire(screen_cast_session &session)
                                         &framerate_max)
         ));
 
-        int res = pw_stream_connect(session.stream,
+        int res = pw_stream_connect(session.pw.stream,
                                         PW_DIRECTION_INPUT,
-                                        session.pipewire_node,
+                                        session.pw.node,
                                         static_cast<pw_stream_flags>(
                                                 PW_STREAM_FLAG_AUTOCONNECT |
                                                 PW_STREAM_FLAG_MAP_BUFFERS
@@ -640,7 +638,7 @@ static int start_pipewire(screen_cast_session &session)
                 return -1;
         }
 
-        pw_thread_loop_unlock(session.loop);
+        pw_thread_loop_unlock(session.pw.loop);
         return 0;
 }
 
@@ -656,15 +654,15 @@ static void on_portal_session_closed(GDBusConnection *connection, const gchar *s
         auto &session = *static_cast<screen_cast_session*>(user_data);
         //TODO: check if this is fired by newer Gnome 
         LOG(LOG_LEVEL_INFO) << "[screen_pw] session closed by compositor\n";
-        pw_thread_loop_stop(session.loop);
+        pw_thread_loop_stop(session.pw.loop);
 }
 
 static void run_screencast(screen_cast_session *session_ptr) {
         auto& session = *session_ptr;
         session.portal = std::make_unique<ScreenCastPortal>();
 
-        session.pipewire_fd = -1;
-        session.pipewire_node = UINT32_MAX;
+        session.pw.fd = -1;
+        session.pw.node = UINT32_MAX;
         
         session_path_t session_path = session_path_t::create(session.portal->sender_name());
         LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: session path: '" << session_path.path << "'" << " token: '" << session_path.token << "'\n";
@@ -692,11 +690,11 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 g_variant_get(result, "(h)", &handle);
                 assert(handle == 0); //it should always be the first index
 
-                session->pipewire_fd = g_unix_fd_list_get(fd_list, handle, &error);
+                session->pw.fd = g_unix_fd_list_get(fd_list, handle, &error);
                 g_assert_no_error(error);
 
-                assert(session->pipewire_fd != -1);
-                assert(session->pipewire_node != UINT32_MAX);
+                assert(session->pw.fd != -1);
+                assert(session->pw.node != UINT32_MAX);
                 
                 LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: starting pipewire\n";
                 start_pipewire(*session);
@@ -728,7 +726,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 GVariantIter iter;
                 g_variant_iter_init(&iter, streams);
                 assert(g_variant_iter_n_children(&iter) == 1); //TODO: do I need the KDE work-around like in OBS for this bug?
-                bool got_item = g_variant_iter_loop(&iter, "(u@a{sv})", &session.pipewire_node, &stream_properties);
+                bool got_item = g_variant_iter_loop(&iter, "(u@a{sv})", &session.pw.node, &stream_properties);
                 assert(got_item);
                 g_variant_unref(stream_properties);
                 g_variant_unref(results);
@@ -819,8 +817,8 @@ static struct vidcap_type * vidcap_screen_pipewire_probe(bool verbose, void (**d
         (void) verbose;
         (void) deleter;
         
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: [cap_pipewire] probe\n";
-        exit(0);
+        LOG(LOG_LEVEL_INFO) << "[screen_pw]: [cap_pipewire] probe\n";
+        assert(false);
         return nullptr;
 }
 
