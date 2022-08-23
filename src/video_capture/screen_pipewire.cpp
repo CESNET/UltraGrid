@@ -288,6 +288,7 @@ struct screen_cast_session {
                 bool show_cursor = false;
                 std::string restore_file = "";
                 uint32_t fps = 0;
+                bool crop = true;
         } user_options;
 
         std::unique_ptr<ScreenCastPortal> portal;
@@ -353,6 +354,8 @@ struct screen_cast_session {
                                 pw_thread_loop_stop(loop);
                         if(stream != nullptr)
                                 pw_stream_destroy(stream);
+                        if(loop!=nullptr)
+                                pw_thread_loop_destroy(loop);
                         pw_deinit();
                 }
         }pw;
@@ -399,9 +402,10 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         uint8_t params_buffer[1024];
 
         struct spa_pod_builder builder = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-        const struct spa_pod *params[2] = {};
+        const struct spa_pod *params[3] = {};
+        int n_params = 0;
 
-        params[0] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
+        params[n_params++] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
                 SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
                 SPA_PARAM_BUFFERS_buffers,
                 SPA_POD_CHOICE_RANGE_Int(DEFAULT_BUFFERS_PW, MIN_BUFFERS_PW, MAX_BUFFERS_PW),
@@ -412,32 +416,87 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
                 SPA_POD_CHOICE_FLAGS_Int((1 << SPA_DATA_MemPtr)))
         );
         
-        pw_stream_update_params(session.stream, params, 1);
+        if(session.user_options.crop) {
+                params[n_params++] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
+                        SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+                        SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
+                        SPA_PARAM_META_size,
+                        SPA_POD_Int(sizeof(struct spa_meta_region)))
+                );
+        }
         
+        pw_stream_update_params(session.pw.stream, params, n_params);
+
         for(int i = 0; i < QUEUE_SIZE; ++i)
                 session.blank_frames.enqueue(session.pw.allocate_video_frame());
         
         session.init_error.set_value("");
 }
 
-static void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
-        SCOPE_STOPWATCH(copy_bgra_to_rgba);
 
-        int linesize = 4*width;
-        for (int line_offset = 0; line_offset < height * linesize; line_offset += linesize) {
-                for(int x = 0; x < 4*width; x += 4) {
-                        // rgba <- bgra
-                        dest[line_offset + x    ] = src[line_offset + x + 2];
-                        dest[line_offset + x + 1] = src[line_offset + x + 1];
-                        dest[line_offset + x + 2] = src[line_offset + x    ];
-                        dest[line_offset + x + 3] = src[line_offset + x + 3];
+static void copy_frame_impl_cropped(bool swap_red_blue, char *dest, char *src, 
+        int actual_width, int actual_height, int x_begin, int y_begin, int crop_width, int crop_height) 
+{
+        UNUSED(actual_height);
+        for(int y = y_begin; y < crop_height; ++y){
+                int line_offset_src = 4 * y * actual_width;
+                int line_offset_dest = 4 * y * crop_width;     
+                if (swap_red_blue) {
+                        for(int x = x_begin; x < crop_width; ++x) {
+                                int x_offset = 4 * x;
+                                // rgba <- bgra    
+                                dest[line_offset_dest + x_offset    ] = src[line_offset_src + x_offset + 2];
+                                dest[line_offset_dest + x_offset + 1] = src[line_offset_src + x_offset + 1];
+                                dest[line_offset_dest + x_offset + 2] = src[line_offset_src + x_offset    ];
+                                dest[line_offset_dest + x_offset + 3] = src[line_offset_src + x_offset + 3];
+                        }
+                } else {
+                        memcpy(dest+line_offset_dest, src + line_offset_src + 4 * x_begin, crop_width * 4);
                 }
         }
 }
 
+static void copy_frame_impl(bool swap_red_blue, char *dest, char *src, int width, int height)
+{
+        int linesize = vc_get_linesize(width, RGBA);
+        if (swap_red_blue) {
+                for (int line_offset = 0; line_offset < height * linesize; line_offset += linesize) {
+                        for(int x = 0; x < linesize; x += 4) {
+                                // rgba <- bgra
+                                dest[line_offset + x    ] = src[line_offset + x + 2];
+                                dest[line_offset + x + 1] = src[line_offset + x + 1];
+                                dest[line_offset + x + 2] = src[line_offset + x    ];
+                                dest[line_offset + x + 3] = src[line_offset + x + 3];
+                        }
+                }
+        } else {
+                memcpy(dest, src, height * linesize);
+        }
+}
+
+static void copy_frame(bool swap_red_blue, spa_buffer *buffer, video_frame_wrapper& output_frame, int session_width, int session_height, spa_region *crop_region = nullptr){
+        if (crop_region != nullptr) {
+                copy_frame_impl_cropped(swap_red_blue, output_frame->tiles[0].data, static_cast<char*>(buffer->datas[0].data), session_width, session_height,
+                        crop_region->position.x, crop_region->position.y, crop_region->size.width, crop_region->size.height);
+        } else {
+                copy_frame_impl(swap_red_blue, output_frame->tiles[0].data, static_cast<char*>(buffer->datas[0].data), session_width, session_height);
+        }
+        
+        struct tile *tile = vf_get_tile(output_frame.get(), 0);
+        assert(tile != nullptr);
+        if (crop_region != nullptr){
+                tile->width = crop_region->size.width;
+                tile->height = crop_region->size.height;
+        }else{
+                tile->width = session_width;
+                tile->height = session_height;
+        }
+
+        tile->data_len = vc_get_linesize(tile->width, RGBA) * tile->height;
+}
+
 static void on_process(void *session_ptr) {
         using namespace std::chrono_literals;
-
         SCOPE_STOPWATCH(on_process);
 
         screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
@@ -452,7 +511,7 @@ static void on_process(void *session_ptr) {
                 assert(buffer->buffer->datas != nullptr);
                 assert(buffer->buffer->n_datas == 1);
                 assert(buffer->buffer->datas[0].data != nullptr);
-                // assert(buffer->size != 0);
+
                 if(buffer->buffer->datas[0].chunk == nullptr || buffer->buffer->datas[0].chunk->size == 0) {
                         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping - empty pw frame " << "\n";
                         pw_stream_queue_buffer(session.pw.stream, buffer);
@@ -465,10 +524,15 @@ static void on_process(void *session_ptr) {
                         continue;
                 }
 
+                spa_region *crop_region = nullptr;
+                if (session.user_options.crop) {
+                        spa_meta_region *meta_crop_region = static_cast<spa_meta_region*>(spa_buffer_find_meta_data(buffer->buffer, SPA_META_VideoCrop, sizeof(*meta_crop_region)));
+                        if (meta_crop_region != nullptr && spa_meta_region_is_valid(meta_crop_region))
+                           crop_region = &meta_crop_region->region;
+                }
 
-                //memcpy(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.height * vc_get_linesize(session.size.width, RGBA));
-                copy_bgra_to_rgba(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.pw.width(), session.pw.height());
-                
+                copy_frame(true, buffer->buffer,next_frame, session.pw.width(), session.pw.height(), crop_region);
+        
                 session.sending_frames.enqueue(std::move(next_frame));
                 
                 pw_stream_queue_buffer(session.pw.stream, buffer);
@@ -679,7 +743,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                                 file<<restore_token;
                         }
                 }
-
+                
                 GVariant *streams = g_variant_lookup_value(results, "streams", G_VARIANT_TYPE_ARRAY);
                 GVariant *stream_properties;
                 GVariantIter iter;
@@ -687,6 +751,13 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 assert(g_variant_iter_n_children(&iter) == 1); //TODO: do I need the KDE work-around like in OBS for this bug?
                 bool got_item = g_variant_iter_loop(&iter, "(u@a{sv})", &session.pw.node, &stream_properties);
                 assert(got_item);
+                uint32_t capture_type;
+                g_variant_lookup(stream_properties, "source_type", "u", &capture_type);
+                if(capture_type == 1) { //TODO: constant
+                        // user selected a whole screen inside Portal dialog, that means crop can be disabled without changing anything
+                        session.user_options.crop = false;
+                }
+
                 g_variant_unref(stream_properties);
                 g_variant_unref(results);
                 GVariantBuilder builder;
@@ -793,8 +864,9 @@ static void show_help() {
         };
 
         std::cout << "Screen capture using PipeWire and ScreenCast freedesktop portal API\n";
-        std::cout << "Usage: -t screen_pw[:cursor|:fps=<fps>|:restore=<token_file>]]\n";
+        std::cout << "Usage: -t screen_pw[:cursor|:nocrop|:fps=<fps>|:restore=<token_file>]]\n";
         param("cursor") << "make the cursor visible (default hidden)\n";
+        param("nocrop") << "when capturing a window do not crop out the empty background\n";
         param("<fps>") << "prefered FPS passed to PipeWire (PipeWire may ignore it)\n";
         param("<token_file>") << "restore the selected window/display from a file.\n\t\tIf not possible, display the selection dialog and save the token to the file specified.\n";
 }
@@ -811,6 +883,8 @@ static int parse_params(struct vidcap_params *params, screen_cast_session &sessi
                                         return VIDCAP_INIT_NOERR;
                         } else if (param == "cursor") {
                                 session.user_options.show_cursor = true;
+                        } else if (param == "nocrop") {
+                                session.user_options.crop = false;
                         } else {
                                 auto split_index = param.find('=');
                                 if(split_index != std::string::npos && split_index != 0){
