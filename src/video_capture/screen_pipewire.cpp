@@ -182,7 +182,8 @@ struct screen_cast_session {
         moodycamel::BlockingReaderWriterCircularBuffer<video_frame*> blank_frames {BLANK_FRAMES_QUEUE_SIZE};
         moodycamel::BlockingReaderWriterCircularBuffer<video_frame*> sending_frames {SENDING_FRAMES_QUEUE_SIZE};
         
-        std::promise<void> screen_cast_is_ready;
+        // empty string if no error occured, or an error message
+        std::promise<std::string> init_error;
 
         struct video_frame *new_blank_frame()
         {
@@ -316,7 +317,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         for(int i = 0; i < BLANK_FRAMES_COUNT; ++i)
                 session.blank_frames.wait_enqueue(session.new_blank_frame());
         
-        session.screen_cast_is_ready.set_value();
+        session.init_error.set_value("");
 }
 
 static void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
@@ -577,7 +578,11 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 GVariant *result;
                 uint32_t response;
                 g_variant_get(parameters, "(u@a{sv})", &response, &result);
-                assert(response == 0 && "failed to start");
+                if(response != 0) {
+                        session.init_error.set_value("failed to start (possibly canceled by user)");
+                        g_main_loop_quit(session.dbus_loop);
+                        return;
+                }
                 GVariant *streams = g_variant_lookup_value(result, "streams", G_VARIANT_TYPE_ARRAY);
                 GVariant *stream_properties;
                 GVariantIter iter;
@@ -668,9 +673,16 @@ static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **stat
         std::cout<<"[cap_pipewire] init\n";
         pw_init(&uv_argc, &uv_argv);
 
-        std::future<void> ready = session->screen_cast_is_ready.get_future();
+        std::future<std::string> future_error = session->init_error.get_future();
         std::thread dbus_thread(run_screencast, session);
-        ready.wait();
+        future_error.wait();
+        
+        if (std::string error_msg = future_error.get(); !error_msg.empty()) {
+                LOG(LOG_LEVEL_FATAL) << "[screen_pw]: " << error_msg << "\n";
+                dbus_thread.join();
+                return VIDCAP_INIT_FAIL;
+        }
+
         dbus_thread.detach();
         std::cout<<"ready"<<std::endl;
         return VIDCAP_INIT_OK;
