@@ -176,13 +176,18 @@ public:
                 return screencast_proxy;
         }
 
+        GDBusConnection *dbus_connection() const {
+                return connection;
+        }
+
         const std::string& sender_name() const
         {
                 return sender_name_;
         }
 
         ~ScreenCastPortal() {
-                //g_main_loop_unref(session.dbus_loop); //FIXME
+                g_main_loop_quit(dbus_loop);
+                //g_main_loop_unref(session.dbus_loop);
                 g_object_unref(screencast_proxy);
                 g_object_unref(connection);
         } 
@@ -248,7 +253,7 @@ struct screen_cast_session {
         struct spa_video_info format = {};
         //int32_t output_line_size = 0;
         struct spa_rectangle size = {};
-
+ 
         // used exlusively by ultragrid thread
         video_frame_wrapper in_flight_frame;
 
@@ -277,23 +282,31 @@ struct screen_cast_session {
         }
 
         ~screen_cast_session() {
+                LOG(LOG_LEVEL_INFO) << "[screen_pw]: screen_cast_session begin desructor\n";
+                //pw_thread_loop_unlock();
                 pw_thread_loop_stop(loop);
-                //g_main_loop_quit(dbus_loop);
-                pw_stream_disconnect(stream);
+                //pw_stream_disconnect(stream);
+                pw_stream_destroy(stream);
                 //pw_thread_loop_destroy(loop);
                 //pw_core_disconnect(core);
-                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: screen_cast_session destructor finished\n";
+                LOG(LOG_LEVEL_INFO) << "[screen_pw]: screen_cast_session destroyed\n";
         }
 };
 
 static void on_stream_state_changed(void *session_ptr, enum pw_stream_state old, enum pw_stream_state state, const char *error) {
         (void) session_ptr;
-
-        printf("stream state change : \"%s\" -> \"%s\"\n", pw_stream_state_as_string(old), pw_stream_state_as_string(state));
-        printf("error: %s\n", error ? error : "(nullptr)");
+        LOG(LOG_LEVEL_INFO) << "[screen_pw] stream state changed \"" << pw_stream_state_as_string(old) 
+                                                << "\" -> \""<<pw_stream_state_as_string(state)<<"\"\n";
+        
+        if(error != nullptr) {
+                LOG(LOG_LEVEL_ERROR) << "[screen_pw] stream error: '"<< error << "'\n";
+        }
+        
         switch (state) {
                 case PW_STREAM_STATE_UNCONNECTED:
-                        //pw_thread_loop_stop(data->loop);
+                        LOG(LOG_LEVEL_INFO) << "[screen_pw] stream disconected\n"; 
+                        //assert(false && "disconected");
+                        //pw_thread_loop_stop(session);
                         break;
                 case PW_STREAM_STATE_PAUSED:
                         //pw_main_loop_quit(data->loop);
@@ -429,8 +442,9 @@ static void on_process(void *session_ptr) {
                 
                 assert(buffer->buffer != nullptr);
                 assert(buffer->buffer->datas != nullptr);
+                assert(buffer->buffer->n_datas == 1);
                 assert(buffer->buffer->datas[0].data != nullptr);
-
+                // assert(buffer->size != 0);
                 if(buffer->buffer->datas[0].chunk == nullptr || buffer->buffer->datas[0].chunk->size == 0) {
                         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping - empty pw frame " << "\n";
                         pw_stream_queue_buffer(session.stream, buffer);
@@ -469,6 +483,8 @@ static void on_process(void *session_ptr) {
                         begin_time = time_since_epoch_in_ms();
                 }
         }
+        
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw] pw buffers: " <<n_buffers_from_pw<<"\n";  
         
         static uint8_t counter = 0;
         if( (++counter)%40 == 0)
@@ -556,7 +572,7 @@ static int start_pipewire(screen_cast_session &session)
         assert(core != nullptr);
 
         pw_core_add_listener(core, &session.core_listener, &core_events, &session);
-
+ 
         session.stream = pw_stream_new(core, "my_screencast", pw_properties_new(
                         PW_KEY_MEDIA_TYPE, "Video",
                         PW_KEY_MEDIA_CATEGORY, "Capture",
@@ -612,6 +628,21 @@ static int start_pipewire(screen_cast_session &session)
         return 0;
 }
 
+static void on_portal_session_closed(GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
+                                                                        const gchar *interface_name, const gchar *signal_name, GVariant *parameters, gpointer user_data)
+{
+        (void) connection;
+        (void) sender_name;
+        (void) object_path;
+        (void) interface_name;
+        (void) signal_name;
+        (void) parameters;
+        auto &session = *static_cast<screen_cast_session*>(user_data);
+        //TODO: check if this is fired by newer Gnome 
+        LOG(LOG_LEVEL_INFO) << "[screen_pw] session closed by compositor\n";
+        pw_thread_loop_stop(session.loop);
+}
+
 static void run_screencast(screen_cast_session *session_ptr) {
         auto& session = *session_ptr;
         session.portal = std::make_unique<ScreenCastPortal>();
@@ -621,6 +652,17 @@ static void run_screencast(screen_cast_session *session_ptr) {
         
         session_path_t session_path = session_path_t::create(session.portal->sender_name());
         LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: session path: '" << session_path.path << "'" << " token: '" << session_path.token << "'\n";
+
+        g_dbus_connection_signal_subscribe(session.portal->dbus_connection(), 
+                                                                           nullptr, // sender
+                                                                           "org.freedesktop.portal.Session", // interface_name
+                                                                           "closed", //signal name
+                                                                           session_path.path.c_str(), // object path
+                                                                           nullptr, // arg0
+                                                                           G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
+                                                                           on_portal_session_closed,
+                                                                           session_ptr,
+                                                                           nullptr);
 
         auto pipewire_opened = [](GObject *source, GAsyncResult *res, void *user_data) {
                 auto session = static_cast<screen_cast_session*>(user_data);
@@ -841,7 +883,9 @@ static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct
                 session.blank_frames.enqueue(std::move(session.in_flight_frame));
         }
 
-        session.sending_frames.wait_dequeue(session.in_flight_frame);
+        using namespace std::chrono_literals;
+        session.sending_frames.wait_dequeue_timed(session.in_flight_frame, 1s);
+
         return session.in_flight_frame.get();
 }
 
