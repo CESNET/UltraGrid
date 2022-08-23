@@ -24,15 +24,10 @@
 #include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
-#include "concurrent_queue/readerwritercircularbuffer.h"
 #include "concurrent_queue/readerwriterqueue.h"
 
-#define MAX_BUFFERS 2
-static constexpr int SENDING_FRAMES_QUEUE_SIZE = 4;
-static constexpr int BLANK_FRAMES_QUEUE_SIZE = 6;
-static constexpr int BLANK_FRAMES_COUNT = 6;
-static_assert(BLANK_FRAMES_COUNT <= BLANK_FRAMES_QUEUE_SIZE);
-
+#define MAX_BUFFERS 5
+static constexpr int QUEUE_SIZE = 10;
 
 struct request_path_t {
         std::string token;
@@ -116,8 +111,8 @@ public:
         {
                 assert(method_name != nullptr);
                 request_path_t request_path = request_path_t::create(sender_name());
+                //std::cout<<"DEBUG::: call " << request_path.path << "\n";
                 LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: call_with_request: '" << method_name << "' request: '" << request_path.path << "'\n";
-                
                 auto callback = [](GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
                                         const gchar *interface_name, const gchar *signal_name, GVariant *parameters,
                                         gpointer user_data) {
@@ -193,6 +188,42 @@ public:
         } 
 };
 
+class video_frame_wrapper
+{
+private:
+        video_frame* frame;
+public:
+        explicit video_frame_wrapper(video_frame* frame = nullptr)
+                :frame(frame)
+        {}
+
+        video_frame_wrapper(video_frame_wrapper&) = delete;
+        video_frame_wrapper& operator= (video_frame_wrapper&) = delete;
+        
+        video_frame_wrapper(video_frame_wrapper&& other) noexcept
+                : frame(std::exchange(other.frame, nullptr))
+        {}
+
+        video_frame_wrapper& operator=(video_frame_wrapper&& other) noexcept{
+                vf_free(frame);
+                frame = std::exchange(other.frame, nullptr);
+                return *this;
+        }
+
+        ~video_frame_wrapper(){
+                vf_free(frame);
+        }
+
+        video_frame* get() {
+                return frame;
+        }
+
+        video_frame* operator->(){
+                return get();
+        }
+};
+
+
 struct screen_cast_session { 
 
         struct {
@@ -219,16 +250,16 @@ struct screen_cast_session {
         struct spa_rectangle size = {};
 
         // used exlusively by ultragrid thread
-        struct video_frame *in_flight_frame = nullptr;
+        video_frame_wrapper in_flight_frame;
 
         // used exclusively by pipewire thread
-        moodycamel::BlockingReaderWriterCircularBuffer<video_frame*> blank_frames {BLANK_FRAMES_QUEUE_SIZE};
-        moodycamel::BlockingReaderWriterCircularBuffer<video_frame*> sending_frames {SENDING_FRAMES_QUEUE_SIZE};
+        moodycamel::BlockingReaderWriterQueue<video_frame_wrapper> blank_frames {QUEUE_SIZE};
+        moodycamel::BlockingReaderWriterQueue<video_frame_wrapper> sending_frames {QUEUE_SIZE};
 
         // empty string if no error occured, or an error message
         std::promise<std::string> init_error;
 
-        struct video_frame *new_blank_frame()
+        video_frame_wrapper new_blank_frame()
         {
                 struct video_frame *frame = vf_alloc(1);
                 frame->color_spec = RGBA;
@@ -242,7 +273,7 @@ struct screen_cast_session {
                 tile->height = size.height; //TODO
                 tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
                 tile->data = (char *) malloc(tile->data_len);
-                return frame;
+                return video_frame_wrapper(frame);
         }
 
         ~screen_cast_session() {
@@ -326,15 +357,15 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
                 SPA_PARAM_BUFFERS_dataType,
                 SPA_POD_CHOICE_FLAGS_Int((1 << SPA_DATA_MemPtr)))
         );
-
-        /* a header metadata with timing information */
+        /*
+        // a header metadata with timing information
         params[1] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
                 SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
                 SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
                 SPA_PARAM_META_size,
                 SPA_POD_Int(sizeof(struct spa_meta_header)))
         );
-        /* video cropping information */
+        // video cropping information
         params[2] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
                 SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
                 SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
@@ -343,7 +374,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         );
         
         #define CURSOR_META_SIZE(w, h)   (sizeof(struct spa_meta_cursor) + sizeof(struct spa_meta_bitmap) + (w) * (h) * 4)
-        /* cursor information */
+        // cursor
         params[3] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
                 SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
                 SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Cursor),
@@ -352,12 +383,12 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
                         CURSOR_META_SIZE(1, 1),
                         CURSOR_META_SIZE(256, 256))
                 )
-        );
+        );*/
 
-        pw_stream_update_params(session.stream, params, 4);
+        pw_stream_update_params(session.stream, params, 1);
 
-        for(int i = 0; i < BLANK_FRAMES_COUNT; ++i)
-                session.blank_frames.wait_enqueue(session.new_blank_frame());
+        for(int i = 0; i < QUEUE_SIZE; ++i)
+                session.blank_frames.enqueue(session.new_blank_frame());
         
         session.init_error.set_value("");
 }
@@ -380,27 +411,53 @@ static void on_process(void *session_ptr) {
         static int frame_count = 0;
         static uint64_t begin_time = time_since_epoch_in_ms();
 
-        std::vector<pw_buffer*> recycle_buffers;
         pw_buffer *buffer;
         int n_buffers_from_pw = 0;
         while((buffer = pw_stream_dequeue_buffer(session.stream)) != nullptr){    
                 ++n_buffers_from_pw;
 
-                video_frame *next_frame;
-                session.blank_frames.wait_dequeue(next_frame);
+                /*if( == nullptr && !session.blank_frames.try_dequeue(session.dequed_blank_frame))
+                {
+                        LOG(LOG_LEVEL_INFO) << "[screen_pw]: dropping - no blank frame\n";
+                        pw_stream_queue_buffer(session.stream, buffer);
+                        continue;
+                }*/
+           
+                //session.blank_frames.wait_dequeue(session.dequed_blank_frame);
+                video_frame_wrapper next_frame;
 
-                if(buffer == nullptr){
-                        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: pipewire is out of buffers\n";
-                        return;
-                }
-
+                
                 assert(buffer->buffer != nullptr);
                 assert(buffer->buffer->datas != nullptr);
                 assert(buffer->buffer->datas[0].data != nullptr);
+
+                if(buffer->buffer->datas[0].chunk == nullptr || buffer->buffer->datas[0].chunk->size == 0) {
+                        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping - empty pw frame " << "\n";
+                        pw_stream_queue_buffer(session.stream, buffer);
+                        continue;
+                }
+
+                if(!session.blank_frames.try_dequeue(next_frame)) {
+                        LOG(LOG_LEVEL_INFO) << "[screen_pw]: dropping - no blank frame\n";
+                        pw_stream_queue_buffer(session.stream, buffer);
+                        continue;
+                }
+
+
+                //memcpy(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.height * vc_get_linesize(session.size.width, RGBA));
                 copy_bgra_to_rgba(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.width, session.size.height);
                 
-                session.sending_frames.wait_enqueue(next_frame);
-                recycle_buffers.push_back(buffer);
+                /*
+                struct spa_meta_cursor *cursor_metadata = static_cast<spa_meta_cursor *>(spa_buffer_find_meta_data(buffer->buffer, SPA_META_Cursor, sizeof(spa_meta_cursor)));
+                //std::cout<<"cursor meta" << cursor_metadata << std::endl;
+                
+                if(cursor_metadata != nullptr && spa_meta_cursor_is_valid(cursor_metadata)){
+                        std::cout << "cursor: "<< cursor_metadata->position.x << " " << cursor_metadata->position.y << "";
+                }*/
+
+                session.sending_frames.enqueue(std::move(next_frame));
+                
+                pw_stream_queue_buffer(session.stream, buffer);
                 
                 ++frame_count;
                 uint64_t time_now = time_since_epoch_in_ms();
@@ -413,9 +470,6 @@ static void on_process(void *session_ptr) {
                 }
         }
         
-        for(pw_buffer *buffer : recycle_buffers)
-                pw_stream_queue_buffer(session.stream, buffer);
-
         static uint8_t counter = 0;
         if( (++counter)%40 == 0)
                 LOG(LOG_LEVEL_INFO) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << "\n";
@@ -645,7 +699,8 @@ static void run_screencast(screen_cast_session *session_ptr) {
                         return;
                 }
                 g_variant_unref(results);
-
+                //portal_call(connection, screencast_proxy, session_path.path.c_str(), "Start", {}, started);
+                
                 {
                         GVariantBuilder params;
                         g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
@@ -675,7 +730,6 @@ static void run_screencast(screen_cast_session *session_ptr) {
                         g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
                         g_variant_builder_add(&params, "{sv}", "types", g_variant_new_uint32(3)); // 1 full screen, 2 - a window, 3 - both
                         g_variant_builder_add(&params, "{sv}", "multiple", g_variant_new_boolean(false));
-
                         if(session.user_options.show_cursor)
                                 g_variant_builder_add(&params, "{sv}", "cursor_mode", g_variant_new_uint32(2));
                         
@@ -695,6 +749,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                                         g_variant_builder_add(&params, "{sv}", "restore_token", g_variant_new_string(token.c_str())); 
                         }
 
+                        // {"cursor_mode", g_variant_new_uint32(4)}
                         session.portal->call_with_request("SelectSources", {g_variant_new_object_path(session_path.path.c_str())}, params, sources_selected);
                 }
         };
@@ -709,6 +764,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
         }
 
         session.portal->run_loop();
+        //g_dbus_connection_flush(connection, nullptr, nullptr, nullptr); //TODO: needed?
 }
 
 static struct vidcap_type * vidcap_screen_pipewire_probe(bool verbose, void (**deleter)(void *))
@@ -781,14 +837,12 @@ static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
         *audio = nullptr;
    
-        if(session.in_flight_frame != nullptr){
-                session.blank_frames.wait_enqueue(session.in_flight_frame);
+        if(session.in_flight_frame.get() != nullptr){
+                session.blank_frames.enqueue(std::move(session.in_flight_frame));
         }
-        session.in_flight_frame = nullptr;
 
         session.sending_frames.wait_dequeue(session.in_flight_frame);
-
-        return session.in_flight_frame;
+        return session.in_flight_frame.get();
 }
 
 static const struct video_capture_info vidcap_screen_pipewire_info = {
