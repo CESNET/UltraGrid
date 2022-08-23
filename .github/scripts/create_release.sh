@@ -9,7 +9,8 @@
 ## c. introductionary text ("Changes:" etc) is added to the string
 ## d. backlash in MD special escape sequences ('\_', \*') are escaped (again to gain valid JSON)
 
-. $(dirname $0)/json-common.sh
+dir=$(dirname "$0")
+. "$dir/json-common.sh"
 
 # Joins line that starts with space to previous:
 # https://www.gnu.org/software/sed/manual/html_node/Joining-lines.html
@@ -19,14 +20,14 @@ REPL_NL=':a;N;$!ba;s/\n/\\n/g'
 markdown_replaces='s/\\_/\\\\_/g;s/\\\*/\\\\*/g' # escape MD escape sequences
 
 sudo apt install jq
-URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG | jq -r '.url')
+URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" | jq -r '.url')
 REQ=PATCH
-if [ $URL = null ]; then # release doesn't yet exist
+if [ "$URL" = null ]; then # release doesn't yet exist
   REQ=POST
   URL=https://api.github.com/repos/$GITHUB_REPOSITORY/releases
 fi
 DATE=$(date -Iminutes)
-if [ $VERSION = continuous ]; then
+if [ "$VERSION" = continuous ]; then
         TITLE='continuous builds'
         SUMMARY='Current builds from Git master branch. macOS alternative build is rebuilt daily, Linux ARM builds monthly. Archived builds can be found [here](https://frakira.fi.muni.cz/~xpulec/ug-nightly-archive/).'
         PRERELEASE=true
@@ -49,7 +50,7 @@ else
 fi
 
 tmp=$(mktemp)
-status=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X $REQ $URL -T - -o "$tmp" -w %{http_code} <<EOF
+status=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X "$REQ $URL" -T - -o "$tmp" -w '%{http_code}' <<EOF
 {
   "tag_name": "$TAG", "name": "$TITLE",
   "body": "Built $DATE\n\n$SUMMARY",

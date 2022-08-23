@@ -4,7 +4,8 @@
 # zsync AppImage release asset.
 #
 
-. $(dirname $0)/json-common.sh
+dir=$(dirname "$0")
+. "$dir/json-common.sh"
 
 sudo apt install jq
 URL=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X GET "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/continuous" | jq -r '.url')
@@ -16,7 +17,7 @@ if git tag continuous; then # tag may or may not exists
         git push origin refs/tags/continuous
 fi
 tmp=$(mktemp)
-status=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X POST "$URL" -T - -o "$tmp" -w %{http_code} <<EOF
+status=$(curl -S -H "Authorization: token $GITHUB_TOKEN" -X POST "$URL" -T - -o "$tmp" -w '%{http_code}' <<EOF
 {
   "tag_name": "continuous"}
 }
