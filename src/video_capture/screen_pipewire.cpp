@@ -234,6 +234,7 @@ struct screen_cast_session {
         struct {
                 bool show_cursor = false;
                 std::string persistence_filename = "";
+                int target_fps = 60;
         } user_options;
 
         std::unique_ptr<ScreenCastPortal> portal;
@@ -253,7 +254,10 @@ struct screen_cast_session {
         struct spa_video_info format = {};
         //int32_t output_line_size = 0;
         struct spa_rectangle size = {};
- 
+        int pw_frame_count = 0;
+        uint64_t pw_begin_time = time_since_epoch_in_ms();
+        uint64_t pw_approx_average_fps = user_options.target_fps;
+
         // used exlusively by ultragrid thread
         video_frame_wrapper in_flight_frame;
 
@@ -279,6 +283,11 @@ struct screen_cast_session {
                 tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
                 tile->data = (char *) malloc(tile->data_len);
                 return video_frame_wrapper(frame);
+        }
+
+        std::chrono::duration<int64_t, std::milli> expected_frame_time_ms(){
+                using namespace std::chrono_literals;
+                return 1000ms / format.info.raw.framerate.num * format.info.raw.framerate.denom;
         }
 
         ~screen_cast_session() {
@@ -421,8 +430,6 @@ static void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
 
 static void on_process(void *session_ptr) {
         screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
-        static int frame_count = 0;
-        static uint64_t begin_time = time_since_epoch_in_ms();
 
         pw_buffer *buffer;
         int n_buffers_from_pw = 0;
@@ -436,9 +443,8 @@ static void on_process(void *session_ptr) {
                         continue;
                 }*/
            
-                //session.blank_frames.wait_dequeue(session.dequed_blank_frame);
+                //;
                 video_frame_wrapper next_frame;
-
                 
                 assert(buffer->buffer != nullptr);
                 assert(buffer->buffer->datas != nullptr);
@@ -451,8 +457,9 @@ static void on_process(void *session_ptr) {
                         continue;
                 }
 
-                if(!session.blank_frames.try_dequeue(next_frame)) {
-                        LOG(LOG_LEVEL_INFO) << "[screen_pw]: dropping - no blank frame\n";
+                using namespace std::chrono_literals;
+                if(!session.blank_frames.wait_dequeue_timed(next_frame, 1000ms / session.pw_approx_average_fps * 3 / 4)) {
+                        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping frame (blank frame dequeue timed out)\n";
                         pw_stream_queue_buffer(session.stream, buffer);
                         continue;
                 }
@@ -473,22 +480,21 @@ static void on_process(void *session_ptr) {
                 
                 pw_stream_queue_buffer(session.stream, buffer);
                 
-                ++frame_count;
+                ++session.pw_frame_count;
                 uint64_t time_now = time_since_epoch_in_ms();
 
-                uint64_t delta = time_now - begin_time;
+                uint64_t delta = time_now - session.pw_begin_time;
                 if(delta >= 5000) {
-                        LOG(LOG_LEVEL_INFO) << "[screen_pw]: on process: average fps in last 5 seconds: " <<  frame_count / (delta / 1000.0) << "\n";
-                        frame_count = 0;
-                        begin_time = time_since_epoch_in_ms();
+                        double average_fps = session.pw_frame_count / (delta / 1000.0);
+                        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: on process: average fps in last 5 seconds: " << average_fps << "\n";
+                        session.pw_approx_average_fps = average_fps;
+                        session.pw_frame_count = 0;
+                        session.pw_begin_time = time_since_epoch_in_ms();
                 }
         }
         
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw] pw buffers: " <<n_buffers_from_pw<<"\n";  
+        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << "\n";
         
-        static uint8_t counter = 0;
-        if( (++counter)%40 == 0)
-                LOG(LOG_LEVEL_INFO) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << "\n";
 }
 
 static void on_drained(void*)
@@ -840,7 +846,7 @@ static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **stat
                                 //free(s);
                                 //TODO
                                 return VIDCAP_INIT_NOERR;
-                } else if (params_string == "showcursor") {
+                } else if (params_string == "showcursor") {d
                         session->user_options.show_cursor = true;
                 } else if (params_string == "persistent") {
                         session->user_options.persistence_filename = "screen-pw.token";
@@ -874,7 +880,6 @@ static void vidcap_screen_pipewire_done(void *session_ptr)
 
 static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct audio_frame **audio)
 {    
-        using namespace std::chrono_literals;
         assert(session_ptr != nullptr);
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
         *audio = nullptr;
@@ -884,8 +889,8 @@ static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct
         }
 
         using namespace std::chrono_literals;
-        session.sending_frames.wait_dequeue_timed(session.in_flight_frame, 1s);
-
+        session.sending_frames.wait_dequeue_timed(session.in_flight_frame, 500ms);
+        //session.sending_frames.try_deque(session.in_flight_frame);
         return session.in_flight_frame.get();
 }
 
