@@ -1,7 +1,7 @@
 #!/bin/sh -eu
 
 dir=$(dirname "$0")
-"$dir/json-common.sh"
+. "$dir/json-common.sh"
 
 TAG_NAME=${1?}
 FILE=${2?}
