@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <fstream>
+#include <algorithm>
 
 #include <pipewire/pipewire.h>
 #include <gio/gio.h>
@@ -25,6 +26,34 @@
 #include "video.h"
 #include "video_capture.h"
 #include "concurrent_queue/readerwriterqueue.h"
+
+//#define ENABLE_INSTRUMENTATION
+
+#ifdef ENABLE_INSTRUMENTATION
+        
+        class instrumtation_ScopeStopwatch
+        {
+                const char *name;
+                std::chrono::time_point<std::chrono::high_resolution_clock> begin_time;
+
+        public:    
+                instrumtation_ScopeStopwatch (const char *name)
+                        :name(name)
+                {
+                        begin_time = std::chrono::high_resolution_clock::now();
+                }
+
+                ~instrumtation_ScopeStopwatch(){
+                        auto now = std::chrono::high_resolution_clock::now();
+                        auto delta = std::chrono::duration_cast<std::chrono::microseconds>(now-begin_time).count();
+                        LOG(LOG_LEVEL_NOTICE) << "[stopwatch \"" << name << "\"] took " << delta << " us\n";
+                }
+        };
+        #define SCOPE_STOPWATCH(name) instrumtation_ScopeStopwatch scope_stopwatch_##name(#name)
+
+#else
+        #define SCOPE_STOPWATCH(name)
+#endif
 
 static constexpr int DEFAULT_BUFFERS_PW = 2;
 static constexpr int MIN_BUFFERS_PW = 2;
@@ -76,7 +105,15 @@ private:
 unsigned int session_path_t::token_counter = 0;
 
 
-using PortalCallCallback = std::function<void(GVariant *parameters)>;
+template <typename F>
+class ScopeExit {
+        F func;
+public:
+        ScopeExit(F&& func) : func(std::forward<F>(func)) {}
+        ~ScopeExit() { func(); }
+};
+
+using PortalCallCallback = std::function<void(uint32_t response, GVariant *results)>;
 
 class ScreenCastPortal {
 private:
@@ -110,22 +147,27 @@ public:
                 assert(screencast_proxy != nullptr);
         }
         
-        void call_with_request(const char* method_name, std::initializer_list<GVariant*> arguments, GVariantBuilder &params_builder, PortalCallCallback on_response)
+        void call_with_request(const char* method_name, std::initializer_list<GVariant*> arguments, GVariantBuilder &params_builder, 
+                                                        std::promise<std::string>& error_msg, PortalCallCallback &on_response)
         {
                 assert(method_name != nullptr);
                 request_path_t request_path = request_path_t::create(sender_name());
                 //std::cout<<"DEBUG::: call " << request_path.path << "\n";
                 LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: call_with_request: '" << method_name << "' request: '" << request_path.path << "'\n";
-                auto callback = [](GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
+                auto response_callback = [](GDBusConnection *connection, const gchar *sender_name, const gchar *object_path,
                                         const gchar *interface_name, const gchar *signal_name, GVariant *parameters,
                                         gpointer user_data) {
                         (void) sender_name;
                         (void) interface_name;
                         (void) signal_name;
                         
-                        static_cast<PortalCallCallback *> (user_data)->operator()(parameters);
-                        //TODO: delete callback
-                        //TODO: check if this actually works
+                        
+                        uint32_t response;
+                        GVariant *results;
+                        g_variant_get(parameters, "(u@a{sv})", &response, &results);
+                        ScopeExit scope_exit([&](){ g_variant_unref(results); });
+                        
+                        static_cast<const PortalCallCallback *> (user_data)->operator()(response, results);
                         g_dbus_connection_call(connection, "org.freedesktop.portal.Desktop",
                                         object_path, "org.freedesktop.portal.Request", "Close",
                                         nullptr, nullptr, G_DBUS_CALL_FLAGS_NONE, -1, nullptr, nullptr, nullptr);
@@ -137,18 +179,23 @@ public:
                                                                                 request_path.path.c_str(),
                                                                                 nullptr,
                                                                                 G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
-                                                                                callback,
-                                                                                new PortalCallCallback{std::move(on_response)},
-                                                                                [](gpointer user_data) { delete static_cast< PortalCallCallback * >(user_data); });
+                                                                                response_callback,
+                                                                                const_cast<void*>(static_cast<const void*>(&on_response)),
+                                                                                nullptr);
 
                 auto call_finished = [](GObject *source_object, GAsyncResult *result, gpointer user_data) {
-                        (void) user_data;
+                        auto& error_msg = *static_cast<std::promise<std::string>*>(user_data);
                         GError *error = nullptr;
                         GVariant *result_finished = g_dbus_proxy_call_finish(G_DBUS_PROXY(source_object), result, &error);
-                        g_assert_no_error(error); //TODO: this should set init_error
+                        ScopeExit scope_exit([&](){ g_variant_unref(result_finished); });
+                        
+                        if(error != nullptr){
+                                error_msg.set_value(error->message == nullptr ? "unknown error" : error->message);
+                                return;
+                        }
+
                         const char *path = nullptr;
                         g_variant_get(result_finished, "(o)", &path);
-                        g_variant_unref(result_finished);
                         LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: call_with_request finished: '" << path << "'\n";
                 };
 
@@ -162,7 +209,7 @@ public:
                 }
                 g_variant_builder_add_value(&args_builder, g_variant_builder_end(&params_builder));
 
-                g_dbus_proxy_call(screencast_proxy, method_name, g_variant_builder_end(&args_builder), G_DBUS_CALL_FLAGS_NONE, -1, nullptr, call_finished, screencast_proxy);     
+                g_dbus_proxy_call(screencast_proxy, method_name, g_variant_builder_end(&args_builder), G_DBUS_CALL_FLAGS_NONE, -1, nullptr, call_finished, &error_msg);     
         }
 
         void run_loop() {
@@ -259,7 +306,7 @@ struct screen_cast_session {
         struct spa_rectangle size = {};
         int pw_frame_count = 0;
         uint64_t pw_begin_time = time_since_epoch_in_ms();
-        uint64_t pw_approx_average_fps = user_options.target_fps;
+        uint64_t pw_approx_average_fps = std::max(1, user_options.target_fps);
 
         // used exlusively by ultragrid thread
         video_frame_wrapper in_flight_frame;
@@ -286,11 +333,6 @@ struct screen_cast_session {
                 tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
                 tile->data = (char *) malloc(tile->data_len);
                 return video_frame_wrapper(frame);
-        }
-
-        std::chrono::duration<int64_t, std::milli> expected_frame_time_ms(){
-                using namespace std::chrono_literals;
-                return 1000ms / format.info.raw.framerate.num * format.info.raw.framerate.denom;
         }
 
         ~screen_cast_session() {
@@ -345,6 +387,11 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: [cap_pipewire] param changed:\n";
         spa_debug_format(2, nullptr, param);
 
+        if(id == SPA_PARAM_Invalid)
+        {
+                assert(false && "invalid params");
+        }
+
         // from example code, not sure what this is
         if (param == NULL || id != SPA_PARAM_Format)
                 return;
@@ -360,7 +407,6 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
                                                                 session.format.info.raw.size.height);
         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: size: " << session.format.info.raw.size.width << " x " << session.format.info.raw.size.height
                                 << "\n";
-        int mult = 1;
 
         int linesize = vc_get_linesize(session.size.width, RGBA);
         int32_t size = linesize * session.size.height;
@@ -368,17 +414,15 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         uint8_t params_buffer[1024];
 
         struct spa_pod_builder builder = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-        const struct spa_pod *params[5];
+        const struct spa_pod *params[2] = {};
 
         params[0] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
                 SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
                 SPA_PARAM_BUFFERS_buffers,
                 SPA_POD_CHOICE_RANGE_Int(DEFAULT_BUFFERS_PW, MIN_BUFFERS_PW, MAX_BUFFERS_PW),
                 SPA_PARAM_BUFFERS_blocks, SPA_POD_Int(1),
-                SPA_PARAM_BUFFERS_size, SPA_POD_Int(size * mult),
-                SPA_PARAM_BUFFERS_stride,
-                SPA_POD_Int(linesize * mult),
-                SPA_PARAM_BUFFERS_align, SPA_POD_Int(16),
+                SPA_PARAM_BUFFERS_size, SPA_POD_Int(size),
+                SPA_PARAM_BUFFERS_stride, SPA_POD_Int(linesize),
                 SPA_PARAM_BUFFERS_dataType,
                 SPA_POD_CHOICE_FLAGS_Int((1 << SPA_DATA_MemPtr)))
         );
@@ -392,6 +436,8 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
 }
 
 static void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
+        SCOPE_STOPWATCH(copy_bgra_to_rgba);
+
         int linesize = 4*width;
         for (int line_offset = 0; line_offset < height * linesize; line_offset += linesize) {
                 for(int x = 0; x < 4*width; x += 4) {
@@ -405,21 +451,16 @@ static void copy_bgra_to_rgba(char *dest, char *src, int width, int height) {
 }
 
 static void on_process(void *session_ptr) {
-        screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
+        using namespace std::chrono_literals;
 
+        SCOPE_STOPWATCH(on_process);
+
+        screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
         pw_buffer *buffer;
         int n_buffers_from_pw = 0;
         while((buffer = pw_stream_dequeue_buffer(session.stream)) != nullptr){    
                 ++n_buffers_from_pw;
 
-                /*if( == nullptr && !session.blank_frames.try_dequeue(session.dequed_blank_frame))
-                {
-                        LOG(LOG_LEVEL_INFO) << "[screen_pw]: dropping - no blank frame\n";
-                        pw_stream_queue_buffer(session.stream, buffer);
-                        continue;
-                }*/
-           
-                //;
                 video_frame_wrapper next_frame;
                 
                 assert(buffer->buffer != nullptr);
@@ -433,8 +474,7 @@ static void on_process(void *session_ptr) {
                         continue;
                 }
 
-                using namespace std::chrono_literals;
-                if(!session.blank_frames.wait_dequeue_timed(next_frame, 1000ms / session.pw_approx_average_fps * 3 / 4)) {
+                if(!session.blank_frames.wait_dequeue_timed(next_frame, 1000ms / session.pw_approx_average_fps)) {
                         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping frame (blank frame dequeue timed out)\n";
                         pw_stream_queue_buffer(session.stream, buffer);
                         continue;
@@ -444,14 +484,6 @@ static void on_process(void *session_ptr) {
                 //memcpy(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.height * vc_get_linesize(session.size.width, RGBA));
                 copy_bgra_to_rgba(next_frame->tiles[0].data, static_cast<char*>(buffer->buffer->datas[0].data), session.size.width, session.size.height);
                 
-                /*
-                struct spa_meta_cursor *cursor_metadata = static_cast<spa_meta_cursor *>(spa_buffer_find_meta_data(buffer->buffer, SPA_META_Cursor, sizeof(spa_meta_cursor)));
-                //std::cout<<"cursor meta" << cursor_metadata << std::endl;
-                
-                if(cursor_metadata != nullptr && spa_meta_cursor_is_valid(cursor_metadata)){
-                        std::cout << "cursor: "<< cursor_metadata->position.x << " " << cursor_metadata->position.y << "";
-                }*/
-
                 session.sending_frames.enqueue(std::move(next_frame));
                 
                 pw_stream_queue_buffer(session.stream, buffer);
@@ -464,6 +496,8 @@ static void on_process(void *session_ptr) {
                         double average_fps = session.pw_frame_count / (delta / 1000.0);
                         LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: on process: average fps in last 5 seconds: " << average_fps << "\n";
                         session.pw_approx_average_fps = average_fps;
+                        if(session.pw_approx_average_fps == 0)
+                                session.pw_approx_average_fps = 1;
                         session.pw_frame_count = 0;
                         session.pw_begin_time = time_since_epoch_in_ms();
                 }
@@ -569,7 +603,7 @@ static int start_pipewire(screen_cast_session &session)
 
         auto framerate_def = SPA_FRACTION(DEFAULT_EXPECTING_FPS, 1);
         auto framerate_min = SPA_FRACTION(0, 1);
-        auto framerate_max = SPA_FRACTION(60, 1);
+        auto framerate_max = SPA_FRACTION(90, 1);
 
 
         const int n_params = 1;
@@ -668,12 +702,9 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 start_pipewire(*session);
         };
 
-        auto started = [&](GVariant *parameters) {
-                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: started: " << g_variant_print(parameters, true) << "\n";
+        PortalCallCallback started = [&](uint32_t response, GVariant *results) {
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: started: " << g_variant_print(results, true) << "\n"; //TODO: cleanup
                 
-                uint32_t response;
-                GVariant *results;
-                g_variant_get(parameters, "(u@a{sv})", &response, &results);
                 if(response == ScreenCastPortal::REQUEST_RESPONSE_CANCELLED_BY_USER) {
                         session.init_error.set_value("failed to start (dialog cancelled by user)");
                         return;
@@ -710,44 +741,34 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 g_variant_builder_clear(&builder);
         };
 
-        auto sources_selected = [&](GVariant *parameters) {
-                gchar *pretty = g_variant_print(parameters, true);
+        PortalCallCallback sources_selected = [&](uint32_t response, GVariant *results) {
+                gchar *pretty = g_variant_print(results, true);
                 LOG(LOG_LEVEL_INFO) << "[screen_pw]: selected sources: " << pretty << "\n";
                 g_free((gpointer) pretty);
 
-                uint32_t response;
-                GVariant *results;
-                g_variant_get(parameters, "(u@a{sv})", &response, &results);
                 if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
                         session.init_error.set_value("Failed to select sources");
                         return;
                 }
-                g_variant_unref(results);
-                //portal_call(connection, screencast_proxy, session_path.path.c_str(), "Start", {}, started);
-                
+
                 {
-                        GVariantBuilder params;
-                        g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
-                        session.portal->call_with_request("Start", {g_variant_new_object_path(session_path.path.c_str()),  /*parent window: */ g_variant_new_string("")}, params, started);
+                        GVariantBuilder options;
+                        g_variant_builder_init(&options, G_VARIANT_TYPE_VARDICT);
+                        session.portal->call_with_request("Start", {g_variant_new_object_path(session_path.path.c_str()),  /*parent window: */ g_variant_new_string("")}, options, session.init_error, started);
                 }
         };
 
-        auto session_created = [&](GVariant *parameters) {
-                uint32_t response; 
-                GVariant *results;
-
-                g_variant_get(parameters, "(u@a{sv})", &response, &results);
-                if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
+        PortalCallCallback session_created = [&](uint32_t response, GVariant *results) {
+                 if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
                         session.init_error.set_value("Failed to create session");
                         return;
                 }
+                
                 const char *session_handle = nullptr;
                 g_variant_lookup(results, "session_handle", "s", &session_handle);
-                g_variant_unref(results);
-
+                
                 LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: session created with handle: " << session_handle << "\n";
                 assert(session_path.path == session_handle);
-
                 
                 {
                         GVariantBuilder params;
@@ -758,6 +779,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                                 g_variant_builder_add(&params, "{sv}", "cursor_mode", g_variant_new_uint32(2));
                         
                         if(!session.user_options.persistence_filename.empty()){
+                                //TODO: move to function
                                 std::string token;
                                 std::ifstream file(session.user_options.persistence_filename);
 
@@ -774,7 +796,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                         }
 
                         // {"cursor_mode", g_variant_new_uint32(4)}
-                        session.portal->call_with_request("SelectSources", {g_variant_new_object_path(session_path.path.c_str())}, params, sources_selected);
+                        session.portal->call_with_request("SelectSources", {g_variant_new_object_path(session_path.path.c_str())}, params, session.init_error, sources_selected);
                 }
         };
 
@@ -784,10 +806,11 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
                 g_variant_builder_add(&params, "{sv}", "session_handle_token", g_variant_new_string(session_path.token.c_str()));
                 
-                session.portal->call_with_request("CreateSession", {}, params, session_created);
+                session.portal->call_with_request("CreateSession", {}, params, session.init_error, session_created);
         }
-
+        
         session.portal->run_loop();
+        //assert(false && "end loop");
         //g_dbus_connection_flush(connection, nullptr, nullptr, nullptr); //TODO: needed?
 }
 
@@ -822,7 +845,7 @@ static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **stat
                                 //free(s);
                                 //TODO
                                 return VIDCAP_INIT_NOERR;
-                } else if (params_string == "showcursor") {d
+                } else if (params_string == "showcursor") {
                         session->user_options.show_cursor = true;
                 } else if (params_string == "persistent") {
                         session->user_options.persistence_filename = "screen-pw.token";
@@ -856,6 +879,8 @@ static void vidcap_screen_pipewire_done(void *session_ptr)
 
 static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct audio_frame **audio)
 {    
+        SCOPE_STOPWATCH(grab);
+
         assert(session_ptr != nullptr);
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
         *audio = nullptr;
@@ -866,7 +891,6 @@ static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct
 
         using namespace std::chrono_literals;
         session.sending_frames.wait_dequeue_timed(session.in_flight_frame, 500ms);
-        //session.sending_frames.try_deque(session.in_flight_frame);
         return session.in_flight_frame.get();
 }
 
