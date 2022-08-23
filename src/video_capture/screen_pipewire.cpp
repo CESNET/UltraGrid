@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <atomic>
 #include <chrono>
+#include <fstream>
 
 #include <pipewire/pipewire.h>
 #include <gio/gio.h>
@@ -151,9 +152,14 @@ public:
         }   
 };
 
-struct screen_cast_session {
-        GMainLoop *dbus_loop = nullptr;
+struct screen_cast_session { 
 
+        struct {
+                bool show_cursor = false;
+                std::string persistence_filename = "";
+        } user_options;
+
+        GMainLoop *dbus_loop = nullptr;
         int pipewire_fd = -1;
         uint32_t pipewire_node = -1;
         
@@ -170,10 +176,8 @@ struct screen_cast_session {
         //int32_t output_line_size = 0;
         struct spa_rectangle size = {};
 
-        char padding1[1000];
         // used exlusively by ultragrid thread
         struct video_frame *in_flight_frame = nullptr;
-        char padding2[1000];
 
         // used exclusively by pipewire thread
         moodycamel::BlockingReaderWriterCircularBuffer<video_frame*> blank_frames {BLANK_FRAMES_QUEUE_SIZE};
@@ -514,7 +518,7 @@ static int start_pipewire(screen_cast_session &session)
 
 static void run_screencast(screen_cast_session *session_ptr) {
         auto& session = *session_ptr;
-        
+
         session.pipewire_fd = -1;
         session.pipewire_node = UINT32_MAX;
         session.dbus_loop = g_main_loop_new(nullptr, false);
@@ -572,6 +576,14 @@ static void run_screencast(screen_cast_session *session_ptr) {
                         g_main_loop_quit(session.dbus_loop);
                         return;
                 }
+
+                const char *restore_token = nullptr;
+                if (g_variant_lookup(result, "restore_token", "s", &restore_token)){
+                        std::ofstream file(session.user_options.persistence_filename);
+                        std::cout<<"DEBUG:::: '"<<restore_token<<"'\n";
+                        file<<restore_token;
+                }
+
                 GVariant *streams = g_variant_lookup_value(result, "streams", G_VARIANT_TYPE_ARRAY);
                 GVariant *stream_properties;
                 GVariantIter iter;
@@ -595,11 +607,13 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: selected sources: " << pretty << "\n";
                 g_free((gpointer) pretty);
 
-                uint32_t result;
+                uint32_t status;
                 GVariant *response;
-                g_variant_get(parameters, "(u@a{sv})", &result, &response);
-                assert(result == 0 && "Failed to select sources");
+                g_variant_get(parameters, "(u@a{sv})", &status, &response);
+                assert(status == 0 && "Failed to select sources"); //todo: LOG
+                
                 g_variant_unref(response);
+
                 {
                         GVariantBuilder params;
                         g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
@@ -608,10 +622,10 @@ static void run_screencast(screen_cast_session *session_ptr) {
         };
 
         auto session_created = [&](GVariant *parameters) {
-                guint32 response;
+                guint32 response; //TODO: rename to status
                 const char *session_handle;
                 
-                GVariant *result;
+                GVariant *result; //TODO: rename to respone
                 g_variant_get(parameters, "(u@a{sv})", &response, &result);
                 assert(response == 0 && "Failed to create session");
                 g_variant_lookup(result, "session_handle", "s", &session_handle);
@@ -626,6 +640,26 @@ static void run_screencast(screen_cast_session *session_ptr) {
                         g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
                         g_variant_builder_add(&params, "{sv}", "types", g_variant_new_uint32(3)); // 1 full screen, 2 - a window, 3 - both
                         g_variant_builder_add(&params, "{sv}", "multiple", g_variant_new_boolean(false));
+
+                        if(session.user_options.show_cursor)
+                                g_variant_builder_add(&params, "{sv}", "cursor_mode", g_variant_new_uint32(2));
+                        
+                        if(!session.user_options.persistence_filename.empty()){
+                                std::string token;
+                                std::ifstream file(session.user_options.persistence_filename);
+
+                                if(file.is_open()) {
+                                        std::ostringstream ss;
+                                        ss << file.rdbuf();
+                                        token = ss.str();
+                                }
+                                
+                                //  0: Do not persist (default), 1: Permissions persist as long as the application is running, 2: Permissions persist until explicitly revoked
+                                g_variant_builder_add(&params, "{sv}", "persist_mode", g_variant_new_uint32(2)); 
+                                if(!token.empty())
+                                        g_variant_builder_add(&params, "{sv}", "restore_token", g_variant_new_string(token.c_str())); 
+                        }
+
                         portal.call("SelectSources", {g_variant_new_object_path(session_path.path.c_str())}, params, sources_selected);
                 }
         };
@@ -661,10 +695,30 @@ static struct vidcap_type * vidcap_screen_pipewire_probe(bool verbose, void (**d
 
 static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **state)
 {
-        (void) params;
-        
+        if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
+                return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
+        }
+
         screen_cast_session *session = new screen_cast_session();
         *state = session;
+
+        if(vidcap_params_get_fmt(params)) {
+                std::cout<<"fmt: '" << vidcap_params_get_fmt(params)<<"'" << "\n";
+                
+                std::string params_string = vidcap_params_get_fmt(params);
+                
+                if (params_string == "help") {
+                                //TODO
+                                //show_help();
+                                //free(s);
+                                //TODO
+                                return VIDCAP_INIT_NOERR;
+                } else if (params_string == "showcursor") {
+                        session->user_options.show_cursor = true;
+                } else if (params_string == "persistent") {
+                        session->user_options.persistence_filename = "screen-pw.token";
+                }
+        }
         
         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: [cap_pipewire] init\n";
         pw_init(&uv_argc, &uv_argv);
