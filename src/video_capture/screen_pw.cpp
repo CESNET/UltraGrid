@@ -69,7 +69,7 @@ struct request_path_t {
         static request_path_t create(const std::string &name) {
                 ++token_counter;
 
-                auto token = std::string("m") + std::to_string(token_counter);
+                auto token = std::string("uv") + std::to_string(token_counter);
                 request_path_t result = {
                         .token = token,
                         .path = std::string("/org/freedesktop/portal/desktop/request/") + name + "/" + token
@@ -92,7 +92,7 @@ struct session_path_t {
         static session_path_t create(const std::string &name) {
                 ++token_counter;
 
-                auto token = std::string("m") + std::to_string(token_counter);
+                auto token = std::string("uv") + std::to_string(token_counter);
                 return {
                         .token = token,
                         .path = std::string("/org/freedesktop/portal/desktop/session/") + name + "/" + token
@@ -121,7 +121,8 @@ private:
         GMainLoop *dbus_loop;
         GDBusConnection *connection;
         GDBusProxy *screencast_proxy;
-        std::string sender_name_;
+        std::string unique_name;
+        session_path_t session;
 public:
         // see https://flatpak.github.io/xdg-desktop-portal/#gdbus-signal-org-freedesktop-portal-Request.Response
         static constexpr uint32_t REQUEST_RESPONSE_OK = 0;
@@ -137,8 +138,8 @@ public:
                 g_assert_no_error(error);
                 assert(connection != nullptr);
 
-                sender_name_ = g_dbus_connection_get_unique_name(connection) + 1;
-                std::replace(sender_name_.begin(), sender_name_.end(), '.', '_');
+                unique_name = g_dbus_connection_get_unique_name(connection) + 1;
+                std::replace(unique_name.begin(), unique_name.end(), '.', '_');
                 screencast_proxy = g_dbus_proxy_new_sync(
                                 connection, G_DBUS_PROXY_FLAGS_NONE, nullptr,
                                 "org.freedesktop.portal.Desktop",
@@ -146,6 +147,9 @@ public:
                                 "org.freedesktop.portal.ScreenCast", nullptr, &error);
                 g_assert_no_error(error); 
                 assert(screencast_proxy != nullptr);
+                
+                session = session_path_t::create(unique_name);
+                LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: session path: '" << session.path << "'" << " token: '" << session.token << "'\n";
         }
         
         void call_with_request(const char* method_name, std::initializer_list<GVariant*> arguments, GVariantBuilder &params_builder, 
@@ -165,6 +169,7 @@ public:
                         uint32_t response;
                         GVariant *results;
                         g_variant_get(parameters, "(u@a{sv})", &response, &results);
+                        ScopeExit([&](){g_variant_unref(results); });
 
                         static_cast<const PortalCallCallback *> (user_data)->operator()(response, results);
                         g_dbus_connection_call(connection, "org.freedesktop.portal.Desktop",
@@ -230,15 +235,32 @@ public:
 
         const std::string& sender_name() const
         {
-                return sender_name_;
+                return unique_name;
+        }
+
+        const std::string& session_path() const
+        {
+                return session.path;
+        }
+
+        const std::string& session_token() const
+        {
+                return session.token;
         }
 
         ~ScreenCastPortal() {
+                g_dbus_connection_call(dbus_connection(),
+                                        "org.freedesktop.portal.Desktop",
+                                        session.path.c_str(),
+                                        "org.freedesktop.portal.Session",
+                                        "Close", NULL, NULL,
+                                        G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL,
+                                        NULL);
                 g_main_loop_quit(dbus_loop);
-                //g_main_loop_unref(session.dbus_loop);
                 g_object_unref(screencast_proxy);
                 g_object_unref(connection);
-        } 
+                g_main_loop_unref(dbus_loop);
+        }
 };
 
 class video_frame_wrapper
@@ -306,6 +328,7 @@ struct screen_cast_session {
                 
                 struct pw_thread_loop *loop = nullptr;
                 struct pw_core *core = nullptr;
+                struct pw_context *context = nullptr;
 
                 struct pw_stream *stream = nullptr;
                 struct spa_hook stream_listener = {};
@@ -337,26 +360,29 @@ struct screen_cast_session {
                         
                         struct tile* tile = vf_get_tile(frame, 0);
                         assert(tile != nullptr);
-                        tile->width = width(); //TODO
-                        tile->height = height(); //TODO
+                        tile->width = width();
+                        tile->height = height();
                         tile->data_len = vc_get_linesize(tile->width, frame->color_spec) * tile->height;
                         tile->data = (char *) malloc(tile->data_len);
                         return video_frame_wrapper(frame);
                 }
 
-                //std::chrono::duration<uint64_t, std::milli> pw_begin_time =std::chrono::system_clock::now();
                 int frame_count = 0;
                 uint64_t frame_counter_begin_time = time_since_epoch_in_ms();
                 uint64_t expecting_fps = DEFAULT_EXPECTING_FPS;
 
                 ~pw_() {
-                        if(loop != nullptr)
+                        if(loop != nullptr){
                                 pw_thread_loop_stop(loop);
-                        if(stream != nullptr)
-                                pw_stream_destroy(stream);
-                        if(loop!=nullptr)
-                                pw_thread_loop_destroy(loop);
-                        pw_deinit();
+                                if(stream != nullptr)
+                                        pw_stream_destroy(stream);
+                                if(context != nullptr)
+                                        pw_context_destroy(context);
+                                if(loop != nullptr)
+                                        pw_thread_loop_destroy(loop);
+                        }
+                        if( fd > 0)
+                                close(fd);
                 }
         }pw;
 };
@@ -429,7 +455,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
 
         for(int i = 0; i < QUEUE_SIZE; ++i)
                 session.blank_frames.enqueue(session.pw.allocate_video_frame());
-        
+
         session.init_error.set_value("");
 }
 
@@ -438,6 +464,8 @@ static void copy_frame_impl_cropped(bool swap_red_blue, char *dest, char *src,
         int actual_width, int actual_height, int x_begin, int y_begin, int crop_width, int crop_height) 
 {
         UNUSED(actual_height);
+        SCOPE_STOPWATCH(copy_frame_impl_cropped);
+        
         for(int y = y_begin; y < crop_height; ++y){
                 int line_offset_src = 4 * y * actual_width;
                 int line_offset_dest = 4 * y * crop_width;     
@@ -458,6 +486,7 @@ static void copy_frame_impl_cropped(bool swap_red_blue, char *dest, char *src,
 
 static void copy_frame_impl(bool swap_red_blue, char *dest, char *src, int width, int height)
 {
+        SCOPE_STOPWATCH(copy_frame_impl);
         int linesize = vc_get_linesize(width, RGBA);
         if (swap_red_blue) {
                 for (int line_offset = 0; line_offset < height * linesize; line_offset += linesize) {
@@ -598,17 +627,14 @@ static int start_pipewire(screen_cast_session &session)
         session.pw.loop = pw_thread_loop_new("pipewire_thread_loop", nullptr);
         assert(session.pw.loop != nullptr);
         pw_thread_loop_lock(session.pw.loop);
-        pw_context *context = pw_context_new(pw_thread_loop_get_loop(session.pw.loop), nullptr, 0);
-        assert(context != nullptr);
+        session.pw.context = pw_context_new(pw_thread_loop_get_loop(session.pw.loop), nullptr, 0);
+        assert(session.pw.context != nullptr);
 
         if (pw_thread_loop_start(session.pw.loop) != 0) {
                 assert(false && "error starting pipewire thread loop");
         }
 
-        int new_pipewire_fd = fcntl(session.pw.fd, F_DUPFD_CLOEXEC, 5);
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: duplicating fd " << session.pw.fd << " -> " << new_pipewire_fd << "\n";
-        pw_core *core = pw_context_connect_fd(context, new_pipewire_fd, nullptr,
-                                                                                  0); //why does obs dup the fd?
+        pw_core *core = pw_context_connect_fd(session.pw.context, session.pw.fd, nullptr, 0); 
         assert(core != nullptr);
 
         session.pw.stream = pw_stream_new(core, "my_screencast", pw_properties_new(
@@ -687,14 +713,11 @@ static void run_screencast(screen_cast_session *session_ptr) {
         session.pw.fd = -1;
         session.pw.node = UINT32_MAX;
         
-        session_path_t session_path = session_path_t::create(session.portal->sender_name());
-        LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: session path: '" << session_path.path << "'" << " token: '" << session_path.token << "'\n";
-
         g_dbus_connection_signal_subscribe(session.portal->dbus_connection(), 
                                                                            nullptr, // sender
                                                                            "org.freedesktop.portal.Session", // interface_name
                                                                            "closed", //signal name
-                                                                           session_path.path.c_str(), // object path
+                                                                           session.portal->session_path().c_str(), // object path
                                                                            nullptr, // arg0
                                                                            G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
                                                                            on_portal_session_closed,
@@ -708,6 +731,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
 
                 GVariant *result = g_dbus_proxy_call_with_unix_fd_list_finish(G_DBUS_PROXY(source), &fd_list, res, &error);
                 g_assert_no_error(error);
+                ScopeExit([&](){g_variant_unref(result); });
 
                 gint32 handle;
                 g_variant_get(result, "(h)", &handle);
@@ -724,7 +748,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
         };
 
         PortalCallCallback started = [&](uint32_t response, GVariant *results) {
-                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: started: " << g_variant_print(results, true) << "\n"; //TODO: cleanup
+                LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: started: " << g_variant_print(results, true) << "\n";
                 
                 if(response == ScreenCastPortal::REQUEST_RESPONSE_CANCELLED_BY_USER) {
                         session.init_error.set_value("failed to start (dialog cancelled by user)");
@@ -748,22 +772,20 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 GVariant *stream_properties;
                 GVariantIter iter;
                 g_variant_iter_init(&iter, streams);
-                assert(g_variant_iter_n_children(&iter) == 1); //TODO: do I need the KDE work-around like in OBS for this bug?
+                assert(g_variant_iter_n_children(&iter) == 1);
                 bool got_item = g_variant_iter_loop(&iter, "(u@a{sv})", &session.pw.node, &stream_properties);
                 assert(got_item);
                 uint32_t capture_type;
                 g_variant_lookup(stream_properties, "source_type", "u", &capture_type);
-                if(capture_type == 1) { //TODO: constant
+                if(capture_type == 1) {
                         // user selected a whole screen inside Portal dialog, that means crop can be disabled without changing anything
                         session.user_options.crop = false;
                 }
 
-                g_variant_unref(stream_properties);
-                g_variant_unref(results);
                 GVariantBuilder builder;
                 g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
                 g_dbus_proxy_call_with_unix_fd_list(session.portal->proxy(), "OpenPipeWireRemote",
-                                                                                        g_variant_new("(oa{sv})", session_path.path.c_str(), &builder),
+                                                                                        g_variant_new("(oa{sv})", session.portal->session_path().c_str(), &builder),
                                                                                         G_DBUS_CALL_FLAGS_NONE, -1,
                                                                                         nullptr, nullptr, pipewire_opened, &session);
                 g_variant_builder_clear(&builder);
@@ -782,12 +804,12 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 {
                         GVariantBuilder options;
                         g_variant_builder_init(&options, G_VARIANT_TYPE_VARDICT);
-                        session.portal->call_with_request("Start", {g_variant_new_object_path(session_path.path.c_str()),  /*parent window: */ g_variant_new_string("")}, options, session.init_error, started);
+                        session.portal->call_with_request("Start", {g_variant_new_object_path(session.portal->session_path().c_str()),  /*parent window: */ g_variant_new_string("")}, options, session.init_error, started);
                 }
         };
 
         PortalCallCallback session_created = [&](uint32_t response, GVariant *results) {
-                 if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
+                if(response != ScreenCastPortal::REQUEST_RESPONSE_OK) {
                         session.init_error.set_value("Failed to create session");
                         return;
                 }
@@ -796,7 +818,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                 g_variant_lookup(results, "session_handle", "s", &session_handle);
                 
                 LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: session created with handle: " << session_handle << "\n";
-                assert(session_path.path == session_handle);
+                assert(session.portal->session_path() == session_handle);
                 
                 {
                         GVariantBuilder params;
@@ -807,7 +829,6 @@ static void run_screencast(screen_cast_session *session_ptr) {
                                 g_variant_builder_add(&params, "{sv}", "cursor_mode", g_variant_new_uint32(2));
                         
                         if(!session.user_options.restore_file.empty()){
-                                //TODO: move to function
                                 std::string token;
                                 std::ifstream file(session.user_options.restore_file);
 
@@ -823,8 +844,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
                                         g_variant_builder_add(&params, "{sv}", "restore_token", g_variant_new_string(token.c_str())); 
                         }
 
-                        // {"cursor_mode", g_variant_new_uint32(4)}
-                        session.portal->call_with_request("SelectSources", {g_variant_new_object_path(session_path.path.c_str())}, params, session.init_error, sources_selected);
+                        session.portal->call_with_request("SelectSources", {g_variant_new_object_path(session.portal->session_path().c_str())}, params, session.init_error, sources_selected);
                 }
         };
 
@@ -832,7 +852,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
         {
                 GVariantBuilder params;
                 g_variant_builder_init(&params, G_VARIANT_TYPE_VARDICT);
-                g_variant_builder_add(&params, "{sv}", "session_handle_token", g_variant_new_string(session_path.token.c_str()));
+                g_variant_builder_add(&params, "{sv}", "session_handle_token", g_variant_new_string(session.portal->session_token().c_str()));
                 
                 session.portal->call_with_request("CreateSession", {}, params, session.init_error, session_created);
         }
@@ -840,7 +860,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
         session.portal->run_loop();
 }
 
-static struct vidcap_type * vidcap_screen_pipewire_probe(bool verbose, void (**deleter)(void *))
+static struct vidcap_type * vidcap_screen_pw_probe(bool verbose, void (**deleter)(void *))
 {
         UNUSED(verbose);
         
@@ -909,7 +929,7 @@ static int parse_params(struct vidcap_params *params, screen_cast_session &sessi
         return VIDCAP_INIT_OK;
 }
 
-static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **state)
+static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPOTED;
@@ -940,15 +960,15 @@ static int vidcap_screen_pipewire_init(struct vidcap_params *params, void **stat
         return VIDCAP_INIT_OK;
 }
 
-static void vidcap_screen_pipewire_done(void *session_ptr)
+static void vidcap_screen_pw_done(void *session_ptr)
 {
         LOG(LOG_LEVEL_DEBUG) <<"[cap_pipewire] done\n";   
         delete static_cast<screen_cast_session*>(session_ptr);
 }
 
-static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct audio_frame **audio)
+static struct video_frame *vidcap_screen_pw_grab(void *session_ptr, struct audio_frame **audio)
 {    
-        SCOPE_STOPWATCH(grab);
+        SCOPE_STOPWATCH(vidcap_screen_pw_grab);
 
         assert(session_ptr != nullptr);
         auto &session = *static_cast<screen_cast_session*>(session_ptr);
@@ -963,12 +983,12 @@ static struct video_frame *vidcap_screen_pipewire_grab(void *session_ptr, struct
         return session.in_flight_frame.get();
 }
 
-static const struct video_capture_info vidcap_screen_pipewire_info = {
-        vidcap_screen_pipewire_probe,
-        vidcap_screen_pipewire_init,
-        vidcap_screen_pipewire_done,
-        vidcap_screen_pipewire_grab,
+static const struct video_capture_info vidcap_screen_pw_info = {
+        vidcap_screen_pw_probe,
+        vidcap_screen_pw_init,
+        vidcap_screen_pw_done,
+        vidcap_screen_pw_grab,
         true,
 };
 
-REGISTER_MODULE(screen_pipewire, &vidcap_screen_pipewire_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+REGISTER_MODULE(screen_pw, &vidcap_screen_pw_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

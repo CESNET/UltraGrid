@@ -2076,7 +2076,7 @@ if test $screen_cap_req = yes -a $screen_cap = no; then
         AC_MSG_ERROR([Screen capture not found]);
 fi
 
-SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/screen_pipewire.o"
+SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/screen_pw.o"
 
 # SCREEN_CAP_PIPEWIRE_LIBS="$LIBS -lpipewire-0.3 -lglib-2.0  -lgobject-2.0 -lgio -lgio-unix-2.0"
 
@@ -2093,10 +2093,10 @@ SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I 
 SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-2.0)"
 SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
 
-screen_cap_pipewire=yes
+screen_cap_pw=yes
 
-AC_ARG_ENABLE(screen_pipewire,
-[  --disable-screen-pipewire        disable pipewire capture (default is auto)]
+AC_ARG_ENABLE(screen_pw,
+[  --disable-screen-pw        disable pipewire screen capture (default is auto)]
 [                                   Requires: TODO],
 [screen_cap_pipewire_req=$enableval],
 [screen_cap_pipewire_req=$build_default]
@@ -3506,7 +3506,7 @@ RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
-RESULT=`add_column "$RESULT" "Screen capture pipewire" $screen_cap_pipewire $?`
+RESULT=`add_column "$RESULT" "Screen capture PipeWire" $screen_cap_pw $?`
 RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
