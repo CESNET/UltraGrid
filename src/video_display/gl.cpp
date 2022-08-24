@@ -464,21 +464,21 @@ static void gl_show_help(bool full) {
                 << (full ? " [--param " GL_DISABLE_10B_OPT_PARAM_NAME "|" GL_WINDOW_HINT_OPT_PARAM_NAME "=<k>=<v>]" : "")
                 << "\n\n" << rang::style::reset;
         cout << "options:\n";
+        col() << TBOLD("\taspect=<w>/<h>") << "\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n";
+        col() << TBOLD("\tcursor")      << "\t\tshow visible cursor\n";
         col() << TBOLD("\td")           << "\t\tdeinterlace\n";
         col() << TBOLD("\tfs[=<monitor>]") << "\tfullscreen with optional display specification\n";
+        col() << TBOLD("\thide-window") << "\tdo not show OpenGL window (useful with Syphon/SPOUT)\n";
         col() << TBOLD("\tmodeset[=<fps>]")<< "\tset received video mode as display mode (in fullscreen); modeset=<fps>|size - set specified FPS or only size\n";
         col() << TBOLD("\tnodecorate")  << "\tdisable window decorations\n";
         col() << TBOLD("\tnovsync")     << "\t\tdo not turn sync on VBlank\n";
-        col() << TBOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
+        col() << TBOLD("\t[no]pbo")     << "\t\tWhether or not use PBO (ignore if not sure)\n";
         col() << TBOLD("\tsingle")      << "\t\tuse single buffer (instead of double-buffering)\n";
-        col() << TBOLD("\taspect=<w>/<h>") << "\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n";
-        col() << TBOLD("\tcursor")      << "\t\tshow visible cursor\n";
         col() << TBOLD("\tsize")        << "\t\tspecifies desired size of window compared "
                 "to native resolution (in percents)\n";
-        col() << TBOLD("\tsyphon")      << "\t\tuse Syphon (optionally with name)\n";
         col() << TBOLD("\tspout")       << "\t\tuse Spout (optionally with name)\n";
-        col() << TBOLD("\thide-window") << "\tdo not show OpenGL window (useful with Syphon/SPOUT)\n";
-        col() << TBOLD("\t[no]pbo")     << "\t\tWhether or not use PBO (ignore if not sure)\n";
+        col() << TBOLD("\tsyphon")      << "\t\tuse Syphon (optionally with name)\n";
+        col() << TBOLD("\tvsync=<x>")   << "\tsets vsync to: 0 - disable; 1 - enable; -1 - adaptive vsync; D - leaves system default\n";
         if (full) {
                 col() << TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)     << "\tdo not set 10-bit framebuffer (performance issues)\n";
                 col() << TBOLD("\t--param " GL_WINDOW_HINT_OPT_PARAM_NAME) << "<k>=<v>[:<k2>=<v2>] set GLFW window hint key <k> to value <v>, eg. 0x20006=1 to autoiconify (experts only)\n";
