@@ -1260,14 +1260,15 @@ static void display_gl_render_last(GLFWwindow *win) {
 }
 
 #if defined HAVE_LINUX || defined WIN32
+#ifndef GLEW_ERROR_NO_GLX_DISPLAY
+#define GLEW_ERROR_NO_GLX_DISPLAY 4
+#endif
 static const char *glewGetError(GLenum err) {
         switch (err) {
                 case GLEW_ERROR_NO_GL_VERSION: return "missing GL version";
                 case GLEW_ERROR_GL_VERSION_10_ONLY: return "Need at least OpenGL 1.1";
                 case GLEW_ERROR_GLX_VERSION_11_ONLY: return "Need at least GLX 1.2";
-#ifdef GLEW_ERROR_NO_GLX_DISPLAY
                 case GLEW_ERROR_NO_GLX_DISPLAY: return "Need GLX display for GLX support";
-#endif
                 default: return (const char *) glewGetErrorString(err);
         }
 }
@@ -1413,7 +1414,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
 #if defined HAVE_LINUX || defined WIN32
         if (GLenum err = glewInit()) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "GLEW Error: %s (err %d)\n", glewGetError(err), err);
-                //return false; // do not fail - error 4 (on Wayland) can be suppressed
+                if (err != GLEW_ERROR_NO_GLX_DISPLAY) { // do not fail on error 4 (on Wayland), which can be suppressed
+                        return false;
+                }
         }
 #endif /* HAVE_LINUX */
         if (!display_gl_check_gl_version()) {
