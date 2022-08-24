@@ -58,6 +58,11 @@
 #define TGREEN(x) TERM_FG_GREEN x TERM_FG_RESET
 #define TRED(x) TERM_FG_RED x TERM_FG_RESET
 
+// macros intended for C++ streams - enclosed arg doesn't need to be C string literals
+#define SBOLD(x) TBOLD(<< x <<)
+#define SGREEN(x) TGREEN(<< x <<)
+#define SRED(x) TRED(<< x <<)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
