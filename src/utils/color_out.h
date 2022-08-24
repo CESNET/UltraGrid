@@ -56,11 +56,13 @@
 
 #define TBOLD(x) TERM_BOLD x TERM_RESET
 #define TGREEN(x) TERM_FG_GREEN x TERM_FG_RESET
+#define TMAGENTA(x) TERM_FG_MAGENTA x TERM_FG_RESET
 #define TRED(x) TERM_FG_RED x TERM_FG_RESET
 
 // macros intended for C++ streams - enclosed arg doesn't need to be C string literals
 #define SBOLD(x) TBOLD(<< x <<)
 #define SGREEN(x) TGREEN(<< x <<)
+#define SMAGENTA(x) TMAGENTA(<< x <<)
 #define SRED(x) TRED(<< x <<)
 
 #ifdef __cplusplus
@@ -83,7 +85,9 @@ std::string prune_ansi_sequences_str(const char *in);
 /**
  * Class wrapping color output to terminal. Sample usage:
  *
- *     col() << TERM_RED << "Red message: " << TERM_RESET << "normal font.\n"
+ *     col() << SBOLD("Red message: ") << "normal font.\n"
+ *
+ * TERM_* or T<PROP>() macros can be used as well.
  */
 class col
 {

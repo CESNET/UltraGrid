@@ -451,7 +451,7 @@ static void *adec_compute_and_print_stats(void *arg) {
                 volume << (i > 0 ? " "s : ""s) << 20.0 * log(rms) / log(10.0) << "/" << 20.0 * log(peak) / log(10.0);
         }
 
-        LOG(LOG_LEVEL_INFO) << "[Audio decoder] Volume: " << TERM_BOLD TERM_FG_MAGENTA << volume.str() << TERM_RESET << " dBFS RMS/peak" << (d->muted_receiver ? TBOLD(TRED(" (muted)")) : "") << "\n" ;
+        LOG(LOG_LEVEL_INFO) << "[Audio decoder] Volume: " << SBOLD(SMAGENTA(volume.str())) << " dBFS RMS/peak" << (d->muted_receiver ? TBOLD(TRED(" (muted)")) : "") << "\n" ;
 
         delete d;
 

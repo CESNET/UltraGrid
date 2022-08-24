@@ -565,16 +565,16 @@ video_pattern_generator_t
 video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
 {
         if (config == "help") {
-                col() << "Pattern to use, one of: " << TBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
-                col() << "\t\t- patterns " TBOLD("'gradient'") ", " TBOLD("'gradient2'") ", " TBOLD("'noise'") " and " TBOLD("'uv_plane'") " generate higher bit-depth patterns with";
+                col() << "Pattern to use, one of: " << SBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
+                col() << "\t\t- patterns " SBOLD("'gradient'") ", " SBOLD("'gradient2'") ", " SBOLD("'noise'") " and " SBOLD("'uv_plane'") " generate higher bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL && get_bits_per_component(c) > 8) {
-                                col() << " " << TERM_BOLD << get_codec_name(c) << TERM_RESET;
+                                col() << " " << SBOLD(get_codec_name(c));
                         }
                 }
                 col() << "\n";
-                col() << "\t\t- pattern " << TBOLD("'raw'") " generates repeating sequence of given bytes without any color conversion\n";
-                col() << "\t\t- patterns marked with " << TBOLD("'*'") " provide help as its option\n";
+                col() << "\t\t- pattern " << SBOLD("'raw'") " generates repeating sequence of given bytes without any color conversion\n";
+                col() << "\t\t- patterns marked with " << SBOLD("'*'") " provide help as its option\n";
                 return nullptr;
         }
         assert(width > 0 && height > 0);

@@ -356,7 +356,7 @@ static void print_help_item(const string &name, const vector<string> &help) {
 
 static void usage(const char *exec_path, bool full = false)
 {
-        col() << "Usage: " << TERM_BOLD TERM_FG_RED << (exec_path ? exec_path : "<executable_path>") << TERM_FG_RESET << " [options] address\n\n" TERM_RESET;
+        col() << "Usage: " << SBOLD(SRED((exec_path ? exec_path : "<executable_path>")) << " [options] address\n\n");
         printf("Options:\n");
         print_help_item("-h | --fullhelp", {"show usage (basic/full)"});
         print_help_item("-d <display_device>", {"select display device, use '-d help'",
