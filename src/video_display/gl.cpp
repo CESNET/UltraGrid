@@ -331,6 +331,7 @@ struct state_gl {
 
         double          aspect = 0.0;
         double          video_aspect = 0.0;
+        double          gamma = 0.0;
 
         int             dxt_height = 0;
 
@@ -466,6 +467,7 @@ static void gl_show_help(bool full) {
         col() << TBOLD("\tcursor")      << "\t\tshow visible cursor\n";
         col() << TBOLD("\td")           << "\t\tdeinterlace\n";
         col() << TBOLD("\tfs[=<monitor>]") << "\tfullscreen with optional display specification\n";
+        col() << TBOLD("\tgamma[=<val>]") << "\tgamma value to be added _in addition_ to the hardware gamma correction\n";
         col() << TBOLD("\thide-window") << "\tdo not show OpenGL window (useful with Syphon/SPOUT)\n";
         col() << TBOLD("\tmodeset[=<fps>]")<< "\tset received video mode as display mode (in fullscreen); modeset=<fps>|size - set specified FPS or only size\n";
         col() << TBOLD("\tnodecorate")  << "\tdisable window decorations\n";
@@ -589,6 +591,8 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
                         return nullptr;
 #endif
+                } else if (strstr(tok, "gamma=") == tok) {
+                        s->gamma = stof(strchr(tok, '=') + 1);
                 } else if (!strcasecmp(tok, "hide-window")) {
                         s->hide_window = true;
                 } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
@@ -1347,6 +1351,33 @@ static void display_gl_set_user_window_hints() {
         }
 }
 
+static void print_gamma_ramp(GLFWmonitor *monitor) {
+        const struct GLFWgammaramp *ramp = glfwGetGammaRamp(monitor);
+        if (ramp == nullptr) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot get gamma ramp!\n";
+                return;
+        }
+        ostringstream oss;
+        oss << "Gamma ramp:\n";
+        for (unsigned int i = 0; i < ramp->size; ++i) {
+                oss << "r[" << i << "]=" << ramp->red[i] <<
+                        ", g[" << i << "]=" << ramp->green[i] <<
+                        ", b[" << i << "]=" << ramp->blue[i] << "\n";
+
+        }
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << oss.str();
+}
+
+static void set_gamma(struct state_gl *s) {
+        if (!s->gamma || !s->monitor) {
+                return;
+        }
+        glfwSetGamma(s->monitor, s->gamma);
+        if (log_level >= LOG_LEVEL_VERBOSE) {
+                print_gamma_ramp(s->monitor);
+        }
+}
+
 ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
          "* " GL_DISABLE_10B_OPT_PARAM_NAME "\n"
          "  Disable 10 bit codec processing to improve performance\n");
@@ -1403,6 +1434,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glfwSetWindowUserPointer(s->window, s);
         if (s->hide_window)
                 glfwHideWindow(s->window);
+        set_gamma(s);
         glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == state_gl::SC_TRUE ?  GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
         glfwMakeContextCurrent(s->window);
         glfwSetKeyCallback(s->window, glfw_key_callback);
