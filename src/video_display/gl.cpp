@@ -76,7 +76,6 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "rang.hpp"
 #include "utils/color_out.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "utils/misc.h"
@@ -459,11 +458,10 @@ static void gl_print_monitors(bool fullhelp) {
  * Show help
  */
 static void gl_show_help(bool full) {
-        cout << "usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-d gl" << rang::fg::reset << "[:d|:fs[=<monitor>]|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:spout[=<name>]|:modeset[=<fps>]|:nodecorate|:fixed_size[=WxH]|:vsync[=<x>|single]]* | gl:[full]help"
-                << (full ? " [--param " GL_DISABLE_10B_OPT_PARAM_NAME "|" GL_WINDOW_HINT_OPT_PARAM_NAME "=<k>=<v>]" : "")
-                << "\n\n" << rang::style::reset;
-        cout << "options:\n";
+        col() << "usage:\n";
+        col() << SBOLD(SRED("\t-d gl") << "[:d|:fs[=<monitor>]|:aspect=<v>/<h>|:cursor|:size=X%%|:syphon[=<name>]|:spout[=<name>]|:modeset[=<fps>]|:nodecorate|:fixed_size[=WxH]|:vsync[=<x>|single]]* | gl:[full]help"
+                << (full ? " [--param " GL_DISABLE_10B_OPT_PARAM_NAME "|" GL_WINDOW_HINT_OPT_PARAM_NAME "=<k>=<v>]" : "")) << "\n\n";
+        col() << "options:\n";
         col() << TBOLD("\taspect=<w>/<h>") << "\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n";
         col() << TBOLD("\tcursor")      << "\t\tshow visible cursor\n";
         col() << TBOLD("\td")           << "\t\tdeinterlace\n";
