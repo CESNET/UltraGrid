@@ -26,8 +26,11 @@
 #include "video_capture.h"
 #include "concurrent_queue/readerwriterqueue.h"
 
-#define MAX_BUFFERS 5
-static constexpr int QUEUE_SIZE = 10;
+static constexpr int DEFAULT_BUFFERS_PW = 2;
+static constexpr int MIN_BUFFERS_PW = 2;
+static constexpr int MAX_BUFFERS_PW = 10;
+static constexpr int QUEUE_SIZE = 3;
+static constexpr int DEFAULT_EXPECTING_FPS = 30;
 
 struct request_path_t {
         std::string token;
@@ -370,7 +373,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         params[0] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
                 SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
                 SPA_PARAM_BUFFERS_buffers,
-                SPA_POD_CHOICE_RANGE_Int(20, 10, 50), //FIXME
+                SPA_POD_CHOICE_RANGE_Int(DEFAULT_BUFFERS_PW, MIN_BUFFERS_PW, MAX_BUFFERS_PW),
                 SPA_PARAM_BUFFERS_blocks, SPA_POD_Int(1),
                 SPA_PARAM_BUFFERS_size, SPA_POD_Int(size * mult),
                 SPA_PARAM_BUFFERS_stride,
@@ -379,34 +382,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
                 SPA_PARAM_BUFFERS_dataType,
                 SPA_POD_CHOICE_FLAGS_Int((1 << SPA_DATA_MemPtr)))
         );
-        /*
-        // a header metadata with timing information
-        params[1] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
-                SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-                SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
-                SPA_PARAM_META_size,
-                SPA_POD_Int(sizeof(struct spa_meta_header)))
-        );
-        // video cropping information
-        params[2] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
-                SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-                SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
-                SPA_PARAM_META_size,
-                SPA_POD_Int(sizeof(struct spa_meta_region)))
-        );
         
-        #define CURSOR_META_SIZE(w, h)   (sizeof(struct spa_meta_cursor) + sizeof(struct spa_meta_bitmap) + (w) * (h) * 4)
-        // cursor
-        params[3] = static_cast<spa_pod *>(spa_pod_builder_add_object(&builder,
-                SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-                SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Cursor),
-                SPA_PARAM_META_size, SPA_POD_CHOICE_RANGE_Int(
-                        CURSOR_META_SIZE(64, 64),
-                        CURSOR_META_SIZE(1, 1),
-                        CURSOR_META_SIZE(256, 256))
-                )
-        );*/
-
         pw_stream_update_params(session.stream, params, 1);
 
         for(int i = 0; i < QUEUE_SIZE; ++i)
@@ -591,7 +567,7 @@ static int start_pipewire(screen_cast_session &session)
         auto size_rect_min = SPA_RECTANGLE(1, 1);
         auto size_rect_max = SPA_RECTANGLE(3840, 2160);
 
-        auto framerate_def = SPA_FRACTION(25, 1);
+        auto framerate_def = SPA_FRACTION(DEFAULT_EXPECTING_FPS, 1);
         auto framerate_min = SPA_FRACTION(0, 1);
         auto framerate_max = SPA_FRACTION(60, 1);
 
