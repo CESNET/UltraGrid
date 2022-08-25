@@ -208,6 +208,8 @@ unsigned int vf_get_data_len(struct video_frame *f);
 void buf_get_planes(int width, int height, codec_t color_spec, char *data, char **planes);
 void buf_get_linesizes(int width, codec_t color_spec, int *linesize);
 
+void vf_clear(struct video_frame *f);
+
 /** @name Video Flags
  * @deprecated use rather video_frame or video_desc members
  * @{ */

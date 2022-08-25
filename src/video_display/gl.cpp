@@ -1800,17 +1800,12 @@ static struct video_frame * display_gl_getf(void *state)
                 s->free_frame_queue.pop();
                 if (video_desc_eq(video_desc_from_frame(buffer), s->current_desc)) {
                         return buffer;
-                } else {
-                        vf_free(buffer);
                 }
+                vf_free(buffer);
         }
 
         struct video_frame *buffer = vf_alloc_desc_data(s->current_desc);
-        clear_video_buffer(reinterpret_cast<unsigned char *>(buffer->tiles[0].data),
-                        vc_get_linesize(buffer->tiles[0].width, buffer->color_spec),
-                        vc_get_linesize(buffer->tiles[0].width, buffer->color_spec),
-                        buffer->tiles[0].height,
-                        buffer->color_spec);
+        vf_clear(buffer);
         return buffer;
 }
 

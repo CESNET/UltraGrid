@@ -486,3 +486,11 @@ void buf_get_linesizes(int width, codec_t color_spec, int *linesize)
         }
 }
 
+void vf_clear(struct video_frame *f)
+{
+        clear_video_buffer((unsigned char *)f->tiles[0].data,
+                        vc_get_linesize(f->tiles[0].width, f->color_spec),
+                        vc_get_linesize(f->tiles[0].width, f->color_spec),
+                        f->tiles[0].height,
+                        f->color_spec);
+}
