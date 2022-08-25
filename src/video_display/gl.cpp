@@ -650,18 +650,6 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
 
-        if (s->fixed_size && s->fixed_w && s->fixed_h) {
-                struct video_desc desc;
-                desc.width = s->fixed_w;
-                desc.height = s->fixed_h;
-                desc.color_spec = RGBA;
-                desc.interlacing = PROGRESSIVE;
-                desc.fps = 1;
-                desc.tile_count = 1;
-
-                s->frame_queue.push(vf_alloc_desc_data(desc));
-        }
-
         gl_load_splashscreen(s);
         for (auto const &i : keybindings) {
                 if (i.first == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
