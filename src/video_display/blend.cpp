@@ -1,5 +1,5 @@
 /**
- * @file   video_display/proxy.cpp
+ * @file   video_display/blend.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -67,8 +67,8 @@ static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
-struct state_proxy_common {
-        ~state_proxy_common() {
+struct state_blend_common {
+        ~state_blend_common() {
                 display_done(real_display);
 
                 for (auto && ssrc_map : frames) {
@@ -96,26 +96,26 @@ struct state_proxy_common {
         struct module *parent;
 };
 
-struct state_proxy {
-        shared_ptr<struct state_proxy_common> common;
+struct state_blend {
+        shared_ptr<struct state_blend_common> common;
         struct video_desc desc;
 };
 
-static struct display *display_proxy_fork(void *state)
+static struct display *display_blend_fork(void *state)
 {
-        shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
+        shared_ptr<struct state_blend_common> s = ((struct state_blend *)state)->common;
         struct display *out;
         char fmt[2 + sizeof(void *) * 2 + 1] = "";
         snprintf(fmt, sizeof fmt, "%p", state);
 
         int rc = initialize_video_display(s->parent,
-                        "proxy", fmt, 0, NULL, &out);
+                        "blend", fmt, 0, NULL, &out);
         if (rc == 0) return out; else return NULL;
 
         return out;
 }
 
-static void *display_proxy_init(struct module *parent, const char *fmt, unsigned int flags)
+static void *display_blend_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         char *fmt_copy = NULL;
         const char *requested_display = "";
@@ -123,15 +123,15 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
         int ret;
 
         if (fmt == nullptr || strlen(fmt) == 0 || "help"s == fmt) {
-                cout << "Proxy is a helper display to combine (blend) multiple incoming streams.\n"
+                cout << "blend is a helper display to combine (blend) multiple incoming streams.\n"
                                 "Please do not use directly, intended for internal purposes!\n";
                 return nullptr;
         }
 
-        auto *s = new state_proxy();
+        auto *s = new state_blend();
 
         if (isdigit(fmt[0]) != 0) { // fork
-                struct state_proxy *orig = nullptr;
+                struct state_blend *orig = nullptr;
                 sscanf(fmt, "%p", &orig);
                 s->common = orig->common;
                 return s;
@@ -143,9 +143,9 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
                 *delim = '\0';
                 cfg = delim + 1;
         }
-        s->common = shared_ptr<state_proxy_common>(new state_proxy_common());
+        s->common = shared_ptr<state_blend_common>(new state_blend_common());
         ret = initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display);
-        assert(ret == 0 && "Unable to initialize real display for proxy");
+        assert(ret == 0 && "Unable to initialize real display for blend");
         free(fmt_copy);
 
         display_run_new_thread(s->common->real_display);
@@ -155,7 +155,7 @@ static void *display_proxy_init(struct module *parent, const char *fmt, unsigned
         return s;
 }
 
-static void check_reconf(struct state_proxy_common *s, struct video_desc desc)
+static void check_reconf(struct state_blend_common *s, struct video_desc desc)
 {
         if (!video_desc_eq(desc, s->display_desc)) {
                 s->display_desc = desc;
@@ -164,9 +164,9 @@ static void check_reconf(struct state_proxy_common *s, struct video_desc desc)
         }
 }
 
-static void display_proxy_run(void *state)
+static void display_blend_run(void *state)
 {
-        shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
+        shared_ptr<struct state_blend_common> s = ((struct state_blend *)state)->common;
         bool prefill = false;
         int skipped = 0;
 
@@ -196,7 +196,7 @@ static void display_proxy_run(void *state)
                 it = s->disabled_ssrc.begin();
                 while (it != s->disabled_ssrc.end()) {
                         if (chrono::duration_cast<chrono::milliseconds>(now - it->second) > SOURCE_TIMEOUT) {
-                                verbose_msg("Source 0x%08" PRIx32 " timeout. Deleting from proxy display.\n", it->first);
+                                verbose_msg("Source 0x%08" PRIx32 " timeout. Deleting from blend display.\n", it->first);
                                 s->disabled_ssrc.erase(it++);
                         } else {
                                 ++it;
@@ -323,29 +323,29 @@ static void display_proxy_run(void *state)
         display_join(s->real_display);
 }
 
-static void display_proxy_done(void *state)
+static void display_blend_done(void *state)
 {
-        struct state_proxy *s = (struct state_proxy *)state;
+        struct state_blend *s = (struct state_blend *)state;
         delete s;
 }
 
-static struct video_frame *display_proxy_getf(void *state)
+static struct video_frame *display_blend_getf(void *state)
 {
-        struct state_proxy *s = (struct state_proxy *)state;
+        struct state_blend *s = (struct state_blend *)state;
 
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_proxy_putf(void *state, struct video_frame *frame, int flags)
+static int display_blend_putf(void *state, struct video_frame *frame, int flags)
 {
-        shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
+        shared_ptr<struct state_blend_common> s = ((struct state_blend *)state)->common;
 
         if (flags == PUTF_DISCARD) {
                 vf_free(frame);
         } else {
                 unique_lock<mutex> lg(s->lock);
                 if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
-                        fprintf(stderr, "Proxy: queue full!\n");
+                        fprintf(stderr, "blend: queue full!\n");
                 }
                 if (flags == PUTF_NONBLOCK && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
                         vf_free(frame);
@@ -360,12 +360,12 @@ static int display_proxy_putf(void *state, struct video_frame *frame, int flags)
         return 0;
 }
 
-static int display_proxy_get_property(void *state, int property, void *val, size_t *len)
+static int display_blend_get_property(void *state, int property, void *val, size_t *len)
 {
-        shared_ptr<struct state_proxy_common> s = ((struct state_proxy *)state)->common;
+        shared_ptr<struct state_blend_common> s = ((struct state_blend *)state)->common;
         if (property == DISPLAY_PROPERTY_SUPPORTS_MULTI_SOURCES) {
                 ((struct multi_sources_supp_info *) val)->val = true;
-                ((struct multi_sources_supp_info *) val)->fork_display = display_proxy_fork;
+                ((struct multi_sources_supp_info *) val)->fork_display = display_blend_fork;
                 ((struct multi_sources_supp_info *) val)->state = state;
                 *len = sizeof(struct multi_sources_supp_info);
                 return TRUE;
@@ -375,22 +375,22 @@ static int display_proxy_get_property(void *state, int property, void *val, size
         }
 }
 
-static int display_proxy_reconfigure(void *state, struct video_desc desc)
+static int display_blend_reconfigure(void *state, struct video_desc desc)
 {
-        struct state_proxy *s = (struct state_proxy *) state;
+        struct state_blend *s = (struct state_blend *) state;
 
         s->desc = desc;
 
         return 1;
 }
 
-static void display_proxy_put_audio_frame(void *state, const struct audio_frame *frame)
+static void display_blend_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);
 }
 
-static int display_proxy_reconfigure_audio(void *state, int quant_samples, int channels,
+static int display_blend_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         UNUSED(state);
@@ -401,26 +401,26 @@ static int display_proxy_reconfigure_audio(void *state, int quant_samples, int c
         return FALSE;
 }
 
-static void display_proxy_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+static void display_blend_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
         UNUSED(deleter);
         *available_cards = nullptr;
         *count = 0;
 }
 
-static const struct video_display_info display_proxy_info = {
-        display_proxy_probe,
-        display_proxy_init,
-        display_proxy_run,
-        display_proxy_done,
-        display_proxy_getf,
-        display_proxy_putf,
-        display_proxy_reconfigure,
-        display_proxy_get_property,
-        display_proxy_put_audio_frame,
-        display_proxy_reconfigure_audio,
+static const struct video_display_info display_blend_info = {
+        display_blend_probe,
+        display_blend_init,
+        display_blend_run,
+        display_blend_done,
+        display_blend_getf,
+        display_blend_putf,
+        display_blend_reconfigure,
+        display_blend_get_property,
+        display_blend_put_audio_frame,
+        display_blend_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
         false,
 };
 
-REGISTER_HIDDEN_MODULE(proxy, &display_proxy_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_HIDDEN_MODULE(blend, &display_blend_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 

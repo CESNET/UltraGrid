@@ -200,11 +200,11 @@ COMMON_OBJS     = \
 		src/video_decompress.o \
 		src/video_display.o \
 		src/video_display/aggregate.o \
+		src/video_display/blend.o \
 		src/video_display/dummy.o \
 		src/video_display/dump.o \
 		src/video_display/null.o \
 		src/video_display/pipe.o \
-		src/video_display/proxy.o \
 		src/video_display/multiplier.o \
 		src/video_display/unix_sock.o \
 		src/video_export.o \
