@@ -226,7 +226,11 @@ static void vidcap_file_process_messages(struct vidcap_state_lavf_decoder *s) {
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Message: \"%s\"\n", msg->text);
                 if (strstr(msg->text, "seek ") != NULL) {
                         const char *count_str = msg->text + strlen("seek ");
-                        int sec = atoi(count_str);
+                        char *endptr = NULL;
+                        double sec = strtol(count_str, &endptr, 0);
+                        if (endptr[0] != 's') {
+                                sec /= s->video_desc.fps;
+                        }
                         AVStream *st = s->fmt_ctx->streams[s->video_stream_idx];
                         AVRational tb = st->time_base;
                         CHECK_FF(avformat_seek_file(s->fmt_ctx, s->video_stream_idx, INT64_MIN, st->start_time + s->last_vid_pts + sec * tb.den / tb.num, INT64_MAX, AVSEEK_FLAG_FRAME), {});
