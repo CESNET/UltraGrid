@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,15 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @file
+ * @todo
+ * There is a race condition between audio and video when seeking the stream.
+ * Audio may be seeked and video not yet (or vice versa). Since those parts are
+ * independent, ther will perhaps be needed to have _getf() and seek completion
+ * mutually exclusive. Perhaps not much harmless, seems that it could cause at
+ * most 1 frame AV-desync.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -74,9 +83,7 @@
 
 #include <condition_variable>
 #include <chrono>
-#include <list>
 #include <mutex>
-#include <utility> // pair
 
 #define BUFFER_LEN_MAX 40
 #define MAX_CLIENTS 16
@@ -90,12 +97,9 @@
 
 using std::condition_variable;
 using std::chrono::duration;
-using std::list;
 using std::min;
 using std::max;
 using std::mutex;
-using std::ostringstream;
-using std::pair;
 using std::string;
 using std::to_string;
 using std::unique_lock;
@@ -129,8 +133,7 @@ struct import_message {
 
 typedef enum {
         IMPORT_SEEK_SET,
-        IMPORT_SEEK_END,
-        IMPORT_SEEK_CUR
+        IMPORT_SEEK_CUR,
 } seek_direction_t;
 
 struct seek_data {
@@ -157,7 +160,8 @@ struct audio_state {
         condition_variable boss_cv;
 
         mutex lock;
-        unsigned long long int played_samples;
+        long long int played_samples = 0;
+        int video_frames_played = 0;
 
         struct message_queue message_queue;
 }; 
@@ -168,7 +172,6 @@ struct vidcap_import_state {
         struct audio_frame audio_frame;
         struct audio_state audio_state;
         struct video_desc video_desc;
-        int frames;
         char *directory;
         char tile_delim; // eg. '_' for format "00000001_0.yuv"
 
@@ -255,8 +258,6 @@ static bool init_audio(struct vidcap_import_state *s, const char *audio_filename
         s->audio_frame.data = (char *) malloc(s->audio_frame.max_size);
 
         s->audio_state.file = audio_file;
-
-        s->audio_state.played_samples = 0;
 
         return true;
 
@@ -396,7 +397,6 @@ try {
         s = new vidcap_import_state();
         s->head = s->tail = NULL;
         s->queue_len = 0;
-        s->frames = 0;
 
         s->parent = vidcap_params_get_parent(params);
         module_init_default(&s->mod);
@@ -673,11 +673,6 @@ static void process_msg(struct vidcap_import_state *s, const char *message)
                 lk.unlock();
                 s->worker_cv.notify_one();
         } else if(strncasecmp(message, "seek ", strlen("seek ")) == 0) {
-                if(s->audio_state.has_audio == true) {
-                        fprintf(stderr, "Seeking now allowed if we have audio. (Not yet implemented)\n");
-                        return;
-                }
-
                 const char *time_spec = message + strlen("seek ");
 
                 struct import_message *msg = (struct import_message *) malloc(sizeof(struct import_message));
@@ -769,8 +764,24 @@ static void * audio_reading_thread(void *args)
                                         free(msg);
                                         return NULL;
                                 } else if (msg->type == SEEK) {
-                                        fprintf(stderr, "Seeking in audio import not yet implemented.\n");
-                                        abort();
+                                        struct seek_data *data = (struct seek_data *) msg->data;
+                                        free(msg);
+                                        long long bytes = (s->audio_frame.sample_rate * data->offset / s->video_desc.fps) * s->audio_frame.bps * s->audio_frame.ch_count;
+                                        if (data->whence == IMPORT_SEEK_CUR) {
+                                                bytes += s->audio_state.played_samples * s->audio_frame.bps * s->audio_frame.ch_count;
+                                                bytes = max<long long>(0, bytes);
+                                        }
+                                        int ret = wav_seek(s->audio_state.file, bytes, SEEK_SET, &s->audio_state.metadata);
+                                        log_msg(LOG_LEVEL_NOTICE, "Audio seek %lld bytes\n", bytes);
+                                        if (ret != 0) {
+                                                perror("wav_seek");
+                                        }
+                                        ring_buffer_flush(s->audio_state.data);
+                                        s->audio_state.video_frames_played = max<long long>(0, s->audio_state.video_frames_played + data->offset);
+                                        s->audio_state.samples_read = bytes / (s->audio_frame.bps * s->audio_frame.ch_count);
+                                        s->audio_state.samples_read = min(s->audio_state.samples_read, s->audio_state.total_samples);
+                                        s->audio_state.played_samples = s->audio_state.samples_read;
+                                        free(data);
                                 }
                         }
 
@@ -926,8 +937,6 @@ static void * video_reading_thread(void *args)
                                                 index += data->offset;
                                         } else if (data->whence == IMPORT_SEEK_SET) {
                                                 index = data->offset;
-                                        } else if (data->whence == IMPORT_SEEK_END) {
-                                                index = s->video_frame_count + data->offset;
                                         }
                                         index = min(max(0L, index), s->video_frame_count - 1);
                                         printf("Current index: frame %ld\n", index);
@@ -1005,11 +1014,9 @@ static void reset_import(struct vidcap_import_state *s)
                 s->audio_state.played_samples = 0;
                 s->audio_state.samples_read = 0;
                 ring_buffer_flush(s->audio_state.data);
-                fseek(s->audio_state.file, 0L, SEEK_SET);
-                struct wav_metadata metadata;
-                read_wav_header(s->audio_state.file, &metadata); // skip metadata
+                wav_seek(s->audio_state.file, 0L, SEEK_SET, &s->audio_state.metadata);
+                s->audio_state.video_frames_played = 0;
         }
-        s->frames = 0;
 
         if (s->has_video) {
                 if (pthread_create(&s->video_thread_id, NULL, video_reading_thread, (void *) s) != 0) {
@@ -1081,36 +1088,34 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
 
         // audio
         if(s->audio_state.has_audio) {
-                unsigned long long int requested_samples = (unsigned long long int) (s->frames + 1) *
-                        s->audio_frame.sample_rate / s->video_desc.fps - s->audio_state.played_samples;
-                if((int) (s->audio_state.played_samples + requested_samples) > s->audio_state.total_samples) {
-                        requested_samples = s->audio_state.total_samples - s->audio_state.played_samples;
-                }
-                unsigned long long int requested_bytes = requested_samples * s->audio_frame.bps * s->audio_frame.ch_count;
-                if(requested_bytes) {
-                        {
-                                requested_bytes = min<unsigned long long>(requested_bytes,s->audio_frame.max_size);
-                                unique_lock<mutex> lk(s->audio_state.lock);
-                                while(ring_get_current_size(s->audio_state.data) < (int) requested_bytes) {
-                                        s->audio_state.boss_cv.wait(lk);;
-                                }
-
-                                int ret = ring_buffer_read(s->audio_state.data, s->audio_frame.data, requested_bytes);
-
-                                assert(ret == (int) requested_bytes);
-
-                                lk.unlock();
-                                s->audio_state.worker_cv.notify_one();
+                auto get_req_bytes = [&]() {
+                        long long int requested_samples = (long long int) (s->audio_state.video_frames_played + 0) *
+                                s->audio_frame.sample_rate / s->video_desc.fps - s->audio_state.played_samples;
+                        if (requested_samples <= 0) {
+                                return 0LL;
                         }
+                        if ((s->audio_state.played_samples + requested_samples) > s->audio_state.total_samples) {
+                                requested_samples = s->audio_state.total_samples - s->audio_state.played_samples;
+                        }
+                        return requested_samples * s->audio_frame.bps * s->audio_frame.ch_count;
+                };
+                unique_lock<mutex> lk(s->audio_state.lock);
+                unsigned long long int requested_bytes = min<unsigned long long>(get_req_bytes(), s->audio_frame.max_size);
+                while(ring_get_current_size(s->audio_state.data) < (int) requested_bytes) {
+                        s->audio_state.boss_cv.wait(lk);
+                        requested_bytes = min<unsigned long long>(get_req_bytes(), s->audio_frame.max_size);
                 }
 
-                s->audio_frame.data_len = requested_bytes;
-                s->audio_state.played_samples += requested_samples;
+                int ret = ring_buffer_read(s->audio_state.data, s->audio_frame.data, requested_bytes);
+                s->audio_frame.data_len = ret;
+                s->audio_state.played_samples += ret / (s->audio_frame.bps * s->audio_frame.ch_count);
                 *audio = &s->audio_frame;
+                s->audio_state.video_frames_played += 1;
+                lk.unlock();
+                s->audio_state.worker_cv.notify_one();
         } else {
                 *audio = NULL;
         }
-
 
         gettimeofday(&cur_time, NULL);
         while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->video_desc.fps) {
@@ -1118,8 +1123,6 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         }
         //tv_add_usec(&s->prev_time, 1000000.0 / s->frame->fps);
         s->prev_time = cur_time;
-
-        s->frames += 1;
 
 	return ret;
 }
