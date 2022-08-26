@@ -258,3 +258,12 @@ const char *get_wav_error(int errcode)
         }
 }
 
+int wav_seek(FILE *wav_file, long offset, int whence, struct wav_metadata *metadata)
+{
+        if (whence == SEEK_CUR || whence == SEEK_END) {
+                return fseek(wav_file, offset, whence);
+        }
+        assert(whence == SEEK_SET);
+        return fseek(wav_file, metadata->data_offset + offset, SEEK_SET);
+}
+

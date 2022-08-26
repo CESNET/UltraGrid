@@ -79,8 +79,13 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata);
 
 /**
  * Reads sample_count samples from wav_file according to metadata.
+ *
+ * @note
+ * conversion to signed is performed if wav sample type is u8
  */
 size_t wav_read(void *buffer, size_t sample_count, FILE *wav_file, struct wav_metadata *metadata);
+/// same as fseek but WAV header presence is respected (for SEEK SET)
+int wav_seek(FILE *wav_file, long offset, int whence, struct wav_metadata *metadata);
 
 const char *get_wav_error(int errcode);
 
