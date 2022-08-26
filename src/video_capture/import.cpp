@@ -169,8 +169,6 @@ struct vidcap_import_state {
         struct audio_state audio_state;
         struct video_desc video_desc;
         int frames;
-        int frames_prev;
-        struct timeval t0;
         char *directory;
         char tile_delim; // eg. '_' for format "00000001_0.yuv"
 
@@ -398,8 +396,7 @@ try {
         s = new vidcap_import_state();
         s->head = s->tail = NULL;
         s->queue_len = 0;
-        s->frames_prev = s->frames = 0;
-        gettimeofday(&s->t0, NULL);
+        s->frames = 0;
 
         s->parent = vidcap_params_get_parent(params);
         module_init_default(&s->mod);
@@ -1012,7 +1009,7 @@ static void reset_import(struct vidcap_import_state *s)
                 struct wav_metadata metadata;
                 read_wav_header(s->audio_state.file, &metadata); // skip metadata
         }
-        s->frames_prev = s->frames = 0;
+        s->frames = 0;
 
         if (s->has_video) {
                 if (pthread_create(&s->video_thread_id, NULL, video_reading_thread, (void *) s) != 0) {
@@ -1122,14 +1119,6 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         //tv_add_usec(&s->prev_time, 1000000.0 / s->frame->fps);
         s->prev_time = cur_time;
 
-        double seconds = tv_diff(cur_time, s->t0);
-        if (seconds >= 5) {
-                float fps  = (s->frames - s->frames_prev) / seconds;
-                log_msg(LOG_LEVEL_INFO, "[import] %d frames in %g seconds = %g FPS\n", s->frames - s->frames_prev, seconds, fps);
-                s->t0 = cur_time;
-                s->frames_prev = s->frames;
-        }
-
         s->frames += 1;
 
 	return ret;
@@ -1140,7 +1129,7 @@ static const struct video_capture_info vidcap_import_info = {
         vidcap_import_init,
         vidcap_import_done,
         vidcap_import_grab,
-        false
+        true
 };
 
 REGISTER_MODULE(import, &vidcap_import_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
