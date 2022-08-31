@@ -86,8 +86,8 @@ inline constexpr bool from_chars_available_v = false;
 
 #endif // has_include(<charconv>)
 
-template<typename T, std::enable_if_t<!from_chars_available_v<T>, bool> = true>
-bool parse_num(std::string_view sv, T& res, int base = 10){
+template<typename T, auto convert, typename... Args>
+bool parse_num_fallback_impl(std::string_view sv, T& res, Args... args){
         if(sv.empty())
                 return false;
 
@@ -96,18 +96,34 @@ bool parse_num(std::string_view sv, T& res, int base = 10){
         char *endptr = nullptr;
         T num;
 
-        if constexpr(std::is_same_v<T, double>)
-                num = strtod(c_str_ptr, &endptr);
-        else if constexpr(std::is_same_v<T, float>)
-                num = strtof(c_str_ptr, &endptr);
-        else
-                num = strtol(c_str_ptr, &endptr, base);
+        num = convert(c_str_ptr, &endptr, args...);
 
         if(c_str_ptr == endptr)
                 return false;
 
         res = num;
         return true;
+}
+
+template<typename T,
+        std::enable_if_t<!from_chars_available_v<T>, bool> = true,
+        std::enable_if_t<std::is_integral_v<T>, bool> = true>
+bool parse_num(std::string_view sv, T& res, int base = 10){
+        return parse_num_fallback_impl<T, strtol>(sv, res, base);
+}
+
+template<typename T,
+        std::enable_if_t<!from_chars_available_v<T>, bool> = true,
+        std::enable_if_t<std::is_same_v<T, double>, bool> = true>
+bool parse_num(std::string_view sv, T& res){
+        return parse_num_fallback_impl<T, strtod>(sv, res);
+}
+
+template<typename T,
+        std::enable_if_t<!from_chars_available_v<T>, bool> = true,
+        std::enable_if_t<std::is_same_v<T, float>, bool> = true>
+bool parse_num(std::string_view sv, T& res){
+        return parse_num_fallback_impl<T, strtof>(sv, res);
 }
 
 #endif
