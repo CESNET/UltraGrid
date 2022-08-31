@@ -212,7 +212,7 @@ static char *create_anonymous_dir(const char *prefix)
                 strcat(name, "/");
                 strftime(name + strlen(name), max_len, "export.%Y%m%d", tmp);
                 if (i > 1) {
-                        char num[6];
+                        char num[10];
                         snprintf(num, sizeof num, "-%d", i);
                         strncat(name, num, sizeof name - strlen(name) - 1);
                 }
