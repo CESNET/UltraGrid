@@ -231,6 +231,7 @@ void Video_mixer::tiled_layout(){
 
         int pos = 0;
         for(auto& [ssrc, t]: participants){
+                (void) ssrc;
                 t.set_pos_keep_aspect((pos % rows) * tile_width,
                                 (pos / rows) * tile_height,
                                 tile_width, tile_height);
@@ -317,6 +318,7 @@ void Video_mixer::get_mixed(video_frame *result){
                 recompute_layout();
 
         for(auto&& [ssrc, p] : participants){
+                (void) ssrc;
                 p.to_cv_frame();
 
                 PROFILE_DETAIL("resize participant");
