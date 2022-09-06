@@ -375,7 +375,7 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
                 char oo_dups_str[1024];
                 oo_dups_str[0] = '\0';
                 if (playout_buf->out_of_order_pkts > 0) {
-                        snprintf(oo_dups_str, sizeof oo_dups_str, ", %d reordered pkts (max dist %d)", playout_buf->out_of_order_pkts, playout_buf->max_out_of_order_dist);
+                        snprintf(oo_dups_str, sizeof oo_dups_str, ", reordered %d pkts (max dist %d)", playout_buf->out_of_order_pkts, playout_buf->max_out_of_order_dist);
                 }
                 if (playout_buf->dups > 0) {
                         snprintf(oo_dups_str + strlen(oo_dups_str), sizeof oo_dups_str - strlen(oo_dups_str), ", %d dups", playout_buf->dups);
