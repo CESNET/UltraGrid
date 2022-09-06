@@ -93,16 +93,8 @@ static bool vidcap_ximea_fill_symbols(struct ximea_functions *f) {
 #ifdef XIMEA_RUNTIME_LINKING
         f->handle = dlopen(XIMEA_LIBRARY_NAME, RTLD_NOW);
         if (!f->handle) {
-#ifdef WIN32
-                char errstr[1024] = "";
-                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
-                                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                                (LPTSTR) &errstr, sizeof errstr, NULL );
-#else
-                const char *errstr = dlerror();
-#endif
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Unable to open library %s): %s!\n",
-                                XIMEA_LIBRARY_NAME, errstr);
+                                XIMEA_LIBRARY_NAME, dlerror());
                 char path[strlen(XIMEA_LIBRARY_PATH) + 1 + strlen(XIMEA_LIBRARY_NAME) + 1];
                 strcpy(path, XIMEA_LIBRARY_PATH);
                 strcat(path, "/");
@@ -110,16 +102,8 @@ static bool vidcap_ximea_fill_symbols(struct ximea_functions *f) {
                 f->handle = dlopen(path, RTLD_NOW);
         }
         if (!f->handle) {
-#ifdef WIN32
-                char errstr[1024] = "";
-                FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
-                                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                                (LPTSTR) &errstr, sizeof errstr, NULL );
-#else
-                const char *errstr = dlerror();
-#endif
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to open library (name: %s, path: %s): %s!\n",
-                                XIMEA_LIBRARY_NAME, XIMEA_LIBRARY_PATH, errstr);
+                                XIMEA_LIBRARY_NAME, XIMEA_LIBRARY_PATH, dlerror());
                 return false;
         }
         GET_SYMBOL(xiGetNumberDevices);
