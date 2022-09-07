@@ -3223,7 +3223,7 @@ fi
 # ------------------------------------------------------------------------------
 # Cineform 
 # ------------------------------------------------------------------------------
-CINEFORM_PATH=cineform-sdk
+CINEFORM_PATH=ext-deps/cineform-sdk
 CINEFORM_INC=
 CINEFORM_LIB=
 
