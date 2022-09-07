@@ -52,11 +52,12 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
+#include "tv.h" // US_IN_SEC
 #include "video.h"
 #include "video_capture.h"
 
 #define DEFAULT_TIMEOUT_MS 100
-#define EXPOSURE_DEFAULT_US 10000
+#define EXPOSURE_DEFAULT_US 10000L
 #define MAGIC to_fourcc('X', 'I', 'M', 'E')
 #define MOD_NAME "[XIMEA] "
 #define MICROSEC_IN_SEC 1000000.0
@@ -141,7 +142,10 @@ static void vidcap_ximea_close_lib(struct ximea_functions *f)
 
 static void vidcap_ximea_show_help() {
         color_printf("XIMEA usage:\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t-t ximea" TERM_FG_RESET "[:device=<d>][:exposure=<time_us>]\n" TERM_RESET);
+        color_printf(TERM_BOLD TERM_FG_RED "\t-t ximea" TERM_FG_RESET "[:device=<d>][:exposure=<time_us>|:fps=<fps>]\n" TERM_RESET);
+        color_printf("where\n");
+        color_printf("\t" TBOLD("exposure") " - exposure time in microseconds (default: %ld)\n", EXPOSURE_DEFAULT_US);
+        color_printf("\t" TBOLD("fps") "      - frames per second (decimal, exclusive with exposure parameter)\n");
         printf("\n");
         printf("Available devices:\n");
 
@@ -199,6 +203,12 @@ static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, const char *c
                 } else if (strstr(tok, "exposure=")) {
                         char *endptr = NULL;
                         s->exposure_time_us = strtol(tok + strlen("exposure="), &endptr, 0);
+                        if (*endptr != '\0' || s->exposure_time_us < 0) {
+                                goto error;
+                        }
+                } else if (strstr(tok, "fps=") != NULL) {
+                        char *endptr = NULL;
+                        s->exposure_time_us = US_IN_SEC / strtod(strchr(tok, '=') + 1, &endptr);
                         if (*endptr != '\0' || s->exposure_time_us < 0) {
                                 goto error;
                         }
