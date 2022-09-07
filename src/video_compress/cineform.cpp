@@ -53,8 +53,8 @@
 #include "module.h"
 #include "lib_common.h"
 
-#include "CFHDTypes.h"
-#include "CFHDEncoder.h"
+#include <CFHDTypes.h>
+#include <CFHDEncoder.h>
 
 #include "video.h"
 #include "video_codec.h"
