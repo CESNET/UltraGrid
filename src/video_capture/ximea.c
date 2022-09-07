@@ -178,54 +178,41 @@ static void vidcap_ximea_show_help() {
         vidcap_ximea_close_lib(&funcs);
 }
 
-static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, const char *cfg) {
-        if (cfg == NULL || cfg[0] == '\0') {
-                return 0;
-        }
-
-        char *fmt = strdup(cfg);
-        assert(fmt != NULL);
-        char *save_ptr;
-        char *tmp = fmt;
-        char *tok;
+static int vidcap_ximea_parse_params(struct state_vidcap_ximea *s, char *cfg) {
+        char *save_ptr = NULL;
+        char *tmp = cfg;
+        char *tok = NULL;
         while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
                 if (!strcmp(tok, "help")) {
                         vidcap_ximea_show_help();
-                        free(fmt);
                         return VIDCAP_INIT_NOERR;
                 }
                 if (strstr(tok, "device=")) {
                         char *endptr = NULL;
                         s->device_id = strtol(tok + strlen("device="), &endptr, 0);
                         if (*endptr != '\0') {
-                                goto error;
+                                return VIDCAP_INIT_FAIL;
                         }
                 } else if (strstr(tok, "exposure=")) {
                         char *endptr = NULL;
                         s->exposure_time_us = strtol(tok + strlen("exposure="), &endptr, 0);
                         if (*endptr != '\0' || s->exposure_time_us < 0) {
-                                goto error;
+                                return VIDCAP_INIT_FAIL;
                         }
                 } else if (strstr(tok, "fps=") != NULL) {
                         char *endptr = NULL;
                         s->exposure_time_us = US_IN_SEC / strtod(strchr(tok, '=') + 1, &endptr);
                         if (*endptr != '\0' || s->exposure_time_us < 0) {
-                                goto error;
+                                return VIDCAP_INIT_FAIL;
                         }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
-                        free(fmt);
                         return VIDCAP_INIT_FAIL;
                 }
                 tmp = NULL;
         }
 
-        free(fmt);
         return 0;
-
-error:
-        free(fmt);
-        return VIDCAP_INIT_FAIL;
 }
 
 #define CHECK(cmd) do { \
@@ -247,7 +234,9 @@ static int vidcap_ximea_init(struct vidcap_params *params, void **state)
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot load XIMEA library!\n");
                 goto error;
         }
-        int ret = vidcap_ximea_parse_params(s, vidcap_params_get_fmt(params));
+        char *cfg = strdup(vidcap_params_get_fmt(params));
+        int ret = vidcap_ximea_parse_params(s, cfg);
+        free(cfg);
         if (ret != 0) {
                 free(s);
                 return ret;
