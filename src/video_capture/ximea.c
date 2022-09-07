@@ -57,7 +57,7 @@
 #include "video_capture.h"
 
 #define DEFAULT_TIMEOUT_MS 100
-#define EXPOSURE_DEFAULT_US 10000L
+#define EXPOSURE_DEFAULT_US 33333L
 #define MAGIC to_fourcc('X', 'I', 'M', 'E')
 #define MOD_NAME "[XIMEA] "
 #define MICROSEC_IN_SEC 1000000.0
