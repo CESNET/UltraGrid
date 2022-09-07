@@ -41,6 +41,7 @@ sudo apt --no-install-recommends install asciidoc xmlto
 sudo apt install libopencv-dev
 sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
+sudo apt install uuid-dev # Cineform
 
 # Install cross-platform deps
 $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
@@ -61,14 +62,6 @@ install_aja() {(
         git clone --depth 1 https://github.com/aja-video/ntv2
         cd ntv2/ajalibraries/ajantv2/build
         make -j $(nproc)
-)}
-
-install_cineform() {(
-        sudo apt install uuid-dev
-        cd $GITHUB_WORKSPACE/cineform-sdk/build
-        cmake -DBUILD_TOOLS=OFF ..
-        cmake --build . --parallel
-        sudo cmake --install .
 )}
 
 
@@ -107,7 +100,6 @@ sudo make install
 cd ..
 
 install_aja
-install_cineform
 install_gpujpeg
 install_ndi
 install_ximea

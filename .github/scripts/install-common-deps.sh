@@ -1,7 +1,9 @@
 #!/bin/sh -eux
 
+win=no
 case "$(uname -s)" in
         CYGWIN*|MINGW32*|MSYS*|MINGW*)
+                win=yes
                 ;;
 
         *)
@@ -13,11 +15,17 @@ if ! command -v nproc >/dev/null; then
         nproc() { sysctl -n hw.logicalcpu; } # mac
 fi
 
-# only download here, compilation is handled per-platform
-download_cineform() {(
+# for Win only download here, compilation is handled differently
+download_install_cineform() {(
         cd "$GITHUB_WORKSPACE"
         git clone --depth 1 https://github.com/gopro/cineform-sdk
         mkdir cineform-sdk/build
+        cd cineform-sdk/build
+        if [ "$win" = no ]; then
+                cmake -DBUILD_TOOLS=OFF ..
+                cmake --build . --parallel
+                sudo cmake --install .
+        fi
 )}
 
 install_ews() {
@@ -53,7 +61,7 @@ install_zfec() {(
         ${sudo:+"$sudo" }mv zfec/zfec /usr/local/src
 )}
 
-download_cineform
+download_install_cineform
 install_ews
 install_juice
 install_pcp

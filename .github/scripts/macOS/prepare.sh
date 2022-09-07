@@ -28,13 +28,6 @@ sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt
 mkdir $TEMP_INST
 cd $TEMP_INST
 
-build_cineform() {(
-        cd $GITHUB_WORKSPACE/cineform-sdk/build
-        cmake -DBUILD_TOOLS=OFF ..
-        cmake --build . --parallel
-        sudo cmake --install .
-)}
-
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
 install_ximea() {
         hdiutil mount /private/var/tmp/XIMEA_OSX_SP.dmg
@@ -115,7 +108,6 @@ install_syphon() {
 # Install cross-platform deps
 $GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
 
-build_cineform
 install_aja
 install_deltacast
 install_glfw
