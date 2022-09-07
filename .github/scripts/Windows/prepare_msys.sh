@@ -32,6 +32,7 @@ cd `cygpath $GITHUB_WORKSPACE`
 
 EOF
 
+# shellcheck source=/dev/null
 . ~/.bash_profile
 
 PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
@@ -56,7 +57,7 @@ install_aja() {(
         git clone --depth 1 https://github.com/aja-video/ntv2 AJA
         cd AJA
         AJA_GH_PATH=https://github.com/$(curl https://github.com/aja-video/ntv2/releases  | grep libs_windows_ | head -n 1 | cut -d '"' -f 2)
-        curl -L $AJA_GH_PATH -o aja_build.zip
+        curl -L "$AJA_GH_PATH" -o aja_build.zip
         rm README.md # would be overriden from zip below
         unzip aja_build.zip
         mkdir -p lib
@@ -70,9 +71,9 @@ install_aja() {(
 if [ -n "$SDK_URL" ]; then
         mkdir VideoMaster
         cd VideoMaster
-        if curl -f -S $SDK_URL/VideoMaster_SDK_Windows.zip -O; then
+        if curl -f -S "$SDK_URL/VideoMaster_SDK_Windows.zip" -O; then
                 FEATURES="$FEATURES --enable-deltacast"
-                echo "FEATURES=$FEATURES" >> $GITHUB_ENV
+                echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
                 unzip VideoMaster_SDK_Windows.zip
                 cp Binaries/Resources/Lib64/*dll /usr/local/bin
                 cp -r Include/* /usr/local/include
@@ -84,7 +85,7 @@ fi
 
 build_cineform() {
         (
-        cd $GITHUB_WORKSPACE/cineform-sdk/build
+        cd "$GITHUB_WORKSPACE/cineform-sdk/build"
         sed -i 's/GetProcessorCount/_&/'  ../ConvertLib/ImageScaler.cpp # workaround for needless Win GetProcessorCount definition
         cmake -DBUILD_STATIC=false -DBUILD_TOOLS=false -A x64 .. # assume "-G 'Visual Studio 16 2019'"
         cmake --build . --config Release --parallel
@@ -93,10 +94,10 @@ build_cineform() {
 }
 
 # Install cross-platform deps
-$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
+"$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
 
-$GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh
-$GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh
+"$GITHUB_WORKSPACE/.github/scripts/Windows/install_natpmp.sh"
+"$GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh"
 
 # Install GPUJPEG
 ( wget --no-verbose https://github.com/CESNET/GPUJPEG/releases/download/continuous/GPUJPEG.zip && unzip GPUJPEG.zip && cp -r GPUJPEG/* /usr/local || exit 1 )

@@ -5,13 +5,14 @@ TEMP_INST=/tmp/install
 CPATH=/usr/local/include:/usr/local/opt/qt/include
 DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
 LIBRARY_PATH=/usr/local/lib:/usr/local/opt/qt/lib
-echo "UG_SKIP_NET_TESTS=1" >> $GITHUB_ENV
-echo "CPATH=$CPATH" >> $GITHUB_ENV
-echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV
+# shellcheck disable=SC2140
+printf "%b" "UG_SKIP_NET_TESTS=1\n"\
+"CPATH=$CPATH\n"\
+"LIBRARY_PATH=$LIBRARY_PATH\n" >> "$GITHUB_ENV"
 # libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
-echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig" >> $GITHUB_ENV
-echo "/usr/local/opt/qt/bin" >> $GITHUB_PATH
-echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> $GITHUB_ENV
+echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig" >> "$GITHUB_ENV"
+echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
+echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
 brew install autoconf automake cppunit libtool pkg-config
 brew install speexdsp
@@ -31,8 +32,8 @@ cd $TEMP_INST
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
 install_ximea() {
         hdiutil mount /private/var/tmp/XIMEA_OSX_SP.dmg
-        sudo cp -a /Volumes/XIMEA/m3api.framework $(xcrun --show-sdk-path)/System/Library/Frameworks
-        sudo xattr -dr com.apple.quarantine $(xcrun --show-sdk-path)/System/Library/Frameworks
+        sudo cp -a /Volumes/XIMEA/m3api.framework "$(xcrun --show-sdk-path)/System/Library/Frameworks"
+        sudo xattr -dr com.apple.quarantine "$(xcrun --show-sdk-path)/System/Library/Frameworks"
         umount /Volumes/XIMEA
 }
 
@@ -40,21 +41,21 @@ install_aja() {
         AJA_DIRECTORY=/private/var/tmp/ntv2sdk
         git clone --depth 1 https://github.com/aja-video/ntv2 $AJA_DIRECTORY
         cd $AJA_DIRECTORY
-        echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> $GITHUB_ENV
+        echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> "$GITHUB_ENV"
         AJA_GH_PATH=https://github.com/$(curl https://github.com/aja-video/ntv2/releases  | grep _libs_mac_ | head -n 1 | cut -d '"' -f 2)
-        curl -L $AJA_GH_PATH | tar xzf -
+        curl -L "$AJA_GH_PATH" | tar xzf -
         sudo cp Release/x64/* /usr/local/lib
         cd $TEMP_INST
 }
 
 install_deltacast() {
         DELTA_CACHE_INST=$SDK_NONFREE_PATH/VideoMasterHD_inst
-        if [ ! -d $DELTA_CACHE_INST ]; then
+        if [ ! -d "$DELTA_CACHE_INST" ]; then
                 return 0
         fi
         FEATURES="$FEATURES --enable-deltacast"
-        echo "FEATURES=$FEATURES" >> $GITHUB_ENV
-        sudo cp -a $DELTA_CACHE_INST/* $(xcrun --show-sdk-path)/System/Library/Frameworks
+        echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
+        sudo cp -a "$DELTA_CACHE_INST"/* "$(xcrun --show-sdk-path)/System/Library/Frameworks"
 }
 
 install_glfw() {(
@@ -71,7 +72,7 @@ install_glfw() {(
 install_ndi() {
         sudo installer -pkg /private/var/tmp/Install_NDI_SDK_Apple.pkg -target /
         sudo mv /Library/NDI\ SDK\ for\ * /Library/NDI
-        cat /Library/NDI/Version.txt | sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' | sudo tee /usr/local/include/ndi_version.h
+        sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < /Library/NDI/Version.txt | sudo tee /usr/local/include/ndi_version.h
         if [ -d /Library/NDI/lib/x64 ]; then # NDI 4
                 cd /Library/NDI/lib/x64
                 sudo ln -s libndi.?.dylib libndi.dylib
@@ -83,10 +84,7 @@ install_ndi() {
         export DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s $NDI_LIB"
         export LIBRARY_PATH=${LIBRARY_PATH:+"$LIBRARY_PATH:"}$NDI_LIB
         export MY_DYLD_LIBRARY_PATH="${MY_DYLD_LIBRARY_PATH:+$MY_DYLD_LIBRARY_PATH:}$NDI_LIB"
-        echo "CPATH=$CPATH" >> $GITHUB_ENV
-        echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> $GITHUB_ENV
-        echo "LIBRARY_PATH=$LIBRARY_PATH" >> $GITHUB_ENV
-        echo "MY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+        printf '%b' "CPATH=$CPATH\nDYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS\nLIBRARY_PATH=$LIBRARY_PATH\nMY_DYLD_LIBRARY_PATH=$MY_DYLD_LIBRARY_PATH\n" >> "$GITHUB_ENV"
         cd $TEMP_INST
 }
 
@@ -95,7 +93,7 @@ install_live555() {
         cd live555
         git checkout 35c375
         ./genMakefiles macosx
-        make -j $(sysctl -n hw.ncpu) install
+        make -j "$(sysctl -n hw.ncpu)" install
         cd ..
 }
 
@@ -106,7 +104,7 @@ install_syphon() {
 }
 
 # Install cross-platform deps
-$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh
+"$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
 
 install_aja
 install_deltacast
