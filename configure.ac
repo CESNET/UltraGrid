@@ -3245,40 +3245,40 @@ AC_ARG_WITH(cineform,
             [CINEFORM_PATH=$withval
              ])
 
-AC_LANG_PUSH([C++])
-AC_CHECK_LIB(CFHDCodec, CFHD_OpenDecoder, [FOUND_CINEFORM=yes; CINEFORM_LIB=-lCFHDCodec], FOUND_CINEFORM=no)
-AC_LANG_POP([C++])
+PKG_CHECK_MODULES([CINEFORM], [libcineformsdk], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+if test "$FOUND_CINEFORM" = no; then # libcineform fork
+        PKG_CHECK_MODULES([CINEFORM], [libcineform], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+fi
 
 if test "$FOUND_CINEFORM" = no
 then
+        AC_LANG_PUSH([C++])
+        AC_CHECK_LIB(CFHDCodec, CFHD_OpenDecoder, [FOUND_CINEFORM=yes; CINEFORM_LIBS=-lCFHDCodec], FOUND_CINEFORM=no)
+        AC_LANG_POP([C++])
+fi
 
+if test "$FOUND_CINEFORM" = no
+then
         if test $system = Windows
         then
-                CINEFORM_LIB="${CINEFORM_PATH}/Release/CFHDCodec.lib"
+                CINEFORM_LIBS="${CINEFORM_PATH}/Release/CFHDCodec.lib"
         else
-                CINEFORM_LIB="${CINEFORM_PATH}/libCFHDCodec.a"
+                CINEFORM_LIBS="${CINEFORM_PATH}/libCFHDCodec.a"
         fi
 
         if test -n "$CINEFORM_PATH" -a $cross_compile = no
         then
-                AC_CHECK_FILES(${CINEFORM_LIB}, FOUND_CINEFORM=yes, FOUND_CINEFORM=no)
+                AC_CHECK_FILES(${CINEFORM_LIBS}, FOUND_CINEFORM=yes, FOUND_CINEFORM=no)
         fi
 fi
 
 if test "$FOUND_CINEFORM" = yes; then
-        CINEFORM_INC="$CINEFORM_INC -I${CINEFORM_PATH}/Common/"
+        CINEFORM_CFLAGS="$CINEFORM_CFLAGS -I${CINEFORM_PATH}/Common/"
 
         if test $system != Windows
         then
-                CINEFORM_LIB="${CINEFORM_LIB} -luuid"
+                CINEFORM_LIBS="${CINEFORM_LISB} -luuid"
         fi
-else # if not found, look for libcineform with pkg-config configuration
-        PKG_CHECK_MODULES([CINEFORM], [libcineformsdk], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
-        if test "$FOUND_CINEFORM" = no; then
-                PKG_CHECK_MODULES([CINEFORM], [libcineform], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
-        fi
-        CINEFORM_INC=$CINEFORM_CFLAGS
-        CINEFORM_LIB=$CINEFORM_LIBS
 fi
 
 if test "$cineform_req" != no -a "$FOUND_CINEFORM" = yes
@@ -3287,10 +3287,10 @@ then
         CINEFORM_COMPRESS_OBJ="src/video_compress/cineform.o"
         CINEFORM_DECOMPRESS_OBJ="src/video_decompress/cineform.o"
 
-        INC="$INC $CINEFORM_INC"
+        INC="$INC $CINEFORM_CFLAGS"
         
-        ADD_MODULE("vcompress_cineform", "$CINEFORM_COMPRESS_OBJ", "$CINEFORM_LIB")
-        ADD_MODULE("vdecompress_cineform", "$CINEFORM_DECOMPRESS_OBJ", "$CINEFORM_LIB")
+        ADD_MODULE("vcompress_cineform", "$CINEFORM_COMPRESS_OBJ", "$CINEFORM_LIBS")
+        ADD_MODULE("vdecompress_cineform", "$CINEFORM_DECOMPRESS_OBJ", "$CINEFORM_LIBS")
 fi
 
 if test $cineform_req = yes -a $cineform = no; then
