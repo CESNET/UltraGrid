@@ -10,6 +10,7 @@
 ## d. backlash in MD special escape sequences ('\_', \*') are escaped (again to gain valid JSON)
 
 dir=$(dirname "$0")
+# shellcheck source=/dev/null
 . "$dir/json-common.sh"
 
 # Joins line that starts with space to previous:

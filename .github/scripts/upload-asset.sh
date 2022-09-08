@@ -1,6 +1,7 @@
 #!/bin/sh -eu
 
 dir=$(dirname "$0")
+# shellcheck source=/dev/null
 . "$dir/json-common.sh"
 
 TAG_NAME=${1?}

@@ -14,6 +14,6 @@ git checkout 35c375
 pacman -Sy --noconfirm binutils
 PATH=/usr/bin:$PATH
 
-make -j $(nproc)
+make -j "$(nproc)"
 pacman -Rs --noconfirm binutils
 

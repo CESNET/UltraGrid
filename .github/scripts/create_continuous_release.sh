@@ -5,6 +5,7 @@
 #
 
 dir=$(dirname "$0")
+# shellcheck source=/dev/null
 . "$dir/json-common.sh"
 
 sudo apt install jq
