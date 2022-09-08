@@ -19,8 +19,9 @@ fi
 download_install_cineform() {(
         cd "$GITHUB_WORKSPACE"
         git clone --depth 1 https://github.com/gopro/cineform-sdk
-        mkdir cineform-sdk/build
-        cd cineform-sdk/build
+        cd cineform-sdk
+        git apply "$GITHUB_WORKSPACE/.github/scripts/0001-CMakeList.txt-remove-output-lib-name-force-UNIX.patch"
+        mkdir build && cd build
         if [ "$win" = no ]; then
                 cmake -DBUILD_TOOLS=OFF ..
                 cmake --build . --parallel
