@@ -15,7 +15,7 @@ raspbian_build_sdl2() {
         tar xaf SDL2-$SDL_VER.tar.gz
         cd SDL2-$SDL_VER
         ./configure --enable-video-kmsdrm
-        make -j $(nproc) install
+        make -j "$(nproc)" install
         )
 }
 
@@ -32,7 +32,7 @@ apt -y install build-essential git pkg-config autoconf automake libtool
 apt -y install portaudio19-dev libglew-dev libcurl4-openssl-dev libglfw3-dev libssl-dev libjack-dev libasound2-dev libglm-dev
 
 # FFmpeg
-if [ $ARCH = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
+if [ "$ARCH" = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
         apt -y install libraspberrypi-dev libdrm-dev
         sed -i '/^deb /p;s/deb /deb-src /' /etc/apt/sources.list
         apt -y update && apt -y build-dep ffmpeg
@@ -42,15 +42,11 @@ if [ $ARCH = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
         git checkout n4.3.3
 
         # apply patches
-        FF_PATCH_DIR=/ffmpeg-arm-patches
-        for n in `ls $FF_PATCH_DIR`; do
-                git apply $FF_PATCH_DIR/$n
-        done
-
+        find /ffmpeg-arm-patches -name '*.patch' -print0 | xargs -0 -n 1 git apply
 
         ./configure --enable-gpl --disable-stripping --enable-libaom --enable-libmp3lame --enable-libopenjpeg --enable-libopus --enable-libspeex --enable-libvpx --enable-libwebp --enable-libx265 --enable-omx --enable-neon --enable-libx264 --enable-mmal --enable-omx-rpi --enable-rpi --enable-vout-drm --enable-libdrm --enable-v4l2-request --enable-libudev --cpu=arm1176jzf-s --enable-shared --disable-static
         make -j3 install
-        cd $OLDPWD
+        cd "$OLDPWD"
 else
         apt -y install libavcodec-dev libavformat-dev libsdl2-dev libswscale-dev
 fi
@@ -63,6 +59,6 @@ cd AppImageKit && patch -N -p1 < /mksquashfs-compilation-fix.patch
 cd build
 cmake -DAUXILIARY_FILES_DESTINATION= ..
 make -j 3 install
-cd $OLDPWD
+cd "$OLDPWD"
 
 rm -rf FFmpeg AppImageKit

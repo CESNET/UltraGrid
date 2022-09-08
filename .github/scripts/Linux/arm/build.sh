@@ -4,13 +4,12 @@ export CPATH=/usr/local/include${CPATH:+":$CPATH"}
 EXTRA_LIB_PATH=/usr/local/cuda/lib64:/usr/local/lib
 export LIBRARY_PATH=$EXTRA_LIB_PATH${LIBRARY_PATH:+":$LIBRARY_PATH"}
 export LD_LIBRARY_PATH=$EXTRA_LIB_PATH${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
-export PATH=/usr/local/bin:$PATH
+export PATH="/usr/local/bin:$PATH"
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH:+":$PKG_CONFIG_PATH"}
 
 APPDIR=UltraGrid.AppDir
-ARCH=`dpkg --print-architecture`
+ARCH=$(dpkg --print-architecture)
 APPNAME=UltraGrid-latest-${ARCH}.AppImage
-DIR=UltraGrid-AppImage
 
 ./autogen.sh --enable-plugins
 
@@ -19,9 +18,9 @@ mkdir tmpinstall
 make DESTDIR=tmpinstall install
 mv tmpinstall/usr/local/* $APPDIR
 
-for n in $APPDIR/bin/* $APPDIR/lib/ultragrid/*
+for n in "$APPDIR"/bin/* "$APPDIR"/lib/ultragrid/*
 do
-	for lib in `ldd $n | awk '{ print $3 }'`; do [ ! -f $lib ] || cp $lib $APPDIR/lib; done
+	for lib in $(ldd "$n" | awk '{ print $3 }'); do [ ! -f "$lib" ] || cp "$lib" $APPDIR/lib; done
 done
 
 # glibc libraries should not be bundled
@@ -104,5 +103,5 @@ chmod 755 $APPDIR/AppRun
 cp data/ultragrid.png $APPDIR/ultragrid.png
 cp data/uv-qt.desktop $APPDIR/ultragrid.desktop
 
-appimagetool --comp gzip $APPDIR $APPNAME # --sign
+appimagetool --comp gzip $APPDIR "$APPNAME" # --sign
 
