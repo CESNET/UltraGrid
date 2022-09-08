@@ -3224,14 +3224,11 @@ fi
 # Cineform 
 # ------------------------------------------------------------------------------
 CINEFORM_PATH=ext-deps/cineform-sdk
-CINEFORM_INC=
-CINEFORM_LIB=
-
 cineform=no
 
 AC_ARG_ENABLE(cineform,
-              [  --disable-cineform      disable cineform suppport (default is auto)]
-              [            Requires: CINEFORM_SDK],
+              AS_HELP_STRING([--disable-cineform], [disable cineform suppport (default is auto)]
+              [Requires: CINEFORM_SDK]),
               [cineform_req=$enableval],
               [cineform_req=$build_default]
               )
@@ -3277,7 +3274,7 @@ if test "$FOUND_CINEFORM" = yes; then
 
         if test $system != Windows
         then
-                CINEFORM_LIBS="${CINEFORM_LISB} -luuid"
+                CINEFORM_LIBS="${CINEFORM_LIBS} -luuid"
         fi
 fi
 
