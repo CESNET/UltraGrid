@@ -25,12 +25,21 @@ AC_C_BIGENDIAN
 AC_C_CHAR_UNSIGNED
 PKG_PROG_PKG_CONFIG
 
+
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CFLAGS="$CFLAGS -I$srcdir"
-CPPFLAGS="$CPPFLAGS -I$srcdir"
-CXXFLAGS="$CXXFLAGS -I$srcdir -std=gnu++17"
+CFLAGS="${CFLAGS+$CFLAGS }-I$srcdir"
+CPPFLAGS="${CPPFLAGS+$CPPFLAGS }-I$srcdir"
+CXXFLAGS="${CXXFLAGS+$CXXFLAGS }-I$srcdir -std=gnu++17"
+CUDA_FLAGS="${CUDA_FLAGS-}"
+INC="${INC-}"
+LDFLAGS="${LDFLAGS-}"
 LIB_MODULES=
+LIB_OBJS=
+LIBS="${LIBS-}"
+MODULES=
+OBJS=
+TARGETS=
 AC_SUBST(INC)
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
@@ -43,11 +52,6 @@ AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_BIGENDIAN], 1, [This is big endian system]),
         AC_DEFINE([WORDS_SMALLENDIAN], 1, [This is little endian system])
 )
-
-if test "$ac_cv_prog_cc_c99" = no
-then
-        AC_MSG_ERROR([Your compiler does not accept C99.])
-fi
 
 AC_CHECK_SIZEOF([size_t])
 
@@ -215,11 +219,11 @@ AC_SUBST(CUDA_FLAGS)
 AC_ARG_VAR([ARCH], [Architecture to build for])
 if test $target_cpu = x86_64 -o $target_cpu = i686
 then
-        test -z "$ARCH" && ARCH="-msse4.1"
+        ARCH=${ARCH--msse4.1}
 fi
-CFLAGS="$CFLAGS $ARCH"
-CXXFLAGS="$CXXFLAGS $ARCH"
-LDFLAGS="$LDFLAGS $ARCH"
+CFLAGS="$CFLAGS${ARCH+ $ARCH}"
+CXXFLAGS="$CXXFLAGS${ARCH+ $ARCH}"
+LDFLAGS="$LDFLAGS${ARCH+ $ARCH}"
 
 if expr "$CFLAGS" : '.*-O' >/dev/null; then
         OFAST=""
