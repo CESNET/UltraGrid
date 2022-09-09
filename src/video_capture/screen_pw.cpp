@@ -253,9 +253,9 @@ public:
                                         "org.freedesktop.portal.Desktop",
                                         session.path.c_str(),
                                         "org.freedesktop.portal.Session",
-                                        "Close", NULL, NULL,
-                                        G_DBUS_CALL_FLAGS_NONE, -1, NULL, NULL,
-                                        NULL);
+                                        "Close", nullptr, nullptr,
+                                        G_DBUS_CALL_FLAGS_NONE, -1, nullptr, nullptr,
+                                        nullptr);
                 g_main_loop_quit(dbus_loop);
                 g_object_unref(screencast_proxy);
                 g_object_unref(connection);
@@ -410,7 +410,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         }
 
         // from example code, not sure what this is
-        if (param == NULL || id != SPA_PARAM_Format)
+        if (param == nullptr || id != SPA_PARAM_Format)
                 return;
 
         int parse_format_ret = spa_format_parse(param, &session.pw.format.media_type, &session.pw.format.media_subtype);
