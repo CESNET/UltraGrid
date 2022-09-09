@@ -323,12 +323,10 @@ struct screen_cast_session {
                 uint32_t node = -1;
                 
                 struct pw_thread_loop *loop = nullptr;
-                struct pw_core *core = nullptr;
                 struct pw_context *context = nullptr;
 
                 struct pw_stream *stream = nullptr;
                 struct spa_hook stream_listener = {};
-                struct spa_hook core_listener = {};
 
                 struct spa_io_position *position = nullptr;
 
