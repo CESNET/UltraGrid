@@ -41,7 +41,7 @@ MSYS_REPO=mingw-w64-clang-x86_64
 $PACMAN_INSTALL automake autoconf git make pkgconf ${MSYS_REPO}-toolchain ${MSYS_REPO}-cppunit unzip zip
 $PACMAN_INSTALL ${MSYS_REPO}-ffmpeg
 $PACMAN_INSTALL ${MSYS_REPO}-speexdsp
-$PACMAN_INSTALL ${MSYS_REPO}-glew ${MSYS_REPO}-SDL2 ${MSYS_REPO}-SDL2_ttf ${MSYS_REPO}-glfw
+$PACMAN_INSTALL ${MSYS_REPO}-glew ${MSYS_REPO}-SDL2 ${MSYS_REPO}-SDL2_mixer ${MSYS_REPO}-SDL2_ttf ${MSYS_REPO}-glfw
 $PACMAN_INSTALL ${MSYS_REPO}-glm
 $PACMAN_INSTALL ${MSYS_REPO}-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
 $PACMAN_INSTALL ${MSYS_REPO}-curl # RTSP capture

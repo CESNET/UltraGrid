@@ -16,7 +16,7 @@ echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
 brew install autoconf automake cppunit libtool pkg-config
 brew install speexdsp
-brew install ffmpeg portaudio sdl2 sdl2_ttf
+brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
 brew install imagemagick jack libnatpmp opencv openssl
 brew install ossp-uuid # for cineform
 brew install qt@5
