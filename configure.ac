@@ -3345,6 +3345,42 @@ if test $pcp_req = yes -a $pcp = no; then
 fi
 
 # ---------------------------------------------------------------------
+# MIDI audio capture
+# ---------------------------------------------------------------------
+AC_ARG_ENABLE(midi,
+              AS_HELP_STRING([--disable-midi], [disable MIDI audio capture (default is auto)]
+              [Requires: SDL[2]_mixer]),
+              [midi_req=$enableval],
+              [midi_req=$build_default])
+found_sdl_mixer=no
+midi=no
+
+if test $sdl = yes
+then
+        sdl_ver_suffix=
+        if test "$sdl_version" = 2
+        then
+                sdl_ver_suffix=2
+        fi
+
+        PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer], [found_sdl_mixer=yes], [found_sdl_mixer=no])
+        SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
+        SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
+fi
+
+if test $found_sdl_mixer = yes && test $midi_req != no
+then
+        ADD_MODULE("acap_midi", "src/audio/capture/midi.o", "$SDL_MIXER_LIBS")
+        INC="$INC${SDL_MIXER_CFLAGS+ $SDL_MIXER_CFLAGS}"
+        midi=yes
+fi
+
+if test $midi_req = yes && test $midi = no
+then
+        AC_MSG_ERROR([MIDI deps not found!]);
+fi
+
+# ---------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------
 AC_ARG_ENABLE(cppunit, AS_HELP_STRING([--disable-cppunit], [disable cppunit tests (default is auto)]),
@@ -3450,6 +3486,7 @@ RESULT=`add_column "$RESULT" "ALSA" $alsa $?`
 RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
 RESULT=`add_column "$RESULT" "JACK" $jack $?`
 RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
+RESULT=`add_column "$RESULT" "MIDI" $midi $?`
 RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
 RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
 RESULT=`end_section "$RESULT"`
