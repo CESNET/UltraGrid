@@ -169,7 +169,7 @@ public:
                         uint32_t response;
                         GVariant *results;
                         g_variant_get(parameters, "(u@a{sv})", &response, &results);
-                        ScopeExit([&](){g_variant_unref(results); });
+                        ScopeExit scope_exit([&]() { g_variant_unref(results); });
 
                         static_cast<const PortalCallCallback *> (user_data)->operator()(response, results);
                         g_dbus_connection_call(connection, "org.freedesktop.portal.Desktop",
@@ -731,7 +731,7 @@ static void run_screencast(screen_cast_session *session_ptr) {
 
                 GVariant *result = g_dbus_proxy_call_with_unix_fd_list_finish(G_DBUS_PROXY(source), &fd_list, res, &error);
                 g_assert_no_error(error);
-                ScopeExit([&](){g_variant_unref(result); });
+                ScopeExit scope_exit([&]() { g_variant_unref(result); });
 
                 gint32 handle;
                 g_variant_get(result, "(h)", &handle);
