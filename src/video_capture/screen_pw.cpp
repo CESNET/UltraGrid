@@ -1,17 +1,13 @@
 #include <stdlib.h>
-#include <stdbool.h>
+#include <string.h>
 #include <iostream>
 #include <thread>
 #include <future>
 #include <chrono>
-#include <stdio.h>
-#include <unistd.h>
-#include <signal.h>
 #include <atomic>
-#include <chrono>
 #include <fstream>
 #include <algorithm>
-
+#include <unistd.h>
 #include <pipewire/pipewire.h>
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
