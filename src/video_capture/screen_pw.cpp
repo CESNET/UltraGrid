@@ -333,11 +333,11 @@ struct screen_cast_session {
                 struct spa_video_info format = {};
 
                 int width() {
-                        return format.info.raw.size.width;
+                        return static_cast<int>(format.info.raw.size.width);
                 }
                 
                 int height() {
-                        return format.info.raw.size.height;
+                        return static_cast<int>(format.info.raw.size.height);
                 }
 
                 spa_video_format video_format() {
@@ -363,7 +363,7 @@ struct screen_cast_session {
 
                 int frame_count = 0;
                 uint64_t frame_counter_begin_time = time_since_epoch_in_ms();
-                uint64_t expecting_fps = DEFAULT_EXPECTING_FPS;
+                int expecting_fps = DEFAULT_EXPECTING_FPS;
 
                 ~pw_() {
                         if(loop != nullptr){
@@ -501,8 +501,10 @@ static void copy_frame(spa_video_format video_format, spa_buffer *buffer, video_
         bool swap_red_blue = video_format == SPA_VIDEO_FORMAT_BGRA || video_format == SPA_VIDEO_FORMAT_BGRx;
 
         if (crop_region != nullptr) {
-                copy_frame_impl_cropped(swap_red_blue, output_frame->tiles[0].data, static_cast<char*>(buffer->datas[0].data), session_width, session_height,
-                        crop_region->position.x, crop_region->position.y, crop_region->size.width, crop_region->size.height);
+            copy_frame_impl_cropped(swap_red_blue, output_frame->tiles[0].data,static_cast<char *>(buffer->datas[0].data),
+                                    session_width, session_height,
+                                    crop_region->position.x, crop_region->position.y,
+                                    static_cast<int>(crop_region->size.width), static_cast<int>(crop_region->size.height));
         } else {
                 copy_frame_impl(swap_red_blue, output_frame->tiles[0].data, static_cast<char*>(buffer->datas[0].data), session_width, session_height);
         }
@@ -565,9 +567,9 @@ static void on_process(void *session_ptr) {
 
                 uint64_t delta = time_now - session.pw.frame_counter_begin_time;
                 if(delta >= 5000) {
-                        double average_fps = session.pw.frame_count / (delta / 1000.0);
+                        double average_fps = session.pw.frame_count / (static_cast<int>(delta) / 1000.0);
                         LOG(LOG_LEVEL_VERBOSE) << "[screen_pw]: on process: average fps in last 5 seconds: " << average_fps << "\n";
-                        session.pw.expecting_fps = average_fps;
+                        session.pw.expecting_fps = static_cast<int>(average_fps);
                         if(session.pw.expecting_fps == 0)
                                 session.pw.expecting_fps = 1;
                         session.pw.frame_count = 0;
