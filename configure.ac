@@ -1276,6 +1276,13 @@ then
         sdl=yes
 fi
 
+sdl_ver_suffix=
+if test "$sdl_version" = 2
+then
+        sdl_ver_suffix=2
+fi
+
+
 if test $sdl_req = yes -a $sdl = no; then
         AC_MSG_ERROR([SDL requested but found any version]);
 fi
@@ -1634,12 +1641,8 @@ ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
 if test $testcard2_req != no
 then
         TESTCARD2_OBJ="src/video_capture/testcard2.o"
-        if test $sdl_version -eq 1; then
-                PKG_CHECK_MODULES([SDL_TTF], [SDL_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
-        else
-                PKG_CHECK_MODULES([SDL_TTF], [SDL2_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
-                fi
-                SDL_TTF_LIBS=$(remove_mwindows "$SDL_TTF_LIBS")
+        PKG_CHECK_MODULES([SDL_TTF], [SDL${sdl_ver_suffix}_ttf], [FOUND_SDL_TTF=yes], [FOUND_SDL_TTF=no])
+        SDL_TTF_LIBS=$(remove_mwindows "$SDL_TTF_LIBS")
         if test "$FOUND_SDL_TTF" = yes
         then
                 TESTCARD2_LIB="$TESTCARD2_LIB $SDL_TTF_LIBS"
@@ -3357,12 +3360,6 @@ midi=no
 
 if test $sdl = yes
 then
-        sdl_ver_suffix=
-        if test "$sdl_version" = 2
-        then
-                sdl_ver_suffix=2
-        fi
-
         PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer], [found_sdl_mixer=yes], [found_sdl_mixer=no])
         SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
         SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
