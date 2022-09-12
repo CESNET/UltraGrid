@@ -86,6 +86,7 @@ int audio_playback_init(const char *device, const char *cfg, struct state_audio_
         s->state = s->funcs->init(cfg);
 
         if(!s->state) {
+                log_msg(LOG_LEVEL_ERROR, "Error initializing audio playback.\n");
                 goto error;
         }
 

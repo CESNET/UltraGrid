@@ -326,11 +326,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 int ret = audio_capture_init(device, cfg, &s->audio_capture_device);
                 free(device);
                 
-                if(ret < 0) {
-                        fprintf(stderr, "Error initializing audio capture.\n");
-                        goto error;
-                }
-                if(ret > 0) {
+                if(ret != 0) {
                         goto error;
                 }
                 s->tx_session = tx_init(s->audio_sender_module.get(), mtu, TX_MEDIA_AUDIO, opt->fec_cfg, encryption, bitrate);
@@ -355,11 +351,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
 
                 int ret = audio_playback_init(device, cfg, &s->audio_playback_device);
                 free(device);
-                if(ret < 0) {
-                        fprintf(stderr, "Error initializing audio playback.\n");
-                        goto error;
-                }
-                if(ret > 0) {
+                if (ret != 0) {
                         goto error;
                 }
                 size_t len = sizeof(struct rtp *);
