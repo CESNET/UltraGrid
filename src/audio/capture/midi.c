@@ -59,6 +59,7 @@
 #include "song1.h"
 #include "types.h"
 #include "utils/color_out.h"
+#include "utils/fs.h"
 #include "utils/ring_buffer.h"
 
 #define DEFAULT_MIDI_BPS 2
@@ -116,7 +117,9 @@ static const char *load_song1() {
         const char *filename = tmpnam(NULL);
         FILE *f = fopen(filename, "wb");
 #else
-        static _Thread_local char filename[] = P_tmpdir "/uv.midiXXXXXX";
+        static _Thread_local char filename[MAX_PATH_SIZE];
+        strncpy(filename, get_temp_dir(), sizeof filename - 1);
+        strncat(filename, "/uv.midiXXXXXX", sizeof filename - strlen(filename) - 1);
         umask(S_IRWXG|S_IRWXO);
         int fd = mkstemp(filename);
         FILE *f = fd == -1 ? NULL : fdopen(fd, "wb");
