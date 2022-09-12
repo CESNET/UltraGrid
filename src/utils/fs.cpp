@@ -67,8 +67,13 @@ const char *get_temp_dir(void)
                 return NULL;
         }
 #else
-        strcpy(temp_dir, P_tmpdir);
-        strcat(temp_dir, "/");
+        if (char *req_tmp_dir = getenv("TMPDIR")) {
+                temp_dir[sizeof temp_dir - 1] = '\0';
+                strncpy(temp_dir, req_tmp_dir, sizeof temp_dir - 1);
+        } else {
+                strcpy(temp_dir, P_tmpdir);
+        }
+        strncat(temp_dir, "/", sizeof temp_dir - strlen(temp_dir) - 1);
 #endif
 
         return temp_dir;
