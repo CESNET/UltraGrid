@@ -78,10 +78,6 @@ namespace {
         struct Export_state_deleter{
                 void operator()(struct audio_export* e) { audio_export_destroy(e); }
         };
-
-        constexpr duration get_expected_duration(int samples, int sample_rate){
-                return std::chrono::microseconds((static_cast<long long>(samples) * 1'000'000) / sample_rate);
-        }
 }
 
 struct echo_cancellation {
