@@ -63,12 +63,14 @@
 #include "utils/ring_buffer.h"
 
 #define DEFAULT_MIDI_BPS 2
+#define DEFAULT_MIX_MAX_VOLUME (MIX_MAX_VOLUME / 4)
 #define MIDI_SAMPLE_RATE 48000
 #define MOD_NAME "[midi] "
 
 struct state_midi_capture {
         struct audio_frame audio;
         struct ring_buffer *midi_buf;
+        int volume;
         char *req_filename;
 };
 
@@ -97,17 +99,21 @@ static int parse_opts(struct state_midi_capture *s, char *cfg) {
                 cfg = NULL;
                 if (strcmp(item, "help") == 0) {
                         color_printf("Usage:\n");
-                        color_printf(TBOLD(TRED("\t-s midi") "[:file=<filename>]") "\n");
+                        color_printf(TBOLD(TRED("\t-s midi") "[:file=<filename>][:volume=<vol>]") "\n");
                         color_printf("where\n");
                         color_printf(TBOLD("\t<filename>") " - name of MIDI file to be used\n");
+                        color_printf(TBOLD("\t<vol>     ") " - volume [0..%d], default %d\n", MIX_MAX_VOLUME, DEFAULT_MIX_MAX_VOLUME);
                         color_printf("\n");
                         color_printf(TBOLD("SDL_SOUNDFONTS") " - environment variable with path to sound fonts (eg. freepats)\n");
                         return 1;
                 }
                 if (strstr(item, "file=") == item) {
                         s->req_filename = strdup(strchr(item, '=') + 1);
+                } else if (strstr(item, "volume=") == item) {
+                        s->volume = atoi(strchr(item, '=') + 1);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
+                        color_printf("Use " TBOLD("-s midi:help") " to see available options.\n");
                         return -1;
                 }
         }
@@ -144,6 +150,7 @@ static void * audio_cap_midi_init(const char *cfg)
         SDL_Init(SDL_INIT_AUDIO);
 
         struct state_midi_capture *s = calloc(1, sizeof *s);
+        s->volume = DEFAULT_MIX_MAX_VOLUME;
         char *ccfg = strdup(cfg);
         int ret = parse_opts(s, ccfg);
         free(ccfg);
@@ -195,11 +202,11 @@ static void * audio_cap_midi_init(const char *cfg)
                 goto error;
         }
 
+        Mix_VolumeMusic(s->volume);
         if(Mix_PlayMusic(music,-1)==-1){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error playing MIDI: %s\n", Mix_GetError());
                 goto error;
         }
-        Mix_Volume(-1, 0);
 
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Initialized MIDI\n");
 
