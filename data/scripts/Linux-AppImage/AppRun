@@ -180,7 +180,8 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
         if expr "$ULTRAGRID_USE_FIREJAIL" : '.*\.profile' >/dev/null; then
                 FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
         else
-                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --read-only=/tmp --writable-var"
+                FJ_TMPDIR=${TMPDIR-/tmp/ultragrid-$(id -u)}
+                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --shell=none --disable-mnt --private-bin=none --private-opt=none --read-only=/tmp --mkdir=$FJ_TMPDIR --read-write=$FJ_TMPDIR --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_firejail_whitelist "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
         fi
         if firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
@@ -189,7 +190,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
-        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH} --env=UG_FONT_DIR=${UG_FONT_DIR} $FIREJAIL_OPTS "
+        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} --env=UG_FONT_DIR=${UG_FONT_DIR} $FIREJAIL_OPTS "
 fi
 
 if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
