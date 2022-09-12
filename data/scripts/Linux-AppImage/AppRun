@@ -171,7 +171,8 @@ get_firejail_whitelist() {
 }
 
 setup_vaapi
-. $DIR/scripts/jack_preload.sh
+# shellcheck source=/dev/null
+. "$DIR/scripts/jack_preload.sh"
 
 RUN=
 if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && [ "$ULTRAGRID_USE_FIREJAIL" != no ]; then
