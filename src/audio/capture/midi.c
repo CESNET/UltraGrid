@@ -90,7 +90,7 @@ static void midi_audio_callback(int chan, void *stream, int len, void *udata)
         ring_buffer_write(s->midi_buf, stream, len);
 }
 
-static _Bool parse_opts(struct state_midi_capture *s, char *cfg) {
+static int parse_opts(struct state_midi_capture *s, char *cfg) {
         char *save_ptr = NULL;
         char *item = NULL;
         while ((item = strtok_r(cfg, ":", &save_ptr)) != NULL) {
@@ -100,16 +100,18 @@ static _Bool parse_opts(struct state_midi_capture *s, char *cfg) {
                         color_printf(TBOLD(TRED("\t-s midi") "[:file=<filename>]") "\n");
                         color_printf("where\n");
                         color_printf(TBOLD("\t<filename>") " - name of MIDI file to be used\n");
-                        return 0;
+                        color_printf("\n");
+                        color_printf(TBOLD("SDL_SOUNDFONTS") " - environment variable with path to sound fonts (eg. freepats)\n");
+                        return 1;
                 }
                 if (strstr(item, "file=") == item) {
                         s->req_filename = strdup(strchr(item, '=') + 1);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
-                        return 0;
+                        return -1;
                 }
         }
-        return 1;
+        return 0;
 }
 
 static const char *load_song1() {
@@ -143,10 +145,10 @@ static void * audio_cap_midi_init(const char *cfg)
 
         struct state_midi_capture *s = calloc(1, sizeof *s);
         char *ccfg = strdup(cfg);
-        _Bool ret = parse_opts(s, ccfg);
+        int ret = parse_opts(s, ccfg);
         free(ccfg);
-        if (!ret) {
-                return NULL;
+        if (ret != 0) {
+                return ret < 0 ? NULL : &audio_init_state_ok;
         }
 
         s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_MIDI_BPS;
