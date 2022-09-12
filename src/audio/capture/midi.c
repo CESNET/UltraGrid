@@ -68,6 +68,7 @@
 struct state_midi_capture {
         struct audio_frame audio;
         struct ring_buffer *midi_buf;
+        char *req_filename;
 };
 
 static void audio_cap_midi_done(void *state);
@@ -88,18 +89,63 @@ static void midi_audio_callback(int chan, void *stream, int len, void *udata)
         ring_buffer_write(s->midi_buf, stream, len);
 }
 
-static void * audio_cap_midi_init(const char *cfg)
-{
-        if (strcmp(cfg, "help") == 0) {
-                color_printf("Usage:\n");
-                color_printf(TBOLD(TRED("\t-s midi\n")));
-                color_printf("\n(currently no user options, default MIDI is played)\n");
+static _Bool parse_opts(struct state_midi_capture *s, char *cfg) {
+        char *save_ptr = NULL;
+        char *item = NULL;
+        while ((item = strtok_r(cfg, ":", &save_ptr)) != NULL) {
+                cfg = NULL;
+                if (strcmp(item, "help") == 0) {
+                        color_printf("Usage:\n");
+                        color_printf(TBOLD(TRED("\t-s midi") "[:file=<filename>]") "\n");
+                        color_printf("where\n");
+                        color_printf(TBOLD("\t<filename>") " - name of MIDI file to be used\n");
+                        return 0;
+                }
+                if (strstr(item, "file=") == item) {
+                        s->req_filename = strdup(strchr(item, '=') + 1);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong option: %s!\n", item);
+                        return 0;
+                }
+        }
+        return 1;
+}
+
+static const char *load_song1() {
+#ifdef _WIN32
+        const char *filename = tmpnam(NULL);
+        FILE *f = fopen(filename, "wb");
+#else
+        static _Thread_local char filename[] = P_tmpdir "/uv.midiXXXXXX";
+        umask(S_IRWXG|S_IRWXO);
+        int fd = mkstemp(filename);
+        FILE *f = fd == -1 ? NULL : fdopen(fd, "wb");
+#endif
+        if (f == NULL) {
+                perror("fopen midi");
                 return NULL;
         }
+        size_t nwritten = fwrite(song1, sizeof song1, 1, f);
+        fclose(f);
+        if (nwritten != 1) {
+                unlink(filename);
+                return NULL;
+        }
+        return filename;
+}
 
+static void * audio_cap_midi_init(const char *cfg)
+{
         SDL_Init(SDL_INIT_AUDIO);
 
         struct state_midi_capture *s = calloc(1, sizeof *s);
+        char *ccfg = strdup(cfg);
+        _Bool ret = parse_opts(s, ccfg);
+        free(ccfg);
+        if (!ret) {
+                return NULL;
+        }
+
         s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_MIDI_BPS;
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.sample_rate = MIDI_SAMPLE_RATE;
@@ -117,27 +163,17 @@ static void * audio_cap_midi_init(const char *cfg)
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initalizing sound\n");
                 goto error;
         }
-#ifdef _WIN32
-        const char *filename = tmpnam(NULL);
-        FILE *f = fopen(filename, "wb");
-#else
-        char filename[] = P_tmpdir "/uv.midiXXXXXX";
-        umask(S_IRWXG|S_IRWXO);
-        int fd = mkstemp(filename);
-        FILE *f = fd == -1 ? NULL : fdopen(fd, "wb");
-#endif
-        if (f == NULL) {
-                perror("fopen midi");
-                goto error;
-        }
-        size_t nwritten = fwrite(song1, sizeof song1, 1, f);
-        fclose(f);
-        if (nwritten != 1) {
-                unlink(filename);
-                goto error;
+        const char *filename = s->req_filename;
+        if (!filename) {
+                filename = load_song1();
+                if (!filename) {
+                        goto error;
+                }
         }
         Mix_Music *music = Mix_LoadMUS(filename);
-        unlink(filename);
+        if (filename != s->req_filename) {
+                unlink(filename);
+        }
         if (music == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error loading MIDI: %s\n", Mix_GetError());
                 goto error;
@@ -183,6 +219,7 @@ static void audio_cap_midi_done(void *state)
         Mix_CloseAudio();
         struct state_midi_capture *s = state;
         free(s->audio.data);
+        free(s->req_filename);
         free(s);
 }
 
