@@ -319,7 +319,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                col() << TBOLD(TRED("\t-t testcard") << "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") << "[:filename=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " << TBOLD("| -t testcard:help\n");
+                col() << TBOLD(TRED("\t-t testcard") << "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") << "[:file=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " << TBOLD("| -t testcard:help\n");
                 col() << "or\n";
                 col() << TBOLD(TRED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>") << "[:other_opts]\n";
                 col() << "where\n";
@@ -351,8 +351,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         while (tmp) {
                 if (strcmp(tmp, "p") == 0) {
                         s->pan = 48;
-                } else if (strncmp(tmp, "filename=", strlen("filename=")) == 0) {
-                        filename = tmp + strlen("filename=");
+                } else if (strstr(tmp, "file=") == tmp || strstr(tmp, "filename=") == tmp) {
+                        filename = strchr(tmp, '=');
                 } else if (strncmp(tmp, "s=", 2) == 0) {
                         strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
