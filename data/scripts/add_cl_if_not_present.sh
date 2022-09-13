@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 ## This file tries to find cl.exe by using vswhere if nvcc was found in $PATH. This
 ## is a prerequisity in MSW. Does nothing if cl.exe already in $PATH or given explicitly
 ## by --with-cuda-host-compiler (obviously also when not in MSW or there is not CUDA).
@@ -23,15 +24,16 @@ cuda_host_compiler_arg_present() {
 }
 is_win() {
         SYS=$(uname -s)
-        if expr $SYS : "MSYS" >/dev/null; then
+        if expr "$SYS" : "MSYS" >/dev/null; then
                 echo yes
         fi
         echo no
 }
-if [ "$(is_win)" = "yes" -a "$(cuda_host_compiler_arg_present $@)" = no ]; then
+is_cuda_host_compiler_arg_present=$(cuda_host_compiler_arg_present "$@")
+if [ "$(is_win)" = "yes" ] && [ "$is_cuda_host_compiler_arg_present" = no ]; then
         CUDA_PRESENT=$(command -v nvcc >/dev/null && echo yes || echo no)
         CL_PRESENT=$(command -v cl >/dev/null && echo yes || echo no)
-        if [ $CUDA_PRESENT = yes -a $CL_PRESENT = no ]; then
+        if [ "$CUDA_PRESENT" = yes ] && [ "$CL_PRESENT" = no ]; then
                 VSWHERE="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
                 INSTALL_DIR=$("$VSWHERE" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
                 VERSION_FILE="$INSTALL_DIR/VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt"

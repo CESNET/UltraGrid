@@ -11,11 +11,11 @@
 
 VERSION=${1?call with version number}
 TAGNAME=v$VERSION
-BRANG=release/$VERSION
+BRANCH=release/$VERSION
 
 printf "Did you update a splashscreen image? [Ny] "
-read confirma
-if [ ${confirm-N} != y ]; then
+read -r confirm
+if [ "${confirm-N}" != y ]; then
         return 1
 fi
 
@@ -28,7 +28,7 @@ git commit -S -m "UltraGrid $VERSION"
 echo "Created release commit in master branch - not pushing yet, do it manually after a review that everything is ok."
 
 # next, we create a release branch
-git branch $BRANCH
+git branch "$BRANCH"
 
 # create config files
 ./autogen.sh && rm Makefile
@@ -43,10 +43,10 @@ git rm gpujpeg cineform-sdk
 
 git commit -S -m "Added configuration scripts"
 
-git push origin $BRANCH
+git push origin "$BRANCH"
 
-git tag -s $TAGNAME
-git push upstream refs/tags/$TAGNAME
+git tag -s "$TAGNAME"
+git push upstream "refs/tags/$TAGNAME"
 
 echo "Release branch and tag created - setup build scripts to build binary assets and release it on GitHub."
 

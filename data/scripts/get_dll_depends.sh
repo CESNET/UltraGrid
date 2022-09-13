@@ -18,14 +18,15 @@ find_dll() {
         IFS=:
         for n in $PATH; do
                 if [ -f "$n/$1" ]; then
-                        echo $n/$1
+                        echo "$n/$1"
 			break
                 fi
         done
 }
 
 is_not_system_dll() {
-        return $(test $(expr match "$1" '^/c/[Ww]indows') -eq 0)
+        win_match=$(expr "$1" : '^/c/[Ww]indows')
+        test "$win_match" -eq 0
 }
 
 if [ $# -eq 0 ]; then
@@ -35,23 +36,23 @@ if [ $# -eq 0 ]; then
 	exit 1
 fi
 
-declare -A DONE # list of already processed DLLs
+declare -A DLL_DONE # list of already processed DLLs
 
 INITIAL=$1 # save root element to skip the program itself
 
 while test $# -gt 0; do
         # skip already processed item
-        if [ -n "${DONE[$1]}" ]; then
+        if [ -n "${DLL_DONE[$1]}" ]; then
                 shift
                 continue
         fi
         # push dependencies of current item to stack
-        for n in `get_depends "$1"`; do
-                DLL=`find_dll "$n"`
+        for n in $(get_depends "$1"); do
+                DLL=$(find_dll "$n")
                 if [ -z "$DLL" ]; then
                         continue
                 fi
-                if test -z "${DONE[$DLL]}" && is_not_system_dll "$DLL"; then
+                if test -z "${DLL_DONE[$DLL]}" && is_not_system_dll "$DLL"; then
                         echo "Adding $DLL" >&2
                         set -- "$@" "$DLL"
                 else
@@ -60,9 +61,9 @@ while test $# -gt 0; do
         done
         # print the item (omit initial)
         if [ "$1" != "$INITIAL" ]; then
-                echo $1
+                echo "$1"
         fi
-        DONE[$1]=1
+        DLL_DONE[$1]=1
         shift
 done
 
