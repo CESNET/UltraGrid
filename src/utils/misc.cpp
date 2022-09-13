@@ -48,9 +48,11 @@
 #include <climits>
 #include <cmath>
 #include <cstring>
+#include <sstream>
 
 #include "debug.h"
 #include "utils/misc.h"
+#include "utils/color_out.h"
 
 #ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -447,5 +449,45 @@ unsigned char *base64_decode(const char *in, unsigned int *length) {
         }
     }
     return out;
+}
+
+void print_module_usage(const char *module_name, const struct key_val *options) {
+        struct key_val nullopts[] = { nullptr, nullptr };
+        if (options == nullptr) {
+                options = static_cast<const struct key_val *>(nullopts);
+
+        }
+        std::ostringstream oss;
+        oss << TERM_BOLD << TERM_FG_RED << module_name << TERM_FG_RESET;
+        int max_key_len = 0;
+        auto desc_key = [](const char *key) {
+                if (const char *k = strchr(key, '='); k != nullptr) {
+                        if (k[-1] != '[') {
+                                key = k + 1;
+                        }
+                }
+                return key;
+        };
+        for (const auto *it = options; it->key != nullptr; ++it) {
+                if (it == options) {
+                        oss << "[";
+                } else {
+                        oss << "|";
+                }
+                max_key_len = MAX(max_key_len, strlen(desc_key(it->key)));
+                oss << ":" << it->key;
+        }
+        if (options->key != nullptr) {
+                oss << "] | " << module_name << ":help" TERM_RESET;
+        }
+
+        color_printf("Usage:\n\t%s\n", oss.str().c_str());
+        if (options->key == nullptr) {
+                return;
+        }
+        color_printf("where\n");
+        for (const auto *it = options; it->key != nullptr; ++it) {
+                color_printf("\t" TBOLD("%-*s") " - %s\n", max_key_len, desc_key(it->key), it->val);
+        }
 }
 

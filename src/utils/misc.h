@@ -73,6 +73,12 @@ int get_cpu_core_count(void);
 
 unsigned char *base64_decode(const char *in, unsigned int *length);
 
+struct key_val {
+        const char *key;
+        const char *val;
+};
+void print_module_usage(const char *module_name, const struct key_val *options);
+
 #ifdef __cplusplus
 }
 #endif

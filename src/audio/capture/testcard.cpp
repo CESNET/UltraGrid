@@ -51,6 +51,8 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/macros.h"
+#include "utils/misc.h"
 
 #include <algorithm>
 #include <cassert>
@@ -188,13 +190,17 @@ static void * audio_cap_testcard_init(const char *cfg)
         } pattern = SINE;
 
         if(cfg && strcmp(cfg, "help") == 0) {
-                printf("Available testcard capture:\n");
-                audio_cap_testcard_help(NULL);
-                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>][:frames=<nf>][:frequency=<f>][:ebu|:silence|:crescendo=<spd>]\n");
-                printf("\t\t\t<vol> is a volume in dBFS (default %.2f dBFS)\n", DEFAULT_VOLUME);
-                printf("\t\t\t<wav> is a wav file to be played\n");
-                printf("\t\t\t<nf> sets number of audio frames per packet\n");
-                printf("\t\t\t<f> frequency of sinusoide\n");
+                struct key_val options[] {
+                        { "volume=<vol>", "a volume in dBFS (default " TOSTRING(DEFAULT_VOLUME) ")" },
+                        { "file=<wav>", "a wav file to be played" },
+                        { "frames=<nf>", "sets number of audio frames per packet" },
+                        { "frequency=<f>", "frequency of sinusoide" },
+                        { "ebu", "use EBU sound" },
+                        { "silence", "emit silence" },
+                        { "crescendo[=<spd>]", "produce amplying sinusoide (optionally accelerated)" },
+                        { nullptr, nullptr }
+                };
+                print_module_usage("-s testcard", options);
                 return &audio_init_state_ok;
         }
 
