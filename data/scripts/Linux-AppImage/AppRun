@@ -158,14 +158,23 @@ setup_vaapi() {
 }
 
 ## Parse params to get whitelists that may be needed to add
+## @todo spaces inside paths doesn't work
 get_firejail_whitelist() {
-        TESTCARD_FILENAME=$(echo "$@" | sed -n 's/.*filename=\([^ :]*\).*/\1/p')
-        PLAYBACK_PATH=$(echo "$@" | sed -n 's/.*--playback \([^ :]*\).*/\1/p')
-        if [ -n "$TESTCARD_FILENAME" ]; then
-                printf -- "--whitelist=%s" "$TESTCARD_FILENAME"
-        elif [ -n "$PLAYBACK_PATH" ]; then
-                printf -- "--whitelist=%s" "$PLAYBACK_PATH"
-        else
+        separator=''
+        playback_path=$(echo "$@" | sed -n 's/.*--playback \([^ :]*\).*/\1/p')
+        if [ -n "$playback_path" ]; then
+                printf -- "$separator--whitelist=%s" "$playback_path"
+                separator=' '
+        fi
+        # print every argument of "filename=" or "file=" pattern
+        for n in "$@"; do
+                file_path=$(echo "$n" | sed -n -e 's/.*filename=\([^:]*\).*/\1/p' -e 's/.*file=\([^:]*\).*/\1/p')
+                if [ -n "$file_path" ]; then
+                        printf -- "$separator--whitelist=%s" "$file_path"
+                        separator=' '
+                fi
+        done
+        if [ -z "$separator" ]; then
                 printf -- "--private"
         fi
 }
