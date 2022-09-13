@@ -3348,15 +3348,15 @@ if test $pcp_req = yes -a $pcp = no; then
 fi
 
 # ---------------------------------------------------------------------
-# MIDI audio capture
+# SDL_mixer audio capture
 # ---------------------------------------------------------------------
-AC_ARG_ENABLE(midi,
-              AS_HELP_STRING([--disable-midi], [disable MIDI audio capture (default is auto)]
+AC_ARG_ENABLE(sdl_mixer,
+              AS_HELP_STRING([--disable-sdl_mixer], [disable SDL_mixer audio capture (default is auto)]
               [Requires: SDL[2]_mixer]),
-              [midi_req=$enableval],
-              [midi_req=$build_default])
+              [sdl_mixer_req=$enableval],
+              [sdl_mixer_req=$build_default])
 found_sdl_mixer=no
-midi=no
+sdl_mixer=no
 
 if test $sdl = yes
 then
@@ -3365,16 +3365,16 @@ then
         SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
 fi
 
-if test $found_sdl_mixer = yes && test $midi_req != no
+if test $found_sdl_mixer = yes && test $sdl_mixer_req != no
 then
-        ADD_MODULE("acap_midi", "src/audio/capture/midi.o", "$SDL_MIXER_LIBS")
+        ADD_MODULE("acap_sdl_mixer", "src/audio/capture/sdl_mixer.o", "$SDL_MIXER_LIBS")
         INC="$INC${SDL_MIXER_CFLAGS+ $SDL_MIXER_CFLAGS}"
-        midi=yes
+        sdl_mixer=yes
 fi
 
-if test $midi_req = yes && test $midi = no
+if test $sdl_mixer_req = yes && test $sdl_mixer = no
 then
-        AC_MSG_ERROR([MIDI deps not found!]);
+        AC_MSG_ERROR([SDL_mixer deps not found!]);
 fi
 
 # ---------------------------------------------------------------------
@@ -3483,7 +3483,7 @@ RESULT=`add_column "$RESULT" "ALSA" $alsa $?`
 RESULT=`add_column "$RESULT" "CoreAudio" $coreaudio $?`
 RESULT=`add_column "$RESULT" "JACK" $jack $?`
 RESULT=`add_column "$RESULT" "JACK transport" $jack_trans $?`
-RESULT=`add_column "$RESULT" "MIDI" $midi $?`
+RESULT=`add_column "$RESULT" "SDL_mixer" $sdl_mixer $?`
 RESULT=`add_column "$RESULT" "Portaudio" $portaudio $?`
 RESULT=`add_column "$RESULT" "WASAPI" $wasapi $?`
 RESULT=`end_section "$RESULT"`
