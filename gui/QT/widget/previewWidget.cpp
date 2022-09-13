@@ -5,6 +5,7 @@
 #include <QOpenGLVersionFunctionsFactory>
 #endif
 #include "previewWidget.hpp"
+#include "utils/fs.h"
 #include "debug.hpp"
 
 static const GLfloat rectangle[] = {
@@ -258,7 +259,7 @@ void PreviewWidget::paintGL(){
 }
 
 void PreviewWidget::setKey(std::string_view key){
-	std::string path = PLATFORM_TMP_DIR;
+	std::string path = get_temp_dir();
 	path += key;
 	ipc_frame_reader.reset(ipc_frame_reader_new(path.c_str()));
 }
