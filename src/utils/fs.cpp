@@ -44,6 +44,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstring>
 
 #include "utils/fs.h"
 
