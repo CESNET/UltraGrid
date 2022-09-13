@@ -3,6 +3,20 @@
 This utility serves as a meeting point for UltraGrid clients, that need to
 connect to each other, but don't have publicly routable IP addresses.
 
+Dependencies
+---------
+There is only one dependency - `asio`.
+
+On Ubuntu and other Debian based distributions it can be installed like this:
+```
+apt install libasio-dev
+```
+
+On Fedora/RHEL:
+```
+dnf install asio-devel
+```
+
 Building
 ---------
     mkdir build && cd build
