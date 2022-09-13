@@ -56,6 +56,7 @@
 #include "video.h"
 #include "video_display.h"
 #include "video_codec.h"
+#include "utils/fs.h"
 #include "utils/misc.h"
 #include "utils/macros.h"
 #include "utils/color_out.h"
@@ -107,8 +108,8 @@ static void show_help(){
                 << "\n\n";
         col() << "options:\n";
         col() << TBOLD("\tpath=<path>")           << "\tpath to unix socket to connect to. Defaults are \""
-                << PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME "\" for preview and \""
-                << PLATFORM_TMP_DIR DEFAULT_DISP_FILENAME "\" for unix_sock\n";
+                << get_temp_dir() << DEFAULT_PREVIEW_FILENAME "\" for preview and \""
+                << get_temp_dir() << DEFAULT_DISP_FILENAME "\" for unix_sock\n";
         col() << TBOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
                 << "Defaults are -1x-1 for unix_sock and " TOSTRING(DEFAULT_SCALE_W) "x" TOSTRING(DEFAULT_SCALE_H) " for preview.\n";
 }
@@ -125,10 +126,12 @@ static void *display_unix_sock_init(struct module *parent,
 
         std::string_view fmt_sv = fmt ? fmt : "";
 
-        std::string socket_path = PLATFORM_TMP_DIR DEFAULT_DISP_FILENAME;
+        std::string socket_path = get_temp_dir();
+        socket_path += DEFAULT_DISP_FILENAME;
 
         if(is_preview){
-                socket_path = PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME;
+                socket_path = get_temp_dir();
+                socket_path += DEFAULT_PREVIEW_FILENAME;
                 s->target_width = DEFAULT_SCALE_W;
                 s->target_height = DEFAULT_SCALE_H;
                 s->ignore_putf_blocking = true;
