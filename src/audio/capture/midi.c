@@ -228,6 +228,7 @@ static struct audio_frame *audio_cap_midi_read(void *state)
 
 static void audio_cap_midi_done(void *state)
 {
+        Mix_HaltMusic();
         Mix_CloseAudio();
         struct state_midi_capture *s = state;
         free(s->audio.data);
