@@ -53,6 +53,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/fs.h"
 #include "utils/misc.h"
 #include "utils/macros.h"
 #include "utils/sv_parse_num.hpp"
@@ -132,7 +133,7 @@ static void show_help(){
         col() << TBOLD(TRED("\t--capture-filter preview") "[:path=<path>][:target_size=<w>x<h>]\n\n");
         col() << "options:\n";
         col() << TBOLD("\tpath=<path>")           << "\tpath to unix socket to connect to. Default is \""
-                << PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME "\"\n";
+                << get_temp_dir() << DEFAULT_PREVIEW_FILENAME "\"\n";
         col() << TBOLD("\ttarget_size=<w>x<h>")<< "\tScales the video frame so that the total number of pixel is around <w>x<h>. If -1x-1 is passed, no scaling takes place."
                 << " Defaults are " TOSTRING(DEFAULT_SCALE_W) "x" TOSTRING(DEFAULT_SCALE_H) ".\n";
 }
@@ -144,7 +145,8 @@ static int init(struct module *parent, const char *cfg, void **state){
         s->free_frames.emplace_back(ipc_frame_new());
         s->free_frames.emplace_back(ipc_frame_new());
 
-        std::string socket_path = PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME;
+        std::string socket_path = get_temp_dir();
+        socket_path += DEFAULT_PREVIEW_FILENAME;
 
         std::string_view cfg_sv = cfg ? cfg : "";
         while(!cfg_sv.empty()){
@@ -158,7 +160,8 @@ static int init(struct module *parent, const char *cfg, void **state){
                 } else if(key == "path"){
                         socket_path = val;
                 } else if(key == "key"){
-                        socket_path = PLATFORM_TMP_DIR DEFAULT_PREVIEW_FILENAME;
+                        socket_path = get_temp_dir();
+                        socket_path += DEFAULT_PREVIEW_FILENAME;
                         socket_path += val;
                 } else if(key == "target_size"){
                         parse_num(tokenize(val, 'x'), s->target_width);
