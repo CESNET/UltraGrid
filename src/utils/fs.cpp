@@ -53,11 +53,7 @@
  */
 const char *get_temp_dir(void)
 {
-#ifdef WIN32
-        static __thread char temp_dir[MAX_PATH + 1];
-#else
-        static __thread char temp_dir[MAXPATHLEN + 2];
-#endif
+        static __thread char temp_dir[MAX_PATH_SIZE + 1];
 
         if (temp_dir[0] != '\0') {
                 return temp_dir;
