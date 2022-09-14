@@ -328,12 +328,12 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
         struct display_ndi *s = (struct display_ndi *) state;
 
         if (frame == NULL) {
-                return TRUE;
+                return 0;
         }
 
         if (flag == PUTF_DISCARD) {
                 vf_free(frame);
-                return TRUE;
+                return 0;
         }
 
         s->NDIlib->send_send_video_v2(s->pNDI_send, NULL); // wait for the async frame to be processed
@@ -351,7 +351,7 @@ static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
 
         s->NDIlib->send_send_video_async_v2(s->pNDI_send, &s->NDI_video_frame);
 
-        return TRUE;
+        return 0;
 }
 
 static int display_ndi_get_property(void *state, int property, void *val, size_t *len)
@@ -463,7 +463,7 @@ static const struct video_display_info display_ndi_info = {
 #else
         DISPLAY_DOESNT_NEED_MAINLOOP,
 #endif
-        false,
+        true,
 };
 
 REGISTER_MODULE(ndi, &display_ndi_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
