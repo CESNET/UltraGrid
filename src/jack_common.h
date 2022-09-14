@@ -39,14 +39,22 @@
 #ifndef JACK_COMMON_H
 #define JACK_COMMON_H
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif // ! defined __cplusplus
+
 #include <jack/jack.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "compat/dlfunc.h"
 #include "debug.h"
-
 #include "types.h"
+
+#if defined (__linux__) && defined (_GNU_SOURCE)
+#include "utils/fs.h"
+#define HAVE_DLINFO 1
+#endif
 
 typedef int (*jack_activate_t)(jack_client_t *client) JACK_OPTIONAL_WEAK_EXPORT;
 typedef int (*jack_client_close_t)(jack_client_t *client) JACK_OPTIONAL_WEAK_EXPORT;
@@ -104,15 +112,52 @@ static void close_libjack(struct libjack_connection *s)
         if (s == NULL) {
                 return;
         }
+#ifdef RTLD_DEFAULT
+        if (s->libjack != RTLD_DEFAULT) {
+                dlclose(s->libjack);
+        }
+#else
         dlclose(s->libjack);
+#endif // defined RTLD_DEFAULT
         free(s);
 }
 
-#define JACK_DLSYM(sym) s->sym = (void *) dlsym(s->libjack, "jack_" #sym); if (s->sym == NULL) { log_msg(LOG_LEVEL_ERROR, "JACK symbol %s not found: %s\n", "jack_" #sym, dlerror()); close_libjack(s); return NULL; }
+#define JACK_DLSYM(sym) s->sym = (void *) dlsym(s->libjack, "jack_" #sym); if (s->sym == NULL) { log_msg(LOG_LEVEL_ERROR, "JACK symbol %s not found: %s\n", "jack_" #sym, dlerror()); return false; }
+
+static bool load_jack_symbols(struct libjack_connection *s)
+{
+        JACK_DLSYM(activate);
+        JACK_DLSYM(client_close)
+        JACK_DLSYM(client_open)
+        JACK_DLSYM(connect);
+        JACK_DLSYM(deactivate);
+        JACK_DLSYM(disconnect);
+        JACK_DLSYM(free)
+        JACK_DLSYM(get_ports)
+        JACK_DLSYM(get_sample_rate);
+        JACK_DLSYM(set_sample_rate_callback);
+        JACK_DLSYM(port_get_buffer);
+        JACK_DLSYM(port_name);
+        JACK_DLSYM(port_register);
+        JACK_DLSYM(set_process_callback);
+        return true;
+}
 
 static struct libjack_connection *open_libjack(void)
 {
         struct libjack_connection *s = calloc(1, sizeof(struct libjack_connection));
+
+#ifdef RTLD_DEFAULT
+        // try to load from already loaded library (eg. by LD_PRELOAD), RTLD_DEFAULT is POSIX-only
+        if (dlsym(RTLD_DEFAULT, "jack_activate") != NULL) {
+                s->libjack = RTLD_DEFAULT;
+                if (load_jack_symbols(s)) {
+                        log_msg(LOG_LEVEL_VERBOSE, "Using preloaded JACK library.\n");
+                        return s;
+                }
+        }
+#endif
+
         const char *shlib =
 #ifdef _WIN32
                 "C:/Windows/libjack64.dll";
@@ -129,20 +174,15 @@ static struct libjack_connection *open_libjack(void)
                 free(s);
                 return NULL;
         }
-        JACK_DLSYM(activate);
-        JACK_DLSYM(client_close)
-        JACK_DLSYM(client_open)
-        JACK_DLSYM(connect);
-        JACK_DLSYM(deactivate);
-        JACK_DLSYM(disconnect);
-        JACK_DLSYM(free)
-        JACK_DLSYM(get_ports)
-        JACK_DLSYM(get_sample_rate);
-        JACK_DLSYM(set_sample_rate_callback);
-        JACK_DLSYM(port_get_buffer);
-        JACK_DLSYM(port_name);
-        JACK_DLSYM(port_register);
-        JACK_DLSYM(set_process_callback);
+        if (!load_jack_symbols(s)) {
+                close_libjack(s);
+                return NULL;
+        }
+#ifdef HAVE_DLINFO
+        char path[MAX_PATH_SIZE] = "(unknown)";
+        dlinfo(s->libjack, RTLD_DI_ORIGIN, path); // nonstandard GNU extension
+        log_msg(LOG_LEVEL_VERBOSE, "Loaded JACK library from %s.\n", path);
+#endif // defined HAVE_DLINFO
         return s;
 }
 
