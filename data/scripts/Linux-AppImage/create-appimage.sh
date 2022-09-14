@@ -29,7 +29,7 @@ cp hd-rum $APPPREFIX/bin
 # @todo use https://github.com/probonopd/linuxdeployqt
 PLUGIN_LIBS=
 if [ -f $APPPREFIX/bin/uv-qt ]; then
-        QT_DIR=$(dirname "$(ldd $APPPREFIX/bin/uv-qt | grep Qt.Gui | grep -v found | awk '{ print $3 }')")
+        QT_DIR=$(dirname "$(ldd $APPPREFIX/bin/uv-qt | grep Qt.Gui | grep -v 'not found' | awk '{ print $3 }')")
 else
         QT_DIR=
 fi
