@@ -1,0 +1,3 @@
+# inspired by https://github.com/aferrero2707/appimage-testsuite
+FROM archlinux
+RUN pacman --noconfirm -Sy libglvnd libx11 fontconfig freetype2 pipewire-jack
