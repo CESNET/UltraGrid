@@ -39,18 +39,14 @@
 #ifndef UTILS_FS_H_
 #define UTILS_FS_H_
 
-
-
+// maximal platform path length including terminating null byte
 #ifdef _WIN32
 #include <windows.h>
 #define MAX_PATH_SIZE MAX_PATH
-#endif
-
-#if defined(__linux__) || defined(__APPLE__)
+#else
 #include <limits.h>
-#define MAX_PATH_SIZE (PATH_MAX + 1)
+#define MAX_PATH_SIZE PATH_MAX
 #endif
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,17 +55,13 @@ extern "C" {
 /**
  * @param path buffer with size MAX_PATH_SIZE where function stores path to executable
  * @return 1 - SUCCESS, 0 - ERROR
- */ 
+ */
 int get_exec_path(char* path);
-
-
 const char *get_temp_dir(void);
 
 #ifdef __cplusplus
 } // extern "C"
 #endif
-
-
 
 #ifdef __cplusplus
 #include <string>
@@ -83,7 +75,6 @@ inline std::string get_executable_path(){
         return path;
 }
 #endif
-
 
 #endif// UTILS_FS_H_
 

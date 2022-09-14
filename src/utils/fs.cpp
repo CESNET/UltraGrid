@@ -53,7 +53,7 @@
  */
 const char *get_temp_dir(void)
 {
-        static __thread char temp_dir[MAX_PATH_SIZE + 1];
+        static __thread char temp_dir[MAX_PATH_SIZE];
 
         if (temp_dir[0] != '\0') {
                 return temp_dir;
