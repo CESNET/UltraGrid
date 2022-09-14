@@ -53,6 +53,7 @@
 #include <chrono>
 #include <iostream>
 #include <memory>
+#include <regex>
 #include <string>
 #include <type_traits> // static_assert
 
@@ -335,7 +336,10 @@ static const NDIlib_source_t *get_matching_source(struct vidcap_state_ndi *s, co
 
         for (int i = 0; i < nr_sources; ++i) {
                 if (!s->requested_name.empty()) {
-                        if (s->requested_name != sources[i].p_ndi_name) {
+                        if (s->requested_name != sources[i].p_ndi_name &&
+                                        // match also '.*(name)' if name was given and it doesn't contain whole name (`hostname (name)` -> brace pair is checked)
+                                        (std::regex_search(s->requested_name, std::regex("(.*)", std::regex::basic)) ||
+                                         !std::regex_match(sources[i].p_ndi_name, std::regex(string(".*(") + s->requested_name + ")", std::regex::basic)))) {
                                 continue;
                         }
                 }
@@ -350,7 +354,6 @@ static const NDIlib_source_t *get_matching_source(struct vidcap_state_ndi *s, co
                                 continue;
                         }
                 }
-
                 return sources + i;
         }
 
