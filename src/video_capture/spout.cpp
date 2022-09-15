@@ -80,7 +80,6 @@ struct state_vidcap_spout {
 
         char server_name[256];
 
-        std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
         std::chrono::steady_clock::time_point last_frame_captured = std::chrono::steady_clock::now();
         int frames;
 };
@@ -261,18 +260,7 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         gl_context_make_current(&s->glc);
         bool ret = s->spout_state->ReceiveImage(s->server_name, width, height, (unsigned char *) out->tiles[0].data, s->gl_format);
         gl_context_make_current(NULL);
-        if (ret) {
-                // statistics
-                s->frames++;
-                std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-                double seconds = std::chrono::duration_cast<std::chrono::microseconds>(now - s->t0).count() / 1000000.0;
-                if (seconds >= 5) {
-                        LOG(LOG_LEVEL_INFO) << "[SPOUT capture] " << s->frames << " frames in "
-                                << seconds << " seconds = " <<  s->frames / seconds << " FPS\n";
-                        s->t0 = now;
-                        s->frames = 0;
-                }
-        } else {
+        if (!ret) {
                 vf_free(out);
                 return NULL;
         }
@@ -336,7 +324,7 @@ static const struct video_capture_info vidcap_spout_info = {
         vidcap_spout_init,
         vidcap_spout_done,
         vidcap_spout_grab,
-        false
+        true
 };
 
 REGISTER_MODULE(spout, &vidcap_spout_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
