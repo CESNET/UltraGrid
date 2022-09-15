@@ -62,7 +62,6 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "ndi_common.h"
-#include "rang.hpp"
 #include "utils/color_out.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "video.h"
@@ -125,9 +124,8 @@ struct vidcap_state_ndi {
 };
 
 static void show_help(struct vidcap_state_ndi *s) {
-        cout << "Usage:\n"
-                "\t" << rang::style::bold << rang::fg::red << "-t ndi" << rang::fg::reset <<
-                "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:progressive]\n" << rang::style::reset <<
+        col() << "Usage:\n"
+                "\t" << SBOLD(SRED("-t ndi") << "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:progressive]") << "\n" <<
                 "where\n";
 
         col() << TBOLD("\tname\n") <<
