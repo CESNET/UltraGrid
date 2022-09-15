@@ -278,6 +278,9 @@ public:
                 }
 
                 std::string msg = oss.str();
+                if (msg.at(msg.size() - sizeof TERM_RESET) == '\n') { // switch TERM_RESET and '\n'
+                        msg.replace(msg.size() - sizeof TERM_RESET, sizeof TERM_RESET + 1, TERM_RESET "\n");
+                }
 
                 if (!get_log_output().is_interactive()) {
                         msg = prune_ansi_sequences_str(msg.c_str());
