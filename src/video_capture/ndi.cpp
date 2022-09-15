@@ -364,9 +364,9 @@ using convert_t = void (*)(struct video_frame *, const uint8_t *, int in_stride,
 static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data, int in_stride, int field_idx, int total_fields)
 {
         auto *out_p = reinterpret_cast<uint32_t *>(out->tiles[0].data) + field_idx * out->tiles[0].width;
-        for (unsigned int i = 0; i < out->tiles[0].height; i += total_fields) {
+        unsigned int width = out->tiles[0].width;
+        for (unsigned int i = 0; i < out->tiles[0].height / total_fields; i += 1) {
                 const auto *in_p = reinterpret_cast<const uint32_t *>(data + i * in_stride);
-                unsigned int width = out->tiles[0].width;
                 OPTIMIZED_FOR (unsigned int j = 0; j < width; j++) {
                         uint32_t argb = *in_p++;
                         *out_p++ = (argb & 0xFF000000U) | ((argb & 0xFFU) << 16U) | (argb & 0xFF00U) | ((argb & 0xFF0000U) >> 16U);
@@ -378,10 +378,10 @@ static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data, int 
 static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, [[maybe_unused]] int in_stride, int field_idx, int total_fields)
 {
         const auto *in_y = reinterpret_cast<const uint16_t *>(data);
-        const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data) + out->tiles[0].width * out->tiles[0].height;
+        const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data) + out->tiles[0].width * (out->tiles[0].height / total_fields);
         auto *out_p = reinterpret_cast<uint16_t *>(out->tiles[0].data) + 2 * field_idx * out->tiles[0].width;
-        for (unsigned int i = 0; i < out->tiles[0].height;  i += total_fields) {
-                unsigned int width = out->tiles[0].width;
+        unsigned int width = out->tiles[0].width;
+        for (unsigned int i = 0; i < out->tiles[0].height / total_fields; i += 1) {
                 OPTIMIZED_FOR (unsigned int j = 0; j < (width + 1) / 2; j += 1) {
                         *out_p++ = *in_y++;
                         *out_p++ = *in_cb_cr++;
@@ -396,7 +396,7 @@ static void convert_memcpy(struct video_frame *out, const uint8_t *data, int in_
 {
         size_t linesize = vc_get_linesize(out->tiles[0].width, out->color_spec);
         auto *out_p = out->tiles[0].data + field_idx * linesize;
-        for (unsigned int i = 0; i < out->tiles[0].height; i += total_fields) {
+        for (unsigned int i = 0; i < out->tiles[0].height / total_fields; i += 1) {
                 memcpy(out_p, data, linesize);
                 out_p += total_fields * linesize;
                 data += in_stride;
