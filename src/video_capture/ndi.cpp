@@ -329,7 +329,6 @@ static void audio_append_pcm(struct vidcap_state_ndi *s, NDIlib_audio_frame_v3_t
 }
 
 static const NDIlib_source_t *get_matching_source(struct vidcap_state_ndi *s, const NDIlib_source_t *sources, int nr_sources) {
-        assert(nr_sources > 0);
         if (s->requested_name.empty() && s->requested_url.empty()) {
                 return sources + 0;
         }
