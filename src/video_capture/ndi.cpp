@@ -125,7 +125,7 @@ struct vidcap_state_ndi {
 
 static void show_help(struct vidcap_state_ndi *s) {
         col() << "Usage:\n"
-                "\t" << SBOLD(SRED("-t ndi") << "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:progressive]") << "\n" <<
+                "\t" << SBOLD(SRED("-t ndi") << "[:help][:name=<n>][:url=<u>][:audio_level=<l>][:bandwidth=<b>][:color=<c>][:extra_ips=<ip>][:progressive] | -t ndi:help[:extra_ips=<ip>]") << "\n" <<
                 "where\n";
 
         col() << TBOLD("\tname\n") <<
@@ -143,7 +143,7 @@ static void show_help(struct vidcap_state_ndi *s) {
                 " - fastest (UYVY), " << TBOLD(<< NDIlib_recv_color_format_best <<) << " - best (default, P216/UYVY)\n"
                 "\t\tSelection is on NDI runtime and usually depends on presence of alpha channel. UG ignores alpha channel for YCbCr codecs.\n";
         col() << TBOLD("\textra_ips\n") <<
-                "\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\"\n";
+                "\t\tadditional IP addresses for query in format \"12.0.0.8,13.0.12.8\". Can be used if mDNS discovery is not usable.\n";
         col() << TBOLD("\tprogressive\n") <<
                 "\t\tprefer progressive capture for interlaced input\n"
                 "\n";
@@ -168,6 +168,7 @@ static void show_help(struct vidcap_state_ndi *s) {
         }
         if (nr_sources == 0) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "No sources found!\n";
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << "You can pass \"extra_ips\" if mDNS is not operable.\n";
         }
         cout << "\n";
         s->NDIlib->find_destroy(pNDI_find);
