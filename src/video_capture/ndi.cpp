@@ -375,13 +375,13 @@ static void convert_BGRA_RGBA(struct video_frame *out, const uint8_t *data, int 
         }
 }
 
-static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, [[maybe_unused]] int in_stride, int field_idx, int total_fields)
+static void convert_P216_Y216(struct video_frame *out, const uint8_t *data, int in_stride, int field_idx, int total_fields)
 {
-        const auto *in_y = reinterpret_cast<const uint16_t *>(data);
-        const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data) + out->tiles[0].width * (out->tiles[0].height / total_fields);
         auto *out_p = reinterpret_cast<uint16_t *>(out->tiles[0].data) + 2 * field_idx * out->tiles[0].width;
         unsigned int width = out->tiles[0].width;
         for (unsigned int i = 0; i < out->tiles[0].height / total_fields; i += 1) {
+                const auto *in_y = reinterpret_cast<const uint16_t *>(data + i * in_stride);
+                const auto *in_cb_cr = reinterpret_cast<const uint16_t *>(data + in_stride * (i + out->tiles[0].height / total_fields));
                 OPTIMIZED_FOR (unsigned int j = 0; j < (width + 1) / 2; j += 1) {
                         *out_p++ = *in_y++;
                         *out_p++ = *in_cb_cr++;
