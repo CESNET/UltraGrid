@@ -61,7 +61,7 @@
 #define DEFAULT_FPS 60.0
 #define DEFAULT_CODEC RGB
 
-static constexpr const char *MOD_NAME = "[SPOUT] ";
+static constexpr const char *MOD_NAME = "[Spout] ";
 
 using std::array;
 using std::cout;
@@ -89,7 +89,7 @@ static void usage()
         col() << "Usage:\n";
         col() << "\t" << TBOLD(TRED("-t spout") << "[:name=<server_name>>][:fps=<fps>][:codec=<codec>]") << "\n";
         col() << "where\n";
-        col() << "\t" << TBOLD("name") << "\n\t\tSPOUT server name\n";
+        col() << "\t" << TBOLD("name") << "\n\t\tSpout server name\n";
         col() << "\t" << TBOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
         col() << "\t" << TBOLD("codec") << "\n\t\tvideo codec (default: " << get_codec_name(DEFAULT_CODEC) << ")\n";
         col() << "\nServers:\n";
@@ -109,7 +109,7 @@ static void usage()
                 if (!receiver->GetSenderInfo(name.data(), width, height, dxShareHandle, dwFormat)) {
                         LOG(LOG_LEVEL_ERROR) << "Cannot get server " << name.data() << "details\n";
                 }
-                col() << "\t" << TBOLD(<< name.data() <<) << ") - width: " << width << ", height: " << height << "\n";
+                col() << "\t" << TBOLD(<< name.data() <<) << ") width: " << width << ", height: " << height << "\n";
         }
 }
 
@@ -146,7 +146,7 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                 } else if (strstr(item, "codec=") == item) {
                         codec = get_codec_from_name(item + strlen("codec="));
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << "[SPOUT] Unknown argument - " << item << "\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown argument - " << item << "\n";
                         ret = VIDCAP_INIT_FAIL;
                         break;
                 }
@@ -168,14 +168,14 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                 s->gl_format = GL_RGBA;
                 break;
         default:
-                LOG(LOG_LEVEL_ERROR) << "[SPOUT] Unsupported codec: " <<  get_codec_name(codec) << "! Currently only RGB and RGBA are supported.\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec: " <<  get_codec_name(codec) << "! Currently only RGB and RGBA are supported.\n";
                 delete s;
                 return VIDCAP_INIT_FAIL;
         }
 
 
         if (!init_gl_context(&s->glc, GL_CONTEXT_ANY)) {
-                LOG(LOG_LEVEL_ERROR) << "[SPOUT] Unable to initialize GL context!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to initialize GL context!\n";
                 delete s;
                 return VIDCAP_INIT_FAIL;
         }
@@ -222,7 +222,7 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         if (s->spout_state->IsUpdated()) {
                 s->desc.width = s->spout_state->GetSenderWidth();
                 s->desc.height = s->spout_state->GetSenderHeight();
-                LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Connection updated - server name: " << s->spout_state->GetSenderName() << ", width: " << s->desc.width << ", height: " << s->desc.height << ", fps: " << s->desc.fps << ", codec: " << get_codec_name_long(s->desc.color_spec) << "\n";
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Connection updated - server name: " << s->spout_state->GetSenderName() << ", width: " << s->desc.width << ", height: " << s->desc.height << ", fps: " << s->desc.fps << ", codec: " << get_codec_name_long(s->desc.color_spec) << "\n";
                 vf_free(out);
                 gl_context_make_current(NULL);
                 return NULL;
@@ -249,7 +249,7 @@ static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(voi
         vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->name = "spout";
-                vt->description = "SPOUT capture client";
+                vt->description = "Spout capture client";
         }
 
         if (!verbose) {
@@ -271,13 +271,13 @@ static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(voi
                 if (!receiver->GetSender(i, name.data(), name.size())) {
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Cannot get name for server #" << i << "\n";
                         snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%d", i);
-                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT #%d", i);
+                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Spout #%d", i);
                 } else {
                         snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":name=urlencoded=");
                         urlencode(vt->cards[i].dev + strlen(vt->cards[i].dev),
                                         sizeof vt->cards[i].dev - strlen(vt->cards[i].dev),
                                         name.data(), urlencode_rfc3986_eval, false);
-                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT %s", name.data());
+                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Spout %s", name.data());
                 }
                 vt->cards[i].repeatable = true;
         }
