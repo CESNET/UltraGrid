@@ -3058,7 +3058,7 @@ fi
 spout=no
 AC_ARG_ENABLE(spout,
 [  --enable-spout          enables Spout support (default is auto)]
-[                          Requires: OpenGL Spout],
+[                          Requires: Spout],
     [spout_req=$enableval],
     [spout_req=$build_default]
     )
@@ -3076,7 +3076,7 @@ then
         AC_LANG_POP([C++])
 fi
 
-if test $spout_req != no -a "$OPENGL" = yes -a $FOUND_SPOUT = yes
+if test $spout_req != no && test $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
         LIBS="$LIBS -lSpout"
