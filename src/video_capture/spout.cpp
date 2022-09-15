@@ -47,7 +47,7 @@
 #include <cctype>
 #include <chrono>
 #include <iostream>
-#include <SpoutSDK/Spout.h>
+#include <SpoutLibrary.h>
 #include <string>
 
 #include "debug.h"
@@ -74,7 +74,7 @@ using std::string;
  */
 struct state_vidcap_spout {
         struct video_desc desc;
-        shared_ptr<SpoutReceiver> spout_state;
+        shared_ptr<SPOUTLIBRARY> spout_state;
         struct gl_context glc;
         GLenum gl_format;
 
@@ -93,12 +93,12 @@ static void usage()
         col() << "\t" << TBOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
         col() << "\t" << TBOLD("codec") << "\n\t\tvideo codec (default: " << get_codec_name(DEFAULT_CODEC) << ")\n";
         col() << "\nServers:\n";
-        auto receiver = shared_ptr<SpoutReceiver>(new SpoutReceiver);
+        auto receiver = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
         int count = receiver->GetSenderCount();
 
         for (int i = 0; i < count; ++i) {
                 array<char, 256> name{};
-                if (!receiver->GetSenderName(i, name.data(), name.size())) {
+                if (!receiver->GetSender(i, name.data(), name.size())) {
                         LOG(LOG_LEVEL_ERROR) << "Cannot get name for server #" << i << "\n";
                         continue;
                 }
@@ -119,7 +119,7 @@ static string vidcap_spout_get_device_name(int idx)
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Negative indices not allowed, given: " << idx << "\n";
                 return {};
         }
-        auto receiver = shared_ptr<SpoutReceiver>(new SpoutReceiver);
+        auto receiver = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
         int count = receiver->GetSenderCount();
         if (idx >= count) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot find server #" << idx << " (total count " << count << ")!\n";
@@ -127,7 +127,7 @@ static string vidcap_spout_get_device_name(int idx)
         }
 
         array<char, 256> name{};
-        if (!receiver->GetSenderName(idx, name.data(), name.size())) {
+        if (!receiver->GetSender(idx, name.data(), name.size())) {
                 LOG(LOG_LEVEL_ERROR) << "Cannot get name for server #" << idx << "\n";
                 return {};
         }
@@ -213,10 +213,9 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
         }
         gl_context_make_current(&s->glc);
 
-        unsigned int width = 0, height = 0;
-
-        s->spout_state = shared_ptr<SpoutReceiver>(new SpoutReceiver);
-        s->spout_state->CreateReceiver(s->server_name, width, height);
+        s->spout_state = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
+        s->spout_state->SetReceiverName(s->server_name);
+#if 0 // doesn't work with 2.007
         bool connected;
         s->spout_state->CheckReceiver(s->server_name, width, height, connected);
         if (!connected) {
@@ -225,11 +224,11 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                 delete s;
                 return VIDCAP_INIT_FAIL;
         }
-        LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Initialized successfully - server name: " << s->server_name << ", width: " << width << ", height: " << height << ", fps: " << fps << ", codec: " << get_codec_name_long(codec) << "\n";
-
-        s->desc = video_desc{width, height, codec, fps, PROGRESSIVE, 1};
+#endif
+        //LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Initialized successfully - server name: " << s->server_name << ", width: " << width << ", height: " << height << ", fps: " << fps << ", codec: " << get_codec_name_long(codec) << "\n";
 
         gl_context_make_current(NULL);
+        s->desc = video_desc{0, 0, codec, fps, PROGRESSIVE, 1};
 
         *state = s;
 
@@ -251,19 +250,24 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
 {
         state_vidcap_spout *s = (state_vidcap_spout *) state;
 
+        gl_context_make_current(&s->glc);
         struct video_frame *out = vf_alloc_desc_data(s->desc);
         out->callbacks.dispose = vf_free;
 
-        unsigned int width, height;
-        width = s->desc.width;
-        height = s->desc.height;
-        gl_context_make_current(&s->glc);
-        bool ret = s->spout_state->ReceiveImage(s->server_name, width, height, (unsigned char *) out->tiles[0].data, s->gl_format);
-        gl_context_make_current(NULL);
+        bool ret = s->spout_state->ReceiveImage((unsigned char *) out->tiles[0].data, s->gl_format);
         if (!ret) {
                 vf_free(out);
+                gl_context_make_current(NULL);
                 return NULL;
         }
+        if (s->spout_state->IsUpdated()) {
+                s->desc.width = s->spout_state->GetSenderWidth();
+                s->desc.height = s->spout_state->GetSenderHeight();
+                vf_free(out);
+                gl_context_make_current(NULL);
+                return NULL;
+        }
+        gl_context_make_current(NULL);
 
 	// wait until this frame is due
 	decltype(s->last_frame_captured) t;
@@ -292,7 +296,8 @@ static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(voi
                 return vt;
         }
 
-        auto receiver = shared_ptr<SpoutReceiver>(new SpoutReceiver);
+        auto receiver = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
+
         int count = receiver->GetSenderCount();
 
         vt->cards = (struct device_info *) calloc(count, sizeof(struct device_info));
@@ -303,7 +308,7 @@ static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(voi
 
         for (int i = 0; i < count; ++i) {
                 array<char, 256> name{};
-                if (!receiver->GetSenderName(i, name.data(), name.size())) {
+                if (!receiver->GetSender(i, name.data(), name.size())) {
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Cannot get name for server #" << i << "\n";
                         snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%d", i);
                         snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "SPOUT #%d", i);

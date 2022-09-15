@@ -3068,9 +3068,9 @@ if test $system = Windows
 then
         AC_LANG_PUSH([C++])
         SAVED_LIBS="$LIBS"
-        LIBS="$LIBS -lSpout"
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <SpoutSDK/Spout.h>]],
-                       [[SpoutSender *sender = new SpoutSender;]])],
+        LIBS="$LIBS -lSpoutLibrary"
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <SpoutLibrary.h>]],
+                       [[auto *spout = GetSpout();]])],
                        FOUND_SPOUT=yes, FOUND_SPOUT=no)
         LIBS=$SAVED_LIBS
         AC_LANG_POP([C++])
@@ -3079,7 +3079,7 @@ fi
 if test $spout_req != no && test $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
-        LIBS="$LIBS -lSpout"
+        LIBS="$LIBS -lSpoutLibrary"
         OBJS="$OBJS src/spout_sender.o src/video_capture/spout.o"
         spout=yes
 fi

@@ -34,25 +34,25 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <SpoutSDK/Spout.h>
+#include <SpoutLibrary.h>
 
 #include "spout_sender.h"
 
 void *spout_sender_register(const char *name, int width, int height) {
 
-	SpoutSender *sender = new SpoutSender;
-	sender->CreateSender(name, width, height);
+	SPOUTHANDLE spout = GetSpout();
+	spout->CreateSender(name, width, height);
 
-	return sender;
+	return spout;
 }
 
 void spout_sender_sendframe(void *s, int width, int height, unsigned int id) {
-	((SpoutSender *)s)->SendTexture(id, GL_TEXTURE_2D, width, height, false); // default is flip
+	((SPOUTHANDLE)s)->SendTexture(id, GL_TEXTURE_2D, width, height, false); // default is flip
 	}
 
 void spout_sender_unregister(void *s) {
-        auto *sender = static_cast<SpoutSender *>(s);
-        sender->ReleaseSender();
-        delete sender;
+        auto *spout = static_cast<SPOUTHANDLE>(s);
+        spout->ReleaseSender();
+        spout->Release();
 }
 
