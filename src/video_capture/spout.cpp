@@ -87,7 +87,7 @@ struct state_vidcap_spout {
 static void usage()
 {
         col() << "Usage:\n";
-        col() << "\t" << TBOLD(TRED("-t spout") << "[:name=<server_name>|device=<idx>][:fps=<fps>][:codec=<codec>]") << "\n";
+        col() << "\t" << TBOLD(TRED("-t spout") << "[:name=<server_name>>][:fps=<fps>][:codec=<codec>]") << "\n";
         col() << "where\n";
         col() << "\t" << TBOLD("name") << "\n\t\tSPOUT server name\n";
         col() << "\t" << TBOLD("fps") << "\n\t\tFPS count (default: " << DEFAULT_FPS << ")\n";
@@ -109,36 +109,14 @@ static void usage()
                 if (!receiver->GetSenderInfo(name.data(), width, height, dxShareHandle, dwFormat)) {
                         LOG(LOG_LEVEL_ERROR) << "Cannot get server " << name.data() << "details\n";
                 }
-                col() << "\t" << i << ") " << TBOLD(<< name.data() <<) << " - width: " << width << ", height: " << height << "\n";
+                col() << "\t" << TBOLD(<< name.data() <<) << ") - width: " << width << ", height: " << height << "\n";
         }
-}
-
-static string vidcap_spout_get_device_name(int idx)
-{
-        if (idx < 0) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Negative indices not allowed, given: " << idx << "\n";
-                return {};
-        }
-        auto receiver = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
-        int count = receiver->GetSenderCount();
-        if (idx >= count) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot find server #" << idx << " (total count " << count << ")!\n";
-                return {};
-        }
-
-        array<char, 256> name{};
-        if (!receiver->GetSender(idx, name.data(), name.size())) {
-                LOG(LOG_LEVEL_ERROR) << "Cannot get name for server #" << idx << "\n";
-                return {};
-        }
-        return name.data();
 }
 
 static int vidcap_spout_init(struct vidcap_params *params, void **state)
 {
         state_vidcap_spout *s = new state_vidcap_spout();
 
-        int device_idx = 0;
         double fps = DEFAULT_FPS;
         codec_t codec = DEFAULT_CODEC;
 
@@ -152,8 +130,6 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                         usage();
                         ret = VIDCAP_INIT_NOERR;
                         break;
-                } else if (strstr(item, "device=") == item) {
-                        device_idx = stoi(item + strlen("device="));
                 } else if (strstr(item, "name=") == item) {
                         char *name = item + strlen("name=");
                         if (strstr(name, "urlencoded=") == name) {
@@ -197,14 +173,6 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-        if (strlen(s->server_name) == 0) {
-                const string &name = vidcap_spout_get_device_name(device_idx);
-                if (name.empty()) {
-                        delete s;
-                        return VIDCAP_INIT_FAIL;
-                }
-                strncpy(s->server_name, name.c_str(), sizeof s->server_name - 1);
-        }
 
         if (!init_gl_context(&s->glc, GL_CONTEXT_ANY)) {
                 LOG(LOG_LEVEL_ERROR) << "[SPOUT] Unable to initialize GL context!\n";
@@ -214,18 +182,9 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
         gl_context_make_current(&s->glc);
 
         s->spout_state = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
-        s->spout_state->SetReceiverName(s->server_name);
-#if 0 // doesn't work with 2.007
-        bool connected;
-        s->spout_state->CheckReceiver(s->server_name, width, height, connected);
-        if (!connected) {
-                LOG(LOG_LEVEL_ERROR) << "[SPOUT] Not connected to server '" << s->server_name << "'. Is it running?\n";
-                s->spout_state->ReleaseReceiver();
-                delete s;
-                return VIDCAP_INIT_FAIL;
+        if (strlen(s->server_name) != 0) {
+                s->spout_state->SetReceiverName(s->server_name);
         }
-#endif
-        //LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Initialized successfully - server name: " << s->server_name << ", width: " << width << ", height: " << height << ", fps: " << fps << ", codec: " << get_codec_name_long(codec) << "\n";
 
         gl_context_make_current(NULL);
         s->desc = video_desc{0, 0, codec, fps, PROGRESSIVE, 1};
@@ -263,6 +222,7 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         if (s->spout_state->IsUpdated()) {
                 s->desc.width = s->spout_state->GetSenderWidth();
                 s->desc.height = s->spout_state->GetSenderHeight();
+                LOG(LOG_LEVEL_NOTICE) << "[SPOUT] Connection updated - server name: " << s->spout_state->GetSenderName() << ", width: " << s->desc.width << ", height: " << s->desc.height << ", fps: " << s->desc.fps << ", codec: " << get_codec_name_long(s->desc.color_spec) << "\n";
                 vf_free(out);
                 gl_context_make_current(NULL);
                 return NULL;
