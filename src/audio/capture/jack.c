@@ -57,6 +57,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <threads.h>
 
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);
@@ -270,6 +271,9 @@ error:
 static struct audio_frame *audio_cap_jack_read(void *state)
 {
         struct state_jack_capture *s = (struct state_jack_capture *) state;
+
+        while(ring_get_current_size(s->data) == 0)
+                thrd_sleep(&(struct timespec){ .tv_nsec=1000000 }, NULL);
 
         s->frame.data_len = ring_buffer_read(s->data, s->frame.data, s->frame.max_size);
         float2int((char *) s->frame.data, (char *) s->frame.data, s->frame.max_size);
