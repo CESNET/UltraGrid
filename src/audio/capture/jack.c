@@ -57,7 +57,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <threads.h>
+#include <semaphore.h>
 
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);
@@ -70,6 +70,7 @@ struct state_jack_capture {
         jack_port_t *input_ports[MAX_PORTS];
         char *tmp;
 
+        sem_t data_sem;
         struct ring_buffer *data;
         bool can_process;
 
@@ -101,6 +102,7 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         }
 
         ring_buffer_write(s->data, s->tmp, channel_size * s->frame.ch_count);
+        sem_post(&s->data_sem);
 
         return 0;
 }
@@ -220,6 +222,11 @@ static void * audio_cap_jack_init(const char *cfg)
         s->frame.max_size = s->frame.ch_count * s->frame.bps * s->frame.sample_rate;
         s->frame.data = malloc(s->frame.max_size);
 
+        if(sem_init(&s->data_sem, 0, 0)){
+                log_msg(LOG_LEVEL_ERROR, "[JACK capture] Error initializing semaphore!\n");
+                goto release_client;
+        }
+
         s->tmp = malloc(s->frame.max_size);
 
         s->data = ring_buffer_init(s->frame.max_size);
@@ -272,10 +279,18 @@ static struct audio_frame *audio_cap_jack_read(void *state)
 {
         struct state_jack_capture *s = (struct state_jack_capture *) state;
 
-        while(ring_get_current_size(s->data) == 0)
-                thrd_sleep(&(struct timespec){ .tv_nsec=1000000 }, NULL);
+        errno = 0;
+        while(sem_wait(&s->data_sem) == -1 && errno == EINTR) {  }
 
+        int read_avail = ring_get_current_size(s->data);
         s->frame.data_len = ring_buffer_read(s->data, s->frame.data, s->frame.max_size);
+        if(read_avail > s->frame.data_len){
+                /* We didn't read all available data in ring buffer, so we
+                 * increment the semaphore back up, so we don't wait needlessly
+                 * on the next call */
+                sem_post(&s->data_sem);
+        }
+
         float2int((char *) s->frame.data, (char *) s->frame.data, s->frame.max_size);
 
         if(!s->frame.data_len)
@@ -292,6 +307,7 @@ static void audio_cap_jack_done(void *state)
         free(s->tmp);
         ring_buffer_destroy(s->data);
         free(s->frame.data);
+        sem_destroy(&s->data_sem);
         close_libjack(s->libjack);
         free(s);
 }
