@@ -511,50 +511,51 @@ static inline void check_symbol_size(int fec_symbol_size, int payload_len)
 }
 
 /**
- * Adjusts size/alignment mtu to given constraints
- * @note
- * When fec_symbol_size is longer than mtu, the aligned packet size is always the same.
+ * Splits symbol (FEC symbol or uncompressed line) to 1 or more MTUs. Symbol starts
+ * always on beginning of packet.
+ *
+ * If symbol_size is longer than MTU (more symbols fit one packet), the aligned
+ * packet size is always the same.
+ *
+ * @param symbol_size  FEC symbol size or linesize for uncompressed
  */
-static inline int get_video_pkt_len_fec(int mtu,
-                int fec_symbol_size, int *fec_symbol_offset)
+static inline int get_video_pkt_len(int mtu,
+                int symbol_size, int *symbol_offset)
 {
-        if (fec_symbol_size > mtu) {
-                if (fec_symbol_size - *fec_symbol_offset <= mtu) {
-                        mtu = fec_symbol_size - *fec_symbol_offset;
-                        *fec_symbol_offset = 0;
+        if (symbol_size > mtu) {
+                if (symbol_size - *symbol_offset <= mtu) {
+                        mtu = symbol_size - *symbol_offset;
+                        *symbol_offset = 0;
                 } else {
-                        *fec_symbol_offset += mtu;
+                        *symbol_offset += mtu;
                 }
                 return mtu;
         }
-        return mtu / fec_symbol_size * fec_symbol_size;
-}
-
-/**
- * Adjusts size/alignment mtu to given constraints
- */
-static inline int get_video_pkt_len(int mtu, int pf_block_size)
-{
-        return mtu / pf_block_size * pf_block_size;
+        return mtu / symbol_size * symbol_size;
 }
 
 /// @param mtu is tx->mtu - hdrs_len
 static vector<int> get_packet_sizes(struct video_frame *frame, int substream, int mtu) {
-        unsigned int fec_symbol_size = frame->fec_params.symbol_size;
-        vector<int> ret;
-
         if (frame->fec_params.type != FEC_NONE) {
-                check_symbol_size(fec_symbol_size, mtu);
+                check_symbol_size(frame->fec_params.symbol_size, mtu);
         }
 
-        int fec_symbol_offset = 0;
-        int pf_block_size = is_codec_opaque(frame->color_spec) ? 1 : PIX_BLOCK_LCM / get_pf_block_pixels(frame->color_spec) * get_pf_block_bytes(frame->color_spec);
-        assert(pf_block_size <= mtu);
+        unsigned int symbol_size = 1;
+        int symbol_offset = 0;
+        if (frame->fec_params.type == FEC_NONE && !is_codec_opaque(frame->color_spec)) {
+                symbol_size = vc_get_linesize(frame->tiles[substream].width, frame->color_spec);
+                int pf_block_size = PIX_BLOCK_LCM / get_pf_block_pixels(frame->color_spec) * get_pf_block_bytes(frame->color_spec);
+                assert(pf_block_size <= mtu);
+                mtu = mtu / pf_block_size * pf_block_size;
+        } else {
+                symbol_size = frame->fec_params.symbol_size;
+        }
+        vector<int> ret;
         unsigned pos = 0;
         do {
-                int len = frame->fec_params.type == FEC_NONE
-                        ? get_video_pkt_len(mtu, pf_block_size)
-                        : get_video_pkt_len_fec(mtu, fec_symbol_size, &fec_symbol_offset);
+                int len = symbol_size == 1
+                        ? mtu
+                        : get_video_pkt_len(mtu, symbol_size, &symbol_offset);
                 pos += len;
                 ret.push_back(len);
         } while (pos < frame->tiles[substream].data_len);
