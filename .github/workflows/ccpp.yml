@@ -142,7 +142,7 @@ jobs:
       if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@v1
       with:
-        name: UltraGrid CI Linux build
+        name: UltraGrid-Linux
         path: UltraGrid-${{ env.VERSION }}-x86_64.AppImage
 
   macOS:
@@ -230,7 +230,7 @@ jobs:
       if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@v1
       with:
-        name: UltraGrid CI macOS build
+        name: UltraGrid-macOS
         path: UltraGrid-${{ env.VERSION }}.dmg
 
   Windows:
@@ -327,7 +327,7 @@ jobs:
       if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@v1
       with:
-        name: UltraGrid CI Windows build
+        name: UltraGrid-Windows
         path: build
 
 # vi: set expandtab sw=2:
