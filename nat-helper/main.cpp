@@ -76,15 +76,7 @@ int main(int argc, char **argv){
 
 	NatHelper server(port);
 
-	server.run();
-
-	for(std::string in; std::getline(std::cin, in);){
-		if(in == "exit"){
-			break;
-		}
-	}
-
-	server.stop();
+	server.run(false);
 
 	return 0;
 }

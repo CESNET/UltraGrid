@@ -59,7 +59,7 @@ void NatHelper::worker(){
 	std::cout << "End" << std::endl;
 }
 
-void NatHelper::run(){
+void NatHelper::run(bool async){
 	using namespace std::placeholders;
 
 	asio::ip::tcp::endpoint endpoint(asio::ip::tcp::v4(), port);
@@ -70,8 +70,12 @@ void NatHelper::run(){
 	acceptor.async_accept(pendingSocket,
 			std::bind(&NatHelper::onConnectionAccepted, this, _1));
 
-	std::cout << "Starting thread" << std::endl;
-	worker_thread = std::thread(&NatHelper::worker, this);
+	if(async){
+		std::cout << "Starting thread" << std::endl;
+		worker_thread = std::thread(&NatHelper::worker, this);
+	} else {
+		worker();
+	}
 }
 
 void NatHelper::stop(){

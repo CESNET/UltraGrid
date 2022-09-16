@@ -50,7 +50,7 @@ public:
 	NatHelper(int port);
 	~NatHelper() = default;
 
-	void run();
+	void run(bool async = true);
 	void stop();
 
 private:
