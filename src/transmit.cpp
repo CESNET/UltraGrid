@@ -491,31 +491,6 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
         return htonl(tmp);
 }
 
-/**
- * Adjusts size/alignment mtu to given constraints
- * @note
- * Except when with_fec==true and symbol is longer than mtu, the aligned packet
- * size is always the same.
- */
-static inline int get_video_pkt_len(bool with_fec, int mtu,
-                int fec_symbol_size, int *fec_symbol_offset, int pf_block_size)
-{
-        int alignment = pf_block_size;
-        if (with_fec) {
-                if (fec_symbol_size > mtu) {
-                        if (fec_symbol_size - *fec_symbol_offset <= mtu) {
-                                mtu = fec_symbol_size - *fec_symbol_offset;
-                                *fec_symbol_offset = 0;
-                        } else {
-                                *fec_symbol_offset += mtu;
-                        }
-                        return mtu;
-                }
-                alignment = fec_symbol_size;
-        }
-        return mtu / alignment * alignment;
-}
-
 static inline void check_symbol_size(int fec_symbol_size, int payload_len)
 {
         thread_local static bool status_printed = false;
@@ -535,6 +510,34 @@ static inline void check_symbol_size(int fec_symbol_size, int payload_len)
         status_printed = true;
 }
 
+/**
+ * Adjusts size/alignment mtu to given constraints
+ * @note
+ * When fec_symbol_size is longer than mtu, the aligned packet size is always the same.
+ */
+static inline int get_video_pkt_len_fec(int mtu,
+                int fec_symbol_size, int *fec_symbol_offset)
+{
+        if (fec_symbol_size > mtu) {
+                if (fec_symbol_size - *fec_symbol_offset <= mtu) {
+                        mtu = fec_symbol_size - *fec_symbol_offset;
+                        *fec_symbol_offset = 0;
+                } else {
+                        *fec_symbol_offset += mtu;
+                }
+                return mtu;
+        }
+        return mtu / fec_symbol_size * fec_symbol_size;
+}
+
+/**
+ * Adjusts size/alignment mtu to given constraints
+ */
+static inline int get_video_pkt_len(int mtu, int pf_block_size)
+{
+        return mtu / pf_block_size * pf_block_size;
+}
+
 /// @param mtu is tx->mtu - hdrs_len
 static vector<int> get_packet_sizes(struct video_frame *frame, int substream, int mtu) {
         unsigned int fec_symbol_size = frame->fec_params.symbol_size;
@@ -549,8 +552,9 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
         assert(pf_block_size <= mtu);
         unsigned pos = 0;
         do {
-                int len = get_video_pkt_len(frame->fec_params.type != FEC_NONE, mtu,
-                                        fec_symbol_size, &fec_symbol_offset, pf_block_size);
+                int len = frame->fec_params.type == FEC_NONE
+                        ? get_video_pkt_len(mtu, pf_block_size)
+                        : get_video_pkt_len_fec(mtu, fec_symbol_size, &fec_symbol_offset);
                 pos += len;
                 ret.push_back(len);
         } while (pos < frame->tiles[substream].data_len);
