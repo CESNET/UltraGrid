@@ -359,7 +359,7 @@ class image_pattern_uv_plane : public image_pattern {
                         }
                 }
         private:
-                int y_level = LIMIT_HI_Y(16);
+                int y_level = (LIMIT_HI_Y(16) + LIMIT_LO(16)) / 2;
                 enum generator_depth fill(int width, int height, unsigned char *data) override {
                         assert(width > 1 && height > 1); // avoid division by zero
                         auto *ptr = reinterpret_cast<uint16_t *>(data);
