@@ -355,7 +355,7 @@ class image_pattern_uv_plane : public image_pattern {
         public:
                 explicit image_pattern_uv_plane(string &y_lvl) {
                         if (!y_lvl.empty()) {
-                                y_level = LIMIT_LO(16) + stof(y_lvl) * (LIMIT_LO(16) + LIMIT_HI_Y(16));
+                                y_level = LIMIT_LO(16) + stof(y_lvl) * (LIMIT_HI_Y(16) - LIMIT_LO(16));
                         }
                 }
         private:
