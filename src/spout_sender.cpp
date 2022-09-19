@@ -38,10 +38,10 @@
 
 #include "spout_sender.h"
 
-void *spout_sender_register(const char *name, int width, int height) {
+void *spout_sender_register(const char *name) {
 
 	SPOUTHANDLE spout = GetSpout();
-	spout->CreateSender(name, width, height);
+	spout->SetSenderName(name);
 
 	return spout;
 }

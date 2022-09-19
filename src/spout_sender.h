@@ -44,7 +44,7 @@
 extern "C" {
 #endif // __cplusplus
 
-void *spout_sender_register(const char *name, int width, int height);
+void *spout_sender_register(const char *name);
 void spout_sender_sendframe(void *s, int width, int height, unsigned int id);
 void spout_sender_unregister(void *s);
 

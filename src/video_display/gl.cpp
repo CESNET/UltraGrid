@@ -926,10 +926,9 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 #endif
 #ifdef HAVE_SPOUT
         if (!s->syphon_spout_srv_name.empty()) {
-                if (s->syphon_spout) {
-                         spout_sender_unregister(s->syphon_spout);
+                if (!s->syphon_spout) {
+                        s->syphon_spout = spout_sender_register(s->syphon_spout_srv_name.c_str());
                 }
-                s->syphon_spout = spout_sender_register(s->syphon_spout_srv_name.c_str(), desc.width, desc.height);
 	}
 #endif
 
