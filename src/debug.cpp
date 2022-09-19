@@ -116,8 +116,15 @@ void log_msg(int level, const char *format, ...)
         }
         va_end(ap);
 
-        if(get_log_output().is_interactive())
-                buf.append(TERM_RESET);
+        if (get_log_output().is_interactive()) {
+                auto & str = buf.get();
+                if (str.at(str.size() - 1) == '\n') { // put TERM_RESET before '\n'
+                        str.erase(str.size() - 1);
+                        buf.append(TERM_RESET "\n");
+                } else {
+                        buf.append(TERM_RESET);
+                }
+        }
         buf.submit();
 }
 
