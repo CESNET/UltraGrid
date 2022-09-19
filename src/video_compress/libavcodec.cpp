@@ -1218,8 +1218,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
 
         if ((codec = get_av_codec(s, &ug_codec, codec_is_a_rgb(desc.color_spec))) == nullptr) {
-                log_msg(LOG_LEVEL_ERROR, "Libavcodec doesn't contain encoder for specified codec.\n"
-                                "Hint: Check if you have libavcodec-extra package installed.\n");
                 return false;
         }
         log_msg(LOG_LEVEL_NOTICE, "[lavc] Using codec: %s, encoder: %s\n",
