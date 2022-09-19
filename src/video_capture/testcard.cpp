@@ -414,7 +414,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "capture set to " << desc << ", bpp "
                 << get_bpp(s->frame->color_spec) << ", pattern: " << s->pattern
-                << ", audio " << (s->grab_audio ? "off" : "on") << "\n";
+                << ", audio " << (s->grab_audio ? "on" : "off") << "\n";
 
         if(strip_fmt != NULL) {
                 if(configure_tiling(s, strip_fmt) != 0) {
