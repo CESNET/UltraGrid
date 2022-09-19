@@ -547,7 +547,7 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
                 int pf_block_size = PIX_BLOCK_LCM / get_pf_block_pixels(frame->color_spec) * get_pf_block_bytes(frame->color_spec);
                 assert(pf_block_size <= mtu);
                 mtu = mtu / pf_block_size * pf_block_size;
-        } else {
+        } else if (frame->fec_params.type != FEC_NONE) {
                 symbol_size = frame->fec_params.symbol_size;
         }
         vector<int> ret;
