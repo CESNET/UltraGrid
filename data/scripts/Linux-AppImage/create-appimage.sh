@@ -115,8 +115,8 @@ fi
 
 MKAPPIMAGE=$(command -v mkappimage-x86_64.AppImage || true)
 if [ -z "$MKAPPIMAGE" ]; then
-        MKAI_PATH=$(wget -q https://github.com/probonopd/go-appimage/releases -O - | grep "mkappimage-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 2)
-        wget -q -c "https://github.com/$MKAI_PATH" -O mkappimage
+        MKAI_PATH=$(curl -s https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous | grep "browser_download_url.*mkappimage-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 4)
+        wget -q -c "$MKAI_PATH" -O mkappimage
         chmod +x mkappimage
         MKAPPIMAGE=./mkappimage
 fi
