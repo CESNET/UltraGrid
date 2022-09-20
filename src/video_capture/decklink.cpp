@@ -1117,7 +1117,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 int dnum = 0;
                 IDeckLink *deckLink = nullptr;
                 // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-                IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true);
+                IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true, i == 0 ? true : false);
                 if (deckLinkIterator == NULL) {
                         vf_free(s->frame);
                         delete s;

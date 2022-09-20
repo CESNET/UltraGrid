@@ -150,24 +150,29 @@ std::string get_str_from_bmd_api_str(BMD_STR string)
  * should be followed by decklink_uninitialize() when done with DeckLink (not when releasing
  * IDeckLinkIterator!), typically on application shutdown.
  */
-IDeckLinkIterator *create_decklink_iterator(bool verbose)
+IDeckLinkIterator *create_decklink_iterator(bool verbose, bool coinit)
 {
         IDeckLinkIterator *deckLinkIterator = nullptr;
 #ifdef WIN32
-        // Initialize COM on this thread
-        HRESULT result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-        if (result != S_OK && result != S_FALSE) {
-                log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
-                                "%08lx.\n", result);
-                return nullptr;
+        if (coinit) {
+                // Initialize COM on this thread
+                HRESULT result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+                if(FAILED(result)) {
+                        log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
+                                        "%08lx.\n", result);
+                        if (result == S_FALSE) {
+                                CoUninitialize();
+                        }
+                        return NULL;
+                }
         }
-        result = CoCreateInstance(CLSID_CDeckLinkIterator, nullptr, CLSCTX_ALL,
+        HRESULT result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
                         IID_IDeckLinkIterator, (void **) &deckLinkIterator);
         if (FAILED(result)) {
-                CoUninitialize();
                 deckLinkIterator = nullptr;
         }
 #else
+        UNUSED(coinit);
         deckLinkIterator = CreateDeckLinkIteratorInstance();
 #endif
 
