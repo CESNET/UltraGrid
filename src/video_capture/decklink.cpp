@@ -71,7 +71,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "tv.h"
 #include "utils/color_out.h"
 #include "video.h"
@@ -89,8 +88,6 @@ constexpr const size_t MAX_AUDIO_PACKETS = 10;
 
 using namespace std;
 using namespace std::chrono;
-using rang::fg;
-using rang::style;
 using std::mutex;
 
 // static int	device = 0; // use first BlackMagic device
@@ -437,8 +434,7 @@ static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
                 cout << "\n\tConnection can be one of following:\n";
                 for (auto const &it : connection_string_map) {
                         if (connections & it.first) {
-                                cout << style::bold << "\t\t" <<
-                                        it.second << style::reset << "\n";
+                                col() << "\t\t" << SBOLD(it.second) << "\n";
                         }
                 }
         }
@@ -452,95 +448,94 @@ static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
 static int
 decklink_help(bool full)
 {
-	printf("\nDecklink options:\n");
-        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}* | decklink:[full]help\n" << style::reset;
-        printf("\t\tor\n");
-        cout << style::bold << fg::red << "\t-t decklink" << fg::reset << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]\n" << style::reset;
-        cout << "\t(mode specification is mandatory if your card does not support format autodetection; syntax on the first line is recommended, the second is obsolescent)\n";
-        printf("\n");
+	col() << "\nDecklink options:\n";
+        col() << SBOLD(SRED("\t-t decklink") << "{:mode=<mode>|:device=<device_index>|:codec=<colorspace>...<key>=<val>}* | decklink:[full]help") << "\n";
+        col() << "\t\tor\n";
+        col() << SBOLD(SRED("\t-t decklink") << "[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:sync_timecode][:connection=<input>][:audio_level={line|mic}][:detect-format][:conversion=<conv_mode>]]") << "\n";
+        col() << "\t(mode specification is mandatory if your card does not support format autodetection; syntax on the first line is recommended, the second is obsolescent)\n";
+        col() << "\n";
 
-        cout << style::bold << "3D" << style::reset << "\n";
+        col() << SBOLD("3D") << "\n";
         printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
         printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
         printf("\tin video format listing above (\"supports 3D\").\n");
 	printf("\n");
 
-        cout << style::bold << "audio_level\n" << style::reset;
-        cout << style::bold << "\tline" << style::reset << " - the selected analog input gain levels are used\n";
-        cout << style::bold << "\tmic" << style::reset << " - analog audio levels are set to maximum gain on audio input.\n";
+        col() << SBOLD("audio_level") << "\n";
+        col() << SBOLD("\tline") << " - the selected analog input gain levels are used\n";
+        col() << SBOLD("\tmic") << "  - analog audio levels are set to maximum gain on audio input.\n";
 	printf("\n");
 
-        cout << style::bold << "detect-format\n" << style::reset;
-        cout << "\tTry to detect input video format even if the device doesn't support\n"
+        col() << SBOLD("detect-format") << "\n";
+        col() << "\tTry to detect input video format even if the device doesn't support\n"
                 "\tautodetect, eg. \"-t decklink:connection=HDMI:detect-format\".\n";
-        cout << "\n";
+        col() << "\n";
 
-        cout << style::bold << "fullhelp\n" << style::reset;
-        cout << "\tPrint description of all available options.\n";
-        cout << "\n";
+        col() << SBOLD("fullhelp") << "\n";
+        col() << "\tPrint description of all available options.\n";
+        col() << "\n";
 
-        cout << style::bold << "half-duplex\n" << style::reset;
-        cout << "\tSet a profile that allows maximal number of simultaneous IOs.\n";
-        cout << "\n";
+        col() << SBOLD("half-duplex") << "\n";
+        col() << "\tSet a profile that allows maximal number of simultaneous IOs.\n";
+        col() << "\n";
 
-        cout << style::bold << "single-/dual-/quad-link\n" << style::reset;
-        cout << "\tUse single-/dual-/quad-link.\n";
-        cout << "\n";
+        col() << SBOLD("single-/dual-/quad-link") << "\n";
+        col() << "\tUse single-/dual-/quad-link.\n";
+        col() << "\n";
 
         if (full) {
-                cout << style::bold << "conversion\n" << style::reset;
-                cout << style::bold << "\tnone" << style::reset << " - No video input conversion\n";
-                cout << style::bold << "\t10lb" << style::reset << " - HD1080 to SD video input down conversion\n";
-                cout << style::bold << "\t10am" << style::reset << " - Anamorphic from HD1080 to SD video input down conversion\n";
-                cout << style::bold << "\t72lb" << style::reset << " - Letter box from HD720 to SD video input down conversion\n";
-                cout << style::bold << "\t72ab" << style::reset << " - Letterbox video input up conversion\n";
-                cout << style::bold << "\tamup" << style::reset << " - Anamorphic video input up conversion\n";
-                cout << "\tThen use the set the resulting mode (!) for capture, eg. for 1080p to PAL conversion:\n"
+                col() << SBOLD("conversion") << "\n";
+                col() << SBOLD("\tnone") << " - No video input conversion\n";
+                col() << SBOLD("\t10lb") << " - HD1080 to SD video input down conversion\n";
+                col() << SBOLD("\t10am") << " - Anamorphic from HD1080 to SD video input down conversion\n";
+                col() << SBOLD("\t72lb") << " - Letter box from HD720 to SD video input down conversion\n";
+                col() << SBOLD("\t72ab") << " - Letterbox video input up conversion\n";
+                col() << SBOLD("\tamup") << " - Anamorphic video input up conversion\n";
+                col() << "\tThen use the set the resulting mode (!) for capture, eg. for 1080p to PAL conversion:\n"
                                 "\t\t-t decklink:mode=pal:conversion=10lb\n";
-                cout << "\n";
-                cout << style::bold << "p_not_i\n" << style::reset;
-                cout << "\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
-                cout << "\n";
+                col() << "\n";
+                col() << SBOLD("p_not_i") << "\n";
+                col() << "\tIncoming signal should be treated as progressive even if detected as interlaced (PsF).\n";
+                col() << "\n";
 
-                cout << style::bold << "Use1080PsF[=true|false]\n" << style::reset;
-                cout << "\tIncoming signal should be treated as PsF instead of progressive.\n";
-                cout << "\n";
+                col() << SBOLD("Use1080PsF[=true|false]") << "\n";
+                col() << "\tIncoming signal should be treated as PsF instead of progressive.\n";
+                col() << "\n";
 
-                cout << style::bold << "nosig-send\n" << style::reset;
-                cout << "\tSend video even if no signal was detected (useful when video interrupts\n"
+                col() << SBOLD("nosig-send") << "\n";
+                col() << "\tSend video even if no signal was detected (useful when video interrupts\n"
                         "\tbut the video stream needs to be preserved, eg. to keep sync with audio).\n";
-                cout << "\n";
+                col() << "\n";
 
-                cout << style::bold << "[no]passthrough[=keep]\n" << style::reset;
-                cout << "\tDisables/enables/keeps capture passthrough (default is disable).\n";
-                cout << "\n";
+                col() << SBOLD("[no]passthrough[=keep]") << "\n";
+                col() << "\tDisables/enables/keeps capture passthrough (default is disable).\n";
+                col() << "\n";
 
-                cout << style::bold << "profile=<FourCC>|profile=keep\n" << style::reset;
-                cout << "\tUse desired device profile: " << style::bold << "1dfd" << style::reset << ", "
-                        << style::bold << "1dhd" << style::reset << ", "
-                        << style::bold << "2dfd" << style::reset << ", "
-                        << style::bold << "2dhd" << style::reset << " or "
-                        << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
-                        << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
-                cout << "\n";
-                cout << style::bold << "sync_timecode" << style::reset << "\n";
-                cout << "\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n";
-                cout << "\n";
-                cout << style::bold << "keep-settings" << style::reset << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
-                cout << "\n";
+                col() << SBOLD("profile=<FourCC>|profile=keep") << "\n";
+                col() << "\tUse desired device profile: " << SBOLD("1dfd") << ", "
+                        << SBOLD("1dhd") << ", "
+                        << SBOLD("2dfd") << ", "
+                        << SBOLD("2dhd") << " or "
+                        << SBOLD("4dhd") << ". See SDK manual for details. Use "
+                        << SBOLD("keep") << " to disable automatic selection.\n";
+                col() << "\n";
+                col() << SBOLD("sync_timecode") << "\n";
+                col() << "\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n";
+                col() << "\n";
+                col() << SBOLD("keep-settings") << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
+                col() << "\n";
 
         } else {
-                cout << "(other options available, use \"fullhelp\" to see complete list of options)\n\n";
+                col() << "(other options available, use \"fullhelp\" to see complete list of options)\n\n";
         }
 
-        cout << "Available color spaces:";
+        col() << "Available color spaces:";
         for (auto & i : uv_to_bmd_codec_map) {
                 if (i != *uv_to_bmd_codec_map.begin()) {
-                        cout << ",";
+                        col() << ",";
                 }
 
-                cout << " " << style::bold << get_codec_name(i.first)
-                        << style::reset;
+                col() << " " << SBOLD(get_codec_name(i.first));
         }
         cout << "\n";
         if (!full) {
@@ -591,11 +586,11 @@ decklink_help(bool full)
         }
 
         printf("Examples:\n");
-        cout << "\t" << style::bold << uv_argv[0] << " -t decklink" << style::reset << " # captures autodetected video from first DeckLink in system\n";
-        cout << "\t" << style::bold << uv_argv[0] << " -t decklink:0:Hi50:UYVY" << style::reset << " # captures 1080i50, 8-bit yuv\n";
-        cout << "\t" << style::bold << uv_argv[0] << " -t decklink:0:10:v210:connection=HDMI" << style::reset << " # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n";
-        cout << "\t" << style::bold << uv_argv[0] << " -t decklink:mode=23ps" << style::reset << " # captures 1080p24, 8-bit yuv from first device\n";
-        cout << "\t" << style::bold << uv_argv[0] << " -t \"decklink:mode=Hp30:codec=v210:device=DeckLink HD Extreme 3D+\"" << style::reset << " # captures 1080p30, 10-bit yuv from DeckLink HD Extreme 3D+\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink") << " # captures autodetected video from first DeckLink in system\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:0:Hi50:UYVY") << " # captures 1080i50, 8-bit yuv\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:0:10:v210:connection=HDMI") << " # captures 10th format from a card (alternative syntax), 10-bit YUV, from HDMI\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:mode=23ps") << " # captures 1080p24, 8-bit yuv from first device\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t \"decklink:mode=Hp30:codec=v210:device=DeckLink HD Extreme 3D+\"") << " # captures 1080p30, 10-bit yuv from DeckLink HD Extreme 3D+\n";
 
 	printf("\n");
 
@@ -1742,8 +1737,7 @@ static void print_input_modes (IDeckLink* deckLink)
         list<tuple<int, string, string, string>> ret = get_input_modes (deckLink);
 	printf("\tcapture modes:\n");
         for (auto &i : ret) {
-                cout << "\t\t" << right << style::bold << setw(2) << get<0>(i) <<
-                        " (" << get<1>(i) << ")" << style::reset  << ") " <<
+                col() << "\t\t" << right << setw(2) << SBOLD(get<0>(i) << " (" << get<1>(i) << ")") << ") " <<
                         left << setw(20) << get<2>(i) << internal << "  " <<
                         get<3>(i) << "\n";
         }
