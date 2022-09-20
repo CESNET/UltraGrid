@@ -1042,17 +1042,9 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
         const char *fmt = vidcap_params_get_fmt(params);
-	int dnum, mnum;
 
-
-	IDeckLinkIterator*	deckLinkIterator;
-	IDeckLink*		deckLink;
-	HRESULT			result;
-
-	IDeckLinkInput*			deckLinkInput = NULL;
 	IDeckLinkDisplayModeIterator*	displayModeIterator = NULL;
 	IDeckLinkDisplayMode*		displayMode = NULL;
-	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
         BMDAudioConnection              audioConnection = bmdAudioConnectionEmbedded;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
@@ -1122,10 +1114,10 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i) {
                 struct tile * tile = vf_get_tile(s->frame, i);
-                dnum = 0;
-                deckLink = NULL;
+                int dnum = 0;
+                IDeckLink *deckLink = nullptr;
                 // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-                deckLinkIterator = create_decklink_iterator(true, i == 0 ? true : false);
+                IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true, i == 0 ? true : false);
                 if (deckLinkIterator == NULL) {
                         vf_free(s->frame);
                         delete s;
@@ -1171,12 +1163,12 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 }
 
                 // Query the DeckLink for its configuration interface
+                IDeckLinkInput *&deckLinkInput = s->state[i].deckLinkInput;
                 EXIT_IF_FAILED(deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput), "Could not obtain the IDeckLinkInput interface");
-                s->state[i].deckLinkInput = deckLinkInput;
 
                 // Query the DeckLink for its configuration interface
+                IDeckLinkConfiguration *&deckLinkConfiguration = s->state[i].deckLinkConfiguration;
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration), "Could not obtain the IDeckLinkConfiguration interface");
-                s->state[i].deckLinkConfiguration = deckLinkConfiguration;
 
                 IDeckLinkProfileAttributes *deckLinkAttributes;
                 EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
@@ -1211,7 +1203,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 EXIT_IF_FAILED(deckLinkInput->GetDisplayModeIterator(&displayModeIterator),
                                 "Could not obtain the video input display mode iterator:");
 
-                mnum = 0;
+                int mnum = 0;
 #define MODE_SPEC_AUTODETECT -1
 #define MODE_SPEC_FOURCC -2
 #define MODE_SPEC_DETECTED -3
@@ -1274,8 +1266,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 
                 if (displayMode) {
                         BMD_STR displayModeString = NULL;
-                        result = displayMode->GetName(&displayModeString);
-                        if (result == S_OK) {
+                        if (HRESULT result = displayMode->GetName(&displayModeString); result == S_OK) {
                                 char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
                                 LOG(LOG_LEVEL_INFO) << "The desired display mode is supported: " << displayModeCString << "\n";
                                 release_bmd_api_str(displayModeString);
@@ -1319,8 +1310,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         goto error;
                 }
 
-                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->enable_flags);
-                if (result != S_OK) {
+                if (HRESULT result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->enable_flags); result != S_OK) {
                         switch (result) {
                                 case E_INVALIDARG:
                                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "You have required invalid video mode and pixel format combination.\n");
@@ -1364,9 +1354,8 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                                 goto error;
                         }
                         if (s->audio_consumer_levels != -1) {
-                                result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
-                                                s->audio_consumer_levels == 1 ? true : false);
-                                if(result != S_OK) {
+                                if (HRESULT result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
+                                                s->audio_consumer_levels == 1 ? true : false); result != S_OK) {
                                         log_msg(LOG_LEVEL_INFO, MOD_NAME "Unable set input audio consumer levels.\n");
                                 }
                         }
@@ -1397,15 +1386,8 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 	return VIDCAP_INIT_OK;
 
 error:
-	if(displayMode != NULL) {
-		displayMode->Release();
-		displayMode = NULL;
-	}
-
-        if (displayModeIterator != NULL){
-                displayModeIterator->Release();
-                displayModeIterator = NULL;
-        }
+        RELEASE_IF_NOT_NULL(displayMode);
+        RELEASE_IF_NOT_NULL(displayModeIterator);
 
         if (s) {
                 cleanup_common(s);
