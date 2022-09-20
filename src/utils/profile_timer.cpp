@@ -104,8 +104,7 @@ Profile_timer::Profile_timer(Profiler_thread_inst& profiler, std::string name) :
 }
 
 Profile_timer::Profile_timer(Profile_timer&& o) :
-        profiler(o.profiler),
-        event(o.event)
+        profiler(o.profiler)
 {
         std::swap(event, o.event);
 }

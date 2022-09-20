@@ -36,9 +36,12 @@ struct Profile_event {
                 end(),
                 thread_id(thread_id) {  }
 
+        Profile_event() = default;
+
         std::string name;
         std::chrono::steady_clock::time_point::rep start;
         std::chrono::steady_clock::time_point::rep end;
+
         std::thread::id thread_id;
 };
 
