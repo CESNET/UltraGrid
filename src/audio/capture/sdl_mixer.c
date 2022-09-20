@@ -155,6 +155,7 @@ static void * audio_cap_sdl_mixer_init(const char *cfg)
         int ret = parse_opts(s, ccfg);
         free(ccfg);
         if (ret != 0) {
+                free(s);
                 return ret < 0 ? NULL : &audio_init_state_ok;
         }
 

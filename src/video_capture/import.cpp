@@ -1014,7 +1014,9 @@ static void reset_import(struct vidcap_import_state *s)
                 s->audio_state.played_samples = 0;
                 s->audio_state.samples_read = 0;
                 ring_buffer_flush(s->audio_state.data);
-                wav_seek(s->audio_state.file, 0L, SEEK_SET, &s->audio_state.metadata);
+                if (wav_seek(s->audio_state.file, 0L, SEEK_SET, &s->audio_state.metadata) != 0) {
+                        perror("wav_seek");
+                }
                 s->audio_state.video_frames_played = 0;
         }
 
