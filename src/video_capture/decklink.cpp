@@ -139,6 +139,9 @@ struct device_state {
         IDeckLinkProfileAttributes *deckLinkAttributes    = nullptr;
         IDeckLinkConfiguration     *deckLinkConfiguration = nullptr;
         string                      device_id = "0"; // either numeric value or device name
+        bool                        audio                 = false; /* wheather we process audio or not */
+        struct tile                *tile                  = nullptr;
+        bool init(struct vidcap_decklink_state *s, struct tile *tile, BMDAudioConnection audioConnection);
 };
 
 struct vidcap_decklink_state {
@@ -157,7 +160,6 @@ struct vidcap_decklink_state {
 	condition_variable      boss_cv;
 
         int                     frames = 0;
-        bool                    grab_audio{false}; /* wheather we process audio or not */
         bool                    stereo{false}; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         bool                    sync_timecode{false}; /* use timecode when grabbing from multiple inputs */
         static_assert(bmdVideoConnectionUnspecified == BMD_OPT_DEFAULT, "Connection unspecified is not 0!");
@@ -208,9 +210,9 @@ public:
         IDeckLinkVideoInputFrame     *lastFrame{nullptr};
         uint32_t                      timecode{};
         struct vidcap_decklink_state *s;
-        int                           i; ///< index of the device
+        struct device_state          &device;
 	
-        VideoDelegate(struct vidcap_decklink_state *state, int index) : s(state), i(index) {
+        VideoDelegate(struct vidcap_decklink_state *state, struct device_state &device_) : s(state), device(device_) {
         }
 	
         virtual ~VideoDelegate () {
@@ -290,14 +292,13 @@ public:
                 s->set_codec(m.at(csBitDepth));
                 configuredCsBitDepth = csBitDepth;
 
-                IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
+                IDeckLinkInput *deckLinkInput = device.deckLinkInput;
                 deckLinkInput->PauseStreams();
                 BMDPixelFormat pf{};
-                HRESULT result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
+                HRESULT result = set_display_mode_properties(s, device.tile, mode, /* out */ &pf);
                 if(result == S_OK) {
                         CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
-                        if (!s->grab_audio ||
-                                        this->i != 0) { //TODO: figure out output from multiple streams
+                        if (!device.audio) { //TODO: figure out output from multiple streams
                                 deckLinkInput->DisableAudioInput();
                         } else {
                                 deckLinkInput->EnableAudioInput(
@@ -959,12 +960,12 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
  * This function is used when device does not support autodetection and user
  * request explicitly to detect the format (:detect-format)
  */
-static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDisplayMode, int card_idx)
+static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDisplayMode, struct device_state *device)
 {
         IDeckLinkDisplayMode *displayMode;
         HRESULT result;
         IDeckLinkDisplayModeIterator*	displayModeIterator = NULL;
-        result = s->state[card_idx].deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
+        result = device->deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
         if (result != S_OK) {
                 return false;
         }
@@ -975,16 +976,16 @@ static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDi
                 for (BMDPixelFormat pf : pfs) {
                         uint32_t mode = ntohl(displayMode->GetDisplayMode());
                         log_msg(LOG_LEVEL_NOTICE, "DeckLink: trying mode %.4s, pixel format %.4s\n", (const char *) &mode, (const char *) &pf);
-                        result = s->state[card_idx].deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, 0);
+                        result = device->deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, 0);
                         if (result == S_OK) {
-                                s->state[card_idx].deckLinkInput->StartStreams();
+                                device->deckLinkInput->StartStreams();
                                 unique_lock<mutex> lk(s->lock);
-                                s->boss_cv.wait_for(lk, chrono::milliseconds(1200), [s, card_idx]{return s->state[card_idx].delegate->newFrameReady;});
+                                s->boss_cv.wait_for(lk, chrono::milliseconds(1200), [device]{return device->delegate->newFrameReady;});
                                 lk.unlock();
-                                s->state[card_idx].deckLinkInput->StopStreams();
-                                s->state[card_idx].deckLinkInput->DisableVideoInput();
+                                device->deckLinkInput->StopStreams();
+                                device->deckLinkInput->DisableVideoInput();
 
-                                if (s->state[card_idx].delegate->newFrameReady) {
+                                if (device->delegate->newFrameReady) {
                                         *outDisplayMode = displayMode->GetDisplayMode();
                                         // set also detected codec (!)
                                         s->set_codec(pf == bmdFormat8BitYUV ? UYVY : RGBA);
@@ -1004,11 +1005,10 @@ static bool detect_format(struct vidcap_decklink_state *s, BMDDisplayMode *outDi
 
 static bool decklink_cap_configure_audio(struct vidcap_decklink_state *s, unsigned int audio_src_flag, BMDAudioConnection *audioConnection) {
         if (audio_src_flag == 0U) {
-                s->grab_audio = false;
                 return true;
         }
 
-        s->grab_audio = true;
+        s->state[0].audio = true;
         switch (audio_src_flag) {
                 case VIDCAP_FLAG_AUDIO_EMBEDDED:
                         *audioConnection = bmdAudioConnectionEmbedded;
@@ -1040,16 +1040,278 @@ static bool decklink_cap_configure_audio(struct vidcap_decklink_state *s, unsign
         return true;
 }
 
+#define INIT_ERR() do { RELEASE_IF_NOT_NULL(displayMode); RELEASE_IF_NOT_NULL(displayModeIterator); return false; } while (0)
+bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudioConnection audioConnection)
+{
+        IDeckLinkDisplayModeIterator*   displayModeIterator = NULL;
+        IDeckLinkDisplayMode*           displayMode = NULL;
+
+        tile = t;
+
+        int dnum = 0;
+        // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
+        IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true, false);
+        if (deckLinkIterator == NULL) {
+                vf_free(s->frame);
+                delete s;
+                return VIDCAP_INIT_FAIL;
+        }
+        bool found = false;
+        while (deckLinkIterator->Next(&deckLink) == S_OK) {
+                string deviceName = bmd_get_device_name(deckLink);
+                if (!deviceName.empty() && deviceName == device_id.c_str()) {
+                        found = true;
+                }
+
+                if (isdigit(device_id.c_str()[0]) && atoi(device_id.c_str()) == dnum) {
+                        found = true;
+                }
+
+                if (found) {
+                        break;
+                }
+                dnum++;
+                // Release the IDeckLink instance when we've finished with it to prevent leaks
+                deckLink->Release();
+                deckLink = NULL;
+        }
+        deckLinkIterator->Release();
+        deckLinkIterator = NULL;
+
+        if (!found) {
+                LOG(LOG_LEVEL_ERROR) << "Device " << device_id << " was not found.\n";
+                INIT_ERR();
+        }
+
+        // Print the model name of the DeckLink card
+        string deviceName = bmd_get_device_name(deckLink);
+        if (!deviceName.empty()) {
+                LOG(LOG_LEVEL_INFO) << "Using device " << deviceName << "\n";
+        }
+
+        if (!s->keep_device_defaults && s->profile != BMD_OPT_DEFAULT && s->profile != BMD_OPT_KEEP) {
+                decklink_set_duplex(deckLink, s->profile);
+        }
+
+        // Query the DeckLink for its configuration interface
+        BMD_CHECK(deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput), "Could not obtain the IDeckLinkInput interface", INIT_ERR());
+
+        // Query the DeckLink for its configuration interface
+        BMD_CHECK(deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration), "Could not obtain the IDeckLinkConfiguration interface", INIT_ERR());
+
+        IDeckLinkProfileAttributes *deckLinkAttributes;
+        BMD_CHECK(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes", INIT_ERR());
+
+        BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigVideoInputConnection, s->connection, INIT_ERR());
+        BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, INIT_ERR());
+        BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
+        BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, BMD_NO_ACTION);
+
+        if (s->link != 0) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output link configuration on capture is deprecated and will be removed in future, let us know if this is needed!\n";
+                CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
+        }
+        if (s->use1080psf != BMD_OPT_KEEP) {
+                CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf != 0), "Unable to set output as PsF");
+        }
+
+        // set Callback which returns frames
+        delegate = make_unique<VideoDelegate>(s, *this);
+        deckLinkInput->SetCallback(delegate.get());
+
+        BMDDisplayMode detectedDisplayMode = bmdModeUnknown;
+        if (s->detect_format) {
+                if (!detect_format(s, &detectedDisplayMode, this)) {
+                        LOG(LOG_LEVEL_WARNING) << "Signal could have not been detected!\n";
+                        INIT_ERR();
+                }
+        }
+
+        // Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
+        BMD_CHECK(deckLinkInput->GetDisplayModeIterator(&displayModeIterator),
+                        "Could not obtain the video input display mode iterator:", INIT_ERR());
+
+        int mnum = 0;
+#define MODE_SPEC_AUTODETECT -1
+#define MODE_SPEC_FOURCC -2
+#define MODE_SPEC_DETECTED -3
+        int mode_idx = MODE_SPEC_AUTODETECT;
+
+        // mode selected manually - either by index or FourCC
+        if (s->mode.length() > 0) {
+                if (s->mode.length() <= 2) {
+                        mode_idx = atoi(s->mode.c_str());
+                } else {
+                        mode_idx = MODE_SPEC_FOURCC;
+                }
+        }
+        if (s->detect_format) { // format already detected manually
+                mode_idx = MODE_SPEC_DETECTED;
+        }
+
+        while (displayModeIterator->Next(&displayMode) == S_OK) {
+                if (mode_idx == MODE_SPEC_DETECTED) { // format already detected manually
+                        if (detectedDisplayMode == displayMode->GetDisplayMode()) {
+                                break;
+                        } else {
+                                displayMode->Release();
+                        }
+                } else if (mode_idx == MODE_SPEC_AUTODETECT) { // autodetect, pick first eligible mode and let device autodetect
+                        if (s->stereo && (displayMode->GetFlags() & bmdDisplayModeSupports3D) == 0u) {
+                                displayMode->Release();
+                                continue;
+                        }
+                        auto it = std::find_if(uv_to_bmd_codec_map.begin(),
+                                        uv_to_bmd_codec_map.end(),
+                                        [&s](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == s->codec; });
+                        if (it == uv_to_bmd_codec_map.end()) {
+                                LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
+                                INIT_ERR();
+                        }
+                        BMDPixelFormat pf = it->second;
+                        BMD_BOOL supported = 0;
+                        BMD_CHECK(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
+                        if (supported) {
+                                break;
+                        }
+                } else if (mode_idx != MODE_SPEC_FOURCC) { // manually given idx
+                        if (mode_idx != mnum) {
+                                mnum++;
+                                // Release the IDeckLinkDisplayMode object to prevent a leak
+                                displayMode->Release();
+                                continue;
+                        }
+
+                        mnum++;
+                        break;
+                } else { // manually given FourCC
+                        if (displayMode->GetDisplayMode() == bmd_read_fourcc(s->mode.c_str())) {
+                                break;
+                        }
+                        displayMode->Release();
+                }
+        }
+
+        if (displayMode) {
+                BMD_STR displayModeString = NULL;
+                if (HRESULT result = displayMode->GetName(&displayModeString); result == S_OK) {
+                        char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
+                        LOG(LOG_LEVEL_INFO) << "The desired display mode is supported: " << displayModeCString << "\n";
+                        release_bmd_api_str(displayModeString);
+                        free(displayModeCString);
+                }
+        } else {
+                if (mode_idx == MODE_SPEC_FOURCC) {
+                        log_msg(LOG_LEVEL_ERROR, "Desired mode \"%s\" is invalid or not supported.\n", s->mode.c_str());
+                } else if (mode_idx >= 0) {
+                        log_msg(LOG_LEVEL_ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
+                } else if (mode_idx == MODE_SPEC_AUTODETECT) {
+                        log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Cannot set initial format for autodetection - perhaps imposible combinations of parameters were set.\n");
+                } else {
+                        assert("Invalid mode spec." && 0);
+                }
+                INIT_ERR();
+        }
+
+        BMDPixelFormat pf;
+        BMD_CHECK(set_display_mode_properties(s, tile, displayMode, &pf),
+                        "Could not set display mode properties", INIT_ERR());
+
+        deckLinkInput->StopStreams();
+
+        if (mode_idx == MODE_SPEC_AUTODETECT) {
+                log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
+                BMD_BOOL autodetection;
+                BMD_CHECK(deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection), "Could not verify if device supports autodetection", INIT_ERR());
+                if (autodetection == BMD_FALSE) {
+                        log_msg(LOG_LEVEL_ERROR, "[DeckLink] Device doesn't support format autodetection, you must set it manually or try \"-t decklink:detect-format[:connection=<in>]\"\n");
+                        INIT_ERR();
+                }
+                s->enable_flags |=  bmdVideoInputEnableFormatDetection;
+        }
+
+        BMD_BOOL supported = 0;
+        BMD_CHECK(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
+
+        if (!supported) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";
+                INIT_ERR();
+        }
+
+        if (HRESULT result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->enable_flags); result != S_OK) {
+                switch (result) {
+                        case E_INVALIDARG:
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "You have required invalid video mode and pixel format combination.\n");
+                                break;
+                        case E_ACCESSDENIED:
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to access the hardware or input "
+                                                "stream currently active (another application using it?).\n");
+                                break;
+                        default:
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not enable video input: " << bmd_hresult_to_string(result) << "\n";
+                }
+                INIT_ERR();
+        }
+
+        if (!audio) { //TODO: figure out output from multiple streams
+                deckLinkInput->DisableAudioInput();
+        } else {
+                if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
+                                        audioConnection) == S_OK) {
+                        const map<BMDAudioConnection, string> mapping = {
+                                { bmdAudioConnectionEmbedded, "embedded" },
+                                { bmdAudioConnectionAESEBU, "AES/EBU" },
+                                { bmdAudioConnectionAnalog, "analog" },
+                                { bmdAudioConnectionAnalogXLR, "analogXLR" },
+                                { bmdAudioConnectionAnalogRCA, "analogRCA" },
+                                { bmdAudioConnectionMicrophone, "microphone" },
+                                { bmdAudioConnectionHeadphones, "headphones" },
+                        };
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Audio input set to: %s\n", mapping.find(audioConnection) != mapping.end() ? mapping.at(audioConnection).c_str() : "unknown");
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
+
+                }
+                if (s->audio.ch_count != 1 &&
+                                s->audio.ch_count != 2 &&
+                                s->audio.ch_count != 8 &&
+                                s->audio.ch_count != 16) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Decklink cannot grab %d audio channels. "
+                                        "Only 1, 2, 8 or 16 are possible.", s->audio.ch_count);
+                        INIT_ERR();
+                }
+                if (s->audio_consumer_levels != -1) {
+                        if (HRESULT result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
+                                                s->audio_consumer_levels == 1 ? true : false); result != S_OK) {
+                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Unable set input audio consumer levels.\n");
+                        }
+                }
+                CALL_AND_CHECK(deckLinkInput->EnableAudioInput(
+                                        bmdAudioSampleRate48kHz,
+                                        s->audio.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
+                                        max(s->audio.ch_count, 2)), // capture at least 2
+                                "EnableAudioInput",
+                                "Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio));
+        }
+
+        // Start streaming
+        printf("Start capture\n");
+        BMD_CHECK(deckLinkInput->StartStreams(), "Could not start stream", INIT_ERR());
+
+        displayMode->Release();
+        displayMode = NULL;
+
+        displayModeIterator->Release();
+        displayModeIterator = NULL;
+        return true;
+}
+
 static int
 vidcap_decklink_init(struct vidcap_params *params, void **state)
 {
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
         const char *fmt = vidcap_params_get_fmt(params);
-
-	IDeckLinkDisplayModeIterator*	displayModeIterator = NULL;
-	IDeckLinkDisplayMode*		displayMode = NULL;
-        BMDAudioConnection              audioConnection = bmdAudioConnectionEmbedded;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 decklink_help(strcmp(fmt, "fullhelp") == 0);
@@ -1100,6 +1362,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 s->set_codec(UYVY); // default one
         }
 
+        BMDAudioConnection audioConnection = bmdAudioConnectionEmbedded;
         if (!decklink_cap_configure_audio(s, vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY, &audioConnection)) {
                 delete s;
                 return VIDCAP_INIT_FAIL;
@@ -1121,269 +1384,10 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i) {
-                struct tile * tile = vf_get_tile(s->frame, i);
-                int dnum = 0;
-                IDeckLink *deckLink = nullptr;
-                // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-                IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true, false);
-                if (deckLinkIterator == NULL) {
-                        vf_free(s->frame);
-                        delete s;
+                if (!s->state[i].init(s, vf_get_tile(s->frame, i), audioConnection)) {
+                        cleanup_common(s);
                         return VIDCAP_INIT_FAIL;
                 }
-                bool found = false;
-                while (deckLinkIterator->Next(&deckLink) == S_OK) {
-                        string deviceName = bmd_get_device_name(deckLink);
-                        if (!deviceName.empty() && deviceName == s->state[i].device_id.c_str()) {
-                                found = true;
-                        }
-
-                        if (isdigit(s->state[i].device_id.c_str()[0]) && atoi(s->state[i].device_id.c_str()) == dnum) {
-                                found = true;
-                        }
-
-                        if (found) {
-                                break;
-                        }
-                        dnum++;
-                        // Release the IDeckLink instance when we've finished with it to prevent leaks
-                        deckLink->Release();
-                        deckLink = NULL;
-                }
-                deckLinkIterator->Release();
-                deckLinkIterator = NULL;
-
-                if (!found) {
-                        LOG(LOG_LEVEL_ERROR) << "Device " << s->state[i].device_id << " was not found.\n";
-                        goto error;
-                }
-
-                s->state[i].deckLink = deckLink;
-
-                // Print the model name of the DeckLink card
-                string deviceName = bmd_get_device_name(deckLink);
-                if (!deviceName.empty()) {
-                        LOG(LOG_LEVEL_INFO) << "Using device " << deviceName << "\n";
-                }
-
-                if (!s->keep_device_defaults && s->profile != BMD_OPT_DEFAULT && s->profile != BMD_OPT_KEEP) {
-                        decklink_set_duplex(s->state[i].deckLink, s->profile);
-                }
-
-                // Query the DeckLink for its configuration interface
-                IDeckLinkInput *&deckLinkInput = s->state[i].deckLinkInput;
-                EXIT_IF_FAILED(deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput), "Could not obtain the IDeckLinkInput interface");
-
-                // Query the DeckLink for its configuration interface
-                IDeckLinkConfiguration *&deckLinkConfiguration = s->state[i].deckLinkConfiguration;
-                EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration), "Could not obtain the IDeckLinkConfiguration interface");
-
-                IDeckLinkProfileAttributes *deckLinkAttributes;
-                EXIT_IF_FAILED(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes");
-                s->state[i].deckLinkAttributes = deckLinkAttributes;
-
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConnection, s->connection, true);
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, true);
-                BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, false);
-
-                if (s->link != 0) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output link configuration on capture is deprecated and will be removed in future, let us know if this is needed!\n";
-                        CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
-                }
-                if (s->use1080psf != BMD_OPT_KEEP) {
-                        CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf != 0), "Unable to set output as PsF");
-                }
-
-                // set Callback which returns frames
-                s->state[i].delegate = make_unique<VideoDelegate>(s, i);
-                deckLinkInput->SetCallback(s->state[i].delegate.get());
-
-                BMDDisplayMode detectedDisplayMode = bmdModeUnknown;
-                if (s->detect_format) {
-                        if (!detect_format(s, &detectedDisplayMode, i)) {
-                                LOG(LOG_LEVEL_WARNING) << "Signal could have not been detected!\n";
-                                goto error;
-                        }
-                }
-
-                // Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
-                EXIT_IF_FAILED(deckLinkInput->GetDisplayModeIterator(&displayModeIterator),
-                                "Could not obtain the video input display mode iterator:");
-
-                int mnum = 0;
-#define MODE_SPEC_AUTODETECT -1
-#define MODE_SPEC_FOURCC -2
-#define MODE_SPEC_DETECTED -3
-                int mode_idx = MODE_SPEC_AUTODETECT;
-
-                // mode selected manually - either by index or FourCC
-                if (s->mode.length() > 0) {
-                        if (s->mode.length() <= 2) {
-                                mode_idx = atoi(s->mode.c_str());
-                        } else {
-                                mode_idx = MODE_SPEC_FOURCC;
-                        }
-                }
-                if (s->detect_format) { // format already detected manually
-                        mode_idx = MODE_SPEC_DETECTED;
-                }
-
-                while (displayModeIterator->Next(&displayMode) == S_OK) {
-                        if (mode_idx == MODE_SPEC_DETECTED) { // format already detected manually
-                                if (detectedDisplayMode == displayMode->GetDisplayMode()) {
-                                        break;
-                                } else {
-                                        displayMode->Release();
-                                }
-                        } else if (mode_idx == MODE_SPEC_AUTODETECT) { // autodetect, pick first eligible mode and let device autodetect
-                                if (s->stereo && (displayMode->GetFlags() & bmdDisplayModeSupports3D) == 0u) {
-                                        displayMode->Release();
-                                        continue;
-                                }
-                                auto it = std::find_if(uv_to_bmd_codec_map.begin(),
-                                                uv_to_bmd_codec_map.end(),
-                                                [&s](const std::pair<codec_t, BMDPixelFormat>& el){ return el.first == s->codec; });
-                                if (it == uv_to_bmd_codec_map.end()) {
-                                        LOG(LOG_LEVEL_ERROR) << "Unsupported codec: " <<  get_codec_name(s->codec) << "!\n";
-                                        goto error;
-                                }
-                                BMDPixelFormat pf = it->second;
-                                BMD_BOOL supported = 0;
-                                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
-                                if (supported) {
-                                        break;
-                                }
-                        } else if (mode_idx != MODE_SPEC_FOURCC) { // manually given idx
-                                if (mode_idx != mnum) {
-                                        mnum++;
-                                        // Release the IDeckLinkDisplayMode object to prevent a leak
-                                        displayMode->Release();
-                                        continue;
-                                }
-
-                                mnum++;
-                                break;
-                        } else { // manually given FourCC
-                                if (displayMode->GetDisplayMode() == bmd_read_fourcc(s->mode.c_str())) {
-                                        break;
-                                }
-                                displayMode->Release();
-                        }
-                }
-
-                if (displayMode) {
-                        BMD_STR displayModeString = NULL;
-                        if (HRESULT result = displayMode->GetName(&displayModeString); result == S_OK) {
-                                char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
-                                LOG(LOG_LEVEL_INFO) << "The desired display mode is supported: " << displayModeCString << "\n";
-                                release_bmd_api_str(displayModeString);
-                                free(displayModeCString);
-                        }
-                } else {
-                        if (mode_idx == MODE_SPEC_FOURCC) {
-                                log_msg(LOG_LEVEL_ERROR, "Desired mode \"%s\" is invalid or not supported.\n", s->mode.c_str());
-                        } else if (mode_idx >= 0) {
-                                log_msg(LOG_LEVEL_ERROR, "Desired mode index %s is out of bounds.\n", s->mode.c_str());
-                        } else if (mode_idx == MODE_SPEC_AUTODETECT) {
-                                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Cannot set initial format for autodetection - perhaps imposible combinations of parameters were set.\n");
-                        } else {
-                                assert("Invalid mode spec." && 0);
-                        }
-                        goto error;
-                }
-
-                BMDPixelFormat pf;
-                EXIT_IF_FAILED(set_display_mode_properties(s, tile, displayMode, &pf),
-                                "Could not set display mode properties");
-
-                deckLinkInput->StopStreams();
-
-                if (mode_idx == MODE_SPEC_AUTODETECT) {
-                        log_msg(LOG_LEVEL_INFO, "[DeckLink] Trying to autodetect format.\n");
-                        BMD_BOOL autodetection;
-                        EXIT_IF_FAILED(deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection), "Could not verify if device supports autodetection");
-                        if (autodetection == BMD_FALSE) {
-                                log_msg(LOG_LEVEL_ERROR, "[DeckLink] Device doesn't support format autodetection, you must set it manually or try \"-t decklink:detect-format[:connection=<in>]\"\n");
-                                goto error;
-                        }
-                        s->enable_flags |=  bmdVideoInputEnableFormatDetection;
-                }
-
-                BMD_BOOL supported = 0;
-                EXIT_IF_FAILED(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode");
-
-                if (!supported) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";
-                        goto error;
-                }
-
-                if (HRESULT result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->enable_flags); result != S_OK) {
-                        switch (result) {
-                                case E_INVALIDARG:
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "You have required invalid video mode and pixel format combination.\n");
-                                        break;
-                                case E_ACCESSDENIED:
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to access the hardware or input "
-                                                        "stream currently active (another application using it?).\n");
-                                        break;
-                                default:
-                                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not enable video input: " << bmd_hresult_to_string(result) << "\n";
-                        }
-                        goto error;
-                }
-
-                if (!s->grab_audio ||
-                                i != 0) { //TODO: figure out output from multiple streams
-                        deckLinkInput->DisableAudioInput();
-                } else {
-                        if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
-                                                audioConnection) == S_OK) {
-                                const map<BMDAudioConnection, string> mapping = {
-                                        { bmdAudioConnectionEmbedded, "embedded" },
-                                        { bmdAudioConnectionAESEBU, "AES/EBU" },
-                                        { bmdAudioConnectionAnalog, "analog" },
-                                        { bmdAudioConnectionAnalogXLR, "analogXLR" },
-                                        { bmdAudioConnectionAnalogRCA, "analogRCA" },
-                                        { bmdAudioConnectionMicrophone, "microphone" },
-                                        { bmdAudioConnectionHeadphones, "headphones" },
-                                };
-                                log_msg(LOG_LEVEL_INFO, MOD_NAME "Audio input set to: %s\n", mapping.find(audioConnection) != mapping.end() ? mapping.at(audioConnection).c_str() : "unknown");
-                        } else {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
-
-                        }
-                        if (s->audio.ch_count != 1 &&
-                                        s->audio.ch_count != 2 &&
-                                        s->audio.ch_count != 8 &&
-                                        s->audio.ch_count != 16) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Decklink cannot grab %d audio channels. "
-                                                "Only 1, 2, 8 or 16 are possible.", s->audio.ch_count);
-                                goto error;
-                        }
-                        if (s->audio_consumer_levels != -1) {
-                                if (HRESULT result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
-                                                s->audio_consumer_levels == 1 ? true : false); result != S_OK) {
-                                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Unable set input audio consumer levels.\n");
-                                }
-                        }
-                        CALL_AND_CHECK(deckLinkInput->EnableAudioInput(
-                                                bmdAudioSampleRate48kHz,
-                                                s->audio.bps == 2 ? bmdAudioSampleType16bitInteger : bmdAudioSampleType32bitInteger,
-                                                max(s->audio.ch_count, 2)), // capture at least 2
-                                        "EnableAudioInput",
-                                        "Decklink audio capture initialized sucessfully: " << audio_desc_from_frame(&s->audio));
-                }
-
-                // Start streaming
-                printf("Start capture\n");
-                EXIT_IF_FAILED(deckLinkInput->StartStreams(), "Could not start stream");
-
-                displayMode->Release();
-                displayMode = NULL;
-
-                displayModeIterator->Release();
-                displayModeIterator = NULL;
         }
 
 	printf("DeckLink capture device enabled\n");
@@ -1392,16 +1396,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 
         *state = s;
 	return VIDCAP_INIT_OK;
-
-error:
-        RELEASE_IF_NOT_NULL(displayMode);
-        RELEASE_IF_NOT_NULL(displayModeIterator);
-
-        if (s) {
-                cleanup_common(s);
-        }
-
-	return VIDCAP_INIT_FAIL;
 }
 
 static void cleanup_common(struct vidcap_decklink_state *s) {
@@ -1442,7 +1436,7 @@ vidcap_decklink_done(void *state)
                         LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Could not stop stream: " << bmd_hresult_to_string(result) << "\n";
 		}
 
-                if(s->grab_audio && i == 0) {
+                if (s->state[i].audio) {
                         result = s->state[i].deckLinkInput->DisableAudioInput();
                         if (result != S_OK) {
                                 LOG(LOG_LEVEL_ERROR) << MODULE_NAME "Could disable audio input: " << bmd_hresult_to_string(result) << "\n";

@@ -131,6 +131,30 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
         }\
 } while (0)
 
+/// action to BMD_CONFIG_SET_ACTION if no operation should be performed if error
+#define BMD_NO_ACTION
+/// same as BMD_CONFIG_SET, uses action instead of fatal
+#define BMD_CONFIG_SET_ACTION(type, key, val, action) do {\
+        if (val != (decltype(val)) BMD_OPT_DEFAULT && val != (decltype(val)) BMD_OPT_KEEP) {\
+                HRESULT result = deckLinkConfiguration->Set##type(key, val);\
+                if (result != S_OK) {\
+                        LOG(strcmp(#action, "BMD_NO_ACTION") == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
+                        action; \
+                } else { \
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: " << val << "\n";\
+                } \
+        }\
+} while (0)
+
+#define BMD_CHECK(cmd, name, action) \
+        do {\
+                HRESULT result = cmd;\
+                if (FAILED(result)) {;\
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
+                        action;\
+                }\
+        } while (0)
+
 
 #define R10K_FULL_OPT "bmd-r10k-full-range"
 
