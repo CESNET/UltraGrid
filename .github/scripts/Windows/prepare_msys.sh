@@ -56,7 +56,8 @@ pacman -Scc --noconfirm
 install_aja() {(
         git clone --depth 1 https://github.com/aja-video/ntv2 AJA
         cd AJA
-        AJA_GH_PATH=https://github.com/$(curl https://github.com/aja-video/ntv2/releases  | grep libs_windows_ | head -n 1 | cut -d '"' -f 2)
+        AJA_GH_RELEASE=$(curl -s https://api.github.com/repos/aja-video/ntv2/releases | jq -r '.[0].assets_url')
+        AJA_GH_PATH=$(curl -s "$AJA_GH_RELEASE" | jq -r '[.[] | select(.name | test(".*libs_windows_.*"))] | .[0].browser_download_url')
         curl -L "$AJA_GH_PATH" -o aja_build.zip
         rm README.md # would be overriden from zip below
         unzip aja_build.zip
