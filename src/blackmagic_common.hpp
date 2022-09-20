@@ -99,6 +99,7 @@ std::string get_str_from_bmd_api_str(BMD_STR string);
 #endif
 
 IDeckLinkIterator *create_decklink_iterator(bool verbose = true, bool coinit = true);
+bool decklink_initialize();
 void decklink_uninitialize();
 bool blackmagic_api_version_check();
 void print_decklink_version(void);

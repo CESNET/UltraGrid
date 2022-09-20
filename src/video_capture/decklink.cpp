@@ -180,6 +180,15 @@ struct vidcap_decklink_state {
         bool                    keep_device_defaults = false;
 
         void set_codec(codec_t c);
+
+        vidcap_decklink_state() {
+                if (!decklink_initialize()) {
+                        throw 1;
+                }
+        }
+        ~vidcap_decklink_state() {
+                decklink_uninitialize();
+        }
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -1056,11 +1065,15 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
 
-	struct vidcap_decklink_state *s = new vidcap_decklink_state();
-	if (s == NULL) {
-		LOG(LOG_LEVEL_ERROR) << "Unable to allocate DeckLink state\n";
-		return VIDCAP_INIT_FAIL;
-	}
+        struct vidcap_decklink_state *s = nullptr;
+        try {
+                if ((s = new vidcap_decklink_state()) == nullptr) {
+                        LOG(LOG_LEVEL_ERROR) << "Unable to allocate DeckLink state\n";
+                        return VIDCAP_INIT_FAIL;
+                }
+        } catch(...) {
+                return VIDCAP_INIT_FAIL;
+        }
 
 	// SET UP device and mode
         char *tmp_fmt = strdup(fmt);
@@ -1117,7 +1130,7 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                 int dnum = 0;
                 IDeckLink *deckLink = nullptr;
                 // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-                IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true, i == 0 ? true : false);
+                IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true, false);
                 if (deckLinkIterator == NULL) {
                         vf_free(s->frame);
                         delete s;
@@ -1414,8 +1427,6 @@ static void cleanup_common(struct vidcap_decklink_state *s) {
 
         vf_free(s->frame);
         delete s;
-
-        decklink_uninitialize();
 }
 
 static void
