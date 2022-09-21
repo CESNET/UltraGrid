@@ -1318,7 +1318,6 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         }
 
         // Start streaming
-        printf("Start capture\n");
         BMD_CHECK(deckLinkInput->StartStreams(), "Could not start stream", INIT_ERR());
 
         displayMode->Release();
@@ -1332,8 +1331,6 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
 static int
 vidcap_decklink_init(struct vidcap_params *params, void **state)
 {
-	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
-
         const char *fmt = vidcap_params_get_fmt(params);
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
@@ -1412,10 +1409,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         return VIDCAP_INIT_FAIL;
                 }
         }
-
-	printf("DeckLink capture device enabled\n");
-
-	debug_msg("vidcap_decklink_init - END\n"); /* TOREMOVE */
 
         *state = s;
 	return VIDCAP_INIT_OK;
