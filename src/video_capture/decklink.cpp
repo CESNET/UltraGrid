@@ -963,9 +963,9 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                 s->frame->interlacing = PROGRESSIVE;
         }
 
-        LOG(LOG_LEVEL_DEBUG) << displayModeString << " \t " << tile->width << " x " << tile->height << " \t " <<
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << displayModeString << " \t " << tile->width << " x " << tile->height << " \t " <<
                 s->frame->fps << " FPS \t " << s->next_frame_time << " AVAREGE TIME BETWEEN FRAMES\n";
-        cout << "Enable video input: " << displayModeString << "\n";
+        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Enable video input: " << displayModeString << "\n";
 
         tile->data_len =
                 vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
@@ -1102,14 +1102,14 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         deckLinkIterator = NULL;
 
         if (!found) {
-                LOG(LOG_LEVEL_ERROR) << "Device " << device_id << " was not found.\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Device " << device_id << " was not found.\n";
                 INIT_ERR();
         }
 
         // Print the model name of the DeckLink card
         string deviceName = bmd_get_device_name(deckLink);
         if (!deviceName.empty()) {
-                LOG(LOG_LEVEL_INFO) << "Using device " << deviceName << "\n";
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "Using device " << deviceName << "\n";
         }
 
         if (!s->keep_device_defaults && s->profile != BMD_OPT_DEFAULT && s->profile != BMD_OPT_KEEP) {
