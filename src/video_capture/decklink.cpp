@@ -318,26 +318,25 @@ public:
                 IDeckLinkInput *deckLinkInput = device.deckLinkInput;
                 deckLinkInput->PauseStreams();
                 BMDPixelFormat pf{};
-                HRESULT result = set_display_mode_properties(s, device.tile, mode, /* out */ &pf);
-                if(result == S_OK) {
-                        CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
-                        if (!device.audio) { //TODO: figure out output from multiple streams
-                                deckLinkInput->DisableAudioInput();
-                        } else {
-                                deckLinkInput->EnableAudioInput(
-                                        bmdAudioSampleRate48kHz,
-                                        s->audio.bps == 2 ? bmdAudioSampleType16bitInteger :
-                                                bmdAudioSampleType32bitInteger,
-                                        max(s->audio.ch_count, 2)); // BMD isn't able to grab single channel
-                        }
-                        //deckLinkInput->SetCallback(s->state[i].delegate);
-                        deckLinkInput->FlushStreams();
-                        deckLinkInput->StartStreams();
-                } else {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "set_display_mode_properties: " << bmd_hresult_to_string(result) << "\n";\
+                if (HRESULT result = set_display_mode_properties(s, device.tile, mode, /* out */ &pf); FAILED(result)) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "set_display_mode_properties: " << bmd_hresult_to_string(result) << "\n";
+                        return result;
                 }
+                CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
+                if (!device.audio) { //TODO: figure out output from multiple streams
+                        deckLinkInput->DisableAudioInput();
+                } else {
+                        deckLinkInput->EnableAudioInput(
+                                bmdAudioSampleRate48kHz,
+                                s->audio.bps == 2 ? bmdAudioSampleType16bitInteger :
+                                        bmdAudioSampleType32bitInteger,
+                                max(s->audio.ch_count, 2)); // BMD isn't able to grab single channel
+                }
+                //deckLinkInput->SetCallback(s->state[i].delegate);
+                deckLinkInput->FlushStreams();
+                deckLinkInput->StartStreams();
 
-                return result;
+                return S_OK;
 	}
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*) override;
 };
