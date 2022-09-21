@@ -104,6 +104,7 @@ void decklink_uninitialize();
 bool blackmagic_api_version_check();
 void print_decklink_version(void);
 
+bool bmd_check_stereo_profile(IDeckLink *deckLink);
 bool decklink_set_duplex(IDeckLink *decklink, uint32_t profileID);
 std::string bmd_get_device_name(IDeckLink *decklink);
 std::string bmd_get_audio_connection_name(BMDAudioOutputAnalogAESSwitch audioConnection);

@@ -142,6 +142,7 @@ struct device_state {
         bool                        audio                 = false; /* wheather we process audio or not */
         struct tile                *tile                  = nullptr;
         bool init(struct vidcap_decklink_state *s, struct tile *tile, BMDAudioConnection audioConnection);
+        void check_attributes(struct vidcap_decklink_state *s);
 };
 
 struct vidcap_decklink_state {
@@ -1062,6 +1063,13 @@ static bool decklink_cap_configure_audio(struct vidcap_decklink_state *s, unsign
         return true;
 }
 
+void device_state::check_attributes(struct vidcap_decklink_state *s)
+{
+        if (s->stereo) {
+                bmd_check_stereo_profile(deckLink);
+        }
+}
+
 #define INIT_ERR() do { RELEASE_IF_NOT_NULL(displayMode); RELEASE_IF_NOT_NULL(displayModeIterator); return false; } while (0)
 bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudioConnection audioConnection)
 {
@@ -1152,6 +1160,8 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         // Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
         BMD_CHECK(deckLinkInput->GetDisplayModeIterator(&displayModeIterator),
                         "Could not obtain the video input display mode iterator:", INIT_ERR());
+
+        check_attributes(s);
 
         int mnum = 0;
 #define MODE_SPEC_AUTODETECT -1

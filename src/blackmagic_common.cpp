@@ -308,12 +308,26 @@ cleanup:
                 HRESULT result = cmd;\
                 if (FAILED(result)) {;\
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << name << ": " << bmd_hresult_to_string(result) << "\n";\
-			ret = false;\
+			ret = {};\
 			goto cleanup;\
                 }\
         } while (0)
 
 #define RELEASE_IF_NOT_NULL(x) if (x != nullptr) { x->Release(); x = nullptr; }
+
+static BMDProfileID GetDeckLinkProfileID(IDeckLinkProfile* profile)
+{
+        IDeckLinkProfileAttributes*             profileAttributes = nullptr;
+        if (HRESULT result = profile->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttributes); FAILED(result)) {
+                return {};
+        }
+
+        int64_t profileIDInt = 0;
+        // Get Profile ID attribute
+        profileAttributes->GetInt(BMDDeckLinkProfileID, &profileIDInt);
+        profileAttributes->Release();
+        return (BMDProfileID) profileIDInt;
+}
 
 class ProfileCallback : public IDeckLinkProfileCallback
 {
@@ -322,7 +336,7 @@ class ProfileCallback : public IDeckLinkProfileCallback
                         m_requestedProfile->AddRef();
                 }
 
-                HRESULT ProfileChanging (/* in */ [[maybe_unused]] IDeckLinkProfile* profileToBeActivated, /* in */ [[maybe_unused]] BOOL streamsWillBeForcedToStop) override { return S_OK; }
+                HRESULT ProfileChanging (/* in */ [[maybe_unused]] IDeckLinkProfile* profileToBeActivated, /* in */ [[maybe_unused]] BMD_BOOL streamsWillBeForcedToStop) override { return S_OK; }
                 HRESULT ProfileActivated (/* in */ [[maybe_unused]] IDeckLinkProfile* activatedProfile) override {
                         std::lock_guard<std::mutex> lock(m_profileActivatedMutex);
                         {
@@ -432,6 +446,50 @@ cleanup:
         RELEASE_IF_NOT_NULL(it);
         RELEASE_IF_NOT_NULL(manager);
 	return ret;
+}
+
+static BMDProfileID decklink_get_active_profile_id(IDeckLink *decklink)
+{
+        BMDProfileID ret{};
+        IDeckLinkProfileManager *manager = nullptr;
+
+        if (HRESULT result = decklink->QueryInterface(IID_IDeckLinkProfileManager, (void**)&manager); FAILED(result)) {
+                if (result != E_NOINTERFACE) {
+                        LOG(LOG_LEVEL_ERROR) << "Cannot get IDeckLinkProfileManager: " << bmd_hresult_to_string(result) << "\n";
+                }
+                return {};
+        }
+
+        IDeckLinkProfileIterator *it = nullptr;
+        IDeckLinkProfile *profile = nullptr;
+        EXIT_IF_FAILED(manager->GetProfiles(&it), "Cannot get profiles iterator");
+        while (it->Next(&profile) == S_OK) {
+                BMD_BOOL isActiveProfile = BMD_FALSE;
+                if ((profile->IsActive(&isActiveProfile) == S_OK) && isActiveProfile) {
+                        ret = GetDeckLinkProfileID(profile);
+                        profile->Release();
+                        break;
+                }
+                profile->Release();
+        }
+
+cleanup:
+        RELEASE_IF_NOT_NULL(it);
+        RELEASE_IF_NOT_NULL(manager);
+        return ret;
+}
+
+bool bmd_check_stereo_profile(IDeckLink *deckLink) {
+        if (BMDProfileID profile_active = decklink_get_active_profile_id(deckLink)) {
+                if (profile_active != bmdProfileOneSubDeviceHalfDuplex &&
+                                profile_active != bmdProfileOneSubDeviceFullDuplex) {
+                        uint32_t profile_fcc_host = ntohl(profile_active);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Active profile '%.4s' may not be compatible with stereo mode.\n", (char *) &profile_fcc_host);
+                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Use 'profile=' parameter to set 1-subdevice mode in either '1dhd' (half) or '1dfd' (full) duplex.\n");
+                }
+                return false;
+        }
+        return true;
 }
 
 string bmd_get_device_name(IDeckLink *decklink) {

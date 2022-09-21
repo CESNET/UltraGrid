@@ -750,6 +750,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
         }
 
         if (s->stereo) {
+                bmd_check_stereo_profile(s->state.at(0).deckLink);
                 if ((int) desc.tile_count != 2) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "In stereo mode exactly "
                                         "2 streams expected, %d received.\n", desc.tile_count);
