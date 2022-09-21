@@ -233,29 +233,51 @@ public:
 		}
         	return newRefValue;
 	}
-        static auto getNotificationEventsStr(BMDVideoInputFormatChangedEvents notificationEvents) noexcept {
-                string reason{};
-                map<BMDDetectedVideoInputFormatFlags, string> m{
+        static auto getNotificationEventsStr(BMDVideoInputFormatChangedEvents notificationEvents, BMDDetectedVideoInputFormatFlags flags) noexcept {
+                string status{};
+                map<BMDDetectedVideoInputFormatFlags, string> change_map {
                         { bmdVideoInputDisplayModeChanged, "display mode"s },
                         { bmdVideoInputFieldDominanceChanged, "field dominance"s },
                         { bmdVideoInputColorspaceChanged, "color space"s },
                 };
-                for (auto &i : m) {
+                for (auto &i : change_map) {
                         if ((notificationEvents & i.first) != 0U) {
-                                if (!reason.empty()) {
-                                        reason += ", "s;
+                                if (!status.empty()) {
+                                        status += ", "s;
                                 }
-                                reason += i.second;
+                                status += i.second;
                         }
                 }
-                return reason.empty() ? "unknown"s : reason;
+                if (status.empty()) {
+                        status = "unknown"s;
+                }
+                status += " - ";
+                map<BMDDetectedVideoInputFormatFlags, string> flag_map {
+                        { bmdDetectedVideoInputYCbCr422, "YCbCr422"s },
+                        { bmdDetectedVideoInputRGB444, "RGB444"s },
+                        { bmdDetectedVideoInputDualStream3D, "DualStream3D"s },
+                        { bmdDetectedVideoInput12BitDepth, "12bit"s },
+                        { bmdDetectedVideoInput10BitDepth, "10bit"s },
+                        { bmdDetectedVideoInput8BitDepth, "8bit"s },
+                };
+                bool first = true;
+                for (auto &i : flag_map) {
+                        if ((flags & i.first) != 0U) {
+                                if (!first) {
+                                        status += ", "s;
+                                }
+                                status += i.second;
+                                first = false;
+                        }
+                }
+                return status;
         }
 
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
                         BMDVideoInputFormatChangedEvents notificationEvents,
                         IDeckLinkDisplayMode* mode,
                         BMDDetectedVideoInputFormatFlags flags) noexcept override {
-                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << getNotificationEventsStr(notificationEvents) << ").\n";
+                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << getNotificationEventsStr(notificationEvents, flags) << ").\n";
                 notificationEvents &= ~bmdVideoInputFieldDominanceChanged; // ignore field dominance change
                 if (notificationEvents == 0U) {
                         return S_OK;
