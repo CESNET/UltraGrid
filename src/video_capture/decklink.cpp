@@ -283,10 +283,11 @@ public:
                         return S_OK;
                 }
 
-		if ((flags & bmdDetectedVideoInputDualStream3D) != 0u && !s->stereo) {
-			LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Stereoscopic 3D detected but not enabled! Please supply a \"3D\" parameter.\n";
-			return E_FAIL;
-		}
+                bool detected_3d = (flags & bmdDetectedVideoInputDualStream3D) != 0U;
+                if ((detected_3d && !s->stereo) || ((!detected_3d && s->stereo))) {
+                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Stereoscopic 3D " << (detected_3d ? "" : "not ") << "detected but " << (s->stereo ? "" : "not ") << "enabled!" << (detected_3d ? " Please supply a \"3D\" parameter." : "") << "\n";
+                        return E_FAIL;
+                }
                 BMDDetectedVideoInputFormatFlags csBitDepth = flags & (csMask | bitDepthMask);
                 if ((csBitDepth & bitDepthMask) == 0U) { // if no bit depth, assume 8-bit
                         csBitDepth |= bmdDetectedVideoInput8BitDepth;
