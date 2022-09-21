@@ -42,6 +42,7 @@
 #endif
 
 #include <algorithm>
+#include <condition_variable>
 #include <iomanip>
 #include <sstream>
 #include <unordered_map>
@@ -314,7 +315,58 @@ cleanup:
 
 #define RELEASE_IF_NOT_NULL(x) if (x != nullptr) { x->Release(); x = nullptr; }
 
+class ProfileCallback : public IDeckLinkProfileCallback
+{
+        public:
+                ProfileCallback(IDeckLinkProfile *requestedProfile) : m_requestedProfile(requestedProfile) {
+                        m_requestedProfile->AddRef();
+                }
 
+                HRESULT ProfileChanging (/* in */ [[maybe_unused]] IDeckLinkProfile* profileToBeActivated, /* in */ [[maybe_unused]] BOOL streamsWillBeForcedToStop) override { return S_OK; }
+                HRESULT ProfileActivated (/* in */ [[maybe_unused]] IDeckLinkProfile* activatedProfile) override {
+                        std::lock_guard<std::mutex> lock(m_profileActivatedMutex);
+                        {
+                                m_requestedProfileActivated = true;
+                                return S_OK;
+                        }
+                        m_profileActivatedCondition.notify_one();
+                }
+                HRESULT STDMETHODCALLTYPE QueryInterface([[maybe_unused]] REFIID iid, [[maybe_unused]] LPVOID *ppv) override
+                {
+                        *ppv = nullptr;
+                        return E_NOINTERFACE;
+                }
+                ULONG   STDMETHODCALLTYPE       AddRef() override { return ++m_refCount; }
+                ULONG   STDMETHODCALLTYPE       Release() override {
+                        ULONG refCount = --m_refCount;
+                        if (refCount == 0)
+                                delete this;
+
+                        return refCount;
+                }
+
+                bool WaitForProfileActivation(void) {
+                        BMD_BOOL isActiveProfile = BMD_FALSE;
+                        if ((m_requestedProfile->IsActive(&isActiveProfile) == S_OK) && isActiveProfile) {
+                                LOG(LOG_LEVEL_VERBOSE) << "[DeckLink] Profile already active.\n";
+                                return true;
+                        }
+
+                        LOG(LOG_LEVEL_NOTICE) << "[DeckLink] Waiting for profile activation... (this may take few seconds)\n";
+                        std::unique_lock<std::mutex> lock(m_profileActivatedMutex);
+                        return m_profileActivatedCondition.wait_for(lock, std::chrono::seconds{5}, [&]{ return m_requestedProfileActivated; });
+                }
+                virtual ~ProfileCallback() {
+                        m_requestedProfile->Release();
+                }
+
+        private:
+                IDeckLinkProfile *m_requestedProfile;
+                int m_refCount = 1;
+                std::condition_variable m_profileActivatedCondition;
+                std::mutex              m_profileActivatedMutex;
+                bool m_requestedProfileActivated = false;
+};
 
 /**
  * @param a value from BMDProfileID or bmdDuplexHalf (maximize number of IOs)
@@ -326,6 +378,7 @@ bool decklink_set_duplex(IDeckLink *deckLink, uint32_t profileID)
         IDeckLinkProfileIterator *it = nullptr;
         IDeckLinkProfile *profile = nullptr;
         bool found = false;
+        ProfileCallback *p = nullptr;
 
         EXIT_IF_FAILED(deckLink->QueryInterface(IID_IDeckLinkProfileManager, (void**)&manager), "Cannot set duplex - query profile manager");
 
@@ -348,8 +401,14 @@ bool decklink_set_duplex(IDeckLink *deckLink, uint32_t profileID)
                                 found = true;
                         }
                         if (found) {
+                                p = new ProfileCallback(profile);
+                                BMD_CHECK(manager->SetCallback(p), "IDeckLinkProfileManager::SetCallback", goto cleanup);
                                 if (profile->SetActive() != S_OK) {
                                         LOG(LOG_LEVEL_ERROR) << "[DeckLink] Cannot set profile!\n";
+                                        ret = false;
+                                }
+                                if (!p->WaitForProfileActivation()) {
+                                        LOG(LOG_LEVEL_ERROR) << "[DeckLink] Profile activation timeouted!\n";
                                         ret = false;
                                 }
                         }
@@ -369,6 +428,7 @@ bool decklink_set_duplex(IDeckLink *deckLink, uint32_t profileID)
         }
 
 cleanup:
+        RELEASE_IF_NOT_NULL(p);
         RELEASE_IF_NOT_NULL(it);
         RELEASE_IF_NOT_NULL(manager);
 	return ret;
