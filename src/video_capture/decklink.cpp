@@ -153,7 +153,7 @@ struct vidcap_decklink_state {
         struct audio_frame      audio{};
         queue<IDeckLinkAudioInputPacket *> audioPackets;
         codec_t                 codec{VIDEO_CODEC_NONE};
-        BMDVideoInputFlags enable_flags{0};
+        BMDVideoInputFlags       enable_flags      = bmdVideoInputFlagDefault;
         BMDSupportedVideoModeFlags supported_flags = bmdSupportedVideoModeDefault;
 
         mutex                   lock;
@@ -965,7 +965,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << displayModeString << " \t " << tile->width << " x " << tile->height << " \t " <<
                 s->frame->fps << " FPS \t " << s->next_frame_time << " AVAREGE TIME BETWEEN FRAMES\n";
-        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Enable video input: " << displayModeString << "\n";
+        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Enable video input: " << displayModeString << ((s->enable_flags & bmdVideoInputDualStream3D) != 0U ? " (stereo)" : "") << "\n";
 
         tile->data_len =
                 vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
