@@ -52,7 +52,7 @@
 /**
  * @file
  * @todo
- * Do the rendering in 16 bits
+ * * fix broken tiling (perhaps wrapper over pattern generator)
  */
 
 #include "config.h"
@@ -416,7 +416,9 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 << get_bpp(s->frame->color_spec) << ", pattern: " << s->pattern
                 << ", audio " << (s->grab_audio ? "on" : "off") << "\n";
 
-        if(strip_fmt != NULL) {
+        if (strip_fmt != NULL) {
+                LOG(LOG_LEVEL_ERROR) << "Multi-tile testcard (stripping) is currently broken, you can use eg. \"-t aggregate -t testcard[args] -t testcard[args]\" instead!\n";
+                goto error;
                 if(configure_tiling(s, strip_fmt) != 0) {
                         goto error;
                 }
