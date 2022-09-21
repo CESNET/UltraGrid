@@ -38,8 +38,7 @@ if [ "$ARCH" = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
         apt -y update && apt -y build-dep ffmpeg
         raspbian_build_sdl2
         apt -y remove libavcodec58 && apt -y autoremove
-        git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg
-        git checkout n4.3.3
+        git clone --depth 1 -b n4.3.3 https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg
 
         # apply patches
         find /ffmpeg-arm-patches -name '*.patch' -print0 | xargs -0 -n 1 git apply
