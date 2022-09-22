@@ -26,20 +26,26 @@ check_type() {
 
 ## @brief Returns json for given URL and authorization token while checking errors
 ## @param $1 URL
-## @param $2 GITHUB_TOKEN
+## @param $2 GITHUB_TOKEN (optional)
 ## @param $3 requested type (optional)
 fetch_json() {
-        JSON=$(mktemp)
-        STATUS=$(curl -S -H "Authorization: token ${2?GitHub token is required}" -X GET "${1?URL is required}" -w "%{http_code}" -o "$JSON")
-        if ! is_int "$STATUS" || [ "$STATUS" -ne 200 ]; then
-                echo "HTTP error code $STATUS" >&2
-                echo "JSON: $JSON" >&2
+        json=$(mktemp)
+        url=${1?URL is required}
+        github_token=${2-}
+        req_type=${3-}
+        if [ -n "$github_token" ]; then
+                set -- -H "Authorization: token $github_token"
         fi
-        check_errors "$JSON"
-        if [ -n "${3-}" ]; then
-                check_type "$JSON" "$3"
+        status=$(curl -sS "$@" -X GET "$url" -w "%{http_code}" -o "$json")
+        if ! is_int "$status" || [ "$status" -ne 200 ]; then
+                echo "HTTP error code $status" >&2
+                echo "JSON: $json" >&2
         fi
-        echo "$JSON"
+        check_errors "$json"
+        if [ -n "$req_type" ]; then
+                check_type "$json" "$req_type"
+        fi
+        echo "$json"
 }
 
 ## @brief Checks HTTP error code for success
