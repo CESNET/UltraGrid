@@ -342,8 +342,7 @@ static void *vidcap_file_worker(void *state) {
                                 AVFrame * frame = av_frame_alloc();
                                 int got_frame = 0;
 
-                                struct timeval t0;
-                                gettimeofday(&t0, NULL);
+                                time_ns_t t0 = get_time_in_ns();
                                 ret = avcodec_send_packet(s->vid_ctx, pkt);
                                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
                                         ret = avcodec_receive_frame(s->vid_ctx, frame);
@@ -351,12 +350,10 @@ static void *vidcap_file_worker(void *state) {
                                                 got_frame = 1;
                                         }
                                 }
-                                struct timeval t1;
-                                gettimeofday(&t1, NULL);
+                                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Video decompress duration: %f\n", (get_time_in_ns() - t0) / NS_IN_SEC_DBL);
                                 if (ret != 0) {
                                         print_decoder_error(MOD_NAME, ret);
                                 }
-                                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Video decompress duration: %f\n", tv_diff(t1, t0));
 
                                 if (ret < 0 || !got_frame) {
                                         if (ret < 0) {
