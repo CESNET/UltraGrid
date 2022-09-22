@@ -107,12 +107,12 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "rang.hpp"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "rtp/video_decoders.h"
+#include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/synchronized_queue.h"
 #include "utils/thread.h"
@@ -145,7 +145,6 @@
 
 #define FRAMEBUFFER_NOT_READY(decoder) (decoder->frame == NULL && decoder->out_codec != VIDEO_CODEC_END)
 
-using rang::style;
 using namespace std;
 using namespace std::string_literals;
 using std::chrono::duration_cast;
@@ -206,7 +205,7 @@ struct line_decoder {
         int                  shifts[3];    ///< requested red,green and blue shift (in bits)
         decoder_t            decode_line;  ///< actual decoding function
         unsigned int         dst_linesize; ///< destination linesize
-        unsigned int         dst_pitch;    ///< framebuffer pitch - it can be larger if SDL resolution is larger than data */
+        unsigned int         dst_pitch;    ///< framebuffer pitch - it can be larger if SDL resolution is larger than data
         unsigned int         src_linesize; ///< source linesize
 };
 
@@ -221,24 +220,15 @@ struct reported_statistics_cumul {
         void print() {
                 ostringstream fec;
                 if (fec_ok + fec_nok + fec_corrected > 0) {
-                        fec << " FEC noerr/OK/NOK: "
-                                << style::bold << fec_ok << style::reset
-                                << "/"
-                                << style::bold << fec_corrected << style::reset
-                                << "/"
-                                << style::bold << fec_nok << style::reset;
+                        fec << " FEC noerr/OK/NOK: " << SBOLD(fec_ok) << "/" << SBOLD(fec_corrected) << "/" << SBOLD(fec_nok);
                 }
-                LOG(LOG_LEVEL_INFO) << style::underline << "Video dec stats" << style::reset << " (cumulative): "
-                        << style::bold << displayed + dropped + missing << style::reset
-                        << " total / "
-                        << style::bold << displayed << style::reset
-                        << " disp / "
-                        << style::bold << dropped << style::reset
-                        << " drop / "
-                        << style::bold << corrupted << style::reset
-                        << " corr / "
-                        << style::bold << missing << style::reset
-                        << " missing." << fec.str() << "\n";
+                LOG(LOG_LEVEL_INFO) << SUNDERLINE("Video dec stats") << " (cumulative): "
+                        << SBOLD(displayed + dropped + missing) << " total / "
+                        << SBOLD(displayed) << " disp / "
+                        << SBOLD(dropped) << " drop / "
+                        << SBOLD(corrupted) << " corr / "
+                        << SBOLD(missing) << " missing."
+                        << fec.str() << "\n";
         }
         void update(int buffer_number) {
                 if (last_buffer_number != -1) {
