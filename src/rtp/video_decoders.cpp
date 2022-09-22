@@ -287,6 +287,7 @@ struct frame_msg {
                         }
                         stats.corrupted += is_corrupted;
                         stats.displayed += is_displayed;
+                        stats.dropped += !is_displayed;
                 }
                 vf_free(recv_frame);
                 vf_free(nofec_frame);
@@ -298,8 +299,8 @@ struct frame_msg {
         unique_ptr<map<int, int>[]> pckt_list;
         unsigned long long int received_pkts_cum, expected_pkts_cum;
         struct reported_statistics_cumul &stats;
-        bool is_displayed = false;
         bool is_corrupted = false;
+        bool is_displayed = false;
 };
 
 struct main_msg_reconfigure {
@@ -710,9 +711,7 @@ static void *decompress_thread(void *args) {
                         decoder->frame->ssrc = msg->nofec_frame->ssrc;
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
-                        if (ret == 0) {
-                                msg->is_displayed = true;
-                        }
+                        msg->is_displayed = ret == 0;
                         decoder->frame = display_get_frame(decoder->display);
                 }
 
