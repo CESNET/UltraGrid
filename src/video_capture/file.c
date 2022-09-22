@@ -284,8 +284,10 @@ static void *vidcap_file_worker(void *state) {
                 if (ret == AVERROR_EOF) {
                         if (s->loop) {
                                 CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0), FAIL_WORKER);
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Rewinding the file.\n");
                                 continue;
                         } else {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Playback ended.\n");
                                 s->paused = true;
                                 continue;
                         }
