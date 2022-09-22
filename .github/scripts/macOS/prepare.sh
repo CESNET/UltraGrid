@@ -1,5 +1,8 @@
 #!/bin/bash -eux
 
+# shellcheck source=/dev/null
+. .github/scripts/json-common.sh
+
 TEMP_INST=/tmp/install
 
 CPATH=/usr/local/include:/usr/local/opt/qt/include
@@ -42,9 +45,11 @@ install_aja() {
         git clone --depth 1 https://github.com/aja-video/ntv2 $AJA_DIRECTORY
         cd $AJA_DIRECTORY
         echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> "$GITHUB_ENV"
-        AJA_GH_RELEASE=$(curl -s https://api.github.com/repos/aja-video/ntv2/releases | jq -r '.[0].assets_url')
-        AJA_GH_PATH=$(curl -s "$AJA_GH_RELEASE" | jq -r '[.[] | select(.name | test(".*libs_mac_.*"))] | .[0].browser_download_url')
-        curl -L "$AJA_GH_PATH" | tar xzf -
+        aja_release_json=$(fetch_json https://api.github.com/repos/aja-video/ntv2/releases "" array)
+        aja_gh_release=$(jq -r '.[0].assets_url' "$aja_release_json")
+        rm -- "$aja_release_json"
+        aja_gh_path=$(curl -s "$aja_gh_release" | jq -r '[.[] | select(.name | test(".*libs_mac_.*"))] | .[0].browser_download_url')
+        curl -sSL "$aja_gh_path" | tar xzf -
         sudo cp Release/x64/* /usr/local/lib
         cd $TEMP_INST
 }
