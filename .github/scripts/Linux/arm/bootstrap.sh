@@ -41,7 +41,7 @@ if [ "$ARCH" = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
         git clone --depth 1 -b n4.3.3 https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg
 
         # apply patches
-        find /ffmpeg-arm-patches -name '*.patch' -print0 | xargs -0 -n 1 git apply
+        find /ffmpeg-arm-patches -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git apply
 
         ./configure --enable-gpl --disable-stripping --enable-libaom --enable-libmp3lame --enable-libopenjpeg --enable-libopus --enable-libspeex --enable-libvpx --enable-libwebp --enable-libx265 --enable-omx --enable-neon --enable-libx264 --enable-mmal --enable-omx-rpi --enable-rpi --enable-vout-drm --enable-libdrm --enable-v4l2-request --enable-libudev --cpu=arm1176jzf-s --enable-shared --disable-static
         make -j3 install
