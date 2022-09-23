@@ -283,6 +283,7 @@ static void *vidcap_file_worker(void *state) {
                 int ret = av_read_frame(s->fmt_ctx, pkt);
                 if (ret == AVERROR_EOF) {
                         if (s->loop) {
+                                CHECK_FF(avio_seek(s->fmt_ctx->pb, s->video_stream_idx, SEEK_SET), {}); // handle single JPEG loop, inspired by libavformat's seek_frame_generic because img_read_seek (AVInputFormat::read_seek) doesn't do the job - seeking is inmplemeted just in img2dec if VideoDemuxData::loop == 1
                                 CHECK_FF(avformat_seek_file(s->fmt_ctx, -1, INT64_MIN, s->fmt_ctx->start_time, INT64_MAX, 0), FAIL_WORKER);
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Rewinding the file.\n");
                                 continue;
