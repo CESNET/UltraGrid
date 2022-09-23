@@ -231,7 +231,7 @@ struct uv_to_av_pixfmt {
 codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) ATTRIBUTE(const);
 enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) ATTRIBUTE(const);
 const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) ATTRIBUTE(const);
-void ug_set_av_log_level(void);
+void ug_set_av_logging(void);
 
 #ifdef __cplusplus
 }

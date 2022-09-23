@@ -598,7 +598,7 @@ static compress_module_info get_libavcodec_module_info(){
 
 struct module * libavcodec_compress_init(struct module *parent, const char *opts)
 {
-        ug_set_av_log_level();
+        ug_set_av_logging();
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         /*  register all the codecs (you can also register only the codec
          *         you wish to have smaller code */

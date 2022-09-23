@@ -390,7 +390,7 @@ static void * libavcodec_decompress_init(void)
         struct state_libavcodec_decompress *s =
                 calloc(1, sizeof(struct state_libavcodec_decompress));
 
-        ug_set_av_log_level();
+        ug_set_av_logging();
 
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
         /*   register all the codecs (you can also register only the codec

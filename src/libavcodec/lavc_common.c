@@ -163,14 +163,53 @@ bool libav_codec_has_extradata(codec_t codec) {
         return codec == HFYU || codec == FFV1;
 }
 
+static inline int av_to_uv_log(int level) {
+        level /= 8;
+        if (level <= 0) { // av_quiet + av_panic
+                return level + 1;
+        }
+        if (level <= 3) {
+                return level;
+        }
+        return level + 1;
+}
+
+static inline int uv_to_av_log(int level) {
+        level *= 8;
+        if (level == 8 * LOG_LEVEL_QUIET) {
+                return level - 8;
+        }
+        if (level <= 8 * LOG_LEVEL_NOTICE) { // LOG_LEVEL_NOTICE maps to AV_LOG_INFO
+                return level;
+        }
+        return level - 8;
+}
+
+static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_list vl) {
+        int level = av_to_uv_log(av_level);
+        if (level > log_level) {
+                return;
+        }
+        // avcl handling is taken from av_log_default_callback
+        AVClass* avc = avcl ? *(AVClass **) avcl : NULL;
+        char new_fmt[1024];
+        if (avc) {
+                snprintf(new_fmt, sizeof new_fmt, "[lavc %s @ %p] %s", avc->item_name(avcl), avcl, fmt);
+        } else {
+                snprintf(new_fmt, sizeof new_fmt, "[lavc] %s", fmt);
+        }
+        log_vprintf(level, new_fmt, vl);
+}
+
 ADD_TO_PARAM("lavcd-log-level",
                 "* lavcd-log-level=<num>\n"
                 "  Set libavcodec log level (use UltraGrid range semantics)\n");
 /// Sets specified log level either given explicitly or from UG-wide log_level
-void ug_set_av_log_level() {
+void ug_set_av_logging() {
         const char *param = get_commandline_param("lavcd-log-level");
         int av_log_level = param != NULL ? atoi(param) : log_level;
-        av_log_set_level((av_log_level - 1) * 8);
+        av_log_set_level(uv_to_av_log(av_log_level));
+        av_log_set_callback(av_log_ug_callback);
 }
 
 /* vi: set expandtab sw=8: */
