@@ -89,18 +89,18 @@ static void _dprintf(const char *format, ...)
 #endif                          /* WIN32 */
 }
 
-void log_msg(int level, const char *format, ...)
+int log_vprintf(int level, const char *format, va_list ap)
 {
-        va_list ap;
+        va_list aq;
 
         if (log_level < level) {
-                return;
+                return 0;
         }
 
         // get number of required bytes
-        va_start(ap, format);
-        int size = vsnprintf(NULL, 0, format, ap);
-        va_end(ap);
+        va_copy(aq, ap);
+        int size = vsnprintf(NULL, 0, format, aq);
+        va_end(aq);
 
         // format the string
         auto buf = get_log_output().get_buffer();
@@ -109,12 +109,12 @@ void log_msg(int level, const char *format, ...)
         buf.append(style);
         buf.append(size, '\0');
 
-        va_start(ap, format);
+        va_copy(aq, ap);
         if (vsprintf(buf.data() + style.length(), format, ap) != size) {
-                va_end(ap);
-                return;
+                va_end(aq);
+                return 0;
         }
-        va_end(ap);
+        va_end(aq);
 
         if (get_log_output().is_interactive()) {
                 auto & str = buf.get();
@@ -125,7 +125,17 @@ void log_msg(int level, const char *format, ...)
                         buf.append(TERM_RESET);
                 }
         }
+        int ret = buf.get().size();
         buf.submit();
+        return ret;
+}
+
+void log_msg(int level, const char *format, ...) {
+        va_list ap;
+        va_start(ap, format);
+        log_vprintf(level, format, ap);
+        va_end(ap);
+
 }
 
 void log_msg_once(int level, uint32_t id, const char *msg) {
