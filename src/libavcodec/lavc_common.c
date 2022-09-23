@@ -185,6 +185,18 @@ static inline int uv_to_av_log(int level) {
         return level - 8;
 }
 
+/**
+ * Filters out annoying messages that should not be passed to UltraGrid logger,
+ * eg. complains on JPEG APP markers that FFmpeg decoder almost doesn't use.
+ * @returns 0 - should be printed; 1 - filtered
+ */
+static _Bool av_log_filter(const char *ff_module_name, const char *fmt) {
+        if (ff_module_name && strcmp(ff_module_name, "mjpeg") == 0 && strstr(fmt, "APP") != NULL) {
+                return 1;
+        }
+        return 0;
+}
+
 static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_list vl) {
         int level = av_to_uv_log(av_level);
         if (level > log_level) {
@@ -192,9 +204,13 @@ static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_lis
         }
         // avcl handling is taken from av_log_default_callback
         AVClass* avc = avcl ? *(AVClass **) avcl : NULL;
+        const char *ff_module_name = avc ? avc->item_name(avcl) : NULL;
+        if (av_log_filter(ff_module_name, fmt)) {
+                return;
+        }
         char new_fmt[1024];
-        if (avc) {
-                snprintf(new_fmt, sizeof new_fmt, "[lavc %s @ %p] %s", avc->item_name(avcl), avcl, fmt);
+        if (ff_module_name) {
+                snprintf(new_fmt, sizeof new_fmt, "[lavc %s @ %p] %s", ff_module_name, avcl, fmt);
         } else {
                 snprintf(new_fmt, sizeof new_fmt, "[lavc] %s", fmt);
         }
