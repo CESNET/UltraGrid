@@ -520,7 +520,7 @@ static const struct video_capture_info vidcap_syphon_info = {
         vidcap_syphon_init,
         vidcap_syphon_done,
         vidcap_syphon_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(syphon, &vidcap_syphon_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

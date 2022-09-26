@@ -99,7 +99,7 @@
 #include "types.h"
 #include "video_capture_params.h"
 
-#define VIDEO_CAPTURE_ABI_VERSION 9
+#define VIDEO_CAPTURE_ABI_VERSION 10
 
 #ifdef __cplusplus
 extern "C" {
@@ -126,6 +126,8 @@ struct vidcap_type {
 #define VIDCAP_INIT_AUDIO_NOT_SUPPOTED (-2) ///< card does not support audio
 /// @}
 
+#define VIDCAP_NO_GENERIC_FPS_INDICATOR NULL
+
 /**
  * API for video capture modules
  */
@@ -140,7 +142,7 @@ struct video_capture_info {
         int                    (*init) (struct vidcap_params *param, void **state);
         void                   (*done) (void *state);
         struct video_frame    *(*grab) (void *state, struct audio_frame **audio);
-        bool                    use_generic_fps_indicator; ///@todo use everywhere, then remove
+        const char             *generic_fps_indicator_prefix; ///@todo use everywhere, then remove
 };
 
 struct module;
@@ -153,7 +155,7 @@ int initialize_video_capture(struct module *parent,
                 struct vidcap **state);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
-bool                     vidcap_generic_fps(struct vidcap *state);
+const char              *vidcap_generic_fps(struct vidcap *state);
 
 #ifdef __cplusplus
 }

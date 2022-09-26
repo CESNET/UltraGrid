@@ -1508,7 +1508,7 @@ extern "C" const struct video_capture_info vidcap_dshow_info = {
         vidcap_dshow_init,
         vidcap_dshow_done,
         vidcap_dshow_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(dshow, &vidcap_dshow_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

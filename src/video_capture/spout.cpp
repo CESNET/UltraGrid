@@ -289,7 +289,7 @@ static const struct video_capture_info vidcap_spout_info = {
         vidcap_spout_init,
         vidcap_spout_done,
         vidcap_spout_grab,
-        true
+        MOD_NAME,
 };
 
 REGISTER_MODULE(spout, &vidcap_spout_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

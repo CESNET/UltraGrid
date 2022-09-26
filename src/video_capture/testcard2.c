@@ -542,7 +542,7 @@ static const struct video_capture_info vidcap_testcard2_info = {
         vidcap_testcard2_init,
         vidcap_testcard2_done,
         vidcap_testcard2_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(testcard2, &vidcap_testcard2_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

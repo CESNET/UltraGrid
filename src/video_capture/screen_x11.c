@@ -500,7 +500,7 @@ static const struct video_capture_info vidcap_screen_x11_info = {
         vidcap_screen_x11_init,
         vidcap_screen_x11_done,
         vidcap_screen_x11_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(screen, &vidcap_screen_x11_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

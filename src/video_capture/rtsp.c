@@ -1150,7 +1150,7 @@ static const struct video_capture_info vidcap_rtsp_info = {
         vidcap_rtsp_init,
         vidcap_rtsp_done,
         vidcap_rtsp_grab,
-        true
+        MOD_NAME,
 };
 
 REGISTER_MODULE(rtsp, &vidcap_rtsp_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

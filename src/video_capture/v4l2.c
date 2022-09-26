@@ -872,7 +872,7 @@ static const struct video_capture_info vidcap_v4l2_info = {
         vidcap_v4l2_init,
         vidcap_v4l2_done,
         vidcap_v4l2_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(v4l2, &vidcap_v4l2_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

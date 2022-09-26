@@ -660,7 +660,7 @@ static const struct video_capture_info vidcap_ndi_info = {
         vidcap_ndi_init,
         vidcap_ndi_done,
         vidcap_ndi_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(ndi, &vidcap_ndi_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

@@ -1103,7 +1103,7 @@ static const struct video_capture_info vidcap_bluefish444_info = {
         vidcap_bluefish444_init,
         vidcap_bluefish444_done,
         vidcap_bluefish444_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(bluefish444, &vidcap_bluefish444_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

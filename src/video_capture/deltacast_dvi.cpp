@@ -780,7 +780,7 @@ static const struct video_capture_info vidcap_deltacast_dvi_info = {
         vidcap_deltacast_dvi_init,
         vidcap_deltacast_dvi_done,
         vidcap_deltacast_dvi_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(deltacast-dv, &vidcap_deltacast_dvi_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

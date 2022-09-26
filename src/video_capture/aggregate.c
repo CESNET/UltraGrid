@@ -247,7 +247,7 @@ static const struct video_capture_info vidcap_aggregate_info = {
         vidcap_aggregate_init,
         vidcap_aggregate_done,
         vidcap_aggregate_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(aggregate, &vidcap_aggregate_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

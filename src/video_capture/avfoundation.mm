@@ -619,7 +619,7 @@ static const struct video_capture_info vidcap_avfoundation_info = {
         vidcap_avfoundation_init,
         vidcap_avfoundation_done,
         vidcap_avfoundation_grab,
-        false
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(avfoundation, &vidcap_avfoundation_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

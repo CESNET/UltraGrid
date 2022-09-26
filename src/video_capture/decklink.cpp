@@ -1776,7 +1776,7 @@ static const struct video_capture_info vidcap_decklink_info = {
         vidcap_decklink_init,
         vidcap_decklink_done,
         vidcap_decklink_grab,
-        true,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(decklink, &vidcap_decklink_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

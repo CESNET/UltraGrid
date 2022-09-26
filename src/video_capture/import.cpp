@@ -1134,7 +1134,7 @@ static const struct video_capture_info vidcap_import_info = {
         vidcap_import_init,
         vidcap_import_done,
         vidcap_import_grab,
-        true
+        MOD_NAME,
 };
 
 REGISTER_MODULE(import, &vidcap_import_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

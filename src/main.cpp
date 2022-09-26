@@ -214,7 +214,6 @@ struct state_uv {
                 }
         }
 
-        string capture_device_name;
         struct vidcap *capture_device;
         struct display *display_device;
 
@@ -429,13 +428,16 @@ static void usage(const char *exec_path, bool full = false)
         printf("\n");
 }
 
-static void print_fps(steady_clock::time_point *t0, int *frames, const string &name) {
+static void print_fps(const char *prefix, steady_clock::time_point *t0, int *frames) {
+        if (prefix == nullptr) {
+                return;
+        }
         *frames += 1;
         steady_clock::time_point t1 = steady_clock::now();
         double seconds = duration_cast<duration<double>>(t1 - *t0).count();
         if (seconds >= 5.0) {
                 double fps = *frames / seconds;
-                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN "[%s]" TERM_RESET " %d frames in %g seconds = " TBOLD("%g FPS") "\n", name.c_str(), *frames, seconds, fps);
+                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN "%s" TERM_RESET "%d frames in %g seconds = " TBOLD("%g FPS") "\n", prefix, *frames, seconds, fps);
                 *t0 = t1;
                 *frames = 0;
         }
@@ -456,7 +458,7 @@ static void *capture_thread(void *arg)
         struct wait_obj *wait_obj = wait_obj_init();
         steady_clock::time_point t0 = steady_clock::now();
         int frames = 0;
-        bool should_print_fps = vidcap_generic_fps(uv->capture_device);
+        const char *print_fps_prefix = vidcap_generic_fps(uv->capture_device);
 
         while (!should_exit) {
                 /* Capture and transmit video... */
@@ -469,9 +471,7 @@ static void *capture_thread(void *arg)
                 }
 
                 if (tx_frame != NULL) {
-                        if (should_print_fps) {
-                                print_fps(&t0, &frames, uv->capture_device_name);
-                        }
+                        print_fps(print_fps_prefix, &t0, &frames);
                         //tx_frame = vf_get_copy(tx_frame);
                         bool wait_for_cur_uncompressed_frame;
                         shared_ptr<video_frame> frame;
@@ -1585,7 +1585,6 @@ int main(int argc, char *argv[])
                 }
 
                 if ((opt.video_rxtx_mode & MODE_SENDER) != 0U) {
-                        uv.capture_device_name = vidcap_params_get_driver(opt.vidcap_params_head);
                         if (pthread_create
                                         (&capture_thread_id, NULL, capture_thread,
                                          (void *) &uv.root_module) != 0) {

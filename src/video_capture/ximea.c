@@ -346,7 +346,7 @@ static const struct video_capture_info vidcap_ximea_info = {
         vidcap_ximea_init,
         vidcap_ximea_done,
         vidcap_ximea_grab,
-        true
+        MOD_NAME,
 };
 
 REGISTER_MODULE(ximea, &vidcap_ximea_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

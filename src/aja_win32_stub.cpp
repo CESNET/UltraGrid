@@ -62,7 +62,7 @@ static const struct video_capture_info vidcap_aja_info = {
         vidcap_aja_init_proxy,
         vidcap_aja_done,
         vidcap_aja_grab,
-	false,
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

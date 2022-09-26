@@ -789,6 +789,7 @@ static const struct video_capture_info vidcap_gpustitch_info = {
         vidcap_gpustitch_init,
         vidcap_gpustitch_done,
         vidcap_gpustitch_grab,
+        VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(gpustitch, &vidcap_gpustitch_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
