@@ -185,11 +185,10 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                 virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ BMD_STR *timecode) {
                         uint8_t hours, minutes, seconds, frames;
                         GetComponents(&hours, &minutes, &seconds, &frames);
-                        char *out = (char *) malloc(14);
-                        assert(minutes <= 59 && seconds <= 59);
-                        sprintf(out, "%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8, hours, minutes, seconds, frames);
-                        *timecode = get_bmd_api_str_from_cstr(out);
-                        free(out);
+                        char timecode_c[16];
+                        assert(hours <= 99 && minutes <= 59 && seconds <= 60 && frames <= 99);
+                        sprintf(timecode_c, "%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8, hours, minutes, seconds, frames);
+                        *timecode = get_bmd_api_str_from_cstr(timecode_c);
                         return *timecode ? S_OK : E_FAIL;
                 }
                 virtual BMDTimecodeFlags STDMETHODCALLTYPE GetFlags (void)        { return bmdTimecodeFlagDefault; }
