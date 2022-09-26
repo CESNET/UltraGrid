@@ -344,6 +344,7 @@ class ProfileCallback : public IDeckLinkProfileCallback
                                 return S_OK;
                         }
                         m_profileActivatedCondition.notify_one();
+                        return S_OK;
                 }
                 HRESULT STDMETHODCALLTYPE QueryInterface([[maybe_unused]] REFIID iid, [[maybe_unused]] LPVOID *ppv) override
                 {
