@@ -120,8 +120,9 @@ static void process_rr(struct rtp *session, rtp_event * e)
                                 tmp = ((float)(now - r->lsr - r->dlsr)) / 65536.0;      /* RTT in seconds */
                                 RTT = tmp * 1000000;    /* RTT in usec */
                         }
-                        debug_msg("  RTT=%d usec\n", RTT);
+                        //debug_msg("  RTT=%d usec\n", RTT);
                 }
+                log_msg(LOG_LEVEL_INFO, "Receiver reports RTT=%d usec, loss %.2f%%\n", RTT, fract_lost);
         }
 }
 
