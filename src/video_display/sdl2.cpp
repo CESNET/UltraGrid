@@ -108,9 +108,6 @@ struct state_sdl2 {
         Uint32                  sdl_user_new_frame_event;
         Uint32                  sdl_user_new_message_event;
 
-        chrono::steady_clock::time_point tv{chrono::steady_clock::now()};
-        unsigned long long int  frames{0};
-
         int                     display_idx{0};
         int                     x{SDL_WINDOWPOS_UNDEFINED},
                                 y{SDL_WINDOWPOS_UNDEFINED};
@@ -200,17 +197,6 @@ free_frame:
                 s->lock.unlock();
         }
         s->last_frame = frame;
-
-        s->frames++;
-        auto tv = chrono::steady_clock::now();
-        double seconds = duration_cast<duration<double>>(tv - s->tv).count();
-        if (seconds > 5) {
-                double fps = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[SDL] %llu frames in %g seconds = %g FPS\n",
-                                s->frames, seconds, fps);
-                s->tv = tv;
-                s->frames = 0;
-        }
 }
 
 static int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
@@ -806,7 +792,7 @@ static const struct video_display_info display_sdl2_info = {
         display_sdl2_put_audio_frame,
         display_sdl2_reconfigure_audio,
         DISPLAY_NEEDS_MAINLOOP,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(sdl, &display_sdl2_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
