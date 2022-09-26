@@ -319,7 +319,7 @@ static const struct video_display_info display_multiplier_info = {
         display_multiplier_put_audio_frame,
         display_multiplier_reconfigure_audio,
         display_multiplier_needs_mainloop,
-        false,
+        DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_HIDDEN_MODULE(multiplier, &display_multiplier_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

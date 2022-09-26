@@ -141,11 +141,13 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 14
+#define VIDEO_DISPLAY_ABI_VERSION 15
 
 typedef bool (*display_needs_mainloop_t)(void *);
 #define DISPLAY_DOESNT_NEED_MAINLOOP ((display_needs_mainloop_t) 0x00)
 #define DISPLAY_NEEDS_MAINLOOP ((display_needs_mainloop_t) 0x01)
+
+#define DISPLAY_NO_GENERIC_FPS_INDICATOR ((const char *) 0x00)
 
 struct video_display_info {
         void                    (*probe)(struct device_info **available_cards, int *count, void (**deleter)(void *));
@@ -160,7 +162,7 @@ struct video_display_info {
         int                     (*reconfigure_audio) (void *state, int quant_samples, int channels, ///< may be NULL
                         int sample_rate);
         display_needs_mainloop_t needs_mainloop;
-        bool                    use_generic_fps_indicator;
+        const char             *generic_fps_indicator_prefix; ///< NO_GENERIC_FPS_INDICATOR or pointer to preferred module name
 };
 
 /* 

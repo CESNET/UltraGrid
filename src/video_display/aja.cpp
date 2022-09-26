@@ -1117,7 +1117,7 @@ static const struct video_display_info display_aja_info = {
         display_aja_put_audio_frame,
         display_aja_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        false,
+        DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(aja, &display_aja_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

@@ -808,7 +808,7 @@ static const struct video_display_info display_sdl_info = {
 #else
         DISPLAY_DOESNT_NEED_MAINLOOP,
 #endif
-        false,
+        DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(sdl, &display_sdl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

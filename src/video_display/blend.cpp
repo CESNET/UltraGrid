@@ -419,7 +419,7 @@ static const struct video_display_info display_blend_info = {
         display_blend_put_audio_frame,
         display_blend_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        false,
+        DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_HIDDEN_MODULE(blend, &display_blend_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);

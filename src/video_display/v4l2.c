@@ -334,7 +334,7 @@ static const struct video_display_info display_v4l2_info = {
         NULL,
         NULL,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        false,
+        DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 
 REGISTER_MODULE(v4l2, &display_v4l2_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
