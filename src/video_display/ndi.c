@@ -94,11 +94,6 @@ static void display_ndi_probe(struct device_info **available_cards, int *count, 
         *deleter = free;
 }
 
-static void display_ndi_run(void *arg)
-{
-        UNUSED(arg);
-}
-
 static const struct {
         codec_t ug_codec;
         NDIlib_FourCC_video_type_e ndi_fourcc;
@@ -450,7 +445,7 @@ static int display_ndi_reconfigure_audio(void *state, int quant_samples, int cha
 static const struct video_display_info display_ndi_info = {
         display_ndi_probe,
         display_ndi_init,
-        display_ndi_run,
+        NULL, // _run
         display_ndi_done,
         display_ndi_getf,
         display_ndi_putf,
@@ -458,11 +453,7 @@ static const struct video_display_info display_ndi_info = {
         display_ndi_get_property,
         display_ndi_put_audio_frame,
         display_ndi_reconfigure_audio,
-#ifdef __APPLE__
-        DISPLAY_NEEDS_MAINLOOP,
-#else
         DISPLAY_DOESNT_NEED_MAINLOOP,
-#endif
         true,
 };
 
