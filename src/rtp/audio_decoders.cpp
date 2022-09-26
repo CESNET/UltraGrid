@@ -773,7 +773,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         }
 
         // Perform a variable rate resample if any output device has requested it
-        if (decoder->req_resample_to != 0) {
+        if (decoder->req_resample_to != 0 || s->buffer.sample_rate != decompressed.get_sample_rate()) {
                 // Set the BPS of the audio to be within the supported range. A value of 4 bytes has
                 // been selected as it'll give a higher accuracy for conversion.
                 if(decompressed.get_bps() != 2 || decompressed.get_bps() != 4) {
