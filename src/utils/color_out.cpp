@@ -123,10 +123,16 @@ static bool isMsysPty(int fd) {
 }
 #endif // defined _WIN32
 
+ADD_TO_PARAM("log-nocolor", "* log-nocolor\n"
+                 "  Force disable ANSI text formatting.\n");
 /**
  * @returns whether stdout can process ANSI escape sequences
  */
 bool color_output_init() {
+        if(get_commandline_param("log-nocolor")){
+                color_stdout = false;
+                return false;
+        }
 #ifdef _WIN32
         color_stdout = setWinTermAnsiColors(STD_OUTPUT_HANDLE) || isMsysPty(fileno(stdout));
 #else
