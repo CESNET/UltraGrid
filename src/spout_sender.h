@@ -47,6 +47,7 @@ extern "C" {
 void *spout_sender_register(const char *name);
 void spout_sender_sendframe(void *s, int width, int height, unsigned int id);
 void spout_sender_unregister(void *s);
+void spout_set_log_level(void *s, int ug_level);
 
 #ifdef __cplusplus
 }

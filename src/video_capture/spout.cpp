@@ -53,6 +53,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "spout_sender.h" // spout_set_log_level
 #include "utils/color_out.h"
 #include "utils/misc.h" // urlencode, urldecode
 #include "video.h"
@@ -182,6 +183,7 @@ static int vidcap_spout_init(struct vidcap_params *params, void **state)
         gl_context_make_current(&s->glc);
 
         s->spout_state = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
+        spout_set_log_level(s->spout_state.get(), log_level);
         if (strlen(s->server_name) != 0) {
                 s->spout_state->SetReceiverName(s->server_name);
         }
