@@ -124,6 +124,8 @@ int log_vprintf(int level, const char *format, va_list ap)
                 } else {
                         buf.append(TERM_RESET);
                 }
+        } else {
+                prune_ansi_sequences_inplace(buf.get());
         }
         int ret = buf.get().size();
         buf.submit();

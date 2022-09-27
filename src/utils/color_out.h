@@ -84,6 +84,7 @@ int color_printf(const char *format, ...) ATTRIBUTE(format (printf, 1, 2));
 #include <string>
 
 std::string prune_ansi_sequences_str(const char *in);
+void prune_ansi_sequences_inplace(std::string& str);
 
 /**
  * Class wrapping color output to terminal. Sample usage:

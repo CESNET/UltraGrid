@@ -47,6 +47,7 @@
 #include <iostream>
 
 #include "debug.h"
+#include "host.h"
 #include "utils/color_out.h"
 
 using std::cout;
@@ -173,6 +174,12 @@ string prune_ansi_sequences_str(const char *in) {
         string out;
         prune_ansi_sequences(in, std::back_inserter(out));
         return out;
+}
+
+void prune_ansi_sequences_inplace(std::string& str){
+        auto c_ptr = str.data();
+        auto len = prune_ansi_sequences(c_ptr, c_ptr);
+        str.resize(len);
 }
 
 int color_printf(const char *format, ...) {
