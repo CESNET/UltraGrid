@@ -135,7 +135,7 @@ bool color_output_init() {
                 return false;
         }
 #ifdef _WIN32
-        color_stdout = setWinTermAnsiColors(STD_OUTPUT_HANDLE) || isMsysPty(fileno(stdout));
+        color_stdout = isMsysPty(fileno(stdout)) || (_isatty(fileno(stdout)) && setWinTermAnsiColors(STD_OUTPUT_HANDLE));
 #else
         color_stdout = isatty(fileno(stdout));
 #endif
