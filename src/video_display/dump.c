@@ -38,10 +38,12 @@
  * @file
  * @todo Add audio support
  */
-
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include <stdint.h>
+
 #include "debug.h"
 #include "export.h"
 #include "lib_common.h"
@@ -51,31 +53,12 @@
 
 #define MOD_NAME "[dump] "
 
-using namespace std;
-
 struct dump_display_state {
-        explicit dump_display_state(char const *cfg)
-        {
-                string dirname = cfg;
-                if (dirname.empty()) {
-                        time_t now = time(nullptr);
-                        dirname = "dump." + to_string(now);
-                }
-                e = export_init(NULL, dirname.c_str(), true);
-                if (e == nullptr) {
-                        log_msg(LOG_LEVEL_ERROR, "[dump] Failed to create export instance!\n");
-                        throw 1;
-                }
-        }
-        ~dump_display_state() {
-                vf_free(f);
-                export_destroy(e);
-        }
-        struct video_frame *f = nullptr;
-        int frames = 0;
+        struct video_frame *f;
+        int frames;
         struct exporter *e;
-        size_t max_tile_data_len = 0;
-        codec_t requested_codec = VIDEO_CODEC_NONE;
+        size_t max_tile_data_len;
+        codec_t requested_codec;
 };
 
 static void usage()
@@ -87,16 +70,24 @@ static void usage()
         color_printf(TERM_BOLD "\t<c>" TERM_RESET " - codec to use instead of the received (default), must be a way to convert\n");
 }
 
-static void *display_dump_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */)
+static void *display_dump_init(struct module *parent, const char *cfg, unsigned int flags)
 {
-        if ("help"s == cfg) {
+        (void) parent, (void) flags;
+        if (strcmp(cfg, "help") == 0) {
                 usage();
                 return &display_init_noerr;
         }
-        dump_display_state *s = nullptr;
-        try {
-                s = new dump_display_state(cfg);
-        } catch (...) {
+        struct dump_display_state *s = calloc(1, sizeof *s);
+        char dirname[128];
+        if (strlen(cfg) == 0) {
+                snprintf(dirname, sizeof dirname, "dump.%jd", (intmax_t) time(NULL));
+                cfg = dirname;
+        }
+        s->e = export_init(NULL, cfg, true);
+        if (s->e == NULL) {
+                log_msg(LOG_LEVEL_ERROR, "[dump] Failed to create export instance!\n");
+                free(s);
+                return NULL;
         }
         return s;
 }
@@ -107,14 +98,16 @@ static void display_dump_run(void *)
 
 static void display_dump_done(void *state)
 {
-        auto s = (dump_display_state *) state;
+        struct dump_display_state *s = state;
 
-        delete s;
+        vf_free(s->f);
+        export_destroy(s->e);
+        free(s);
 }
 
 static struct video_frame *display_dump_getf(void *state)
 {
-        auto s = (dump_display_state *) state;
+        struct dump_display_state *s = state;
         for (unsigned int i = 0; i < s->f->tile_count; ++i) {
                 if (is_codec_opaque(s->f->color_spec)) {
                         s->f->tiles[i].data_len = s->max_tile_data_len;
@@ -125,8 +118,8 @@ static struct video_frame *display_dump_getf(void *state)
 
 static int display_dump_putf(void *state, struct video_frame *frame, int flags)
 {
-        auto s = (dump_display_state *) state;
-        if (frame == nullptr || flags == PUTF_DISCARD) {
+        struct dump_display_state *s = state;
+        if (frame == NULL || flags == PUTF_DISCARD) {
                 return 0;
         }
         assert(frame == s->f);
@@ -135,8 +128,9 @@ static int display_dump_putf(void *state, struct video_frame *frame, int flags)
         return 0;
 }
 
-static int display_dump_get_property(void *, int property, void *val, size_t *len)
+static int display_dump_get_property(void *state, int property, void *val, size_t *len)
 {
+        (void) state;
         codec_t codecs[VIDEO_CODEC_COUNT - 1];
 
         for (int i = 0; i < VIDEO_CODEC_COUNT - 1; ++i) {
@@ -164,7 +158,7 @@ static int display_dump_get_property(void *, int property, void *val, size_t *le
 
 static int display_dump_reconfigure(void *state, struct video_desc desc)
 {
-        dump_display_state *s = (dump_display_state *) state;
+        struct dump_display_state *s = state;
         vf_free(s->f);
         s->f = vf_alloc_desc(desc);
         s->f->decoder_overrides_data_len = is_codec_opaque(desc.color_spec) != 0 ? TRUE : FALSE;
@@ -191,7 +185,7 @@ static int display_dump_reconfigure_audio(void *, int, int, int)
 
 static void display_dump_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
         UNUSED(deleter);
-        *available_cards = nullptr;
+        *available_cards = NULL;
         *count = 0;
 }
 
