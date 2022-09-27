@@ -38,6 +38,8 @@ EOF
 # shellcheck source=/dev/null
 . .github/scripts/json-common.sh
 
+github_workspace_cp=$(cygpath "$GITHUB_WORKSPACE")
+
 PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
 MINGW_PACKAGE_PREFIX=mingw-w64-clang-x86_64
@@ -59,13 +61,9 @@ pacman -Scc --noconfirm
 install_aja() {(
         git clone --depth 1 https://github.com/aja-video/ntv2 AJA
         cd AJA
-        aja_release_json=$(fetch_json https://api.github.com/repos/aja-video/ntv2/releases "$GITHUB_TOKEN" array)
-        aja_gh_release=$(jq -r '.[0].assets_url' "$aja_release_json")
-        rm -- "$aja_release_json"
-        aja_gh_path_json=$(fetch_json "$aja_gh_release" "$GITHUB_TOKEN" array)
-        aja_gh_path=$(jq -r '[.[] | select(.name | test(".*libs_windows_.*"))] | .[0].browser_download_url' "$aja_gh_path_json")
-        rm -- "$aja_gh_path_json"
-        curl -sSL "$aja_gh_path" -o aja_build.zip
+        # shellcheck source=/dev/null
+        . "$github_workspace_cp/.github/scripts/aja-common.sh"
+        download_aja_release_asset libs_windows_ aja_build.zip
         rm README.md # would be overriden from zip below
         unzip aja_build.zip
         mkdir -p lib

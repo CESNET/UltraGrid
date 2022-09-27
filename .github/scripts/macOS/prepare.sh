@@ -41,17 +41,14 @@ install_ximea() {
 }
 
 install_aja() {
+        # shellcheck source=/dev/null
+        . "$GITHUB_WORKSPACE/.github/scripts/aja-common.sh"
         AJA_DIRECTORY=/private/var/tmp/ntv2sdk
         git clone --depth 1 https://github.com/aja-video/ntv2 $AJA_DIRECTORY
         cd $AJA_DIRECTORY
         echo "AJA_DIRECTORY=$AJA_DIRECTORY" >> "$GITHUB_ENV"
-        aja_release_json=$(fetch_json https://api.github.com/repos/aja-video/ntv2/releases "$GITHUB_TOKEN" array)
-        aja_gh_release=$(jq -r '.[0].assets_url' "$aja_release_json")
-        rm -- "$aja_release_json"
-        aja_gh_path_json=$(fetch_json "$aja_gh_release" "$GITHUB_TOKEN" array)
-        aja_gh_path=$(jq -r '[.[] | select(.name | test(".*libs_mac_.*"))] | .[0].browser_download_url' "$aja_gh_path_json")
-        rm -- "$aja_gh_path_json"
-        curl -sSL "$aja_gh_path" | tar xzf -
+        download_aja_release_asset libs_mac_ aja_build.tar.gz
+        tar xzf aja_build.tar.gz
         sudo cp Release/x64/* /usr/local/lib
         cd $TEMP_INST
 }
