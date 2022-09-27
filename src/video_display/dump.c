@@ -92,10 +92,6 @@ static void *display_dump_init(struct module *parent, const char *cfg, unsigned 
         return s;
 }
 
-static void display_dump_run(void *)
-{
-}
-
 static void display_dump_done(void *state)
 {
         struct dump_display_state *s = state;
@@ -174,15 +170,6 @@ static int display_dump_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-static void display_dump_put_audio_frame(void *, const struct audio_frame *)
-{
-}
-
-static int display_dump_reconfigure_audio(void *, int, int, int)
-{
-        return FALSE;
-}
-
 static void display_dump_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
         UNUSED(deleter);
         *available_cards = NULL;
@@ -192,14 +179,14 @@ static void display_dump_probe(struct device_info **available_cards, int *count,
 static const struct video_display_info display_dump_info = {
         display_dump_probe,
         display_dump_init,
-        display_dump_run,
+        NULL, // _run
         display_dump_done,
         display_dump_getf,
         display_dump_putf,
         display_dump_reconfigure,
         display_dump_get_property,
-        display_dump_put_audio_frame,
-        display_dump_reconfigure_audio,
+        NULL, // _put_audio_frame
+        NULL, // _reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
         MOD_NAME,
 };
