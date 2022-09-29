@@ -795,6 +795,7 @@ static void display_xrgl_run(void *state){
                 XrViewLocateInfo view_locate_info;
                 view_locate_info.type = XR_TYPE_VIEW_LOCATE_INFO;
                 view_locate_info.displayTime = frame_state.predictedDisplayTime;
+                view_locate_info.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO; //Assuming stereo view exists. TODO: do it properly and enumerate types first
                 view_locate_info.space = space.get();
 
                 XrViewState view_state;
