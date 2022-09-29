@@ -209,7 +209,7 @@ const static struct{
 	{"v4l2.codec", Option::StringOpt, ":codec=", "", false, "video.source", "v4l2"},
 	{"v4l2.size", Option::StringOpt, ":size=", "", false, "video.source", "v4l2"},
 	{"v4l2.tpf", Option::StringOpt, ":tpf=", "", false, "video.source", "v4l2"},
-	{"v4l2.force_rgb", Option::BoolOpt, ":RGB", "t", true, "video.source", "v4l2"},
+	{"v4l2.force_rgb", Option::BoolOpt, ":convert=RGB", "t", true, "video.source", "v4l2"},
 	{"dshow.mode", Option::StringOpt, ":mode=", "", false, "video.source", "dshow"},
 	{"dshow.force_rgb", Option::BoolOpt, ":RGB", "t", true, "video.source", "dshow"},
 	{"avfoundation.mode", Option::StringOpt, ":mode=", "", false, "video.source", "avfoundation"},
