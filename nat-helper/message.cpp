@@ -89,6 +89,7 @@ void Message::async_readBody(asio::ip::tcp::socket& socket,
 	auto res = std::from_chars(data, data + headerSize, expectedSize);
 	if(res.ec != std::errc()){
 		onComplete(false);
+		return;
 	}
 
 	using namespace std::placeholders;
