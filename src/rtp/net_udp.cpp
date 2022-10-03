@@ -54,6 +54,7 @@
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
 #include "rtp.h"
+#include "utils/list.h"
 #include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/thread.h"
@@ -68,7 +69,6 @@
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
-#include <queue>
 #include <string>
 #include <utility> // std::swap
 
@@ -76,14 +76,12 @@ using std::array;
 using std::condition_variable;
 using std::max;
 using std::mutex;
-using std::queue;
 using std::string;
 using std::swap;
 using std::to_string;
 using std::unique_lock;
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
-#define ALIGNED_SOCKADDR_STORAGE_OFF ((RTP_MAX_PACKET_LEN + alignof(sockaddr_storage) - 1) / alignof(sockaddr_storage) * alignof(sockaddr_storage))
 
 static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port);
 static void *udp_reader(void *arg);
@@ -153,6 +151,9 @@ struct item {
     socklen_t addrlen;
 };
 
+#define ALIGNED_SOCKADDR_STORAGE_OFF ((RTP_MAX_PACKET_LEN + alignof(sockaddr_storage) - 1) / alignof(sockaddr_storage) * alignof(sockaddr_storage))
+#define ALIGNED_ITEM_OFF (((ALIGNED_SOCKADDR_STORAGE_OFF + sizeof(struct sockaddr_storage)) + alignof(struct item) - 1) / alignof(struct item) * alignof(struct item))
+
 /*
  * Local part of the socket
  *
@@ -169,7 +170,7 @@ struct socket_udp_local {
 
         // for multithreaded receiving
         pthread_t thread_id;
-        queue<struct item> packets;
+        struct simple_linked_list *packets;
         unsigned int max_packets;
         mutex lock;
         condition_variable boss_cv;
@@ -808,6 +809,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         int ret;
         socket_udp *s = new socket_udp();
         s->local = new socket_udp_local();
+        s->local->packets = simple_linked_list_init();
         s->local->rx_fd =
                 s->local->tx_fd = INVALID_SOCKET;
 
@@ -924,6 +926,7 @@ error:
                         s->local->tx_fd != INVALID_SOCKET) {
                 CLOSESOCKET(s->local->tx_fd);
         }
+        simple_linked_list_destroy(s->local->packets);
         delete s->local;
         delete s;
         return NULL;
@@ -1009,10 +1012,9 @@ void udp_exit(socket_udp * s)
                         s->local->should_exit = true;
                         s->local->reader_cv.notify_one();
                         pthread_join(s->local->thread_id, NULL);
-                        while (!s->local->packets.empty()) {
-                                auto it = s->local->packets.front();
-                                free(it.buf);
-                                s->local->packets.pop();
+                        while (simple_linked_list_size(s->local->packets) > 0) {
+                                struct item *item = (struct item *) simple_linked_list_pop(s->local->packets);
+                                free(item->buf);
                         }
                         platform_pipe_close(s->local->should_exit_fd[1]);
                 }
@@ -1122,7 +1124,7 @@ static void *udp_reader(void *arg)
                 if (FD_ISSET(s->local->should_exit_fd[0], &fds)) {
                         break;
                 }
-                uint8_t *packet = (uint8_t *) malloc(ALIGNED_SOCKADDR_STORAGE_OFF + sizeof(struct sockaddr_storage));
+                uint8_t *packet = (uint8_t *) malloc(ALIGNED_ITEM_OFF + sizeof(struct item));
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
                 auto src_addr = (struct sockaddr *)(void *)(packet + ALIGNED_SOCKADDR_STORAGE_OFF);
                 socklen_t addrlen = sizeof(struct sockaddr_storage);
@@ -1141,13 +1143,17 @@ static void *udp_reader(void *arg)
                 }
 
                 unique_lock<mutex> lk(s->local->lock);
-                s->local->reader_cv.wait(lk, [s]{return s->local->packets.size() < s->local->max_packets || s->local->should_exit;});
+                while (simple_linked_list_size(s->local->packets) >= (int) s->local->max_packets && !s->local->should_exit) {
+                        s->local->reader_cv.wait(lk);
+                }
                 if (s->local->should_exit) {
                         free(packet);
                         break;
                 }
 
-                s->local->packets.emplace(packet, size, src_addr, addrlen);
+                struct item *i = (struct item *)(packet + ALIGNED_ITEM_OFF);
+                *i = (struct item){packet, size, src_addr, addrlen};
+                simple_linked_list_append(s->local->packets, i);
 
                 lk.unlock();
                 s->local->boss_cv.notify_one();
@@ -1210,11 +1216,11 @@ bool udp_not_empty(socket_udp * s, struct timeval *timeout)
         if (timeout) {
                 std::chrono::microseconds tmout_us =
                         std::chrono::microseconds(timeout->tv_sec * 1000000ll + timeout->tv_usec);
-                s->local->boss_cv.wait_for(lk, tmout_us, [s]{return !s->local->packets.empty();});
+                s->local->boss_cv.wait_for(lk, tmout_us, [s]{return simple_linked_list_size(s->local->packets) > 0;});
         } else {
-                s->local->boss_cv.wait(lk, [s]{return !s->local->packets.empty();});
+                s->local->boss_cv.wait(lk, [s]{return simple_linked_list_size(s->local->packets) > 0;});
         }
-        return !s->local->packets.empty();
+        return simple_linked_list_size(s->local->packets) > 0;
 }
 
 /**
@@ -1255,18 +1261,17 @@ int udp_recvfrom_data(socket_udp * s, char **buffer,
         int ret;
         unique_lock<mutex> lk(s->local->lock);
 
-        auto it = s->local->packets.front();
-        *buffer = (char *) it.buf;
+        struct item *it = (struct item *)(simple_linked_list_pop(s->local->packets));
+        *buffer = (char *) it->buf;
         if(src_addr){
-                if(it.src_addr){
-                        memcpy(src_addr, it.src_addr, it.addrlen);
-                        *addrlen = it.addrlen;
+                if(it->src_addr){
+                        memcpy(src_addr, it->src_addr, it->addrlen);
+                        *addrlen = it->addrlen;
                 } else {
                         *addrlen = 0;
                 }
         }
-        ret = it.size;
-        s->local->packets.pop();
+        ret = it->size;
 
         lk.unlock();
         s->local->reader_cv.notify_one();
