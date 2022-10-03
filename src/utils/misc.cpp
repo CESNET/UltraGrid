@@ -452,7 +452,7 @@ unsigned char *base64_decode(const char *in, unsigned int *length) {
 }
 
 void print_module_usage(const char *module_name, const struct key_val *options) {
-        struct key_val nullopts[] = { nullptr, nullptr };
+        struct key_val nullopts[] = { { nullptr, nullptr } };
         if (options == nullptr) {
                 options = static_cast<const struct key_val *>(nullopts);
 
@@ -474,7 +474,7 @@ void print_module_usage(const char *module_name, const struct key_val *options) 
                 } else {
                         oss << "|";
                 }
-                max_key_len = MAX(max_key_len, strlen(desc_key(it->key)));
+                max_key_len = MAX(max_key_len, (int) strlen(desc_key(it->key)));
                 oss << ":" << it->key;
         }
         if (options->key != nullptr) {
