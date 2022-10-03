@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2017-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2017-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -152,9 +152,6 @@ struct state_vidcap_syphon {
         double override_fps;
         bool use_rgb;
 
-        std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
-        int frames;
-
         GLuint program_to_yuv422;
 
         int show_help;     ///< only show help and exit - 1 - standard; 2 - full
@@ -266,12 +263,12 @@ static void oneshot_init(int value [[gnu::unused]])
         }
 
         if ([descriptions count] == 0) {
-                LOG(LOG_LEVEL_ERROR) << "[Syphon capture] No server(s) found!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "No server(s) found!\n";
                 return;
         }
 
         if (!s->override_fps) {
-                LOG(LOG_LEVEL_WARNING) << "[Syphon capture] FPS set to " << FPS << ". Use override_fps to override if you know FPS of the server.\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "FPS set to " << FPS << ". Use override_fps to override if you know FPS of the server.\n";
         }
 
         s->client = [[SyphonClient alloc] initWithServerDescription:[descriptions lastObject] context:CGLGetCurrentContext() options:nil newFrameHandler:^(SyphonClient *client) {
@@ -309,21 +306,21 @@ static void oneshot_init(int value [[gnu::unused]])
                         s->q.push(f);
                         pushed = true;
                 } else {
-                        LOG(LOG_LEVEL_WARNING) << "[Syphon capture] Skipping frame.\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Skipping frame.\n";
                         vf_free(f);
                 }
                 lk.unlock();
 
                 if (pushed) {
                         s->frame_ready_cv.notify_one();
-                        debug_msg("[Syphon capture] Frame acquired.\n");
+                        debug_msg(MOD_NAME "Frame acquired.\n");
                 }
         }];
 
         if (!s->client) {
-                LOG(LOG_LEVEL_ERROR) << "[Syphon capture] Client could have not been created!\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Client could have not been created!\n";
         } else {
-                LOG(LOG_LEVEL_NOTICE) << "[Syphon capture] Using server - " << get_syphon_description(s->client) << "\n";
+                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Using server - " << get_syphon_description(s->client) << "\n";
         }
 }
 
@@ -468,17 +465,6 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
                 ret = s->q.front();
                 s->q.pop();
                 ret->callbacks.dispose = vf_free;
-
-                // statistics
-                s->frames++;
-                std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-                double seconds = std::chrono::duration_cast<std::chrono::microseconds>(now - s->t0).count() / 1000000.0;
-                if (seconds >= 5) {
-                        LOG(LOG_LEVEL_INFO) << "[Syphon capture] " << s->frames << " frames in "
-                                << seconds << " seconds = " <<  s->frames / seconds << " FPS\n";
-                        s->t0 = now;
-                        s->frames = 0;
-                }
         }
 
         *audio = NULL;
@@ -531,7 +517,7 @@ static const struct video_capture_info vidcap_syphon_info = {
         vidcap_syphon_init,
         vidcap_syphon_done,
         vidcap_syphon_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(syphon, &vidcap_syphon_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
