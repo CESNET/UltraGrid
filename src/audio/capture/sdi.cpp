@@ -110,8 +110,9 @@ static void audio_cap_sdi_probe_analog(struct device_info **available_devices, i
         audio_cap_sdi_probe_common(available_devices, count, "", "Analog audio through capture card");
 }
 
-static void * audio_cap_sdi_init(const char *cfg)
+static void * audio_cap_sdi_init(struct module *parent, const char *cfg)
 {
+        UNUSED(parent);
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available vidcap audio devices:\n");
                 audio_cap_sdi_help("embedded");

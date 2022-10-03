@@ -145,8 +145,9 @@ static const char *load_song1() {
         return filename;
 }
 
-static void * audio_cap_sdl_mixer_init(const char *cfg)
+static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
 {
+        UNUSED(parent);
         SDL_Init(SDL_INIT_AUDIO);
 
         struct state_sdl_mixer_capture *s = calloc(1, sizeof *s);

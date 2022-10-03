@@ -132,8 +132,9 @@ static void portaudio_close(PaStream * stream)	// closes and frees all audio res
 /*
  * capture funcitons
  */
-static void * audio_cap_portaudio_init(const char *cfg)
+static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 {
+        UNUSED(parent);
         portaudio_print_version();
 
         if(cfg && strcmp(cfg, "help") == 0) {

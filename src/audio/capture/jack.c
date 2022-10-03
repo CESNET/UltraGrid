@@ -73,6 +73,7 @@ struct state_jack_capture {
         sem_t data_sem;
         struct ring_buffer *data;
         bool can_process;
+        bool should_exit;
 
         long int first_channel;
 };
@@ -135,7 +136,14 @@ static void audio_cap_jack_help(const char *client_name)
         free(available_devices);
 }
 
-static void * audio_cap_jack_init(const char *cfg)
+static void audio_cap_jack_should_exit(void *state)
+{
+        struct state_jack_capture *s = state;
+        s->should_exit = true;
+        platform_sem_post(&s->data_sem);
+}
+
+static void * audio_cap_jack_init(struct module *parent, const char *cfg)
 {
         struct state_jack_capture *s;
         jack_status_t status;
@@ -258,6 +266,7 @@ static void * audio_cap_jack_init(const char *cfg)
         }
 
         free(ports);
+        register_should_exit_callback(parent, audio_cap_jack_should_exit, s);
 
         s->can_process = true;
 

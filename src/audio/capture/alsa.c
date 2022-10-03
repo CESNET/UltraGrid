@@ -101,8 +101,9 @@ static const int bps_preference[] = { 2, 4, 3, 1 };
 
 #define DEFAULT_SAMPLE_RATE 48000
 
-static void * audio_cap_alsa_init(const char *cfg)
+static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
 {
+        UNUSED(parent);
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Usage\n");
                 color_printf(TERM_BOLD TERM_FG_RED "\t-s alsa\n" TERM_RESET);

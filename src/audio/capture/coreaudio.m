@@ -200,8 +200,9 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 };
 #endif // defined __MAC_10_14
 
-static void * audio_cap_ca_init(const char *cfg)
+static void * audio_cap_ca_init(struct module *parent, const char *cfg)
 {
+        UNUSED(parent);
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available Core Audio capture devices:\n");
                 audio_cap_ca_help(NULL);

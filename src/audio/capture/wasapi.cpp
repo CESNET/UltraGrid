@@ -220,8 +220,9 @@ static void show_help() {
         CoUninitialize();
 }
 
-static void * audio_cap_wasapi_init(const char *cfg)
+static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
 {
+        UNUSED(parent);
         wchar_t deviceID[1024] = L"";
         WAVEFORMATEX *pwfx = NULL;
         int index = -1;

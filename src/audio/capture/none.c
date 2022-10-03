@@ -76,8 +76,9 @@ static void audio_cap_none_help(const char *driver_name)
         UNUSED(driver_name);
 }
 
-static void * audio_cap_none_init(const char *cfg)
+static void * audio_cap_none_init(struct module *parent, const char *cfg)
 {
+        UNUSED(parent);
         struct state_audio_capture_none *s;
 
         s = (struct state_audio_capture_none *) malloc(sizeof(struct state_audio_capture_none));

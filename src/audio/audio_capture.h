@@ -41,12 +41,14 @@
 extern "C" {
 #endif
 
-#define AUDIO_CAPTURE_ABI_VERSION 3
+struct module;
+
+#define AUDIO_CAPTURE_ABI_VERSION 4
 
 struct audio_capture_info {
         void (*probe)(struct device_info **available_devices, int *count);
         void (*help)(const char *driver_name);
-        void *(*init)(const char *cfg); ///< @param cfg is not NULL
+        void *(*init)(struct module *parent, const char *cfg); ///< @param cfg is not NULL
         struct audio_frame *(*read)(void *state);
         void (*done)(void *state);
 };
@@ -62,7 +64,7 @@ void                        audio_capture_print_help(bool);
 /**
  * @see display_init
  */
-int                         audio_capture_init(const char *driver, const char *cfg,
+int                         audio_capture_init(struct module *parent, const char *driver, const char *cfg,
                 struct state_audio_capture **);
 struct state_audio_capture *audio_capture_init_null_device(void);
 struct audio_frame         *audio_capture_read(struct state_audio_capture * state);

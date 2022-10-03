@@ -173,8 +173,9 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
         return ret;
 }
 
-static void * audio_cap_testcard_init(const char *cfg)
+static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
 {
+        UNUSED(parent);
         string wav_file;
         char *item, *save_ptr;
 

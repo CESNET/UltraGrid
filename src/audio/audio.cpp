@@ -323,7 +323,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
 			cfg = delim + 1;
 		}
 
-                int ret = audio_capture_init(device, cfg, &s->audio_capture_device);
+                int ret = audio_capture_init(s->audio_sender_module.get(), device, cfg, &s->audio_capture_device);
                 free(device);
                 
                 if(ret != 0) {
