@@ -56,6 +56,7 @@
 #include <OpenGL/OpenGL.h> // CGL
 #include <OpenGL/glext.h>
 #include <queue>
+#include <string>
 #include <Syphon/Syphon.h>
 
 #include "debug.h"
@@ -71,6 +72,7 @@ using std::condition_variable;
 using std::cout;
 using std::mutex;
 using std::queue;
+using std::string;
 using std::unique_lock;
 
 #define FPS 60.0
@@ -209,6 +211,12 @@ static void reconfigure(state_vidcap_syphon *s, struct video_desc desc) {
 
 }
 
+static string get_syphon_description(SyphonClient *client) {
+        NSDictionary *dict = [client serverDescription];
+        return string("app: ") + [[dict objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] + " name: " +
+                        [[dict objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String];
+}
+
 static void oneshot_init(int value [[gnu::unused]])
 {
         state_vidcap_syphon *s = state_global;
@@ -315,10 +323,7 @@ static void oneshot_init(int value [[gnu::unused]])
         if (!s->client) {
                 LOG(LOG_LEVEL_ERROR) << "[Syphon capture] Client could have not been created!\n";
         } else {
-                NSDictionary *dict = [s->client serverDescription];
-                LOG(LOG_LEVEL_NOTICE) << "[Syphon capture] Using server - app: " <<
-                        [[dict objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] << " name: " <<
-                        [[dict objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String] << "\n";
+                LOG(LOG_LEVEL_NOTICE) << "[Syphon capture] Using server - " << get_syphon_description(s->client) << "\n";
         }
 }
 
@@ -450,6 +455,12 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
 {
         state_vidcap_syphon *s = (state_vidcap_syphon *) state;
         struct video_frame *ret = NULL;
+
+        if (s->client && [s->client isValid] == NO) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
+                [s->client release];
+                s->client = nil;
+        }
 
         unique_lock<mutex> lk(s->lock);
         s->frame_ready_cv.wait_for(lk, std::chrono::milliseconds(100), [s]{return s->q.size() > 0;});
