@@ -82,6 +82,7 @@ using std::to_string;
 using std::unique_lock;
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
+#define ALIGNED_SOCKADDR_STORAGE_OFF ((RTP_MAX_PACKET_LEN + alignof(sockaddr_storage) - 1) / alignof(sockaddr_storage) * alignof(sockaddr_storage))
 
 static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port);
 static void *udp_reader(void *arg);
@@ -1129,9 +1130,9 @@ static void *udp_reader(void *arg)
                 if (FD_ISSET(s->local->should_exit_fd[0], &fds)) {
                         break;
                 }
-                uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN + sizeof(struct sockaddr_storage));
+                uint8_t *packet = (uint8_t *) malloc(ALIGNED_SOCKADDR_STORAGE_OFF + sizeof(struct sockaddr_storage));
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
-                auto src_addr = (struct sockaddr *)(void *)(packet + RTP_MAX_PACKET_LEN);
+                auto src_addr = (struct sockaddr *)(void *)(packet + ALIGNED_SOCKADDR_STORAGE_OFF);
                 socklen_t addrlen = sizeof(struct sockaddr_storage);
                 int size = recvfrom(s->local->rx_fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
