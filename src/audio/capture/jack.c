@@ -44,20 +44,20 @@
 #define MAX_PORTS 64
 #define MOD_NAME "[JACK capture] "
 
-#include "debug.h"
-#include "host.h"
-
 #include "audio/audio_capture.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/platform_semaphore.h"
+#include "debug.h"
+#include "host.h"
+#include "jack_common.h"
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
-#include "jack_common.h"
+
 #include <jack/jack.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <semaphore.h>
 
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);
@@ -102,7 +102,7 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         }
 
         ring_buffer_write(s->data, s->tmp, channel_size * s->frame.ch_count);
-        sem_post(&s->data_sem);
+        platform_sem_post(&s->data_sem);
 
         return 0;
 }
@@ -222,10 +222,7 @@ static void * audio_cap_jack_init(const char *cfg)
         s->frame.max_size = s->frame.ch_count * s->frame.bps * s->frame.sample_rate;
         s->frame.data = malloc(s->frame.max_size);
 
-        if(sem_init(&s->data_sem, 0, 0)){
-                log_msg(LOG_LEVEL_ERROR, "[JACK capture] Error initializing semaphore!\n");
-                goto release_client;
-        }
+        platform_sem_init(&s->data_sem, 0, 0);
 
         s->tmp = malloc(s->frame.max_size);
 
@@ -279,8 +276,7 @@ static struct audio_frame *audio_cap_jack_read(void *state)
 {
         struct state_jack_capture *s = (struct state_jack_capture *) state;
 
-        errno = 0;
-        while(sem_wait(&s->data_sem) == -1 && errno == EINTR) {  }
+        platform_sem_wait(&s->data_sem);
 
         int read_avail = ring_get_current_size(s->data);
         s->frame.data_len = ring_buffer_read(s->data, s->frame.data, s->frame.max_size);
@@ -288,7 +284,7 @@ static struct audio_frame *audio_cap_jack_read(void *state)
                 /* We didn't read all available data in ring buffer, so we
                  * increment the semaphore back up, so we don't wait needlessly
                  * on the next call */
-                sem_post(&s->data_sem);
+                platform_sem_post(&s->data_sem);
         }
 
         float2int((char *) s->frame.data, (char *) s->frame.data, s->frame.max_size);
@@ -307,7 +303,7 @@ static void audio_cap_jack_done(void *state)
         free(s->tmp);
         ring_buffer_destroy(s->data);
         free(s->frame.data);
-        sem_destroy(&s->data_sem);
+        platform_sem_destroy(&s->data_sem);
         close_libjack(s->libjack);
         free(s);
 }

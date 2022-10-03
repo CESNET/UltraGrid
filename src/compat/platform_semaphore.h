@@ -69,6 +69,7 @@ extern "C" {
 void platform_sem_init(void * semStructure, int pshared, int initialValue);
 void platform_sem_post(void * semStructure);
 void platform_sem_wait(void * semStructure);
+void platform_sem_destroy(void * semStructure);
 
 #ifdef __cplusplus
 }

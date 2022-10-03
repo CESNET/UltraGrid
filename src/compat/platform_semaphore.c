@@ -71,7 +71,10 @@ void platform_sem_init(void *semStructure, int pshared, int initialValue)
         semaphore_create(mach_task_self(), (semaphore_t *) semStructure,
                          SYNC_POLICY_FIFO, initialValue);
 #else
-        sem_init((sem_t *) semStructure, pshared, initialValue);
+        if (sem_init((sem_t *) semStructure, pshared, initialValue) != 0) {
+                perror("sem_init");
+                abort();
+        }
 #endif                          /* HAVE_MACOSX */
 }
 
@@ -89,6 +92,20 @@ void platform_sem_wait(void *semStructure)
 #ifdef HAVE_MACOSX
         semaphore_wait(*((semaphore_t *) semStructure));
 #else
-        sem_wait((sem_t *) semStructure);
+        int ret = 0;
+        while ((ret = sem_wait((sem_t *) semStructure)) == -1 && errno == EINTR) {  }
+        if (ret == -1) {
+                perror("sem_wait");
+        }
 #endif                          /* HAVE_MACOSX */
 }
+
+void platform_sem_destroy(void *semStructure)
+{
+#ifdef HAVE_MACOSX
+        semaphore_destroy(mach_task_self(), *(semaphore_t *) semStructure);
+#else
+        sem_destroy((sem_t *) semStructure);
+#endif                          /* HAVE_MACOSX */
+}
+
