@@ -97,6 +97,7 @@
 #include "gl_vdpau.hpp"
 
 using namespace std;
+using namespace std::chrono_literals;
 
 static const char * uyvy_to_rgb_fp = R"raw(
 #version 110
@@ -1808,7 +1809,7 @@ static struct video_frame * display_gl_getf(void *state)
         return buffer;
 }
 
-static int display_gl_putf(void *state, struct video_frame *frame, long long nonblock)
+static int display_gl_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         struct state_gl *s = (struct state_gl *) state;
 
@@ -1824,18 +1825,26 @@ static int display_gl_putf(void *state, struct video_frame *frame, long long non
                 return 0;
         }
 
-        if (nonblock == PUTF_DISCARD) {
-                vf_recycle(frame);
-                s->free_frame_queue.push(frame);
-                return 0;
+        switch (timeout_ns) {
+                case PUTF_DISCARD:
+                        vf_recycle(frame);
+                        s->free_frame_queue.push(frame);
+                        return 0;
+                case PUTF_BLOCKING:
+                        s->frame_consumed_cv.wait(lk, [s]{return s->frame_queue.size() < MAX_BUFFER_SIZE;});
+                        break;
+                case PUTF_NONBLOCK:
+                        break;
+                default:
+                        s->frame_consumed_cv.wait_for(lk, timeout_ns * 1ns, [s]{return s->frame_queue.size() < MAX_BUFFER_SIZE;});
+                        break;
         }
-        if (s->frame_queue.size() >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK) {
+        if (s->frame_queue.size() >= MAX_BUFFER_SIZE) {
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "1 frame(s) dropped!\n";
                 vf_recycle(frame);
                 s->free_frame_queue.push(frame);
                 return 1;
         }
-        s->frame_consumed_cv.wait(lk, [s]{return s->frame_queue.size() < MAX_BUFFER_SIZE;});
         s->frame_queue.push(frame);
 
         lk.unlock();
