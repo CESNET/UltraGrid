@@ -14,8 +14,8 @@ config.sub
 *.vim
 uv
 bin/
-/build*/
-/documentation/
+/build*
+/documentation
 /export*/
 /local/
 lib/
