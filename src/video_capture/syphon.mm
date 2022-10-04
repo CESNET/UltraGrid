@@ -355,16 +355,18 @@ static void syphon_mainloop(void *state)
  */
 static void usage(bool full)
 {
-        UNUSED(full);
         struct key_val options[] = {
                 { "name", "Syphon server name" },
                 { "app", "Syphon server application name" },
                 { "override_fps", "overrides FPS in metadata (but not the actual rate captured)" },
                 { "RGB", "use RGB as an output codec instead of default UYVY" },
-                { "queue_size=<qlen>", "size of internal frame queue" }, ///< @todo fullhelp
                 { NULL, NULL }
         };
-        print_module_usage("-t syphon", options);
+        struct key_val options_full[] = {
+                { "queue_size=<qlen>", "size of internal frame queue" },
+                { NULL, NULL }
+        };
+        print_module_usage("-t syphon", options, options_full, full);
         cout << "\n";
 
         cout << "Available servers:\n";

@@ -451,11 +451,19 @@ unsigned char *base64_decode(const char *in, unsigned int *length) {
     return out;
 }
 
-void print_module_usage(const char *module_name, const struct key_val *options) {
+/**
+ * Prints module usage in unified format.
+ *
+ * @param module_name       module name _including_ command-line parameter (eg. "-t syphon")
+ * @param options           accepted options (may be NULL if no options are accepted)
+ * @param options_full      options that are shown only if fullhelp is requested (NULL if none)
+ * @param printf_full_help  whether to print options_full
+ */
+void print_module_usage(const char *module_name, const struct key_val *options, const struct key_val *options_full, bool print_full_help) {
+        UNUSED(options_full), UNUSED(print_full_help);
         struct key_val nullopts[] = { { nullptr, nullptr } };
         if (options == nullptr) {
-                options = static_cast<const struct key_val *>(nullopts);
-
+                options = nullopts;
         }
         std::ostringstream oss;
         oss << TERM_BOLD << TERM_FG_RED << module_name << TERM_FG_RESET;
@@ -468,26 +476,41 @@ void print_module_usage(const char *module_name, const struct key_val *options) 
                 }
                 return key;
         };
-        for (const auto *it = options; it->key != nullptr; ++it) {
-                if (it == options) {
+        bool first = true;
+        auto add_opt = [&](const struct key_val *it) {
+                if (first) {
                         oss << "[";
+                        first = false;
                 } else {
                         oss << "|";
                 }
                 max_key_len = MAX(max_key_len, (int) strlen(desc_key(it->key)));
                 oss << ":" << it->key;
+        };
+        for (const auto *it = options; it->key != nullptr; ++it) {
+                add_opt(it);
         }
-        if (options->key != nullptr) {
-                oss << "] | " << module_name << ":help" TERM_RESET;
+        if (print_full_help && options_full) {
+                for (const auto *it = options_full; it->key != nullptr; ++it) {
+                        add_opt(it);
+                }
+        }
+        if (!first) { // == has at least one option
+                oss << "] | " << module_name << (options_full ? ":[full]help" : ":help") << TERM_RESET;
         }
 
         color_printf("Usage:\n\t%s\n", oss.str().c_str());
-        if (options->key == nullptr) {
+        if (first) { // no opts
                 return;
         }
         color_printf("where\n");
         for (const auto *it = options; it->key != nullptr; ++it) {
                 color_printf("\t" TBOLD("%-*s") " - %s\n", max_key_len, desc_key(it->key), it->val);
+        }
+        if (print_full_help && options_full) {
+                for (const auto *it = options_full; it->key != nullptr; ++it) {
+                        color_printf("\t" TBOLD("%-*s") " - %s\n", max_key_len, desc_key(it->key), it->val);
+                }
         }
 }
 

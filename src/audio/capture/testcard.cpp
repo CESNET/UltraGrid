@@ -201,7 +201,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                         { "crescendo[=<spd>]", "produce amplying sinusoide (optionally accelerated)" },
                         { nullptr, nullptr }
                 };
-                print_module_usage("-s testcard", options);
+                print_module_usage("-s testcard", options, NULL, false);
                 return &audio_init_state_ok;
         }
 

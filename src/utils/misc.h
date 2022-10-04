@@ -77,7 +77,7 @@ struct key_val {
         const char *key;
         const char *val;
 };
-void print_module_usage(const char *module_name, const struct key_val *options);
+void print_module_usage(const char *module_name, const struct key_val *options, const struct key_val *options_full, bool print_full_help);
 
 #ifdef __cplusplus
 }
