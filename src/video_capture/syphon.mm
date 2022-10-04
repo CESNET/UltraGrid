@@ -64,7 +64,8 @@
 #include "host.h"
 #include "lib_common.h"
 #include "mac_gl_common.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
+#include "utils/misc.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -354,22 +355,22 @@ static void syphon_mainloop(void *state)
  */
 static void usage(bool full)
 {
-        cout << "Usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-t syphon" << rang::fg::reset << "[:name=<server_name>][:app=<app_name>][:override_fps=<fps>][:RGB]" << (full ? "[:queue_size=<len>]" : "[:fullhelp]") << "\n" << rang::style::reset;
-        cout << "\nwhere:\n";
-        cout << rang::style::bold << "\tname\n" << rang::style::reset << "\t\tSyphon server name\n";
-        cout << rang::style::bold << "\tapp\n" << rang::style::reset << "\t\tSyphon server application name\n";
-        cout << rang::style::bold << "\toverride_fps\n" << rang::style::reset << "\t\toverrides FPS in metadata (but not the actual rate captured)\n";
-        cout << rang::style::bold << "\tRGB\n" << rang::style::reset << "\t\tuse RGB as an output codec instead of default UYVY\n";
-        if (full) {
-                cout << rang::style::bold << "\tqueue_size=<len>\n" << rang::style::reset << "\t\tsize of internal frame queue\n";
-        }
+        UNUSED(full);
+        struct key_val options[] = {
+                { "name", "Syphon server name" },
+                { "app", "Syphon server application name" },
+                { "override_fps", "overrides FPS in metadata (but not the actual rate captured)" },
+                { "RGB", "use RGB as an output codec instead of default UYVY" },
+                { "queue_size=<qlen>", "size of internal frame queue" }, ///< @todo fullhelp
+                { NULL, NULL }
+        };
+        print_module_usage("-t syphon", options);
         cout << "\n";
-        cout << "Available servers:\n";
 
+        cout << "Available servers:\n";
         NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
         for (id item in descriptions) {
-                cout << rang::style::bold << "\tapp: " << rang::style::reset << [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] << rang::style::bold << " name: " << rang::style::reset << [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String] << "\n";
+                col() << SBOLD("\tapp: ") << [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] << SBOLD(" name: ") << [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String] << "\n";
                 //...do something useful with myArrayElement
         }
         if ([descriptions count] == 0) {
@@ -453,6 +454,7 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
         state_vidcap_syphon *s = (state_vidcap_syphon *) state;
         struct video_frame *ret = NULL;
 
+        /// @todo this should be rather run from main thread but it works now
         if (s->client && [s->client isValid] == NO) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
                 [s->client release];
