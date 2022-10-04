@@ -344,6 +344,11 @@ static void syphon_mainloop(void *state)
 
         while (!should_exit && !s->should_exit_main_loop) {
                 glutCheckLoop();
+                if (s->client && [s->client isValid] == NO) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
+                        [s->client release];
+                        s->client = nil;
+                }
         }
 }
 
@@ -455,13 +460,6 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
 {
         state_vidcap_syphon *s = (state_vidcap_syphon *) state;
         struct video_frame *ret = NULL;
-
-        /// @todo this should be rather run from main thread but it works now
-        if (s->client && [s->client isValid] == NO) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
-                [s->client release];
-                s->client = nil;
-        }
 
         unique_lock<mutex> lk(s->lock);
         s->frame_ready_cv.wait_for(lk, std::chrono::milliseconds(100), [s]{return s->q.size() > 0;});
