@@ -703,7 +703,7 @@ static struct video_frame *display_conference_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_conference_putf(void *state, struct video_frame *frame, int flags)
+static int display_conference_putf(void *state, struct video_frame *frame, long long flags)
 {
         auto s = static_cast<state_conference *>(state)->common;
 

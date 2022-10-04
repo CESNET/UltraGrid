@@ -273,7 +273,7 @@ static struct video_frame * display_panogl_getf(void *state) {
         return vf_alloc_desc_data(s->current_desc);
 }
 
-static int display_panogl_putf(void *state, struct video_frame *frame, int nonblock) {
+static int display_panogl_putf(void *state, struct video_frame *frame, long long nonblock) {
         PROFILE_FUNC;
         struct state_vr *s = static_cast<state_vr *>(state);
 

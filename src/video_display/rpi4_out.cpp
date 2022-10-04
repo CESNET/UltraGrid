@@ -497,7 +497,7 @@ static struct video_frame *display_rpi4_getf(void *state) {
         return new_frame;
 }
 
-static int display_rpi4_putf(void *state, struct video_frame *frame, int flags)
+static int display_rpi4_putf(void *state, struct video_frame *frame, long long flags)
 {
         auto *s = static_cast<rpi4_display_state *>(state);
 

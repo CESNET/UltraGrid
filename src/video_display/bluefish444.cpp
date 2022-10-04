@@ -889,7 +889,7 @@ display_bluefish444_getf(void *state)
         return frame;
 }
 
-static int display_bluefish444_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_bluefish444_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         UNUSED(nonblock);
         display_bluefish444_state *s =

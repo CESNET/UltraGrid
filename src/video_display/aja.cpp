@@ -201,7 +201,7 @@ public:
         AJAStatus SetUpVideo();
         AJAStatus SetUpAudio();
         void RouteOutputSignal();
-        int Putf(struct video_frame *frame, int nonblock);
+        int Putf(struct video_frame *frame, long long nonblock);
 
         static NTV2FrameRate getFrameRate(double fps);
         void print_stats();
@@ -686,7 +686,7 @@ void display::process_frames()
         }
 }
 
-int display::Putf(struct video_frame *frame, int flags) {
+int display::Putf(struct video_frame *frame, long long flags) {
         if (frame == nullptr) {
                 return 1;
         }
@@ -1012,7 +1012,7 @@ LINK_SPEC struct video_frame *display_aja_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-LINK_SPEC int display_aja_putf(void *state, struct video_frame *frame, int nonblock)
+LINK_SPEC int display_aja_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         auto s = static_cast<struct aja::display *>(state);
 

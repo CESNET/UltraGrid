@@ -220,7 +220,7 @@ static struct video_frame *display_v4l2_getf(void *state)
         return s->f;
 }
 
-static int display_v4l2_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_v4l2_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         UNUSED(nonblock);
         struct display_v4l2_state *s = state;

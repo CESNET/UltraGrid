@@ -336,7 +336,7 @@ static struct video_frame *display_blend_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_blend_putf(void *state, struct video_frame *frame, int flags)
+static int display_blend_putf(void *state, struct video_frame *frame, long long flags)
 {
         shared_ptr<struct state_blend_common> s = ((struct state_blend *)state)->common;
 

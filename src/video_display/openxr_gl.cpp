@@ -1020,7 +1020,7 @@ static struct video_frame * display_xrgl_getf(void *state) {
         }
 }
 
-static int display_xrgl_putf(void *state, struct video_frame *frame, int nonblock) {
+static int display_xrgl_putf(void *state, struct video_frame *frame, long long nonblock) {
         struct state_xrgl *s = static_cast<state_xrgl *>(state);
 
         std::unique_lock<std::mutex> lk(s->lock);

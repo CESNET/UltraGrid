@@ -142,7 +142,7 @@ struct state_sdl {
 
 static void loadSplashscreen(struct state_sdl *s);
 static void show_help(void);
-static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock);
+static int display_sdl_putf(void *state, struct video_frame *frame, long long nonblock);
 static int display_sdl_reconfigure(void *state, struct video_desc desc);
 static int display_sdl_reconfigure_real(void *state, struct video_desc desc);
 

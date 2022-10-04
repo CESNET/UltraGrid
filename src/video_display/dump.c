@@ -112,7 +112,7 @@ static struct video_frame *display_dump_getf(void *state)
         return s->f;
 }
 
-static int display_dump_putf(void *state, struct video_frame *frame, int flags)
+static int display_dump_putf(void *state, struct video_frame *frame, long long flags)
 {
         struct dump_display_state *s = state;
         if (frame == NULL || flags == PUTF_DISCARD) {

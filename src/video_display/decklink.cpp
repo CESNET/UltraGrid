@@ -106,7 +106,7 @@ using namespace std;
 using rang::fg;
 using rang::style;
 
-static int display_decklink_putf(void *state, struct video_frame *frame, int nonblock);
+static int display_decklink_putf(void *state, struct video_frame *frame, long long nonblock);
 
 namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
@@ -116,7 +116,7 @@ private:
         uint64_t frames_flushed = 0;
         uint64_t frames_late = 0;
 
-        friend int ::display_decklink_putf(void *state, struct video_frame *frame, int nonblock);
+        friend int ::display_decklink_putf(void *state, struct video_frame *frame, long long nonblock);
 public:
         virtual ~PlaybackDelegate() = default;
         // IUnknown needs only a dummy implementation
@@ -576,7 +576,7 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
         tc->SetBCD(bcd);
 }
 
-static int display_decklink_putf(void *state, struct video_frame *frame, int flag)
+static int display_decklink_putf(void *state, struct video_frame *frame, long long flag)
 {
         struct state_decklink *s = (struct state_decklink *)state;
 

@@ -141,7 +141,7 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 15
+#define VIDEO_DISPLAY_ABI_VERSION 16
 
 typedef bool (*display_needs_mainloop_t)(void *);
 #define DISPLAY_DOESNT_NEED_MAINLOOP ((display_needs_mainloop_t) 0x00)
@@ -155,7 +155,7 @@ struct video_display_info {
         void                    (*run) (void *state);                                               ///< may be NULL
         void                    (*done) (void *state);
         struct video_frame     *(*getf) (void *state);
-        int                     (*putf) (void *state, struct video_frame *frame, int nonblock); ///< @copydoc display_put_frame
+        int                     (*putf) (void *state, struct video_frame *frame, long long timeout_ns); ///< @copydoc display_put_frame
         int                     (*reconfigure_video)(void *state, struct video_desc desc);
         int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
         void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);  ///< may be NULL
@@ -185,15 +185,15 @@ void                     display_join(struct display *d);
 void 	                 display_done(struct display *d);
 struct video_frame      *display_get_frame(struct display *d);
 
-/** @brief putf flags */
-enum display_put_frame_flags {
-        PUTF_BLOCKING = 0, ///< Block until frame can be displayed.
-        PUTF_NONBLOCK = 1, ///< Do not block.
-        PUTF_DISCARD  = 2,
-};
+/** @ancor putf_flags
+ * { */
+#define PUTF_DISCARD  (-1LL)
+#define PUTF_NONBLOCK   0LL
+#define PUTF_BLOCKING   LLONG_MAX
+/// }
 
 // documented at definition
-int                      display_put_frame(struct display *d, struct video_frame *frame, int flag);
+int                      display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns);
 int                      display_reconfigure(struct display *d, struct video_desc desc, enum video_mode mode);
 /** @brief Get/set property (similar to ioctl)
  *  @retval TRUE  if succeeds

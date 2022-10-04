@@ -228,7 +228,7 @@ static struct video_frame *display_multiplier_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static int display_multiplier_putf(void *state, struct video_frame *frame, int flags)
+static int display_multiplier_putf(void *state, struct video_frame *frame, long long flags)
 {
         shared_ptr<struct state_multiplier_common> s = ((struct state_multiplier *)state)->common;
 

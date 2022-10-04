@@ -318,7 +318,7 @@ static void ndi_disp_convert_Y416_to_PA16(const struct video_frame *f, char *out
 /**
  * flag = PUTF_NONBLOCK is not implemented
  */
-static int display_ndi_putf(void *state, struct video_frame *frame, int flag)
+static int display_ndi_putf(void *state, struct video_frame *frame, long long flag)
 {
         struct display_ndi *s = (struct display_ndi *) state;
 

@@ -396,7 +396,7 @@ static constexpr array gl_supp_codecs = {
 
 /* Prototyping */
 static bool display_gl_init_opengl(struct state_gl *s);
-static int display_gl_putf(void *state, struct video_frame *frame, int nonblock);
+static int display_gl_putf(void *state, struct video_frame *frame, long long timeout);
 static bool display_gl_process_key(struct state_gl *s, long long int key);
 static int display_gl_reconfigure(void *state, struct video_desc desc);
 
@@ -1808,7 +1808,7 @@ static struct video_frame * display_gl_getf(void *state)
         return buffer;
 }
 
-static int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_gl_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_gl *s = (struct state_gl *) state;
 

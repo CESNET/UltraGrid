@@ -97,7 +97,7 @@ static struct video_frame *display_null_getf(void *state)
         return NULL;
 }
 
-static int display_null_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_null_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);

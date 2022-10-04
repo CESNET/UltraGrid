@@ -154,7 +154,7 @@ static void dump_buf(unsigned char *buf, size_t len, int block_size) {
         printf("\n");
 }
 
-static int display_dummy_putf(void *state, struct video_frame *frame, int flags)
+static int display_dummy_putf(void *state, struct video_frame *frame, long long flags)
 {
         if (flags == PUTF_DISCARD || frame == nullptr) {
                 return 0;

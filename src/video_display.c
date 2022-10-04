@@ -357,16 +357,17 @@ struct video_frame *display_get_frame(struct display *d)
  * @param d        display to be putted frame to
  * @param frame    frame that has been obtained from display_get_frame() and has not yet been put.
  *                 Should not be NULL unless we want to quit display mainloop.
- * @param flags specifies blocking behavior (@ref display_put_frame_flags)
+ * @param timeout_ns specifies timeout that should be waited (@sa putf_flags).
+ *                   displays may ignore the value and act like PUTF_NONBLOCK if blocking is not requested.
  * @retval      0  if displayed succesfully (or discarded if flag=PUTF_DISCARD)
  * @retval      1  if not displayed when flag=PUTF_NONBLOCK and it would block
  */
-int display_put_frame(struct display *d, struct video_frame *frame, int flag)
+int display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns)
 {
         assert(d->magic == DISPLAY_MAGIC);
 
         if (!frame) {
-                return d->funcs->putf(d->state, frame, flag);
+                return d->funcs->putf(d->state, frame, timeout_ns);
         }
 
         if (d->postprocess) {
@@ -383,11 +384,11 @@ int display_put_frame(struct display *d, struct video_frame *frame, int flag)
 				return 1;
 			}
 
-			display_ret = d->funcs->putf(d->state, display_frame, flag);
+			display_ret = d->funcs->putf(d->state, display_frame, timeout_ns);
 		}
                 return display_ret;
         }
-        int ret = d->funcs->putf(d->state, frame, flag);
+        int ret = d->funcs->putf(d->state, frame, timeout_ns);
         if (ret != 0 || !d->funcs->generic_fps_indicator_prefix) {
                 return ret;
         }

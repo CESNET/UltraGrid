@@ -184,7 +184,7 @@ static struct audio_frame * display_pipe_get_audio(struct state_pipe *s)
         return out;
 }
 
-static int display_pipe_putf(void *state, struct video_frame *frame, int flags)
+static int display_pipe_putf(void *state, struct video_frame *frame, long long flags)
 {
         struct state_pipe *s = (struct state_pipe *) state;
 

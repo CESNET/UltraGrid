@@ -98,7 +98,7 @@ using namespace std::chrono;
 
 static void show_help(void);
 static void display_sdl2_new_message(struct module *);
-static int display_sdl2_putf(void *state, struct video_frame *frame, int nonblock);
+static int display_sdl2_putf(void *state, struct video_frame *frame, long long nonblock);
 static int display_sdl2_reconfigure(void *state, struct video_desc desc);
 static int display_sdl2_reconfigure_real(void *state, struct video_desc desc);
 
@@ -701,7 +701,7 @@ static struct video_frame *display_sdl2_getf(void *state)
         return vf_alloc_desc_data(s->current_desc);
 }
 
-static int display_sdl2_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_sdl2_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
