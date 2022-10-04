@@ -53,6 +53,7 @@ HEADERS += window/ultragrid_window.hpp \
 	../../src/compat/platform_pipe.h \
 	../../src/utils/fs.h \
 	widget/vuMeterWidget.hpp \
+	widget/recv_report.hpp \
 	window/settings_window.hpp \
 	option/widget_ui.hpp \
 	option/checkable_ui.hpp \
@@ -83,6 +84,7 @@ SOURCES += window/ultragrid_window.cpp \
 	widget/previewWidget.cpp \
 	window/log_window.cpp \
 	widget/vuMeterWidget.cpp \
+	widget/recv_report.cpp \
 	window/settings_window.cpp \
 	option/widget_ui.cpp \
 	option/checkable_ui.cpp \
