@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QProgressBar>
+#include <QTimer>
 
 class RecvReportWidget : public QProgressBar{
 	Q_OBJECT
@@ -13,7 +14,13 @@ public:
 	void report(int rtt_usec, float loss);
 	void reset();
 
+private slots:
+	void timeout();
+
 private:
+	QTimer timer;
+
+	const int timeout_msec = 15000;
 };
 
 #endif

@@ -11,10 +11,10 @@ void RecvReportWidget::reset(){
 	timer.stop();
 	setRange(0, 100);
 	setValue(0);
-	setFormat("No reciever report");
+	setFormat("No receiver report");
 	setTextVisible(true);
-	setToolTip("No RTCP reciever report. Note that this does not necessarily mean"
-			" that the reciever isn't recieving.");
+	setToolTip("No RTCP receiver report. Note that this does not necessarily mean"
+			" that the receiver isn't receiving.");
 }
 
 void RecvReportWidget::report(int rtt_usec, float loss){
@@ -24,3 +24,8 @@ void RecvReportWidget::report(int rtt_usec, float loss){
 	timer.start();
 }
 
+void RecvReportWidget::timeout(){
+	setValue(0);
+	setFormat("Receiver report timed out");
+	setToolTip("Receiver reports stopped arriving");
+}
