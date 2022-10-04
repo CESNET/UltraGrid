@@ -114,6 +114,7 @@
 #include "rtp/video_decoders.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
+#include "utils/misc.h"
 #include "utils/synchronized_queue.h"
 #include "utils/thread.h"
 #include "utils/timed_message.h"
@@ -591,8 +592,9 @@ static void *decompress_worker(void *data)
 }
 
 ADD_TO_PARAM("decoder-drop-policy",
-                "* decoder-drop-policy=blocking|nonblock\n"
-                "  Force specified blocking policy (default nonblock).\n");
+                "* decoder-drop-policy=blocking|nonblock|<sec>\n"
+                "  Force specified blocking policy (default nonblock).\n"
+                "  <sec> - specifies frame timeout in seconds (can have suffixes, eg. \"20ms\")\n");
 static void *decompress_thread(void *args) {
         set_thread_name(__func__);
         struct state_video_decoder *decoder =
@@ -600,20 +602,18 @@ static void *decompress_thread(void *args) {
         int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
         int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
 
-        int force_putf_flag = []() {
+        long long force_putf_timeout = []() {
                 auto drop_policy = commandline_params.find("decoder-drop-policy"s);
                 if (drop_policy == commandline_params.end()) {
-                        return -1;
+                        return -1LL;
                 }
                 if (drop_policy->second == "nonblock") {
-                        return static_cast<int>(PUTF_NONBLOCK);
+                        return PUTF_NONBLOCK;
                 }
                 if (drop_policy->second == "blocking") {
-                        return static_cast<int>(PUTF_BLOCKING);
+                        return PUTF_BLOCKING;
                 }
-                LOG(LOG_LEVEL_WARNING) << "Wrong drop policy "
-                        << drop_policy->second << "!\n";
-                return -1;
+                return static_cast<long long>(unit_evaluate_dbl(drop_policy->second.c_str(), true) * NS_IN_SEC);
         }();
 
         while(1) {
@@ -696,11 +696,11 @@ static void *decompress_thread(void *args) {
                 }
 
                 {
-                        int putf_flags = force_putf_flag != -1 ? force_putf_flag : PUTF_NONBLOCK; // originally was BLOCKING when !is_codec_interframe(decoder->received_vid_desc.color_spec)
+                        long long putf_timeout = force_putf_timeout != -1 ? force_putf_timeout : PUTF_NONBLOCK; // originally was BLOCKING when !is_codec_interframe(decoder->received_vid_desc.color_spec)
 
                         decoder->frame->ssrc = msg->nofec_frame->ssrc;
                         int ret = display_put_frame(decoder->display,
-                                        decoder->frame, putf_flags);
+                                        decoder->frame, putf_timeout);
                         msg->is_displayed = ret == 0;
                         decoder->frame = display_get_frame(decoder->display);
                 }
