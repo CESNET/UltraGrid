@@ -16,6 +16,7 @@ next
 * improve svt-av1 compatibility
 * GUI: preview now uses unix sockets instead of shared memory
 * GUI: should now behave correctly when running multiple instances
+* GUI: added RTCP receiver report based RTT and packet loss indicator
 * GUI: don't show crash dialog if UltraGrid crashed when exiting
 
 1.7
