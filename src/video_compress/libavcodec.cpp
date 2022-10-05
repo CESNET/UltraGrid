@@ -435,7 +435,7 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         assert(s->requested_bitrate >= 0);
                 } else if(strncasecmp("bpp=", item, strlen("bpp=")) == 0) {
                         char *bpp_str = item + strlen("bpp=");
-                        s->requested_bpp = unit_evaluate_dbl(bpp_str);
+                        s->requested_bpp = unit_evaluate_dbl(bpp_str, false);
                         if (std::isnan(s->requested_bpp)) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong bitrate: " << bpp_str << "\n";
                                 return -1;

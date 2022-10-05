@@ -78,71 +78,56 @@ int clampi(long long val, int lo, int hi) {
  * @returns     LLONG_MIN if error
  */
 long long unit_evaluate(const char *str) {
-        char *end_ptr;
-        char unit_prefix_u;
-        errno = 0;
-        double ret = strtod(str, &end_ptr);
-        if (errno != 0) {
-                perror("strtod");
+        double ret = unit_evaluate_dbl(str, false);
+
+        if (ret == NAN || ret >= nexttoward((double) LLONG_MAX, LLONG_MAX)) {
                 return LLONG_MIN;
-        }
-        unit_prefix_u = toupper(*end_ptr);
-        switch(unit_prefix_u) {
-                case 'G':
-                        ret *= 1000;
-                        /* fall through */
-                case 'M':
-                        ret *= 1000;
-                        /* fall through */
-                case 'K':
-                        ret *= 1000;
-                        break;
-                case '\0':
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "Error: unknown unit suffix %c.\n", *end_ptr);
-                        return LLONG_MIN;
         }
 
-        if (ret >= nexttoward((double) LLONG_MAX, LLONG_MAX) || strlen(end_ptr) > 1) {
-                return LLONG_MIN;
-        } else {
-                return ret;
-        }
+        return ret;
 }
 
 /**
  * Converts units in format <val>[.<val>][kMG] to floating point representation.
  *
- * @param   str string to be parsed
- * @returns     positive floating point representation of the string
- * @returns     NAN if error
+ * @param    str            string to be parsed, suffix following SI suffix is ignored (as in 1ms or 100MB)
+ * @param    case_sensitive should 'm' be considered as mega
+ * @returns                 positive floating point representation of the string
+ * @returns                 NAN if error
  */
-double unit_evaluate_dbl(const char *str) {
+double unit_evaluate_dbl(const char *str, bool case_sensitive) {
         char *end_ptr;
-        char unit_prefix_u;
+        char unit_prefix;
         errno = 0;
         double ret = strtod(str, &end_ptr);
         if (errno != 0) {
                 perror("strtod");
                 return NAN;
         }
-        unit_prefix_u = toupper(*end_ptr);
-        switch(unit_prefix_u) {
-                case 'G':
-                        ret *= 1000;
-                        /* fall through */
-                case 'M':
-                        ret *= 1000;
-                        /* fall through */
+        unit_prefix = case_sensitive ? *end_ptr : toupper(*end_ptr);
+        switch(unit_prefix) {
+                case 'n':
+                case 'N':
+                        ret /= 1000'000'000;
+                        break;
+                case 'u':
+                case 'U':
+                        ret /= 1000'000;
+                        break;
+                case 'm':
+                        ret /= 1000;
+                        break;
+                case 'k':
                 case 'K':
                         ret *= 1000;
                         break;
-                case '\0':
+                case 'M':
+                        ret *= 1000'000LL;
                         break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, "Error: unknown unit suffix %c.\n", *end_ptr);
-                        return NAN;
+                case 'g':
+                case 'G':
+                        ret *= 1000'000'000LL;
+                        break;
         }
 
         return ret;
