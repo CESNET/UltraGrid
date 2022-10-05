@@ -112,6 +112,10 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	verString += GIT_CURRENT_BRANCH;
 
 	versionLabel.setText(QString("Ver: ") + verString);
+
+	receiverLoss.reset();
+
+	ui.statusbar->addPermanentWidget(&receiverLoss);
 	ui.statusbar->addPermanentWidget(&versionLabel);
 }
 
@@ -191,16 +195,30 @@ void UltragridWindow::about(){
 	aboutBox.exec();
 }
 
-void UltragridWindow::outputAvailable(){
-	//ui.terminal->append(process.readAll());
+static bool isPrefix(std::string_view str, std::string_view prefix){
+	return str.substr(0, prefix.size()) == prefix;
+}
 
+void UltragridWindow::outputAvailable(){
 	QString str = processMngr.readUgOut();
-#if 0
-	ui.terminal->moveCursor(QTextCursor::End);
-	ui.terminal->insertPlainText(str);
-	ui.terminal->moveCursor(QTextCursor::End);
-#endif
 	log.write(str);
+
+	lineBuf.write(str.toStdString());
+
+	while(lineBuf.hasLine()){
+		auto line = lineBuf.peek();
+
+		if(isPrefix(line, "Receiver reports RTT=")){
+			auto tmp = std::string(line);
+			int rtt = 0;
+			float loss = 0;
+			sscanf(tmp.c_str(), "Receiver reports RTT=%d usec, loss %f%%", &rtt, &loss);
+
+			receiverLoss.report(rtt, loss);
+		}
+
+		lineBuf.pop();
+	}
 }
 
 void UltragridWindow::start(){
@@ -428,6 +446,8 @@ void UltragridWindow::processStateChanged(UgProcessManager::State state){
 	ui.startButton->setEnabled(vals.btnEnabled);
 	previewStatus.setText(vals.previewText);
 	processStatus.setText(vals.ugText);
+
+	receiverLoss.reset();
 }
 
 void UltragridWindow::unexpectedExit(UgProcessManager::State state,
