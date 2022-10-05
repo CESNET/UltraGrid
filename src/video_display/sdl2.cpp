@@ -95,10 +95,11 @@ using rang::fg;
 using rang::style;
 using namespace std;
 using namespace std::chrono;
+using namespace std::chrono_literals;
 
 static void show_help(void);
 static void display_sdl2_new_message(struct module *);
-static int display_sdl2_putf(void *state, struct video_frame *frame, long long nonblock);
+static int display_sdl2_putf(void *state, struct video_frame *frame, long long timeout_ns);
 static int display_sdl2_reconfigure(void *state, struct video_desc desc);
 static int display_sdl2_reconfigure_real(void *state, struct video_desc desc);
 
@@ -701,26 +702,31 @@ static struct video_frame *display_sdl2_getf(void *state)
         return vf_alloc_desc_data(s->current_desc);
 }
 
-static int display_sdl2_putf(void *state, struct video_frame *frame, long long nonblock)
+static int display_sdl2_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         struct state_sdl2 *s = (struct state_sdl2 *)state;
 
         assert(s->mod.priv_magic == MAGIC_SDL2);
 
         std::unique_lock<std::mutex> lk(s->lock);
-        if (nonblock == PUTF_DISCARD) {
+        if (timeout_ns == PUTF_DISCARD) {
                 assert(frame != nullptr);
                 s->free_frame_queue.push(frame);
                 return 0;
         }
 
-        if (s->buffered_frames_count >= MAX_BUFFER_SIZE && nonblock != PUTF_BLOCKING
-                        && frame != NULL) {
+        if (frame != NULL && timeout_ns > 0) {
+                if (timeout_ns == PUTF_BLOCKING) {
+                        s->frame_consumed_cv.wait(lk, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
+                } else {
+                        s->frame_consumed_cv.wait_for(lk, timeout_ns * 1ns, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
+                }
+        }
+        if (frame != NULL && s->buffered_frames_count >= MAX_BUFFER_SIZE) {
                 s->free_frame_queue.push(frame);
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "1 frame(s) dropped!\n";
                 return 1;
         }
-        s->frame_consumed_cv.wait(lk, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
         s->buffered_frames_count += 1;
         lk.unlock();
         SDL_Event event;
