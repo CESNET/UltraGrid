@@ -104,6 +104,10 @@ double unit_evaluate_dbl(const char *str, bool case_sensitive) {
                 perror("strtod");
                 return NAN;
         }
+        if (end_ptr == str) {
+                log_msg(LOG_LEVEL_ERROR, "'%s' is not a number\n", str);
+                return NAN;
+        }
         unit_prefix = case_sensitive ? *end_ptr : toupper(*end_ptr);
         switch(unit_prefix) {
                 case 'n':
