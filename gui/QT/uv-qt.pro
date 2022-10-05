@@ -72,6 +72,7 @@ HEADERS += window/ultragrid_window.hpp \
 	util/ug_process_manager.hpp \
 	util/debug.hpp \
 	util/random_port.hpp \
+	util/line_buffer.hpp \
 
 FORMS += ui/ultragrid_window.ui \
 	ui/log_window.ui \
@@ -100,6 +101,7 @@ SOURCES += window/ultragrid_window.cpp \
 	option/video_opts.cpp \
 	util/ug_process_manager.cpp \
 	util/random_port.cpp \
+	util/line_buffer.cpp \
 	../../tools/astat.cpp \
 	../../tools/ipc_frame.cpp \
 	../../tools/ipc_frame_unix.cpp \
