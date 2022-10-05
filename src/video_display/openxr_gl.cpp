@@ -1037,7 +1037,7 @@ static int display_xrgl_putf(void *state, struct video_frame *frame, long long n
                 s->new_frame_ready_cv.notify_one();
                 return 0;
         }
-        if (s->frame_queue.size() >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK) {
+        if (s->frame_queue.size() >= MAX_BUFFER_SIZE && nonblock != PUTF_BLOCKING) {
                 s->dispose_frame_pool.push_back(frame);
                 s->new_frame_ready_cv.notify_one();
                 return 1;

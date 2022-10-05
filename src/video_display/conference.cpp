@@ -713,7 +713,7 @@ static int display_conference_putf(void *state, struct video_frame *frame, long 
                 std::unique_lock<std::mutex> lg(s->incoming_frames_lock);
                 if (s->incoming_frames.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
                         log_msg(LOG_LEVEL_WARNING, "[conference] queue full!\n");
-                        if(flags == PUTF_NONBLOCK){
+                        if(flags != PUTF_BLOCKING){
                                 vf_free(frame);
                                 return 1;
                         }

@@ -254,7 +254,7 @@ static int display_unix_sock_putf(void *state, struct video_frame *frame, long l
 
         std::unique_lock<std::mutex> lg(s->lock);
         if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN){
-                if(flags == PUTF_NONBLOCK){
+                if(flags != PUTF_BLOCKING){
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "queue full!\n");
                         return 1;
                 }

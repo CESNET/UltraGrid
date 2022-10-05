@@ -283,7 +283,7 @@ static int display_panogl_putf(void *state, struct video_frame *frame, long long
         }
 
         std::unique_lock<std::mutex> lk(s->lock);
-        if (s->buffered_frames_count >= MAX_BUFFER_SIZE && nonblock == PUTF_NONBLOCK
+        if (s->buffered_frames_count >= MAX_BUFFER_SIZE && nonblock != PUTF_BLOCKING
                         && frame != NULL) {
                 vf_free(frame);
                 printf("1 frame(s) dropped!\n");

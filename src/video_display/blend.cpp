@@ -347,7 +347,7 @@ static int display_blend_putf(void *state, struct video_frame *frame, long long 
                 if (s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
                         fprintf(stderr, "blend: queue full!\n");
                 }
-                if (flags == PUTF_NONBLOCK && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
+                if (flags != PUTF_BLOCKING && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
                         vf_free(frame);
                         return 1;
                 }

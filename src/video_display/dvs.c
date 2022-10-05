@@ -500,7 +500,7 @@ static int display_dvs_putf(void *state, struct video_frame *frame, long long fl
         assert(s->magic == HDSP_MAGIC);
 
         pthread_mutex_lock(&s->lock);
-        if(s->work_to_do && flags == PUTF_NONBLOCK) {
+        if(s->work_to_do && flags != PUTF_BLOCKING) {
                 pthread_mutex_unlock(&s->lock);
                 return EWOULDBLOCK;
         }

@@ -516,7 +516,7 @@ static int display_rpi4_putf(void *state, struct video_frame *frame, long long f
                 return 0;
         }
 
-        if (s->frame_queue.size() >= MAX_BUFFER_SIZE && flags == PUTF_NONBLOCK) {
+        if (s->frame_queue.size() >= MAX_BUFFER_SIZE && flags != PUTF_BLOCKING) {
                 log_msg(LOG_LEVEL_VERBOSE, "nonblock putf drop\n");
                 vf_recycle(frame);
                 std::lock_guard(s->free_frames_mut);
