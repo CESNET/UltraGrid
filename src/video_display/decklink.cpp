@@ -576,7 +576,7 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
         tc->SetBCD(bcd);
 }
 
-static int display_decklink_putf(void *state, struct video_frame *frame, long long flag)
+static int display_decklink_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         struct state_decklink *s = (struct state_decklink *)state;
 
@@ -587,8 +587,9 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
 
         uint32_t i;
         s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i);
-        if ((flag == PUTF_NONBLOCK && i > 2) || flag == PUTF_DISCARD) {
-                if (flag == PUTF_NONBLOCK) {
+        long long max_frames = DIV_ROUNDED_UP(timeout_ns, (long long)(NS_IN_SEC / frame->fps));
+        if (timeout_ns == PUTF_DISCARD || i > max_frames) {
+                if (timeout_ns != PUTF_DISCARD) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Frame dropped!\n");
                 }
                 for (int j = 0; j < s->devices_cnt; ++j) {

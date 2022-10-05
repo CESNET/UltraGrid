@@ -44,6 +44,7 @@
 #define IF_NOT_NULL_ELSE(val, default_val) ((val) ? (val) : (default_val))
 #define UNDEF -1
 #define IF_NOT_UNDEF_ELSE(val, default_val) ((val) != UNDEF ? (val) : (default_val))
+#define DIV_ROUNDED_UP(value, div) ((((value) % (div)) != 0) ? ((value) / (div) + 1) : ((value) / (div)))
 
 /**
  * @brief Creates FourCC word
