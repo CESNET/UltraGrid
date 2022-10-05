@@ -595,6 +595,9 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
 #endif
                 } else if (strstr(tok, "gamma=") == tok) {
                         s->gamma = stof(strchr(tok, '=') + 1);
+                        if (strchr(tok, '/')) {
+                                s->gamma /= stof(strchr(tok, '/') + 1);
+                        }
                 } else if (!strcasecmp(tok, "hide-window")) {
                         s->hide_window = true;
                 } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
