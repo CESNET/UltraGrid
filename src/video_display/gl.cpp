@@ -415,6 +415,7 @@ static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
 static void upload_texture(struct state_gl *s, char *data);
 static bool check_rpi_pbo_quirks();
+static void set_gamma(struct state_gl *s);
 
 static void gl_print_monitors(bool fullhelp) {
         if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
@@ -1145,6 +1146,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                                 int refresh_rate = get_refresh_rate(s->modeset, mon, s->current_display_desc.fps);
                                 glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, refresh_rate);
                                 LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Setting fullscreen: " << (s->fs ? "ON" : "OFF") << "\n";
+                                set_gamma(s);
                                 glfw_print_video_mode(s);
                                 break;
                         }
