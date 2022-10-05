@@ -3,7 +3,7 @@
 
 RecvReportWidget::RecvReportWidget(QWidget *parent) : QProgressBar(parent){
 	reset();
-	timer.callOnTimeout(this, &RecvReportWidget::timeout);
+	QObject::connect(&timer, &QTimer::timeout, this, &RecvReportWidget::timeout);
 	timer.setInterval(timeout_msec);
 }
 
