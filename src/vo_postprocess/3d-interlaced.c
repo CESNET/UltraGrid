@@ -50,6 +50,8 @@
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include "vo_postprocess.h"
 
+#define MOD_NAME "[interlaced_3d] "
+
 struct state_interlaced_3d {
         struct video_frame *in;
 };
@@ -70,10 +72,14 @@ static void * interlaced_3d_init(const char *config) {
                 printf("3d-interlaced takes no parameters.\n");
                 return NULL;
         }
+#ifdef __SSE2__
+        log_msg(LOG_LEVEL_ERROR, MOD_NAME "SSE2 not supported on this platform!\n");
+        return NULL;
+#endif
         struct state_interlaced_3d *s = (struct state_interlaced_3d *)
                 malloc(sizeof(struct state_interlaced_3d));
         s->in = vf_alloc(2);
-        
+
         return s;
 }
 
@@ -119,20 +125,19 @@ static bool interlaced_3d_postprocess(void *state, struct video_frame *in, struc
 {
         UNUSED (state);
         UNUSED (req_pitch);
-        unsigned int x;
         
+#ifdef __SSE2__
         char *out_data = vf_get_tile(out, 0)->data;
         int linesize = vc_get_linesize(vf_get_tile(out, 0)->width, out->color_spec);
         
         /* we compute avg from line k/2*2 and k/2*2+1 for left eye and put
          * to (k/2*2)th line. Than we compute avg of same lines number
          * and put it to the following line, which creates interlaced stereo */
-        for (x = 0; x < vf_get_tile(out, 0)->height; ++x) {
+        for (unsigned int x = 0; x < vf_get_tile(out, 0)->height; ++x) {
                 int linepos;
                 char *line1 = vf_get_tile(in, x % 2)->data +  (x / 2) * 2 * linesize;
                 char *line2 = vf_get_tile(in, x % 2)->data +  ((x / 2) * 2 + 1) * linesize;
                 
-#ifdef __SSE2__
                 for(linepos = 0; linepos < linesize; linepos += 16) {
                         asm volatile ("movdqu (%0), %%xmm0\n"
                                       "pavgb (%1), %%xmm0\n"
@@ -145,12 +150,14 @@ static bool interlaced_3d_postprocess(void *state, struct video_frame *in, struc
                         line1 += 16;
                         line2 += 16;
                 }
-#else
-                fprintf(stderr, "SSE2 not supported on this platform!\n");
-#endif
         }
 
         return true;
+#else
+        UNUSED(in);
+        UNUSED(out);
+        return false;
+#endif
 }
 
 static void interlaced_3d_done(void *state)
