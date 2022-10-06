@@ -215,7 +215,6 @@ struct state_audio_decoder {
         bool muted;
 
         audio_frame2_resampler resampler;
-        bool resample_tail_buffer;
 
         audio_playback_ctl_t audio_playback_ctl_func;
         void *audio_playback_state;
@@ -290,8 +289,6 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->magic = AUDIO_DECODER_MAGIC;
         s->audio_playback_ctl_func = c;
         s->audio_playback_state = p_state;
-
-        s->resample_tail_buffer = false;
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DECODER;
@@ -780,16 +777,14 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         decompressed.change_bps(4);
                 }
                 if (decoder->req_resample_to != 0) {
-                        auto [ret, reinitResampler, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
+                        auto [ret, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
                         if (!ret) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return FALSE;
                         }
                         decoder->resample_remainder = move(remainder);
-                }
-                else {
-                        auto [ret, reinitResampler] = decompressed.resample(decoder->resampler, s->buffer.sample_rate);
-                        if (!ret) {
+                } else {
+                        if (!decompressed.resample(decoder->resampler, s->buffer.sample_rate)) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return FALSE;
                         }

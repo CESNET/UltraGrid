@@ -799,9 +799,6 @@ struct state_decklink {
         bool                keep_device_defaults = false;
 
         AudioDriftFixer audio_drift_fixer{250, 25, 2700, 5, 5};
-
-        uint32_t            last_buffered_samples;
-        int32_t             drift_since_last_correction;
         DecklinkAudioSummary audio_summary{};
 
  };
@@ -1636,8 +1633,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         s->link_req = 0;
         s->devices_cnt = 1;
         s->low_latency = true;
-        s->last_buffered_samples = 0;
-        s->drift_since_last_correction = 0;
         s->audio_drift_fixer.set_summary(&(s->audio_summary));
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {

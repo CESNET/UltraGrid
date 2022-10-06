@@ -55,11 +55,9 @@
 #include <soxr.h>
 #endif // HAVE_SOXR
 
-#include <cmath>
 #include <sstream>
 #include <stdexcept>
 #include <chrono>
-#include <thread>
 
 #define DEFAULT_RESAMPLE_QUALITY 10 // in range [0,10] - 10 best
 
@@ -95,62 +93,6 @@ audio_frame2_resampler::~audio_frame2_resampler() {
 }
 
 /**
- * @brief Returns the numerator for the fractional sample rate in the resampler.
- * 
- * @return int The numerator for the fractional sample rate.
- */
-int audio_frame2_resampler::get_resampler_numerator() {
-        return this->resample_to_num;
-}
-
-/**
- * @brief Returns the denominator for the fractional sample rate in the resampler.
- * 
- * @return int The denominator of the sample applied to the resampler.
- */
-int audio_frame2_resampler::get_resampler_denominator() {
-        return this->resample_to_den;
-}
-
-/**
- * @brief Returns the input latency of the resampler. This is how many audio samples
- *        the resampler has stored that will need to be extracted when resampling is
- *        stopped.
- * 
- * @return int The input latency of the resampler.
- */
-int audio_frame2_resampler::get_resampler_input_latency() {
-        return this->resample_input_latency;
-}
-
-/**
- * @brief Returns the output latency of the resampler.
- * 
- * @return int The output latency of the resampler.
- */
-int audio_frame2_resampler::get_resampler_output_latency() {
-        return this->resample_output_latency;
-}
-
-/**
- * @brief Returns the sample rate that the resampler is sampling from.
- * 
- * @return int The sample rate the resampler is sampling from.
- */
-int audio_frame2_resampler::get_resampler_from_sample_rate() {
-        return this->resample_from;
-}
-
-/**
- * @brief Returns the channel count that the resampler has been initialised for.
- * 
- * @return size_t The channel count that the resampler was initiated with.
- */
-size_t audio_frame2_resampler::get_resampler_channel_count() {
-        return this->resample_ch_count;
-}
-
-/**
  * @brief Checks whether the resampler has been set.
  * 
  * @return true  The resampler has been initialised.
@@ -159,33 +101,6 @@ size_t audio_frame2_resampler::get_resampler_channel_count() {
 bool audio_frame2_resampler::resampler_is_set() {
         return this->resampler != nullptr;
 }
-
-/**
- * @brief Sets a flag to let the resampling function know that the resampler should
- *        be destroyed.
- * 
- * @param destroy A boolean indicating if the resampler should be destroyed on the next
- *                resample. This should be used after inserting useless data into the resampler
- *                to collect the buffer stored within it.
- */
-void audio_frame2_resampler::resample_set_destroy_flag(bool destroy) {
-        this->destroy_resampler = destroy;
-}
-
-/**
- * @brief Returns the initial BPS when the resampler is initialised so we can analyse what BPS the held buffer will
- *        be.
- * 
- * @return int The BPS of the audio frame when the resampler was initialised. 
- */
-int audio_frame2_resampler::get_resampler_initial_bps() {
-        return this->resample_initial_bps;
-}
-
-ADD_TO_PARAM("resampler-threaded", "* resampler-threaded\n"
-                "  Sets audio resampler to use threads (1 per channel).\n" \
-                "  This should only be used with large buffer sizes otherwise there is a risk\n" \
-                "  that there is additional overhead created by threading.\n");
 
 /**
  * @brief This function will create (and destroy) a new resampler.
@@ -203,22 +118,11 @@ bool audio_frame2_resampler::create_resampler(uint32_t original_sample_rate, uin
 #ifdef HAVE_SOXR
         if (this->resampler) {
                 soxr_delete((soxr_t)this->resampler);
-                this->destroy_resampler = false;
         }
         this->resampler = nullptr;
 
         /* When creating a var-rate resampler, q_spec must be set as follows: */
         soxr_quality_spec_t q_spec = soxr_quality_spec(SOXR_HQ, SOXR_VR);
-        // Use a low amount of threads because UltraGrid only provides a small audio buffer
-        // and multi-threading provides little (or worse) performance than being single threaded
-        int threads = 1;
-        if (commandline_params.find("resampler-threaded") != commandline_params.end()) {
-                // If someone has requested that threads are used then 
-                // we should get the thread count to match
-                // the amount of channels being resampled.
-                LOG(LOG_LEVEL_INFO) << "[audio_frame2] Setting the resampler to have " << channel_size << " threads\n";
-                threads = channel_size;
-        }
         soxr_runtime_spec_t const runtime_spec = soxr_runtime_spec(1);
         soxr_io_spec_t io_spec;
         if(bps == 2) {
@@ -251,12 +155,6 @@ bool audio_frame2_resampler::create_resampler(uint32_t original_sample_rate, uin
         this->resample_to_num = new_sample_rate_num;
         this->resample_to_den = new_sample_rate_den;
         this->resample_ch_count = channel_size;
-        // Capture the input and output latency. Generally, there is not a difference between the two.
-        // The input latency is used to calculate leftover audio in the resampler that is collected on the
-        // audio frame before the resampler is destroyed.
-        this->resample_input_latency = 0;
-        this->resample_output_latency = 0;
-        this->resample_initial_bps = bps;
         LOG(LOG_LEVEL_DEBUG) << "[audio_frame2] Resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
         return true;
 #endif
@@ -513,65 +411,15 @@ void  audio_frame2::change_bps(int new_bps)
         channels = std::move(new_channels);
 }
 
-/**
- * @brief This will convert 32-bit integer audio into a 32-bit floating point audio format.
- *        Doing so will allow 32-bit integer audio data to be resampled using the speex floating point resampler.
- *        Converting between 32-bit floating point audio and 32-bit integer audio is likely to cause
- *        some data loss due to rounding issues on conversion (and the precision of floating point data types when converting to)
- * 
- */
-void audio_frame2::convert_int32_to_float() {
-        for(size_t i = 0; i < this->channels.size(); i++) {
-                auto channel_data = this->get_data(i);
-                auto channel_data_length =  this->get_data_len(i);
-                for(size_t j = 0; j < channel_data_length / this->bps; j++) {
-                        int32_t *p_curr_value = (int32_t *)(channel_data + (this->bps * j));
-                        float *p_curr_value_float = (float *)p_curr_value;
-                        *p_curr_value_float = ((float)(*p_curr_value) / (float)std::numeric_limits<int32_t>::max());
-                }
-        }
-}
-
-/**
- * @brief This will convert 32-bit floating point audio data into a 32-bit integer audio format.
- *        Doing so will allow 32-bit integer audio data to be resampled using the speex floating point resampler.
- *        Converting between 32-bit floating point audio and 32-bit integer audio is likely to cause
- *        some data loss due to the precision of floating point data types (and rounding issues on conversion back).
- * 
- */
-void audio_frame2::convert_float_to_int32() {
-        for(size_t i = 0; i < this->channels.size(); i++) {
-                auto channel_data = this->get_data(i);
-                auto channel_data_length =  this->get_data_len(i);
-                for(size_t j = 0; j < channel_data_length / this->bps; j++) {
-                        float *p_curr_value = (float *)(channel_data + (this->bps * j));
-                        int32_t *p_curr_value_int = (int32_t *)p_curr_value;
-
-                        if((*p_curr_value) > 1) {
-                                *p_curr_value_int = std::numeric_limits<int32_t>::max();
-                        }
-                        else if((*p_curr_value) < -1) {
-                                *p_curr_value_int = std::numeric_limits<int32_t>::min();
-                        }
-                        else {
-                                *p_curr_value_int = (int32_t)roundf((*p_curr_value) * std::numeric_limits<int32_t>::max());
-                        }
-                }
-        }
-}
-
-tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
+tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
 {
-        // Track whether or not the resampler was reinitialised so that there is not an attempt to pull the latency buffer
-        // from the resampler
-        bool reinitialised_resampler = false;
         std::chrono::high_resolution_clock::time_point funcBegin = std::chrono::high_resolution_clock::now();
 
 #ifdef HAVE_SOXR
         if (!resampler_state.resampler_is_set()) {
-                reinitialised_resampler = resampler_state.create_resampler(this->sample_rate, new_sample_rate_num, new_sample_rate_den, this->channels.size(), this->bps);
-                if(!reinitialised_resampler) {
-                        return {false, false, audio_frame2{}};
+                bool ret = resampler_state.create_resampler(this->sample_rate, new_sample_rate_num, new_sample_rate_den, this->channels.size(), this->bps);
+                if (!ret) {
+                        return {false, audio_frame2{}};
                 }
         }
 
@@ -607,9 +455,9 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
         error = soxr_process((soxr_t)(resampler_state.resampler), ibuf_ptrs, inlen, NULL, obuf_ptrs, outlen, &odone);
         if (error) {
                 LOG(LOG_LEVEL_ERROR) << "[audio_frame2_resampler] resampler failed: " << soxr_strerror(error) << "\n";
-                return {false, false, audio_frame2{}};
+                return {false, audio_frame2{}};
         }
-        for(int i = 0; i < new_channels.size(); i++) {
+        for (unsigned int i = 0; i < new_channels.size(); i++) {
                 new_channels[i].len = odone * this->bps;
         }
 
@@ -622,22 +470,22 @@ tuple<bool, bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] aud
 
         // Remainders aren't as relevant when using SOXR
         audio_frame2 remainder = {};
-        return {true, reinitialised_resampler, std::move(remainder)};
+        return {true, std::move(remainder)};
 #else
-        return {false, false, audio_frame2{}};
+        return {false, audio_frame2{}};
 #endif
 }
 
-tuple<bool, bool> audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sample_rate)
+bool audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sample_rate)
 {
-        auto [ret, reinitResampler, remainder] = resample_fake(resampler_state, new_sample_rate, 1);
+        auto [ret, remainder] = resample_fake(resampler_state, new_sample_rate, 1);
         if (!ret) {
-                return {false, reinitResampler};
+                return false;
         }
         if (remainder.get_data_len() > 0) {
                 LOG(LOG_LEVEL_WARNING) << "Audio frame resampler: not all samples resampled!\n";
         }
         sample_rate = new_sample_rate;
 
-        return {true, reinitResampler};
+        return true;
 }

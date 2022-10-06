@@ -122,27 +122,14 @@ class audio_frame2;
 class audio_frame2_resampler {
 public:
         ~audio_frame2_resampler();
-        int get_resampler_numerator();
-        int get_resampler_denominator();
-        int get_resampler_output_latency();
-        int get_resampler_input_latency();
-        int get_resampler_from_sample_rate();
-        int get_resampler_initial_bps();
-        size_t get_resampler_channel_count();
+private:
         bool resampler_is_set();
         bool create_resampler(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps);
-        void resample_set_destroy_flag(bool destroy);
-private:
         void *resampler{nullptr}; // type is (SpeexResamplerState *)
         int resample_from{0};
         int resample_to_num{0};
         int resample_to_den{1};
-        int resample_output_latency{0};
-        int resample_input_latency{0};
-        int resample_initial_bps{0};
         size_t resample_ch_count{0};
-        bool destroy_resampler{false};
-        bool initial{}; 
 
         friend class audio_frame2;
 };
@@ -186,9 +173,6 @@ public:
         void set_fec_params(int channel, fec_desc const &);
         static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
         void change_bps(int new_bps);
-        void convert_int32_to_float();
-        void convert_float_to_int32();
-
         /**
          * @note
          * bps of the frame needs to be 16 bits!
@@ -202,10 +186,10 @@ public:
          *                        properties.
          * @retval false          if SpeexDSP was not compiled in
          */
-        std::tuple<bool, bool> resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
+        bool resample(audio_frame2_resampler &resampler_state, int new_sample_rate);
 
         ///@ resamples to new sample rate while keeping nominal sample rate intact
-        std::tuple<bool, bool, audio_frame2> resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den);
+        std::tuple<bool, audio_frame2> resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den);
 private:
         struct channel {
                 std::unique_ptr<char []> data;
@@ -213,10 +197,6 @@ private:
                 size_t max_len;
                 struct fec_desc fec_params;
         };
-        static void resample_channel(audio_frame2_resampler* resampler_state, int channel_index, 
-                                     const uint16_t *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder);
-        static void resample_channel_float(audio_frame2_resampler* resampler_state, int channel_index, 
-                                           const float *in, uint32_t in_len, channel *new_channel, audio_frame2 *remainder);
         void reserve(int channel, size_t len);
         int bps;                /* bytes per sample */
         int sample_rate;
