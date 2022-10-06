@@ -2589,7 +2589,7 @@ PKG_CHECK_MODULES([LIBSOXR], [soxr], [found_soxr=yes], [found_soxr=no])
 
 if test "$found_soxr" = yes -a "$soxr_req" != no; then
         LIBS="$LIBS $LIBSOXR_LIBS"
-        COMMON_FLAGS="$COMMON_FLAGS${SOXR_COMMON_FLAGS:+${COMMON_FLAGS:+ }}$SOXR_COMMON_FLAGS"
+        COMMON_FLAGS="$COMMON_FLAGS${LIBSOXR_CFLAGS:+${COMMON_FLAGS:+ }}$LIBSOXR_CFLAGS"
         AC_DEFINE([HAVE_SOXR], [1], [Build with Soxr support])
         soxr=yes
 elif test "$soxr_req" = yes; then
