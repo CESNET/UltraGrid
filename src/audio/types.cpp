@@ -158,6 +158,7 @@ bool audio_frame2_resampler::create_resampler(uint32_t original_sample_rate, uin
         LOG(LOG_LEVEL_DEBUG) << "[audio_frame2] Resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
         return true;
 #endif
+        UNUSED(original_sample_rate), UNUSED(new_sample_rate_num), UNUSED(new_sample_rate_den), UNUSED(channel_size), UNUSED(bps);
         return false;
 }
 
@@ -413,9 +414,9 @@ void  audio_frame2::change_bps(int new_bps)
 
 tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
 {
+#ifdef HAVE_SOXR
         std::chrono::high_resolution_clock::time_point funcBegin = std::chrono::high_resolution_clock::now();
 
-#ifdef HAVE_SOXR
         if (!resampler_state.resampler_is_set()) {
                 bool ret = resampler_state.create_resampler(this->sample_rate, new_sample_rate_num, new_sample_rate_den, this->channels.size(), this->bps);
                 if (!ret) {
@@ -472,6 +473,7 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
         audio_frame2 remainder = {};
         return {true, std::move(remainder)};
 #else
+        UNUSED(new_sample_rate_num), UNUSED(new_sample_rate_den);
         return {false, audio_frame2{}};
 #endif
 }
