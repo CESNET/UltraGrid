@@ -572,7 +572,7 @@ public:
                                                      target_buffer_fill(target_buffer_fill), pos_jitter(positive_jitter),
                                                      neg_jitter(negative_jitter){}
 
-        bool m_enabled = true;
+        bool m_enabled = false;
 
         /**
          * @brief Set the max hz object
