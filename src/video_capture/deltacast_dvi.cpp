@@ -117,10 +117,10 @@ static void usage(void)
         col() << SBOLD("\t<channel>") << " may be channel index (for cards which have multiple inputs, max 4)\n";
         
         col() << SBOLD("\t<edid>") << " may be one of following\n";
-        col() << SBOLD("\t\t0") << " - load DVI-D EEDID\n";
-        col() << SBOLD("\t\t1") << " - load DVI-A EEDID\n";
-        col() << SBOLD("\t\t2") << " - load HDMI EEDID\n";
-        col() << SBOLD("\t\t3") << " - avoid EEDID loading\n";
+        col() << SBOLD("\t\t " << to_string(VHD_DV_EEDID_DVIA)) << " - load DVI-A EEDID\n";
+        col() << SBOLD("\t\t " << to_string(VHD_DV_EEDID_DVID)) << " - load DVI-D EEDID\n";
+        col() << SBOLD("\t\t " << to_string(VHD_DV_EEDID_HDMI)) << " - load HDMI EEDID\n";
+        col() << SBOLD("\t\t-1") << " - avoid EEDID loading\n";
 
         col() << SBOLD("\t<color_spec>") << " may be one of following\n";
         col() << SBOLD("\t\tUYVY\n");
@@ -485,10 +485,11 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                                 }
                         } else if(strncasecmp(tok, "edid=", strlen("edid=")) == 0) {
                                         edid = atoi(tok + strlen("edid="));
-                                        if(edid < 0 || edid > 3) {
+                                        if(edid < 0 || edid >= NB_VHD_DV_EEDID_PRESET) {
                                                 log_msg(LOG_LEVEL_ERROR, "[DELTA] Error: Wrong "
                                                                 "EDID entered on commandline. "
-                                                                "Expected 0-3, got %d.\n", edid);
+                                                                "Expected 0-%d, got %d.\n",
+                                                                (int) NB_VHD_DV_EEDID_PRESET - 1, edid);
                                                 goto error;
 
                                         }
@@ -605,18 +606,9 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
         if(have_preset) {
                 DviMode = VHD_DV_MODE_DVI_A;
         } else {
-                switch(edid)
-                {
-                        case 0 : VHD_PresetEEDID(VHD_DV_EEDID_DVID,pEEDIDBuffer,256);
-                                 VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
-                                 break;
-                        case 1 : VHD_PresetEEDID(VHD_DV_EEDID_DVIA,pEEDIDBuffer,256);
-                                 VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
-                                 break;
-                        case 2 : VHD_PresetEEDID(VHD_DV_EEDID_HDMI,pEEDIDBuffer,256);
-                                 VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
-                                 break;
-                        default : break;
+                if (edid >= 0 && edid < NB_VHD_DV_EEDID_PRESET) {
+                        VHD_PresetEEDID((VHD_DV_EEDID_PRESET)edid,pEEDIDBuffer,256);
+                        VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
                 }
                 /* Read EEDID and check its validity */
                 Result = VHD_ReadEEDID(s->BoardHandle,VHD_ST_RX0,pEEDIDBuffer,&pEEDIDBufferSize);
