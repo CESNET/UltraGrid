@@ -2,15 +2,6 @@
 
 cd /tmp
 
-# AJA
-AJA_DIRECTORY=$SDK_NONFREE_PATH/ntv2sdk
-if [ -f "$SDK_NONFREE_PATH/ntv2sdkmac.zip" ]; then
-        unzip "$SDK_NONFREE_PATH/ntv2sdkmac.zip"
-        mv /tmp/ntv2sdk* "$AJA_DIRECTORY"
-        cd "$AJA_DIRECTORY/ajalibraries/ajantv2/build"
-        xcodebuild -project ajantv2.xcodeproj
-fi
-
 # DELTACAST
 DELTA_CACHE_INST=$SDK_NONFREE_PATH/VideoMasterHD_inst
 if [ -f "$SDK_NONFREE_PATH/VideoMaster_SDK_MacOSX.zip" ]; then

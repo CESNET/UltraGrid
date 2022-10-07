@@ -160,7 +160,7 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "::set-output name=nonfree::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/ntv2sdkmac.zip $SDK_URL/VideoMaster_SDK_MacOSX.zip)"
+        echo "::set-output name=nonfree::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/VideoMaster_SDK_MacOSX.zip)"
         echo "::set-output name=ndi::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg)"
         echo "::set-output name=ximea::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)"
     - name: Cache Non-Free SDKs
@@ -175,7 +175,7 @@ jobs:
         rm -rf ${{ env.SDK_NONFREE_PATH }}
         mkdir -p ${{ env.SDK_NONFREE_PATH }}
         cd ${{ env.SDK_NONFREE_PATH }}
-        curl -S -f -O $SDK_URL/ntv2sdkmac.zip --next -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip || true
+        curl -S -f -O $SDK_URL/VideoMaster_SDK_MacOSX.zip || true
         $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache XIMEA
       id: cache-macos-ximea
