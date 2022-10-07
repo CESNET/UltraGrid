@@ -71,10 +71,28 @@
 #define DELTA_DVI_DEPRECATED 1
 #endif
 
+#ifdef HAVE_MACOSX
+#include <VideoMasterHD/VideoMasterHD_Ip_Board.h>
+#else
+#include <VideoMasterHD_Ip_Board.h>
+#endif
+#if defined VHD_IP_FILTER_UDP_PORT_DEST
+#define VHD_MIN_6_19 1
+#endif
+
 // compat
 #ifdef DELTA_DVI_DEPRECATED
 #define VHD_BOARDTYPE_DVI VHD_BOARDTYPE_DVI_DEPRECATED
 #define VHD_BOARDTYPE_HDKEY VHD_BOARDTYPE_HDKEY_DEPRECATED
+#endif
+// Following items have been actually deprecated in 6.20. But 6.20 doesn't
+// bring any new define and thus it is undistinguishable from 6.19. As a
+// consequence, it won't compile with 6.19.
+#if defined VHD_MIN_6_19
+#define VHD_BOARDTYPE_SD VHD_BOARDTYPE_SD_DEPRECATED
+#define VHD_BOARDTYPE_SDKEY VHD_BOARDTYPE_SDKEY_DEPRECATED
+#define VHD_BOARDTYPE_HDMI VHD_BOARDTYPE_HDMI_DEPRECATED
+#define VHD_CHNTYPE_SDSDI VHD_CHNTYPE_SDSDI_DEPRECATED
 #endif
 
 struct deltacast_frame_mode_t {
