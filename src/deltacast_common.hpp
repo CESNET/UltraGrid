@@ -72,8 +72,8 @@
 #endif
 
 #include "debug.h"
-#include "rang.hpp"
 #include "types.h"
+#include "utils/color_out.h"
 
 #if defined VHD_DV_SP_INPUT_CS // (VideoMasterHD 6.14)
 #define DELTA_DVI_DEPRECATED 1
@@ -310,7 +310,7 @@ static void print_available_delta_boards() {
                 if (it != board_type_map.end()) {
                         board = it->second;
                 }
-                std::cout << "\t\t\tBoard " << rang::style::bold << i << rang::style::reset << ": " << rang::style::bold << board << rang::style::reset << " (driver: " << delta_format_version(DriverVersion, false) << ")\n";
+                col() << "\t\t\tBoard " << SBOLD(i) << ": " << SBOLD(board) << " (driver: " << delta_format_version(DriverVersion, false) << ")\n";
                 if ((DllVersion >> 16U) != (DriverVersion >> 16U)) {
                         LOG(LOG_LEVEL_WARNING) << "[DELTACAST] API and driver version mismatch: " << delta_format_version(DllVersion, true) << " vs " << delta_format_version(DriverVersion, true) << "\n";
                 }
