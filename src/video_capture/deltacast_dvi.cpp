@@ -437,6 +437,21 @@ static const unordered_map<codec_t, ULONG, hash<int>> ug_delta_codec_mapping = {
         { v210, VHD_BUFPACK_VIDEO_YUV422_10 },
 };
 
+static bool load_custom_edid(const char *filename, BYTE *pEEDIDBuffer, ULONG *pEEDIDBufferSize) {
+        FILE *edid = fopen(filename, "rb");
+        if (!edid) {
+                perror("EDID open");
+                return false;
+        }
+        *pEEDIDBufferSize = fread((void *) pEEDIDBuffer, 1, *pEEDIDBufferSize, edid);
+        bool ret = ferror(edid);
+        if (!ret) {
+                perror("EDID fread");
+        }
+        fclose(edid);
+        return ret;
+}
+
 static int
 vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
 {
@@ -450,6 +465,7 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
         ULONG             pEEDIDBufferSize=256;
         int               channel = 0;
         ULONG             ChannelId;
+        bool              have_custom_edid = false;
         bool              have_dvi_a_format = false;
         VHD_DV_MODE       DviMode = NB_VHD_DV_MODES;
 
@@ -499,6 +515,11 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                                                         codec_str);
                                         goto error;
                                 }
+                        } else if (strncasecmp(tok, "edid=", strlen("edid=")) == 0) {
+                                if (!load_custom_edid(strchr(tok, '=') + 1, pEEDIDBuffer, &pEEDIDBufferSize)) {
+                                        goto error;
+                                }
+                                have_custom_edid = true;
                         } else if(strncasecmp(tok, "preset=", strlen("preset=")) == 0) {
                                         edid_preset = atoi(strchr(tok, '=') + 1);
                                         if (edid_preset < 0 || edid_preset >= NB_VHD_DV_EEDID_PRESET) {
@@ -625,6 +646,9 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                 if (edid_preset >= 0 && edid_preset < NB_VHD_DV_EEDID_PRESET) {
                         VHD_PresetEEDID((VHD_DV_EEDID_PRESET)edid_preset,pEEDIDBuffer,256);
                         VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
+                }
+                if (have_custom_edid) {
+                        VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,pEEDIDBufferSize);
                 }
                 /* Read EEDID and check its validity */
                 Result = VHD_ReadEEDID(s->BoardHandle,VHD_ST_RX0,pEEDIDBuffer,&pEEDIDBufferSize);
