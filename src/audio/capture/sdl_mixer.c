@@ -98,13 +98,17 @@ static int parse_opts(struct state_sdl_mixer_capture *s, char *cfg) {
         while ((item = strtok_r(cfg, ":", &save_ptr)) != NULL) {
                 cfg = NULL;
                 if (strcmp(item, "help") == 0) {
+                        color_printf(TBOLD("sdl_mixer") " is a capture device capable playing various audio files like FLAC,\n"
+                                        "MIDI, mp3, Vorbis or WAV.\n\n"
+                                        "The main functional difference to " TBOLD("file") " video capture (that is able to play audio\n"
+                                        "files as well) is the support for " TBOLD("MIDI") " (and also having one song bundled).\n\n");
                         color_printf("Usage:\n");
                         color_printf(TBOLD(TRED("\t-s sdl_mixer") "[:file=<filename>][:volume=<vol>]") "\n");
                         color_printf("where\n");
                         color_printf(TBOLD("\t<filename>") " - name of file to be used\n");
                         color_printf(TBOLD("\t<vol>     ") " - volume [0..%d], default %d\n", MIX_MAX_VOLUME, DEFAULT_MIX_MAX_VOLUME);
                         color_printf("\n");
-                        color_printf(TBOLD("SDL_SOUNDFONTS") " - environment variable with path to sound fonts for MIDI playback (eg. freepats)\n");
+                        color_printf(TBOLD("SDL_SOUNDFONTS") " - environment variable with path to sound fonts for MIDI playback (eg. freepats)\n\n");
                         return 1;
                 }
                 if (strstr(item, "file=") == item) {
