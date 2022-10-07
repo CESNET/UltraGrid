@@ -90,6 +90,7 @@ static void sdl_mixer_audio_callback(int chan, void *stream, int len, void *udat
         struct state_sdl_mixer_capture *s = udata;
 
         ring_buffer_write(s->sdl_mixer_buf, stream, len);
+        memset(stream, 0, len); // do not playback anything to PC output
 }
 
 static int parse_opts(struct state_sdl_mixer_capture *s, char *cfg) {
