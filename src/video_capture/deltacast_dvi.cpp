@@ -53,8 +53,9 @@
 #include <sys/time.h>
 #include <semaphore.h>
 
-#include <queue>
+#include <map>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <unordered_map>
 
@@ -105,6 +106,22 @@ struct vidcap_deltacast_dvi_state {
 static void usage(void);
 static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256]);
 
+const static map<VHD_DV_EEDID_PRESET, const char *> edid_presets = {
+        { VHD_DV_EEDID_EMPTY,           "empty E-EDID - the host should force its output regardless of the DELTA-dvi E-EDID" },
+        { VHD_DV_EEDID_DVIA,            "DVI-A E-EDID" },
+        { VHD_DV_EEDID_DVID,            "DVI-D E-EDID" },
+        { VHD_DV_EEDID_HDMI,            "HDMI E-EDID" },
+        { VHD_DV_EEDID_DVID_DUAL,       "DVI-D E-EDID with dual-link formats" },
+        { VHD_DV_EEDID_HDMI_H4K,        "HDMI H4K E-EDID" },
+        { VHD_DV_EEDID_DVID_H4K,        "DVI-D H4K E-EDID" },
+        { VHD_DV_EEDID_HDMI_H4K2,       "HDMI H4K2 E-EDID" },
+        { VHD_DV_EEDID_DVID_H4K2,       "DVI-D H4K2 E-EDID" },
+        { VHD_DV_EEDID_DISPLAYPORT_1_2, "DisplayPort 1.2 E-EDID" },
+        { VHD_DV_EEDID_HDMI_FLEX_HMI,   "HDMI FLEX-HMI E-EDID" },
+        { VHD_DV_EEDID_DVID_FLEX_HMI,   "DVI-D FLEX-HMI E-EDID" },
+        { (VHD_DV_EEDID_PRESET) -1,     "avoid E-EDID loading" },
+};
+
 static void usage(void)
 {
         col() << "Usage:\n";
@@ -117,10 +134,9 @@ static void usage(void)
         col() << SBOLD("\t<channel>") << " may be channel index (for cards which have multiple inputs, max 4)\n";
         
         col() << SBOLD("\t<edid>") << " may be one of following\n";
-        col() << SBOLD("\t\t " << to_string(VHD_DV_EEDID_DVIA)) << " - load DVI-A EEDID\n";
-        col() << SBOLD("\t\t " << to_string(VHD_DV_EEDID_DVID)) << " - load DVI-D EEDID\n";
-        col() << SBOLD("\t\t " << to_string(VHD_DV_EEDID_HDMI)) << " - load HDMI EEDID\n";
-        col() << SBOLD("\t\t-1") << " - avoid EEDID loading\n";
+        for (const auto &it : edid_presets) {
+                col() << SBOLD("\t\t " << setw(2) << it.first) << " - " << it.second << "\n";
+        }
 
         col() << SBOLD("\t<color_spec>") << " may be one of following\n";
         col() << SBOLD("\t\tUYVY\n");
