@@ -125,7 +125,7 @@ const static map<VHD_DV_EEDID_PRESET, const char *> edid_presets = {
 static void usage(void)
 {
         col() << "Usage:\n";
-        col() << SBOLD(SRED("\t-t deltacast-dv") << "[:device=<index>][:channel=<channel>][:codec=<color_spec>][:edid=<edid>|preset=<format>]") << "\n";
+        col() << SBOLD(SRED("\t-t deltacast-dv") << "[:device=<index>][:channel=<channel>][:codec=<color_spec>][:preset=<preset>|:format=<format>]") << "\n";
         col() << "where\n";
         
         col() << SBOLD("\t<index>") << " - index of DVI card\n";
@@ -133,7 +133,7 @@ static void usage(void)
 
         col() << SBOLD("\t<channel>") << " may be channel index (for cards which have multiple inputs, max 4)\n";
         
-        col() << SBOLD("\t<edid>") << " may be one of following\n";
+        col() << SBOLD("\t<preset>") << " may be one of following\n";
         for (const auto &it : edid_presets) {
                 col() << SBOLD("\t\t " << setw(2) << it.first) << " - " << it.second << "\n";
         }
@@ -144,7 +144,7 @@ static void usage(void)
         col() << SBOLD("\t\tRGBA\n");
         col() << SBOLD("\t\tBGR") << " (default)\n";
 
-        col() << SBOLD("\t<preset>") << " may be format description (DVI-A), E-EDID will be ignored\n";
+        col() << SBOLD("\t<format>") << " may be format description (DVI-A), E-EDID will be ignored\n";
         col() << "\t\tvideo format is in the format " << SBOLD("<width>x<height>@<fps>") << "\n";
 
 }
@@ -220,7 +220,7 @@ vidcap_deltacast_dvi_probe(bool verbose, void (**deleter)(void *))
 	return vt;
 }
 
-static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool have_preset,
+static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool have_dvi_a_format,
         VHD_DV_MODE DviMode,
         ULONG Width, ULONG Height, ULONG RefreshRate)
 {
@@ -231,7 +231,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
 
         gettimeofday(&t0, NULL);
 
-        if(!have_preset) {
+        if(!have_dvi_a_format) {
                 /* Wait for channel locked */
                 printf("Waiting for incoming signal...\n");
                 do
@@ -268,7 +268,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         if(DviMode == VHD_DV_MODE_DVI_A)
         {
                 VHD_DV_DVI_A_STANDARD DviAStd = VHD_DV_DVIA_STD_DMT;
-                if(!have_preset) {
+                if(!have_dvi_a_format) {
                         /* Auto-detection is now available for DVI-A.
                            VHD_DVI_SP_ACTIVE_HEIGHT, VHD_DVI_SP_INTERLACED, VHD_DVI_SP_REFRESH_RATE,
                            VHD_DVI_SP_PIXEL_CLOCK, VHD_DVI_SP_TOTAL_WIDTH, VHD_DVI_SP_TOTAL_HEIGHT,
@@ -445,12 +445,12 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
         ULONG             Result = VHDERR_NOERROR,DllVersion,NbBoards;
         ULONG             BrdId = 0;
         ULONG             Packing;
-        int               edid = -1;
+        int               edid_preset = -1;
         BYTE              pEEDIDBuffer[256];
         ULONG             pEEDIDBufferSize=256;
         int               channel = 0;
         ULONG             ChannelId;
-        bool              have_preset = false;
+        bool              have_dvi_a_format = false;
         VHD_DV_MODE       DviMode = NB_VHD_DV_MODES;
 
 	printf("vidcap_deltacast_dvi_init\n");
@@ -499,21 +499,21 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                                                         codec_str);
                                         goto error;
                                 }
-                        } else if(strncasecmp(tok, "edid=", strlen("edid=")) == 0) {
-                                        edid = atoi(tok + strlen("edid="));
-                                        if(edid < 0 || edid >= NB_VHD_DV_EEDID_PRESET) {
+                        } else if(strncasecmp(tok, "preset=", strlen("preset=")) == 0) {
+                                        edid_preset = atoi(strchr(tok, '=') + 1);
+                                        if (edid_preset < 0 || edid_preset >= NB_VHD_DV_EEDID_PRESET) {
                                                 log_msg(LOG_LEVEL_ERROR, "[DELTA] Error: Wrong "
                                                                 "EDID entered on commandline. "
                                                                 "Expected 0-%d, got %d.\n",
-                                                                (int) NB_VHD_DV_EEDID_PRESET - 1, edid);
+                                                                (int) NB_VHD_DV_EEDID_PRESET - 1, edid_preset);
                                                 goto error;
 
                                         }
                         } else if(strncasecmp(tok, "channel=", strlen("channel=")) == 0) {
                                 channel = atoi(tok + strlen("channel="));
-                        } else if(strncasecmp(tok, "preset=", strlen("preset=")) == 0) {
-                                have_preset = true;
-                                char *ptr = tok + strlen("preset=");
+                        } else if(strncasecmp(tok, "format=", strlen("format=")) == 0) {
+                                have_dvi_a_format = true;
+                                char *ptr = strchr(tok, '=') + 1;
                                 char *save_ptr, *item;
                                 if((item = strtok_r(ptr, "x@", &save_ptr))) {
                                         Width = atoi(item);
@@ -619,11 +619,11 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                 log_msg(LOG_LEVEL_ERROR, "[Delta-dvi] Warning: Unable to set buffer queue length.\n");
         }
 
-        if(have_preset) {
+        if(have_dvi_a_format) {
                 DviMode = VHD_DV_MODE_DVI_A;
         } else {
-                if (edid >= 0 && edid < NB_VHD_DV_EEDID_PRESET) {
-                        VHD_PresetEEDID((VHD_DV_EEDID_PRESET)edid,pEEDIDBuffer,256);
+                if (edid_preset >= 0 && edid_preset < NB_VHD_DV_EEDID_PRESET) {
+                        VHD_PresetEEDID((VHD_DV_EEDID_PRESET)edid_preset,pEEDIDBuffer,256);
                         VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
                 }
                 /* Read EEDID and check its validity */
@@ -637,9 +637,9 @@ vidcap_deltacast_dvi_init(struct vidcap_params *params, void **state)
                 }
         }
 
-        s->configured = wait_for_channel_locked(s, have_preset, DviMode, Width, Height, RefreshRate);
+        s->configured = wait_for_channel_locked(s, have_dvi_a_format, DviMode, Width, Height, RefreshRate);
         if(!s->configured &&
-                        have_preset) {
+                        have_dvi_a_format) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to set preset format!\n");
                 goto no_format;
         }
