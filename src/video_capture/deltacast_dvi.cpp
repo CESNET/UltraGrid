@@ -63,13 +63,11 @@
 #include "host.h"
 #include "deltacast_common.hpp"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "tv.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture.h"
 
-using rang::fg;
-using rang::style;
 using namespace std;
 
 #define DEFAULT_BUFFERQUEUE_DEPTH 5
@@ -109,29 +107,29 @@ static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256]);
 
 static void usage(void)
 {
-        cout << "Usage:\n";
-        cout << style::bold << fg::red << "\t-t deltacast-dv" << fg::reset << "[:device=<index>][:channel=<channel>][:codec=<color_spec>][:edid=<edid>|preset=<format>]\n" << style::reset;
-        cout << "where\n";
+        col() << "Usage:\n";
+        col() << SBOLD(SRED("\t-t deltacast-dv") << "[:device=<index>][:channel=<channel>][:codec=<color_spec>][:edid=<edid>|preset=<format>]") << "\n";
+        col() << "where\n";
         
-        cout << style::bold << "\t<index>" << style::reset << " - index of DVI card\n";
+        col() << SBOLD("\t<index>") << " - index of DVI card\n";
         print_available_delta_boards();
 
-        cout << style::bold << "\t<channel>" << style::reset << " may be channel index (for cards which have multiple inputs, max 4)\n";
+        col() << SBOLD("\t<channel>") << " may be channel index (for cards which have multiple inputs, max 4)\n";
         
-        cout << style::bold << "\t<edid>" << style::reset << " may be one of following\n";
-        cout << style::bold << "\t\t0" << style::reset << " - load DVI-D EEDID\n";
-        cout << style::bold << "\t\t1" << style::reset << " - load DVI-A EEDID\n";
-        cout << style::bold << "\t\t2" << style::reset << " - load HDMI EEDID\n";
-        cout << style::bold << "\t\t3" << style::reset << " - avoid EEDID loading\n";
+        col() << SBOLD("\t<edid>") << " may be one of following\n";
+        col() << SBOLD("\t\t0") << " - load DVI-D EEDID\n";
+        col() << SBOLD("\t\t1") << " - load DVI-A EEDID\n";
+        col() << SBOLD("\t\t2") << " - load HDMI EEDID\n";
+        col() << SBOLD("\t\t3") << " - avoid EEDID loading\n";
 
-        cout << style::bold << "\t<color_spec>" << style::reset << " may be one of following\n";
-        cout << style::bold << "\t\tUYVY\n" << style::reset;
-        cout << style::bold << "\t\tv210\n" << style::reset;
-        cout << style::bold << "\t\tRGBA\n" << style::reset;
-        cout << style::bold << "\t\tBGR" << style::reset << " (default)\n";
+        col() << SBOLD("\t<color_spec>") << " may be one of following\n";
+        col() << SBOLD("\t\tUYVY\n");
+        col() << SBOLD("\t\tv210\n");
+        col() << SBOLD("\t\tRGBA\n");
+        col() << SBOLD("\t\tBGR") << " (default)\n";
 
-        cout << style::bold << "\t<preset>" << style::reset << " may be format description (DVI-A), E-EDID will be ignored\n";
-        cout << "\t\tvideo format is in the format " << style::bold << "<width>x<height>@<fps>\n" << style::reset;
+        col() << SBOLD("\t<preset>") << " may be format description (DVI-A), E-EDID will be ignored\n";
+        col() << "\t\tvideo format is in the format " << SBOLD("<width>x<height>@<fps>") << "\n";
 
 }
 
