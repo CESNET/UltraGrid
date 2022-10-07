@@ -2397,10 +2397,15 @@ AC_ARG_ENABLE(gpustitch,
 
 PKG_CHECK_MODULES([LIBGPUSTITCH], [libgpustitch >= 0.0.1 ], [found_gpustitch=yes], [found_gpustitch=no])
 
+AC_LANG_PUSH([C++])
 SAVED_LIBS=$LIBS
+SAVED_CPPFLAGS=$CPPFLAGS
 LIBS="$LIBS -lgpustitch"
+CPPFLAGS="$CPPFLAGS $LIBGPUSTITCH_CFLAGS"
 AC_CHECK_HEADER([libgpustitch/stitcher.hpp])
 LIBS=$SAVED_LIBS
+CPPFLAGS=$SAVED_CPPFLAGS
+AC_LANG_POP([C++])
 
 if test "$ac_cv_header_libgpustitch_stitcher_hpp" != yes
 then
