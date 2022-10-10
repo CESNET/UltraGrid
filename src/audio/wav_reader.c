@@ -211,13 +211,13 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         uint32_t chunk_size;
         rewind(wav_file);
 
-        _Bool rf64 = false;
+        _Bool rf64 = 0; ///< RF64 or BW64
         READ_N(buffer, 4);
-        if (strncmp(buffer, "RF64", 4) == 0) {
-                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Using RF64 file.\n");
+        if (strncmp(buffer, "RF64", 4) == 0 || strncmp(buffer, "BW64", 4) == 0) {
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Using %4.4s WAV file.\n", buffer);
                 rf64 = 1;
         } else if (strncmp(buffer, "RIFF", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected RIFF or RF64 chunk, %.4s given.\n", buffer);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected RIFF or RF64/BW64 chunk, %.4s given.\n", buffer);
                 return WAV_HDR_PARSE_WRONG_FORMAT;
         }
 
