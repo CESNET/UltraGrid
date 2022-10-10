@@ -311,10 +311,10 @@ private:
 };
 
 #define LOG(level) \
-if (level <= log_level) Logger(level).Get()
+if ((level) <= log_level) Logger(level).Get()
 
 #define LOG_ONCE(level, id, msg) \
-if (level <= log_level) Logger(level).once(id, msg)
+if ((level) <= log_level) Logger(level).once(id, msg)
 
 #endif
 

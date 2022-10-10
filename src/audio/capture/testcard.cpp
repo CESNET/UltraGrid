@@ -331,7 +331,12 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                 unsigned int samples = wav_read(read_to, s->total_samples, wav, &metadata);
                 int bytes = samples * (metadata.bits_per_sample / 8) * metadata.ch_count;
                 if (samples != s->total_samples) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Warning: premature end of WAV file (" << bytes << " read, " << metadata.data_size << " expected)!\n";
+                        LOG(samples > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR) << MOD_NAME << "Warning: premature end of WAV file (" << bytes << " read, " << metadata.data_size << " expected)!\n";
+                        if (samples == 0) {
+                                fclose(wav);
+                                delete s;
+                                return NULL;
+                        }
                         s->total_samples = samples;
                 }
                 fclose(wav);
