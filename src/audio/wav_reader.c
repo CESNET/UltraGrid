@@ -42,12 +42,15 @@
 #endif // HAVE_CONFIG_H
 
 #include <inttypes.h>
+#include <limits.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
 #include "debug.h"
 
+#define MOD_NAME "[WAV reader] "
 #define WAV_MAX_BIT_DEPTH 64
 #define WAV_MAX_CHANNELS 128
 
@@ -154,6 +157,25 @@ static int fskip(FILE *f, long off) {
         return 1;
 }
 
+static _Bool read_ds64(FILE *wav_file, uint32_t chunk_size, struct wav_metadata *metadata) {
+        if (chunk_size != 28) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "ds64 chunk size must be 28 but %" PRIu32 " was presented!\n", chunk_size);
+                return 0;
+        }
+        uint64_t tmp = 0;
+        READ_N(&tmp, 8); // RF64 chunk size - unused
+        READ_N(&tmp, 8);
+        assert(tmp <= LLONG_MAX);
+        metadata->data_size = tmp;
+        READ_N(&tmp, 8); // dummy - should be ignored
+        uint32_t table_count = 0;
+        READ_N(&table_count, 4); // number of table entries for non-'data' chunks
+        if (!fskip(wav_file, (long)(table_count * (sizeof(uint32_t) /*ID*/ + sizeof(uint64_t) /*size*/)))) { // just skip the table contents
+                return 0;
+        }
+        return 1;
+}
+
 #define CHECK(cmd, retval) if (cmd == -1) return retval;
 int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
 {
@@ -161,9 +183,11 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         uint32_t chunk_size;
         rewind(wav_file);
 
+        _Bool rf64 = false;
         READ_N(buffer, 4);
         if (strncmp(buffer, "RF64", 4) == 0) {
-                log_msg(LOG_LEVEL_WARNING, "[WAV] RF64 used - currently only basic support (using RIFF compatibility)\n");
+                log_msg(LOG_LEVEL_VERBOSE, "[WAV] Using RF64 file.\n");
+                rf64 = 1;
         } else if (strncmp(buffer, "RIFF", 4) != 0) {
                 log_msg(LOG_LEVEL_ERROR, "[WAV] Expected RIFF or RF64 chunk, %.4s given.\n", buffer);
                 return WAV_HDR_PARSE_WRONG_FORMAT;
@@ -179,12 +203,15 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         }
 
         bool found_data_chunk = false;
+        bool found_ds64_chunk = false;
         bool found_fmt_chunk = false;
         while (fread(buffer, 4, 1, wav_file) == 1) {
                 READ_N(&chunk_size, 4);
                 if (strncmp(buffer, "data", 4) == 0) {
                         found_data_chunk = true;
-                        metadata->data_size = chunk_size;
+                        if (!found_ds64_chunk) { // RF64 has this chunk size always -1, value from ds64 is used instead
+                                metadata->data_size = chunk_size;
+                        }
                         metadata->data_offset = _ftelli64(wav_file);
 
                         if (metadata->data_size == UINT32_MAX) {
@@ -199,6 +226,12 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                                 }
                         }
                         break;
+                }
+                if (strncmp(buffer, "ds64", 4) == 0) {
+                        if (!read_ds64(wav_file, chunk_size, metadata)) {
+                                return WAV_HDR_PARSE_WRONG_FORMAT;
+                        }
+                        found_ds64_chunk = true;
                 } else if (strncmp(buffer, "fmt ", 4) == 0) {
                         found_fmt_chunk = true;
                         if (chunk_size != 16 && chunk_size != 18 && chunk_size != 40) {
@@ -225,6 +258,10 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         if (!found_fmt_chunk) {
                 log_msg(LOG_LEVEL_ERROR, "[WAV] Fmt chunk not found!\n");
                 return WAV_HDR_PARSE_READ_ERROR;
+        }
+
+        if (rf64 && !found_ds64_chunk) { // buggy, but we may try to continue witn implicit data size
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Broken WAV - a RF64 file detected but no ds64 chunk found!\n");
         }
 
         log_msg(LOG_LEVEL_VERBOSE, "[WAV] File parsed correctly - length %lld bytes, data offset %lld.\n",
