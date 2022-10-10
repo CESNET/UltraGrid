@@ -176,7 +176,7 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
 static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame *audio_frame,
                 char **audio_samples, unsigned int *total_samples,
                 unsigned long long int *chunk_size) {
-        FILE *wav = fopen(wav_filename, "r");
+        FILE *wav = fopen(wav_filename, "rb");
         if(!wav) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open WAV file: " << wav_filename << ".\n";
                 return false;
