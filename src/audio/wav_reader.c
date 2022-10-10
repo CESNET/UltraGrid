@@ -162,8 +162,10 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         rewind(wav_file);
 
         READ_N(buffer, 4);
-        if(strncmp(buffer, "RIFF", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected RIFF chunk, %.4s given.\n", buffer);
+        if (strncmp(buffer, "RF64", 4) == 0) {
+                log_msg(LOG_LEVEL_WARNING, "[WAV] RF64 used - currently only basic support (using RIFF compatibility)\n");
+        } else if (strncmp(buffer, "RIFF", 4) != 0) {
+                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected RIFF or RF64 chunk, %.4s given.\n", buffer);
                 return WAV_HDR_PARSE_WRONG_FORMAT;
         }
 
