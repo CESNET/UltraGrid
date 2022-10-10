@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define MODULE_NAME "[Audio testcard] "
+#define MOD_NAME "[Audio testcard] "
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -47,24 +47,17 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
+#include "compat/misc.h"
 #include "compat/usleep.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "tv.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
 
-#include <algorithm>
-#include <cassert>
-#include <chrono>
-#include <cstdlib>
-#include <cstring>
-#include <string>
-
-using namespace std::chrono;
-using std::setprecision;
-using std::stoi;
-using std::string;
+#include <assert.h>
+#include <string.h>
 
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
 
@@ -76,10 +69,9 @@ using std::string;
 
 #define DEFAULT_FREQUENCY 1000
 #define DEFAULT_VOLUME -18.0
-constexpr const char *MOD_NAME = "[Audio testc.] ";
 
 struct state_audio_capture_testcard {
-        uint32_t magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
+        uint32_t magic;
 
         unsigned long long int chunk_size;
         struct audio_frame audio;
@@ -88,18 +80,18 @@ struct state_audio_capture_testcard {
                seconds_tone_played;
         char *audio_samples;
 
-        steady_clock::time_point next_audio_time;
+        time_ns_t next_audio_time;
 
         unsigned int samples_played;
 
         unsigned int total_samples;
 
-        int crescendo_speed = 1;
+        int crescendo_speed;
 };
 
 static void audio_cap_testcard_probe(struct device_info **available_devices, int *count)
 {
-        *available_devices = static_cast<struct device_info *>(calloc(1, sizeof(struct device_info)));
+        *available_devices = calloc(1, sizeof(struct device_info));
         strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Testing 1 kHZ signal");
         *count = 1;
@@ -115,7 +107,7 @@ static void audio_cap_testcard_help(const char *driver_name)
 static char *get_sine_signal(int sample_rate, int bps, int channels, int frequency, double volume, int crescendo_spd) {
         char *data = (char *) calloc(1, sample_rate * channels * bps);
         double scale = pow(10.0, volume / 20.0) * sqrt(2.0);
-        bool dither = sample_rate % frequency != 0 && commandline_params.find("no-dither") == commandline_params.end();
+        bool dither = sample_rate % frequency != 0 && get_commandline_param("no-dither") == NULL;
 
         for (int i = 0; i < (int) sample_rate; i += 1) {
                 for (int channel = 0; channel < channels; ++channel) {
@@ -124,9 +116,9 @@ static char *get_sine_signal(int sample_rate, int bps, int channels, int frequen
                                 double multiplier = ((double) ((i * crescendo_spd) % sample_rate) / sample_rate);
                                 sine *= 2 * multiplier; // up to 2x amplitude
                         }
-                        int32_t val = std::clamp(sine * INT32_MAX * scale, (double) INT32_MIN, (double) INT32_MAX);
-                        change_bps2(data + static_cast<ptrdiff_t>(i) * bps * channels + static_cast<ptrdiff_t>(bps) * channel,
-                                        bps, reinterpret_cast<char *>(&val), sizeof val, 1 * sizeof val, dither);
+                        int32_t val = CLAMP(sine * INT32_MAX * scale, (double) INT32_MIN, (double) INT32_MAX);
+                        change_bps2(data + ((ptrdiff_t) i) * bps * channels + ((ptrdiff_t) bps) * channel,
+                                        bps, (char *) &val, sizeof val, 1 * sizeof val, dither);
                 }
         }
 
@@ -178,7 +170,7 @@ static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame
                 unsigned long long int *chunk_size) {
         FILE *wav = fopen(wav_filename, "rb");
         if(!wav) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open WAV file: " << wav_filename << ".\n";
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to open WAV file: %s.\n", wav_filename);
                 return false;
         }
         struct wav_metadata metadata;
@@ -196,7 +188,7 @@ static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame
         }
 
         *total_samples = metadata.data_size  * 8ULL /  metadata.ch_count / metadata.bits_per_sample;
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << *total_samples << " samples read from file " << wav_filename << "\n";
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "%u samples read from file %s\n", *total_samples, wav_filename);
 
         const int headroom = (*chunk_size - 1) * audio_frame->ch_count * audio_frame->bps;
         const int samples_data_size = *total_samples * audio_frame->ch_count * audio_frame->bps;
@@ -215,7 +207,7 @@ static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame
         unsigned int samples = wav_read(read_to, *total_samples, wav, &metadata);
         int bytes = samples * (metadata.bits_per_sample / 8) * metadata.ch_count;
         if (samples != *total_samples) {
-                LOG(samples > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR) << MOD_NAME << "Warning: premature end of WAV file (" << bytes << " read, " << metadata.data_size << " expected)!\n";
+                log_msg(samples > 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR, MOD_NAME "Warning: premature end of WAV file (%d read, %lld expected)!\n", bytes, metadata.data_size);
                 if (samples == 0) {
                         fclose(wav);
                         return false;
@@ -238,7 +230,7 @@ static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame
 static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
-        string wav_file;
+        const char *wav_file = NULL;
         char *item, *save_ptr;
 
         double volume = DEFAULT_VOLUME;
@@ -252,7 +244,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
         } pattern = SINE;
 
         if(cfg && strcmp(cfg, "help") == 0) {
-                struct key_val options[] {
+                struct key_val options[] = {
                         { "volume=<vol>", "a volume in dBFS (default " TOSTRING(DEFAULT_VOLUME) ")" },
                         { "file=<wav>", "a wav file to be played" },
                         { "frames=<nf>", "sets number of audio frames per packet" },
@@ -260,16 +252,18 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                         { "ebu", "use EBU sound" },
                         { "silence", "emit silence" },
                         { "crescendo[=<spd>]", "produce amplying sinusoide (optionally accelerated)" },
-                        { nullptr, nullptr }
+                        { NULL, NULL }
                 };
                 print_module_usage("-s testcard", options, NULL, false);
                 return &audio_init_state_ok;
         }
 
-        auto *s = new state_audio_capture_testcard();
-        assert(s != nullptr);
+        struct state_audio_capture_testcard *s = calloc(1, sizeof *s);
+        assert(s != NULL);
+        s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
+        s->crescendo_speed = 1;
         bool failed = false;
-        char *tmp = nullptr;
+        char *tmp = NULL;
 
         do {
                 if (cfg == NULL) {
@@ -282,7 +276,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                                         strncasecmp(item, "volume=", strlen("volume=")) == 0) {
                                 volume = atof(strchr(item, '=') + 1);
                         } else if(strncasecmp(item, "file=", strlen("file=")) == 0) {
-                                wav_file = item + strlen("file=");
+                                wav_file = strdupa(item + strlen("file="));
                                 pattern = WAV;
                         } else if(strncasecmp(item, "frames=", strlen("frames=")) == 0) {
                                 s->chunk_size = atoi(item + strlen("frames="));
@@ -290,20 +284,21 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                                 frequency = atoi(item + strlen("frequency="));
                         } else if(strstr(item, "crescendo") == item) {
                                 pattern = CRESCENDO;
-                                if (char *val = strchr(item, '=')) {
+                                char *val = strchr(item, '=');
+                                if (val) {
                                         val += 1;
                                         if (strcmp(val, "help") == 0) {
                                                 printf("-s testcard:crescendo=<val>\n\t<val> - crescendo duration multiplier (default 1)\n");
                                                 failed = true; break;
                                         }
-                                        s->crescendo_speed = stoi(val);
+                                        s->crescendo_speed = atoi(val);
                                 }
                         } else if(strcasecmp(item, "ebu") == 0) {
                                 pattern = EBU;
                         } else if(strcasecmp(item, "silence") == 0) {
                                 pattern = SILENCE;
                         } else {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown option: " << item << "\n";
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", item);
                                 failed = true; break;
                         }
 
@@ -312,14 +307,14 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
         } while(false);
         free(tmp);
         if (failed) {
-                delete s;
-                return nullptr;
+                free(s);
+                return NULL;
         }
 
         if (pattern == WAV) {
-                if (!audio_testcard_read_wav(wav_file.c_str(), &s->audio,
+                if (!audio_testcard_read_wav(wav_file, &s->audio,
                                         &s->audio_samples, &s->total_samples, &s->chunk_size)) {
-                        delete s;
+                        free(s);
                         return NULL;
                 }
         } else {
@@ -351,9 +346,8 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                         abort();
                 }
 
-                LOG(LOG_LEVEL_NOTICE) << MODULE_NAME "Generating " << frequency << " Hz (" << setprecision(2) << volume << " RMS dBFS) "
-                        << (pattern == SINE ? "sine" : pattern == EBU ? "EBU tone" : "silence") << " "
-                        << "(" << audio_desc_from_frame(&s->audio) << ", frames per packet: " << s->chunk_size << ").\n";
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Generating %d Hz (%.2f  RMS dBFS) %s (%s, frames per packet: %llu).\n",
+                        frequency, volume, (pattern == SINE ? "sine" : pattern == EBU ? "EBU tone" : "silence"), audio_desc_to_cstring(audio_desc_from_frame(&s->audio)), s->chunk_size);
 
                 // add padding if s->total_samples % s->chunk_size != 0
                 s->audio_samples = (char *) realloc(s->audio_samples, (s->total_samples *
@@ -368,7 +362,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
 
         s->samples_played = 0;
 
-        s->next_audio_time = steady_clock::now();
+        s->next_audio_time = get_time_in_ns();
 
         return s;
 }
@@ -377,19 +371,19 @@ static struct audio_frame *audio_cap_testcard_read(void *state)
 {
         struct state_audio_capture_testcard *s;
         s = (struct state_audio_capture_testcard *) state;
-        steady_clock::time_point curr_time = steady_clock::now();
+        time_ns_t curr_time = get_time_in_ns();
 
-        if(s->next_audio_time > curr_time) {
-                usleep(duration_cast<microseconds>(s->next_audio_time - curr_time).count());
+        if( s->next_audio_time > curr_time) {
+                usleep((s->next_audio_time - curr_time) / US_IN_NS);
         } else {
                 // we missed more than 2 "frame times", in that case, just drop the packages
-                if (duration_cast<microseconds>(curr_time - s->next_audio_time) > microseconds(2 * (1000 * 1000 * s->chunk_size / s->audio.sample_rate))) {
+                if ((curr_time - s->next_audio_time) > (long long int) (2 * NS_IN_SEC * s->chunk_size / s->audio.sample_rate)) {
                         s->next_audio_time = curr_time;
-                        fprintf(stderr, MODULE_NAME "Warning: skipping some samples (late grab call).\n");
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: skipping some samples (late grab call).\n");
                 }
         }
 
-        s->next_audio_time += microseconds(1000 * 1000 * s->chunk_size / s->audio.sample_rate);
+        s->next_audio_time += NS_IN_SEC * s->chunk_size / s->audio.sample_rate;
 
         size_t samples = s->chunk_size;
         if (s->samples_played + s->chunk_size  > s->total_samples) {
@@ -415,7 +409,7 @@ static void audio_cap_testcard_done(void *state)
         free(s->audio_samples);
         free(s->audio.data);
 
-        delete s;
+        free(s);
 }
 
 static const struct audio_capture_info acap_testcard_info = {

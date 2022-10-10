@@ -137,6 +137,7 @@ void short_int2float(char *out, const char *in, int in_len);
 void signed2unsigned(char *out, const char *in, int in_len);
 
 struct audio_desc audio_desc_from_frame(const struct audio_frame *frame);
+const char *audio_desc_to_cstring(struct audio_desc desc);
 
 int32_t format_from_in_bps(const char * in, int bps);
 void format_to_out_bps(char *out, int bps, int32_t out_value);

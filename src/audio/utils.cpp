@@ -567,3 +567,8 @@ struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_si
         return ret;
 }
 
+const char *audio_desc_to_cstring(struct audio_desc desc) {
+        thread_local string str = desc;
+        return str.c_str();
+}
+
