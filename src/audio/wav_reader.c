@@ -65,6 +65,11 @@
 
 static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t chunk_size)
 {
+        if (chunk_size != 16 && chunk_size != 18 && chunk_size != 40) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected fmt chunk size 16, 18 or 40, %zd given.\n", chunk_size);
+                return WAV_HDR_PARSE_WRONG_FORMAT;
+        }
+
         uint16_t format;
         READ_N(&format, 2);
         if (format != 0x0001 && format != 0xFFFE) {
@@ -158,6 +163,28 @@ static int fskip(FILE *f, long off) {
         return 1;
 }
 
+static _Bool read_data(FILE *wav_file, uint32_t chunk_size, struct wav_metadata *metadata, _Bool found_ds64_chunk) {
+        if (!found_ds64_chunk) { // RF64 has this chunk size always -1, value from ds64 is used instead
+                metadata->data_size = chunk_size;
+        }
+        metadata->data_offset = _ftelli64(wav_file);
+
+        if (metadata->data_size == UINT32_MAX) {
+                // for UINT32_MAX deduce the length from file length (as FFmpeg does)
+                if (metadata->data_offset == -1 || _fseeki64(wav_file, 0, SEEK_END) == -1) {
+                        metadata->data_size = -1;
+                } else {
+                        int64_t data_end = _ftelli64(wav_file);
+                        _fseeki64(wav_file, metadata->data_offset, SEEK_SET);
+                        if (data_end == -1) {
+                               return 0;
+                        }
+                        metadata->data_size = data_end - metadata->data_offset;
+                }
+        }
+        return 1;
+}
+
 static _Bool read_ds64(FILE *wav_file, uint32_t chunk_size, struct wav_metadata *metadata) {
         if (chunk_size != 28) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "ds64 chunk size must be 28 but %" PRIu32 " was presented!\n", chunk_size);
@@ -209,23 +236,10 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         while (fread(buffer, 4, 1, wav_file) == 1) {
                 READ_N(&chunk_size, 4);
                 if (strncmp(buffer, "data", 4) == 0) {
+                        if (!read_data(wav_file, chunk_size, metadata, found_ds64_chunk)) {
+                                return WAV_HDR_PARSE_READ_ERROR;
+                        }
                         found_data_chunk = true;
-                        if (!found_ds64_chunk) { // RF64 has this chunk size always -1, value from ds64 is used instead
-                                metadata->data_size = chunk_size;
-                        }
-                        metadata->data_offset = _ftelli64(wav_file);
-
-                        if (metadata->data_size == UINT32_MAX) {
-                                // for UINT32_MAX deduce the length from file length (as FFmpeg does)
-                                if (metadata->data_offset == -1 || _fseeki64(wav_file, 0, SEEK_END) == -1) {
-                                        metadata->data_size = -1;
-                                } else {
-                                        int64_t data_end = _ftelli64(wav_file);
-                                        _fseeki64(wav_file, metadata->data_offset, SEEK_SET);
-                                        CHECK(data_end, WAV_HDR_PARSE_READ_ERROR);
-                                        metadata->data_size = data_end - metadata->data_offset;
-                                }
-                        }
                         break;
                 }
                 if (strncmp(buffer, "ds64", 4) == 0) {
@@ -235,10 +249,6 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                         found_ds64_chunk = true;
                 } else if (strncmp(buffer, "fmt ", 4) == 0) {
                         found_fmt_chunk = true;
-                        if (chunk_size != 16 && chunk_size != 18 && chunk_size != 40) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected fmt chunk size 16, 18 or 40, %d given.\n", chunk_size);
-                                return WAV_HDR_PARSE_WRONG_FORMAT;
-                        }
                         int rc = read_fmt_chunk(wav_file, metadata, chunk_size);
                         if (rc != WAV_HDR_PARSE_OK) {
                                 return rc;
