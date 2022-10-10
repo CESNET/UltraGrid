@@ -1685,7 +1685,7 @@ fi
 
 if test $lavc_hwacc_vdpau = yes
 then
-        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VDPAU ${LAVC_HWACC_VDPAU_CFLAGS}"
+        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} ${LAVC_HWACC_VDPAU_CFLAGS}"
         LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VDPAU_LIBS}"
         HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vdpau.o"
 fi
@@ -1794,6 +1794,9 @@ then
         LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o"
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
+        if test $lavc_hwacc_vdpau = yes; then
+                AC_DEFINE([HWACC_VDPAU], [1], [Build with libavcodec VDPAU HW acceleration support])
+        fi
         LIBAVCODEC_AUDIO_CODEC_OBJ="$LIBAVCODEC_COMMON src/audio/codec/libavcodec.o"
 
         LIBAVCODEC_COMPRESS_OBJ="$LIBAVCODEC_COMMON $LIBAVCODEC_VIDEO src/video_compress/libavcodec.o"
@@ -1887,7 +1890,7 @@ then
         gl_display=yes
         AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 
-        if test $lavc_hwacc_vdpau = yes
+        if test $lavc_hwacc_vdpau = yes -a $libavcodec = yes
         then
                 HW_ACC_OBJ="${HW_ACC_OBJ} src/video_display/gl_vdpau.o"
         fi
