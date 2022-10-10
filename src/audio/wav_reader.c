@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
 #include "debug.h"
+#include "utils/misc.h"
 
 #define MOD_NAME "[WAV reader] "
 #define WAV_MAX_BIT_DEPTH 64
@@ -56,7 +57,7 @@
 
 #define READ_N(buf, len) \
         if (fread(buf, len, 1, wav_file) != 1) {\
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Read error: %s.\n", strerror(errno));\
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Read error: %s.\n", ug_strerror(errno));\
                 return WAV_HDR_PARSE_READ_ERROR;\
         }
 
@@ -67,7 +68,7 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t 
         uint16_t format;
         READ_N(&format, 2);
         if (format != 0x0001 && format != 0xFFFE) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected format 0x0001, 0x%04d given.\n", format);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected format 0x0001, 0x%04d given.\n", format);
                 return WAV_HDR_PARSE_NOT_PCM;
         }
 
@@ -99,7 +100,7 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t 
         metadata->bits_per_sample = bits_per_sample;
 
         if (chunk_size == 17) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Wrong fmt chunk size 17!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong fmt chunk size 17!\n");
                 return WAV_HDR_PARSE_READ_ERROR;
         }
 
@@ -107,7 +108,7 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t 
                 uint16_t ext_size;
                 READ_N(&ext_size, 2);
                 if (ext_size != chunk_size - 18) {
-                        log_msg(LOG_LEVEL_ERROR, "[WAV] Unexpected ext size %" PRIu16 ", remaining chunk size %zu.\n", ext_size, chunk_size - 18);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unexpected ext size %" PRIu16 ", remaining chunk size %zu.\n", ext_size, chunk_size - 18);
                         return WAV_HDR_PARSE_READ_ERROR;
                 }
                 if (ext_size == 22) {
@@ -117,18 +118,18 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t 
                         READ_N(buffer, 16);
                         const char guid[] = GUID_PCM;
                         if (memcmp(guid, buffer, 16) != 0) {
-                                log_msg(LOG_LEVEL_ERROR, "[WAV] GUID is not PCM!\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "GUID is not PCM!\n");
                                 return WAV_HDR_PARSE_NOT_PCM;
                         }
                         format = 0x0001;
                 } else if (ext_size != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "[WAV] Extension size either 0 or 22 expected, %d presented.\n", ext_size);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Extension size either 0 or 22 expected, %d presented.\n", ext_size);
                         return WAV_HDR_PARSE_READ_ERROR;
                 }
         }
 
         if (format == 0xFFFE) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Subtype GUID not found!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Subtype GUID not found!\n");
                 return WAV_HDR_PARSE_READ_ERROR;
         }
 
@@ -186,10 +187,10 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         _Bool rf64 = false;
         READ_N(buffer, 4);
         if (strncmp(buffer, "RF64", 4) == 0) {
-                log_msg(LOG_LEVEL_VERBOSE, "[WAV] Using RF64 file.\n");
+                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Using RF64 file.\n");
                 rf64 = 1;
         } else if (strncmp(buffer, "RIFF", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected RIFF or RF64 chunk, %.4s given.\n", buffer);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected RIFF or RF64 chunk, %.4s given.\n", buffer);
                 return WAV_HDR_PARSE_WRONG_FORMAT;
         }
 
@@ -198,7 +199,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
 
         READ_N(buffer, 4);
         if (strncmp(buffer, "WAVE", 4) != 0) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected WAVE chunk, %.4s given.\n", buffer);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected WAVE chunk, %.4s given.\n", buffer);
                 return WAV_HDR_PARSE_WRONG_FORMAT;
         }
 
@@ -235,7 +236,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                 } else if (strncmp(buffer, "fmt ", 4) == 0) {
                         found_fmt_chunk = true;
                         if (chunk_size != 16 && chunk_size != 18 && chunk_size != 40) {
-                                log_msg(LOG_LEVEL_ERROR, "[WAV] Expected fmt chunk size 16, 18 or 40, %d given.\n", chunk_size);
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Expected fmt chunk size 16, 18 or 40, %d given.\n", chunk_size);
                                 return WAV_HDR_PARSE_WRONG_FORMAT;
                         }
                         int rc = read_fmt_chunk(wav_file, metadata, chunk_size);
@@ -245,18 +246,18 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                 } else { // other tags
                         const char *known_tags[] = { "JUNK", "LIST", "id3 ", NULL }; // "olym" ?
                         int level = is_member(buffer, known_tags) ? LOG_LEVEL_VERBOSE : LOG_LEVEL_WARNING;
-                        log_msg(level, "[WAV] Skipping chunk \"%4.4s\" sized %" PRIu32 " B!\n", buffer, chunk_size);
+                        log_msg(level, MOD_NAME "Skipping chunk \"%4.4s\" sized %" PRIu32 " B!\n", buffer, chunk_size);
                         CHECK(fskip(wav_file, chunk_size), WAV_HDR_PARSE_READ_ERROR);
                 }
         }
 
         if (!found_data_chunk) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Data chunk not found!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Data chunk not found!\n");
                 return WAV_HDR_PARSE_READ_ERROR;
         }
 
         if (!found_fmt_chunk) {
-                log_msg(LOG_LEVEL_ERROR, "[WAV] Fmt chunk not found!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Fmt chunk not found!\n");
                 return WAV_HDR_PARSE_READ_ERROR;
         }
 
@@ -264,7 +265,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Broken WAV - a RF64 file detected but no ds64 chunk found!\n");
         }
 
-        log_msg(LOG_LEVEL_VERBOSE, "[WAV] File parsed correctly - length %lld bytes, data offset %lld.\n",
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "File parsed correctly - length %lld bytes, data offset %lld.\n",
                         metadata->data_size, metadata->data_offset);
 
         return WAV_HDR_PARSE_OK;
@@ -293,7 +294,7 @@ const char *get_wav_error(int errcode)
                 case WAV_HDR_PARSE_INVALID_PARAM:
                         return "Wrong/unsupported value in header";
                 default:
-                        log_msg(LOG_LEVEL_ERROR, "[WAV] Unknown error code %d passed!\n", errcode);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown error code %d passed!\n", errcode);
                         return "Unknown error";
         }
 }
