@@ -191,6 +191,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                                         metadata->data_size = -1;
                                 } else {
                                         int64_t data_end = _ftelli64(wav_file);
+                                        _fseeki64(wav_file, metadata->data_offset, SEEK_SET);
                                         CHECK(data_end, WAV_HDR_PARSE_READ_ERROR);
                                         metadata->data_size = data_end - metadata->data_offset;
                                 }
@@ -209,7 +210,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
                 } else { // other tags
                         const char *known_tags[] = { "JUNK", "LIST", "id3 ", NULL }; // "olym" ?
                         int level = is_member(buffer, known_tags) ? LOG_LEVEL_VERBOSE : LOG_LEVEL_WARNING;
-                        log_msg(level, "[WAV] Skipping chunk \"%4s\" sized %" PRIu32 " B!\n", buffer, chunk_size);
+                        log_msg(level, "[WAV] Skipping chunk \"%4.4s\" sized %" PRIu32 " B!\n", buffer, chunk_size);
                         CHECK(fskip(wav_file, chunk_size), WAV_HDR_PARSE_READ_ERROR);
                 }
         }
