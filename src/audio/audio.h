@@ -77,7 +77,7 @@ struct audio_options {
         const char *filter_cfg = "";
 };
 
-struct state_audio * audio_cfg_init(struct module *parent,
+int audio_init(struct state_audio **state, struct module *parent,
                 struct audio_options *opt,
                 const char *encryption,
                 int force_ip_version, const char *mcast_iface,

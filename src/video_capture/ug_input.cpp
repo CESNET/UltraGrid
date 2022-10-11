@@ -158,9 +158,8 @@ static int vidcap_ug_input_init(struct vidcap_params *cap_params, void **state)
                         .echo_cancellation = false,
                         .codec_cfg = "PCM"
                 };
-                s->audio = audio_cfg_init(vidcap_params_get_parent(cap_params), &opt, nullptr, 0, nullptr, RATE_UNLIMITED,
-                                nullptr, start_time, 1500, -1, nullptr);
-                if (s->audio == nullptr) {
+                if (audio_init(&s->audio, vidcap_params_get_parent(cap_params), &opt, nullptr, 0, nullptr, RATE_UNLIMITED,
+                                nullptr, start_time, 1500, -1, nullptr) != 0) {
                         delete s;
                         return VIDCAP_INIT_FAIL;
                 }

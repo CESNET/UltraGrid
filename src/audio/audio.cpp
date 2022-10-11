@@ -226,9 +226,11 @@ static void audio_scale_usage(void)
 
 /**
  * take care that addrs can also be comma-separated list of addresses !
+ * @retval  0 state succesfully initialized
+ * @retval <0 error occured
+ * @retval >0 success but no state was created (eg. help printed)
  */
-
-struct state_audio * audio_cfg_init(struct module *parent,
+int audio_init(struct state_audio **ret, struct module *parent,
                 struct audio_options *opt,
                 const char *encryption,
                 int force_ip_version, const char *mcast_iface,
@@ -240,6 +242,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
         UNUSED(unused);
         char *addr;
         int resample_to = get_audio_codec_sample_rate(opt->codec_cfg);
+        int retval = -1;
         
         assert(opt->send_cfg != NULL);
         assert(opt->recv_cfg != NULL);
@@ -247,15 +250,13 @@ struct state_audio * audio_cfg_init(struct module *parent,
         if (opt->channel_map &&
                      strcmp("help", opt->channel_map) == 0) {
                 audio_channel_map_usage();
-                exit_uv(0);
-                return NULL;
+                return 1;
         }
 
         if (opt->scale &&
                      strcmp("help", opt->scale) == 0) {
                 audio_scale_usage();
-                exit_uv(0);
-                return NULL;
+                return 1;
         }
         
         struct state_audio *s = new state_audio(parent, start_time);
@@ -325,8 +326,8 @@ struct state_audio * audio_cfg_init(struct module *parent,
 
                 int ret = audio_capture_init(s->audio_sender_module.get(), device, cfg, &s->audio_capture_device);
                 free(device);
-                
-                if(ret != 0) {
+                if (ret != 0) {
+                        retval = ret;
                         goto error;
                 }
                 s->tx_session = tx_init(s->audio_sender_module.get(), mtu, TX_MEDIA_AUDIO, opt->fec_cfg, encryption, bitrate);
@@ -352,6 +353,7 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 int ret = audio_playback_init(device, cfg, &s->audio_playback_device);
                 free(device);
                 if (ret != 0) {
+                        retval = ret;
                         goto error;
                 }
                 size_t len = sizeof(struct rtp *);
@@ -400,7 +402,8 @@ struct state_audio * audio_cfg_init(struct module *parent,
                 goto error;
         }
 
-        return s;
+        *ret = s;
+        return 0;
 
 error:
         if(s->tx_session)
@@ -411,8 +414,7 @@ error:
 
         audio_codec_done(s->audio_encoder);
         delete s;
-        exit_uv(EXIT_FAIL_AUDIO);
-        return NULL;
+        return retval;
 }
 
 void audio_start(struct state_audio *s) {

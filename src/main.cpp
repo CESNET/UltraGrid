@@ -1417,13 +1417,13 @@ int main(int argc, char *argv[])
                 }
         }
 
-        uv.audio = audio_cfg_init (&uv.root_module, &opt.audio,
+        ret = audio_init (&uv.audio, &uv.root_module, &opt.audio,
                         opt.requested_encryption,
                         opt.force_ip_version, opt.requested_mcast_if,
                         opt.bitrate, &audio_offset, start_time,
                         opt.requested_mtu, opt.requested_ttl, exporter);
-        if(!uv.audio) {
-                exit_uv(EXIT_FAIL_AUDIO);
+        if (ret != 0) {
+                exit_uv(ret < 0 ? EXIT_FAIL_AUDIO : 0);
                 goto cleanup;
         }
 
