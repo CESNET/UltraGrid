@@ -297,6 +297,28 @@ static constexpr array keybindings{
         pair<int64_t, string_view>{K_CTRL_UP, "make window 10% bigger"}
 };
 
+/* Prototyping */
+static bool display_gl_init_opengl(struct state_gl *s);
+static int display_gl_putf(void *state, struct video_frame *frame, long long timeout);
+static bool display_gl_process_key(struct state_gl *s, long long int key);
+static int display_gl_reconfigure(void *state, struct video_desc desc);
+static void gl_draw(double ratio, double bottom_offset, bool double_buf);
+static void gl_change_aspect(struct state_gl *s, int width, int height);
+static void gl_resize(GLFWwindow *win, int width, int height);
+static void gl_render_glsl(struct state_gl *s, char *data);
+static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc);
+static void gl_process_frames(struct state_gl *s);
+static void glfw_key_callback(GLFWwindow* win, int key, int scancode, int action, int mods);
+static void glfw_mouse_callback(GLFWwindow *win, double x, double y);
+static void glfw_close_callback(GLFWwindow *win);
+static void glfw_print_error(int error_code, const char* description);
+static void glfw_print_video_mode(struct state_gl *s);
+static void display_gl_set_sync_on_vblank(int value);
+static void screenshot(struct video_frame *frame);
+static void upload_texture(struct state_gl *s, char *data);
+static bool check_rpi_pbo_quirks();
+static void set_gamma(struct state_gl *s);
+
 struct state_gl {
         GLuint          PHandle_uyvy = 0;
         GLuint          PHandle_yuva = 0;
@@ -362,6 +384,8 @@ struct state_gl {
 #endif
 
         state_gl(struct module *parent) {
+                glfwSetErrorCallback(glfw_print_error);
+
                 if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
                         LOG(LOG_LEVEL_ERROR) << "Cannot initialize GLFW!\n";
                         throw false;
@@ -394,28 +418,6 @@ static constexpr array gl_supp_codecs = {
         DXT1_YUV,
         DXT5
 };
-
-/* Prototyping */
-static bool display_gl_init_opengl(struct state_gl *s);
-static int display_gl_putf(void *state, struct video_frame *frame, long long timeout);
-static bool display_gl_process_key(struct state_gl *s, long long int key);
-static int display_gl_reconfigure(void *state, struct video_desc desc);
-
-static void gl_draw(double ratio, double bottom_offset, bool double_buf);
-
-static void gl_change_aspect(struct state_gl *s, int width, int height);
-static void gl_resize(GLFWwindow *win, int width, int height);
-static void gl_render_glsl(struct state_gl *s, char *data);
-static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc);
-static void gl_process_frames(struct state_gl *s);
-static void glfw_key_callback(GLFWwindow* win, int key, int scancode, int action, int mods);
-static void glfw_mouse_callback(GLFWwindow *win, double x, double y);
-static void glfw_close_callback(GLFWwindow *win);
-static void display_gl_set_sync_on_vblank(int value);
-static void screenshot(struct video_frame *frame);
-static void upload_texture(struct state_gl *s, char *data);
-static bool check_rpi_pbo_quirks();
-static void set_gamma(struct state_gl *s);
 
 static void gl_print_monitors(bool fullhelp) {
         if (ref_count_init_once<int>()(glfwInit, glfw_init_count).value_or(GLFW_TRUE) == GLFW_FALSE) {
@@ -1383,8 +1385,6 @@ ADD_TO_PARAM(GL_WINDOW_HINT_OPT_PARAM_NAME ,
  */
 static bool display_gl_init_opengl(struct state_gl *s)
 {
-        glfwSetErrorCallback(glfw_print_error);
-
         if (s->monitor == nullptr) {
                 s->monitor = glfwGetPrimaryMonitor();
                 if (s->monitor == nullptr) {
