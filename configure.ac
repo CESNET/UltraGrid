@@ -2893,7 +2893,7 @@ then
         PKG_CHECK_MODULES([V4LCONVERT], [libv4lconvert], [found_v4lconvert=yes], [found_v4lconvert=no])
         if test $found_v4lconvert = yes; then
                 AC_DEFINE([HAVE_LIBV4LCONVERT], [1], [Build with libv4lconvert support])
-        elif test if "$v4l2_req" = yes; then
+        elif "$v4l2_req" = yes; then
                 UG_MSG_WARN([Compiling V4L2 capture without v4lconvert support (not found).])
         fi
         V4L2_CAP_OBJ="src/video_capture/v4l2.o"
