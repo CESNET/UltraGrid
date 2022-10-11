@@ -108,7 +108,7 @@ get_dynamic_loader() {
         done
 }
 
-## Tries to find system libva. If found it is preloaded (+libva-drm+libva-x11)
+## Tries to find system libva. If found it is preloaded (+libva-drm+libva-x11+libva-wayland)
 ## @retval 0 if preloaded; 1 otherwise
 set_libva_ld_preload() {
         if [ ! -f "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" ]; then
@@ -131,7 +131,7 @@ set_libva_ld_preload() {
         fi
         libva_libs=$LIBVA_LIB
         # add also libva-drm, libva-x11 if present
-        for n in libva-drm libva-x11; do
+        for n in libva-drm libva-x11 libva-wayland; do
                 NAME=$(echo "$LIBVA_LIB" | sed s/libva/$n/)
                 if [ -f "$NAME" ]; then
                         libva_libs=$libva_libs:$NAME
