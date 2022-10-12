@@ -1385,18 +1385,6 @@ int main(int argc, char *argv[])
                 EXIT(ret);
         }
 
-        col() << TBOLD("Display device   : ") << opt.requested_display << "\n";
-        col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
-        col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
-        col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
-        col() << TBOLD("MTU              : ") << opt.requested_mtu << " B\n";
-        col() << TBOLD("Video compression: ") << opt.requested_compression << "\n";
-        col() << TBOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(opt.audio.codec_cfg)) << "\n";
-        col() << TBOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
-        col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
-        col() << TBOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
-        col() << "\n";
-
         exporter = export_init(&uv.root_module, opt.export_opts, opt.should_export);
         if (!exporter) {
                 log_msg(LOG_LEVEL_ERROR, "Export initialization failed.\n");
@@ -1612,6 +1600,18 @@ int main(int argc, char *argv[])
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup;
                 }
+
+                col() << TBOLD("Display device   : ") << opt.requested_display << "\n";
+                col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
+                col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
+                col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
+                col() << TBOLD("MTU              : ") << opt.requested_mtu << " B\n";
+                col() << TBOLD("Video compression: ") << opt.requested_compression << "\n";
+                col() << TBOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(opt.audio.codec_cfg)) << "\n";
+                col() << TBOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
+                col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
+                col() << TBOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
+                col() << "\n";
 
                 if(mainloop) {
                         if (display_needs_mainloop(uv.display_device)) {
