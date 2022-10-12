@@ -745,6 +745,54 @@ struct ug_options {
         unsigned int video_rxtx_mode = 0;
 };
 
+static bool parse_port(char *optarg, struct ug_options *opt) {
+        if (strchr(optarg, ':') != nullptr) {
+                char *save_ptr = nullptr;
+                opt->video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
+                opt->video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
+                char *tok = nullptr;
+                if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                        opt->audio.recv_port = stoi(tok, nullptr, 0);
+                        if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                                opt->audio.send_port = stoi(tok, nullptr, 0);
+                        } else {
+                                usage(uv_argv[0]);
+                                return false;
+                        }
+                }
+        } else {
+                opt->port_base = stoi(optarg, nullptr, 0);
+        }
+        if (opt->audio.recv_port < -1 || opt->audio.send_port < -1 || opt->video_rx_port < -1 || opt->video_tx_port < -1 || opt->port_base < -1 ||
+                        opt->audio.recv_port > UINT16_MAX || opt->audio.send_port > UINT16_MAX || opt->video_rx_port > UINT16_MAX || opt->video_tx_port > UINT16_MAX || opt->port_base > UINT16_MAX) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Invalid port value, allowed range 1-65535\n";
+                return false;
+        }
+        return true;
+}
+
+static bool parse_control_port(char *optarg, struct ug_options *opt) {
+        if (strchr(optarg, ':')) {
+                char *save_ptr = NULL;
+                char *tok;
+                opt->control_port = atoi(strtok_r(optarg, ":", &save_ptr));
+                opt->connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
+
+                if (opt->connection_type < 0 || opt->connection_type > 1){
+                        usage(uv_argv[0]);
+                        return false;
+                }
+                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
+                        usage(uv_argv[0]);
+                        return false;
+                }
+        } else {
+                opt->control_port = atoi(optarg);
+                opt->connection_type = 0;
+        }
+        return true;
+}
+
 static int parse_options(int argc, char *argv[], struct ug_options *opt) {
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
@@ -923,30 +971,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         usage(uv_argv[0], false);
                         return 0;
                 case 'P':
-                        try {
-                                if (strchr(optarg, ':') != nullptr) {
-                                        char *save_ptr = nullptr;
-                                        opt->video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
-                                        opt->video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
-                                        char *tok = nullptr;
-                                        if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
-                                                opt->audio.recv_port = stoi(tok, nullptr, 0);
-                                                if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
-                                                        opt->audio.send_port = stoi(tok, nullptr, 0);
-                                                } else {
-                                                        usage(uv_argv[0]);
-                                                        return EXIT_FAIL_USAGE;
-                                                }
-                                        }
-                                } else {
-                                        opt->port_base = stoi(optarg, nullptr, 0);
-                                }
-                                if (opt->audio.recv_port < -1 || opt->audio.send_port < -1 || opt->video_rx_port < -1 || opt->video_tx_port < -1 || opt->port_base < -1 ||
-                                                opt->audio.recv_port > UINT16_MAX || opt->audio.send_port > UINT16_MAX || opt->video_rx_port > UINT16_MAX || opt->video_tx_port > UINT16_MAX || opt->port_base > UINT16_MAX) {
-                                        throw ug_runtime_error("Invalid port value, allowed range 1-65535", EXIT_FAIL_USAGE);
-                                }
-                        } catch (exception const &e) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong port specification: " << e.what() << "\n";
+                        if (!parse_port(optarg, opt)) {
                                 return EXIT_FAIL_USAGE;
                         }
                         break;
@@ -1035,23 +1060,8 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         opt->requested_encryption = optarg;
                         break;
                 case OPT_CONTROL_PORT:
-                        if (strchr(optarg, ':')) {
-                                char *save_ptr = NULL;
-                                char *tok;
-                                opt->control_port = atoi(strtok_r(optarg, ":", &save_ptr));
-                                opt->connection_type = atoi(strtok_r(NULL, ":", &save_ptr));
-
-                                if (opt->connection_type < 0 || opt->connection_type > 1){
-                                        usage(uv_argv[0]);
-                                        return EXIT_FAIL_USAGE;
-                                }
-                                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
-                                        usage(uv_argv[0]);
-                                        return EXIT_FAIL_USAGE;
-                                }
-                        } else {
-                                opt->control_port = atoi(optarg);
-                                opt->connection_type = 0;
+                        if (!parse_control_port(optarg, opt)) {
+                                return EXIT_FAIL_USAGE;
                         }
                         break;
                 case 'V':
