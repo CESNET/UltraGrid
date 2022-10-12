@@ -29,7 +29,12 @@ public:
 
 	State getState() const { return state; }
 
-	QByteArray readUgOut() { return ugProcess.readAll(); }
+	QByteArray readUgOut() {
+                return ugProcess.isReadable() ? ugProcess.readAll() : QByteArray();
+        }
+	QByteArray readPreviewOut() {
+                return previewProcess.isReadable() ? previewProcess.readAll() : QByteArray();
+        }
 
 public slots:
 	void launchUg(QStringList launchArgs);

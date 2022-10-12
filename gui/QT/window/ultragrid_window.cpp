@@ -201,7 +201,11 @@ static bool isPrefix(std::string_view str, std::string_view prefix){
 
 void UltragridWindow::outputAvailable(){
 	QString str = processMngr.readUgOut();
-	log.write(str);
+	if(!str.isEmpty())
+		log.write(str);
+	else
+		str = processMngr.readPreviewOut(); //TODO: Do something more intelligent
+
 
 	lineBuf.write(str.toStdString());
 

@@ -6,6 +6,8 @@ UgProcessManager::UgProcessManager(){
 	connect(&ugProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &UgProcessManager::processFinished);
 	connect(&ugProcess, &QProcess::readyReadStandardOutput, this, &UgProcessManager::ugOutputAvailable);
 	connect(&ugProcess, &QProcess::readyReadStandardError, this, &UgProcessManager::ugOutputAvailable);
+	connect(&previewProcess, &QProcess::readyReadStandardOutput, this, &UgProcessManager::ugOutputAvailable);
+	connect(&previewProcess, &QProcess::readyReadStandardError, this, &UgProcessManager::ugOutputAvailable);
 	connect(&previewProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &UgProcessManager::processFinished);
 
 	killTimer.setSingleShot(true);
