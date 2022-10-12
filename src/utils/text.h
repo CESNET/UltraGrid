@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET z.s.p.o.
+ * Copyright (c) 2014-2022 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,8 +42,22 @@
 extern "C" {
 #endif
 
-// documented at definition
+// functions documented at definition
+#define DELDEL "\177\177"
+#define ESCAPED_COLON "\\:"
+void replace_all(char *in, const char *from, const char *to);
+
+unsigned char *base64_decode(const char *in, unsigned int *length);
 char *indent_paragraph(char *text);
+bool is_prefix_of(const char *haystack, const char *needle);
+int urlencode_html5_eval(int c);
+int urlencode_rfc3986_eval(int c);
+size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int c), bool space_plus_replace);
+size_t urldecode(char *out, size_t max_len, const char *in);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // defined UTILS_TEXT_H_AFEA0012_0A4B_4DC5_95FC_4B070B9D79CD
 

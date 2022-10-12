@@ -52,26 +52,15 @@ extern "C" {
 
 int clampi(long long val, int lo, int hi);
 
-bool is_prefix_of(const char *haystack, const char *needle);
 bool is_wine(void);
 long long unit_evaluate(const char *str);
 double unit_evaluate_dbl(const char *str, bool case_sensitive);
 const char *format_in_si_units(unsigned long long int val);
 int get_framerate_n(double framerate);
 int get_framerate_d(double framerate);
-#define DELDEL "\177\177"
-#define ESCAPED_COLON "\\:"
-void replace_all(char *in, const char *from, const char *to);
-
-int urlencode_html5_eval(int c);
-int urlencode_rfc3986_eval(int c);
-size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int c), bool space_plus_replace);
-size_t urldecode(char *out, size_t max_len, const char *in);
 
 const char *ug_strerror(int errnum);
 int get_cpu_core_count(void);
-
-unsigned char *base64_decode(const char *in, unsigned int *length);
 
 struct key_val {
         const char *key;

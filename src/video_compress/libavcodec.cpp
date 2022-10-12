@@ -69,6 +69,7 @@
 #include "tv.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/text.h" // replace_all
 #include "utils/parallel_conv.h"
 #include "utils/worker.h"
 #include "video.h"

@@ -8,7 +8,7 @@
 
 #include <cppunit/config/SourcePrefix.h>
 #include "misc_test.hpp"
-#include "utils/misc.h"
+#include "utils/text.h"
 
 using std::string;
 using std::to_string;

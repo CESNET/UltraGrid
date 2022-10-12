@@ -55,7 +55,7 @@
 #include "lib_common.h"
 #include "spout_sender.h" // spout_set_log_level
 #include "utils/color_out.h"
-#include "utils/misc.h" // urlencode, urldecode
+#include "utils/text.h" // urlencode, urldecode
 #include "video.h"
 #include "video_capture.h"
 

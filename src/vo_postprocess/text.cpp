@@ -65,7 +65,7 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 #include "rang.hpp"
-#include "utils/misc.h"
+#include "utils/text.h" // replace_all
 
 using rang::style;
 using namespace std;
