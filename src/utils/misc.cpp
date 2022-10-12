@@ -48,6 +48,7 @@
 #include <climits>
 #include <cmath>
 #include <cstring>
+#include <string>
 #include <sstream>
 
 #include "debug.h"

@@ -176,6 +176,7 @@ COMMON_OBJS     = \
 		src/utils/ring_buffer.o \
 		src/utils/sdp.o \
 		src/utils/synchronized_queue.o \
+		src/utils/text.o \
 		src/utils/thread.o \
 		src/utils/time.o \
 		src/utils/vf_split.o \

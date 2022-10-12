@@ -182,6 +182,12 @@ void prune_ansi_sequences_inplace(std::string& str){
         str.resize(len);
 }
 
+/// @returns cstr
+char *prune_ansi_sequences_inplace_cstr(char *cstr) {
+        prune_ansi_sequences(cstr, cstr);
+        return cstr;
+}
+
 int color_printf(const char *format, ...) {
         va_list ap;
         va_start(ap, format);

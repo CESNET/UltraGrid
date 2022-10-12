@@ -75,6 +75,8 @@ extern "C" {
 bool color_output_init(void);
 int color_printf(const char *format, ...) ATTRIBUTE(format (printf, 1, 2));
 
+char *prune_ansi_sequences_inplace_cstr(char *cstr);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

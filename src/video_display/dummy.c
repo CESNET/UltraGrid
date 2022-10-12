@@ -41,8 +41,10 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/text.h"
 #include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
@@ -66,6 +68,10 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
 {
         UNUSED(parent), UNUSED(flags);
         if (strcmp(cfg, "help") == 0) {
+                char desc[] = "Display " TBOLD("dummy") " only consumes the video without displaying it. A difference to avoiding "
+                                "display specification is that it forces decoding (otherwise it will be skipped altogether).\n\n"
+                                "Additionally, options " TBOLD("hexdump") " and " TBOLD("dump_to_file") " are available for debugging.\n\n";
+                color_printf("%s", indent_paragraph(desc));
                 struct key_val options[] = {
                         { "codec=<codec>", "force the use of a codec instead of default set" },
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
