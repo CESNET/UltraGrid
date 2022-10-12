@@ -1,9 +1,9 @@
 /**
- * @file   video_display/dummy.cpp
+ * @file   video_display/dummy.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,34 +47,25 @@
 #include "video_codec.h"
 #include "video_display.h"
 
-#include <algorithm>
-#include <chrono>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <vector>
+#define DEFAULT_DUMP_LEN 32
+#define MOD_NAME "[dummy] "
 
-const size_t DEFAULT_DUMP_LEN = 32;
-const constexpr char *MOD_NAME = "[dummy] ";
-
-using namespace std;
-using namespace std::chrono;
-using namespace std::string_literals;
+static const codec_t codecs[] = {I420, UYVY, YUYV, v210, R10k, R12L, RGBA, RGB, BGR, RG48};
 
 struct dummy_display_state {
-        struct video_frame *f = nullptr;
-        vector<codec_t> codecs = {I420, UYVY, YUYV, v210, R10k, R12L, RGBA, RGB, BGR, RG48};
-        vector<int> rgb_shift = DEFAULT_RGB_SHIFT_INIT;
+        struct video_frame *f;
+        codec_t req_codec;
+        int rgb_shift[3];
 
-        size_t dump_bytes = 0;
-        bool dump_to_file = false;
-        int dump_to_file_skip_frames = 0;
+        size_t dump_bytes;
+        bool dump_to_file;
+        int dump_to_file_skip_frames;
 };
 
-static auto display_dummy_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */) -> void *
+static void *display_dummy_init(struct module *parent, const char *cfg, unsigned int flags)
 {
-        if ("help"s == cfg) {
+        UNUSED(parent), UNUSED(flags);
+        if (strcmp(cfg, "help") == 0) {
                 struct key_val options[] = {
                         { "codec=<codec>", "force the use of a codec instead of default set" },
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
@@ -85,63 +76,62 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                 print_module_usage("-d dummy", options, NULL, 0);
                 return INIT_NOERR;
         }
-        auto s = make_unique<dummy_display_state>();
-        auto *ccpy = static_cast<char *>(alloca(strlen(cfg) + 1));
+        struct dummy_display_state s = { 0 };
+        int rgb_shift_init[] = DEFAULT_RGB_SHIFT_INIT;
+        memcpy(s.rgb_shift, &rgb_shift_init, sizeof s.rgb_shift);
+        char *ccpy = alloca(strlen(cfg) + 1);
         strcpy(ccpy, cfg);
-        char *item = nullptr;
-        char *save_ptr = nullptr;
-        while ((item = strtok_r(ccpy, ":", &save_ptr)) != nullptr) {
-                if (strstr(item, "codec=") != nullptr) {
-                        s->codecs.clear();
-                        s->codecs.push_back(get_codec_from_name(item + "codec="s.length()));
-                        if (s->codecs[0] == VIDEO_CODEC_NONE) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong codec spec!\n";
-                                return nullptr;
+        char *item = NULL;
+        char *save_ptr = NULL;
+        while ((item = strtok_r(ccpy, ":", &save_ptr)) != NULL) {
+                if (strstr(item, "codec=") != NULL) {
+                        s.req_codec = get_codec_from_name(strchr(item, '=') + 1);
+                        if (s.req_codec == VIDEO_CODEC_NONE) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", strchr(item, '=') + 1);
+                                return NULL;
                         }
-                } else if (strstr(item, "dump_to_file") != nullptr) {
-                        s->dump_to_file = true;
-                        if (strstr(item, "dump_to_file=skip=") != nullptr) {
-                                s->dump_to_file_skip_frames = stoi(item + "dump_to_file=skip="s.length());
+                } else if (strstr(item, "dump_to_file") != NULL) {
+                        s.dump_to_file = true;
+                        if (strstr(item, "dump_to_file=skip=") != NULL) {
+                                s.dump_to_file_skip_frames = atoi(item + strlen("dump_to_file=skip="));
                         }
-                } else if (strstr(item, "hexdump") != nullptr) {
-                        if (strstr(item, "hexdump=") != nullptr) {
-                                s->dump_bytes = stol(item + strlen("hexdump="), nullptr, 0);
+                } else if (strstr(item, "hexdump") != NULL) {
+                        if (strstr(item, "hexdump=") != NULL) {
+                                s.dump_bytes = atoi(item + strlen("hexdump="));
                         } else {
-                                s->dump_bytes = DEFAULT_DUMP_LEN;
+                                s.dump_bytes = DEFAULT_DUMP_LEN;
                         }
-                } else if (strstr(item, "rgb_shift=") != nullptr) {
+                } else if (strstr(item, "rgb_shift=") != NULL) {
                         item += strlen("rgb_shift=");
-                        size_t len;
-                        s->rgb_shift[0] = stoi(item, &len);
-                        item += len + 1;
-                        s->rgb_shift[1] = stoi(item, &len);
-                        item += len + 1;
-                        s->rgb_shift[2] = stoi(item, &len);
+                        s.rgb_shift[0] = strtol(item, &item, 0);
+                        item += 1;
+                        s.rgb_shift[1] = strtol(item, &item, 0);
+                        item += 1;
+                        s.rgb_shift[2] = strtol(item, &item, 0);
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unrecognized option: " << item << "\n";
-                        return nullptr;
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s\n", item);
+                        return NULL;
                 }
-                ccpy = nullptr;
+                ccpy = NULL;
         }
 
-        return static_cast<void *>(s.release());
-}
+        struct dummy_display_state *ret = malloc(sizeof s);
+        memcpy(ret, &s, sizeof s);
 
-static void display_dummy_run(void *)
-{
+        return ret;
 }
 
 static void display_dummy_done(void *state)
 {
-        auto s = (dummy_display_state *) state;
+        struct dummy_display_state *s = state;
 
         vf_free(s->f);
-        delete s;
+        free(s);
 }
 
 static struct video_frame *display_dummy_getf(void *state)
 {
-        return ((dummy_display_state *) state)->f;
+        return ((struct dummy_display_state *) state)->f;
 }
 
 static void dump_buf(unsigned char *buf, size_t len, int block_size) {
@@ -157,19 +147,21 @@ static void dump_buf(unsigned char *buf, size_t len, int block_size) {
 
 static int display_dummy_putf(void *state, struct video_frame *frame, long long flags)
 {
-        if (flags == PUTF_DISCARD || frame == nullptr) {
+        if (flags == PUTF_DISCARD || frame == NULL) {
                 return 0;
         }
-        auto s = (dummy_display_state *) state;
+        struct dummy_display_state *s = state;
         if (s->dump_bytes > 0) {
-                dump_buf(reinterpret_cast<unsigned char *>(frame->tiles[0].data), min<size_t>(frame->tiles[0].data_len, s->dump_bytes), get_pf_block_bytes(frame->color_spec));
+                dump_buf((unsigned char *)(frame->tiles[0].data), MIN(frame->tiles[0].data_len, s->dump_bytes), get_pf_block_bytes(frame->color_spec));
         }
         if (s->dump_to_file) {
                 if (s->dump_to_file_skip_frames-- == 0) {
-                        std::string filename = "dummy."s + get_codec_file_extension(frame->color_spec);
-                        std::ofstream out(filename, std::ifstream::out | std::ifstream::binary);
-                        out.write(frame->tiles[0].data, frame->tiles[0].data_len);
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Written dump to file " << filename << "\n";
+                        char filename[100];
+                        snprintf(filename, sizeof filename, "dummy.%s", get_codec_file_extension(frame->color_spec));
+                        FILE *out = fopen(filename, "wb");
+                        fwrite(frame->tiles[0].data, frame->tiles[0].data_len, 1, out);
+                        fclose(out);
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Written dump to file %s\n", filename);
                         s->dump_to_file = false;
                 }
         }
@@ -177,24 +169,27 @@ static int display_dummy_putf(void *state, struct video_frame *frame, long long 
         return 0;
 }
 
-static auto display_dummy_get_property(void *state, int property, void *val, size_t *len)
+static int display_dummy_get_property(void *state, int property, void *val, size_t *len)
 {
-        auto *s = static_cast<dummy_display_state *>(state);
+        struct dummy_display_state *s = state;
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if (s->codecs.size() * sizeof s->codecs[0] > *len) {
-                                return FALSE;
+                        {
+                                size_t req_len = s->req_codec ? sizeof(codec_t) : sizeof codecs;
+                                if (req_len > *len) {
+                                        return FALSE;
+                                }
+                                *len = req_len;
+                                memcpy(val, s->req_codec ? &s->req_codec : codecs, *len);
                         }
-                        *len = s->codecs.size() * sizeof(codec_t);
-                        memcpy(val, s->codecs.data(), *len);
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
-                        if (s->rgb_shift.size() * sizeof s->rgb_shift[0] > *len) {
+                        if (sizeof s->rgb_shift > *len) {
                                 return FALSE;
                         }
-                        *len = s->rgb_shift.size() * sizeof(s->rgb_shift[0]);
-                        memcpy(val, s->rgb_shift.data(), *len);
+                        *len = sizeof s->rgb_shift;
+                        memcpy(val, s->rgb_shift, *len);
                         break;
                 default:
                         return FALSE;
@@ -204,39 +199,30 @@ static auto display_dummy_get_property(void *state, int property, void *val, siz
 
 static int display_dummy_reconfigure(void *state, struct video_desc desc)
 {
-        dummy_display_state *s = (dummy_display_state *) state;
+        struct dummy_display_state *s = state;
         vf_free(s->f);
         s->f = vf_alloc_desc_data(desc);
 
         return TRUE;
 }
 
-static void display_dummy_put_audio_frame(void *, const struct audio_frame *)
-{
-}
-
-static int display_dummy_reconfigure_audio(void *, int, int, int)
-{
-        return TRUE;
-}
-
 static void display_dummy_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
         UNUSED(deleter);
-        *available_cards = nullptr;
+        *available_cards = NULL;
         *count = 0;
 }
 
 static const struct video_display_info display_dummy_info = {
         display_dummy_probe,
         display_dummy_init,
-        display_dummy_run,
+        NULL, // _run
         display_dummy_done,
         display_dummy_getf,
         display_dummy_putf,
         display_dummy_reconfigure,
         display_dummy_get_property,
-        display_dummy_put_audio_frame,
-        display_dummy_reconfigure_audio,
+        NULL, // _put_audio_frame
+        NULL, // _reconfigure_audio
         DISPLAY_DOESNT_NEED_MAINLOOP,
         MOD_NAME,
 };
