@@ -41,7 +41,8 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "rang.hpp"
+#include "utils/macros.h"
+#include "utils/misc.h"
 #include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
@@ -60,8 +61,6 @@ const constexpr char *MOD_NAME = "[dummy] ";
 using namespace std;
 using namespace std::chrono;
 using namespace std::string_literals;
-using rang::fg;
-using rang::style;
 
 struct dummy_display_state {
         struct video_frame *f = nullptr;
@@ -76,13 +75,14 @@ struct dummy_display_state {
 static auto display_dummy_init(struct module * /* parent */, const char *cfg, unsigned int /* flags */) -> void *
 {
         if ("help"s == cfg) {
-                cout << "Usage:\n";
-                cout << "\t" << style::bold << fg::red << "-d dummy" << fg::reset << "[:codec=<codec>][:rgb_shift=<r>,<g>,<b>][:hexdump[=<n>]][:dump_to_file[=skip=<n>]]\n" << style::reset;
-                cout << "where\n";
-                cout << "\t" << style::bold << "<codec>" << style::reset << "   - force the use of a codec instead of default set\n";
-                cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (" << DEFAULT_R_SHIFT << ", " << DEFAULT_G_SHIFT << ", " << DEFAULT_B_SHIFT << ")\n";
-                cout << "\t" << style::bold << "hexdump[=<n>]" << style::reset << " - dump first n (default " << DEFAULT_DUMP_LEN << ") bytes of every frame in hexadecimal format\n";
-                cout << "\t" << style::bold << "dump_to_file" << style::reset << " - dump first frame to file dummy.<ext> (optionally skip <n> first frames)\n";
+                struct key_val options[] = {
+                        { "codec=<codec>", "force the use of a codec instead of default set" },
+                        { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
+                        { "hexdump[=<n>]", "dump first n (default " TOSTRING(DEFAULT_DUMP_LEN) ") bytes of every frame in hexadecimal format" },
+                        { "dump_to_file[=skip=<n>]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames)" },
+                        { NULL, NULL }
+                };
+                print_module_usage("-d dummy", options, NULL, 0);
                 return INIT_NOERR;
         }
         auto s = make_unique<dummy_display_state>();
