@@ -494,11 +494,11 @@ void print_module_usage(const char *module_name, const struct key_val *options, 
         }
         color_printf("where\n");
         for (const auto *it = options; it->key != nullptr; ++it) {
-                color_printf("\t" TBOLD("%-*s") " - %s\n", max_key_len, desc_key(it->key), it->val);
+                color_printf("\t" TBOLD("%*s") " - %s\n", max_key_len, desc_key(it->key), it->val);
         }
         if (print_full_help && options_full) {
                 for (const auto *it = options_full; it->key != nullptr; ++it) {
-                        color_printf("\t" TBOLD("%-*s") " - %s\n", max_key_len, desc_key(it->key), it->val);
+                        color_printf("\t" TBOLD("%*s") " - %s\n", max_key_len, desc_key(it->key), it->val);
                 }
         }
 }
