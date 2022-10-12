@@ -1442,8 +1442,7 @@ int main(int argc, char *argv[])
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
-
-        printf("Display initialized-%s\n", opt.requested_display);
+        log_msg(LOG_LEVEL_DEBUG, "Display initialized-%s\n", opt.requested_display);
 
         /* Pass embedded/analog/AESEBU flags to selected vidcap
          * device. */
@@ -1476,7 +1475,7 @@ int main(int argc, char *argv[])
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
-        printf("Video capture initialized-%s\n", vidcap_params_get_driver(opt.vidcap_params_head));
+        log_msg(LOG_LEVEL_DEBUG, "Video capture initialized-%s\n", vidcap_params_get_driver(opt.vidcap_params_head));
 
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);

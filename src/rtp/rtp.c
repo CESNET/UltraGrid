@@ -1198,7 +1198,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                      strlen(cname));
         free(cname);            /* cname is copied by rtp_set_sdes()... */
 
-        fprintf(stderr, "Created new RTP session with SSRC 0x%08x.\n",
+        log_msg(LOG_LEVEL_DEBUG, "Created new RTP session with SSRC 0x%08x.\n",
                   session->my_ssrc);
 
         return session;
@@ -1291,7 +1291,7 @@ rtp_t rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa, 
                      strlen(cname));
         free(cname);            /* cname is copied by rtp_set_sdes()... */
 
-        fprintf(stderr, "Created new RTP session with SSRC 0x%08x.\n",
+        log_msg(LOG_LEVEL_DEBUG, "Created new RTP session with SSRC 0x%08x.\n",
                   session->my_ssrc);
 
         return session;
