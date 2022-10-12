@@ -574,7 +574,7 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
                 } else if (strcmp(tok, "help") == 0) {
                         show_help();
                         delete s;
-                        return &display_init_noerr;
+                        return INIT_NOERR;
                 } else if (strcmp(tok, "novsync") == 0) {
                         s->vsync = false;
                 } else if (strcmp(tok, "nodecorate") == 0) {

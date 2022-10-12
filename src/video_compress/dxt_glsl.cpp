@@ -218,7 +218,7 @@ struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
                 printf("\t\tcompress with DXT1\n");
                 printf("\t-c RTDXT:DXT5\n");
                 printf("\t\tcompress with DXT5 YCoCg\n");
-                return &compress_init_noerr;
+                return static_cast<module*>(INIT_NOERR);
         }
 
         s = new state_video_compress_rtdxt();

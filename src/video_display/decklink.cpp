@@ -1077,7 +1077,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 show_help(strcmp(fmt, "fullhelp") == 0);
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
 
         if (!blackmagic_api_version_check()) {

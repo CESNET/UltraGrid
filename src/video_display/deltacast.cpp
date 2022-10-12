@@ -329,7 +329,7 @@ static void *display_deltacast_init(struct module *parent, const char *fmt, unsi
                 show_help();
                 vf_free(s->frame);
                 free(s);
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
         
         if(fmt)

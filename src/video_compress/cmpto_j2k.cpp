@@ -339,7 +339,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         ASSIGN_CHECK_VAL(pool_size, strchr(item, '=') + 1, 1);
                 } else if (strcasecmp("help", item) == 0) {
                         usage();
-                        return &compress_init_noerr;
+                        return static_cast<module*>(INIT_NOERR);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "[J2K] Wrong option: %s\n", item);
                         return NULL;

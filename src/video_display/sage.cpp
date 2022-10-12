@@ -187,7 +187,7 @@ static void *display_sage_init(struct module *parent, const char *fmt, unsigned 
                         printf("\t                      <fcc> - FourCC of codec that will be used to transmit to SAGE\n");
                         printf("\t                              Supported options are UYVY, RGBA, RGB or DXT1\n");
                         printf("\t                      d - deinterlace output\n");
-                        return &display_init_noerr;
+                        return INIT_NOERR;
                 } else {
                         char *tmp, *parse_str;
                         tmp = parse_str = strdup(fmt);

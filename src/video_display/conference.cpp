@@ -40,6 +40,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "host.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
@@ -460,7 +461,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
 
         if(!fmt){
                 show_help();
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
 
         if (isdigit(fmt[0])){ // fork
@@ -490,7 +491,7 @@ static void *display_conference_init(struct module *parent, const char *fmt, uns
                 if(x){\
                         log_msg(LOG_LEVEL_ERROR, msg);\
                         show_help();\
-                        return &display_init_noerr;\
+                        return INIT_NOERR;\
                 }\
         } while(0)\
 

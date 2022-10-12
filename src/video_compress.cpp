@@ -108,12 +108,6 @@ struct compress_state {
         bool poisoned = false;
 };
 
-/**
- * This is placeholder state returned by compression module meaning that the initialization was
- * successful but no state was create. This is the case eg. when the module only displayed help.
- */
-struct module compress_init_noerr;
-
 static shared_ptr<video_frame> compress_frame_tiles(struct compress_state *proxy,
                 shared_ptr<video_frame> frame);
 static void compress_done(struct module *mod);
@@ -267,7 +261,7 @@ compress_state_real::compress_state_real(struct module *parent, const char *conf
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Compression initialization failed: " << config_string << "\n";
                         throw -1;
                 }
-                if(state[0] == &compress_init_noerr) {
+                if(state[0] == INIT_NOERR) {
                         throw 1;
                 }
         } else {

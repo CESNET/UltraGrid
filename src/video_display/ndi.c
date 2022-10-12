@@ -52,6 +52,7 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
+#include "host.h"
 #include "lib_common.h"
 #include "ndi_common.h"
 #include "types.h"
@@ -241,7 +242,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
         }
         CATCH(HELP_SHOWN) {
                 free(s);
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
         CATCH(FAIL) {
                 free(s);

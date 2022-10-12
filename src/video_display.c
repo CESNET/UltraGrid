@@ -93,10 +93,6 @@ struct display {
         int frames;
 };
 
-/**This variable represents a pseudostate and may be returned when initialization
- * of module was successful but no state was created (eg. when driver had displayed help). */
-int display_init_noerr;
-
 void list_video_display_devices(bool full)
 {
         printf("Available display devices:\n");
@@ -156,7 +152,7 @@ int initialize_video_display(struct module *parent, const char *requested_displa
                 module_done(&d->mod);
                 free(d);
                 return -1;
-        } else if (d->state == &display_init_noerr) {
+        } else if (d->state == INIT_NOERR) {
                 module_done(&d->mod);
                 free(d);
                 return 1;

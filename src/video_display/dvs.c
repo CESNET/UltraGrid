@@ -668,7 +668,7 @@ static void *display_dvs_init(struct module *parent, const char *cfg, unsigned i
         if (cfg && strcmp(cfg, "help") == 0) {
                 show_help();
                 free(name);
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
 
         s = (struct state_hdsp *)calloc(1, sizeof(struct state_hdsp));

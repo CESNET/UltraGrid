@@ -190,10 +190,7 @@ static struct module * cineform_compress_init(struct module *parent, const char 
         free(fmt);
         if(ret != 0) {
                 delete s;
-                if(ret > 0)
-                        return &compress_init_noerr;
-                else
-                        return nullptr;
+                return ret > 0 ? static_cast<module*>(INIT_NOERR) : nullptr;
         }
 
         log_msg(LOG_LEVEL_NOTICE, "[cineform] : Threads: %d.\n", s->requested_threads);

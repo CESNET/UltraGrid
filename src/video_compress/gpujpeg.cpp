@@ -479,19 +479,19 @@ struct module * gpujpeg_compress_init(struct module *parent, const char *opts)
                 col() << TBOLD("Note:") << " instead of positional parameters for "
                         "quality and restart intervals " << TBOLD("\"q=\"") << " and " << TBOLD("\"restart=\"") << " can be used.\n";
                 col() << "\n";
-                return &compress_init_noerr;
+                return static_cast<module*>(INIT_NOERR);
         }
         if (opts && strcmp(opts, "check") == 0) {
                 auto device_info = gpujpeg_get_devices_info();
-                return device_info.device_count == 0 ? nullptr : &compress_init_noerr;
+                return device_info.device_count == 0 ? nullptr : static_cast<module*>(INIT_NOERR);
         }
         if (opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 16, 0)
-                return gpujpeg_print_devices_info() == 0 ? &compress_init_noerr : nullptr;
+                return gpujpeg_print_devices_info() == 0 ? static_cast<module*>(INIT_NOERR) : nullptr;
 #else
                 gpujpeg_print_devices_info();
-                return &compress_init_noerr;
+                return static_cast<module*>(INIT_NOERR);
 #endif
         }
 

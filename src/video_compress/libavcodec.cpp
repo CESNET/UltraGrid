@@ -611,7 +611,7 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         free(fmt);
         if (ret != 0) {
                 module_done(&s->module_data);
-                return ret > 0 ? &compress_init_noerr : NULL;
+                return ret > 0 ? static_cast<module*>(INIT_NOERR) : NULL;
         }
 
         s->in_frame_part.resize(s->conv_thread_count);

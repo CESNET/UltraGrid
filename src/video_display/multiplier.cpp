@@ -40,6 +40,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "host.h"
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
@@ -95,7 +96,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
 
         if(!fmt || strlen(fmt) == 0){
                 show_help();
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
 
         if (isdigit(fmt[0])) { // fork
@@ -109,7 +110,7 @@ static void *display_multiplier_init(struct module *parent, const char *fmt, uns
 
         if (fmt_sv == "help") { 
                 show_help();
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
 
         s->common = std::make_shared<state_multiplier_common>();

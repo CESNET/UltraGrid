@@ -475,7 +475,7 @@ static void *display_sdl_init(struct module *parent, const char *fmt, unsigned i
                 if (strcmp(fmt, "help") == 0) {
                         show_help();
                         delete s;
-                        return &display_init_noerr;
+                        return INIT_NOERR;
                 }
                 
                 char *tmp = strdup(fmt);

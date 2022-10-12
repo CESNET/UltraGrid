@@ -97,13 +97,6 @@
 #define SAMPLE_RATE             48000
 
 #ifdef _MSC_VER
-extern "C" __declspec(dllexport) int *aja_display_init_noerr;
-int *aja_display_init_noerr;
-#else
-int *aja_display_init_noerr = &display_init_noerr;
-#endif
-
-#ifdef _MSC_VER
 #define LINK_SPEC extern "C" __declspec(dllexport)
 #else
 #define LINK_SPEC static
@@ -933,7 +926,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         while ((item = strtok(tmp, ":")) != nullptr) {
                 if (strcmp("help", item) == 0) {
                         aja::display::show_help();
-                        return aja_display_init_noerr;
+                        return INIT_NOERR;
                 } else if (strstr(item, "buffers=") == item) {
                         conf.bufLen = atoi(item + strlen("buffers="));
                         if (conf.bufLen <= 0) {

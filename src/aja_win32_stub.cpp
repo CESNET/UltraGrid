@@ -79,17 +79,11 @@ __declspec(dllimport) int display_aja_putf(void *state, struct video_frame *fram
 __declspec(dllimport) void display_aja_put_audio_frame(void *state, const struct audio_frame *frame);
 __declspec(dllimport) int display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
-__declspec(dllimport) int *aja_display_init_noerr;
-}
-
-static void *display_aja_init_proxy(struct module *parent, const char *fmt, unsigned int flags) {
-        aja_display_init_noerr = &display_init_noerr;
-        return display_aja_init(parent, fmt, flags);
 }
 
 static const struct video_display_info display_aja_info = {
         display_aja_probe,
-        display_aja_init_proxy,
+        display_aja_init,
         display_aja_run,
         display_aja_done,
         display_aja_getf,

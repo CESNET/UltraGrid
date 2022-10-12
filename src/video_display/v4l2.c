@@ -54,6 +54,7 @@
 #define MOD_NAME "[v4l2 disp.] "
 
 #include "debug.h"
+#include "host.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
@@ -143,7 +144,7 @@ static void *display_v4l2_init(struct module *parent, const char *fmt, unsigned 
                         dev_name = strchr(fmt, '=') + 1;
                 } else {
                         usage();
-                        return strstr(fmt, "help") != 0 ? &display_init_noerr : NULL;
+                        return strstr(fmt, "help") != 0 ? INIT_NOERR : NULL;
                 }
         }
 

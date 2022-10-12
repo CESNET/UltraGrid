@@ -77,8 +77,6 @@ extern "C" {
 struct compress_state;
 struct module;
 
-extern struct module compress_init_noerr;
-
 //
 // Begins external API for video compression use
 //

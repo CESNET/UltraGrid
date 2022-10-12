@@ -53,6 +53,7 @@
 #include <chrono>
 #include <iostream>
 
+#include "host.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_codec.h"
@@ -143,7 +144,7 @@ static void *display_unix_sock_init(struct module *parent,
 
                 if(key == "help"){
                         show_help();
-                        return &display_init_noerr;
+                        return INIT_NOERR;
                 } else if(key == "path"){
                         socket_path = tokenize(tok, '=');
                 } else if(key == "key"){

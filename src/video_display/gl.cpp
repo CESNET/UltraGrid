@@ -535,7 +535,7 @@ static void gl_load_splashscreen(struct state_gl *s)
 static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
         if (strstr(ptr, "help") != 0) {
                 gl_show_help(strcmp(ptr, "fullhelp") == 0);
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
 
         char *tok, *save_ptr = NULL;
@@ -646,7 +646,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Invalid numeric value for an option!\n";
                 }
                 free(tmp);
-                if (ret != s) { // ret is either nullptr or &display_init_noerr (help requested)
+                if (ret != s) { // ret is either nullptr or INIT_NOERR (help requested)
                         delete s;
                         return ret;
                 }

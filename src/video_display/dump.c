@@ -46,6 +46,7 @@
 
 #include "debug.h"
 #include "export.h"
+#include "host.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "video.h"
@@ -75,7 +76,7 @@ static void *display_dump_init(struct module *parent, const char *cfg, unsigned 
         (void) parent, (void) flags;
         if (strcmp(cfg, "help") == 0) {
                 usage();
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
         struct dump_display_state *s = calloc(1, sizeof *s);
         char dirname[128];

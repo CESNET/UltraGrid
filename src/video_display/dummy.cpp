@@ -39,6 +39,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "host.h"
 #include "lib_common.h"
 #include "rang.hpp"
 #include "video.h"
@@ -82,7 +83,7 @@ static auto display_dummy_init(struct module * /* parent */, const char *cfg, un
                 cout << "\t" << style::bold << "rgb_shift" << style::reset << " - if using output codec RGBA, use specified shifts instead of default (" << DEFAULT_R_SHIFT << ", " << DEFAULT_G_SHIFT << ", " << DEFAULT_B_SHIFT << ")\n";
                 cout << "\t" << style::bold << "hexdump[=<n>]" << style::reset << " - dump first n (default " << DEFAULT_DUMP_LEN << ") bytes of every frame in hexadecimal format\n";
                 cout << "\t" << style::bold << "dump_to_file" << style::reset << " - dump first frame to file dummy.<ext> (optionally skip <n> first frames)\n";
-                return static_cast<void *>(&display_init_noerr);
+                return INIT_NOERR;
         }
         auto s = make_unique<dummy_display_state>();
         auto *ccpy = static_cast<char *>(alloca(strlen(cfg) + 1));

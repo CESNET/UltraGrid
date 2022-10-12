@@ -172,8 +172,6 @@ struct video_display_info {
 struct display;
 struct module;
 
-extern int display_init_noerr;
-
 void                     list_video_display_devices(bool full);
 int                      initialize_video_display(struct module *parent,
                 /* not_null */ const char *requested_display, /* not_null */ const char *fmt,

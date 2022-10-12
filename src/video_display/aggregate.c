@@ -108,7 +108,7 @@ static void *display_aggregate_init(struct module *parent, const char *fmt, unsi
 
         if(!fmt || strcmp(fmt, "help") == 0) {
                 show_help();
-                return &display_init_noerr;
+                return INIT_NOERR;
         }
         
         s = (struct display_aggregate_state *) calloc(1, sizeof(struct display_aggregate_state));

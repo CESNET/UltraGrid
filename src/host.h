@@ -65,6 +65,9 @@
 #define EXIT_FAIL_CONTROL_SOCK 9
 #define EXIT_FAIL_NETWORK      10
 #define EXIT_FAIL_AUDIO        11
+/**This variable represents a pseudostate and may be returned when initialization
+ * of module was successful but no state was created (eg. when driver had displayed help). */
+#define INIT_NOERR          ((void*)1)
 #define OPT_PARAM (('O' << 8) | 'P')
 
 #define BUG_MSG "Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
