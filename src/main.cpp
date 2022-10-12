@@ -841,10 +841,6 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         print_configuration();
                         return EXIT_SUCCESS;
                 case 'c':
-                        if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
-                                show_compress_help(strcmp(optarg, "fullhelp") == 0);
-                                return EXIT_SUCCESS;
-                        }
                         opt->requested_compression = optarg;
                         break;
                 case 'H':
