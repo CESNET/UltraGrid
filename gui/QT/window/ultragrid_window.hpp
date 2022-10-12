@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <vector>
 #include <memory>
+#include <string_view>
 
 #include "ui_ultragrid_window.h"
 #include "log_window.hpp"
@@ -37,6 +38,8 @@ private:
 	void loadSettingsFile(const QString &filename);
 
 	static void schedulePreview(Option&, bool, void *);
+
+	void processOutputLine(std::string_view line);
 
 	Ui::UltragridWindow ui;
 

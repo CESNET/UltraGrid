@@ -199,6 +199,17 @@ static bool isPrefix(std::string_view str, std::string_view prefix){
 	return str.substr(0, prefix.size()) == prefix;
 }
 
+void UltragridWindow::processOutputLine(std::string_view line){
+	if(isPrefix(line, "Receiver reports RTT=")){
+		auto tmp = std::string(line);
+		int rtt = 0;
+		float loss = 0;
+		sscanf(tmp.c_str(), "Receiver reports RTT=%d usec, loss %f%%", &rtt, &loss);
+
+		receiverLoss.report(rtt, loss);
+	}
+}
+
 void UltragridWindow::outputAvailable(){
 	QString str = processMngr.readUgOut();
 	if(!str.isEmpty())
@@ -210,17 +221,7 @@ void UltragridWindow::outputAvailable(){
 	lineBuf.write(str.toStdString());
 
 	while(lineBuf.hasLine()){
-		auto line = lineBuf.peek();
-
-		if(isPrefix(line, "Receiver reports RTT=")){
-			auto tmp = std::string(line);
-			int rtt = 0;
-			float loss = 0;
-			sscanf(tmp.c_str(), "Receiver reports RTT=%d usec, loss %f%%", &rtt, &loss);
-
-			receiverLoss.report(rtt, loss);
-		}
-
+		processOutputLine(lineBuf.peek());
 		lineBuf.pop();
 	}
 }
