@@ -77,13 +77,13 @@
 #endif // defined HAVE_CONFIG_H
 
 #include <inttypes.h>
+#include <sys/time.h>
 
 #include "memory.h"
 #include "debug.h"
 #include "net_udp.h"
 #include "crypto/random.h"
 #include "compat/drand48.h"
-#include "compat/gettimeofday.h"
 #include "crypto/crypt_des.h"
 #include "crypto/crypt_aes.h"
 #include "compat/drand48.h"

@@ -197,7 +197,6 @@ int uname(struct utsname *);
 int getopt(int, char * const *, const char *);
 //int strncasecmp(const char *, const char*, int len);
 double drand48();
-int gettimeofday(struct timeval *p, struct timezone *z);
 unsigned int gethostid(void);
 uid_t getuid(void);
 gid_t getgid(void);
@@ -254,9 +253,6 @@ void ShowMessage(int level, char *msg);
 
 // MinGW-w64 defines some broken macro for strtok_r in pthread.h
 #undef strtok_r
-
-#include "compat/gettimeofday.h"
-#define gettimeofday gettimeofday_replacement
 
 #include <direct.h>
 #define platform_mkdir _mkdir
