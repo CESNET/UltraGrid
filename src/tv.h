@@ -54,7 +54,7 @@
 #include <time.h>
 #endif
 
-#ifndef HAVE_TIMESPEC_GET
+#ifndef _MSC_VER
 #include <sys/time.h>
 #endif
 
