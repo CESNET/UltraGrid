@@ -32,7 +32,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, we do not need to create own token.
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       id: checkout
       with:
         persist-credentials: true
@@ -61,14 +61,14 @@ jobs:
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Fetch SDKs ETags
       id: etags
       run: |
         echo "::set-output name=ndi::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)"
     - name: Cache NDI
       id: cache-ndi
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
@@ -81,7 +81,7 @@ jobs:
            .github/scripts/Linux/prepare.sh
     - name: Cache rav1e
       id: cache-rav1e
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: rav1e
         key: cache-rav1e-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/rav1e.sh') }}
@@ -94,7 +94,7 @@ jobs:
         sudo ldconfig
     - name: Cache FFmpeg
       id: cache-ffmpeg
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: '/var/tmp/ffmpeg'
         key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/prepare.sh', '.github/scripts/Linux/download_build_ffmpeg.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
@@ -156,7 +156,7 @@ jobs:
       SDK_URL: ${{ secrets.SDK_URL }}
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Fetch SDKs ETags
       id: etags
       run: |
@@ -165,7 +165,7 @@ jobs:
         echo "::set-output name=ximea::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)"
     - name: Cache Non-Free SDKs
       id: cache-macos-nonfree-sdks
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ${{ env.SDK_NONFREE_PATH }}
         key: cache-nonfree-sdks-${{ runner.os }}-${{ hashFiles('.github/scripts/macOS/prepare_nonfree_sdks.sh') }}-${{ steps.etags.outputs.nonfree }}
@@ -179,7 +179,7 @@ jobs:
         $GITHUB_WORKSPACE/.github/scripts/macOS/prepare_nonfree_sdks.sh
     - name: Cache XIMEA
       id: cache-macos-ximea
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: /var/tmp/XIMEA_OSX_SP.dmg
         key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
@@ -188,7 +188,7 @@ jobs:
       run: curl -S -L https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg -o /private/var/tmp/XIMEA_OSX_SP.dmg
     - name: Cache NDI
       id: cache-ndi
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: /private/var/tmp/Install_NDI_SDK_Apple.pkg
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
@@ -241,7 +241,7 @@ jobs:
       SDK_URL: ${{ secrets.SDK_URL }}
     
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Fetch SDKs ETags
       id: etags
       run: |
@@ -255,7 +255,7 @@ jobs:
       run: .github/scripts/Windows/find_msvc.ps1
     - name: Cache NDI
       id: cache-ndi
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: 'C:\ndi.exe'
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
@@ -264,7 +264,7 @@ jobs:
       run: Invoke-WebRequest https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe -OutFile C:\ndi.exe
     - name: Cache XIMEA
       id: cache-macos-ximea
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: 'C:\XIMEA_API_Installer.exe'
         key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
@@ -275,7 +275,7 @@ jobs:
       run: .github/scripts/Windows/prepare.ps1
     - name: Cache JACK
       id: cache-jack
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: 'C:\Program Files\JACK2'
         key: cache-jack-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_jack.ps1') }}
@@ -286,7 +286,7 @@ jobs:
       run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
     - name: Cache live555
       id: cache-live555
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: 'C:\live555'
         key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_live555.sh') }}

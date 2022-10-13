@@ -25,7 +25,7 @@ jobs:
     - name: Cache Coverity build tool
       if: ${{ env.coverity_token }}
       id: cache-coverity-tool
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/coverity_tool.tgz
         key: cache-coverity-tool-${{ steps.tool.outputs.filename }}
@@ -38,7 +38,7 @@ jobs:
       run: |
         tar xaf ~/coverity_tool.tgz
         mv cov-analysis* /tmp/cov-analysis
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       if: ${{ env.coverity_token }}
     - name: bootstrap
       if: ${{ env.coverity_token }}
