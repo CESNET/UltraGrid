@@ -45,6 +45,7 @@
 
 #include <cstdarg>
 #include <iostream>
+#include <memory>
 
 #include "debug.h"
 #include "host.h"
