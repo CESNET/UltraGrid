@@ -16,7 +16,7 @@ RC_FILE = uv-qt.rc
 
 DEFINES += GUI_BUILD
 
-QT += widgets
+QT += widgets network
 
 greaterThan(QT_MAJOR_VERSION, 5) {
     QT += opengl openglwidgets
@@ -73,6 +73,7 @@ HEADERS += window/ultragrid_window.hpp \
 	util/debug.hpp \
 	util/random_port.hpp \
 	util/line_buffer.hpp \
+	util/control_port.hpp \
 
 FORMS += ui/ultragrid_window.ui \
 	ui/log_window.ui \
@@ -102,6 +103,7 @@ SOURCES += window/ultragrid_window.cpp \
 	util/ug_process_manager.cpp \
 	util/random_port.cpp \
 	util/line_buffer.cpp \
+	util/control_port.cpp \
 	../../tools/astat.cpp \
 	../../tools/ipc_frame.cpp \
 	../../tools/ipc_frame_unix.cpp \
