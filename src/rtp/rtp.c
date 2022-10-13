@@ -77,7 +77,6 @@
 #endif // defined HAVE_CONFIG_H
 
 #include <inttypes.h>
-#include <sys/time.h>
 
 #include "memory.h"
 #include "debug.h"
