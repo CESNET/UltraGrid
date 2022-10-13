@@ -89,7 +89,6 @@ struct vidcap_dshow_state {
 	BYTE *convert_buffer;
 
 	unsigned long frames;
-	struct timeval t0;
 	bool should_exit;
 
 	CRITICAL_SECTION returnBufferCS;
@@ -276,7 +275,6 @@ static bool common_init(struct vidcap_dshow_state *s) {
 	s->haveNewReturnBuffer = false;
 
 	s->frames = 0;
-	gettimeofday(&s->t0, NULL);
 
 	// create device enumerator
 	res = CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&s->devEnumerator));
@@ -1352,16 +1350,6 @@ static struct video_frame * vidcap_dshow_grab(void *state, struct audio_frame **
 
         s->frames++;
 
-	struct timeval t;
-	gettimeofday(&t, NULL);
-	double seconds = tv_diff(t, s->t0);
-	if (seconds >= 5) {
-		double fps  = s->frames / seconds;
-		log_msg(LOG_LEVEL_INFO, "[dshow] %ld frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-		s->t0 = t;
-		s->frames = 0;
-	}
-
 	return s->frame;
 }
 
@@ -1508,7 +1496,7 @@ extern "C" const struct video_capture_info vidcap_dshow_info = {
         vidcap_dshow_init,
         vidcap_dshow_done,
         vidcap_dshow_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(dshow, &vidcap_dshow_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
