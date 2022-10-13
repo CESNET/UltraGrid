@@ -153,6 +153,24 @@ static void new_message(struct module *m) {
         }
 }
 
+static int get_bound_port(fd_t fd, int ip_version){
+        assert(ip_version == 4 || ip_version == 6);
+        sockaddr_storage ss;
+        socklen_t s_len = sizeof(ss);
+
+        int rc = getsockname(fd, reinterpret_cast<struct sockaddr *>(&ss), &s_len);
+        if(rc != 0)
+                return -1;
+
+        if(ip_version == 4){
+                auto *s_in = reinterpret_cast<struct sockaddr_in *>(&ss);
+                return ntohs(s_in->sin_port);
+        }
+
+	auto *s_in6 = reinterpret_cast<struct sockaddr_in6 *>(&ss);
+        return ntohs(s_in6->sin6_port);
+}
+
 int control_init(int port, int connection_type, struct control_state **state, struct module *root_module, int force_ip_version)
 {
         control_state *s = new control_state();
@@ -232,6 +250,8 @@ int control_init(int port, int connection_type, struct control_state **state, st
                                 socket_error("Control socket - listen");
                                 goto error;
                         }
+                        log_msg(LOG_LEVEL_NOTICE, "Control socket listening on port %d\n",
+                                        get_bound_port(s->socket_fd, ip_version));
                 }
         } else {
                 if (force_ip_version == 6) {
