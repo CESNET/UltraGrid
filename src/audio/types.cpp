@@ -83,24 +83,29 @@ audio_desc::operator string() const
         return oss.str();
 }
 
-
-audio_frame2_resampler::~audio_frame2_resampler() {
-        if (resampler) {
-#ifdef HAVE_SOXR                
-                soxr_delete((soxr_t) resampler);
-#endif
+tuple<bool, audio_frame2> audio_frame2_resampler::resample(audio_frame2 &a, vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den)
+{
+        if (!impl) {
+                 LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, Soxr/SpeexDSP was not compiled in!\n";
+                 return { false, audio_frame2{} };
         }
+        return impl->resample(a, out, new_sample_rate_num, new_sample_rate_den);
 }
 
-/**
- * @brief Checks whether the resampler has been set.
- * 
- * @return true  The resampler has been initialised.
- * @return false The resampler has not been initialised.
- */
-bool audio_frame2_resampler::resampler_is_set() {
-        return this->resampler != nullptr;
-}
+#ifdef HAVE_SOXR
+class soxr_resampler : public audio_frame2_resampler::interface {
+public:
+        tuple<bool, audio_frame2> resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den);
+
+private:
+        bool check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps);
+
+        soxr_t resampler{nullptr};
+        uint32_t resample_from{0};
+        uint32_t resample_to_num{0};
+        uint32_t resample_to_den{1};
+        size_t resample_ch_count{0};
+};
 
 /**
  * @brief This function will create (and destroy) a new resampler.
@@ -114,8 +119,20 @@ bool audio_frame2_resampler::resampler_is_set() {
  * @return true  Successfully created the resampler
  * @return false Initialisation of the resampler failed
  */
-bool audio_frame2_resampler::create_resampler(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps) {
-#ifdef HAVE_SOXR
+bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps) {
+        if (resampler != nullptr) {
+                if (original_sample_rate != resample_from
+                                || new_sample_rate_num != resample_to_num
+                                || new_sample_rate_den != resample_to_den) {
+                        // Update the resampler numerator and denomintors
+                        resample_from = original_sample_rate;
+                        resample_to_num = new_sample_rate_num;
+                        resample_to_den = new_sample_rate_den;
+                        soxr_set_io_ratio(resampler, ((double)resample_from / ((double)new_sample_rate_num / (double)new_sample_rate_den)), 0);
+                }
+                return true;
+        }
+
         if (this->resampler) {
                 soxr_delete((soxr_t)this->resampler);
         }
@@ -132,11 +149,10 @@ bool audio_frame2_resampler::create_resampler(uint32_t original_sample_rate, uin
                 io_spec = soxr_io_spec(SOXR_INT32_S, SOXR_INT32_S);
         }
         else {
-                LOG(LOG_LEVEL_ERROR) << "[audio_frame2_resampler] Unsupported BPS of: " << bps << "\n";  
+                LOG(LOG_LEVEL_ERROR) << "[audio_frame2_resampler] Unsupported BPS of: " << bps << "\n";
                 return false;
         }
-        
-        
+
         soxr_error_t error;
         /* The ratio of the given input rate and output rates must equate to the
          * maximum I/O ratio that will be used. A resample rate of 2 to 1 would be excessive,
@@ -157,10 +173,8 @@ bool audio_frame2_resampler::create_resampler(uint32_t original_sample_rate, uin
         this->resample_ch_count = channel_size;
         LOG(LOG_LEVEL_DEBUG) << "[audio_frame2] Resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
         return true;
-#endif
-        UNUSED(original_sample_rate), UNUSED(new_sample_rate_num), UNUSED(new_sample_rate_den), UNUSED(channel_size), UNUSED(bps);
-        return false;
 }
+#endif
 
 /**
  * @brief Creates empty audio_frame2
@@ -396,7 +410,7 @@ void  audio_frame2::change_bps(int new_bps)
                 return;
         }
 
-        std::vector<channel> new_channels(channels.size());
+        vector<channel> new_channels(channels.size());
 
         for (size_t i = 0; i < channels.size(); i++) {
                 size_t new_size = channels[i].len / bps * new_bps;
@@ -412,57 +426,57 @@ void  audio_frame2::change_bps(int new_bps)
         channels = std::move(new_channels);
 }
 
-tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
+tuple<bool, audio_frame2> audio_frame2::resample_fake(audio_frame2_resampler & resampler_state, int new_sample_rate_num, int new_sample_rate_den)
 {
-#ifdef HAVE_SOXR
-        std::chrono::high_resolution_clock::time_point funcBegin = std::chrono::high_resolution_clock::now();
-
-        if (!resampler_state.resampler_is_set()) {
-                bool ret = resampler_state.create_resampler(this->sample_rate, new_sample_rate_num, new_sample_rate_den, this->channels.size(), this->bps);
-                if (!ret) {
-                        return {false, audio_frame2{}};
-                }
-        }
-
-        if (sample_rate != resampler_state.resample_from
-                        || new_sample_rate_num != resampler_state.resample_to_num 
-                        || new_sample_rate_den != resampler_state.resample_to_den) {
-                // Update the resampler numerator and denomintors
-                resampler_state.resample_to_num = new_sample_rate_num;
-                resampler_state.resample_to_den = new_sample_rate_den;
-                soxr_set_io_ratio((soxr_t)resampler_state.resampler, ((double)this->sample_rate / ((double)new_sample_rate_num / (double)new_sample_rate_den)), 0);
-        }
-
-        // Initialise the new channels that the resampler is going to write into
-        void * * const obuf_ptrs = (void * *) malloc(sizeof(void *) * this->channels.size());
-        void * *       ibuf_ptrs = (void * *) malloc(sizeof(void *) * this->channels.size());
-
-        std::vector<channel> new_channels(channels.size());
+        vector<channel> new_channels(channels.size());
         for (size_t i = 0; i < channels.size(); i++) {
                 // allocate new storage + 10 ms headroom
                 size_t new_size = (long long) channels[i].len * new_sample_rate_num / sample_rate / new_sample_rate_den
                         + new_sample_rate_num * this->bps / 100 / new_sample_rate_den;
                 new_channels[i] = {unique_ptr<char []>(new char[new_size]), new_size, new_size, {}};
-
-                // Setup the buffers
-                obuf_ptrs[i] = new_channels[i].data.get();
-                ibuf_ptrs[i] = this->channels[i].data.get();
         }
 
-        size_t inlen = this->get_data_len(0) / this->bps;
-        size_t outlen = new_channels[0].len / this->bps;
+        auto [ret, remainder] = resampler_state.resample(*this, new_channels, new_sample_rate_num, new_sample_rate_den);
+        if (!ret) {
+                return {false, audio_frame2{}};
+        }
+
+        channels = move(new_channels);
+        return {ret, std::move(remainder)};
+}
+
+#ifdef HAVE_SOXR
+tuple<bool, audio_frame2> soxr_resampler::resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) {
+        std::chrono::high_resolution_clock::time_point funcBegin = std::chrono::high_resolution_clock::now();
+
+        bool ret = check_reconfigure(a.get_sample_rate(), new_sample_rate_num, new_sample_rate_den, a.get_channel_count(), a.get_bps());
+        if (!ret) {
+                return {false, audio_frame2{}};
+        }
+
+        // Initialise the new channels that the resampler is going to write into
+        void * * const obuf_ptrs = (void * *) malloc(sizeof(void *) * a.get_channel_count());
+        void * *       ibuf_ptrs = (void * *) malloc(sizeof(void *) * a.get_channel_count());
+
+        for (size_t i = 0; i < new_channels.size(); i++) {
+                // Setup the buffers
+                obuf_ptrs[i] = new_channels[i].data.get();
+                ibuf_ptrs[i] = a.get_data(i);
+        }
+
+        size_t inlen = a.get_data_len(0) / a.get_bps();
+        size_t outlen = new_channels[0].len / a.get_bps();
         size_t odone = 0;
         soxr_error_t error;
-        error = soxr_process((soxr_t)(resampler_state.resampler), ibuf_ptrs, inlen, NULL, obuf_ptrs, outlen, &odone);
+        error = soxr_process(resampler, ibuf_ptrs, inlen, NULL, obuf_ptrs, outlen, &odone);
         if (error) {
                 LOG(LOG_LEVEL_ERROR) << "[audio_frame2_resampler] resampler failed: " << soxr_strerror(error) << "\n";
                 return {false, audio_frame2{}};
         }
         for (unsigned int i = 0; i < new_channels.size(); i++) {
-                new_channels[i].len = odone * this->bps;
+                new_channels[i].len = odone * a.get_bps();
         }
 
-        channels = std::move(new_channels);
         free(obuf_ptrs); free(ibuf_ptrs);
 
         std::chrono::high_resolution_clock::time_point funcEnd = std::chrono::high_resolution_clock::now();
@@ -472,9 +486,12 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake([[maybe_unused]] audio_fra
         // Remainders aren't as relevant when using SOXR
         audio_frame2 remainder = {};
         return {true, std::move(remainder)};
-#else
-        UNUSED(new_sample_rate_num), UNUSED(new_sample_rate_den);
-        return {false, audio_frame2{}};
+}
+#endif
+
+audio_frame2_resampler::audio_frame2_resampler() {
+#ifdef HAVE_SOXR
+        impl = unique_ptr<audio_frame2_resampler::interface>(new soxr_resampler());
 #endif
 }
 

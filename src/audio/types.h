@@ -117,22 +117,7 @@ typedef struct
 #include <utility>
 #include <vector>
 
-class audio_frame2;
-
-class audio_frame2_resampler {
-public:
-        ~audio_frame2_resampler();
-private:
-        bool resampler_is_set();
-        bool create_resampler(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps);
-        void *resampler{nullptr}; // type is (SpeexResamplerState *)
-        int resample_from{0};
-        int resample_to_num{0};
-        int resample_to_den{1};
-        size_t resample_ch_count{0};
-
-        friend class audio_frame2;
-};
+class audio_frame2_resampler;
 
 /**
  * More versatile than audio_frame
@@ -203,6 +188,22 @@ private:
         std::vector<channel> channels; /* data should be at least 4B aligned */
         audio_codec_t codec;
         double duration; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
+
+        friend class audio_frame2_resampler;
+        friend class soxr_resampler;
+};
+
+class audio_frame2_resampler {
+public:
+        audio_frame2_resampler();
+        class interface {
+        public:
+                virtual std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den) = 0;
+                virtual ~interface() {}
+        };
+        std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den);
+private:
+        std::unique_ptr<interface> impl;
 };
 
 #endif // __cplusplus
