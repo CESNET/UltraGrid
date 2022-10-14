@@ -114,7 +114,6 @@ typedef struct
 #ifdef __cplusplus
 #include <memory>
 #include <tuple>
-#include <utility>
 #include <vector>
 
 class audio_frame2_resampler;
@@ -191,6 +190,7 @@ private:
 
         friend class audio_frame2_resampler;
         friend class soxr_resampler;
+        friend class speex_resampler;
 };
 
 #endif // __cplusplus

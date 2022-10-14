@@ -42,13 +42,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-
 #include "audio/resampler.hpp"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
+#include "ug_runtime_error.hpp"
 #include "utils/macros.h"
+#include "utils/misc.h"
 
 #ifdef HAVE_SPEEXDSP
 #include <speex/speex_resampler.h>
@@ -58,13 +59,16 @@
 #include <soxr.h>
 #endif // HAVE_SOXR
 
-#define DEFAULT_RESAMPLE_QUALITY 10 // in range [0,10] - 10 best
+#define DEFAULT_SPEEX_RESAMPLE_QUALITY 10 // in range [0,10] - 10 best
+#define MOD_NAME "[audio_resampler] "
 
 using namespace std;
 
 class audio_frame2_resampler::impl {
         public:
                 virtual std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den) = 0;
+                /// @returns 0-terminated C array of suppored BPS in _ascending_ (!) order
+                virtual const int *get_supported_bps() = 0;
                 virtual ~impl() {}
 };
 
@@ -77,10 +81,22 @@ tuple<bool, audio_frame2> audio_frame2_resampler::resample(audio_frame2 &a, vect
         return m_impl->resample(a, out, new_sample_rate_num, new_sample_rate_den);
 }
 
+struct resample_prop {
+        unsigned rate_from{0};
+        unsigned rate_to_num{0};
+        unsigned rate_to_den{1};
+        unsigned ch_count{0};
+        unsigned bps{0};
+};
+
 #ifdef HAVE_SOXR
 class soxr_resampler : public audio_frame2_resampler::impl {
 public:
         tuple<bool, audio_frame2> resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) override;
+        const int *get_supported_bps() override {
+                static const int ret[] = { 2, 4, 0 };
+                return ret;
+        }
         ~soxr_resampler() {
                 if (resampler) {
                         soxr_delete(resampler);
@@ -88,18 +104,14 @@ public:
         }
 
 private:
-        bool check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t nb_channels, int bps);
+        bool check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t nb_channels, unsigned bps);
 
         soxr_t resampler{nullptr};
-        uint32_t resample_from{0};
-        uint32_t resample_to_num{0};
-        uint32_t resample_to_den{1};
-        size_t resample_ch_count{0};
-        int resample_bps{0};
+        struct resample_prop prop;
 };
 
 /**
- * @brief This function will create (and destroy) a new resampler.
+ * @brief This function will create (and destroy) a new resampler if needed.
  * 
  * @param original_sample_rate The original sample rate in Hz
  * @param new_sample_rate_num  The numerator of the new sample rate
@@ -110,16 +122,16 @@ private:
  * @return true  Successfully created the resampler
  * @return false Initialisation of the resampler failed
  */
-bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t nb_channels, int bps) {
-        if (resampler != nullptr && nb_channels == resample_ch_count && bps == resample_bps) {
-                if (original_sample_rate != resample_from
-                                || new_sample_rate_num != resample_to_num
-                                || new_sample_rate_den != resample_to_den) {
+bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t nb_channels, unsigned bps) {
+        if (resampler != nullptr && nb_channels == prop.ch_count && bps == prop.bps) {
+                if (original_sample_rate != prop.rate_from
+                                || new_sample_rate_num != prop.rate_to_num
+                                || new_sample_rate_den != prop.rate_to_den) {
                         // Update the resampler numerator and denomintors
-                        resample_from = original_sample_rate;
-                        resample_to_num = new_sample_rate_num;
-                        resample_to_den = new_sample_rate_den;
-                        soxr_set_io_ratio(resampler, ((double)resample_from / ((double)new_sample_rate_num / (double)new_sample_rate_den)), 0);
+                        prop.rate_from = original_sample_rate;
+                        prop.rate_to_num = new_sample_rate_num;
+                        prop.rate_to_den = new_sample_rate_den;
+                        soxr_set_io_ratio(resampler, ((double)prop.rate_from / ((double)new_sample_rate_num / (double)new_sample_rate_den)), 0);
                 }
                 return true;
         }
@@ -158,12 +170,12 @@ bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t n
         soxr_set_io_ratio((soxr_t)this->resampler, ((double)original_sample_rate / ((double)new_sample_rate_num / (double)new_sample_rate_den)), 0);
 
         // Setup resampler values
-        this->resample_from = original_sample_rate;
-        this->resample_to_num = new_sample_rate_num;
-        this->resample_to_den = new_sample_rate_den;
-        this->resample_ch_count = nb_channels;
-        this->resample_bps = bps;
-        LOG(LOG_LEVEL_DEBUG) << "[audio_frame2] Resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
+        this->prop.rate_from = original_sample_rate;
+        this->prop.rate_to_num = new_sample_rate_num;
+        this->prop.rate_to_den = new_sample_rate_den;
+        this->prop.ch_count = nb_channels;
+        this->prop.bps = bps;
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Soxr resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
         return true;
 }
 
@@ -210,11 +222,168 @@ tuple<bool, audio_frame2> soxr_resampler::resample(audio_frame2 &a, vector<audio
 }
 #endif
 
-audio_frame2_resampler::audio_frame2_resampler() {
-#ifdef HAVE_SOXR
-        m_impl = unique_ptr<audio_frame2_resampler::impl>(new soxr_resampler());
-#endif
+#ifdef HAVE_SPEEXDSP
+class speex_resampler : public audio_frame2_resampler::impl {
+public:
+        tuple<bool, audio_frame2> resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) override;
+
+        speex_resampler(int q) : quality(q) {}
+
+        const int *get_supported_bps() override {
+                static const int ret[] = { 2, 0 };
+                return ret;
+        }
+
+        ~speex_resampler() {
+                if (state) {
+                        speex_resampler_destroy(state);
+                }
+        }
+private:
+        bool check_reconfigure(unsigned original_sample_rate, unsigned new_sample_rate_num, unsigned new_sample_rate_den, unsigned channel_size, unsigned bps);
+
+        int quality;
+        SpeexResamplerState *state{nullptr};
+        struct resample_prop prop;
+};
+
+bool speex_resampler::check_reconfigure(unsigned original_sample_rate, unsigned new_sample_rate_num, unsigned new_sample_rate_den, unsigned nb_channels, unsigned bps) {
+        if (state != nullptr && original_sample_rate == prop.rate_from
+                                && new_sample_rate_num == prop.rate_to_num
+                                && new_sample_rate_den == prop.rate_to_den
+                                && nb_channels == prop.ch_count
+                                && bps == prop.bps) {
+                return true;
+        }
+        if (bps != 2) {
+                throw logic_error("Only 16 bits per sample are currently for resampling supported!");
+        }
+
+        if (state) {
+                 speex_resampler_destroy(state);
+        }
+        state = nullptr;
+        int err = 0;
+        state = speex_resampler_init_frac(nb_channels, original_sample_rate * new_sample_rate_den,
+                                new_sample_rate_num, original_sample_rate, new_sample_rate_num, quality, &err);
+        if (err) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot initialize SpeexDSP resampler: " << speex_resampler_strerror(err) << "\n";
+                return false;
+        }
+        prop.rate_from = original_sample_rate;
+        prop.rate_to_num = new_sample_rate_num;
+        prop.rate_to_den = new_sample_rate_den;
+        prop.ch_count = nb_channels;
+        prop.bps = bps;
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "SpeexDSP resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
+        return true;
 }
+
+/// @todo
+/// speex supports also floats so there could be possibility also to add support for more bps
+tuple<bool, audio_frame2> speex_resampler::resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) {
+        bool ret = check_reconfigure(a.get_sample_rate(), new_sample_rate_num, new_sample_rate_den, a.get_channel_count(), a.get_bps());
+        if (!ret) {
+                return {false, audio_frame2{}};
+        }
+
+        audio_frame2 remainder;
+        remainder.init(new_channels.size(), AC_PCM, prop.bps, prop.rate_from);
+
+        /// @todo
+        /// Consider doing this in parallel - complex resampling requires some milliseconds.
+        /// Parallel resampling would reduce latency (and improve performance if there is not
+        /// enough single-core power).
+        for (size_t i = 0; i < new_channels.size(); i++) {
+                uint32_t in_frames = a.get_data_len(i) / sizeof(int16_t);
+                uint32_t in_frames_orig = in_frames;
+                uint32_t write_frames = new_channels[i].len / sizeof(int16_t);
+
+                speex_resampler_process_int(state,
+                                i,
+                                (const spx_int16_t *)(const void *) a.get_data(i), &in_frames,
+                                (spx_int16_t *)(void *) new_channels[i].data.get(), &write_frames);
+                if (in_frames != in_frames_orig) {
+                        remainder.append(i, a.get_data(i) + in_frames * sizeof(int16_t), in_frames_orig - in_frames);
+                }
+                new_channels[i].len = write_frames * sizeof(int16_t);
+        }
+
+        if (remainder.get_data_len() == 0) {
+                remainder = {};
+        }
+        return {true, std::move(remainder)};
+}
+#endif // defined HAVE_SPEEXDSP
+
+ADD_TO_PARAM("resampler", "* resampler=[speex|soxr][[:]quality=[0-10]]\n"
+                "  Select resampler; set quality for Speex in range 0 (worst) and 10 (best), default " TOSTRING(DEFAULT_SPEEX_RESAMPLE_QUALITY) "\n");
+
+audio_frame2_resampler::audio_frame2_resampler()
+{
+        enum { RESAMPLER_DEFAULT, RESAMPLER_SPEEX, RESAMPLER_SOXR } resampler_type = RESAMPLER_DEFAULT;
+        const char *cfg_c = get_commandline_param("resampler");
+        std::string_view sv = cfg_c ? cfg_c : "";
+        int quality = DEFAULT_SPEEX_RESAMPLE_QUALITY;
+        while (!sv.empty()) {
+                const auto &tok = tokenize(sv, ':');
+                if (tok == "speex") {
+                        resampler_type = RESAMPLER_SPEEX;
+                } else if (tok == "soxr") {
+                        resampler_type = RESAMPLER_SOXR;
+                } else if (tok.compare(0, "quality="sv.length(), "quality=") == 0) {
+                        quality = stoi(string(tok.substr("quality="sv.length())));
+                        if (quality < 0 || quality > 10) {
+                                throw ug_runtime_error("Quality " + to_string(quality) + " out of range 0-10"s);
+                        }
+                } else {
+                        throw ug_runtime_error("Unknown resampler option: "s + string(tok));
+                }
+        }
+        switch (resampler_type) {
+                case RESAMPLER_DEFAULT:
+#ifdef HAVE_SPEEXDSP
+                        m_impl = unique_ptr<audio_frame2_resampler::impl>(new speex_resampler(quality));
+#elif defined HAVE_SOXR
+                        m_impl = unique_ptr<audio_frame2_resampler::impl>(new soxr_resampler());
+#endif
+                        break;
+                case RESAMPLER_SPEEX:
+#ifdef HAVE_SPEEXDSP
+                        m_impl = unique_ptr<audio_frame2_resampler::impl>(new speex_resampler(quality));
+#else
+                        throw ug_runtime_error("SpeexDSP not compiled in!");
+#endif
+                        break;
+                case RESAMPLER_SOXR:
+#if defined HAVE_SOXR
+                        m_impl = unique_ptr<audio_frame2_resampler::impl>(new soxr_resampler());
+                        break;
+#else
+                        throw ug_runtime_error("Soxr not compiled in!");
+#endif
+        }
+}
+
+/**
+ * @returns the orig (if supported) or nearest higher of resampler supported BPS (highest if orig is higher)
+ */
+int audio_frame2_resampler::align_bps(int orig) {
+        if (!m_impl) {
+                 LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, Soxr/SpeexDSP was not compiled in!\n";
+                 return 0;
+        }
+        const int *sup = m_impl->get_supported_bps();
+        int last = 0;
+        while (*sup != 0) {
+                if (orig <= *sup) {
+                        return *sup;
+                }
+                last = *sup++;
+        }
+        return last;
+}
+
 audio_frame2_resampler::~audio_frame2_resampler() = default;
 audio_frame2_resampler::audio_frame2_resampler(audio_frame2_resampler&&) = default;
 audio_frame2_resampler& audio_frame2_resampler::operator=(audio_frame2_resampler&&) = default;

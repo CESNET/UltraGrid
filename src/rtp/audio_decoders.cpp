@@ -772,10 +772,12 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
 
         // Perform a variable rate resample if any output device has requested it
         if (decoder->req_resample_to != 0 || s->buffer.sample_rate != decompressed.get_sample_rate()) {
-                // Set the BPS of the audio to be within the supported range. A value of 4 bytes has
-                // been selected as it'll give a higher accuracy for conversion.
-                if(decompressed.get_bps() != 2 || decompressed.get_bps() != 4) {
-                        decompressed.change_bps(4);
+                int resampler_bps = decoder->resampler.align_bps(decompressed.get_bps());
+                if (resampler_bps <= 0) {
+                        return FALSE;
+                }
+                if (resampler_bps != decompressed.get_bps()) {
+                        decompressed.change_bps(resampler_bps);
                 }
                 if (decoder->req_resample_to != 0) {
                         auto [ret, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
