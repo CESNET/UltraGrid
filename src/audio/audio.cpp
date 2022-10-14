@@ -71,6 +71,7 @@
 #include "audio/capture/sdi.h"
 #include "audio/playback/sdi.h"
 #include "audio/jack.h" 
+#include "audio/resampler.hpp"
 #include "audio/utils.h"
 #include "audio/audio_filter.h"
 #include "audio/filter_chain.hpp"

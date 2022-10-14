@@ -114,6 +114,7 @@ COMMON_OBJS     = \
 		src/audio/playback/mixer.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
+		src/audio/resampler.o \
 		src/audio/types.o \
 		src/audio/utils.o \
 		src/audio/wav_reader.o \

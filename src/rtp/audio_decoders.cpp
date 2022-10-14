@@ -57,6 +57,7 @@
 #include "rtp/audio_decoders.h"
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
+#include "audio/resampler.hpp"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "crypto/crc.h"

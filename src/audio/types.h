@@ -193,19 +193,6 @@ private:
         friend class soxr_resampler;
 };
 
-class audio_frame2_resampler {
-public:
-        audio_frame2_resampler();
-        class interface {
-        public:
-                virtual std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den) = 0;
-                virtual ~interface() {}
-        };
-        std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den);
-private:
-        std::unique_ptr<interface> impl;
-};
-
 #endif // __cplusplus
 
 #endif // defined AUDIO_TYPES_H
