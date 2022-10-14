@@ -88,7 +88,7 @@ public:
         }
 
 private:
-        bool check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps);
+        bool check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t nb_channels, int bps);
 
         soxr_t resampler{nullptr};
         uint32_t resample_from{0};
@@ -104,14 +104,14 @@ private:
  * @param original_sample_rate The original sample rate in Hz
  * @param new_sample_rate_num  The numerator of the new sample rate
  * @param new_sample_rate_den  The denominator of the new sample rate
- * @param channel_size         The number of channels that will be resampled
+ * @param nb_channels          The number of channels that will be resampled
  * @param bps                  The bit rate (in bytes) of the incoming audio
  * 
  * @return true  Successfully created the resampler
  * @return false Initialisation of the resampler failed
  */
-bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps) {
-        if (resampler != nullptr && bps == resample_bps) {
+bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t nb_channels, int bps) {
+        if (resampler != nullptr && nb_channels == resample_ch_count && bps == resample_bps) {
                 if (original_sample_rate != resample_from
                                 || new_sample_rate_num != resample_to_num
                                 || new_sample_rate_den != resample_to_den) {
@@ -148,7 +148,7 @@ bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t n
         /* The ratio of the given input rate and output rates must equate to the
          * maximum I/O ratio that will be used. A resample rate of 2 to 1 would be excessive,
            but provides a sensible ceiling */
-        this->resampler = soxr_create(2, 1, channel_size, &error, &io_spec, &q_spec, &runtime_spec);
+        this->resampler = soxr_create(2, 1, nb_channels, &error, &io_spec, &q_spec, &runtime_spec);
 
         if (error) {
                 LOG(LOG_LEVEL_ERROR) << "[audio_frame2_resampler] Cannot initialize resampler: " << soxr_strerror(error) << "\n";
@@ -161,7 +161,7 @@ bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t n
         this->resample_from = original_sample_rate;
         this->resample_to_num = new_sample_rate_num;
         this->resample_to_den = new_sample_rate_den;
-        this->resample_ch_count = channel_size;
+        this->resample_ch_count = nb_channels;
         this->resample_bps = bps;
         LOG(LOG_LEVEL_DEBUG) << "[audio_frame2] Resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
         return true;
