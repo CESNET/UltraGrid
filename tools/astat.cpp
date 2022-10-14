@@ -57,15 +57,20 @@ struct ug_connection {
         bool connection_lost = false;
 };
 
+bool astat_parse_line(const char *str, double volpeak[2], double volrms[2]){
+        int ret = sscanf(str, "stats ARECV volrms0 %lf volpeak0 %lf volrms1 %lf volpeak1 %lf",
+                        &volrms[0], &volpeak[0], &volrms[1], &volpeak[1]);
+
+        return ret == 4;
+}
+
 // Line format example:
 // stats ARECV volrms0 -18.0004 volpeak0 -14.9897 volrms1 -18.0004 volpeak1 -14.9897"
 static void parse_and_store(ug_connection &c, const char *str)
 {
         double volpeak[2];
         double volrms[2];
-        int ret = sscanf(str, "stats ARECV volrms0 %lf volpeak0 %lf volrms1 %lf volpeak1 %lf",
-                        &volrms[0], &volpeak[0], &volrms[1], &volpeak[1]);
-        if (ret != 4) {
+        if (!astat_parse_line(str, volpeak, volrms)) {
 #ifdef ASTAT_DEBUG
                 fprintf(stderr, "Wrong line format!");
 #endif

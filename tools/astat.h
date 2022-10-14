@@ -10,6 +10,8 @@ void ug_control_connection_done(struct ug_connection *);
 void ug_control_init();
 void ug_control_cleanup();
 
+bool astat_parse_line(const char *str, double volpeak[2], double volrms[2]);
+
 #ifdef __cplusplus
 }
 #endif
