@@ -105,6 +105,7 @@ private:
         uint32_t resample_to_num{0};
         uint32_t resample_to_den{1};
         size_t resample_ch_count{0};
+        int resample_bps{0};
 };
 
 /**
@@ -120,7 +121,7 @@ private:
  * @return false Initialisation of the resampler failed
  */
 bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps) {
-        if (resampler != nullptr) {
+        if (resampler != nullptr && bps == resample_bps) {
                 if (original_sample_rate != resample_from
                                 || new_sample_rate_num != resample_to_num
                                 || new_sample_rate_den != resample_to_den) {
@@ -171,6 +172,7 @@ bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t n
         this->resample_to_num = new_sample_rate_num;
         this->resample_to_den = new_sample_rate_den;
         this->resample_ch_count = channel_size;
+        this->resample_bps = bps;
         LOG(LOG_LEVEL_DEBUG) << "[audio_frame2] Resampler (re)made at " << new_sample_rate_num / new_sample_rate_den << "\n";
         return true;
 }
