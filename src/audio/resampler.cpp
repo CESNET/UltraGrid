@@ -80,7 +80,12 @@ tuple<bool, audio_frame2> audio_frame2_resampler::resample(audio_frame2 &a, vect
 #ifdef HAVE_SOXR
 class soxr_resampler : public audio_frame2_resampler::impl {
 public:
-        tuple<bool, audio_frame2> resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den);
+        tuple<bool, audio_frame2> resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) override;
+        ~soxr_resampler() {
+                if (resampler) {
+                        soxr_delete(resampler);
+                }
+        }
 
 private:
         bool check_reconfigure(uint32_t original_sample_rate, uint32_t new_sample_rate_num, uint32_t new_sample_rate_den, size_t channel_size, int bps);
