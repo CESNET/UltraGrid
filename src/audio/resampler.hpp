@@ -47,14 +47,15 @@
 class audio_frame2_resampler {
 public:
         audio_frame2_resampler();
-        class interface {
-        public:
-                virtual std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den) = 0;
-                virtual ~interface() {}
-        };
+        ~audio_frame2_resampler();
+
+        audio_frame2_resampler(audio_frame2_resampler&&);
+        audio_frame2_resampler& operator=(audio_frame2_resampler&&);
+
         std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den);
+        class impl;
 private:
-        std::unique_ptr<interface> impl;
+        std::unique_ptr<impl> m_impl;
 };
 
 #endif // defined AUDIO_RESAMPLER_HPP_60C123AE_99B1_4726_AA2C_EFDB2C723952

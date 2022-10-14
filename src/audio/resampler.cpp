@@ -62,17 +62,23 @@
 
 using namespace std;
 
+class audio_frame2_resampler::impl {
+        public:
+                virtual std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den) = 0;
+                virtual ~impl() {}
+};
+
 tuple<bool, audio_frame2> audio_frame2_resampler::resample(audio_frame2 &a, vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den)
 {
-        if (!impl) {
+        if (!m_impl) {
                  LOG(LOG_LEVEL_ERROR) << "Audio frame resampler: cannot resample, Soxr/SpeexDSP was not compiled in!\n";
                  return { false, audio_frame2{} };
         }
-        return impl->resample(a, out, new_sample_rate_num, new_sample_rate_den);
+        return m_impl->resample(a, out, new_sample_rate_num, new_sample_rate_den);
 }
 
 #ifdef HAVE_SOXR
-class soxr_resampler : public audio_frame2_resampler::interface {
+class soxr_resampler : public audio_frame2_resampler::impl {
 public:
         tuple<bool, audio_frame2> resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den);
 
@@ -201,7 +207,10 @@ tuple<bool, audio_frame2> soxr_resampler::resample(audio_frame2 &a, vector<audio
 
 audio_frame2_resampler::audio_frame2_resampler() {
 #ifdef HAVE_SOXR
-        impl = unique_ptr<audio_frame2_resampler::interface>(new soxr_resampler());
+        m_impl = unique_ptr<audio_frame2_resampler::impl>(new soxr_resampler());
 #endif
 }
+audio_frame2_resampler::~audio_frame2_resampler() = default;
+audio_frame2_resampler::audio_frame2_resampler(audio_frame2_resampler&&) = default;
+audio_frame2_resampler& audio_frame2_resampler::operator=(audio_frame2_resampler&&) = default;
 
