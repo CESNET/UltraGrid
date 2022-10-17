@@ -559,8 +559,9 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
         return true;
 }
 
-/// @retval -1  if parsing was successful
-/// @retval >=0 return code to be returned from main()
+/// @retval <0 return code whose absolute value will be returned from main()
+/// @retval 0 success
+/// @retval 1 device list was printed
 static int parse_cuda_device(char *optarg) {
         if(strcmp("help", optarg) == 0) {
 #ifdef HAVE_GPUJPEG
@@ -570,12 +571,12 @@ static int parse_cuda_device(char *optarg) {
                         if(ret == 0) {
                                 module_done(CAST_MODULE(compression));
                         }
-                        return EXIT_SUCCESS;
+                        return 1;
                 }
 #else
                 UNUSED(optarg);
                 LOG(LOG_LEVEL_ERROR) << "CUDA support is not enabled!\n";
-                return EXIT_FAILURE;
+                return -EXIT_FAILURE;
 #endif
         }
         char *item, *save_ptr = NULL;
@@ -583,14 +584,14 @@ static int parse_cuda_device(char *optarg) {
         while((item = strtok_r(optarg, ",", &save_ptr))) {
                 if(i >= MAX_CUDA_DEVICES) {
                         LOG(LOG_LEVEL_ERROR) << "Maximal number of CUDA device exceeded.\n";
-                        return EXIT_FAILURE;
+                        return -EXIT_FAILURE;
                 }
                 cuda_devices[i] = atoi(item);
                 optarg = NULL;
                 ++i;
         }
         cuda_devices_count = i;
-        return -1;
+        return 0;
 }
 
 [[maybe_unused]] static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
@@ -793,6 +794,11 @@ static bool parse_control_port(char *optarg, struct ug_options *opt) {
         return true;
 }
 
+/**
+ * @retval -error error value that should be returned from mail
+ * @retval 0 success
+ * @retval 1 success (help written)
+ */
 static int parse_options(int argc, char *argv[], struct ug_options *opt) {
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
@@ -852,7 +858,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case 'd':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 list_video_display_devices(strcmp(optarg, "fullhelp") == 0);
-                                return 0;
+                                return 1;
                         }
                         opt->requested_display = optarg;
                         if(strchr(optarg, ':')) {
@@ -864,7 +870,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case 't':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 list_video_capture_devices(strcmp(optarg, "fullhelp") == 0);
-                                return 0;
+                                return 1;
                         }
                         vidcap_params_set_device(opt->vidcap_params_tail, optarg);
                         opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
@@ -873,13 +879,13 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         opt->requested_mtu = atoi(optarg);
                         if (opt->requested_mtu < 576 && optarg[strlen(optarg) - 1] != '!') {
                                 log_msg(LOG_LEVEL_WARNING, "MTU %1$u seems to be too low, use \"%1$u!\" to force.\n", opt->requested_mtu);
-                                return EXIT_FAIL_USAGE;
+                                return -EXIT_FAIL_USAGE;
                         }
                         break;
                 case 'M':
                         opt->decoder_mode = get_video_mode_from_str(optarg);
                         if (opt->decoder_mode == VIDEO_UNKNOWN) {
-                                return strcasecmp(optarg, "help") == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
+                                return strcasecmp(optarg, "help") == 0 ? 1 : -EXIT_FAIL_USAGE;
                         }
                         break;
                 case 'p':
@@ -887,7 +893,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         break;
                 case 'v':
                         print_configuration();
-                        return EXIT_SUCCESS;
+                        return 1;
                 case 'c':
                         opt->requested_compression = optarg;
                         break;
@@ -907,7 +913,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         }
                         if (strcmp(opt->audio.proto, "help") == 0) {
                                 printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
-                                return EXIT_SUCCESS;
+                                return 1;
                         }
                         break;
                 case OPT_VIDEO_PROTOCOL:
@@ -919,7 +925,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         }
                         if (strcmp(opt->video_protocol, "help") == 0) {
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
-                                return EXIT_SUCCESS;
+                                return 1;
                         }
                         break;
                 case OPT_PROTOCOL:
@@ -928,7 +934,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                                 col() << "Specify a " << TBOLD("common") << " protocol for both audio and video.\n";
                                 col() << "Audio protocol can be one of: " << TBOLD(AUDIO_PROTOCOLS) "\n";
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
-                                return EXIT_SUCCESS;
+                                return 1;
                         }
                         opt->audio.proto = opt->video_protocol = optarg;
                         if (strchr(optarg, ':')) {
@@ -940,14 +946,14 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case 'r':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 audio_playback_help(strcmp(optarg, "full") == 0);
-                                return EXIT_SUCCESS;
+                                return 1;
                         }
                         opt->audio.recv_cfg = optarg;
                         break;
                 case 's':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 audio_capture_print_help(strcmp(optarg, "full") == 0);
-                                return EXIT_SUCCESS;
+                                return 1;
                         }
                         opt->audio.send_cfg = optarg;
                         break;
@@ -969,18 +975,18 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         break;
                 case 'h':
                         usage(uv_argv[0], false);
-                        return 0;
+                        return 1;
                 case 'P':
                         if (!parse_port(optarg, opt)) {
-                                return EXIT_FAIL_USAGE;
+                                return -EXIT_FAIL_USAGE;
                         }
                         break;
                 case 'l':
                         if (!parse_bitrate(optarg, &opt->bitrate)) {
-                                return EXIT_FAILURE;
+                                return -EXIT_FAILURE;
                         }
                         if (opt->bitrate == RATE_DEFAULT) {
-                                return EXIT_SUCCESS; // help written
+                                return 1; // help written
                         }
                         break;
                 case '4':
@@ -999,12 +1005,12 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         audio_capture_channels = atoi(optarg);
                         if (audio_capture_channels < 1) {
                                 log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %d!\n", audio_capture_channels);
-                                return EXIT_FAIL_USAGE;
+                                return -EXIT_FAIL_USAGE;
                         }
                         break;
                 case OPT_AUDIO_CAPTURE_FORMAT:
                         if (!parse_audio_capture_format(optarg)) {
-                                return EXIT_FAIL_USAGE;
+                                return -EXIT_FAIL_USAGE;
                         }
                         break;
                 case OPT_AUDIO_FILTER:
@@ -1015,9 +1021,9 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         break;
                 case OPT_FULLHELP:
                         usage(uv_argv[0], true);
-                        return EXIT_SUCCESS;
+                        return 1;
                 case OPT_CUDA_DEVICE:
-                        if (int ret = parse_cuda_device(optarg); ret >= 0) {
+                        if (int ret = parse_cuda_device(optarg)) {
                                 return ret;
                         }
                         break;
@@ -1037,7 +1043,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                                 char dev_string[1024];
                                 int ret;
                                 if ((ret = playback_set_device(dev_string, sizeof dev_string, optarg)) <= 0) {
-                                        return ret == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
+                                        return ret == 0 ? 1 : -EXIT_FAIL_USAGE;
                                 }
                                 vidcap_params_set_device(opt->vidcap_params_tail, dev_string);
                                 opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
@@ -1046,11 +1052,11 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case OPT_AUDIO_CODEC:
                         if(strcmp(optarg, "help") == 0) {
                                 list_audio_codecs();
-                                return EXIT_SUCCESS;
+                                return 1;
                         }
                         opt->audio.codec_cfg = optarg;
                         if (!check_audio_codec(optarg)) {
-                                return EXIT_FAIL_USAGE;
+                                return -EXIT_FAIL_USAGE;
                         }
                         break;
                 case OPT_CAPTURE_FILTER:
@@ -1061,7 +1067,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         break;
                 case OPT_CONTROL_PORT:
                         if (!parse_control_port(optarg, opt)) {
-                                return EXIT_FAIL_USAGE;
+                                return -EXIT_FAIL_USAGE;
                         }
                         break;
                 case 'V':
@@ -1078,21 +1084,21 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         set_audio_delay(stoi(optarg));
                         break;
                 case OPT_LIST_MODULES:
-                        return list_all_modules() ? EXIT_SUCCESS : EXIT_FAILURE;
+                        return list_all_modules() ? 1 : -EXIT_FAILURE;
                 case OPT_START_PAUSED:
                         opt->start_paused = true;
                         break;
                 case OPT_PARAM:
                         if (!parse_params(optarg, false)) {
-                                return EXIT_SUCCESS;
+                                return 1;
                         }
                         break;
                 case OPT_PIX_FMTS:
                         print_pixel_formats();
-                        return EXIT_SUCCESS;
+                        return 1;
                 case OPT_VIDEO_CODECS:
                         print_video_codecs();
-                        return EXIT_SUCCESS;
+                        return 1;
                 case 'N':
                         opt->nat_traverse_config = optarg == nullptr ? const_cast<char *>("") : optarg;
                         break;
@@ -1106,13 +1112,13 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         opt->requested_ttl = stoi(optarg);
                         if (opt->requested_ttl < -1 || opt->requested_ttl >= 255) {
                                 LOG(LOG_LEVEL_ERROR) << "TTL must be in range [0..255] or -1!\n";
-                                return EXIT_FAIL_USAGE;
+                                return -EXIT_FAIL_USAGE;
                         }
                         break;
                 case '?':
                 default:
                         usage(uv_argv[0]);
-                        return EXIT_FAIL_USAGE;
+                        return -EXIT_FAIL_USAGE;
                 }
         }
 
@@ -1122,14 +1128,14 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
         if (argc > 1) {
                 log_msg(LOG_LEVEL_ERROR, "Multiple receivers given!\n");
                 usage(uv_argv[0]);
-                return EXIT_FAIL_USAGE;
+                return -EXIT_FAIL_USAGE;
         }
 
         if (argc > 0) {
                 opt->requested_receiver = argv[0];
         }
 
-        return -1;
+        return 0;
 }
 
 static int adjust_params(struct ug_options *opt) {
@@ -1383,8 +1389,8 @@ int main(int argc, char *argv[])
         print_version();
         printf("\n");
 
-        if ((ret = parse_options(argc, argv, &opt)) != -1) {
-                EXIT(ret);
+        if (int ret = parse_options(argc, argv, &opt)) {
+                EXIT(ret < 0 ? -ret : EXIT_SUCCESS);
         }
 
         if (int ret = adjust_params(&opt)) {
