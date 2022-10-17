@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <thread>
 #include <functional>
@@ -9,20 +10,10 @@
 #include <QString>
 #include <QStyle>
 #include "vuMeterWidget.hpp"
+#include "control_port.hpp"
 #include "astat.h"
 
 namespace{
-
-ug_connection *connectLoop(int port, const std::atomic<bool>& should_exit){
-	while(!should_exit){
-		auto connection = ug_control_connection_init(port);
-		if(connection)
-			return connection;
-
-		std::this_thread::sleep_for (std::chrono::seconds(2));
-	}
-	return nullptr;
-}
 
 	static constexpr int meterVerticalPad = 5;
 	static constexpr int meterBarPad = 2;
@@ -32,7 +23,6 @@ ug_connection *connectLoop(int port, const std::atomic<bool>& should_exit){
 
 VuMeterWidget::VuMeterWidget(QWidget *parent) :
 	QWidget(parent),
-	port(8888),
 	peak {0.0},
 	rms {0.0},
 	barLevel {0.0},
@@ -41,26 +31,30 @@ VuMeterWidget::VuMeterWidget(QWidget *parent) :
 {
 	connect(&timer, SIGNAL(timeout()), this, SLOT(updateVal()));
 	timer.start(1000/updatesPerSecond);
-	//setValue(50);
-	ug_control_init();
-	connect_ug();
 }
 
-VuMeterWidget::~VuMeterWidget(){
-	cancelConnect = true;
-	ug_control_cleanup();
+void VuMeterWidget::parseLine(std::string_view line){
+	constexpr std::string_view prefix = "stats ARECV";
+	if(line.substr(0, prefix.length()) != prefix)
+		return;
+
+	std::string tmp(line);
+	if(astat_parse_line(tmp.c_str(), peak, rms))
+		lastUpdate = clock::now();
 }
 
-void VuMeterWidget::setPort(int port){
-	this->port = port;
-	cancelConnect = true;
-	connection.reset();
+void VuMeterWidget::setControlPort(ControlPort *controlPort){
+	this->controlPort = controlPort;
+
+	using namespace std::placeholders;
+	controlPort->addLineCallback(std::bind(&VuMeterWidget::parseLine, this, _1));
+	connect(controlPort, &ControlPort::connected, this, &VuMeterWidget::onControlPortConnect);
 }
 
 void VuMeterWidget::updateVal(){
-	updateVolumes();
-
 	const double fallSpeed = 200.0;
+
+	connected = controlPort->getState() == QAbstractSocket::ConnectedState;
 
 	for(int i = 0; i < num_channels; i++){
 
@@ -74,25 +68,13 @@ void VuMeterWidget::updateVal(){
 		rmsLevel[i] = std::max(rmsLevel[i], newRmsHeight);
 	}
 
-
 	update();
 }
 
-void VuMeterWidget::updateVolumes(){
-	if(!connection){
-		connect_ug();
-		return;
-	}
-
-	int count; 
-	bool ret = ug_control_get_volumes(connection.get(), peak, rms, &count);
-
-	connected = ret;
-	setToolTip(connected ? "" : "Unable to read volume info from UG");
-
-	if(!ret){
-		connect_ug();
-	}
+void VuMeterWidget::onControlPortConnect(){
+	assert(controlPort);
+	controlPort->writeLine("stats on\r\n");
+	lastUpdate = clock::time_point();
 }
 
 void VuMeterWidget::paintMeter(QPainter& painter,
@@ -116,15 +98,17 @@ void VuMeterWidget::paintMeter(QPainter& painter,
 	gradient.setColorAt(1, Qt::green);
 	QBrush brush(gradient);
 
-	painter.fillRect(x, y, width, height, connected ? Qt::black : Qt::gray);
-	if(connected){
-		painter.fillRect(x + meterBarPad,
-				y + meterBarPad + (in_full_height - barHeight),
-				in_width, barHeight,
-				brush);
-	}
+	using namespace std::chrono_literals;
+	bool enabled = connected && (clock::now() - lastUpdate <= 2s);
 
+	painter.fillRect(x, y, width, height, enabled ? Qt::black : Qt::gray);
+	if(!enabled)
+		return;
 
+	painter.fillRect(x + meterBarPad,
+			y + meterBarPad + (in_full_height - barHeight),
+			in_width, barHeight,
+			brush);
 	int pos = y + meterBarPad + (in_full_height - rmsHeight);
 	painter.setPen(Qt::red);
 	painter.drawLine(x, pos, x + width, pos);
@@ -202,23 +186,4 @@ void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 			width() - meter_width * 2,
 			height());
 
-}
-
-void VuMeterWidget::connect_ug(){
-	if(future_connection.valid()){
-		std::future_status status;
-		status = future_connection.wait_for(std::chrono::seconds(0));
-		if(status == std::future_status::ready){
-			unique_ug_connection c(future_connection.get());
-			if(!cancelConnect)
-				connection = std::move(c);
-		}
-	} else {
-		cancelConnect = false;
-		future_connection = std::async(std::launch::async, connectLoop, port, std::ref(cancelConnect));
-	}
-}
-
-void ug_connection_deleter::operator()(ug_connection *c){
-	ug_control_connection_done(c);
 }
