@@ -16,6 +16,7 @@
 #include "ug_process_manager.hpp"
 #include "recv_report.hpp"
 #include "line_buffer.hpp"
+#include "control_port.hpp"
 
 class UltragridWindow : public QMainWindow{
 	Q_OBJECT
@@ -65,6 +66,7 @@ private:
 
 	QLabel versionLabel;
 
+	ControlPort controlPort;
 
 public slots:
 	void about();

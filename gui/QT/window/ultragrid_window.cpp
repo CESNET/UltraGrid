@@ -117,6 +117,8 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	ui.statusbar->addPermanentWidget(&receiverLoss);
 	ui.statusbar->addPermanentWidget(&versionLabel);
+
+	ui.vuMeter->setControlPort(&controlPort);
 }
 
 void UltragridWindow::refresh(){
@@ -207,7 +209,11 @@ void UltragridWindow::processOutputLine(std::string_view line){
 		sscanf(tmp.c_str(), "Receiver reports RTT=%d usec, loss %f%%", &rtt, &loss);
 
 		receiverLoss.report(rtt, loss);
+		return;
 	}
+
+	controlPort.parseLine(line);
+
 }
 
 void UltragridWindow::outputAvailable(){
@@ -233,8 +239,6 @@ void UltragridWindow::start(){
 		processMngr.launchUg(launchArgs);
 	else
 		switchToPreview();
-
-	ui.vuMeter->setPort(settings.getControlPort());
 	
 }
 
@@ -274,7 +278,6 @@ bool UltragridWindow::launchPreview(){
 #endif
 
 	processMngr.launchPreview(previewArgs);
-	ui.vuMeter->setPort(settings.getControlPort());
 	return true;
 }
 
