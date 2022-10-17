@@ -70,7 +70,7 @@ typedef enum {
         YUYV,     ///< YCbCr 422 8-bit - Y0 Cb Y1 Cr
         R10k,     ///< RGB 10-bit packed - RGBX, big-endian (2 bit padding)
         R12L,     ///< RGB 12-bit packed, little-endian
-        v210,     ///< YCbCr 422 10-bit - UYVX|YUYX|VYUX|YVYX, little-endian (2 bit padding), line aligned to 128 B
+        v210,     ///< YCbCr 422 10-bit - xVY0U|xY2UY1|xUY3V|xY5VY4, little-endian (2 bit padding /'x'/), line aligned to 128 B
         DVS10,    ///< DVS 10-bit format
         DXT1,     ///< S3 Texture Compression DXT1
         DXT1_YUV, ///< Structure same as DXT1, instead of RGB, YCbCr values are stored
