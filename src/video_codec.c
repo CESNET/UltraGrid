@@ -2737,25 +2737,13 @@ static void vc_copylineV210toY216(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) dst % 2 == 0);
         assert((uintptr_t) src % 4 == 0);
-        OPTIMIZED_FOR (int x = 0; x < dst_len / 24; ++x) {
-                const uint32_t *s = (const void *) (src + x * 16);
-                uint16_t *d = (void *) (dst + x * 24);
+        OPTIMIZED_FOR (int x = 0; x < dst_len / 6; ++x) {
+                const uint32_t *s = (const void *) (src + x * 4);
+                uint16_t *d = (void *) (dst + x * 6);
                 uint32_t tmp = *s++;
-                *d++ = (tmp & 0x3FU) << 6U; // U
-                *d++ = ((tmp >> 10U) & 0x3FU) << 6U; // Y
-                *d++ = ((tmp >> 20U) & 0x3FU) << 6U; // V
-                tmp = *s++;
-                *d++ = (tmp & 0x3FU) << 6U; // Y
-                *d++ = ((tmp >> 10U) & 0x3FU) << 6U; // U
-                *d++ = ((tmp >> 20U) & 0x3FU) << 6U; // Y
-                tmp = *s++;
-                *d++ = (tmp & 0x3FU) << 6U; // V
-                *d++ = ((tmp >> 10U) & 0x3FU) << 6U; // Y
-                *d++ = ((tmp >> 20U) & 0x3FU) << 6U; // U
-                tmp = *s++;
-                *d++ = (tmp & 0x3FU) << 6U; // Y
-                *d++ = ((tmp >> 10U) & 0x3FU) << 6U; // V
-                *d++ = ((tmp >> 20U) & 0x3FU) << 6U; // Y
+                *d++ = (tmp & 0x3FFU) << 6U;
+                *d++ = ((tmp >> 10U) & 0x3FFU) << 6U;
+                *d++ = ((tmp >> 20U) & 0x3FFU) << 6U;
         }
 }
 
@@ -2842,7 +2830,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineY216toV210,  Y216,  v210, false },
         { vc_copylineY416toUYVY,  Y416,  UYVY, false },
         { vc_copylineY416toV210,  Y416,  v210, false },
-        { vc_copylineV210toY216,  v210,  Y416, false },
+        { vc_copylineV210toY216,  v210,  Y216, false },
 };
 
 // @param[in] slow  include also slow decoders
