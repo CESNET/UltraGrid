@@ -458,6 +458,9 @@ static void *adec_compute_and_print_stats(void *arg) {
         return NULL;
 }
 
+
+ADD_TO_PARAM("audio-dec-format", "* audio-dec-format=<fmt>|help\n"
+                "  Forces specified format playback format.\n");
 /**
  * Compares provided parameters with previous configuration and if it differs, reconfigure
  * the decoder, otherwise the reconfiguration is skipped.
@@ -478,6 +481,12 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
         int output_channels = decoder->channel_remapping ?
                         decoder->channel_map.max_output + 1: input_channels;
         audio_desc device_desc = audio_desc{bps, sample_rate, output_channels, AC_PCM};
+        if (const char *fmt = get_commandline_param("audio-dec-format")) {
+                if (int ret = parse_audio_format(fmt, &device_desc)) {
+                        exit_uv(ret > 0 ? 0 : 1);
+                        return false;
+                }
+        }
         size_t len = sizeof device_desc;
         if (!decoder->audio_playback_ctl_func(decoder->audio_playback_state, AUDIO_PLAYBACK_CTL_QUERY_FORMAT, &device_desc, &len)) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to query audio desc!\n");
