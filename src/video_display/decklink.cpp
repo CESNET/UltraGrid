@@ -1095,13 +1095,10 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
 
         frame->callbacks.dispose(frame);
 
-
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
         BMDTimeValue blk_end_time = 0;
         BMDTimeValue blk_end_timeInFrame = 0;
         BMDTimeValue blk_end_ticksPerFrame =0;
         BMDTimeValue blk_write_duration =0;
-      
 
         s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_end_time, &blk_end_timeInFrame, &blk_end_ticksPerFrame);
         if (blk_end_timeInFrame >= blk_start_timeInFrame){
@@ -1117,14 +1114,14 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
         if (blk_end_timeInFrame - blk_start_timeInFrame > 80) {
                 LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " Video Inframe took longer than expected " << blk_write_duration<<"\n";
         }
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << " putf Video BlkMagic clock " << blk_start_time << " start, "
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " putf Video BlkMagic clock " << blk_start_time << " start, "
                                                                             << blk_end_time << " end, "
                                                                             << blk_end_time - blk_start_time <<" duration.\n";
         auto t1 = chrono::high_resolution_clock::now();
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(t1 - t0).count() * 1000.0 << " ms.\n";
 
-        if (chrono::duration_cast<chrono::seconds>(t1 - s->t0).count() > 1) {
-                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << s->state.at(0).delegate->frames_late << " frames late, "
+        if (chrono::duration_cast<chrono::seconds>(t1 - s->t0).count() > 5) {
+                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->state.at(0).delegate->frames_late << " frames late, "
                                 << s->state.at(0).delegate->frames_dropped << " dropped, "
                                 << s->state.at(0).delegate->frames_flushed << " flushed cumulative\n";
                 s->t0 = t1;
@@ -2063,7 +2060,7 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
                                                 << sample_frame_count - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
                 s->audio_summary.increment_buffer_overflow();
         }
-        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
         s->audio_summary.increment_audio_frames_played();
         s->audio_summary.set_buffer_average(s->audio_drift_fixer.get_buffer_avg());
         s->audio_summary.report();

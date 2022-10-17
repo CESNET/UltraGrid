@@ -214,7 +214,7 @@ tuple<bool, audio_frame2> soxr_resampler::resample(audio_frame2 &a, vector<audio
 
         std::chrono::high_resolution_clock::time_point funcEnd = std::chrono::high_resolution_clock::now();
         long long resamplerDuration = std::chrono::duration_cast<std::chrono::milliseconds>(funcEnd - funcBegin).count();
-        LOG(LOG_LEVEL_VERBOSE) << "[audio_frame2_resampler] resampler_duration " << resamplerDuration << "\n";
+        LOG(LOG_LEVEL_DEBUG) << "[audio_frame2_resampler] resampler_duration " << resamplerDuration << "\n";
 
         // Remainders aren't as relevant when using SOXR
         audio_frame2 remainder = {};
