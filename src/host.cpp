@@ -53,6 +53,7 @@
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
+#include "audio/utils.h"
 #include "compat/misc.h"
 #include "debug.h"
 #include "lib_common.h"
@@ -232,60 +233,16 @@ static void load_libgcc()
  * @retval  0 success
  * @retval  1 help was printed
  */
-int parse_audio_capture_format(const char *optarg)
+int set_audio_capture_format(const char *optarg)
 {
-        if (strcmp(optarg, "help") == 0) {
-                printf("Usage:\n");
-                printf("\t--audio-capture-format {channels=<num>|bps=<bits_per_sample>|sample_rate=<rate>}*\n");
-                printf("\t\tmultiple options can be separated by a colon\n");
-                return 1;
+        struct audio_desc desc = {};
+        if (int ret = parse_audio_format(optarg, &desc)) {
+                return ret;
         }
 
-        unique_ptr<char[]> arg_copy(new char[strlen(optarg) + 1]);
-        char *arg = arg_copy.get();
-        strcpy(arg, optarg);
-
-        char *item = nullptr;
-        char *save_ptr = nullptr;
-        char *endptr = nullptr;
-        char *tmp = arg;
-
-        while ((item = strtok_r(tmp, ",:", &save_ptr))) {
-                if (strncmp(item, "channels=", strlen("channels=")) == 0) {
-                        item += strlen("channels=");
-                        audio_capture_channels = strtol(item, &endptr, 10);
-                        if (audio_capture_channels < 1 || endptr != item + strlen(item)) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %s!\n", item);
-                                return -1;
-                        }
-                } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
-                        item += strlen("bps=");
-                        int bps = strtol(item, &endptr, 10);
-                        if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32) || endptr != item + strlen(item)) {
-                                log_msg(LOG_LEVEL_ERROR, "Invalid bps %s!\n", item);
-                                if (bps % 8 != 0) {
-                                        LOG(LOG_LEVEL_WARNING) << "bps is in bits per sample but a value not divisible by 8 was given.\n";
-                                }
-                                log_msg(LOG_LEVEL_ERROR, "Supported values are 8, 16, 24, or 32 bits.\n");
-                                return -1;
-
-                        }
-                        audio_capture_bps = bps / 8;
-                } else if (strncmp(item, "sample_rate=", strlen("sample_rate=")) == 0) {
-                        const char *sample_rate_str = item + strlen("sample_rate=");
-                        long long val = unit_evaluate(sample_rate_str);
-                        if (val <= 0 || val > numeric_limits<decltype(audio_capture_sample_rate)>::max()) {
-                                LOG(LOG_LEVEL_ERROR) << "Invalid sample_rate " << sample_rate_str << "!\n";
-                                return -1;
-                        }
-                        audio_capture_sample_rate = val;
-                } else {
-                        LOG(LOG_LEVEL_ERROR) << "Unkonwn option \"" << item << "\" for --audio-capture-format!\n";
-                        return -1;
-                }
-
-                tmp = nullptr;
-        }
+        audio_capture_bps = IF_NOT_NULL_ELSE(desc.bps, audio_capture_bps);
+        audio_capture_channels = IF_NOT_NULL_ELSE(desc.ch_count, audio_capture_channels);
+        audio_capture_sample_rate = IF_NOT_NULL_ELSE(desc.sample_rate, audio_capture_sample_rate);
 
         return 0;
 }

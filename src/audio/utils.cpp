@@ -54,6 +54,7 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h" // ADD_TO_PARAM
+#include "utils/misc.h"
 
 #ifdef WORDS_BIGENDIAN
 #error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
@@ -570,5 +571,67 @@ struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_si
 const char *audio_desc_to_cstring(struct audio_desc desc) {
         thread_local string str = desc;
         return str.c_str();
+}
+
+/**
+ * Parses configuration string for audio format.
+ *
+ * Only members that are specified explicitly by the config string are changed
+ * in returned audio desc, the remaining members are left untouched!
+ */
+int parse_audio_format(const char *str, struct audio_desc *ret) {
+        if (strcmp(str, "help") == 0) {
+                color_printf(TBOLD("Audio format") " syntax:\n");
+                color_printf(TBOLD("\t{channels=<num>|bps=<bits_per_sample>|sample_rate=<rate>}*\n"));
+                color_printf("\t\tmultiple options can be separated by a colon\n");
+                return 1;
+        }
+
+        unique_ptr<char[]> arg_copy(new char[strlen(str) + 1]);
+        char *arg = arg_copy.get();
+        strcpy(arg, str);
+
+        char *save_ptr = nullptr;
+        char *tmp = arg;
+
+        while (char *item = strtok_r(tmp, ",:", &save_ptr)) {
+                char *endptr = nullptr;
+                if (strncmp(item, "channels=", strlen("channels=")) == 0) {
+                        item += strlen("channels=");
+                        ret->ch_count = strtol(item, &endptr, 10);
+                        if (ret->ch_count < 1 || endptr != item + strlen(item)) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %s!\n", item);
+                                return -1;
+                        }
+                } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
+                        item += strlen("bps=");
+                        int bps = strtol(item, &endptr, 10);
+                        if (bps % 8 != 0 || (bps != 8 && bps != 16 && bps != 24 && bps != 32) || endptr != item + strlen(item)) {
+                                log_msg(LOG_LEVEL_ERROR, "Invalid bps %s!\n", item);
+                                if (bps % 8 != 0) {
+                                        LOG(LOG_LEVEL_WARNING) << "bps is in bits per sample but a value not divisible by 8 was given.\n";
+                                }
+                                log_msg(LOG_LEVEL_ERROR, "Supported values are 8, 16, 24, or 32 bits.\n");
+                                return -1;
+
+                        }
+                        ret->bps = bps / 8;
+                } else if (strncmp(item, "sample_rate=", strlen("sample_rate=")) == 0) {
+                        const char *sample_rate_str = item + strlen("sample_rate=");
+                        long long val = unit_evaluate(sample_rate_str);
+                        if (val <= 0 || val > numeric_limits<decltype(ret->sample_rate)>::max()) {
+                                LOG(LOG_LEVEL_ERROR) << "Invalid sample_rate " << sample_rate_str << "!\n";
+                                return -1;
+                        }
+                        ret->sample_rate = val;
+                } else {
+                        LOG(LOG_LEVEL_ERROR) << "Unkonwn option \"" << item << "\" for audio format!\n";
+                        LOG(LOG_LEVEL_INFO) << "Use \"help\" keyword for syntax.!\n";
+                        return -1;
+                }
+
+                tmp = nullptr;
+        }
+        return 0;
 }
 

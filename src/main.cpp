@@ -1009,7 +1009,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         }
                         break;
                 case OPT_AUDIO_CAPTURE_FORMAT:
-                        if (int ret = parse_audio_capture_format(optarg)) {
+                        if (int ret = set_audio_capture_format(optarg)) {
                                 return ret < 0 ? -EXIT_FAIL_USAGE : 1;
                         }
                         break;
@@ -1164,7 +1164,7 @@ static int adjust_params(struct ug_options *opt) {
                         vidcap_params_set_device(opt->vidcap_params_tail, "testcard:2:1:1:UYVY");
                 }
                 if (strcmp("none", opt->audio.send_cfg) == 0 && strcmp("none", opt->audio.recv_cfg) != 0) {
-                        parse_audio_capture_format("sample_rate=1");
+                        set_audio_capture_format("sample_rate=1");
                         opt->audio.send_cfg = "testcard:frames=1";
                 }
         }
@@ -1232,7 +1232,7 @@ static int adjust_params(struct ug_options *opt) {
                 if (strcmp("none", opt->audio.send_cfg) == 0
                                 && strcmp("none", opt->audio.recv_cfg) != 0)
                 {
-                        parse_audio_capture_format("sample_rate=5");
+                        set_audio_capture_format("sample_rate=5");
                         opt->audio.send_cfg = "testcard:frames=1";
                 }
 

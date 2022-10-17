@@ -157,6 +157,8 @@ bool append_audio_frame(struct audio_frame *frame, char *data, size_t data_len);
  */
 struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_size);
 
+int parse_audio_format(const char *str, struct audio_desc *ret);
+
 #ifdef __cplusplus
 }
 #endif
