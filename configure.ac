@@ -2572,8 +2572,6 @@ if test "$found_speexdsp" = yes -a "$speexdsp_req" != no; then
         speexdsp=yes
 elif test "$speexdsp_req" = yes; then
         AC_MSG_ERROR([SpeexDSP not found]);
-elif test "$found_speexdsp" = no -a "$speexdsp_req" != no; then
-        UG_MSG_WARN([SpeexDSP was not found. Strongly recommending installing that, otherwise audio part of UG will be crippled.])
 fi
 
 # ---------------------------------------------------------------------------
@@ -2594,6 +2592,10 @@ if test "$found_soxr" = yes -a "$soxr_req" != no; then
         soxr=yes
 elif test "$soxr_req" = yes; then
         AC_MSG_ERROR([Soxr not found]);
+fi
+
+if test "$found_speexdsp" = no && test "$speexdsp_req" != no && test "$soxr" = no && test "$soxr_req" != no; then
+        UG_MSG_WARN([Neither Soxr nor SpeexDSP was not found. Strongly recommending installing that, otherwise audio part of UG will be crippled.])
 fi
 
 # ---------------------------------------------------------------------------
