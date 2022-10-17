@@ -1603,8 +1603,6 @@ int main(int argc, char *argv[])
                                        (int (*)(void *, int, void *, size_t *)) display_ctl_property);
                 }
 
-                audio_start(uv.audio);
-
                 // This has to be run after start of capture thread since it may request
                 // captured video format information.
                 if (opt.print_capabilities_req) {
@@ -1624,6 +1622,8 @@ int main(int argc, char *argv[])
                 col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
                 col() << TBOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
                 col() << "\n";
+
+                audio_start(uv.audio);
 
                 if(mainloop) {
                         if (display_needs_mainloop(uv.display_device)) {
