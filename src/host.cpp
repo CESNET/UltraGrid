@@ -227,13 +227,18 @@ static void load_libgcc()
 #endif
 }
 
-bool parse_audio_capture_format(const char *optarg)
+/**
+ * @retval -1 invalid usage
+ * @retval  0 success
+ * @retval  1 help was printed
+ */
+int parse_audio_capture_format(const char *optarg)
 {
         if (strcmp(optarg, "help") == 0) {
                 printf("Usage:\n");
                 printf("\t--audio-capture-format {channels=<num>|bps=<bits_per_sample>|sample_rate=<rate>}*\n");
                 printf("\t\tmultiple options can be separated by a colon\n");
-                return false;
+                return 1;
         }
 
         unique_ptr<char[]> arg_copy(new char[strlen(optarg) + 1]);
@@ -251,7 +256,7 @@ bool parse_audio_capture_format(const char *optarg)
                         audio_capture_channels = strtol(item, &endptr, 10);
                         if (audio_capture_channels < 1 || endptr != item + strlen(item)) {
                                 log_msg(LOG_LEVEL_ERROR, "Invalid number of channels %s!\n", item);
-                                return false;
+                                return -1;
                         }
                 } else if (strncmp(item, "bps=", strlen("bps=")) == 0) {
                         item += strlen("bps=");
@@ -262,7 +267,7 @@ bool parse_audio_capture_format(const char *optarg)
                                         LOG(LOG_LEVEL_WARNING) << "bps is in bits per sample but a value not divisible by 8 was given.\n";
                                 }
                                 log_msg(LOG_LEVEL_ERROR, "Supported values are 8, 16, 24, or 32 bits.\n");
-                                return false;
+                                return -1;
 
                         }
                         audio_capture_bps = bps / 8;
@@ -271,18 +276,18 @@ bool parse_audio_capture_format(const char *optarg)
                         long long val = unit_evaluate(sample_rate_str);
                         if (val <= 0 || val > numeric_limits<decltype(audio_capture_sample_rate)>::max()) {
                                 LOG(LOG_LEVEL_ERROR) << "Invalid sample_rate " << sample_rate_str << "!\n";
-                                return false;
+                                return -1;
                         }
                         audio_capture_sample_rate = val;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << "Unkonwn option \"" << item << "\" for --audio-capture-format!\n";
-                        return false;
+                        return -1;
                 }
 
                 tmp = nullptr;
         }
 
-        return true;
+        return 0;
 }
 
 /**

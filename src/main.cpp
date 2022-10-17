@@ -1009,8 +1009,8 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         }
                         break;
                 case OPT_AUDIO_CAPTURE_FORMAT:
-                        if (!parse_audio_capture_format(optarg)) {
-                                return -EXIT_FAIL_USAGE;
+                        if (int ret = parse_audio_capture_format(optarg)) {
+                                return ret < 0 ? -EXIT_FAIL_USAGE : 1;
                         }
                         break;
                 case OPT_AUDIO_FILTER:
