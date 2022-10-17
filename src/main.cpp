@@ -1345,6 +1345,16 @@ static int adjust_params(struct ug_options *opt) {
         return 0;
 }
 
+static bool help_in_argv(char **argv) {
+        while (*argv) {
+                if (strstr(*argv, "help")) {
+                        return true;
+                }
+                argv++;
+        }
+        return false;
+}
+
 #define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 
 int main(int argc, char *argv[])
@@ -1395,6 +1405,20 @@ int main(int argc, char *argv[])
 
         if (int ret = adjust_params(&opt)) {
                 EXIT(ret);
+        }
+
+        if (!help_in_argv(uv_argv)) {
+                col() << TBOLD("Display device   : ") << opt.requested_display << "\n";
+                col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
+                col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
+                col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
+                col() << TBOLD("MTU              : ") << opt.requested_mtu << " B\n";
+                col() << TBOLD("Video compression: ") << opt.requested_compression << "\n";
+                col() << TBOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(opt.audio.codec_cfg)) << "\n";
+                col() << TBOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
+                col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
+                col() << TBOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
+                col() << "\n";
         }
 
         exporter = export_init(&uv.root_module, opt.export_opts, opt.should_export);
@@ -1610,18 +1634,6 @@ int main(int argc, char *argv[])
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup;
                 }
-
-                col() << TBOLD("Display device   : ") << opt.requested_display << "\n";
-                col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
-                col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
-                col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
-                col() << TBOLD("MTU              : ") << opt.requested_mtu << " B\n";
-                col() << TBOLD("Video compression: ") << opt.requested_compression << "\n";
-                col() << TBOLD("Audio codec      : ") << get_name_to_audio_codec(get_audio_codec(opt.audio.codec_cfg)) << "\n";
-                col() << TBOLD("Network protocol : ") << video_rxtx::get_long_name(opt.video_protocol) << "\n";
-                col() << TBOLD("Audio FEC        : ") << opt.audio.fec_cfg << "\n";
-                col() << TBOLD("Video FEC        : ") << opt.requested_video_fec << "\n";
-                col() << "\n";
 
                 audio_start(uv.audio);
 
