@@ -45,7 +45,7 @@ PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 MINGW_PACKAGE_PREFIX=mingw-w64-clang-x86_64
 $PACMAN_INSTALL automake autoconf git make pkgconf ${MINGW_PACKAGE_PREFIX}-toolchain ${MINGW_PACKAGE_PREFIX}-cppunit unzip zip
 $PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-ffmpeg
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-speexdsp
+$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-libsoxr ${MINGW_PACKAGE_PREFIX}-speexdsp
 $PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-glew ${MINGW_PACKAGE_PREFIX}-SDL2 ${MINGW_PACKAGE_PREFIX}-SDL2_mixer ${MINGW_PACKAGE_PREFIX}-SDL2_ttf ${MINGW_PACKAGE_PREFIX}-glfw
 $PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-glm
 $PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
