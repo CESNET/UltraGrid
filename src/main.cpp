@@ -1628,7 +1628,7 @@ int main(int argc, char *argv[])
                 }
 
                 // This has to be run after start of capture thread since it may request
-                // captured video format information.
+                // captured video format information (@sa print_capabilities).
                 if (opt.print_capabilities_req) {
                         print_capabilities(&uv.root_module, strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) != 0);
                         exit_uv(EXIT_SUCCESS);

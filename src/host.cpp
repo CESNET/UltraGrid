@@ -393,6 +393,11 @@ struct init_data *common_preinit(int argc, char *argv[])
         return init;
 }
 
+/**
+ * @param use_vidcap Try to capture video signal to adjust compress information
+ *                   (preset bitrates according to the signal. The code can be
+ *                   safely removed (only used by CoUniverse, not GUI).
+ */
 void print_capabilities(struct module *root, bool use_vidcap)
 {
         auto flags = cout.flags();
