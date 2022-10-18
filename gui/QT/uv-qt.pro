@@ -71,7 +71,6 @@ HEADERS += window/ultragrid_window.hpp \
 	util/extra_callback_data.hpp \
 	util/ug_process_manager.hpp \
 	util/debug.hpp \
-	util/random_port.hpp \
 	util/line_buffer.hpp \
 	util/control_port.hpp \
 
@@ -101,7 +100,6 @@ SOURCES += window/ultragrid_window.cpp \
 	option/audio_opts.cpp \
 	option/video_opts.cpp \
 	util/ug_process_manager.cpp \
-	util/random_port.cpp \
 	util/line_buffer.cpp \
 	util/control_port.cpp \
 	../../tools/astat.cpp \
