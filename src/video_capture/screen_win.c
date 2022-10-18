@@ -47,6 +47,7 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
+#include <shellapi.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -211,7 +212,7 @@ static bool is_library_registered() {
         return ret;
 }
 
-static HMODULE register_screen_cap_rec_library() {
+static HMODULE register_screen_cap_rec_library(bool is_elevated) {
         HMODULE screen_cap_lib = NULL;
         CHECK_NOT_NULL(screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"), return NULL);
         func register_filter;
@@ -223,6 +224,19 @@ static HMODULE register_screen_cap_rec_library() {
         FreeLibrary(screen_cap_lib);
         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
         if (res == E_ACCESSDENIED) {
+                if (!is_elevated) {
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Need to register DirectShow module for screen capture, confirm if you agree.\n");
+                        HINSTANCE ret = ShellExecute( NULL,
+                                        "runas",
+                                        uv_argv[0], " -t screen:register_elevated",
+                                        NULL,                        // default dir
+                                        SW_SHOWNORMAL
+                                        );
+                        if ((INT_PTR) ret > 32) {
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Module Installation successful. Please re-run UltraGrid with same arguments.\n");
+                                return INIT_NOERR;
+                        }
+                }
                 log_msg(LOG_LEVEL_NOTICE, "Cannot register DLL (access denied), please install the filter from:\n\n"
                                 "  https://github.com/rdp/screen-capture-recorder-to-video-windows-free/releases\n");
         } else {
@@ -237,8 +251,12 @@ static bool load_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
                 return true;
         }
 
-        if ((s->screen_cap_lib = register_screen_cap_rec_library()) == NULL) {
+        if ((s->screen_cap_lib = register_screen_cap_rec_library(false)) == NULL) {
                 return false;
+        }
+        if (s->screen_cap_lib == INIT_NOERR) { // registered by elevated child process
+                s->screen_cap_lib = NULL;
+                return true;
         }
         s->filter_registered = true;
         return true;
@@ -250,6 +268,13 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
         if (strcmp(cfg, "help") == 0) {
                 show_help();
                 return VIDCAP_INIT_NOERR;
+        }
+        if (strcmp(cfg, "register_elevated") == 0) {
+                HMODULE lib = register_screen_cap_rec_library(true);
+                if (lib) {
+                        FreeLibrary(lib);
+                }
+                return lib ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
         }
 
         if (!vidcap_screen_win_process_params(cfg)) {
