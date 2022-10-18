@@ -115,7 +115,7 @@ public:
 	void populateSettingsFromCapabilities(AvailableSettings *availSettings);
 
 	const std::string& getSessRndKey() const { return sessRndKey; }
-	int getControlPort() const;
+	std::string getControlPort() const;
 
 private:
 	void populateVideoCompressSettings(AvailableSettings *availSettings);
@@ -125,7 +125,6 @@ private:
 	std::map<std::string, std::unique_ptr<Option>> options;
 
 	std::string sessRndKey;
-	int randomPort;
 
 	const Option dummy;
 };

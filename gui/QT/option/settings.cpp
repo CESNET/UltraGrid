@@ -3,7 +3,6 @@
 #include <random>
 #include "settings.hpp"
 #include "available_settings.hpp"
-#include "random_port.hpp"
 
 Option::Callback::Callback(fcn_type func_ptr, void *opaque) :
 	func_ptr(func_ptr),
@@ -274,12 +273,6 @@ Settings::Settings() : dummy(this){
 			sessRndKey += 'a' + (rand - 9);
 	}
 
-	randomPort = getRandomFreePort();
-	if(randomPort < 0){
-		std::uniform_int_distribution<> ephemeralPorts(49152, 65535);
-		randomPort = ephemeralPorts(gen);
-	}
-
 	for(const auto &i : optionList){
 		auto &opt = addOption(i.name,
 				i.type,
@@ -302,11 +295,11 @@ Settings::Settings() : dummy(this){
 	std::cout << getLaunchParams() << std::endl;
 }
 
-int Settings::getControlPort() const{
+std::string Settings::getControlPort() const{
 	if(getOption("network.control_port.random").isEnabled())
-		return randomPort;
+		return "0";
 
-	return strtol(getOption("network.control_port").getValue().c_str(), nullptr, 10);
+	return getOption("network.control_port").getValue();
 }
 
 std::string Settings::getLaunchParams() const{
@@ -349,7 +342,7 @@ std::string Settings::getLaunchParams() const{
 	out += getOption("encryption").getLaunchOption();
 	out += getOption("network.port").getLaunchOption();
 	out += getOption("network.control_port").getParam();
-	out += std::to_string(getControlPort());
+	out += getControlPort();
 	out += getOption("network.destination").getLaunchOption();
 	out += getOption("decode.hwaccel").getLaunchOption();
 	out += getOption("errors_fatal").getLaunchOption();
@@ -369,7 +362,7 @@ std::string Settings::getPreviewParams() const{
 	out += getOption("audio.source.channels").getLaunchOption();
 	out += " -r dummy";
 	out += getOption("network.control_port").getParam();
-	out += std::to_string(getControlPort());
+	out += getControlPort();
 	out += getOption("encryption").getLaunchOption();
 
 	return out;
