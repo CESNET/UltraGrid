@@ -57,6 +57,7 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/hresult.h"
+#include "utils/macros.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
@@ -170,8 +171,7 @@ static bool vidcap_screen_win_process_params(const char *fmt)
 
 typedef HRESULT __stdcall (*func)();
 
-#define CHECK_NOT_NULL_EX(cmd, err_action) do { if ((cmd) == NULL) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", #cmd); err_action; } } while(0)
-#define CHECK_NOT_NULL(cmd) CHECK_NOT_NULL_EX(cmd, return);
+#define CHECK_NOT_NULL(cmd, err_action) do { if ((cmd) == NULL) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", #cmd); err_action; } } while(0)
 static void cleanup(struct vidcap_screen_win_state *s) {
         assert(s != NULL);
 
@@ -181,8 +181,7 @@ static void cleanup(struct vidcap_screen_win_state *s) {
 
         if (s->filter_registered) {
                 func unregister_filter = NULL;
-                CHECK_NOT_NULL(unregister_filter = (func)(void *) GetProcAddress(s->screen_cap_lib, "DllUnregisterServer"));
-                if (unregister_filter != NULL) {
+                if ((unregister_filter = (func)(void *) GetProcAddress(s->screen_cap_lib, "DllUnregisterServer")) != NULL) {
                         unregister_filter();
                 }
         }
@@ -193,8 +192,47 @@ static void cleanup(struct vidcap_screen_win_state *s) {
         free(s);
 }
 
-#undef CHECK_NOT_NULL
-#define CHECK_NOT_NULL(cmd) CHECK_NOT_NULL_EX(cmd, cleanup(s));
+static bool is_library_registered() {
+        void (*deleter)(void *) = NULL;
+        struct vidcap_type *vt = vidcap_dshow_info.probe(true, &deleter);
+        if (!vt) {
+                return false;
+        }
+        bool ret = false;
+        for (int i = 0; i < vt->card_count; ++i) {
+                if (strcmp(vt->cards[i].name, "screen-capture-recorder") == 0) {
+                        ret = true;
+                        break;
+                }
+        }
+        deleter = IF_NOT_NULL_ELSE(deleter, free);
+        deleter(vt->cards);
+        deleter(vt);
+        return ret;
+}
+
+static bool register_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
+        if (is_library_registered()) {
+                log_msg(LOG_LEVEL_VERBOSE, "Using already system-registered screen-capture-recorder library.\n");
+                return true;
+        }
+
+        CHECK_NOT_NULL(s->screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"), return false);
+        func register_filter;
+        CHECK_NOT_NULL(register_filter = (func)(void *) GetProcAddress(s->screen_cap_lib, "DllRegisterServer"), return false);
+        HRESULT res = register_filter();
+        if (FAILED(res)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
+                if (res == E_ACCESSDENIED) {
+                        log_msg(LOG_LEVEL_NOTICE, "Cannot register DLL, please install the filter from:\n\n"
+                                        "  https://github.com/rdp/screen-capture-recorder-to-video-windows-free/releases\n");
+                }
+                return false;
+        }
+        s->filter_registered = true;
+        return true;
+}
+
 static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
 {
         const char *cfg = vidcap_params_get_fmt(params);
@@ -209,17 +247,11 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
         }
 
         struct vidcap_screen_win_state *s = calloc(1, sizeof *s);
-
-        CHECK_NOT_NULL(s->screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"));
-        func register_filter;
-        CHECK_NOT_NULL(register_filter = (func)(void *) GetProcAddress(s->screen_cap_lib, "DllRegisterServer"));
-        HRESULT res = register_filter();
-        if (FAILED(res)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
+        if (!register_screen_cap_rec_library(s)) {
                 cleanup(s);
                 return VIDCAP_INIT_FAIL;
         }
-        s->filter_registered = true;
+
         struct vidcap_params *params_dshow = vidcap_params_allocate();
         vidcap_params_set_device(params_dshow, "dshow:device=screen-capture-recorder");
         vidcap_params_set_parent(params_dshow, vidcap_params_get_parent(params));
