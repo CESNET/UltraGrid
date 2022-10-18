@@ -1480,7 +1480,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         };
                         std::unique_ptr<state_video_compress_libav, void (*)(void*)> clean_data_ptr{s,
                                 deleter};
-                        cleanup_callbacks.push_back(move(clean_data_ptr));
+                        cleanup_callbacks.push_back(std::move(clean_data_ptr));
                 }
         }
 

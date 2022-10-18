@@ -539,7 +539,7 @@ struct gray_video_pattern_generator : public video_pattern_generator {
                                         memcpy(next_frame.data() + y * vc_get_linesize(width, color_spec) + x * dst_bs, dst, dst_bs);
                                 }
                         }
-                        data.push_back(move(next_frame));
+                        data.push_back(std::move(next_frame));
                         col += step;
                 }
         }

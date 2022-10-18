@@ -486,7 +486,7 @@ static void *capture_thread(void *arg)
                                 frame = shared_ptr<video_frame>(tx_frame, tx_frame->callbacks.dispose);
                         }
 
-                        uv->state_video_rxtx->send(move(frame)); // std::move really important here (!)
+                        uv->state_video_rxtx->send(std::move(frame)); // std::move really important here (!)
 
                         // wait for frame frame to be processed, eg. by compress
                         // or sender (uncompressed video). Grab invalidates previous frame

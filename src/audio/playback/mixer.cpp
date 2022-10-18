@@ -156,11 +156,11 @@ struct am_participant {
                 }
 	}
 	am_participant& operator=(am_participant&& other) {
-		m_audio_coder = move(other.m_audio_coder);
-		m_buffer = move(other.m_buffer);
-		m_network_device = move(other.m_network_device);
-		m_tx_session = move(other.m_tx_session);
-		last_seen = move(other.last_seen);
+		m_audio_coder = std::move(other.m_audio_coder);
+		m_buffer = std::move(other.m_buffer);
+		m_network_device = std::move(other.m_network_device);
+		m_tx_session = std::move(other.m_tx_session);
+		last_seen = std::move(other.last_seen);
 		other.m_audio_coder = nullptr;
 		other.m_buffer = nullptr;
 		other.m_tx_session = nullptr;
@@ -168,7 +168,7 @@ struct am_participant {
 		return *this;
 	}
         am_participant(am_participant && other) {
-                *this = move(other);
+                *this = std::move(other);
         }
         struct audio_codec_state *m_audio_coder;
         struct audio_buffer *m_buffer;

@@ -168,7 +168,7 @@ void encoder_state::compress(shared_ptr<video_frame> frame)
         if (frame) {
                 char vf_metadata[VF_METADATA_SIZE];
                 vf_store_metadata(frame.get(), vf_metadata); // seq and compress_start
-                auto out = compress_step(move(frame));
+                auto out = compress_step(std::move(frame));
                 if (out) {
                         vf_restore_metadata(out.get(), vf_metadata);
                         out->compress_end = time_since_epoch_in_ms();
@@ -196,7 +196,7 @@ void encoder_state::worker() {
                         break;
                 }
 
-                compress(move(frame));
+                compress(std::move(frame));
 
                 unique_lock<mutex> lk(m_parent_state->m_occupancy_lock);
                 m_occupied = false;

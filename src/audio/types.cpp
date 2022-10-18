@@ -339,7 +339,7 @@ void  audio_frame2::change_bps(int new_bps)
         }
 
         bps = new_bps;
-        channels = move(new_channels);
+        channels = std::move(new_channels);
 }
 
 ADD_TO_PARAM("resampler-quality", "* resampler-quality=[0-10]\n"
@@ -409,7 +409,7 @@ bool audio_frame2::resample([[maybe_unused]] audio_frame2_resampler & resampler_
         }
 
         sample_rate = new_sample_rate;
-        channels = move(new_channels);
+        channels = std::move(new_channels);
         return true;
 #else
         UNUSED(resampler_state.resample_from);

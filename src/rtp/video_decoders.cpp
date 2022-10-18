@@ -300,7 +300,7 @@ struct main_msg_reconfigure {
                         bool force = false,
                         codec_t cim = VIDEO_CODEC_NONE) :
                 desc(d),
-                last_frame(move(f)),
+                last_frame(std::move(f)),
                 force(force),
                 compress_internal_codec(cim) {}
 
@@ -410,7 +410,7 @@ static void *fec_thread(void *args) {
                 unique_ptr<frame_msg> data = decoder->fec_queue.pop();
 
                 if (!data->recv_frame) { // poisoned
-                        decoder->decompress_queue.push(move(data));
+                        decoder->decompress_queue.push(std::move(data));
                         break; // exit from loop
                 }
 
@@ -476,7 +476,7 @@ static void *fec_thread(void *args) {
                                 parse_video_hdr(video_hdr, &network_desc);
                                 if (!video_desc_eq_excl_param(decoder->received_vid_desc,
                                                         network_desc, PARAM_TILE_COUNT)) {
-                                        decoder->msg_queue.push(new main_msg_reconfigure(network_desc, move(data)));
+                                        decoder->msg_queue.push(new main_msg_reconfigure(network_desc, std::move(data)));
                                         goto cleanup;
                                 }
 
@@ -541,7 +541,7 @@ static void *fec_thread(void *args) {
                         }
                 }
 
-                decoder->decompress_queue.push(move(data));
+                decoder->decompress_queue.push(std::move(data));
 cleanup:
                 ;
         }
@@ -798,7 +798,7 @@ static void video_decoder_stop_threads(struct state_video_decoder *decoder)
         assert(decoder->display);
 
         unique_ptr<frame_msg> msg(new frame_msg(decoder->control, decoder->stats));
-        decoder->fec_queue.push(move(msg));
+        decoder->fec_queue.push(std::move(msg));
 
         decoder->fec_thread_id.join();
         decoder->decompress_thread_id.join();
@@ -1538,7 +1538,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 #endif
                 }
                 if (msg_reconf->last_frame) {
-                        decoder->fec_queue.push(move(msg_reconf->last_frame));
+                        decoder->fec_queue.push(std::move(msg_reconf->last_frame));
                 }
                 delete msg_reconf;
         }
@@ -1842,7 +1842,7 @@ next_packet:
                 fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
 
                 auto t0 = std::chrono::high_resolution_clock::now();
-                decoder->fec_queue.push(move(fec_msg));
+                decoder->fec_queue.push(std::move(fec_msg));
                 auto t1 = std::chrono::high_resolution_clock::now();
                 double tpf = 1.0 / decoder->display_desc.fps;
                 if (std::chrono::duration_cast<std::chrono::duration<double>>(t1 - t0).count() > tpf && decoder->stats.displayed > 20) {
