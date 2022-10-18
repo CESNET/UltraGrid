@@ -12,6 +12,11 @@ ControlPort::ControlPort(){
 }
 
 void ControlPort::connect(int local_port){
+	/* Prevents failure in case the socket is alredy connecting. This also
+	 * discards pending data in the send buffer, but we don't care about
+	 * that.*/
+	socket.abort();
+
 	socket.connectToHost(QHostAddress::LocalHost, local_port);
 }
 
