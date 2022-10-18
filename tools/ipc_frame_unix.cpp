@@ -30,7 +30,26 @@ typedef SOCKET fd_t;
 #define MSG_NOSIGNAL 0
 #endif
 
+namespace{
+struct Wsa_guard{
+        Wsa_guard(){
+#ifdef _WIN32
+                WSAData wsadata;
+                WSAStartup(MAKEWORD(2,2), &wsadata);
+#endif
+        }
+        ~Wsa_guard(){
+#ifdef _WIN32
+                WSACleanup();
+#endif
+        }
+        Wsa_guard& operator=(Wsa_guard&&) = delete; //Make class unmovable and uncopyable
+};
+} //anon namespace
+
+
 struct Ipc_frame_reader{
+        Wsa_guard guard;
         fd_t listen_fd;
         fd_t data_fd;
         std::string path;
