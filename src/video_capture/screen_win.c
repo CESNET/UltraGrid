@@ -211,22 +211,33 @@ static bool is_library_registered() {
         return ret;
 }
 
-static bool register_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
+static HMODULE register_screen_cap_rec_library() {
+        HMODULE screen_cap_lib = NULL;
+        CHECK_NOT_NULL(screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"), return NULL);
+        func register_filter;
+        CHECK_NOT_NULL(register_filter = (func)(void *) GetProcAddress(screen_cap_lib, "DllRegisterServer"), FreeLibrary(screen_cap_lib); return false);
+        HRESULT res = register_filter();
+        if (SUCCEEDED(res)) {
+                return screen_cap_lib;
+        }
+        FreeLibrary(screen_cap_lib);
+        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
+        if (res == E_ACCESSDENIED) {
+                log_msg(LOG_LEVEL_NOTICE, "Cannot register DLL (access denied), please install the filter from:\n\n"
+                                "  https://github.com/rdp/screen-capture-recorder-to-video-windows-free/releases\n");
+        } else {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
+        }
+        return NULL;
+}
+
+static bool load_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
         if (is_library_registered()) {
                 log_msg(LOG_LEVEL_VERBOSE, "Using already system-registered screen-capture-recorder library.\n");
                 return true;
         }
 
-        CHECK_NOT_NULL(s->screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"), return false);
-        func register_filter;
-        CHECK_NOT_NULL(register_filter = (func)(void *) GetProcAddress(s->screen_cap_lib, "DllRegisterServer"), return false);
-        HRESULT res = register_filter();
-        if (FAILED(res)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
-                if (res == E_ACCESSDENIED) {
-                        log_msg(LOG_LEVEL_NOTICE, "Cannot register DLL, please install the filter from:\n\n"
-                                        "  https://github.com/rdp/screen-capture-recorder-to-video-windows-free/releases\n");
-                }
+        if ((s->screen_cap_lib = register_screen_cap_rec_library()) == NULL) {
                 return false;
         }
         s->filter_registered = true;
@@ -236,7 +247,7 @@ static bool register_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
 static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
 {
         const char *cfg = vidcap_params_get_fmt(params);
-        if (cfg && strcmp(cfg, "help") == 0) {
+        if (strcmp(cfg, "help") == 0) {
                 show_help();
                 return VIDCAP_INIT_NOERR;
         }
@@ -247,7 +258,7 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
         }
 
         struct vidcap_screen_win_state *s = calloc(1, sizeof *s);
-        if (!register_screen_cap_rec_library(s)) {
+        if (!load_screen_cap_rec_library(s)) {
                 cleanup(s);
                 return VIDCAP_INIT_FAIL;
         }
