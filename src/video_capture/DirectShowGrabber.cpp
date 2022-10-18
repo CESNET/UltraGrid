@@ -221,6 +221,7 @@ static bool cleanup(struct vidcap_dshow_state *s) {
 	if (s->returnBuffer != NULL) free(s->returnBuffer);
 	if (s->convert_buffer != NULL) free(s->convert_buffer);
 	if (yuv_clamp != NULL) free(yuv_clamp);
+	free(s->deviceName);
 
 	DeleteCriticalSection(&s->returnBufferCS);
 
