@@ -353,7 +353,7 @@ static const struct video_capture_info vidcap_screen_win_info = {
         vidcap_screen_win_init,
         vidcap_screen_win_done,
         vidcap_screen_win_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(screen, &vidcap_screen_win_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
