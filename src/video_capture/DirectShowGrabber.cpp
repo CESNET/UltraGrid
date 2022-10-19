@@ -14,7 +14,6 @@
 
 #include "debug.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "tv.h"
 #include "utils/color_out.h"
 #include "video.h"
@@ -33,8 +32,6 @@
 
 #define MOD_NAME "[dshow] "
 
-using rang::fg;
-using rang::style;
 using namespace std;
 
 static void DeleteMediaType(AM_MEDIA_TYPE *mediaType);
@@ -357,10 +354,10 @@ static struct video_desc vidcap_dshow_get_video_desc(AM_MEDIA_TYPE *mediaType)
 
 static void show_help(struct vidcap_dshow_state *s) {
 	printf("dshow grabber options:\n");
-	cout << style::bold << fg::red << "\t-t dshow" << fg::reset << "[:device=<DeviceNumber>|<DeviceName>][:mode=<ModeNumber>][:RGB]\n" << style::reset;
-	cout << "\t    Flag " << style::bold << "RGB" << style::reset << " forces use of RGB codec, otherwise native is used if possible.\n";
+	col() << SBOLD(SRED("\t-t dshow") << "[:device=<DeviceNumber>|<DeviceName>][:mode=<ModeNumber>][:RGB]") "\n";
+	col() << "\t    Flag " << SBOLD("RGB") << " forces use of RGB codec, otherwise native is used if possible.\n";
 	printf("\tor\n");
-	cout << style::bold << fg::red << "\t-t dshow:[Device]<DeviceNumber>:<codec>:<width>:<height>:<fps>\n\n" << fg::reset << style::reset;
+	col() << SBOLD(SRED("\t-t dshow:[Device]<DeviceNumber>:<codec>:<width>:<height>:<fps>")) "\n\n";
 
 	bool show_legend = false;
 
