@@ -422,7 +422,7 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 		IPropertyBag *properties;
 		res = s->moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
 		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Failed to read device properties.\n");
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: Failed to read device %d properties.\n", n);
 			// Ignore the device
 			continue;
 		}
@@ -432,13 +432,14 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 		VariantInit(&var);
 		res = properties->Read(L"FriendlyName", &var, NULL);
 		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Failed to read device properties.\n");
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: Failed to get device %d name.\n", n);
 			VariantClear(&var);
 			// Ignore the device
 			continue;
 		}
 
 		wcstombs(vt->cards[n-1].name, var.bstrVal, sizeof vt->cards[n-1].name - 1);
+		const char *name = vt->cards[n-1].name;
 
 		// clean up structures
 		VariantClear(&var);
@@ -448,7 +449,7 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
                 IBaseFilter *captureFilter;
                 res = s->moniker->BindToObject(NULL, NULL, IID_IBaseFilter, (void **) &captureFilter);
                 if (res != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot bind capture filter to device.\n");
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot bind capture filter to device.\n", name);
                         ErrorDescription(res);
                         continue;
                 }
@@ -456,7 +457,7 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
                 // add the capture filter to the filter graph
                 res = s->filterGraph->AddFilter(captureFilter, L"Capture filter");
                 if (res != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot add capture filter to filter graph.\n");
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot add capture filter to filter graph.\n", name);
                         continue;
                 }
 
@@ -464,7 +465,7 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
                 res = s->graphBuilder->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, captureFilter,
                                 IID_IAMStreamConfig, (void **) &s->streamConfig);
                 if (res != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot find interface for reading capture capabilites.\n");
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot find interface for reading capture capabilites.\n", name);
                         continue;
                 }
 
@@ -472,12 +473,12 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
                 // read number of capture device capabilities
                 res = s->streamConfig->GetNumberOfCapabilities(&capCount, &capSize);
                 if (res != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot read number of capture capabilites.\n");
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot read number of capture capabilites.\n", name);
                         continue;
                 }
                 // check if the format of capture capabilities is the right one
                 if (capSize != sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Unknown format of capture capabilites.\n");
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Unknown format of capture capabilites.\n", name);
                         continue;
                 }
 
@@ -493,7 +494,7 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 
                         res = s->streamConfig->GetStreamCaps(i, &mediaType, (BYTE*) &streamCaps);
                         if (res != S_OK) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
+				log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot read stream capabilities #%d.\n", name, i);
                                 continue;
                         }
                         struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
@@ -517,7 +518,7 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
                 s->streamConfig->Release();
                 res = s ->filterGraph->RemoveFilter(captureFilter);
                 if (res != S_OK) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot remove capture filter from filter graph.\n");
+			log_msg(LOG_LEVEL_WARNING, MOD_NAME "vidcap_dshow_help: %s: Cannot remove capture filter from filter graph.\n", name);
                         continue;
                 }
                 captureFilter->Release();
