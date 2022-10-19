@@ -240,12 +240,12 @@ static int register_screen_cap_rec_library(bool is_elevated) {
                                         SW_SHOWNORMAL
                                         );
                         if ((INT_PTR) ret > 32) {
-                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Module installation successful. Please re-run UltraGrid with same arguments.\n");
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Module installation successful.\n");
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "If you want to unregister the module, run 'uv -t screen:unregister'.\n");
                                 return 1;
                         }
                 }
-                log_msg(LOG_LEVEL_NOTICE, "Cannot register DLL (access denied), please install the filter from:\n\n"
+                log_msg(LOG_LEVEL_WARNING, "Cannot register DLL (access denied), please allow access or install the filter from:\n"
                                 "  " FILTER_UPSTREAM_URL "\n");
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
@@ -261,26 +261,47 @@ static void unregister_filter() {
         unregister_filter();
 }
 
-static bool load_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
+static int load_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
         if (is_library_registered()) {
                 log_msg(LOG_LEVEL_VERBOSE, "Using already system-registered screen-capture-recorder library.\n");
-                return true;
+                return 0;
         }
 
         int rc = 0;
-        if ((rc = register_screen_cap_rec_library(false)) < 0) {
-                return false;
-        }
-        if (rc == 1) { // registered by elevated child process
-                return true;
+        if ((rc = register_screen_cap_rec_library(false)) != 0) {
+                return rc;
         }
         s->filter_registered_here = true;
-        return true;
+        return 0;
+}
+
+static int run_child_process() {
+        char cmd[1024] = "";
+        for (int i = 0; i < uv_argc; ++i) {
+                char tmp[1024];
+                if (strstr(uv_argv[i], "screen") == uv_argv[i]) {
+                        if (strlen(uv_argv[i]) >= 7) { // screen:
+                                snprintf(tmp, sizeof tmp, "\"screen:child:%s\" ", uv_argv[i] +  6);
+                        } else
+                                snprintf(tmp, sizeof tmp, "\"screen:child\" ");
+                } else {
+                        snprintf(tmp, sizeof tmp, "\"%s\" ", uv_argv[i]);
+                }
+                strncat(cmd, tmp, sizeof cmd - strlen(cmd) - 1);
+        }
+        if (strlen(cmd) == sizeof cmd - 1) {
+                return -1; // potential overflow
+        }
+        STARTUPINFO si = { 0 };
+        PROCESS_INFORMATION pi = { 0 };
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Starting child process:\n%s\n", cmd);
+        return CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
 }
 
 static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
 {
         const char *cfg = vidcap_params_get_fmt(params);
+        bool child = false; // to prevent fork bombs if error
         if (strcmp(cfg, "help") == 0) {
                 show_help();
                 return VIDCAP_INIT_NOERR;
@@ -302,6 +323,10 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                 unregister_filter();
                 return VIDCAP_INIT_NOERR;
         }
+        if (strstr(cfg, "child") == cfg) {
+                child = true;
+                cfg = strchr(cfg, ':') ? strchr(cfg, ':') + 1 : "";
+        }
 
         if (!vidcap_screen_win_process_params(cfg)) {
                 show_help();
@@ -309,9 +334,13 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
         }
 
         struct vidcap_screen_win_state *s = calloc(1, sizeof *s);
-        if (!load_screen_cap_rec_library(s)) {
+        int rc = load_screen_cap_rec_library(s);
+        if (rc != 0) {
                 cleanup(s);
-                return VIDCAP_INIT_FAIL;
+                if (rc < 0) {
+                       return VIDCAP_INIT_FAIL;
+                }
+                return child ? VIDCAP_INIT_FAIL : run_child_process();
         }
 
         struct vidcap_params *params_dshow = vidcap_params_allocate();
