@@ -231,6 +231,7 @@ static void exchange_coord_desc(juice_agent_t *agent, fd_t coord_sock){
 
         send_msg(coord_sock, sdp);
 
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Connection: Waiting for remote client...\n");
         char msg_buf[MAX_MSG_LEN];
         recv_msg(coord_sock, msg_buf, sizeof(msg_buf));
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Remote client name: %s\n", msg_buf);
@@ -395,7 +396,7 @@ bool punch_udp(struct Holepunch_config c){
 
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Cleanup done\n");
 
-
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Connection: Established\n");
         return true;
 }
 
