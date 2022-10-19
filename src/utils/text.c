@@ -258,11 +258,12 @@ char *indent_paragraph(char *text) {
                 if (line_len + len_net > 80) {
                         if (line_len == 0) { // |word|>80 starting a line
                                 *next = '\n';
+                                line_len = 0;
                         } else {
                                 *last_space = '\n';
+                                line_len = len_net;
                         }
                         pos = next + 1;
-                        line_len = 0;
                         continue;
                 }
                 last_space = next;
