@@ -65,7 +65,7 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "::set-output name=ndi::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)"
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
     - name: Cache NDI
       id: cache-ndi
       uses: actions/cache@v3
@@ -160,9 +160,9 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "::set-output name=nonfree::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/VideoMaster_SDK_MacOSX.zip)"
-        echo "::set-output name=ndi::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg)"
-        echo "::set-output name=ximea::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)"
+        echo "nonfree=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh $SDK_URL/VideoMaster_SDK_MacOSX.zip)" >> $GITHUB_OUTPUT
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_NDI_SDK_v5_Apple.pkg)" >> $GITHUB_OUTPUT
+        echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/downloads/recent/XIMEA_OSX_SP.dmg)" >> $GITHUB_OUTPUT
     - name: Cache Non-Free SDKs
       id: cache-macos-nonfree-sdks
       uses: actions/cache@v3
@@ -245,8 +245,8 @@ jobs:
     - name: Fetch SDKs ETags
       id: etags
       run: |
-        echo "::set-output name=ndi::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe)"
-        echo "::set-output name=ximea::$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe)"
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe)" >> $GITHUB_OUTPUT
+        echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe)" >> $GITHUB_OUTPUT
       shell: bash
     - name: Set environment
       run: .github/scripts/environment.sh
