@@ -16,6 +16,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -38,6 +39,7 @@ static void DeleteMediaType(AM_MEDIA_TYPE *mediaType);
 static const CHAR * GetSubtypeName(const GUID *pSubtype);
 static codec_t get_ug_codec(const GUID *pSubtype);
 static codec_t get_ug_from_subtype_name(const char *subtype_name);
+static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(void *));
 
 static void ErrorDescription(HRESULT hr)
 { 
@@ -359,132 +361,34 @@ static void show_help(struct vidcap_dshow_state *s) {
 	printf("\tor\n");
 	col() << SBOLD(SRED("\t-t dshow:[Device]<DeviceNumber>:<codec>:<width>:<height>:<fps>")) "\n\n";
 
-	bool show_legend = false;
-
 	if (!common_init(s)) return;
 
-	HRESULT res;
-	int n = 0;
+	color_printf("Devices:\n");
+	void (*deleter)(void *) = NULL;
+	struct vidcap_type *vt = vidcap_dshow_probe(true, &deleter);
+
 	// Enumerate all capture devices
-	while ((res = s->videoInputEnumerator->Next(1, &s->moniker, NULL)) == S_OK) {
-                n++;
-		// Attach structure for reading basic device properties
-		IPropertyBag *properties;
-		res = s->moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Failed to read device properties.\n");
-			// Ignore the device
-			continue;
-		}
+	for (int n = 0; n < vt->card_count; ++n) {
+		color_printf("Device %d) " TERM_BOLD "%s\n" TERM_RESET, n, vt->cards[n].name);
 
-		// Read name of the device
-		VARIANT var;
-		VariantInit(&var);
-		res = properties->Read(L"FriendlyName", &var, NULL);
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Failed to read device properties.\n");
-			VariantClear(&var);
-			// Ignore the device
-			continue;
-		}
-		color_printf("Device %d: " TERM_BOLD "%ls\n" TERM_RESET, n, var.bstrVal);
-
-		// clean up structures
-		VariantClear(&var);
-		properties->Release();
-
-		// bind the selected device to the capture filter
-		IBaseFilter *captureFilter;
-		res = s->moniker->BindToObject(NULL, NULL, IID_IBaseFilter, (void **) &captureFilter);
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot bind capture filter to device.\n");
-			ErrorDescription(res);
-			continue;
-		}
-
-		// add the capture filter to the filter graph
-		res = s->filterGraph->AddFilter(captureFilter, L"Capture filter");
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot add capture filter to filter graph.\n");
-			continue;
-		}
-
-		// connect stream config interface to the capture filter
-		res = s->graphBuilder->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video, captureFilter,
-				IID_IAMStreamConfig, (void **) &s->streamConfig);
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot find interface for reading capture capabilites.\n");
-			continue;
-		}
-
-		int capCount, capSize;
-		// read number of capture device capabilities
-		res = s->streamConfig->GetNumberOfCapabilities(&capCount, &capSize);
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot read number of capture capabilites.\n");
-			continue;
-		}
-		// check if the format of capture capabilities is the right one
-		if (capSize != sizeof(VIDEO_STREAM_CONFIG_CAPS)) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Unknown format of capture capabilites.\n");
-			continue;
-		}
-
+		int i = 0;
 		// iterate over all capabilities
-		for (int i = 0; i < capCount; i++) {
-			AM_MEDIA_TYPE *mediaType;
-			VIDEO_STREAM_CONFIG_CAPS streamCaps;
-
-			res = s->streamConfig->GetStreamCaps(i, &mediaType, (BYTE*) &streamCaps);
-			if (res != S_OK) {
-				log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
-				continue;
-			}
-			if (mediaType->formattype != FORMAT_VideoInfo && mediaType->formattype != FORMAT_VideoInfo2) {
-				log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Unsupported format type for capability #%d.\n", i);
-				continue;
-			}
-			struct video_desc desc = vidcap_dshow_get_video_desc(mediaType);
-			if (desc.width == 0) {
-				continue;
-			}
-			printf("    Mode %2d: %s %ux%u @%0.2lf%s %s%s", i, GetSubtypeName(&mediaType->subtype),
-				desc.width, desc.height,
-				desc.fps * (desc.interlacing == INTERLACED_MERGED ? 2 : 1),
-				get_interlacing_suffix(desc.interlacing),
-				desc.color_spec ? "" : "C",
-				mediaType->formattype == FORMAT_VideoInfo ? "" : "F");
-
-			if (!desc.color_spec || mediaType->formattype != FORMAT_VideoInfo) {
-				show_legend = true;
-			}
-
-			DeleteMediaType(mediaType);
-
+		while (strlen(vt->cards[n].modes[i].id) > 0) {
+			printf("    Mode %2d: %s", i, vt->cards[n].modes[i].name);
 			putchar(i % 2 == 1 ? '\n' : '\t');
+			++i;
 		}
-
-		s->streamConfig->Release();
-		res = s ->filterGraph->RemoveFilter(captureFilter);
-		if (res != S_OK) {
-			log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_help: Cannot remove capture filter from filter graph.\n");
-			continue;
-		}
-		captureFilter->Release();
-		s->moniker->Release();
 
 		printf("\n\n");
 	}
+	deleter = IF_NOT_NULL_ELSE(deleter, (void (*)(void *)) free);
+	deleter(vt->cards);
+	deleter(vt);
 
-	if (show_legend) {
-		printf("C - codec is not supported in UG; F - video format is not supported\n\n");
-	}
+	printf("Mode flags:\n");
+	printf("C - codec is not supported in UG; F - video format is not supported\n\n");
 }
 
-/**
- * @todo
- * The code is mostly copy&paste from show_help() - put it together.
- */
 static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(void *))
 {
 	struct vidcap_type*		vt;
@@ -602,9 +506,10 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 					"{\"mode\":\"%d\"}", i);
 			snprintf(vt->cards[vt->card_count - 1].modes[i].name,
 					sizeof vt->cards[vt->card_count - 1].modes[i].name,
-					"%s %ux%u @%0.2lf%s%s", GetSubtypeName(&mediaType->subtype),
+					"%s %ux%u @%0.2lf%s %s%s", GetSubtypeName(&mediaType->subtype),
 					desc.width, desc.height, desc.fps * (desc.interlacing == INTERLACED_MERGED ? 2 : 1), get_interlacing_suffix(desc.interlacing),
-                                desc.color_spec ? "" : " (U)");
+					desc.color_spec ? "" : "C",
+					mediaType->formattype == FORMAT_VideoInfo ? "" : "F");
 
                         DeleteMediaType(mediaType);
                 }
