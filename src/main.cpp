@@ -96,6 +96,7 @@
 #include "utils/misc.h"
 #include "utils/nat.h"
 #include "utils/net.h"
+#include "utils/sv_parse_num.hpp"
 #include "utils/thread.h"
 #include "utils/wait_obj.h"
 #include "utils/udp_holepunch.h"
@@ -594,17 +595,20 @@ static int parse_cuda_device(char *optarg) {
         return 0;
 }
 
+template<int N>
+static void copy_sv_to_c_buf(char (&dest)[N], std::string_view sv){
+        sv.copy(dest, N - 1);
+        dest[N - 1] = '\0';
+}
+
 [[maybe_unused]] static bool parse_holepunch_conf(char *conf, struct Holepunch_config *punch_c){
+        std::string_view sv = conf;
+        while(!sv.empty()){
+                auto token = tokenize(sv, ':');
+                auto key = tokenize(token, '=');
+                auto val = tokenize(token, '=');
 
-        char *token = strchr(conf, ':');
-        while(token){
-                token = token + 1;
-                char *next = strchr(token, ':');
-                if(next){
-                        *next = '\0';
-                }
-
-                if(strncmp(token, "help", strlen("help")) == 0){
+                if(key == "help"){
                         col() << "Usage:\n" <<
                                 "\tuv " << TBOLD("-Nholepunch:room=<room>:(server=<host> | coord_srv=<host:port>:stun_srv=<host:port>)[:client_name=<name>] \n") <<
                                 "\twhere\n"
@@ -615,56 +619,43 @@ static int parse_cuda_device(char *optarg) {
                         return false;
                 }
 
-                if(strncmp(token, "coord_srv=", strlen("coord_srv=")) == 0){
-                        token += strlen("coord_srv=");
-                        strncpy(punch_c->coord_srv_addr, token, sizeof(punch_c->coord_srv_addr));
+                if(key == "coord_srv"){
+                        copy_sv_to_c_buf(punch_c->coord_srv_addr, val);
 
-                        if(!next){
+                        token = tokenize(sv, ':');
+                        if(token.empty()){
                                 log_msg(LOG_LEVEL_ERROR, "Missing hole punching coord server port.\n");
                                 return false;
                         }
 
-                        char *end;
-                        next++;
-                        punch_c->coord_srv_port = strtol(next, &end, 10);
-                        if(next == end){
+                        if(!parse_num(token, punch_c->coord_srv_port)){
                                 log_msg(LOG_LEVEL_ERROR, "Failed to parse hole punching coord server port.\n");
                                 return false;
                         }
-                        next = strchr(next, ':');
-                } else if(strncmp(token, "stun_srv=", strlen("stun_srv=")) == 0){
-                        token += strlen("stun_srv=");
-                        strncpy(punch_c->stun_srv_addr, token, sizeof(punch_c->stun_srv_addr));
+                } else if(key == "stun_srv"){
+                        copy_sv_to_c_buf(punch_c->stun_srv_addr, val);
 
-                        if(!next){
+                        token = tokenize(sv, ':');
+                        if(token.empty()){
                                 log_msg(LOG_LEVEL_ERROR, "Missing hole punching stun server port.\n");
                                 return false;
                         }
 
-                        char *end;
-                        next++;
-                        punch_c->stun_srv_port = strtol(next, &end, 10);
-                        if(next == end){
+                        if(!parse_num(token, punch_c->stun_srv_port)){
                                 log_msg(LOG_LEVEL_ERROR, "Failed to parse hole punching stun server port.\n");
                                 return false;
                         }
-                        next = strchr(next, ':');
-                } else if(strncmp(token, "server=", strlen("server=")) == 0){
-                        token += strlen("server=");
-                        strncpy(punch_c->stun_srv_addr, token, sizeof(punch_c->stun_srv_addr));
-                        strncpy(punch_c->coord_srv_addr, token, sizeof(punch_c->coord_srv_addr));
+                } else if(key == "server"){
+                        copy_sv_to_c_buf(punch_c->stun_srv_addr, val);
+                        copy_sv_to_c_buf(punch_c->coord_srv_addr, val);
 
                         punch_c->stun_srv_port = 3478;
                         punch_c->coord_srv_port = 12558;
-                } else if(strncmp(token, "room=", strlen("room=")) == 0){
-                        token += strlen("room=");
-                        strncpy(punch_c->room_name, token, sizeof(punch_c->room_name));
-                } else if(strncmp(token, "client_name=", strlen("client_name=")) == 0){
-                        token += strlen("client_name=");
-                        strncpy(punch_c->client_name, token, sizeof(punch_c->client_name));
+                } else if(key == "room"){
+                        copy_sv_to_c_buf(punch_c->room_name, val);
+                } else if(key == "client_name"){
+                        copy_sv_to_c_buf(punch_c->client_name, val);
                 }
-
-                token = next;
         }
 
         if(!strlen(punch_c->stun_srv_addr)
