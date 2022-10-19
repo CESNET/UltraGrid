@@ -514,6 +514,9 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 		vt->card_count = n;
 		vt->cards = (struct device_info *) realloc(vt->cards, n * sizeof(struct device_info));
 		memset(&vt->cards[n - 1], 0, sizeof(struct device_info));
+		snprintf(vt->cards[n-1].dev, sizeof vt->cards[n-1].dev - 1, ":device=%d", n);
+		snprintf(vt->cards[n-1].name, sizeof vt->cards[n-1].name - 1, "_DSHOW_FAILED_TO_READ_NAME_%d_", n);
+
 		// Attach structure for reading basic device properties
 		IPropertyBag *properties;
 		res = s->moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
@@ -534,7 +537,6 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 			continue;
 		}
 
-		snprintf(vt->cards[n-1].dev, sizeof vt->cards[n-1].dev - 1, ":device=%d", n);
 		wcstombs(vt->cards[n-1].name, var.bstrVal, sizeof vt->cards[n-1].name - 1);
 
 		// clean up structures
