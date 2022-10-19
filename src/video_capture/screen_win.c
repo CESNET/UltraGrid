@@ -59,13 +59,16 @@
 #include "utils/color_out.h"
 #include "utils/hresult.h"
 #include "utils/macros.h"
+#include "utils/text.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
 
 #define MOD_NAME "[screen win] "
+#define FILTER_UPSTREAM_URL "https://github.com/rdp/screen-capture-recorder-to-video-windows-free/releases"
 
 extern const struct video_capture_info vidcap_dshow_info;
+static bool is_library_registered();
 
 struct vidcap_screen_win_state {
         HMODULE screen_cap_lib;
@@ -75,9 +78,18 @@ struct vidcap_screen_win_state {
 
 static void show_help()
 {
-        printf("Screen capture\n");
-        printf("Usage\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t-t screen" TERM_FG_RESET "[:width=<w>][:height=<h>][:fps=<f>]\n" TERM_RESET);
+        char desc[] = "Windows " TBOLD("screen capture") " can be used to capture the whole desktop in Windows.\n\n"
+                "It uses dynamically loaded DShow filter to get the screen data. Depending on the system configuration, "
+                "it may be required to confirm the filter registration with elevated permissions. In that case the plugin "
+                "remains registered permanently (you can unregister it with \"" TBOLD(":unregister") "\" (otherwise it is "
+                "unloaded in the end. You can also download and install it from " FILTER_UPSTREAM_URL " to get latest "
+                "version.\n\n";
+        color_printf("%s", indent_paragraph(desc));
+        color_printf("Usage\n");
+        color_printf(TBOLD(TRED("\t-t screen") "[:width=<w>][:height=<h>][:fps=<f>]") " | " TBOLD("-t screen:help") " | " TBOLD("-t screen:unregister") "\n");
+        color_printf("where:\n");
+        color_printf(TBOLD("\tunregister") " - unregister DShow filter\n\n");
+        color_printf(TBOLD("DShow") " filter " TBOLD("%s") " registered\n", is_library_registered() ? "is" : "is not");
 }
 
 static struct vidcap_type * vidcap_screen_win_probe(bool verbose, void (**deleter)(void *))
@@ -233,16 +245,25 @@ static HMODULE register_screen_cap_rec_library(bool is_elevated) {
                                         SW_SHOWNORMAL
                                         );
                         if ((INT_PTR) ret > 32) {
-                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Module Installation successful. Please re-run UltraGrid with same arguments.\n");
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Module installation successful. Please re-run UltraGrid with same arguments.\n");
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "If you want to unregister the module, run 'uv -t screen:unregister'.\n");
                                 return INIT_NOERR;
                         }
                 }
                 log_msg(LOG_LEVEL_NOTICE, "Cannot register DLL (access denied), please install the filter from:\n\n"
-                                "  https://github.com/rdp/screen-capture-recorder-to-video-windows-free/releases\n");
+                                "  " FILTER_UPSTREAM_URL "\n");
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Register failed: %s\n", hresult_to_str(res));
         }
         return NULL;
+}
+
+static void unregister_elevated() {
+        HMODULE screen_cap_lib = NULL;
+        CHECK_NOT_NULL(screen_cap_lib = LoadLibraryA("screen-capture-recorder-x64.dll"), return);
+        func unregister_filter;
+        CHECK_NOT_NULL(unregister_filter = (func)(void *) GetProcAddress(screen_cap_lib, "DllUnregisterServer"), FreeLibrary(screen_cap_lib); return);
+        unregister_filter();
 }
 
 static bool load_screen_cap_rec_library(struct vidcap_screen_win_state *s) {
@@ -275,6 +296,19 @@ static int vidcap_screen_win_init(struct vidcap_params *params, void **state)
                         FreeLibrary(lib);
                 }
                 return lib ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
+        }
+        if (strcmp(cfg, "unregister") == 0) {
+                ShellExecute( NULL,
+                                "runas",
+                                uv_argv[0], " -t screen:unregister_elevated",
+                                NULL,                        // default dir
+                                SW_SHOWNORMAL
+                            );
+                return VIDCAP_INIT_NOERR;
+        }
+        if (strcmp(cfg, "unregister_elevated") == 0) {
+                unregister_elevated();
+                return VIDCAP_INIT_NOERR;
         }
 
         if (!vidcap_screen_win_process_params(cfg)) {
