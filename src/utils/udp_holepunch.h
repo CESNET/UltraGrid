@@ -49,8 +49,8 @@ extern "C" {
 #define HOLEPUNCH_ABI_VERSION 1
 
 struct Holepunch_config{
-        const char *client_name;
-        const char *room_name;
+        char client_name[512];
+        char room_name[512];
 
         int *video_rx_port;
         int *video_tx_port;
@@ -62,14 +62,14 @@ struct Holepunch_config{
 
         const char *bind_addr;
 
-        const char *coord_srv_addr;
+        char coord_srv_addr[512];
         int coord_srv_port;
-        const char *stun_srv_addr;
+        char stun_srv_addr[512];
         int stun_srv_port;
 };
 
 #ifdef HAVE_LIBJUICE
-bool punch_udp(struct Holepunch_config c);
+bool punch_udp(struct Holepunch_config *c);
 #endif
 
 #ifdef __cplusplus

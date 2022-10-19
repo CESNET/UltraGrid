@@ -617,7 +617,7 @@ static int parse_cuda_device(char *optarg) {
 
                 if(strncmp(token, "coord_srv=", strlen("coord_srv=")) == 0){
                         token += strlen("coord_srv=");
-                        punch_c->coord_srv_addr = token;
+                        strncpy(punch_c->coord_srv_addr, token, sizeof(punch_c->coord_srv_addr));
 
                         if(!next){
                                 log_msg(LOG_LEVEL_ERROR, "Missing hole punching coord server port.\n");
@@ -634,7 +634,7 @@ static int parse_cuda_device(char *optarg) {
                         next = strchr(next, ':');
                 } else if(strncmp(token, "stun_srv=", strlen("stun_srv=")) == 0){
                         token += strlen("stun_srv=");
-                        punch_c->stun_srv_addr = token;
+                        strncpy(punch_c->stun_srv_addr, token, sizeof(punch_c->stun_srv_addr));
 
                         if(!next){
                                 log_msg(LOG_LEVEL_ERROR, "Missing hole punching stun server port.\n");
@@ -651,23 +651,25 @@ static int parse_cuda_device(char *optarg) {
                         next = strchr(next, ':');
                 } else if(strncmp(token, "server=", strlen("server=")) == 0){
                         token += strlen("server=");
-                        punch_c->stun_srv_addr = token;
-                        punch_c->coord_srv_addr = token;
+                        strncpy(punch_c->stun_srv_addr, token, sizeof(punch_c->stun_srv_addr));
+                        strncpy(punch_c->coord_srv_addr, token, sizeof(punch_c->coord_srv_addr));
 
                         punch_c->stun_srv_port = 3478;
                         punch_c->coord_srv_port = 12558;
                 } else if(strncmp(token, "room=", strlen("room=")) == 0){
                         token += strlen("room=");
-                        punch_c->room_name = token;
+                        strncpy(punch_c->room_name, token, sizeof(punch_c->room_name));
                 } else if(strncmp(token, "client_name=", strlen("client_name=")) == 0){
                         token += strlen("client_name=");
-                        punch_c->client_name = token;
+                        strncpy(punch_c->client_name, token, sizeof(punch_c->client_name));
                 }
 
                 token = next;
         }
 
-        if(!punch_c->stun_srv_addr || !punch_c->coord_srv_addr || !punch_c->room_name)
+        if(!strlen(punch_c->stun_srv_addr)
+                || !strlen(punch_c->coord_srv_addr)
+                || !strlen(punch_c->room_name))
         {
                 log_msg(LOG_LEVEL_ERROR, "Not all hole punch params provided.\n");
                 return false;
@@ -1244,7 +1246,7 @@ static int adjust_params(struct ug_options *opt) {
                 punch_c.host_addr = punched_host;
                 punch_c.host_addr_len = sizeof(punched_host);
 
-                auto punch_fcn = reinterpret_cast<bool(*)(Holepunch_config)>(
+                auto punch_fcn = reinterpret_cast<bool(*)(Holepunch_config *)>(
                                 const_cast<void *>(
                                         load_library("udp_holepunch", LIBRARY_CLASS_UNDEFINED, HOLEPUNCH_ABI_VERSION)));
 
@@ -1253,7 +1255,7 @@ static int adjust_params(struct ug_options *opt) {
                         return EXIT_FAILURE;
                 }
 
-                if(!punch_fcn(punch_c)){
+                if(!punch_fcn(&punch_c)){
                         log_msg(LOG_LEVEL_ERROR, "Hole punching failed.\n");
                         return EXIT_FAILURE;
                 }
