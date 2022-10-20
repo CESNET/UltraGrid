@@ -218,8 +218,8 @@ static bool audio_testcard_read_wav(const char *wav_filename, struct audio_frame
 
         if ((unsigned) audio_frame->bps != metadata.bits_per_sample / 8){
                 change_bps(*audio_samples, audio_frame->bps, tmp, metadata.bits_per_sample / 8, bytes);
-                free(tmp);
         }
+        free(tmp);
 
         memcpy(*audio_samples + samples_data_size, *audio_samples, headroom);
 
