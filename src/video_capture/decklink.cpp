@@ -1082,9 +1082,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true, false);
         if (deckLinkIterator == NULL) {
-                vf_free(s->frame);
-                delete s;
-                return VIDCAP_INIT_FAIL;
+                return false;
         }
         bool found = false;
         while (deckLinkIterator->Next(&deckLink) == S_OK) {
