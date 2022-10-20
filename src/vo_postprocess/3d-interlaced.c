@@ -73,14 +73,14 @@ static void * interlaced_3d_init(const char *config) {
                 return NULL;
         }
 #ifdef __SSE2__
-        log_msg(LOG_LEVEL_ERROR, MOD_NAME "SSE2 not supported on this platform!\n");
-        return NULL;
-#endif
         struct state_interlaced_3d *s = (struct state_interlaced_3d *)
                 malloc(sizeof(struct state_interlaced_3d));
         s->in = vf_alloc(2);
-
         return s;
+#else
+        log_msg(LOG_LEVEL_ERROR, MOD_NAME "SSE2 not supported on this platform!\n");
+        return NULL;
+#endif
 }
 
 static int interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc)
