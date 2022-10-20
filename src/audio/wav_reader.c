@@ -192,8 +192,8 @@ static _Bool process_data_chunk(FILE *wav_file, uint32_t chunk_size, struct wav_
 }
 
 static _Bool read_ds64(FILE *wav_file, uint32_t chunk_size, struct wav_metadata *metadata) {
-        if (chunk_size != 28) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "ds64 chunk size must be 28 but %" PRIu32 " was presented!\n", chunk_size);
+        if (chunk_size < 28) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "ds64 chunk size must be at least 28 but %" PRIu32 " was presented!\n", chunk_size);
                 return 0;
         }
         uint64_t tmp = 0;
@@ -203,8 +203,15 @@ static _Bool read_ds64(FILE *wav_file, uint32_t chunk_size, struct wav_metadata 
         metadata->data_size = tmp;
         READ_N(&tmp, 8); // dummy - should be ignored
         uint32_t table_count = 0;
+        const int table_sz = (sizeof(uint32_t) /*ID*/ + sizeof(uint64_t) /*size*/);
         READ_N(&table_count, 4); // number of table entries for non-'data' chunks
-        if (!fskip(wav_file, (long)(table_count * (sizeof(uint32_t) /*ID*/ + sizeof(uint64_t) /*size*/)))) { // just skip the table contents
+        if (chunk_size - 28 != table_sz * table_count) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "incorrect table count %" PRIu32 " given, ds64 chunk len %" PRIu32 "\n",
+                                table_count, chunk_size);
+                return 0;
+        }
+        if (!fskip(wav_file, (long)(table_count * table_sz))) { // just skip the table contents
+                ug_perror(MOD_NAME "ds64 - cannot skip");
                 return 0;
         }
         return 1;
