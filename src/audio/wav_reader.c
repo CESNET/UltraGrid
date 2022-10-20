@@ -104,11 +104,6 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t 
         }
         metadata->bits_per_sample = bits_per_sample;
 
-        if (chunk_size == 17) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong fmt chunk size 17!\n");
-                return WAV_HDR_PARSE_READ_ERROR;
-        }
-
         if (chunk_size >= 18) {
                 uint16_t ext_size;
                 READ_N(&ext_size, 2);
@@ -127,9 +122,6 @@ static int read_fmt_chunk(FILE *wav_file, struct wav_metadata *metadata, size_t 
                                 return WAV_HDR_PARSE_NOT_PCM;
                         }
                         format = 0x0001;
-                } else if (ext_size != 0) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Extension size either 0 or 22 expected, %d presented.\n", ext_size);
-                        return WAV_HDR_PARSE_READ_ERROR;
                 }
         }
 
