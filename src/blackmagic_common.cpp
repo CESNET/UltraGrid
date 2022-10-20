@@ -338,10 +338,9 @@ class ProfileCallback : public IDeckLinkProfileCallback
 
                 HRESULT ProfileChanging (/* in */ [[maybe_unused]] IDeckLinkProfile* profileToBeActivated, /* in */ [[maybe_unused]] BMD_BOOL streamsWillBeForcedToStop) override { return S_OK; }
                 HRESULT ProfileActivated (/* in */ [[maybe_unused]] IDeckLinkProfile* activatedProfile) override {
-                        std::lock_guard<std::mutex> lock(m_profileActivatedMutex);
                         {
+                                std::lock_guard<std::mutex> lock(m_profileActivatedMutex);
                                 m_requestedProfileActivated = true;
-                                return S_OK;
                         }
                         m_profileActivatedCondition.notify_one();
                         return S_OK;
