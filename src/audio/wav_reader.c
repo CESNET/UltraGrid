@@ -163,29 +163,31 @@ static int fskip(FILE *f, long off) {
         return 1;
 }
 
-// Sets data_offset and data_size to metadata
+/// Sets data_offset and data_size to metadata (from file position and actual chunk size)
+/// Return 1 (true) also for non-seekable > 4GB streams (caller may read it sequentially).
 static _Bool process_data_chunk(FILE *wav_file, uint32_t chunk_size, struct wav_metadata *metadata, _Bool found_ds64_chunk) {
         if (!found_ds64_chunk) { // RF64 has this chunk size always -1, value from ds64 is used instead
                 metadata->data_size = chunk_size;
         }
         metadata->data_offset = _ftelli64(wav_file);
-
-        if (metadata->data_size == UINT32_MAX) {
-                // for UINT32_MAX deduce the length from file length (as FFmpeg does)
-                if (metadata->data_offset == -1 || _fseeki64(wav_file, 0, SEEK_END) == -1) {
-                        metadata->data_size = -1;
-                } else {
-                        int64_t data_end = _ftelli64(wav_file);
-                        if (_fseeki64(wav_file, metadata->data_offset, SEEK_SET) != 0) {
-                                ug_perror(MOD_NAME "cannot seek back to data chunk");
-                                return 0;
-                        }
-                        if (data_end == -1) {
-                               return 0;
-                        }
-                        metadata->data_size = data_end - metadata->data_offset;
-                }
+        if (metadata->data_size != UINT32_MAX || metadata->data_offset == -1) {
+                return 1;
         }
+
+        // for UINT32_MAX deduce the length from file length (as FFmpeg does)
+        if (_fseeki64(wav_file, 0, SEEK_END) != 0) {
+                return 1;
+        }
+        int64_t data_end = _ftelli64(wav_file);
+        if (data_end == -1) {
+                ug_perror(MOD_NAME "cannot get length of file");
+               return 0;
+        }
+        if (_fseeki64(wav_file, metadata->data_offset, SEEK_SET) != 0) {
+                ug_perror(MOD_NAME "cannot seek back to data chunk");
+                return 0;
+        }
+        metadata->data_size = data_end - metadata->data_offset;
         return 1;
 }
 
