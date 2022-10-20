@@ -202,6 +202,9 @@ uint16_t socket_get_recv_port(int fd)
 /**
  * Returns (in output parameter) list of local public IP addresses
  *
+ * Code was taken perhaps from:
+ * https://social.msdn.microsoft.com/Forums/en-US/3b6a92ac-93d3-4f59-a914-340c1ba41cff/how-to-retrieve-ip-addresses-of-the-network-cards-with-getadaptersaddresses
+ *
  * @param[out] addrs      storage allocate to copy the addresses
  * @param[in]  len        length of allocated space (in bytes)
  * @param[out] len        length of returned addresses (in parameter addrs, in bytes)
@@ -215,7 +218,6 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 #define MAX_TRIES 3
 	/* Declare and initialize variables */
 	DWORD dwRetVal = 0;
-	unsigned int i = 0;
 	size_t len_remaining = *len;
 	*len = 0;
 
@@ -260,20 +262,17 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 		while (pCurrAddresses) {
 
 			pUnicast = pCurrAddresses->FirstUnicastAddress;
-			if (pUnicast != NULL) {
-				for (i = 0; pUnicast != NULL; i++) {
-					if (len_remaining >= sizeof(addrs[0])) {
-                                                size_t sa_len = pUnicast->Address.lpSockaddr->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
-						memcpy(addrs, pUnicast->Address.lpSockaddr, sa_len);
-						addrs += 1;
-						*len += sizeof(addrs[0]);
-						len_remaining -= sizeof(addrs[0]);
-					} else {
-						printf("Warning: insufficient space for all addresses.\n");
-						return true;
-					}
-					pUnicast = pUnicast->Next;
-				}
+                        while (pUnicast != NULL) {
+                                if (len_remaining < sizeof(addrs[0])) {
+                                        printf("Warning: insufficient space for all addresses.\n");
+                                        return true;
+                                }
+                                size_t sa_len = pUnicast->Address.lpSockaddr->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+                                memcpy(addrs, pUnicast->Address.lpSockaddr, sa_len);
+                                addrs += 1;
+                                *len += sizeof(addrs[0]);
+                                len_remaining -= sizeof(addrs[0]);
+                                pUnicast = pUnicast->Next;
 			}
 
 			pCurrAddresses = pCurrAddresses->Next;
