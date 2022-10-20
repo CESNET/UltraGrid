@@ -371,14 +371,14 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
         }
     }
 
-    int not_done = 0;
+    //int not_done = 0;
     for ( it = graph.nodes.begin(); it != graph.nodes.find(param_k); it++)
     {
         if ( !it->second.isDone())
         {
             memset(it->second.getDataPtr(), 0, p_size);
 //	    printf ( "resetting node: %d\n", it->first );
-            not_done++;
+            //not_done++;
         }
     }
 //    printf ( "not done: %d\n", not_done );
@@ -445,7 +445,7 @@ LDGM_session_cpu::iterate ( Tanner_graph *graph )
     map<int, Node>::iterator it_c;
     vector<int> vec;
 
-    static int recovered = 0;
+    //static int recovered = 0;
 
     //select the first constraint node
     it_c = graph->nodes.find ( param_k + param_m );
@@ -498,7 +498,7 @@ LDGM_session_cpu::iterate ( Tanner_graph *graph )
              */
             if ( count > 0 )
                 it_v->second.setDone(true);
-            recovered++;
+            //recovered++;
             /*           printf ( "restored data: \n" );
              *          for ( int  i = 0; i < packet_size; ++i)
              *              printf ( "%2d|", (unsigned char)(*(it_v->second.getDataPtr() + i)) );
