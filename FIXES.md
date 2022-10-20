@@ -29,3 +29,12 @@
 #### 1.7.6
 * fixed NDI recv using `NDIlib_recv_bandwidth_lowest`
 
+#### 1.7.7
+* fixed playback seeking via keyboard
+* DELTACAST SDK 6.20 compatibility
+* DeckLink capture fix (conversion support)
+* interlaced NDI capture fixes
+* build fixes
+* preload libva from system if possible
+* build for macOS 11
+
