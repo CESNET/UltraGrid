@@ -132,7 +132,7 @@ static auto configure_audio(struct testcard_state *s)
         return true;
 }
 
-
+#if 0
 static int configure_tiling(struct testcard_state *s, const char *fmt)
 {
         char *tmp, *token, *saveptr = NULL;
@@ -204,6 +204,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 
         return 0;
 }
+#endif
 
 static bool parse_fps(const char *fps, struct video_desc *desc) {
         char *endptr = nullptr;
@@ -419,9 +420,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         if (strip_fmt != NULL) {
                 LOG(LOG_LEVEL_ERROR) << "Multi-tile testcard (stripping) is currently broken, you can use eg. \"-t aggregate -t testcard[args] -t testcard[args]\" instead!\n";
                 goto error;
+#if 0
                 if(configure_tiling(s, strip_fmt) != 0) {
                         goto error;
                 }
+#endif
         }
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
