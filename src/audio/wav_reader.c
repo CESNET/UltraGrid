@@ -163,7 +163,8 @@ static int fskip(FILE *f, long off) {
         return 1;
 }
 
-static _Bool read_data(FILE *wav_file, uint32_t chunk_size, struct wav_metadata *metadata, _Bool found_ds64_chunk) {
+// Sets data_offset and data_size to metadata
+static _Bool process_data_chunk(FILE *wav_file, uint32_t chunk_size, struct wav_metadata *metadata, _Bool found_ds64_chunk) {
         if (!found_ds64_chunk) { // RF64 has this chunk size always -1, value from ds64 is used instead
                 metadata->data_size = chunk_size;
         }
@@ -175,7 +176,10 @@ static _Bool read_data(FILE *wav_file, uint32_t chunk_size, struct wav_metadata 
                         metadata->data_size = -1;
                 } else {
                         int64_t data_end = _ftelli64(wav_file);
-                        _fseeki64(wav_file, metadata->data_offset, SEEK_SET);
+                        if (_fseeki64(wav_file, metadata->data_offset, SEEK_SET) != 0) {
+                                ug_perror(MOD_NAME "cannot seek back to data chunk");
+                                return 0;
+                        }
                         if (data_end == -1) {
                                return 0;
                         }
@@ -236,7 +240,7 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         while (fread(buffer, 4, 1, wav_file) == 1) {
                 READ_N(&chunk_size, 4);
                 if (strncmp(buffer, "data", 4) == 0) {
-                        if (!read_data(wav_file, chunk_size, metadata, found_ds64_chunk)) {
+                        if (!process_data_chunk(wav_file, chunk_size, metadata, found_ds64_chunk)) {
                                 return WAV_HDR_PARSE_READ_ERROR;
                         }
                         found_data_chunk = true;

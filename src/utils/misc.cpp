@@ -204,6 +204,10 @@ const char *ug_strerror(int errnum)
         return errstring;
 }
 
+void ug_perror(const char *s) {
+        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", s, ug_strerror(errno));
+}
+
 /// @retval number of usable CPU cores or 1 if unknown
 int get_cpu_core_count(void)
 {

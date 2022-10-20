@@ -60,6 +60,7 @@ int get_framerate_n(double framerate);
 int get_framerate_d(double framerate);
 
 const char *ug_strerror(int errnum);
+void ug_perror(const char *s);
 int get_cpu_core_count(void);
 
 struct key_val {
