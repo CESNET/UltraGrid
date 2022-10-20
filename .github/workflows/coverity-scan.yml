@@ -21,7 +21,7 @@ jobs:
       id: tool
       run: |
         FILENAME=$(curl -LI "https://scan.coverity.com/download/linux64?token=$coverity_token&project=UltraGrid"  | sed -n '/content-disposition/s/.*\"\(.*\)\"/\1/p')
-        echo "filename::$FILENAME" >> $GITHUB_OUTPUT
+        echo "filename=$FILENAME" >> $GITHUB_OUTPUT
     - name: Cache Coverity build tool
       if: ${{ env.coverity_token }}
       id: cache-coverity-tool
