@@ -8,7 +8,7 @@ printf "%b" "AJA_DIRECTORY=/var/tmp/ntv2\n"\
 printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 
 sudo add-apt-repository ppa:savoury1/vlc3 # new x265
-sudo sed -n 'p; /^deb /s/^deb /deb-src /p' -i /etc/apt/sources.list # for build-dep ffmpeg
+sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/sources.list # for build-dep ffmpeg
 sudo apt update
 sudo apt -y upgrade
 sudo apt install appstream # appstreamcli for mkappimage AppStream validation
