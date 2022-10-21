@@ -1324,32 +1324,30 @@ AC_ARG_ENABLE(opencv,
               AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]),
               [opencv_req=$enableval],
               [opencv_req=$build_default])
+found_opencv=no
+opencv=no
 PKG_CHECK_MODULES([OPENCV_4], [opencv4], [
-                   AC_DEFINE([HAVE_OPENCV_4], [1], [Use OpenCV version 4])
-                   OPENCV_MAJOR=4
+                   found_opencv=yes
                    OPENCV_LIBS=$OPENCV_4_LIBS
                    OPENCV_CFLAGS=$OPENCV_4_CFLAGS
-                   ], [OPENCV_MAJOR=])
-if test -z "$OPENCV_MAJOR"; then
+                   ], [found_opencv=no])
+if test "$found_opencv" = no; then
         PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
-                           AC_DEFINE([HAVE_OPENCV_3], [1], [Use OpenCV version 3])
-                           OPENCV_MAJOR=3
+                           found_opencv=yes
                            OPENCV_LIBS=$OPENCV_3_LIBS
                            OPENCV_CFLAGS=$OPENCV_3_CFLAGS
-                           ], [OPENCV_MAJOR=])
+                           ], [found_opencv=no])
 fi
-if test -z "$OPENCV_MAJOR"; then
+if test "$found_opencv" = no; then
         PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
-                           AC_DEFINE([HAVE_OPENCV_2], [1], [Use OpenCV version 2])
-                           OPENCV_MAJOR=2
+                           found_opencv=2
                            OPENCV_LIBS=$OPENCV_2_LIBS
                            OPENCV_CFLAGS=$OPENCV_2_CFLAGS
-                           ], [OPENCV_MAJOR=])
+                           ], [found_opencv=no])
 fi
-if test -n "$OPENCV_MAJOR" -a $opencv_req != "no"; then
+if test "$found_opencv" = yes && test "$opencv_req" != no; then
         OPENCV_LIBS=$(remove_all_libs_but_opencv_core $OPENCV_LIBS)
         opencv="yes"
-        opencv_version=" (version: $OPENCV_MAJOR)"
 
         # opencv_imgproc is commonly needed so make the check here
         SAVED_LIBS=$LIBS
@@ -1357,9 +1355,6 @@ if test -n "$OPENCV_MAJOR" -a $opencv_req != "no"; then
         AC_CHECK_LIB(opencv_imgproc, cvAcc)
         FOUND_OPENCV_IMGPROC=$ac_cv_lib_opencv_imgproc_cvAcc
         LIBS=$SAVED_LIBS
-else
-        opencv="no"
-        opencv_version=
 fi
 
 if test "$opencv" = no && test "$opencv_req" = yes; then
@@ -3117,34 +3112,9 @@ if test "$opencv" = yes && test "$FOUND_OPENCV_IMGPROC" = yes; then
 else
 	FOUND_VIDEO_MIX_DEP=no
 fi
-MIXER_CPU_ONLY=no
-
-if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes -a x$OPENCV_MAJOR = x3
-then
-	AC_CHECK_LIB([opencv_cudawarping], [main], [
-		VIDEO_MIX_LIBS="$VIDEO_MIX_LIBS -lopencv_cudawarping "
-		AC_DEFINE([HAVE_OPENCV_CUDA], [1], [Whether the opencv installation supports cuda modules])
-	], [
-		MIXER_CPU_ONLY=yes
-	], [
-		$VIDEO_MIX_LIBS
-	])
-elif test x$OPENCV_MAJOR != x3
-then
-	AC_CHECK_HEADER(opencv2/gpu/gpu.hpp, AC_DEFINE([HAVE_OPENCV_CUDA], [1],
-			[Whether the opencv installation supports cuda modules]),
-			MIXER_CPU_ONLY=yes)
-fi
 
 if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes
 then
-        if test $MIXER_CPU_ONLY = yes; then
-            if test $video_mix_req = yes; then
-		UG_MSG_WARN([Video mixer will be compiled as CPU-only])
-            else
-		AC_MSG_WARN([Video mixer will be compiled as CPU-only])
-            fi
-        fi
         CFLAGS="$CFLAGS ${VIDEO_MIX_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${VIDEO_MIX_CFLAGS}"
         VIDEO_MIX_OBJ="src/video_display/conference.o"
@@ -3477,7 +3447,7 @@ RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
 RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
 RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
-RESULT=`add_column "$RESULT" "OpenCV$opencv_version" $opencv $?`
+RESULT=`add_column "$RESULT" "OpenCV" $opencv $?`
 RESULT=`add_column "$RESULT" "OpenSSL-libcrypto" $crypto $?`
 RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
 RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
