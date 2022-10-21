@@ -54,11 +54,15 @@ jobs:
       if: ${{ env.coverity_token }}
       run: |
         tar caf ultragrid.tar.xz cov-int
-        curl -S --form token=$coverity_token \
+        result=$(curl -S --form token=$coverity_token \
           --form email=pulec@cesnet.cz \
           --form file=@ultragrid.tar.xz \
           --form version="$(date +%F)" \
           --form description="master build" \
-          https://scan.coverity.com/builds?project=UltraGrid
+          https://scan.coverity.com/builds?project=UltraGrid)
+        echo "$result"
+        if ! expr "$result" : 'Build successfully submitted.' >/dev/null; then
+          exit 1
+        fi
 
 # vi: set expandtab sw=2:
