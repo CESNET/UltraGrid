@@ -54,7 +54,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
 #pragma GCC diagnostic ignored "-Wcast-qual"
-#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
 #pragma GCC diagnostic pop
 
