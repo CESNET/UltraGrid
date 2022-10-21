@@ -1364,6 +1364,10 @@ else
         opencv_version=
 fi
 
+if test "$opencv" = no && test "$opencv_req" = yes; then
+        AC_MSG_ERROR([OpenCV dependencies not found!]);
+fi
+
 # -------------------------------------------------------------------------------------------------
 # RTSP capture stuff
 # -------------------------------------------------------------------------------------------------
