@@ -1348,7 +1348,6 @@ if test -z "$OPENCV_MAJOR"; then
 fi
 if test -n "$OPENCV_MAJOR" -a $opencv_req != "no"; then
         OPENCV_LIBS=$(remove_all_libs_but_opencv_core $OPENCV_LIBS)
-        HAVE_OPENCV=yes
         opencv="yes"
         opencv_version=" (version: $OPENCV_MAJOR)"
 
@@ -1359,7 +1358,6 @@ if test -n "$OPENCV_MAJOR" -a $opencv_req != "no"; then
         FOUND_OPENCV_IMGPROC=$ac_cv_lib_opencv_imgproc_cvAcc
         LIBS=$SAVED_LIBS
 else
-        HAVE_OPENCV=no
         opencv="no"
         opencv_version=
 fi
@@ -1496,7 +1494,7 @@ AC_ARG_ENABLE(resize,
     [resize_req=$build_default]
     )
 
-if test $resize_req != no && test "$HAVE_OPENCV" = yes && test "$FOUND_OPENCV_IMGPROC" = yes
+if test $resize_req != no && test "$opencv" = yes && test "$FOUND_OPENCV_IMGPROC" = yes
 then
         CFLAGS="$CFLAGS ${OPENCV_CFLAGS}"
         CXXFLAGS="$CXXFLAGS ${OPENCV_CFLAGS}"
@@ -3112,7 +3110,7 @@ AC_ARG_ENABLE(video-mixer,
     [video_mix_req=$build_default]
     )
 
-if test x$HAVE_OPENCV != xno && test "$FOUND_OPENCV_IMGPROC" = yes; then
+if test "$opencv" = yes && test "$FOUND_OPENCV_IMGPROC" = yes; then
 	FOUND_VIDEO_MIX_DEP=yes
 	VIDEO_MIX_LIBS="$OPENCV_LIBS -lopencv_imgproc"
 	VIDEO_MIX_CFLAGS=$OPENCV_CFLAGS
