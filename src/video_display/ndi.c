@@ -82,6 +82,7 @@ struct display_ndi {
 
         ndi_disp_convert_t *convert;
         char *convert_buffer; ///< for codecs that need conversion (eg. Y216->P216)
+        _Bool norgb;          ///< disable RGB output
 };
 
 static void display_ndi_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
@@ -135,9 +136,10 @@ static int display_ndi_reconfigure(void *state, struct video_desc desc)
 static void usage()
 {
         printf("Usage:\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t-d ndi" TERM_FG_RESET "[:help][:name=<n>][:audio_level=<x>]\n" TERM_RESET);
+        color_printf(TERM_BOLD TERM_FG_RED "\t-d ndi" TERM_FG_RESET "[:help][:name=<n>][:norgb][:audio_level=<x>]\n" TERM_RESET);
         printf("\twhere\n");
         color_printf(TERM_BOLD "\t\tname\n" TERM_RESET "\t\t\tthe name of the server\n");
+        color_printf(TERM_BOLD "\t\tnorgb\n" TERM_RESET "\t\t\tblacklist RGB codecs\n");
         color_printf(TERM_BOLD "\t\taudio_level\n" TERM_RESET "\t\t\taudio headroom above reference level (in dB, or mic/line, default %d)\n", DEFAULT_AUDIO_LEVEL);
 }
 
@@ -213,6 +215,8 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
                                 }
                         } else if (strstr(item, "name=") != NULL) {
                                 ndi_name = item + strlen("name=");
+                        } else if (strcasecmp(item, "norgb") == 0) {
+                                s->norgb = 1;
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
                                 THROW(FAIL);
@@ -352,19 +356,23 @@ static int display_ndi_putf(void *state, struct video_frame *frame, long long fl
 
 static int display_ndi_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(state);
+        struct display_ndi *s = (struct display_ndi *) state;
         codec_t codecs[sizeof codec_mapping / sizeof codec_mapping[0]];
+        size_t codec_count = 0;
         int rgb_shift[] = {0, 8, 16};
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED};
 
         for (size_t i = 0; i < sizeof codec_mapping / sizeof codec_mapping[0]; ++i) {
-                codecs[i] = codec_mapping[i].ug_codec;
+                if (codec_is_a_rgb(codec_mapping[i].ug_codec) && s->norgb) {
+                        continue;
+                }
+                codecs[codec_count++] = codec_mapping[i].ug_codec;
         }
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
                         if (sizeof codecs <= *len) {
-                                memcpy(val, codecs, sizeof codecs);
+                                memcpy(val, codecs, sizeof codecs[0] * codec_count);
                                 *len = sizeof codecs;
                         } else {
                                 return FALSE;
