@@ -19,9 +19,9 @@ export UG_FONT_DIR="$DIR/usr/share/fonts"
 QT_PLUGIN_PATH=$(set -- "$DIR"/usr/lib/qt?/plugins; echo "$1")
 export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
-bold=$(tput bold)
-red=$(tput setaf 1)
-reset=$(tput sgr0)
+bold=$(tput bold || true)
+red=$(tput setaf 1 || true)
+reset=$(tput sgr0 || true)
 
 get_tools() {
         find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
