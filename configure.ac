@@ -1348,7 +1348,17 @@ fi
 if test "$found_opencv" = yes && test "$opencv_req" != no; then
         OPENCV_LIBS=$(remove_all_libs_but_opencv_core $OPENCV_LIBS)
         opencv="yes"
+fi
 
+if test "$found_opencv" = no && test "$opencv_req" != no; then
+        AC_CHECK_LIB(opencv_core, cvCreateMat)
+        if test "$ac_cv_lib_opencv_core_cvCreateMat" = yes; then
+                OPENCV_LIBS=-lopencv_core
+                opencv=yes
+        fi
+fi
+
+if test "$opencv" = yes; then
         # opencv_imgproc is commonly needed so make the check here
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $OPENCV_LIBS"
