@@ -7,7 +7,6 @@ printf "%b" "AJA_DIRECTORY=/var/tmp/ntv2\n"\
 "PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig\n" >> "$GITHUB_ENV"
 printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 
-sudo add-apt-repository ppa:savoury1/vlc3 # new x265
 sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/sources.list # for build-dep ffmpeg
 sudo apt update
 sudo apt -y upgrade
@@ -22,28 +21,12 @@ sudo apt install libsdl2-dev libsdl2-mixer-dev libsdl2-ttf-dev
 sudo apt install libspeexdsp-dev
 sudo apt install libssl-dev
 sudo apt install libasound-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev portaudio19-dev
-
-# updates nasm 2.13->2.14 in U18.04 (needed for rav1e)
-update_nasm() {
-        if [ -z "$(apt-cache search --names-only '^nasm-mozilla$')" ]; then
-                return
-        fi
-        sudo apt install nasm- nasm-mozilla
-        sudo ln -s /usr/lib/nasm-mozilla/bin/nasm /usr/bin/nasm
-}
-
-# for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
-FFMPEG_BUILD_DEP=$(apt-cache showsrc ffmpeg | grep Build-Depends: | sed 's/Build-Depends://' | tr ',' '\n' |cut -f 2 -d\  | grep -v libzmq3-dev)
-# shellcheck disable=SC2086
-sudo apt install $FFMPEG_BUILD_DEP libdav1d-dev
-sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
-update_nasm
-sudo apt --no-install-recommends install asciidoc xmlto
-
-sudo apt install libopencv-dev
+sudo apt install libopencv-core-dev libopencv-imgproc-dev
 sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 sudo apt install uuid-dev # Cineform
+
+"$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg_deps.sh"
 
 # Install cross-platform deps
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
