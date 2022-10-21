@@ -19,6 +19,9 @@ export UG_FONT_DIR="$DIR/usr/share/fonts"
 QT_PLUGIN_PATH=$(set -- "$DIR"/usr/lib/qt?/plugins; echo "$1")
 export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
+bold=$(tput bold)
+red=$(tput setaf 1)
+reset=$(tput sgr0)
 
 get_tools() {
         find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
@@ -26,29 +29,29 @@ get_tools() {
 
 usage() {
         printf "usage:\n"
-        printf "\t%s [--gui [args]]\n" "$ARGV0"
+        printf "\t${bold}${red}%s${reset} ${bold}[--gui [args]]${reset}\n" "$ARGV0"
         printf "\t\tinvokes GUI\n"
         printf "\n"
-        printf "\t%s --appimage-help\n" "$ARGV0"
+        printf "\t${bold}${red}%s${reset} ${bold}--appimage-help${reset}\n" "$ARGV0"
         printf "\t\tprints AppImage related options\n"
         printf "\n"
-        printf "\t%s -h|--help|--fullhelp\n" "$ARGV0"
-        printf "\t\tprints this help (extended version with --fullhelp)\n"
+        printf "\t${bold}${red}%s${reset} ${bold}-h | --help | --fullhelp${reset}\n" "$ARGV0"
+        printf "\t\tprints this help (extended version with ${bold}--fullhelp${reset})\n"
         printf "\n"
-        printf "\t%s -m|--man [uv|hd-rum-transcode]\n" "$ARGV0"
+        printf "\t${bold}${red}%s${reset} ${bold}-m|--man [uv|hd-rum-transcode]${reset}\n" "$ARGV0"
         printf "\t\tprints manual page\n"
         printf "\n"
-        printf "\t%s -u|--update [args]\n" "$ARGV0"
+        printf "\t${bold}${red}%s${reset} ${bold}-u|--update [args]${reset}\n" "$ARGV0"
         printf "\t\tupdates AppImage (args will be passed to appimageupdatetool)\n"
         printf "\n"
-        printf "\t%s -o|--tool uv --help\n" "$ARGV0"
+        printf "\t${bold}${red}%s${reset} ${bold}-o|--tool uv --help${reset}\n" "$ARGV0"
         printf "\t\tprints command-line UltraGrid help\n"
         printf "\n"
-        printf "\t%s -o|--tool <t> [args]\n" "$ARGV0"
+        printf "\t${bold}${red}%s${reset} ${bold}-o|--tool <t> [args]${reset}\n" "$ARGV0"
         printf "\t\tinvokes specified tool\n"
-        printf "\t\ttool may be: $(tput bold)%s$(tput sgr0)\n" "$(get_tools)"
+        printf "\t\ttool may be one of: ${bold}%s${reset}\n" "$(get_tools)"
         printf "\n"
-        printf "\t%s args\n" "$ARGV0"
+        printf "\t${bold}${red}%s${reset} ${bold}args${reset}\n" "$ARGV0"
         printf "\t\tinvokes command-line UltraGrid\n"
         printf "\n"
 }
@@ -146,7 +149,7 @@ setup_vaapi() {
         ULTRAGRID_BUNDLED_LIBVA=${ULTRAGRID_BUNDLED_LIBVA:-$use_bundled_libva_default}
         if [ "$ULTRAGRID_BUNDLED_LIBVA" -ne 1 ]; then
                 if ! set_libva_ld_preload; then
-                        echo "$(tput bold)$(tput setaf 1)Could not set system libva, using bundled libraries instead!$(tput sgr0)" >&2
+                        echo "${bold}${red}Could not set system libva, using bundled libraries instead!${reset}" >&2
                         ULTRAGRID_BUNDLED_LIBVA=1
                 fi
         fi
@@ -216,7 +219,7 @@ elif [ "$1" = "-o" ] || [ "$1" = "--tool" ]; then
         TOOL=$2
         shift 2
         if [ "$TOOL" = help ]; then
-                printf "available tools: $(tput bold)%s$(tput sgr0)\n" "$(get_tools)"
+                printf "available tools: ${bold}%s${reset}\n" "$(get_tools)"
                 exit 0
         fi
         # shellcheck disable=SC2086
