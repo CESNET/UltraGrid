@@ -1388,6 +1388,7 @@ int main(int argc, char *argv[])
         struct state_uv uv{};
         uv_state = &uv;
         keyboard_control kc{&uv.root_module};
+        bool show_help = help_in_argv(uv_argv);
 
         print_version();
         printf("\n");
@@ -1400,7 +1401,7 @@ int main(int argc, char *argv[])
                 EXIT(ret);
         }
 
-        if (!help_in_argv(uv_argv)) {
+        if (!show_help) {
                 col() << TBOLD("Display device   : ") << opt.requested_display << "\n";
                 col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
                 col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
