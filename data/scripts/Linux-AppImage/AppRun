@@ -115,7 +115,7 @@ get_dynamic_loader() {
 ## @retval 0 if preloaded; 1 otherwise
 set_libva_ld_preload() {
         if [ ! -f "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" ]; then
-                return 1
+                return 0
         fi
         LOADER=$(get_dynamic_loader)
         if [ ! -x "$LOADER" ]; then
