@@ -66,6 +66,7 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "crypto/random.h"
+#include "control_socket.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -151,6 +152,10 @@ struct tx {
         int mult_count;
 
         int last_fragment;
+
+        struct control_state *control = nullptr;
+        size_t sent_since_report = 0;
+        time_t last_stat_report = 0;
 
         const struct openssl_encrypt_info *enc_funcs;
         struct openssl_encrypt *encryption;
@@ -250,6 +255,8 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
         }
 
         tx->bitrate = bitrate;
+
+        tx->control = (struct control_state *) get_module(get_root_module(parent), "control");
 
         return tx;
 }
@@ -717,6 +724,15 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                 data = encrypted_data;
                         }
 
+                        if (control_stats_enabled(tx->control)) {
+                                if(start.tv_sec - tx->last_stat_report >= 1){
+                                        control_report_stats(tx->control, "tx_send video " + std::to_string(tx->sent_since_report));
+                                        tx->last_stat_report = start.tv_sec;
+                                        tx->sent_since_report = 0;
+                                }
+                                tx->sent_since_report += data_len + rtp_hdr_len;
+                        }
+
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
                                   (char *) rtp_hdr_packet, rtp_hdr_len,
                                   data, data_len, 0, 0, 0);
@@ -877,6 +893,16 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                                                         encrypted_data);
                                         data = encrypted_data;
                                 }
+
+                                if (control_stats_enabled(tx->control)) {
+                                        if(start.tv_sec - tx->last_stat_report >= 1){
+                                                control_report_stats(tx->control, "tx_send audio " + std::to_string(tx->sent_since_report));
+                                                tx->last_stat_report = start.tv_sec;
+                                                tx->sent_since_report = 0;
+                                        }
+                                        tx->sent_since_report += data_len + rtp_hdr_len;
+                                }
+
 
                                 rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
                                       0,        /* contributing sources length */
