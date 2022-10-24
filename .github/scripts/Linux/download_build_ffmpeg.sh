@@ -42,6 +42,7 @@ find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -p
         --enable-libsvtav1 \
         --enable-libsvthevc \
         --enable-libsvtvp9 \
+        --disable-sdl2 \
 
 make -j "$(nproc)"
 sudo make install
