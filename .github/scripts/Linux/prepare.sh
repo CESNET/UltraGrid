@@ -11,13 +11,13 @@ sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sou
 sudo apt update
 sudo apt -y upgrade
 sudo apt install appstream # appstreamcli for mkappimage AppStream validation
+sudo apt install aptitude
 sudo apt install fonts-dejavu-core
 sudo apt install libcppunit-dev
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
 sudo apt install libglew-dev libglfw3-dev
 sudo apt install libglm-dev
 sudo apt install libx11-dev
-sudo apt install libsdl2-dev libsdl2-mixer-dev libsdl2-ttf-dev
 sudo apt install libspeexdsp-dev
 sudo apt install libssl-dev
 sudo apt install libasound-dev libjack-jackd2-dev libnatpmp-dev libv4l-dev portaudio19-dev
@@ -26,6 +26,7 @@ sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 sudo apt install uuid-dev # Cineform
 
+"$GITHUB_WORKSPACE/.github/scripts/Linux/install_sdl.sh"
 "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg_deps.sh"
 
 # Install cross-platform deps

@@ -34,7 +34,7 @@ else
         QT_DIR=
 fi
 if [ -n "$QT_DIR" ]; then
-        QT_PLUGIN_PREFIX=$(find "$QT_DIR" -maxdepth 1 -type d -name 'qt?')
+        QT_PLUGIN_PREFIX=$(find "$QT_DIR" -maxdepth 1 -type d -name 'qt?' | tail -n 1)
         SRC_PLUGIN_DIR=$QT_PLUGIN_PREFIX/plugins
         DST_PLUGIN_DIR=$APPPREFIX/lib/$(basename "$QT_PLUGIN_PREFIX")/plugins
         mkdir -p "$DST_PLUGIN_DIR"
