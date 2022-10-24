@@ -232,8 +232,6 @@ int control_init(int port, int connection_type, struct control_state **state, st
                                 socket_error("Control socket - listen");
                                 goto error;
                         }
-                        log_msg(LOG_LEVEL_NOTICE, "Control socket listening on port %d\n",
-                                        socket_get_recv_port(s->socket_fd));
                 }
         } else {
                 if (force_ip_version == 6) {
@@ -299,6 +297,8 @@ void control_start(struct control_state *s)
         s->control_thread_id = thread(control_thread, s);
         s->stat_event_thread_id = thread(stat_event_thread, s);
 
+        log_msg(LOG_LEVEL_NOTICE, "Control socket listening on port %d\n",
+                        socket_get_recv_port(s->socket_fd));
         s->started = true;
 }
 
