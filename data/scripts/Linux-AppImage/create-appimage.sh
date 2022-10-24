@@ -66,7 +66,8 @@ for n in "$APPPREFIX"/bin/* "$APPPREFIX"/lib/ultragrid/* $PLUGIN_LIBS; do
 done
 
 # Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
-wget https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+excludelist=https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
+[ -f excludelist ] || wget $excludelist || curl -LO $excludelist || exit 1
 DIRNAME=$(dirname "$0")
 cat "$DIRNAME/excludelist.local" >> excludelist
 EXCLUDE_LIST=
