@@ -114,19 +114,27 @@ if [ -n "${appimage_key-}" ] && [ -n "${GIT_ROOT-}" ]; then
         echo "$appimage_key" >> "$GIT_ROOT/pubkey.asc"
 fi
 
-MKAPPIMAGE=$(command -v mkappimage-x86_64.AppImage || true)
-if [ -z "$MKAPPIMAGE" ]; then
+mkappimage=$(command -v mkappimage-x86_64.AppImage || true)
+if [ -z "$mkappimage" ]; then
         MKAI_PATH=$(curl -s https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous | grep "browser_download_url.*mkappimage-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 4)
-        wget -q -c "$MKAI_PATH" -O mkappimage
+        curl -sSL "$MKAI_PATH" -o mkappimage
         chmod +x mkappimage
-        MKAPPIMAGE=./mkappimage
+        mkappimage=./mkappimage
 fi
+if "$mkappimage" 2>&1 | grep fuse; then
+        if [ ! -d mkappimage-extracted ]; then
+                "$mkappimage" --appimage-extract
+                mv squashfs-root mkappimage-extracted
+        fi
+        mkappimage=mkappimage-extracted/AppRun
+fi
+
 UPDATE_INFORMATION=
 if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
 # shellcheck disable=SC2086 # word spliting of $UPDATE_INFORMATION is requested behavior
-$MKAPPIMAGE $UPDATE_INFORMATION $APPDIR
+$mkappimage $UPDATE_INFORMATION $APPDIR
 
 rm -rf $APPDIR tmpinstall
 )
