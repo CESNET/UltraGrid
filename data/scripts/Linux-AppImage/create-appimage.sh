@@ -65,9 +65,14 @@ for n in "$APPPREFIX"/bin/* "$APPPREFIX"/lib/ultragrid/* $PLUGIN_LIBS; do
         done
 done
 
+if wget -V | grep -q https; then
+        dl='wget -O -'
+elif command -v curl >/dev/null; then
+        dl='curl -L'
+fi
+
 # Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
-excludelist=https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist
-[ -f excludelist ] || wget $excludelist || curl -LO $excludelist || exit 1
+[ -f excludelist ] || $dl https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist > excludelist || exit 1
 DIRNAME=$(dirname "$0")
 cat "$DIRNAME/excludelist.local" >> excludelist
 EXCLUDE_LIST=
@@ -101,12 +106,12 @@ fi
 
 cp -r "$srcdir/data/scripts/Linux-AppImage/AppRun" "$srcdir/data/scripts/Linux-AppImage/scripts" "$srcdir/data/ultragrid.png" $APPDIR
 cp "$srcdir/data/uv-qt.desktop" $APPDIR/cz.cesnet.ultragrid.desktop
-APPIMAGEUPDATETOOL=$(command -v appimageupdatetool-x86_64.AppImage || command -v ./appimageupdatetool || true)
-if [ -n "$APPIMAGEUPDATETOOL" ]; then
-        cp "$APPIMAGEUPDATETOOL" $APPDIR/appimageupdatetool
-else
-        wget --no-verbose https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage -O $APPDIR/appimageupdatetool # use AppImageUpdate for GUI updater
+appimageupdatetool=$(command -v appimageupdatetool-x86_64.AppImage || command -v ./appimageupdatetool || true)
+if [ -z "$appimageupdatetool" ]; then
+        appimageupdatetool=./appimageupdatetool
+        $dl https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage > $appimageupdatetool # use AppImageUpdate for GUI updater
 fi
+cp "$appimageupdatetool" $APPDIR/appimageupdatetool
 chmod ugo+x $APPDIR/appimageupdatetool
 
 GIT_ROOT=$(git rev-parse --show-toplevel || true)
@@ -116,8 +121,8 @@ fi
 
 mkappimage=$(command -v mkappimage-x86_64.AppImage || command -v ./mkappimage || true)
 if [ -z "$mkappimage" ]; then
-        MKAI_PATH=$(curl -s https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous | grep "browser_download_url.*mkappimage-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 4)
-        curl -sSL "$MKAI_PATH" -o mkappimage
+        mkai_url=$($dl https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous | grep "browser_download_url.*mkappimage-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 4)
+        $dl "$mkai_url" > mkappimage
         chmod +x mkappimage
         mkappimage=./mkappimage
 fi
@@ -126,7 +131,7 @@ if "$mkappimage" 2>&1 | grep fuse; then
                 "$mkappimage" --appimage-extract
                 mv squashfs-root mkappimage-extracted
         fi
-        mkappimage=mkappimage-extracted/AppRun
+        mkappimage="mkappimage-extracted/AppRun"
 fi
 
 UPDATE_INFORMATION=
