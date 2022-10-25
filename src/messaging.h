@@ -38,6 +38,10 @@
 #ifndef _MESSAGING_H
 #define _MESSAGING_H
 
+#ifdef __cplusplus
+#include <cstring>
+#endif
+
 #include "types.h"
 
 #ifdef __cplusplus
@@ -56,6 +60,8 @@ struct response;
 #define RESPONSE_REQ_TIMEOUT  408
 #define RESPONSE_INT_SERV_ERR 500
 #define RESPONSE_NOT_IMPL     501
+
+#define RESPONSE_SUCCESSFUL(code) ((code) >= 200 && (code) < 300)
 
 struct message;
 
@@ -152,6 +158,12 @@ struct msg_stats {
  * msg_universal::text to identify the receiving module.
  */
 struct msg_universal {
+#ifdef __cplusplus
+        msg_universal(const char *contents) {
+                memset(&m, 0, sizeof m);
+                strncpy(text, contents, sizeof text - 1);
+        }
+#endif
         struct message m;
         char text[8192];
 };
