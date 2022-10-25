@@ -602,15 +602,6 @@ public:
         }
 
         /**
-         * @brief Set the summary object
-         * 
-         * @param audio_summary The audio summary pointer
-         */
-        void set_summary(DecklinkAudioSummary *audio_summary) {
-                this->audio_summary = audio_summary;
-        }
-
-        /**
          * @brief Set the root object
          * 
          * @param root The root module
@@ -655,9 +646,15 @@ public:
         }
 
         /// @retval flag if the audio frame should be written
-        bool update(int buffered_count) {
+        void update(uint32_t buffered_count, uint32_t sample_frame_count, uint32_t sampleFramesWritten) {
                 if (!this->m_enabled) {
-                        return true;
+                        return;
+                }
+
+                audio_summary.record_audio_time_diff();
+                audio_summary.calculate_missing(buffered_count, sample_frame_count);
+                if (buffered_count == 0) {
+                        audio_summary.increment_buffer_underflow();
                 }
 
                 // Add the amount currently in the buffer to the moving average, and calculate the delta between that and the previous amount
@@ -690,12 +687,12 @@ public:
                                 // The buffer is too large, so we need to resample down to remove some frames
                                 resample_hz = (int)this->scale_buffer_delta(average_buffer_depth - target_buffer_fill - this->pos_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz - resample_hz) * BASE;
-                                this->audio_summary->increment_resample_low();
+                                this->audio_summary.increment_resample_low();
                         } else if(average_buffer_depth < target_buffer_fill - this->neg_jitter) {
                                  // The buffer is too small, so we need to resample up to generate some additional frames
                                 resample_hz = (int)this->scale_buffer_delta(target_buffer_fill - average_buffer_depth - this->neg_jitter);
                                 dst_frame_rate = (bmdAudioSampleRate48kHz + resample_hz) * BASE;
-                                this->audio_summary->increment_resample_high();
+                                this->audio_summary.increment_resample_high();
                         } else {
                                 dst_frame_rate = (bmdAudioSampleRate48kHz) * BASE;
                         }       
@@ -715,7 +712,14 @@ public:
                         free_response(response);
                 }
 
-                return true;
+
+                if (sampleFramesWritten != sample_frame_count) {
+                        audio_summary.increment_buffer_overflow();
+                }
+                audio_summary.increment_audio_frames_played();
+                audio_summary.set_buffer_average(get_buffer_avg());
+                audio_summary.report();
+                audio_summary.mark_audio_time_end();
         }
 
 private:
@@ -743,7 +747,7 @@ private:
         uint32_t min_avg = 1800;
 
         // Store a audio_summary of resampling
-        DecklinkAudioSummary *audio_summary = nullptr;
+        DecklinkAudioSummary audio_summary{};
 
         static const uint32_t POS_JITTER_DEFAULT = 600;
         static const uint32_t NEG_JITTER_DEFAULT = 600;
@@ -799,8 +803,6 @@ struct state_decklink {
         bool                keep_device_defaults = false;
 
         AudioDriftFixer audio_drift_fixer{250, 25, 2700, 5, 5};
-        DecklinkAudioSummary audio_summary{};
-
  };
 
 static void show_help(bool full);
@@ -1623,7 +1625,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
         auto *s = new state_decklink();
         s->audio_drift_fixer.set_root(get_root_module(parent));
-        s->audio_drift_fixer.set_summary(&(s->audio_summary));
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
                 delete s;
@@ -2015,8 +2016,6 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sample_frame_count = frame->data_len / (frame->bps * frame->ch_count);
 
-        s->audio_summary.record_audio_time_diff();
-        
         assert(s->play_audio);
 
         uint32_t sampleFramesWritten;
@@ -2025,15 +2024,8 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
         
         uint32_t buffered = 0;
         s->state[0].deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
-        s->audio_summary.calculate_missing(buffered, sample_frame_count);
         if (buffered == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer underflow!\n";
-                s->audio_summary.increment_buffer_underflow();
-        }
-        
-        if (!s->audio_drift_fixer.update(buffered)) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "update drift early exit.\n");
-                return;
         }
 
         if (s->low_latency) {
@@ -2051,13 +2043,9 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! " << sample_frame_count
                                                 << " samples written, " << sampleFramesWritten << " written, " 
                                                 << sample_frame_count - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
-                s->audio_summary.increment_buffer_overflow();
         }
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
-        s->audio_summary.increment_audio_frames_played();
-        s->audio_summary.set_buffer_average(s->audio_drift_fixer.get_buffer_avg());
-        s->audio_summary.report();
-        s->audio_summary.mark_audio_time_end();
+        s->audio_drift_fixer.update(buffered, sample_frame_count, sampleFramesWritten);
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
