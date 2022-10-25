@@ -50,7 +50,7 @@
 #include "audio/types.h"
 #include "audio/audio_playback.h" 
 #include "lib_common.h"
-#include "utils/misc.h"
+#include "utils/string_view_utils.hpp"
 
 namespace{
 struct Playback_dev_deleter{ void operator()(state_audio_playback *p){ audio_playback_done(p); } };

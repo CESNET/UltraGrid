@@ -51,7 +51,7 @@
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
 #include "utils/misc.h"
-#include "utils/sv_parse_num.hpp"
+#include "utils/string_view_utils.hpp"
 
 namespace{
         struct Ring_buf_deleter{

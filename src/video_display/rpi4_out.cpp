@@ -45,7 +45,7 @@
 #include "video_codec.h"
 #include "video_display.h"
 #include "hwaccel_rpi4.h"
-#include "utils/misc.h"
+#include "utils/string_view_utils.hpp"
 #include "utils/color_out.h"
 
 #include <memory>

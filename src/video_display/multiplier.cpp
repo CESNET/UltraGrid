@@ -44,7 +44,7 @@
 #include "lib_common.h"
 #include "video.h"
 #include "video_display.h"
-#include "utils/misc.h"
+#include "utils/string_view_utils.hpp"
 
 #include <condition_variable>
 #include <vector>

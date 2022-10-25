@@ -49,7 +49,7 @@
 #include "host.h"
 #include "ug_runtime_error.hpp"
 #include "utils/macros.h"
-#include "utils/misc.h"
+#include "utils/string_view_utils.hpp"
 #include "utils/worker.h"
 
 #ifdef HAVE_SPEEXDSP

@@ -47,7 +47,7 @@
 #include "video_codec.h"
 #include "module.h"
 #include "utils/misc.h"
-#include "utils/sv_parse_num.hpp"
+#include "utils/string_view_utils.hpp"
 
 #include <cinttypes>
 #include <condition_variable>

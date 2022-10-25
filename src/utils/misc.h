@@ -77,27 +77,6 @@ void print_module_usage(const char *module_name, const struct key_val *options, 
 uint32_t parse_uint32(const char *value_str) noexcept(false);
 
 #include <optional>
-#include <string_view>
-
-/**
- * @brief Tokenizer for string_view
- *
- * Useful for non-destructive tokenization of strings. Skips empty tokens.
- * str is modified to view the not yet processed remainder.
- *
- * Typical usage (prints lines "Hello", "World", "!"):
- * ~~~~~~~~~~~~~~~~~~~{.cpp}
- * std::string_view sv = ":::Hello:World::!::";
- * while(!sv.empty()){
- *     cout << tokenize(sv, ':') << "\n";
- * }
- * ~~~~~~~~~~~~~~~~~~~
- *
- * The 'quot' param allows for a basic quotation based deilimiter escape,
- * however the whole token must be escaped.
- * i.e. sync:"opts=a=1:b=2":fs is fine, but sync:opts="a=1:b=2":fs is not.
- */
-std::string_view tokenize(std::string_view& str, char delim, char quot = '\0');
 
 template<typename T> struct ref_count_init_once {
         std::optional<T> operator()(T (*init)(void), int &i) {

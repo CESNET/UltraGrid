@@ -56,7 +56,7 @@
 #include "utils/fs.h"
 #include "utils/misc.h"
 #include "utils/macros.h"
-#include "utils/sv_parse_num.hpp"
+#include "utils/string_view_utils.hpp"
 #include "video.h"
 #include "video_codec.h"
 #include "tools/ipc_frame.h"

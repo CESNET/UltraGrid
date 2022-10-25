@@ -168,6 +168,7 @@ COMMON_OBJS     = \
 		src/utils/jpeg_reader.o \
 		src/utils/list.o \
 		src/utils/misc.o \
+		src/utils/string_view_utils.o \
 		src/utils/nat.o \
 		src/utils/net.o \
 		src/utils/packet_counter.o \

@@ -1,5 +1,5 @@
 /**
- * @file   utils/sv_parse_num.hpp
+ * @file   utils/string_view_utils.hpp
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
@@ -35,8 +35,35 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_SV_PARSE_NUM_HPP_
-#define UTILS_SV_PARSE_NUM_HPP_
+#ifndef STRING_VIEW_UTILS_183e2da27fe9
+#define STRING_VIEW_UTILS_183e2da27fe9
+
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+#include <stdlib.h>
+
+/**
+ * @brief Tokenizer for string_view
+ *
+ * Useful for non-destructive tokenization of strings. Skips empty tokens.
+ * str is modified to view the not yet processed remainder.
+ *
+ * Typical usage (prints lines "Hello", "World", "!"):
+ * ~~~~~~~~~~~~~~~~~~~{.cpp}
+ * std::string_view sv = ":::Hello:World::!::";
+ * while(!sv.empty()){
+ *     cout << tokenize(sv, ':') << "\n";
+ * }
+ * ~~~~~~~~~~~~~~~~~~~
+ *
+ * The 'quot' param allows for a basic quotation based deilimiter escape,
+ * however the whole token must be escaped.
+ * i.e. sync:"opts=a=1:b=2":fs is fine, but sync:opts="a=1:b=2":fs is not.
+ */
+std::string_view tokenize(std::string_view& str, char delim, char quot = '\0');
+
 
 /* std::from_chars is c++17, but on major compilers the feature was missing or 
  * partial (no floating point support). This header provides safe fallbacks
@@ -46,13 +73,6 @@
  * GCC - partial since v8, floating since v11
  * Clang - partial since 7
  */
-
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <utility>
-#include <stdlib.h>
-
 #if __has_include(<charconv>)
 #include <charconv>
 

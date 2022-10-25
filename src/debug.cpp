@@ -58,7 +58,7 @@
 #include "debug.h"
 #include "host.h"
 #include "utils/color_out.h"
-#include "utils/sv_parse_num.hpp"
+#include "utils/string_view_utils.hpp"
 #include "utils/misc.h" // ug_strerror
 
 using std::string;

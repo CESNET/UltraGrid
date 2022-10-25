@@ -94,7 +94,7 @@
 #include "utils/net.h"
 #include "utils/thread.h"
 #include "utils/worker.h"
-#include "utils/misc.h"
+#include "utils/string_view_utils.hpp"
 
 using namespace std;
 using rang::fg;

@@ -61,7 +61,7 @@
 #include "utils/misc.h"
 #include "utils/macros.h"
 #include "utils/color_out.h"
-#include "utils/sv_parse_num.hpp"
+#include "utils/string_view_utils.hpp"
 #include "tools/ipc_frame.h"
 #include "tools/ipc_frame_ug.h"
 #include "tools/ipc_frame_unix.h"
