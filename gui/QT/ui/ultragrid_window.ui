@@ -813,7 +813,7 @@
   <connection>
    <sender>previewCheckBox</sender>
    <signal>toggled(bool)</signal>
-   <receiver>previewLabel</receiver>
+   <receiver>displayPreview</receiver>
    <slot>setVisible(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -829,7 +829,7 @@
   <connection>
    <sender>previewCheckBox</sender>
    <signal>toggled(bool)</signal>
-   <receiver>previewsSplitter</receiver>
+   <receiver>capturePreview</receiver>
    <slot>setVisible(bool)</slot>
    <hints>
     <hint type="sourcelabel">
