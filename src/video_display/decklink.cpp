@@ -372,7 +372,7 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:device=<device(s)>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>][:maxresample=<N>][:minresample=<N>][:targetbuffer=<N>][:drift_fix]]\n" << style::reset;
+        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:device=<device(s)>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>][:drift_fix]]\n" << style::reset;
         cout << style::bold << fg::red << "\t-d decklink" << fg::reset << ":[full]help\n" << style::reset;
         cout << "Options:\n";
         cout << style::bold << "\tfullhelp" << style::reset << "\tdisplay additional options and more details\n";
@@ -385,9 +385,6 @@ static void show_help(bool full)
         cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>|help]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
         cout << style::bold << "\tdrift_fix" << style::reset << " activates a drift fix for the Decklink cards. The decklink card clocks will slowly drift overtime which can eventually cause a\n";
         cout << "\tbuffer underflow or overflow. A dynamic resampler is utilised in order to stretch (or reduce) audio by a small amount to counter the drift.\n";
-        cout << style::bold << "\tmaxresample=<N> - " << style::reset << "The maximum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
-        cout << style::bold << "\tminresample=<N> - " << style::reset << "The minimum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
-        cout << style::bold << "\ttargetbuffer=<N> - " << style::reset << "The target amount of samples to have in the buffer (per channel).\n";
         if (!full) {
                 cout << style::bold << "\tconversion" << style::reset << "\toutput size conversion, use '-d decklink:fullhelp' for list of conversions\n";
                 cout << "\t(other options available, use \"fullhelp\" to see complete list of options)\n";
@@ -421,6 +418,9 @@ static void show_help(bool full)
                         << style::bold << "2dhd" << style::reset << " or "
                         << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
                         << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
+                cout << style::bold << "\tmaxresample=<N> - " << style::reset << "The maximum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
+                cout << style::bold << "\tminresample=<N> - " << style::reset << "The minimum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
+                cout << style::bold << "\ttargetbuffer=<N> - " << style::reset << "The target amount of samples to have in the buffer (per channel).\n";
                 cout << style::bold << "\tkeep-settings" << style::reset << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
         }
 
@@ -595,7 +595,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
                 return FALSE;
 
         assert(s->magic == DECKLINK_MAGIC);
-        
+
         uint32_t i;
         s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i);
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered\n";
@@ -1490,7 +1490,7 @@ static int display_decklink_get_property(void *state, int property, void *val, s
 static void display_decklink_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        unsigned int sample_frame_count = frame->data_len / (frame->bps * frame->ch_count);
+        unsigned int sampleFrameCount = frame->data_len / (frame->bps * frame->ch_count);
 
         assert(s->play_audio);
 
@@ -1503,22 +1503,20 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
         }
 
         if (s->low_latency) {
-                HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sample_frame_count,
+                HRESULT res = s->state[0].deckLinkOutput->WriteAudioSamplesSync(frame->data, sampleFrameCount,
                                 &sampleFramesWritten);
                 if (FAILED(res)) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "WriteAudioSamplesSync failed.\n");
                         return;
                 }
         } else {
-                s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sample_frame_count, 0,
+                s->state[0].deckLinkOutput->ScheduleAudioSamples(frame->data, sampleFrameCount, 0,
                                 0, &sampleFramesWritten);
         }
-        if (sampleFramesWritten != sample_frame_count) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! " << sample_frame_count
-                                                << " samples written, " << sampleFramesWritten << " written, " 
-                                                << sample_frame_count - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
+        if (sampleFramesWritten != sampleFrameCount) {
+                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "audio buffer overflow! (" << sampleFramesWritten << " written, " << sampleFrameCount - sampleFramesWritten << " dropped, " << buffered << " buffer size)\n";
         }
-        s->audio_drift_fixer.update(buffered, sample_frame_count, sampleFramesWritten);
+        s->audio_drift_fixer.update(buffered, sampleFrameCount, sampleFramesWritten);
 }
 
 static int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
