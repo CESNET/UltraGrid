@@ -54,6 +54,9 @@
             <property name="text">
              <string>Local</string>
             </property>
+            <property name="alignment">
+             <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+            </property>
            </widget>
           </item>
          </layout>
@@ -86,6 +89,9 @@
            <widget class="QLabel" name="label">
             <property name="text">
              <string>Remote</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
             </property>
            </widget>
           </item>
