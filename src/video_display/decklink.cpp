@@ -1367,39 +1367,6 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         decklink_uninitialize();
 }
 
-
-/**
- * @brief A helper function for parsing unsigned integers out of the command line parameters. This will not allow negative numbers
- *        or numbers that are longer than 9 digits long (this stops undefined behaviour occuring). Any error case should apply a
- *        default value.
- * 
- * @param value_str    The string that is being parsed.
- * @param value_name   The name of the parameter that is being parsed
- * @param value          A pointer to a uint32 to write the parsed value into
- * @param default_value  The default value that should be applied in any of the error cases.
- */
-static void parse_uint32(const char *value_str, const char *value_name, uint32_t *value, uint32_t default_value) {
-        int value_len = strlen(value_str);
-        if(value_len == 0) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Empty string for option - " << value_name << " - Setting to default " << default_value << "\n";
-                *value = default_value;
-                return;
-        }
-        else if(value_len > 9) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Inputted string too large - " << value_name << " - Setting to default " << default_value << "\n";
-                *value = default_value;
-                return;
-        }
-        int tmp_value = atoi(value_str);
-        if(tmp_value < 1) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Inputted resample string negative number or not a valid number - " << value_name << " - Setting to default " << default_value << "\n";
-                *value = default_value;
-        }
-        else {
-                *value = tmp_value;
-        }
-}
-
 static auto parse_devices(const char *devices_str, vector<string> *cardId) {
         if (strlen(devices_str) == 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Empty device string!\n");
@@ -1536,23 +1503,12 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         s->keep_device_defaults = true;
                 } else if (strstr(ptr, "drift_fix") == ptr) {
                         s->audio_drift_fixer.m_enabled = true;
-                }
-                else if (strncasecmp(ptr, "maxresample=", strlen("maxresample=")) == 0) {
-                        uint32_t max_resample_delta = 0;
-                        parse_uint32(ptr + strlen("maxresample="), "maxresample", &max_resample_delta, MAX_RESAMPLE_DELTA_DEFAULT);
-                        s->audio_drift_fixer.set_max_hz(max_resample_delta);
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Set Max Resample Delta to be " << max_resample_delta << "Hz\n";
-                } 
-                else if (strncasecmp(ptr, "minresample=", strlen("minresample=")) == 0) {
-                        uint32_t min_resample_delta = 0;
-                        parse_uint32(ptr + strlen("minresample="), "minresample", &min_resample_delta, MIN_RESAMPLE_DELTA_DEFAULT);
-                        s->audio_drift_fixer.set_min_hz(min_resample_delta);
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Set Min Resample Delta to be " << min_resample_delta << "Hz\n";
-                }else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
-                        uint32_t target_buffer = 0;
-                        parse_uint32(ptr + strlen("targetbuffer="), "targetbuffer",&target_buffer, TARGET_BUFFER_DEFAULT);
-                        s->audio_drift_fixer.set_target_buffer(target_buffer);
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Set Target Buffer to be " << target_buffer << " samples in buffer (per channel)\n";
+                } else if (strncasecmp(ptr, "maxresample=", strlen("maxresample=")) == 0) {
+                        s->audio_drift_fixer.set_max_hz(parse_uint32(strchr(ptr, '=') + 1));
+                } else if (strncasecmp(ptr, "minresample=", strlen("minresample=")) == 0) {
+                        s->audio_drift_fixer.set_min_hz(parse_uint32(strchr(ptr, '=') + 1));
+                } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
+                        s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
                         return false;

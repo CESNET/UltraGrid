@@ -74,6 +74,8 @@ void print_module_usage(const char *module_name, const struct key_val *options, 
 #endif
 
 #ifdef __cplusplus
+uint32_t parse_uint32(const char *value_str) noexcept(false);
+
 #include <optional>
 #include <string_view>
 

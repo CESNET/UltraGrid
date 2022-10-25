@@ -48,8 +48,9 @@
 #include <climits>
 #include <cmath>
 #include <cstring>
-#include <string>
+#include <stdexcept>
 #include <sstream>
+#include <string>
 
 #include "debug.h"
 #include "utils/misc.h"
@@ -60,6 +61,10 @@
 #endif
 
 #define STRERROR_BUF_LEN 1024
+
+using std::invalid_argument;
+using std::out_of_range;
+using std::stoll;
 
 int clampi(long long val, int lo, int hi) {
         if (val < lo) {
@@ -322,3 +327,18 @@ void print_module_usage(const char *module_name, const struct key_val *options, 
         }
 }
 
+uint32_t parse_uint32(const char *value_str) noexcept(false)
+{
+        size_t pos = 0;
+        long long val = stoll(value_str, &pos);
+        if (val < 0) {
+                throw out_of_range("negative number");
+        }
+        if (val > UINT32_MAX) {
+                throw out_of_range("higher value than range of uint32");
+        }
+        if (pos == 0) {
+                throw invalid_argument("no conversion was performed");
+        }
+        return val;
+}
