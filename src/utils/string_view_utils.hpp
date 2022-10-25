@@ -64,6 +64,9 @@
  */
 std::string_view tokenize(std::string_view& str, char delim, char quot = '\0');
 
+inline bool sv_contains(std::string_view haystack, std::string_view needle){
+	return haystack.find(needle) != std::string_view::npos;
+}
 
 /* std::from_chars is c++17, but on major compilers the feature was missing or 
  * partial (no floating point support). This header provides safe fallbacks

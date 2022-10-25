@@ -207,14 +207,6 @@ void debug_dump(const void *lp, int len)
         }
 }
 
-namespace{
-
-bool sv_contains(std::string_view haystack, std::string_view needle){
-	return haystack.find(needle) != std::string_view::npos;
-}
-
-} //anon namespace
-
 bool parse_log_cfg(const char *conf_str,
                 int *log_lvl,
                 bool *logger_skip_repeats,

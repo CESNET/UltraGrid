@@ -96,7 +96,7 @@
 #include "utils/misc.h"
 #include "utils/nat.h"
 #include "utils/net.h"
-#include "utils/sv_parse_num.hpp"
+#include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/wait_obj.h"
 #include "utils/udp_holepunch.h"
