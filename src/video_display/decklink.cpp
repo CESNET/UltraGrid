@@ -1037,22 +1037,10 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
                 return FALSE;
 
         assert(s->magic == DECKLINK_MAGIC);
-        /*
-        timeInFrame is not dcoumented in the SDK, so putting this here for information.
-        The timeInFrame loops in range from 0 to ticksPerFrame-1 for each frame
-        The timeInFrame is reset by EOF interrupt from DeckLink hardware on output
-        After IDeckLinkOutput::EnableVideoOutput, there is some relocking of output to requested video mode, 
-        in this time there are no EOF signals, so the timeInFrame is not reset.
-        There is slight variability in the lock time between runs as EnableVideoOutput is called from different timepoint in frame period.
-        The below will give an idea of the skew between the source clock and the blackmagic hardware clock.
-        */
-        BMDTimeValue blk_start_time = 0;
-        BMDTimeValue blk_start_timeInFrame = 0;
-        BMDTimeValue blk_start_ticksPerFrame =0;
-        s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_start_time, &blk_start_timeInFrame, &blk_start_ticksPerFrame);
         
         uint32_t i;
         s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i);
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered\n";
         long long max_frames = DIV_ROUNDED_UP(timeout_ns, (long long)(NS_IN_SEC / frame->fps));
         if (timeout_ns == PUTF_DISCARD || i > max_frames) {
                 if (timeout_ns != PUTF_DISCARD) {
@@ -1066,8 +1054,6 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
                 frame->callbacks.dispose(frame);
                 return 1;
         }
-
-        auto t0 = chrono::high_resolution_clock::now();
 
         if (frame->color_spec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
                 for (unsigned i = 0; i < frame->tile_count; ++i) {
@@ -1097,36 +1083,12 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
 
         frame->callbacks.dispose(frame);
 
-        BMDTimeValue blk_end_time = 0;
-        BMDTimeValue blk_end_timeInFrame = 0;
-        BMDTimeValue blk_end_ticksPerFrame =0;
-        BMDTimeValue blk_write_duration =0;
-
-        s->state.at(0).deckLinkOutput->GetHardwareReferenceClock(s->frameRateScale, &blk_end_time, &blk_end_timeInFrame, &blk_end_ticksPerFrame);
-        if (blk_end_timeInFrame >= blk_start_timeInFrame){
-                blk_write_duration = blk_end_timeInFrame - blk_start_timeInFrame;
-        } else{ 
-                // we have wrapped 
-                BMDTimeValue end_time = blk_end_timeInFrame + blk_end_ticksPerFrame;
-                blk_write_duration = end_time - blk_start_timeInFrame;
-        }
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " putf Video inframe "  << blk_start_timeInFrame << " start, "
-                                                                      << blk_end_timeInFrame << " end, " 
-                                                                      << blk_write_duration << " duration.\n";
-        if (blk_end_timeInFrame - blk_start_timeInFrame > 80) {
-                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " Video Inframe took longer than expected " << blk_write_duration<<"\n";
-        }
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << " putf Video BlkMagic clock " << blk_start_time << " start, "
-                                                                            << blk_end_time << " end, "
-                                                                            << blk_end_time - blk_start_time <<" duration.\n";
-        auto t1 = chrono::high_resolution_clock::now();
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered, lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(t1 - t0).count() * 1000.0 << " ms.\n";
-
-        if (chrono::duration_cast<chrono::seconds>(t1 - s->t0).count() > 5) {
+        auto now = chrono::high_resolution_clock::now();
+        if (chrono::duration_cast<chrono::seconds>(now - s->t0).count() > 5) {
                 LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << s->state.at(0).delegate->frames_late << " frames late, "
                                 << s->state.at(0).delegate->frames_dropped << " dropped, "
                                 << s->state.at(0).delegate->frames_flushed << " flushed cumulative\n";
-                s->t0 = t1;
+                s->t0 = now;
         }
 
         return 0;
@@ -2020,8 +1982,6 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
 
         uint32_t sampleFramesWritten;
 
-        auto t0 = chrono::high_resolution_clock::now();
-        
         uint32_t buffered = 0;
         s->state[0].deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
         if (buffered == 0) {
@@ -2044,7 +2004,6 @@ static void display_decklink_put_audio_frame(void *state, const struct audio_fra
                                                 << " samples written, " << sampleFramesWritten << " written, " 
                                                 << sample_frame_count - sampleFramesWritten<<" diff, "<<buffered<< " buffer size.\n";
         }
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf audio - lasted " << setprecision(2) << chrono::duration_cast<chrono::duration<double>>(chrono::high_resolution_clock::now() - t0).count() * 1000.0 << " ms.\n";
         s->audio_drift_fixer.update(buffered, sample_frame_count, sampleFramesWritten);
 }
 
