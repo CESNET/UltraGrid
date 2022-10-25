@@ -1621,15 +1621,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return NULL;
         }
 
-        struct state_decklink *s = new state_decklink();
-        s->magic = DECKLINK_MAGIC;
+        auto *s = new state_decklink();
         s->audio_drift_fixer.set_root(get_root_module(parent));
-        s->stereo = FALSE;
-        s->emit_timecode = false;
-        s->profile_req = BMD_OPT_DEFAULT;
-        s->link_req = 0;
-        s->devices_cnt = 1;
-        s->low_latency = true;
         s->audio_drift_fixer.set_summary(&(s->audio_summary));
 
         if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
