@@ -45,6 +45,7 @@
 #define UNDEF -1
 #define IF_NOT_UNDEF_ELSE(val, default_val) ((val) != UNDEF ? (val) : (default_val))
 #define DIV_ROUNDED_UP(value, div) ((((value) % (div)) != 0) ? ((value) / (div) + 1) : ((value) / (div)))
+#define SWAP(a, b) do { b ^= a; a ^= b; b ^= a; } while (0)
 
 #undef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))

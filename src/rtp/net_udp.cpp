@@ -55,6 +55,7 @@
 #include "net_udp.h"
 #include "rtp.h"
 #include "utils/list.h"
+#include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/thread.h"
@@ -64,21 +65,12 @@
 #include "addrinfo.h"
 #endif
 
-#include <algorithm>
-#include <array>
 #include <condition_variable>
 #include <chrono>
 #include <mutex>
-#include <string>
-#include <utility> // std::swap
 
-using std::array;
 using std::condition_variable;
-using std::max;
 using std::mutex;
-using std::string;
-using std::swap;
-using std::to_string;
 using std::unique_lock;
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
@@ -222,7 +214,7 @@ static void udp_clean_async_state(socket_udp *s);
 void socket_error(const char *msg, ...)
 {
         va_list ap;
-        array<char, ERRBUF_SIZE> buffer{};
+        char buffer[ERRBUF_SIZE] = "";
 
 #ifdef WIN32
 #define WSERR(x) {#x,x}
@@ -253,21 +245,21 @@ void socket_error(const char *msg, ...)
                 i++;
         }
         va_start(ap, msg);
-        _vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
+        _vsnprintf(buffer, sizeof buffer, static_cast<const char *>(msg), ap);
         va_end(ap);
 
         const char *errname = ws_errs[i].errno_code == 0 ? get_win_error(e) : ws_errs[i].errname;
-        LOG(LOG_LEVEL_ERROR) << "ERROR: " << buffer.data() << ", (" << e << " - " << errname << ")\n";
+        LOG(LOG_LEVEL_ERROR) << "ERROR: " << buffer << ", (" << e << " - " << errname << ")\n";
 #else
-        array<char, ERRBUF_SIZE> strerror_buf{"unknown"};
+        char strerror_buf[ERRBUF_SIZE] = "unknown";
         va_start(ap, msg);
-        vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
+        vsnprintf(buffer, sizeof buffer, static_cast<const char *>(msg), ap);
         va_end(ap);
 #if ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
-        strerror_r(errno, strerror_buf.data(), strerror_buf.size()); // XSI version
-        LOG(LOG_LEVEL_ERROR) << buffer.data() << ": " << strerror_buf.data() << "\n";
+        strerror_r(errno, strerror_buf, sizeof strerror_buf); // XSI version
+        LOG(LOG_LEVEL_ERROR) << buffer << ": " << strerror_buf << "\n";
 #else // GNU strerror_r version
-        LOG(LOG_LEVEL_ERROR) << buffer.data() << ": " << strerror_r(errno, strerror_buf.data(), strerror_buf.size()) << "\n";
+        LOG(LOG_LEVEL_ERROR) << buffer << ": " << strerror_r(errno, strerror_buf, sizeof strerror_buf) << "\n";
 #endif
 #endif
 }
@@ -865,7 +857,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                 goto error;
         }
         if (is_wine()) {
-                swap(s->local->rx_fd, s->local->tx_fd);
+                SWAP(s->local->rx_fd, s->local->tx_fd);
         }
 
         // if we do not set tx port, fake that is the same as we are bound to
@@ -1114,7 +1106,7 @@ static void *udp_reader(void *arg)
                 FD_ZERO(&fds);
                 FD_SET(s->local->rx_fd, &fds);
                 FD_SET(s->local->should_exit_fd[0], &fds);
-                int nfds = max(s->local->rx_fd, s->local->should_exit_fd[0]) + 1;
+                int nfds = MAX(s->local->rx_fd, s->local->should_exit_fd[0]) + 1;
 
                 int rc = select(nfds, &fds, NULL, NULL, NULL);
                 if (rc <= 0) {
@@ -1602,8 +1594,9 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
         hints.ai_family = force_ip_version == 4 ? AF_INET : AF_INET6;
         hints.ai_flags = AI_NUMERICSERV | AI_PASSIVE;
         hints.ai_socktype = SOCK_DGRAM;
-        string tx_port_str = to_string(even_port);
-        if (int err = getaddrinfo(nullptr, tx_port_str.c_str(), &hints, &res0)) {
+        char tx_port_str[7];
+        snprintf(tx_port_str, sizeof tx_port_str, "%hu", (uint16_t) even_port);
+        if (int err = getaddrinfo(nullptr, tx_port_str, &hints, &res0)) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " " << even_port << " getaddrinfo: " <<  ug_gai_strerror(err) << "\n";
