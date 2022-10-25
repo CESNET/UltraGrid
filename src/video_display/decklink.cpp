@@ -566,12 +566,6 @@ private:
  */
 class AudioDriftFixer {
 public:
-        AudioDriftFixer(int buffer_samples, int delta_samples, 
-                          int target_buffer_fill = 0, int positive_jitter = 0,
-                          int negative_jitter = 0) : average_buffer_samples(buffer_samples),average_delta(delta_samples),
-                                                     target_buffer_fill(target_buffer_fill), pos_jitter(positive_jitter),
-                                                     neg_jitter(negative_jitter){}
-
         bool m_enabled = false;
 
         /**
@@ -726,8 +720,8 @@ private:
         static constexpr unsigned long BASE = (1U<<8U);
         struct module *m_root = nullptr;
 
-        MovingAverage average_buffer_samples;
-        MovingAverage average_delta;
+        MovingAverage average_buffer_samples = 250;
+        MovingAverage average_delta = 25;
 
         uint32_t target_buffer_fill = TARGET_BUFFER_DEFAULT;
         uint32_t previous_buffer = 0;
@@ -739,8 +733,8 @@ private:
         uint32_t min_buffer = 100;
         uint32_t max_buffer = 600;
         // Calculate the jitter so that we're within an acceptable range
-        uint32_t pos_jitter = 0;
-        uint32_t neg_jitter = 0;
+        uint32_t pos_jitter = 5;
+        uint32_t neg_jitter = 5;
         // Currently unused but might form a part of a more dynamic
         // solution to finding good jitter values in the future. @todo
         uint32_t max_avg = 3650;
@@ -802,7 +796,7 @@ struct state_decklink {
         mutex               reconfiguration_lock; ///< for audio and video reconf to be mutually exclusive
         bool                keep_device_defaults = false;
 
-        AudioDriftFixer audio_drift_fixer{250, 25, 2700, 5, 5};
+        AudioDriftFixer audio_drift_fixer{};
  };
 
 static void show_help(bool full);
