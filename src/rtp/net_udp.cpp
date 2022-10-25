@@ -81,7 +81,7 @@ static void *udp_reader(void *arg);
 #define IPv4	4
 #define IPv6	6
 
-constexpr int ERRBUF_SIZE = 255;
+#define ERRBUF_SIZE 255
 #define MOD_NAME "[RTP UDP] "
 
 #ifdef WIN2K_IPV6
@@ -245,21 +245,21 @@ void socket_error(const char *msg, ...)
                 i++;
         }
         va_start(ap, msg);
-        _vsnprintf(buffer, sizeof buffer, static_cast<const char *>(msg), ap);
+        _vsnprintf(buffer, sizeof buffer, msg, ap);
         va_end(ap);
 
         const char *errname = ws_errs[i].errno_code == 0 ? get_win_error(e) : ws_errs[i].errname;
-        LOG(LOG_LEVEL_ERROR) << "ERROR: " << buffer << ", (" << e << " - " << errname << ")\n";
+        log_msg(LOG_LEVEL_ERROR, "ERROR: %s, (%d - %s)\n", buffer, e, errname);
 #else
         char strerror_buf[ERRBUF_SIZE] = "unknown";
         va_start(ap, msg);
-        vsnprintf(buffer, sizeof buffer, static_cast<const char *>(msg), ap);
+        vsnprintf(buffer, sizeof buffer, msg, ap);
         va_end(ap);
 #if ! defined _POSIX_C_SOURCE || (_POSIX_C_SOURCE >= 200112L && !  _GNU_SOURCE)
         strerror_r(errno, strerror_buf, sizeof strerror_buf); // XSI version
-        LOG(LOG_LEVEL_ERROR) << buffer << ": " << strerror_buf << "\n";
+        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_buf);
 #else // GNU strerror_r version
-        LOG(LOG_LEVEL_ERROR) << buffer << ": " << strerror_r(errno, strerror_buf, sizeof strerror_buf) << "\n";
+        log_msg(LOG_LEVEL_ERROR, "%s: %s\n", buffer, strerror_r(errno, strerror_buf, sizeof strerror_buf));
 #endif
 #endif
 }
@@ -407,7 +407,7 @@ static bool udp_join_mcast_grp4(unsigned long addr, int rx_fd, int tx_fd, int tt
                                 return false;
                         }
                 } else {
-                        LOG(LOG_LEVEL_WARNING) << "Using IPv4 multicast but not setting TTL.\n";
+                        log_msg(LOG_LEVEL_WARNING, "Using IPv4 multicast but not setting TTL.\n");
                 }
                 if (SETSOCKOPT
                     (tx_fd, IPPROTO_IP, IP_MULTICAST_IF,
@@ -514,7 +514,7 @@ static bool udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd,
                                 socket_error("setsockopt IPV6_MULTICAST_HOPS");
                                 return false;
                         } else {
-                                LOG(LOG_LEVEL_WARNING) << "Using IPv6 multicast but not setting TTL.\n";
+                                log_msg(LOG_LEVEL_WARNING, "Using IPv6 multicast but not setting TTL.\n");
                         }
                 }
                 if (SETSOCKOPT(tx_fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
@@ -570,7 +570,7 @@ static char *udp_host_addr6(socket_udp * s)
         }
         int ipv6only = 0;
         if (SETSOCKOPT(newsock, IPPROTO_IPV6, IPV6_V6ONLY,
-                                reinterpret_cast<char *>(&ipv6only),
+                                (char *) &ipv6only,
                                 sizeof(ipv6only)) != 0) {
                 socket_error("newsock setsockopt IPV6_V6ONLY");
         }
@@ -1599,7 +1599,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
         if (int err = getaddrinfo(nullptr, tx_port_str, &hints, &res0)) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " " << even_port << " getaddrinfo: " <<  ug_gai_strerror(err) << "\n";
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s getaddrinfo port %d: %s\n", __func__, even_port, gai_strerror(err));
                 return -2;
         }
 
@@ -1616,7 +1616,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                                 if (SETSOCKOPT
                                                 (fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
                                                  sizeof(ipv6only)) != 0) {
-                                        socket_error("%s %d - setsockopt IPV6_V6ONLY", even_port + i, static_cast<const char *>(__func__));
+                                        socket_error("%s - setsockopt IPV6_V6ONLY for port %d", __func__, even_port + 1);
                                         CLOSESOCKET(fd);
                                         freeaddrinfo(res0);
                                         return -2;
@@ -1629,7 +1629,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                 }
 
                 if (fd == INVALID_SOCKET) {
-                        socket_error("%s %d - unable to initialize socket", even_port + i, static_cast<const char *>(__func__));
+                        socket_error("%s - unable to initialize socket for port %d", __func__, even_port + 1);
                         freeaddrinfo(res0);
                         return -2;
                 }
@@ -1644,7 +1644,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                                 ret = -1;
                         } else {
                                 ret = -2;
-                                socket_error("%s %d - cannot bind", even_port + i, static_cast<const char *>(__func__));
+                                socket_error("%s - cannot bind port %d", __func__, even_port + 1);
                         }
                         freeaddrinfo(res0);
                         CLOSESOCKET(fd);
