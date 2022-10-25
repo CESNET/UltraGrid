@@ -115,7 +115,8 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	receiverLoss.reset();
 
-	ui.statusbar->addPermanentWidget(&receiverLoss);
+	ui.localPreviewBar->addWidget(&receiverLoss);
+	ui.localPreviewBar->setAlignment(&receiverLoss, Qt::AlignBottom);
 	ui.statusbar->addPermanentWidget(&versionLabel);
 
 	ui.vuMeter->setControlPort(&controlPort);
