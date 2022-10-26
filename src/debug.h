@@ -125,7 +125,7 @@ bool parse_log_cfg(const char *conf_str,
 class Log_output{
         class Buffer{
         public:
-                Buffer(Log_output& lo): lo(lo) { lo.buffer.clear();  }
+                Buffer(Log_output& lo): lo(lo) { lo.get_internal_buffer().clear();  }
 
                 void append(std::string_view sv){
                         get() += sv;
@@ -133,7 +133,7 @@ class Log_output{
                 void append(int count, char c) { get().append(count, c); }
 
                 void reserve(size_t size){ if(get().capacity() < size) get().reserve(size); }
-                std::string& get() { return lo.buffer; }
+                std::string& get() { return lo.get_internal_buffer(); }
                 char *data() { return get().data(); }
 
                 void submit() { lo.submit(); }
@@ -171,7 +171,10 @@ private:
         void submit_raw(); //just pass to output as is, no styles, timestamps, etc.
 
         constexpr static int initial_buf_size = 256;
-        thread_local static std::string buffer;
+        std::string& get_internal_buffer(){
+            thread_local static std::string buffer(initial_buf_size, '\0');
+            return buffer;
+        }
 
         std::atomic<bool> skip_repeated;
         log_timestamp_mode show_timestamps;
@@ -233,7 +236,7 @@ inline void Log_output::submit(){
         const char *start_newline = "";
         std::lock_guard<std::mutex> lock(mut);
         if (skip_repeated && interactive) {
-                if (buffer == last_msg) {
+                if (get_internal_buffer() == last_msg) {
                         last_msg_repeats++;
                         printf("    Last message repeated %d times\r", last_msg_repeats);
                         fflush(stdout);
@@ -246,17 +249,17 @@ inline void Log_output::submit(){
                 last_msg_repeats = 0;
         }
 
-        printf("%s%s%s", start_newline, ts_str, buffer.c_str());
+        printf("%s%s%s", start_newline, ts_str, get_internal_buffer().c_str());
 
-        std::swap(last_msg, buffer);
+        std::swap(last_msg, get_internal_buffer());
 }
 
 inline void Log_output::submit_raw(){
         std::lock_guard<std::mutex> lock(mut);
         if(last_msg_repeats > 0)
                 fputc('\n', stdout);
-        fputs(buffer.c_str(), stdout);
-        std::swap(last_msg, buffer);
+        fputs(get_internal_buffer().c_str(), stdout);
+        std::swap(last_msg, get_internal_buffer());
         last_msg_repeats = 0;
 }
 
