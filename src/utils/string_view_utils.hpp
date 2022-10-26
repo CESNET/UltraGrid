@@ -68,6 +68,10 @@ inline bool sv_contains(std::string_view haystack, std::string_view needle){
 	return haystack.find(needle) != std::string_view::npos;
 }
 
+inline bool sv_is_prefix(std::string_view haystack, std::string_view needle){
+    return haystack.compare(0, needle.length(), needle) == 0;
+}
+
 /* std::from_chars is c++17, but on major compilers the feature was missing or 
  * partial (no floating point support). This header provides safe fallbacks
  * if the particular implementation lacks std::from_chars for a given type.
