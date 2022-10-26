@@ -147,7 +147,7 @@ jobs:
   macOS:
     name: run macOS
     needs: prepare
-    runs-on: macos-latest
+    runs-on: macos-11
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SDK_NONFREE_PATH: /private/var/tmp/sdks-nonfree
