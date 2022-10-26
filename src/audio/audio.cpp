@@ -56,6 +56,7 @@
 #include <cinttypes>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdio.h>
 #include <string>
@@ -88,6 +89,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "pdb.h"
+#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/net.h"
 #include "utils/thread.h"
@@ -695,6 +697,10 @@ static void *audio_receiver_thread(void *arg)
                                         cp->decoder_state = dec_state;
                                         dec_state->enabled = true;
                                         dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, s->audio_receiver_module.get());
+                                        if (!dec_state->pbuf_data.decoder) {
+                                                exit_uv(1);
+                                                break;
+                                        }
                                         audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted_receiver ? 0.0 : s->volume);
                                         assert(dec_state->pbuf_data.decoder != NULL);
                                         cp->decoder_state_deleter = audio_decoder_state_deleter;
@@ -982,7 +988,14 @@ static void *audio_sender_thread(void *arg)
         set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
         struct audio_frame *buffer = NULL;
-        audio_frame2_resampler resampler_state;
+        unique_ptr<audio_frame2_resampler> resampler_state;
+        try {
+                resampler_state = unique_ptr<audio_frame2_resampler>(new audio_frame2_resampler);
+        } catch (ug_runtime_error &e) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", e.what());
+                exit_uv(1);
+                return NULL;
+        }
 
         printf("Audio sending started.\n");
 
@@ -1039,7 +1052,7 @@ static void *audio_sender_thread(void *arg)
                                         bf_n.change_bps(2);
                                 }
 
-                                bf_n.resample(resampler_state, resample_to);
+                                bf_n.resample(*resampler_state, resample_to);
                         }
                         // COMPRESS
                         process_statistics(s, &bf_n);

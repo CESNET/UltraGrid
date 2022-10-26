@@ -63,6 +63,7 @@
 #include "crypto/crc.h"
 #include "crypto/openssl_decrypt.h"
 #include "rang.hpp"
+#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/packet_counter.h"
@@ -279,14 +280,20 @@ ADD_TO_PARAM("soft-resample", "* soft-resample=<num>/<den>\n"
 
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, audio_playback_ctl_t c, void *p_state, struct module *parent)
 {
-        struct state_audio_decoder *s;
+        struct state_audio_decoder *s = NULL;
         bool scale_auto = false;
         double scale_factor = 1.0;
         char *tmp = nullptr;
 
         assert(audio_scale != NULL);
 
-        s = new struct state_audio_decoder();
+        try {
+                s = new struct state_audio_decoder();
+        } catch (ug_runtime_error &e) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", e.what());
+                goto error;
+        }
+
         s->magic = AUDIO_DECODER_MAGIC;
         s->audio_playback_ctl_func = c;
         s->audio_playback_state = p_state;
@@ -422,7 +429,9 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
 error:
         free(tmp);
-        audio_decoder_destroy(s);
+        if (s) {
+                audio_decoder_destroy(s);
+        }
         return NULL;
 }
 
