@@ -52,8 +52,10 @@ HEADERS += window/ultragrid_window.hpp \
 	../../tools/ipc_frame_unix.h \
 	../../src/compat/platform_pipe.h \
 	../../src/utils/fs.h \
+	../../src/utils/string_view_utils.hpp \
 	widget/vuMeterWidget.hpp \
 	widget/recv_report.hpp \
+	widget/recv_loss.hpp \
 	window/settings_window.hpp \
 	option/widget_ui.hpp \
 	option/checkable_ui.hpp \
@@ -86,6 +88,7 @@ SOURCES += window/ultragrid_window.cpp \
 	window/log_window.cpp \
 	widget/vuMeterWidget.cpp \
 	widget/recv_report.cpp \
+	widget/recv_loss.cpp \
 	window/settings_window.cpp \
 	option/widget_ui.cpp \
 	option/checkable_ui.cpp \
@@ -107,4 +110,5 @@ SOURCES += window/ultragrid_window.cpp \
 	../../tools/ipc_frame_unix.cpp \
 	../../src/compat/platform_pipe.cpp \
 	../../src/utils/fs.cpp \
+	../../src/utils/string_view_utils.cpp \
 	main.cpp

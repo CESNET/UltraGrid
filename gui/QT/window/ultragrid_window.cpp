@@ -115,8 +115,12 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 
 	receiverLoss.reset();
 
-	ui.localPreviewBar->addWidget(&receiverLoss);
-	ui.localPreviewBar->setAlignment(&receiverLoss, Qt::AlignBottom);
+	ui.localPreviewBar->addWidget(&rtcpRr);
+	ui.localPreviewBar->setAlignment(&rtcpRr, Qt::AlignBottom);
+
+	ui.remotePreviewBar->addWidget(&receiverLoss);
+	ui.remotePreviewBar->setAlignment(&receiverLoss, Qt::AlignBottom);
+
 	ui.statusbar->addPermanentWidget(&versionLabel);
 
 	ui.vuMeter->setControlPort(&controlPort);
@@ -209,12 +213,12 @@ void UltragridWindow::processOutputLine(std::string_view line){
 		float loss = 0;
 		sscanf(tmp.c_str(), "Receiver reports RTT=%d usec, loss %f%%", &rtt, &loss);
 
-		receiverLoss.report(rtt, loss);
+		rtcpRr.report(rtt, loss);
 		return;
 	}
 
 	controlPort.parseLine(line);
-
+	receiverLoss.parseLine(line);
 }
 
 void UltragridWindow::outputAvailable(){
@@ -457,6 +461,7 @@ void UltragridWindow::processStateChanged(UgProcessManager::State state){
 	processStatus.setText(vals.ugText);
 
 	receiverLoss.reset();
+	rtcpRr.reset();
 }
 
 void UltragridWindow::unexpectedExit(UgProcessManager::State state,

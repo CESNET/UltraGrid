@@ -15,6 +15,7 @@
 #include "settings_ui.hpp"
 #include "ug_process_manager.hpp"
 #include "recv_report.hpp"
+#include "recv_loss.hpp"
 #include "line_buffer.hpp"
 #include "control_port.hpp"
 
@@ -62,7 +63,8 @@ private:
 	QLabel previewStatus;
 
 	LineBuffer lineBuf;
-	RecvReportWidget receiverLoss;
+	RecvReportWidget rtcpRr;
+	RecvLossWidget receiverLoss;
 
 	QLabel versionLabel;
 
