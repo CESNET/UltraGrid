@@ -605,6 +605,19 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
         return new_response(RESPONSE_OK, NULL);
 }
 
+static struct audio_decoder *audio_decoder_state_create(struct state_audio *s) {
+        auto *dec_state = (struct audio_decoder *) calloc(1, sizeof(struct audio_decoder));
+        assert(dec_state != NULL);
+        dec_state->enabled = true;
+        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, s->audio_receiver_module.get());
+        if (!dec_state->pbuf_data.decoder) {
+                free(dec_state);
+                return NULL;
+        }
+        audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted_receiver ? 0.0 : s->volume);
+        return dec_state;
+}
+
 static void audio_decoder_state_deleter(void *state)
 {
         struct audio_decoder *s = (struct audio_decoder *) state;
@@ -687,22 +700,15 @@ static void *audio_receiver_thread(void *arg)
                                                 }
                                                 pdb_iter_done(&it);
                                         }
-                                        struct audio_decoder *dec_state;
-                                        dec_state = (struct audio_decoder *) calloc(1, sizeof(struct audio_decoder));
 
                                         if (get_commandline_param("low-latency-audio")) {
                                                 pbuf_set_playout_delay(cp->playout_buffer, strcmp(get_commandline_param("low-latency-audio"), "ultra") == 0 ? 0.001 :0.005);
                                         }
-                                        assert(dec_state != NULL);
-                                        cp->decoder_state = dec_state;
-                                        dec_state->enabled = true;
-                                        dec_state->pbuf_data.decoder = (struct state_audio_decoder *) audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption, (audio_playback_ctl_t) audio_playback_ctl, s->audio_playback_device, s->audio_receiver_module.get());
-                                        if (!dec_state->pbuf_data.decoder) {
+                                        cp->decoder_state = audio_decoder_state_create(s);
+                                        if (!cp->decoder_state) {
                                                 exit_uv(1);
                                                 break;
                                         }
-                                        audio_decoder_set_volume(dec_state->pbuf_data.decoder, s->muted_receiver ? 0.0 : s->volume);
-                                        assert(dec_state->pbuf_data.decoder != NULL);
                                         cp->decoder_state_deleter = audio_decoder_state_deleter;
                                 }
 
