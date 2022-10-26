@@ -146,7 +146,7 @@ jobs:
   macOS:
     name: run macOS
     needs: prepare
-    runs-on: macos-latest
+    runs-on: macos-11
     env:
       SDK_FREE_PATH: /private/var/tmp/sdks-free
       SDK_NONFREE_PATH: /private/var/tmp/sdks-nonfree
