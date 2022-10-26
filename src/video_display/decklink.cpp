@@ -57,7 +57,6 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "rang.hpp"
 #include "rtp/audio_decoders.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
@@ -107,8 +106,6 @@ static void display_decklink_done(void *state);
         } while (0)
 
 using namespace std;
-using rang::fg;
-using rang::style;
 
 static int display_decklink_putf(void *state, struct video_frame *frame, long long nonblock);
 
@@ -372,60 +369,60 @@ static void show_help(bool full)
         int                             numDevices = 0;
 
         printf("Decklink (output) options:\n");
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << "[:device=<device(s)>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>][:drift_fix]]\n" << style::reset;
-        cout << style::bold << fg::red << "\t-d decklink" << fg::reset << ":[full]help\n" << style::reset;
-        cout << "Options:\n";
-        cout << style::bold << "\tfullhelp" << style::reset << "\tdisplay additional options and more details\n";
-        cout << style::bold << "\tdevice" << style::reset << "\t\tindex or name of output device (or comma-separated list of multple devices)\n";
-        cout << style::bold << "\tLevelA/LevelB" << style::reset << "\tspecifies 3G-SDI output level\n";
-        cout << style::bold << "\t3D" << style::reset << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
-        cout << style::bold << "\taudio_level" << style::reset << "\tset maximum attenuation for mic\n";
-        cout << style::bold << "\thalf-duplex" << style::reset
+        col() << SBOLD(SRED("\t-d decklink") << "[:device=<device(s)>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>][:drift_fix]]\n");
+        col() << SBOLD(SRED("\t-d decklink") << ":[full]help\n");
+        col() << "Options:\n";
+        col() << SBOLD("\tfullhelp") << "\tdisplay additional options and more details\n";
+        col() << SBOLD("\tdevice") << "\t\tindex or name of output device (or comma-separated list of multple devices)\n";
+        col() << SBOLD("\tLevelA/LevelB") << "\tspecifies 3G-SDI output level\n";
+        col() << SBOLD("\t3D") << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
+        col() << SBOLD("\taudio_level") << "\tset maximum attenuation for mic\n";
+        col() << SBOLD("\thalf-duplex")
                 << "\tset a profile that allows maximal number of simultaneous IOs\n";
-        cout << style::bold << "\tHDR[=HDR|PQ|HLG|<int>|help]" << style::reset << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
-        cout << style::bold << "\tdrift_fix" << style::reset << " activates a drift fix for the Decklink cards. The decklink card clocks will slowly drift overtime which can eventually cause a\n";
-        cout << "\tbuffer underflow or overflow. A dynamic resampler is utilised in order to stretch (or reduce) audio by a small amount to counter the drift.\n";
+        col() << SBOLD("\tHDR[=HDR|PQ|HLG|<int>|help]") << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
+        col() << SBOLD("\tdrift_fix") << " activates a drift fix for the Decklink cards. The decklink card clocks will slowly drift overtime which can eventually cause a\n";
+        col() << "\tbuffer underflow or overflow. A dynamic resampler is utilised in order to stretch (or reduce) audio by a small amount to counter the drift.\n";
         if (!full) {
-                cout << style::bold << "\tconversion" << style::reset << "\toutput size conversion, use '-d decklink:fullhelp' for list of conversions\n";
-                cout << "\t(other options available, use \"fullhelp\" to see complete list of options)\n";
+                col() << SBOLD("\tconversion") << "\toutput size conversion, use '-d decklink:fullhelp' for list of conversions\n";
+                col() << "\t(other options available, use \"fullhelp\" to see complete list of options)\n";
         } else {
-                cout << style::bold << "\tsingle-link/dual-link/quad-link" << style::reset << "\tspecifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
-                cout << style::bold << "\ttimecode" << style::reset << "\temit timecode\n";
-                cout << style::bold << "\t[no-]quad-square" << style::reset << " set Quad-link SDI is output in Square Division Quad Split mode\n";
-                cout << style::bold << "\t[no-]low-latency" << style::reset << " do not use low-latency mode (use regular scheduled mode; low-latency is default)\n";
-                cout << style::bold << "\tconversion" << style::reset << "\toutput size conversion, can be:\n" <<
-                                style::bold << "\t\tnone" << style::reset << " - no conversion\n" <<
-                                style::bold << "\t\tltbx" << style::reset << " - down-converted letterbox SD\n" <<
-                                style::bold << "\t\tamph" << style::reset << " - down-converted anamorphic SD\n" <<
-                                style::bold << "\t\t720c" << style::reset << " - HD720 to HD1080 conversion\n" <<
-                                style::bold << "\t\tHWlb" << style::reset << " - simultaneous output of HD and down-converted letterbox SD\n" <<
-                                style::bold << "\t\tHWam" << style::reset << " - simultaneous output of HD and down-converted anamorphic SD\n" <<
-                                style::bold << "\t\tHWcc" << style::reset << " - simultaneous output of HD and center cut SD\n" <<
-                                style::bold << "\t\txcap" << style::reset << " - simultaneous output of 720p and 1080p cross-conversion\n" <<
-                                style::bold << "\t\tua7p" << style::reset << " - simultaneous output of SD and up-converted anamorphic 720p\n" <<
-                                style::bold << "\t\tua1i" << style::reset << " - simultaneous output of SD and up-converted anamorphic 1080i\n" <<
-                                style::bold << "\t\tu47p" << style::reset << " - simultaneous output of SD and up-converted anamorphic widescreen aspect ratio 14:9 to 720p\n" <<
-                                style::bold << "\t\tu41i" << style::reset << " - simultaneous output of SD and up-converted anamorphic widescreen aspect ratio 14:9 to 1080i\n" <<
-                                style::bold << "\t\tup7p" << style::reset << " - simultaneous output of SD and up-converted pollarbox 720p\n" <<
-                                style::bold << "\t\tup1i" << style::reset << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
-                cout << style::bold << "\tHDMI3DPacking" << style::reset << " can be (used in conjunction with \"3D\" option):\n" <<
-				style::bold << "\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n" << style::reset;
-                cout << style::bold << "\tUse1080PsF[=true|false|keep]" << style::reset << " flag sets use of PsF on output instead of progressive (default is false)\n";
-                cout << style::bold << "\tprofile=<P>\n" << style::reset;
-                cout << "\t\tUse desired device profile: " << style::bold << "1dfd" << style::reset << ", "
-                        << style::bold << "1dhd" << style::reset << ", "
-                        << style::bold << "2dfd" << style::reset << ", "
-                        << style::bold << "2dhd" << style::reset << " or "
-                        << style::bold << "4dhd" << style::reset << ". See SDK manual for details. Use "
-                        << style::bold << "keep" << style::reset << " to disable automatic selection.\n";
-                cout << style::bold << "\tmaxresample=<N> - " << style::reset << "The maximum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
-                cout << style::bold << "\tminresample=<N> - " << style::reset << "The minimum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
-                cout << style::bold << "\ttargetbuffer=<N> - " << style::reset << "The target amount of samples to have in the buffer (per channel).\n";
-                cout << style::bold << "\tkeep-settings" << style::reset << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
+                col() << SBOLD("\tsingle-link/dual-link/quad-link") << "\tspecifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
+                col() << SBOLD("\ttimecode") << "\temit timecode\n";
+                col() << SBOLD("\t[no-]quad-square") << " set Quad-link SDI is output in Square Division Quad Split mode\n";
+                col() << SBOLD("\t[no-]low-latency") << " do not use low-latency mode (use regular scheduled mode; low-latency is default)\n";
+                col() << SBOLD("\tconversion") << "\toutput size conversion, can be:\n" <<
+                                SBOLD("\t\tnone") << " - no conversion\n" <<
+                                SBOLD("\t\tltbx") << " - down-converted letterbox SD\n" <<
+                                SBOLD("\t\tamph") << " - down-converted anamorphic SD\n" <<
+                                SBOLD("\t\t720c") << " - HD720 to HD1080 conversion\n" <<
+                                SBOLD("\t\tHWlb") << " - simultaneous output of HD and down-converted letterbox SD\n" <<
+                                SBOLD("\t\tHWam") << " - simultaneous output of HD and down-converted anamorphic SD\n" <<
+                                SBOLD("\t\tHWcc") << " - simultaneous output of HD and center cut SD\n" <<
+                                SBOLD("\t\txcap") << " - simultaneous output of 720p and 1080p cross-conversion\n" <<
+                                SBOLD("\t\tua7p") << " - simultaneous output of SD and up-converted anamorphic 720p\n" <<
+                                SBOLD("\t\tua1i") << " - simultaneous output of SD and up-converted anamorphic 1080i\n" <<
+                                SBOLD("\t\tu47p") << " - simultaneous output of SD and up-converted anamorphic widescreen aspect ratio 14:9 to 720p\n" <<
+                                SBOLD("\t\tu41i") << " - simultaneous output of SD and up-converted anamorphic widescreen aspect ratio 14:9 to 1080i\n" <<
+                                SBOLD("\t\tup7p") << " - simultaneous output of SD and up-converted pollarbox 720p\n" <<
+                                SBOLD("\t\tup1i") << " - simultaneous output of SD and up-converted pollarbox 1080i\n";
+                col() << SBOLD("\tHDMI3DPacking") << " can be (used in conjunction with \"3D\" option):\n" <<
+				SBOLD("\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n");
+                col() << SBOLD("\tUse1080PsF[=true|false|keep]") << " flag sets use of PsF on output instead of progressive (default is false)\n";
+                col() << SBOLD("\tprofile=<P>\n");
+                col() << "\t\tUse desired device profile: " << SBOLD("1dfd") << ", "
+                        << SBOLD("1dhd") << ", "
+                        << SBOLD("2dfd") << ", "
+                        << SBOLD("2dhd") << " or "
+                        << SBOLD("4dhd") << ". See SDK manual for details. Use "
+                        << SBOLD("keep") << " to disable automatic selection.\n";
+                col() << SBOLD("\tmaxresample=<N> - ") << "The maximum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
+                col() << SBOLD("\tminresample=<N> - ") << "The minimum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
+                col() << SBOLD("\ttargetbuffer=<N> - ") << "The target amount of samples to have in the buffer (per channel).\n";
+                col() << SBOLD("\tkeep-settings") << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
         }
 
-        cout << "Recognized pixel formats:";
-        for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { cout << " " << style::bold << get_codec_name(i.first) << style::reset; } );
+        col() << "Recognized pixel formats:";
+        for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { col() << " " << SBOLD(get_codec_name(i.first)); } );
         cout << "\n";
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -443,8 +440,7 @@ static void show_help(bool full)
                 }
 
                 // *** Print the model name of the DeckLink card
-                cout << "\ndevice: " << style::bold << numDevices << style::reset << ") "
-			<< style::bold << deviceName << style::reset << "\n";
+                col() << "\ndevice: " << SBOLD(numDevices) << ") " << SBOLD(deviceName) << "\n";
                 print_output_modes(deckLink);
                 
                 // Increment the total number of DeckLink cards found
