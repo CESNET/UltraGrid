@@ -368,11 +368,13 @@ static void show_help(bool full)
         IDeckLink*                      deckLink;
         int                             numDevices = 0;
 
-        printf("Decklink (output) options:\n");
+        col() << "Decklink display options:\n";
         col() << SBOLD(SRED("\t-d decklink") << "[:device=<device(s)>][:Level{A|B}][:3D][:audio_level={line|mic}][:half-duplex][:HDR[=<t>][:drift_fix]]\n");
         col() << SBOLD(SRED("\t-d decklink") << ":[full]help\n");
-        col() << "Options:\n";
-        col() << SBOLD("\tfullhelp") << "\tdisplay additional options and more details\n";
+        col() << "\nOptions:\n";
+        if (!full) {
+                col() << SBOLD("\tfullhelp") << "\tdisplay additional options and more details\n";
+        }
         col() << SBOLD("\tdevice") << "\t\tindex or name of output device (or comma-separated list of multple devices)\n";
         col() << SBOLD("\tLevelA/LevelB") << "\tspecifies 3G-SDI output level\n";
         col() << SBOLD("\t3D") << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
@@ -380,11 +382,10 @@ static void show_help(bool full)
         col() << SBOLD("\thalf-duplex")
                 << "\tset a profile that allows maximal number of simultaneous IOs\n";
         col() << SBOLD("\tHDR[=HDR|PQ|HLG|<int>|help]") << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
-        col() << SBOLD("\tdrift_fix") << " activates a drift fix for the Decklink cards. The decklink card clocks will slowly drift overtime which can eventually cause a\n";
-        col() << "\tbuffer underflow or overflow. A dynamic resampler is utilised in order to stretch (or reduce) audio by a small amount to counter the drift.\n";
+        col() << SBOLD("\tdrift_fix") << "       activates a time drift fix for the Decklink cards with resampler (experimental)\n";
         if (!full) {
                 col() << SBOLD("\tconversion") << "\toutput size conversion, use '-d decklink:fullhelp' for list of conversions\n";
-                col() << "\t(other options available, use \"fullhelp\" to see complete list of options)\n";
+                col() << "\n\t(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n";
         } else {
                 col() << SBOLD("\tsingle-link/dual-link/quad-link") << "\tspecifies if the video output will be in a single-link (HD/3G/6G/12G), dual-link HD-SDI mode or quad-link HD/3G/6G/12G\n";
                 col() << SBOLD("\ttimecode") << "\temit timecode\n";
@@ -415,16 +416,17 @@ static void show_help(bool full)
                         << SBOLD("2dhd") << " or "
                         << SBOLD("4dhd") << ". See SDK manual for details. Use "
                         << SBOLD("keep") << " to disable automatic selection.\n";
-                col() << SBOLD("\tmaxresample=<N> - ") << "The maximum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
-                col() << SBOLD("\tminresample=<N> - ") << "The minimum amount the resample delta can be when scaling is applied. Measured in Hz.\n";
-                col() << SBOLD("\ttargetbuffer=<N> - ") << "The target amount of samples to have in the buffer (per channel).\n";
+                col() << SBOLD("\tmaxresample=<N>") << " maximum amount the resample delta can be when scaling is applied. Measured in Hz\n";
+                col() << SBOLD("\tminresample=<N>") << " minimum amount the resample delta can be when scaling is applied. Measured in Hz\n";
+                col() << SBOLD("\ttargetbuffer=<N>") << " target amount of samples to have in the buffer (per channel)\n";
                 col() << SBOLD("\tkeep-settings") << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
         }
 
-        col() << "Recognized pixel formats:";
+        col() << "\nRecognized pixel formats:";
         for_each(uv_to_bmd_codec_map.cbegin(), uv_to_bmd_codec_map.cend(), [](auto const &i) { col() << " " << SBOLD(get_codec_name(i.first)); } );
         cout << "\n";
 
+        col() << "\nDevices:\n";
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = create_decklink_iterator(true);
         if (deckLinkIterator == NULL) {
@@ -440,7 +442,7 @@ static void show_help(bool full)
                 }
 
                 // *** Print the model name of the DeckLink card
-                col() << "\ndevice: " << SBOLD(numDevices) << ") " << SBOLD(deviceName) << "\n";
+                col() << SBOLD(numDevices) << ") " << SBOLD(deviceName) << "\n";
                 print_output_modes(deckLink);
                 
                 // Increment the total number of DeckLink cards found
