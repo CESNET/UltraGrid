@@ -443,15 +443,21 @@ static void show_help(bool full)
 
                 // *** Print the model name of the DeckLink card
                 col() << SBOLD(numDevices) << ") " << SBOLD(deviceName) << "\n";
-                print_output_modes(deckLink);
-                
+                if (full) {
+                        print_output_modes(deckLink);
+                }
+
                 // Increment the total number of DeckLink cards found
                 numDevices++;
         
                 // Release the IDeckLink instance when we've finished with it to prevent leaks
                 deckLink->Release();
         }
-        
+
+        if (!full) {
+                col() << "(use \"" << SBOLD("fullhelp") << "\" to see device modes)\n";
+        }
+
         deckLinkIterator->Release();
 
         decklink_uninitialize();
