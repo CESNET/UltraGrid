@@ -340,7 +340,7 @@ tuple<bool, audio_frame2> audio_frame2::resample_fake(audio_frame2_resampler & r
                 return {false, audio_frame2{}};
         }
 
-        channels = move(new_channels);
+        channels = std::move(new_channels);
         return {ret, std::move(remainder)};
 }
 

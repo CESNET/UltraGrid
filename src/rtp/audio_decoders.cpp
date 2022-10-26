@@ -794,7 +794,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return FALSE;
                         }
-                        decoder->resample_remainder = move(remainder);
+                        decoder->resample_remainder = std::move(remainder);
                 } else {
                         if (!decompressed.resample(decoder->resampler, s->buffer.sample_rate)) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
