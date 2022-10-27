@@ -221,6 +221,10 @@ if test $target_cpu = x86_64 -o $target_cpu = i686
 then
         ARCH=${ARCH--msse4.1}
 fi
+if test $target_cpu = armv7l
+then
+        LIBS="${LIBS:+$LIBS }-latomic" # needed for atomic_uint64_t
+fi
 CFLAGS="$CFLAGS${ARCH+ $ARCH}"
 CXXFLAGS="$CXXFLAGS${ARCH+ $ARCH}"
 LDFLAGS="$LDFLAGS${ARCH+ $ARCH}"
