@@ -119,7 +119,7 @@ if [ -n "${appimage_key-}" ] && [ -n "${GIT_ROOT-}" ]; then
         echo "$appimage_key" >> "$GIT_ROOT/pubkey.asc"
 fi
 
-mkappimage=$(command -v mkappimage-x86_64.AppImage || command -v ./mkappimage || true)
+mkappimage=$(command -v ./mkappimage || command -v mkappimage-x86_64.AppImage || command -v mkappimage || true)
 if [ -z "$mkappimage" ]; then
         mkai_url=$($dl https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous | grep "browser_download_url.*mkappimage-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 4)
         $dl "$mkai_url" > mkappimage

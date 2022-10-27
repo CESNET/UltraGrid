@@ -3,3 +3,22 @@ libgdk-3.so.0
 # Rocky Linux 9
 libgnutls.so.30
 libgdk_pixbuf-2.0.so.0
+
+# ARM
+ld-linux-aarch64.so.1
+ld-linux-armhf.so.3
+#libcrypt.so.1
+#libnss_db.so.2
+#libXau.so.6
+#libXcursor.so.1
+#libXdmcp.so.6
+#libXext.so.6
+#libXfixes.so.3
+#libXinerama.so.1
+#libXi.so.6
+#libXrandr.so.2
+##libXrender.so.1
+#libXtst.so.6
+#libXxf86vm.so.1
+#libX11-xcb.so.1
+#libxcb* libxshm*
