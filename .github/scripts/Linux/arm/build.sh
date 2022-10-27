@@ -103,5 +103,6 @@ chmod 755 $APPDIR/AppRun
 cp data/ultragrid.png $APPDIR/ultragrid.png
 cp data/uv-qt.desktop $APPDIR/ultragrid.desktop
 
-appimagetool --comp gzip $APPDIR "$APPNAME" # --sign
+mkappimage --comp gzip $APPDIR # --sign
+mv -- *.AppImage "$APPNAME"
 

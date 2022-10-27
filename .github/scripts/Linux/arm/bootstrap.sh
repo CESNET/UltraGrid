@@ -4,7 +4,6 @@
 
 ARCH=$1
 OLDPWD=$(pwd)
-CMAKE_FORCE_VER=
 
 raspbian_build_sdl2() {
         (
@@ -19,13 +18,13 @@ raspbian_build_sdl2() {
         )
 }
 
+apt -y install curl
+
 if grep -q Raspbian /etc/os-release; then # https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1670905 workaround
         sed -i s-http://deb.debian.org/debian-http://mirrordirector.raspbian.org/raspbian/- /etc/apt/sources.list
-        apt -y install curl
         curl http://archive.raspberrypi.org/debian/raspberrypi.gpg.key | apt-key add -
         echo 'deb http://archive.raspberrypi.org/debian buster main' >> /etc/apt/sources.list
         apt -y update
-        CMAKE_FORCE_VER="=3.13.4-1" # solves https://gitlab.kitware.com/cmake/cmake/-/issues/20568
 fi
 
 apt -y install build-essential git pkg-config autoconf automake libtool
@@ -50,14 +49,17 @@ else
         apt -y install libavcodec-dev libavformat-dev libsdl2-dev libswscale-dev
 fi
 
-# appimagetool
-apt -y install desktop-file-utils git-core libfuse-dev libcairo2-dev cmake$CMAKE_FORCE_VER cmake-data$CMAKE_FORCE_VER wget zsync
-git clone -b 12 https://github.com/AppImage/AppImageKit.git
-cd AppImageKit && patch -N -p1 < /mksquashfs-compilation-fix.patch
-./build.sh
-cd build
-cmake -DAUXILIARY_FILES_DESTINATION= ..
-make -j 3 install
-cd "$OLDPWD"
+# mkappimage
+mkai_arch=$(dpkg --print-architecture)
+if [ "$mkai_arch" = arm64 ]; then
+        mkai_arch=aarch64
+fi
+mkai_url=$(curl https://api.github.com/repos/probonopd/go-appimage/releases/tags/continuous | grep "browser_download_url.*mkappimage-.*-$mkai_arch.AppImage" | head -n 1 | cut -d '"' -f 4)
+curl -L "$mkai_url" > mkappimage
+chmod 755 mkappimage
+#shellcheck disable=SC2211
+/usr/bin/qemu-*-static ./mkappimage --appimage-extract
+mv squashfs-root /opt/mkappimage
+ln -s /opt/mkappimage/AppRun /usr/local/bin/mkappimage
 
-rm -rf FFmpeg AppImageKit
+rm -rf FFmpeg AppImageKit mkappimage

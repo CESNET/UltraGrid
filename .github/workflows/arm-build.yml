@@ -18,9 +18,11 @@ jobs:
           - arch: armhf
             repo: http://mirrordirector.raspbian.org/raspbian/
             keyring: /etc/apt/trusted.gpg
+            qemu_bin_arch: arm
           - arch: arm64
             repo: https://deb.debian.org/debian
             keyring: /usr/share/keyrings/debian-archive-keyring.gpg
+            qemu_bin_arch: aarch64
 
     steps:
     - uses: actions/checkout@v3
@@ -44,6 +46,7 @@ jobs:
         sudo qemu-debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} buster ~/chroot ${{ matrix.repo }}
         sudo cp $GITHUB_WORKSPACE/.github/scripts/Linux/arm/{bootstrap.sh,mksquashfs-compilation-fix.patch} ~/chroot
         sudo cp -r $GITHUB_WORKSPACE/.github/scripts/Linux/arm/ffmpeg-arm-patches ~/chroot
+        sudo cp /usr/bin/qemu-${{ matrix.qemu_bin_arch }}-static ~/chroot/usr/bin
         sudo chroot ~/chroot /bootstrap.sh ${{ matrix.arch }}
         cd ~ && sudo tar cf chroot.tar chroot # Create archive for caching. Needs to be created as root, therefore created manually.
     - name: Extract Cached Environment
