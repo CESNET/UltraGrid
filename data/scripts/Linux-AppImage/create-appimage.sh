@@ -74,7 +74,12 @@ fi
 # Remove libraries that should not be bundled, see https://gitlab.com/probono/platformissues
 [ -f excludelist ] || $dl https://raw.githubusercontent.com/probonopd/AppImages/master/excludelist > excludelist || exit 1
 DIRNAME=$(dirname "$0")
-cat "$DIRNAME/excludelist.local" >> excludelist
+uname_m=$(uname -m)
+excl_list_arch=x86
+if expr "$uname_m" : arm >/dev/null || expr "uname_m" : aarch64; then
+        excl_list_arch=arm
+fi
+cat "$DIRNAME/excludelist.local.$excl_list_arch" >> excludelist
 EXCLUDE_LIST=
 while read -r x; do
         if [ -z "$x" ] || expr "x$x" : x\# > /dev/null; then
