@@ -61,6 +61,7 @@ chmod 755 mkappimage
 #shellcheck disable=SC2211
 /usr/bin/qemu-*-static ./mkappimage --appimage-extract
 mv squashfs-root /opt/mkappimage
-ln -s /opt/mkappimage/AppRun /usr/local/bin/mkappimage
+printf '%b' '#!/bin/sh\nexec /opt/mkappimage/AppRun "$@"\n' > /usr/local/bin/mkappimage
+chmod 755 /usr/local/bin/mkappimage
 
 rm -rf FFmpeg AppImageKit mkappimage
