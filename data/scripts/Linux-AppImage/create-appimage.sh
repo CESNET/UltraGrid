@@ -65,7 +65,7 @@ for n in "$APPPREFIX"/bin/* "$APPPREFIX"/lib/ultragrid/* $PLUGIN_LIBS; do
         done
 done
 
-if wget -V | grep -q https; then
+if command wget >/dev/null && wget -V | grep -q https; then
         dl='wget -O -'
 elif command -v curl >/dev/null; then
         dl='curl -L'

@@ -19,6 +19,7 @@ raspbian_build_sdl2() {
 }
 
 apt -y install curl
+echo -k > ~/.curlrc
 
 if grep -q Raspbian /etc/os-release; then # https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1670905 workaround
         sed -i s-http://deb.debian.org/debian-http://mirrordirector.raspbian.org/raspbian/- /etc/apt/sources.list
