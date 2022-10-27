@@ -651,7 +651,7 @@ static const struct video_display_info display_rpi4_info = {
         display_rpi4_put_audio_frame,
         display_rpi4_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
+        "[RPi display] ",
 };
 
 REGISTER_MODULE(rpi4, &display_rpi4_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
