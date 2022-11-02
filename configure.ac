@@ -2992,27 +2992,44 @@ fi
 # OpenSSL-libcrypto
 # -------------------------------------------------------------------------------------------------
 crypto=no
+crypto_impl=
 AC_ARG_ENABLE(openssl,
-[  --disable-openssl       disable OpenSSL support (default is auto)]
-[                          Requires: crypto],
-    [crypto_req=$enableval],
-    [crypto_req=$build_default]
-    )
+              AS_HELP_STRING([--enable-openssl@<:@=auto|openssl|wolfssl@:>@], [enable encryption support (default is auto)]
+              [Requires: crypto | wolfssl]),
+              [crypto_req=$enableval],
+              [crypto_req=$build_default]
+)
 
-PKG_CHECK_MODULES([CRYPTO], [libcrypto], [FOUND_CRYPTO_PC=yes], [FOUND_CRYPTO_PC=no])
-
-if test "$FOUND_CRYPTO_PC" = yes; then
-        SAVED_CFLAGS=$CFLAGS
-        CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
-        AC_CHECK_HEADER(openssl/aes.h, FOUND_CRYPTO_H=yes, FOUND_CRYPTO_H=no)
-        if test $FOUND_CRYPTO_H = no; then
-                UG_MSG_WARN([libcrypto.pc found but openssl/aes.h is not present. This is usually caused by presence of /usr/lib/pkgconfig/libcrypto.pc on macOS. If encryption is requested, install openssl from Homebrew and set PKG_CONFIG_PATH accordingly (see 'brew ln openssl').])
+if test "$crypto_req" != no && test "$crypto_req" != wolfssl; then
+        PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto_impl=OpenSSL], [crypto_impl=])
+        if test -n "$crypto_impl"; then
+                SAVED_CFLAGS=$CFLAGS
+                CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
+                AC_CHECK_HEADER(openssl/aes.h, FOUND_CRYPTO_H=yes, FOUND_CRYPTO_H=no)
+                if test $FOUND_CRYPTO_H = no; then
+                        UG_MSG_WARN([libcrypto.pc found but openssl/aes.h is not present. This is usually caused by presence of /usr/lib/pkgconfig/libcrypto.pc on macOS. You can install OpenSSL from Homebrew and set PKG_CONFIG_PATH accordingly (see 'brew ln openssl') OR use WolfSSL instead of OpenSSL.])
+                        crypto_impl=
+                fi
+                CFLAGS=$SAVED_CFLAGS
         fi
-        CFLAGS=$SAVED_CFLAGS
+fi
+if test -z "$crypto_impl" && test "$crypto_req" != no && test "$crypto_req" != openssl; then
+        PKG_CHECK_MODULES([CRYPTO], [wolfssl], [crypto_impl=wolfSSL], [crypto_impl=])
+        if test -n "$crypto_impl"; then
+                AC_DEFINE([HAVE_WOLFSSL], [1], [Using WolfSSL instead of OpenSSL])
+        fi
 fi
 
-if test $crypto_req != no -a "$FOUND_CRYPTO_PC" = yes -a "$FOUND_CRYPTO_H" = yes; then
+if test -n "$crypto_impl"; then
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $CRYPTO_LIBS"
+        AC_CHECK_FUNCS(AES_cfb128_encrypt, [], AC_CHECK_FUNCS(wolfSSL_AES_cfb128_encrypt, [], crypto_impl=)) # CFB is a required mode
+        LIBS=$SAVED_LIBS
+fi
+
+if test -n "$crypto_impl"; then
         crypto=yes
+        crypto_impl=" ($crypto_impl)"
         OPENSSL_OBJ="src/crypto/openssl_encrypt.o src/crypto/openssl_decrypt.o"
         CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
         CXXFLAGS="$CXXFLAGS $CRYPTO_CFLAGS"
@@ -3021,10 +3038,13 @@ if test $crypto_req != no -a "$FOUND_CRYPTO_PC" = yes -a "$FOUND_CRYPTO_H" = yes
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $CRYPTO_LIBS"
         AC_CHECK_FUNCS(AES_ctr128_encrypt)
+        AC_CHECK_FUNCS(AES_ecb_encrypt)
+        AC_CHECK_FUNCS(wolfSSL_AES_cfb128_encrypt)
+        AC_CHECK_FUNCS(wolfSSL_AES_ecb_encrypt)
         LIBS=$SAVED_LIBS
 fi
 
-if test $crypto_req = yes -a $crypto = no; then
+if test "$crypto_req" != "$build_default" && test "$crypto" = no; then
         AC_MSG_ERROR([OpenSSL not found]);
 fi
 
@@ -3478,13 +3498,13 @@ RESULT="Target: $target\n"
 # features
 RESULT=`start_section "$RESULT" "Features"`
 RESULT=`add_column "$RESULT" "CppUnit tests" $cppunit $?`
+RESULT=`add_column "$RESULT" "Crypto$crypto_impl" $crypto $?`
 RESULT=`add_column "$RESULT" "CUDA support$HOST_CC_REPORT" $FOUND_CUDA $?`
 RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
 RESULT=`add_column "$RESULT" "iHDTV support" $ihdtv $?`
 RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
 RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
 RESULT=`add_column "$RESULT" "OpenCV" $opencv $?`
-RESULT=`add_column "$RESULT" "OpenSSL-libcrypto" $crypto $?`
 RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
 RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
 RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`

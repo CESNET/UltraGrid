@@ -48,8 +48,15 @@
 #include "lib_common.h"
 
 #include <string.h>
+#ifdef HAVE_WOLFSSL
+#define OPENSSL_EXTRA
+#define WC_NO_HARDEN
+#include <wolfssl/openssl/aes.h>
+#include <wolfssl/openssl/rand.h>
+#else
 #include <openssl/aes.h>
 #include <openssl/rand.h>
+#endif
 
 #define MOD_NAME "[encrypt] "
 
@@ -69,7 +76,7 @@ static int openssl_encrypt_init(struct openssl_encrypt **state, const char *pass
         struct openssl_encrypt *s = (struct openssl_encrypt *)
                 calloc(1, sizeof(struct openssl_encrypt));
 
-        MD5_CTX context;
+        MD5CTX context;
         unsigned char hash[16];
 
         MD5Init(&context);
@@ -110,7 +117,7 @@ static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plai
                 case MODE_AES128_NONE:
                         abort();
                 case MODE_AES128_CTR:
-#ifdef HAVE_AES_CTR128_ENCRYPT
+#if defined HAVE_AES_CTR128_ENCRYPT || defined HAVE_WOLFSSL_AES_CTR128_ENCRYPT
                         AES_ctr128_encrypt(plaintext, ciphertext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
 #else
@@ -126,9 +133,13 @@ static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plai
                         }
                         break;
                 case MODE_AES128_ECB:
+#if defined HAVE_AES_ECB_ENCRYPT || defined HAVE_WOLFSSL_AES_ECB_ENCRYPT
                         assert(len == AES_BLOCK_SIZE);
                         AES_ecb_encrypt(plaintext, ciphertext,
                                         &s->key, AES_ENCRYPT);
+#else
+                        log_msg(LOG_LEVEL_ERROR, "AES ECB is not compiled in!\n");
+#endif
                         break;
         }
 }

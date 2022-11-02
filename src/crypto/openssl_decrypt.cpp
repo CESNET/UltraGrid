@@ -50,7 +50,13 @@
 #include "lib_common.h"
 
 #include <string.h>
+#ifdef HAVE_WOLFSSL
+#define OPENSSL_EXTRA
+#define WC_NO_HARDEN
+#include <wolfssl/openssl/aes.h>
+#else
 #include <openssl/aes.h>
+#endif
 
 struct openssl_decrypt {
         AES_KEY key;
@@ -67,7 +73,7 @@ static int openssl_decrypt_init(struct openssl_decrypt **state,
                 (struct openssl_decrypt *)
                 calloc(1, sizeof(struct openssl_decrypt));
 
-        MD5_CTX context;
+        MD5CTX context;
         unsigned char hash[16];
 
         MD5Init(&context);
@@ -102,12 +108,16 @@ static void openssl_decrypt_block(struct openssl_decrypt *s,
                 case MODE_AES128_NONE:
                         abort();
                 case MODE_AES128_ECB:
+#if defined HAVE_AES_ECB_ENCRYPT || defined HAVE_WOLFSSL_AES_ECB_ENCRYPT
                         assert(len == AES_BLOCK_SIZE);
                         AES_ecb_encrypt(ciphertext, plaintext,
                                         &s->key, AES_DECRYPT);
+#else
+                        log_msg(LOG_LEVEL_ERROR, "AES ECB is not compiled in!\n");
+#endif
                         break;
                 case MODE_AES128_CTR:
-#ifdef HAVE_AES_CTR128_ENCRYPT
+#if defined HAVE_AES_CTR128_ENCRYPT || defined HAVE_WOLFSSL_AES_CTR128_ENCRYPT
                         AES_ctr128_encrypt(ciphertext, plaintext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
 #else

@@ -45,7 +45,7 @@
 
 int test_md5(void)
 {
-        MD5_CTX context;
+        MD5CTX context;
         unsigned char digest[16];
         unsigned char i1[] = "";
         unsigned char o1[] =

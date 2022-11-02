@@ -226,7 +226,7 @@ static void MD5Transform(uint32_t state[4], const unsigned char block[64])
  * 
  * Initializes MD5 context for the start of message digest computation.
  **/
-void MD5Init(MD5_CTX * context)
+void MD5Init(MD5CTX * context)
 {
         context->count[0] = context->count[1] = 0;
         /* Load magic initialization constants.  */
@@ -246,7 +246,7 @@ void MD5Init(MD5_CTX * context)
  * processing another message block, and updating the context.
  **/
 
-void MD5Update(MD5_CTX * context, const unsigned char *input, unsigned int inputLen)
+void MD5Update(MD5CTX * context, const unsigned char *input, unsigned int inputLen)
 {
         unsigned int i, index, partLen;
 
@@ -292,7 +292,7 @@ void MD5Update(MD5_CTX * context, const unsigned char *input, unsigned int input
  * with MD5Init() before being used for other MD5 checksum calculations.
  **/
 
-void MD5Final(unsigned char digest[16], MD5_CTX * context)
+void MD5Final(unsigned char digest[16], MD5CTX * context)
 {
         unsigned char bits[8];
         unsigned int index, padLen;

@@ -35,11 +35,11 @@ typedef struct {
   uint32_t state[4];            /* state (ABCD) */
   uint32_t count[2];        	/* number of bits, modulo 2^64 (lsb first) */
   unsigned char buffer[64];     /* input buffer */
-} MD5_CTX;
+} MD5CTX;
 
-void MD5Init(MD5_CTX *context);
-void MD5Update(MD5_CTX *context, const unsigned char *input, unsigned int inputLen);
-void MD5Final(unsigned char digest[16], MD5_CTX *context);
+void MD5Init(MD5CTX *context);
+void MD5Update(MD5CTX *context, const unsigned char *input, unsigned int inputLen);
+void MD5Final(unsigned char digest[16], MD5CTX *context);
 
 #ifdef __cplusplus
 }
