@@ -88,6 +88,7 @@
 #include <iostream>
 #include <vector>
 
+#define MOD_NAME "[transmit] "
 #define TRANSMIT_MAGIC	0xe80ab15f
 
 #define FEC_MAX_MULT 10
@@ -243,7 +244,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 }
                 if (tx->enc_funcs->init(&tx->encryption,
                                         encryption, DEFAULT_CIPHER_MODE) != 0) {
-                        fprintf(stderr, "Unable to initialize encryption\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to initialize encryption\n");
                         module_done(&tx->mod);
                         return NULL;
                 }

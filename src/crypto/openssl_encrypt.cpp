@@ -51,6 +51,8 @@
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 
+#define MOD_NAME "[encrypt] "
+
 struct openssl_encrypt {
         AES_KEY key;
 
@@ -76,8 +78,9 @@ static int openssl_encrypt_init(struct openssl_encrypt **state, const char *pass
         MD5Final(hash, &context);
 
         AES_set_encrypt_key(hash, 128, &s->key);
-        if (!RAND_bytes(s->ivec, 8)) {
+        if (RAND_bytes(s->ivec, 8) < 0) {
                 free(s);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot generate random bytes!\n");
                 return -1;
         }
         s->mode = mode;
