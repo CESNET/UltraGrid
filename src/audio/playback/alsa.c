@@ -892,7 +892,7 @@ static void * audio_play_alsa_init(const char *cfg)
         /* CC3000e playback needs to be initialized prior to capture
          * (to arbitrary value) in order to work. This hack ensures
          * that. */
-        if (strstr(snd_pcm_name(s->handle), "CARD=Speakerph")) {
+        if (snd_pcm_name(s->handle) && strstr(snd_pcm_name(s->handle), "CARD=Speakerph")) {
                 struct audio_desc desc = {2, 48000, 1, AC_PCM};
                 size_t len = sizeof desc;
                 if (audio_play_alsa_ctl(s, AUDIO_PLAYBACK_CTL_QUERY_FORMAT, &desc, &len)) {
