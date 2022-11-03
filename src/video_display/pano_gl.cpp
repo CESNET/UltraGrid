@@ -40,8 +40,11 @@
 #include "config_win32.h"
 #endif
 
+#include <cassert>
 #include <chrono>
-#include <assert.h>
+#include <condition_variable>
+#include <mutex>
+#include <queue>
 
 #include "debug.h"
 #include "host.h"

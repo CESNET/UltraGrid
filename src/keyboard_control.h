@@ -44,62 +44,21 @@
 #ifdef __cplusplus
 
 #include <cinttypes>
-#include <ctime>
-#include <condition_variable>
-#include <map>
-#include <mutex>
-#include <queue>
-#include <set>
-#include <string>
-#include <thread>
-#include <utility>
-
-#ifdef HAVE_TERMIOS_H
-#include <termios.h>
-#endif
+#include <memory>
 
 class keyboard_control {
 public:
         keyboard_control(struct module *parent);
         ~keyboard_control();
+        keyboard_control(keyboard_control&&) = delete;
+        keyboard_control& operator=(keyboard_control&&) = delete;
+
         void start();
         void stop();
 
-        static void msg_received_func(struct module *);
-        void msg_received();
-
 private:
-        void read_command(bool multiple);
-        void execute_command(const char *command);
-        bool exec_local_command(const char *commnad);
-        void exec_external_commands(const char *commnads);
-
-        void load_config_map();
-
-        int64_t get_next_key();
-        void info();
-        void run();
-        void signal();
-        void usage();
-
-        struct module m_mod;
-
-        std::thread m_keyboard_thread;
-        struct module *m_root, *m_parent;
-#ifdef HAVE_TERMIOS_H
-        int m_event_pipe[2];
-#else
-        std::condition_variable m_cv;
-#endif
-        bool m_should_exit;
-        std::queue<int64_t> m_pressed_keys;
-        bool m_started;
-        bool m_locked_against_changes;
-        std::time_t m_start_time;
-
-        std::set<int64_t> guarded_keys;
-        std::map<int64_t, std::pair<std::string, std::string> > key_mapping; // user defined - key, command, name
-        std::mutex m_lock;
+        class impl;
+        std::unique_ptr<impl> m_impl;
 };
 
 #endif // __cplusplus

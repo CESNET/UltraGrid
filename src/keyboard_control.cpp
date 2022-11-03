@@ -53,12 +53,19 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include <cinttypes>
 #include <climits>
+#include <condition_variable>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
+#include <map>
+#include <mutex>
+#include <queue>
+#include <set>
 #include <sstream>
+#include <string>
+#include <thread>
+#include <utility>
 
 #include "debug.h"
 #include "host.h"
@@ -97,6 +104,60 @@ static bool old_tio_set = false;
 static struct termios old_tio;
 #endif
 
+struct keyboard_control::impl {
+public:
+        explicit impl(struct module *parent);
+        ~impl();
+        void start();
+        void stop();
+
+        void msg_received();
+        static void msg_received_func(struct module *);
+
+private:
+        void read_command(bool multiple);
+        void execute_command(const char *command);
+        bool exec_local_command(const char *command);
+        void exec_external_commands(const char *commands);
+
+        void load_config_map();
+
+        int64_t get_next_key();
+        void info();
+        void run();
+        void signal();
+        void usage();
+
+        struct module m_mod{};
+
+        std::thread m_keyboard_thread;
+        struct module *m_root              {nullptr};
+        struct module *m_parent;
+#ifdef HAVE_TERMIOS_H
+        int m_event_pipe[2] = {0, 0};
+#else
+        std::condition_variable m_cv;
+#endif
+        bool m_should_exit                 {false};
+        std::queue<int64_t> m_pressed_keys;
+        bool m_started                     {false};
+        bool m_locked_against_changes      {true};
+        std::time_t m_start_time;
+
+        std::set<int64_t> guarded_keys    { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '>', '<', 'e', 's', 'S', 'v', 'V', 'r' };
+        std::map<int64_t, std::pair<std::string, std::string> > key_mapping; // user defined - key, command, name
+        std::mutex m_lock;
+};
+
+keyboard_control::keyboard_control(struct module *parent) : m_impl{std::make_unique<impl>(parent)} {}
+keyboard_control::~keyboard_control() = default;
+void keyboard_control::start() {
+        m_impl->start();
+}
+void keyboard_control::stop() {
+        m_impl->stop();
+}
+
 void restore_old_tio(void)
 {
 #ifdef HAVE_TERMIOS_H
@@ -116,17 +177,8 @@ void restore_old_tio(void)
 #endif
 }
 
-keyboard_control::keyboard_control(struct module *parent) :
-        m_mod{},
-        m_root(nullptr),
-        m_parent(parent),
-#ifdef HAVE_TERMIOS_H
-        m_event_pipe{0, 0},
-#endif
-        m_should_exit(false),
-        m_started(false),
-        m_locked_against_changes(true),
-        guarded_keys { '*', '/', '9', '0', 'c', 'C', 'm', 'M', '>', '<', 'e', 's', 'S', 'v', 'V', 'r' }
+keyboard_control::impl::impl(struct module *parent) :
+        m_parent(parent)
 {
         m_start_time = time(NULL);
 
@@ -141,17 +193,17 @@ keyboard_control::keyboard_control(struct module *parent) :
         module_init_default(&m_mod);
         m_mod.cls = MODULE_CLASS_KEYCONTROL;
         m_mod.priv_data = this;
-        m_mod.new_message = keyboard_control::msg_received_func;
+        m_mod.new_message = keyboard_control::impl::msg_received_func;
         module_register(&m_mod, m_parent);
 }
 
-keyboard_control::~keyboard_control() {
+keyboard_control::impl::~impl() {
         stop(); // in case that it was not called explicitly
 }
 
 ADD_TO_PARAM("disable-keyboard-control", "* disable-keyboard-control\n"
                 "  disables keyboard control (usable mainly for non-interactive runs)\n");
-void keyboard_control::start()
+void keyboard_control::impl::start()
 {
         if (get_commandline_param("disable-keyboard-control")) {
                 return;
@@ -183,11 +235,11 @@ void keyboard_control::start()
 
         load_config_map();
 
-        m_keyboard_thread = thread(&keyboard_control::run, this);
+        m_keyboard_thread = thread(&keyboard_control::impl::run, this);
         m_started = true;
 }
 
-void keyboard_control::signal()
+void keyboard_control::impl::signal()
 {
 #ifdef HAVE_TERMIOS_H
         char c = 0;
@@ -199,7 +251,7 @@ void keyboard_control::signal()
 #endif
 }
 
-void keyboard_control::stop()
+void keyboard_control::impl::stop()
 {
         module_done(&m_mod);
         if (!m_started) {
@@ -385,7 +437,7 @@ static string get_keycode_representation(int64_t ch) {
  * @returns next key either from keyboard or received via control socket.
  *          If m_should_exit is set, returns 0.
  */
-int64_t keyboard_control::get_next_key()
+int64_t keyboard_control::impl::get_next_key()
 {
         int64_t c;
         while (1) {
@@ -451,7 +503,7 @@ int64_t keyboard_control::get_next_key()
         }
 }
 
-void keyboard_control::run()
+void keyboard_control::impl::run()
 {
         set_thread_name("keyboard-control");
         int saved_log_level = -1;
@@ -590,7 +642,7 @@ void keyboard_control::run()
         }
 }
 
-void keyboard_control::info()
+void keyboard_control::impl::info()
 {
         col() << TBOLD("UltraGrid version: ") << get_version_details() << "\n";
         col() << TBOLD("Start time: ") << asctime(localtime(&m_start_time));
@@ -683,7 +735,7 @@ void keyboard_control::info()
 
 #define G(key) (guarded_keys.find(key) != guarded_keys.end() ? " [g]" : "")
 
-void keyboard_control::usage()
+void keyboard_control::impl::usage()
 {
         col() << "\nAvailable keybindings:\n" <<
                 TBOLD("\t  * 0  ") << "- increase volume" << G('*') << "\n" <<
@@ -714,7 +766,7 @@ void keyboard_control::usage()
         col() << TBOLD("[g]") << " indicates that that option is guarded (Ctrl-x needs to be pressed first)\n";
 }
 
-void keyboard_control::load_config_map() {
+void keyboard_control::impl::load_config_map() {
         FILE *in = fopen(CONFIG_FILE, "r");
         if (!in) {
                 return;
@@ -735,7 +787,7 @@ void keyboard_control::load_config_map() {
         fclose(in);
 }
 
-bool keyboard_control::exec_local_command(const char *command)
+bool keyboard_control::impl::exec_local_command(const char *command)
 {
         if (strcmp(command, "localhelp") == 0) {
                 printf("Local help:\n"
@@ -787,7 +839,7 @@ bool keyboard_control::exec_local_command(const char *command)
         return false;
 }
 
-void keyboard_control::exec_external_commands(const char *commands)
+void keyboard_control::impl::exec_external_commands(const char *commands)
 {
         char *cpy = strdup(commands);
         char *item, *save_ptr, *tmp = cpy;
@@ -806,13 +858,13 @@ void keyboard_control::exec_external_commands(const char *commands)
         free(cpy);
 }
 
-void keyboard_control::execute_command(const char *command) {
+void keyboard_control::impl::execute_command(const char *command) {
         if (!exec_local_command(command)) {
                 exec_external_commands(command);
         }
 }
 
-void keyboard_control::read_command(bool multiple)
+void keyboard_control::impl::read_command(bool multiple)
 {
         int saved_log_level = log_level;
         log_level = LOG_LEVEL_QUIET;
@@ -880,13 +932,13 @@ static bool set_tio()
         return false;
 }
 
-void keyboard_control::msg_received_func(struct module *m) {
-        auto s = static_cast<keyboard_control *>(m->priv_data);
+void keyboard_control::impl::msg_received_func(struct module *m) {
+        auto s = static_cast<keyboard_control::impl *>(m->priv_data);
 
         s->msg_received();
 }
 
-void keyboard_control::msg_received() {
+void keyboard_control::impl::msg_received() {
         struct message *msg;
         while ((msg = check_message(&m_mod))) {
                 auto m = reinterpret_cast<struct msg_universal *>(msg);
