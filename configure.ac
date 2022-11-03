@@ -2621,7 +2621,7 @@ if test $cross_compile = no; then
         if test $found_zfec = no; then
                 ZFEC_PREFIX=/usr/lib/python3/dist-packages/zfec
                 if test ! -d "$ZFEC_PREFIX"; then
-                        ZFEC_PREFIX=$(ls -d /usr/lib/python* | tail -n 1)/site-packages/zfec
+                        ZFEC_PREFIX=$(echo /usr/lib/python* | sed 's/.* \(@<:@^ @:>@*\)/\1/')/site-packages/zfec
                 fi
                 if test ! -d "$ZFEC_PREFIX"; then
                         ZFEC_PREFIX=/usr/local/src/zfec
