@@ -12,15 +12,14 @@ LIBRARY_PATH=/usr/local/lib:/usr/local/opt/qt/lib
 printf "%b" "UG_SKIP_NET_TESTS=1\n"\
 "CPATH=$CPATH\n"\
 "LIBRARY_PATH=$LIBRARY_PATH\n" >> "$GITHUB_ENV"
-# libcrypto.pc (and other libcrypto files) is not linked to /usr/local/{lib,include} because conflicting with system libcrypto
-echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig:/usr/local/opt/openssl/lib/pkgconfig" >> "$GITHUB_ENV"
+echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
 brew install autoconf automake cppunit libtool pkg-config
 brew install libsoxr speexdsp
 brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
-brew install imagemagick jack libnatpmp opencv openssl
+brew install imagemagick jack libnatpmp opencv wolfssl
 brew install ossp-uuid # for cineform
 brew install qt@5
 brew install glm
