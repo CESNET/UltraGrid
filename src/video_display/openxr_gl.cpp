@@ -42,6 +42,9 @@
 
 #include <chrono>
 #include <thread>
+#include <vector>
+#include <condition_variable>
+#include <queue>
 
 #include <assert.h>
 #ifdef HAVE_LINUX
