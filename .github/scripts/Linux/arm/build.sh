@@ -12,6 +12,7 @@ APPNAME=UltraGrid-latest-${ARCH}.AppImage
 
 ./autogen.sh --enable-plugins
 make -j "$(nproc)"
+UG_SKIP_NET_TESTS=1
 make check
 make distcheck
 
