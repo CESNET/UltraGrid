@@ -128,12 +128,15 @@ class image_pattern {
                                 for (int x = width - 1; x >= 0; --x) {
                                         unsigned char *in_pix = data + 4 * (y * width + x);
                                         unsigned char *out_pix = data + 6 * (y * width + x);
+                                        unsigned char r = *in_pix++;
+                                        unsigned char g = *in_pix++;
+                                        unsigned char b = *in_pix++;
                                         *out_pix++ = 0;
-                                        *out_pix++ = *in_pix++;
+                                        *out_pix++ = r;
                                         *out_pix++ = 0;
-                                        *out_pix++ = *in_pix++;
+                                        *out_pix++ = g;
                                         *out_pix++ = 0;
-                                        *out_pix++ = *in_pix++;
+                                        *out_pix++ = b;
                                 }
                         }
                 }
