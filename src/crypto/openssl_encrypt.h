@@ -38,8 +38,6 @@
 #ifndef OPENSSL_ENCRYPT_H_
 #define OPENSSL_ENCRYPT_H_
 
-#ifdef __cplusplus
-
 struct openssl_encrypt;
 
 enum openssl_mode {
@@ -97,8 +95,6 @@ struct openssl_encrypt_info {
          */
         int (*get_overhead)(struct openssl_encrypt *encryption);
 };
-
-#endif // __cplusplus
 
 #endif // OPENSSL_ENCRYPT_H_
 

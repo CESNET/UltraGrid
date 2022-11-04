@@ -38,7 +38,6 @@
 #ifndef OPENSSL_DECRYPT_H_
 #define OPENSSL_DECRYPT_H_
 
-#ifdef __cplusplus
 #include "crypto/openssl_encrypt.h" // enum openssl_mode
 
 #define OPENSSL_DECRYPT_ABI_VERSION 1
@@ -79,8 +78,6 @@ struct openssl_decrypt_info {
                         const char *aad, int aad_len,
                         char *plaintext, enum openssl_mode mode);
 };
-
-#endif // __cplusplus
 
 #endif //  OPENSSL_DECRYPT_H_
 
