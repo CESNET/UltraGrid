@@ -468,7 +468,7 @@ static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
         return false;
 }
 
-#ifdef HWACCEL_RPI4
+#ifdef HWACC_RPI4
 int rpi4_hwacc_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
                 codec_t out_codec)
@@ -511,7 +511,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 #ifdef HAVE_MACOSX
                 {AV_PIX_FMT_VIDEOTOOLBOX, HWACCEL_VIDEOTOOLBOX, videotoolbox_init},
 #endif
-#ifdef HWACCEL_RPI4
+#ifdef HWACC_RPI4
                 {AV_PIX_FMT_RPI4_8, HWACCEL_RPI4, rpi4_hwacc_init},
 #endif
                 {AV_PIX_FMT_NONE, HWACCEL_NONE, NULL}
