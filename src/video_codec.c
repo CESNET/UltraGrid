@@ -2706,7 +2706,7 @@ static void vc_copylineY216toV210(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) src % 2 == 0);
         assert((uintptr_t) dst % 4 == 0);
-        OPTIMIZED_FOR (int x = 0; x < dst_len / 16; ++x) {
+        OPTIMIZED_FOR (int x = 0; x < (dst_len + 15) / 16; ++x) {
                 const uint16_t *s = (const uint16_t *)(const void *) (src + x * 24);
                 uint32_t *d = (uint32_t *)(void *) (dst + x * 16);
                 uint16_t y1, u, y2, v;
