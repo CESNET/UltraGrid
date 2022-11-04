@@ -1091,31 +1091,32 @@ vc_copylineRGBA(unsigned char * __restrict dst, const unsigned char * __restrict
         if (rshift == 0 && gshift == 8 && bshift == 16) {
                 memcpy(dst, src, len);
         } else {
+                uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
                 while (len >= 16) {
                         register unsigned int r, g, b;
                         tmp = *(s++);
                         r = tmp & 0xff;
                         g = (tmp >> 8) & 0xff;
                         b = (tmp >> 16) & 0xff;
-                        tmp = (r << rshift) | (g << gshift) | (b << bshift);
+                        tmp = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                         *(d++) = tmp;
                         tmp = *(s++);
                         r = tmp & 0xff;
                         g = (tmp >> 8) & 0xff;
                         b = (tmp >> 16) & 0xff;
-                        tmp = (r << rshift) | (g << gshift) | (b << bshift);
+                        tmp = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                         *(d++) = tmp;
                         tmp = *(s++);
                         r = tmp & 0xff;
                         g = (tmp >> 8) & 0xff;
                         b = (tmp >> 16) & 0xff;
-                        tmp = (r << rshift) | (g << gshift) | (b << bshift);
+                        tmp = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                         *(d++) = tmp;
                         tmp = *(s++);
                         r = tmp & 0xff;
                         g = (tmp >> 8) & 0xff;
                         b = (tmp >> 16) & 0xff;
-                        tmp = (r << rshift) | (g << gshift) | (b << bshift);
+                        tmp = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                         *(d++) = tmp;
                         len -= 16;
                 }
@@ -1125,7 +1126,7 @@ vc_copylineRGBA(unsigned char * __restrict dst, const unsigned char * __restrict
                         r = tmp & 0xff;
                         g = (tmp >> 8) & 0xff;
                         b = (tmp >> 16) & 0xff;
-                        tmp = (r << rshift) | (g << gshift) | (b << bshift);
+                        tmp = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                         *(d++) = tmp;
                         len -= 4;
                 }
@@ -1414,7 +1415,7 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
 {
         register unsigned int r, g, b;
         register uint32_t *d = (uint32_t *)(void *) dst;
-        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFu << rshift) ^ (0xFFu << gshift) ^ (0xFFu << bshift);
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
 
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
                 r = *src++;
@@ -1542,6 +1543,7 @@ static void vc_copylineUYVYtoRGBA(unsigned char * __restrict dst, const unsigned
                 int gshift, int bshift) {
         assert((uintptr_t) dst % sizeof(uint32_t) == 0);
         uint32_t *dst32 = (uint32_t *)(void *) dst;
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 8; x += 8) {
                 register int y1, y2, u ,v;
                 u = *src++;
@@ -1551,11 +1553,11 @@ static void vc_copylineUYVYtoRGBA(unsigned char * __restrict dst, const unsigned
                 uint8_t r = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);
                 uint8_t g = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
                 uint8_t b = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);
-                *dst32++ = r << rshift | g << gshift | b << bshift;
+                *dst32++ = alpha_mask | r << rshift | g << gshift | b << bshift;
                 r = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);
                 g = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
                 b = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);
-                *dst32++ = r << rshift | g << gshift | b << bshift;
+                *dst32++ = alpha_mask | r << rshift | g << gshift | b << bshift;
         }
 }
 
@@ -2030,8 +2032,9 @@ static void vc_copylineRG48toRGBA(unsigned char * __restrict dst, const unsigned
 {
         assert((uintptr_t) dst % sizeof(uint32_t) == 0);
         uint32_t *dst32 = (uint32_t *)(void *) dst;
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
-                *dst32++ = src[1] << rshift | src[3] << gshift | src[5] << bshift;
+                *dst32++ = alpha_mask | src[1] << rshift | src[3] << gshift | src[5] << bshift;
                 src += 6;
         }
 }
@@ -2471,6 +2474,7 @@ vc_copylineDPX10toRGBA(unsigned char * __restrict dst, const unsigned char * __r
         register const unsigned int *in = (const unsigned int *)(const void *) src;
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r,g,b;
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
 
         while (dst_len >= 4) {
                 register unsigned int val = *in;
@@ -2478,7 +2482,7 @@ vc_copylineDPX10toRGBA(unsigned char * __restrict dst, const unsigned char * __r
                 g = 0xff & (val >> 14);
                 b = 0xff & (val >> 4);
                 
-                *out++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *out++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                 ++in;
                 dst_len -= 4;
         }
