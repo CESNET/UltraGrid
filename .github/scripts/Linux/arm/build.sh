@@ -12,6 +12,8 @@ APPNAME=UltraGrid-latest-${ARCH}.AppImage
 
 ./autogen.sh --enable-plugins
 make -j "$(nproc)"
+make check
+make distcheck
 
 ./data/scripts/Linux-AppImage/create-appimage.sh
 mv -- *.AppImage "$APPNAME"
