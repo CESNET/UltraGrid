@@ -1414,13 +1414,14 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
 {
         register unsigned int r, g, b;
         register uint32_t *d = (uint32_t *)(void *) dst;
-        
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFu << rshift) ^ (0xFFu << gshift) ^ (0xFFu << bshift);
+
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 4; x += 4) {
                 r = *src++;
                 g = *src++;
                 b = *src++;
                 
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
         }
 }
 
