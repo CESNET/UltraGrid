@@ -260,6 +260,8 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/test_rtp.o \
 	    test/run_tests.o
 
+VULKAN_SHADERS="render.vert" "render.frag" "RGB10A2_conv.comp" "UYVA16_conv.comp" "UYVY8_conv.comp"
+
 DEP_FILES_1 = $(OBJS) $(REFLECTOR_OBJS) $(TEST_OBJS) $(ULTRAGRID_OBJS)
 DEP_FILES = $(patsubst %.lib,%.P,$(DEP_FILES_1:.o=.P)) # replace .o and also .lib (Windows) with .P
 # -------------------------------------------------------------------------------------------------
@@ -585,6 +587,7 @@ clean:
 	$(COND_SILENCE)-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	$(COND_SILENCE)-rm -rf @LIB_OBJS@ @MODULES@ @LIB_GENERATED_HEADERS@
 	$(COND_SILENCE)-rm -rf $(DEP_FILES)
+	$(COND_SILENCE)-rm -rf bin/shaders
 	$(COND_SILENCE)if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ distclean; fi
 
 distclean: clean
@@ -621,6 +624,7 @@ $(BUNDLE): $(TARGET) $(REFLECTOR_TARGET) hd-rum-multi/hd-rum
 	cp $(REFLECTOR_TARGET) $(BUNDLE)/Contents/MacOS/
 	cp -r data/MacOS-bundle-template/* $(BUNDLE)/
 	cp hd-rum-multi/hd-rum $(BUNDLE)/Contents/MacOS/
+	cp -r $(srcdir)/share/ $(BUNDLE)/Contents/share/
 	touch $@ # mark target as up to date
 
 # adds libraries to the bundle
@@ -701,7 +705,12 @@ install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)$(man1dir)
 	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(srcdir)/data/hd-rum-transcode.1 $(DESTDIR)$(man1dir)
 	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
-
+	if [ -n "@VULKAN@" ]; then\
+		declare -a SHADERS=($(VULKAN_SHADERS))\
+		for shader in $${SHADERS[@]}; do \
+			$(INSTALL) -D -m 644 "$(srcdir)/share/ultragrid/vulkan_shaders/$$shader" "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/$$shader"; \
+		done; \
+	fi
 uninstall:
 	$(RM) $(DESTDIR)$(bindir)/uv
 	$(RM) $(DESTDIR)$(bindir)/hd-rum-transcode
@@ -714,6 +723,14 @@ uninstall:
 		$(RM) $(DESTDIR)$(datadir)/applications/uv-qt.desktop;\
 		$(RM) $(DESTDIR)$(datadir)/metainfo/cz.cesnet.ultragrid.appdata.xml;\
 		$(RM) $(DESTDIR)$(datadir)/pixmaps/ultragrid.png;\
+	fi
+	if [ -n "@VULKAN@" ]; then\
+		declare -a SHADERS=($(VULKAN_SHADERS))\
+		for shader in $${SHADERS[@]}; do \
+			$(RM) "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/$$shader";\
+		done; \
+		rmdir $(DESTDIR)$(datadir)/ultragrid/vulkan_shaders;\
+		rmdir $(DESTDIR)$(datadir)/ultragrid;\
 	fi
 
 # vim: set noexpandtab
