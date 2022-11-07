@@ -154,13 +154,15 @@ static void gbrp_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict fram
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
 
         for (int y = 0; y < height; ++y) {
                 uint32_t *line = (uint32_t *)(void *) (dst_buffer + y * pitch);
                 int src_idx = y * frame->linesize[0];
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        *line++ = frame->data[2][src_idx] << rgb_shift[R] |
+                        *line++ = alpha_mask |
+                                frame->data[2][src_idx] << rgb_shift[R] |
                                 frame->data[0][src_idx] << rgb_shift[G] |
                                 frame->data[1][src_idx] << rgb_shift[B];
                         src_idx += 1;
@@ -185,7 +187,7 @@ static inline void gbrap_to_rgb_rgba(char * __restrict dst_buffer, AVFrame * __r
                         buf[1] = frame->data[0][src_idx]; // G
                         buf[2] = frame->data[1][src_idx]; // B
                         if (comp_count == 4) {
-                                buf[3] = frame->data[3][src_idx]; // B
+                                buf[3] = frame->data[3][src_idx]; // A
                         }
                 }
         }
@@ -555,6 +557,8 @@ static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __re
         assert((uintptr_t) frame->linesize[1] % 2 == 0);
         assert((uintptr_t) frame->linesize[2] % 2 == 0);
 
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+
         for (int y = 0; y < height; ++y) {
                 uint16_t *src_g = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
                 uint16_t *src_b = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
@@ -562,7 +566,7 @@ static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __re
                 uint32_t *dst = (uint32_t *)(void *) (dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        *dst++ = (*src_r++ >> (in_depth - 8U)) << rgb_shift[0] | (*src_g++ >> (in_depth - 8U)) << rgb_shift[1] |
+                        *dst++ = alpha_mask | (*src_r++ >> (in_depth - 8U)) << rgb_shift[0] | (*src_g++ >> (in_depth - 8U)) << rgb_shift[1] |
                                 (*src_b++ >> (in_depth - 8U)) << rgb_shift[2];
                 }
         }
@@ -1441,6 +1445,7 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
 
         assert(subsampling == 422 || subsampling == 420);
         assert(out_bit_depth == 24 || out_bit_depth == 30 || out_bit_depth == 32);
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
         const int bpp = out_bit_depth == 30 ? 10 : 8;
 
         for (int y = 0; y < height / 2; ++y) {
@@ -1477,14 +1482,14 @@ static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer
                                 g = CLAMP_FULL(g, bpp);\
                                 b = CLAMP_FULL(b, bpp);\
                                 if (out_bit_depth == 32) {\
-                                        *((uint32_t *)(void *) DST) = (r << rgb_shift[R] | g << rgb_shift[G] | b << rgb_shift[B]);\
+                                        *((uint32_t *)(void *) DST) = alpha_mask | (r << rgb_shift[R] | g << rgb_shift[G] | b << rgb_shift[B]);\
                                         DST += 4;\
                                 } else if (out_bit_depth == 24) {\
                                         *DST++ = r;\
                                         *DST++ = g;\
                                         *DST++ = b;\
                                 } else {\
-                                        *((uint32_t *)(void *) (DST)) = r >> 2U | (r & 0x3U) << 14 | g >> 4U << 8U | (g & 0xFU) << 20U | b >> 6U << 16U | (b & 0x3FU) << 26U;\
+                                        *((uint32_t *)(void *) (DST)) = r >> 2U | (r & 0x3U) << 14 | g >> 4U << 8U | (g & 0xFU) << 20U | b >> 6U << 16U | (b & 0x3FU) << 26U | 0x3U << 24U;\
                                         /*      == htonl(r << 22U | g << 12U | b << 2U) */ \
                                         DST += 4;\
                                 }\
