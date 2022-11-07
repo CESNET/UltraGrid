@@ -2648,16 +2648,16 @@ static void vc_copylineUYVYtoY416(unsigned char * __restrict dst, const unsigned
                 *dst++ = src[1]; // Y0
                 *dst++ = 0;
                 *dst++ = src[2]; // V
-                *dst++ = 0;
-                *dst++ = 0;      // A
+                *dst++ = 0xFFU;
+                *dst++ = 0xFFU;  // A
                 *dst++ = 0;
                 *dst++ = src[0]; // U
                 *dst++ = 0;
                 *dst++ = src[3]; // Y1
                 *dst++ = 0;
                 *dst++ = src[2]; // V
-                *dst++ = 0;
-                *dst++ = 0;      // A
+                *dst++ = 0xFFU;
+                *dst++ = 0xFFU;  // A
                 src += 4;
                 dst_len -= 16;
         }
@@ -2668,8 +2668,8 @@ static void vc_copylineUYVYtoY416(unsigned char * __restrict dst, const unsigned
                 *dst++ = src[1]; // Y0
                 *dst++ = 0;
                 *dst++ = src[2]; // V
-                *dst++ = 0;
-                *dst++ = 0;      // A
+                *dst++ = 0xFFU;
+                *dst++ = 0xFFU;  // A
         }
 }
 
