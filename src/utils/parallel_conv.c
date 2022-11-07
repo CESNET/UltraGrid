@@ -63,6 +63,7 @@ static void *parallel_pix_conv_task(void *arg) {
         return NULL;
 }
 
+/// @todo utilize respawn_parallel
 void parallel_pix_conv(int height, char *out, int out_linesize, const char *in, int in_linesize, decoder_t decode, int threads)
 {
         struct parallel_pix_conv_data data[threads];
