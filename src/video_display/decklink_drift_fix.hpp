@@ -104,7 +104,7 @@ public:
         // returns true if we have filled the period with samples
         ptrdiff_t filled(){
                 bool filled = false;
-                if (this->size() >= this->period ){
+                if (this->size() >= (ptrdiff_t) this->period ){
                         filled = true;
                 }
                 return filled;

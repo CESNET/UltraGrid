@@ -469,10 +469,11 @@ static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
 }
 
 #ifdef HWACC_RPI4
-int rpi4_hwacc_init(struct AVCodecContext *s,
+static int rpi4_hwacc_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
                 codec_t out_codec)
 {
+        UNUSED(s), UNUSED(out_codec);
         state->type = HWACCEL_RPI4;
         state->copy = false;
         return 0;

@@ -266,7 +266,7 @@ static void audio_decoder_process_message(struct module *m)
                 struct response *r = nullptr;
                 if (strstr(msg->text, MSG_UNIVERSAL_TAG_AUDIO_DECODER) == msg->text) {
                         s->req_resample_to = strtoull(msg->text + strlen(MSG_UNIVERSAL_TAG_AUDIO_DECODER), nullptr, 0);
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Resampling sound to: " << (s->req_resample_to >> ADEC_CH_RATE_SHIFT) << "/" << (s->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1)) << "\n";
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Resampling sound to: " << (s->req_resample_to >> ADEC_CH_RATE_SHIFT) << "/" << (s->req_resample_to & ((1LLU << ADEC_CH_RATE_SHIFT) - 1)) << "\n";
                         r = new_response(RESPONSE_OK, nullptr);
                 } else {
                         r = new_response(RESPONSE_NOT_FOUND, nullptr);
@@ -306,7 +306,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         if (const char *val = get_commandline_param("soft-resample")) {
                 assert(strchr(val, '/') != nullptr);
-                s->req_resample_to = atol(val) << 32LLU | atol(strchr(val, '/') + 1);
+                s->req_resample_to = strtoll(val, NULL, 0) << 32LLU | strtoll(strchr(val, '/') + 1, NULL, 0);
         }
 
         gettimeofday(&s->t0, NULL);
@@ -789,7 +789,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         decompressed.change_bps(resampler_bps);
                 }
                 if (decoder->req_resample_to != 0) {
-                        auto [ret, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LU << ADEC_CH_RATE_SHIFT) - 1));
+                        auto [ret, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LLU << ADEC_CH_RATE_SHIFT) - 1));
                         if (!ret) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return FALSE;

@@ -1770,7 +1770,7 @@ static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restr
 
 #ifdef HWACC_RPI4
 static void av_rpi4_8_to_ug(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, int * __restrict rgb_shift)
+                int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(width);
         UNUSED(height);

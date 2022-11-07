@@ -376,6 +376,7 @@ static void print_rpi4_out_help(){
 
 static void *display_rpi4_init(struct module *parent, const char *cfg, unsigned int flags)
 {
+        UNUSED(parent), UNUSED(cfg), UNUSED(flags);
         auto s = std::make_unique<rpi4_display_state>();
 
         std::string_view conf(cfg);

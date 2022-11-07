@@ -55,7 +55,7 @@ void audio_decoder_set_volume(void *state, double val);
 bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc);
 
 #define MSG_UNIVERSAL_TAG_AUDIO_DECODER "ADEC "
-#define ADEC_CH_RATE_SHIFT 32LU
+#define ADEC_CH_RATE_SHIFT (32LLU)
 
 #ifdef __cplusplus
 }
