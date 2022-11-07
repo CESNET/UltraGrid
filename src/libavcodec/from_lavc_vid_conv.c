@@ -971,7 +971,8 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
 
-        UNUSED(rgb_shift);
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 unsigned char *src_cbcr = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * (y / 2);
@@ -985,7 +986,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
                         comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, 8);
+                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP_FULL(r, 8);
@@ -995,7 +996,7 @@ static inline void nv12_to_rgb(char * __restrict dst_buffer, AVFrame * __restric
 
                         y = (*src_y++ - 16) * Y_SCALE;
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, 8);
+                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP_FULL(r, 8);
@@ -1029,6 +1030,8 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
 static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+
         for(int y = 0; y < height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
                 unsigned char *src_y2 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);
@@ -1054,7 +1057,7 @@ static inline void yuv8p_to_rgb(int subsampling, char * __restrict dst_buffer, A
                                 g >>= COMP_BASE;\
                                 b >>= COMP_BASE;\
                                 if (rgba) {\
-                                        *((uint32_t *)(void *) DST) = FORMAT_RGBA(r, g, b, 8);\
+                                        *((uint32_t *)(void *) DST) = FORMAT_RGBA(r, g, b, alpha_mask, 8);\
                                         DST += 4;\
                                 } else {\
                                         *DST++ = CLAMP_FULL(r, 8);\
@@ -1135,7 +1138,8 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
 
-        UNUSED(rgb_shift);
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+
         for(int y = 0; y < height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
@@ -1150,7 +1154,7 @@ static inline void yuv444p_to_rgb(char * __restrict dst_buffer, AVFrame * __rest
                         comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
                         if (rgba) {
-                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, 8);
+                                *((uint32_t *)(void *) dst) = FORMAT_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP(r, 1, 254);
@@ -1540,6 +1544,8 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
 static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, bool rgba)
 {
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
+
         for (int y = 0; y < height; y++) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
                 uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
@@ -1554,7 +1560,7 @@ static inline void yuv444p10le_to_rgb(char * __restrict dst_buffer, AVFrame * __
                         comp_type_t g = YCBCR_TO_G_709_SCALED(y, cb, cr) >> COMP_BASE;
                         comp_type_t b = YCBCR_TO_B_709_SCALED(y, cb, cr) >> COMP_BASE;
                         if (rgba) {
-                                *(uint32_t *)(void *) dst = FORMAT_RGBA(r, g, b, 8);
+                                *(uint32_t *)(void *) dst = FORMAT_RGBA(r, g, b, alpha_mask, 8);
                                 dst += 4;
                         } else {
                                 *dst++ = CLAMP_FULL(r, 8);
