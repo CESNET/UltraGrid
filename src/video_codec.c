@@ -2579,7 +2579,7 @@ static void vc_copylineRGBAtoR10k(unsigned char * __restrict dst, const unsigned
 
                 d->p1 = 0;
                 d->p2 = 0;
-                d->p3 = 0;
+                d->p3 = 0x3U;
                 d->p4 = 0;
 
                 d++;

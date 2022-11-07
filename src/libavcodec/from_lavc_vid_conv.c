@@ -228,7 +228,7 @@ static inline void gbrpXXle_to_r10k(char * __restrict dst_buffer, AVFrame * __re
                         *dst++ = *src_r >> (in_depth - 8U);
                         *dst++ = ((*src_r++ >> (in_depth - 10U)) & 0x3U) << 6U | *src_g >> (in_depth - 6U);
                         *dst++ = ((*src_g++ >> (in_depth - 10U)) & 0xFU) << 4U | *src_b >> (in_depth - 4U);
-                        *dst++ = ((*src_b++ >> (in_depth - 10U)) & 0x3FU) << 2U;
+                        *dst++ = ((*src_b++ >> (in_depth - 10U)) & 0x3FU) << 2U | 0x3U;
                 }
         }
 }
@@ -281,7 +281,7 @@ static inline void yuv444pXXle_to_r10k(int depth, char * __restrict dst_buffer, 
 			*dst++ = r >> 2;
 			*dst++ = (r & 0x3) << 6 | g >> 4;
 			*dst++ = (g & 0xF) << 4 | b >> 6;
-			*dst++ = (b & 0x3F) << 2;
+			*dst++ = (b & 0x3F) << 2 | 0x3U;
                 }
         }
 }
