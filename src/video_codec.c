@@ -855,34 +855,35 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
         } const *s;
         register uint32_t *d;
         register uint32_t tmp;
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
 
         d = (uint32_t *)(void *) dst;
         s = (const void *) src;
 
         while (len >= 16) {
                 tmp =
-                    (s->
+                    (alpha_mask | s->
                      r << rshift) | (((s->gh << 2) | s->
                                       gl) << gshift) | (((s->bh << 4) | s->
                                                          bl) << bshift);
                 s++;
                 *(d++) = tmp;
                 tmp =
-                    (s->
+                    (alpha_mask | s->
                      r << rshift) | (((s->gh << 2) | s->
                                       gl) << gshift) | (((s->bh << 4) | s->
                                                          bl) << bshift);
                 s++;
                 *(d++) = tmp;
                 tmp =
-                    (s->
+                    (alpha_mask | s->
                      r << rshift) | (((s->gh << 2) | s->
                                       gl) << gshift) | (((s->bh << 4) | s->
                                                          bl) << bshift);
                 s++;
                 *(d++) = tmp;
                 tmp =
-                    (s->
+                    (alpha_mask | s->
                      r << rshift) | (((s->gh << 2) | s->
                                       gl) << gshift) | (((s->bh << 4) | s->
                                                          bl) << bshift);
@@ -892,7 +893,7 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
         }
         while (len >= 4) {
                 tmp =
-                    (s->
+                    (alpha_mask | s->
                      r << rshift) | (((s->gh << 2) | s->
                                       gl) << gshift) | (((s->bh << 4) | s->
                                                          bl) << bshift);
@@ -998,6 +999,7 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
 {
         assert((uintptr_t) dst % sizeof(uint32_t) == 0);
         uint32_t *d = (uint32_t *)(void *) dst;
+        uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
 
         OPTIMIZED_FOR (int x = 0; x <= dstlen - 32; x += 32) {
                 uint8_t tmp;
@@ -1010,14 +1012,14 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
                 src += 4;
                 tmp |= src[BYTE_SWAP(0)] << 4;
                 b = tmp; // b0
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                 r = src[BYTE_SWAP(1)]; // r1
                 tmp = src[BYTE_SWAP(2)] >> 4;
                 tmp |= src[BYTE_SWAP(3)] << 4;
                 src += 4;
                 g = tmp; // g1
                 b = src[BYTE_SWAP(0)]; // b1
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                 tmp = src[BYTE_SWAP(1)] >> 4;
                 tmp |= src[BYTE_SWAP(2)] << 4;
                 r = tmp; // r2
@@ -1026,14 +1028,14 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
                 tmp = src[BYTE_SWAP(0)] >> 4;
                 tmp |= src[BYTE_SWAP(1)] << 4;
                 b = tmp; // b2
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                 r = src[BYTE_SWAP(2)]; // r3
                 tmp = src[BYTE_SWAP(3)] >> 4;
                 src += 4;
                 tmp |= src[BYTE_SWAP(0)] << 4;
                 g = tmp; // g3
                 b = src[BYTE_SWAP(1)]; // b3
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                 tmp = src[BYTE_SWAP(2)] >> 4;
                 tmp |= src[BYTE_SWAP(3)] << 4;
                 src += 4;
@@ -1042,14 +1044,14 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
                 tmp = src[BYTE_SWAP(1)] >> 4;
                 tmp |= src[BYTE_SWAP(2)] << 4;
                 b = tmp; // b4
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                 r = src[BYTE_SWAP(3)]; // r5
                 src += 4;
                 tmp = src[BYTE_SWAP(0)] >> 4;
                 tmp |= src[BYTE_SWAP(1)] << 4;
                 g = tmp; // g5
                 b = src[BYTE_SWAP(2)]; // b5
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                 tmp = src[BYTE_SWAP(3)] >> 4;
                 src += 4;
                 tmp |= src[BYTE_SWAP(0)] << 4;
@@ -1059,14 +1061,14 @@ vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rs
                 tmp |= src[BYTE_SWAP(3)] << 4;
                 src += 4;
                 b = tmp; // b6
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
                 r = src[BYTE_SWAP(0)]; // r7
                 tmp = src[BYTE_SWAP(1)] >> 4;
                 tmp |= src[BYTE_SWAP(2)] << 4;
                 g = tmp; // g7
                 b = src[BYTE_SWAP(3)]; // b7
                 src += 4;
-                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                *d++ = alpha_mask | (r << rshift) | (g << gshift) | (b << bshift);
         }
 }
 
