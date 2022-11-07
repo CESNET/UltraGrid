@@ -231,7 +231,7 @@ public:
         speex_resampler(int q) : quality(q) {}
 
         const int *get_supported_bps() override {
-                static const int ret[] = { 2, 0 };
+                static const int ret[] = { 2, 4, 0 };
                 return ret;
         }
 
@@ -256,8 +256,8 @@ bool speex_resampler::check_reconfigure(unsigned original_sample_rate, unsigned 
                                 && bps == prop.bps) {
                 return true;
         }
-        if (bps != 2) {
-                throw logic_error("Only 16 bits per sample are currently for resampling supported!");
+        if (bps != 2 && bps != 4) {
+                throw logic_error("Only 16 or 32 bits per sample are supported for resampling!");
         }
 
         if (state) {
@@ -283,24 +283,33 @@ bool speex_resampler::check_reconfigure(unsigned original_sample_rate, unsigned 
 struct speex_process_channel_data {
         SpeexResamplerState *state;
         int channel_idx;
-        const spx_int16_t *in;
-        spx_int16_t *out;
+        void *in;
+        void *out;
         uint32_t in_frames;
         uint32_t in_frames_orig;
         uint32_t write_frames;
 };
 
-static void *speex_process_channel(void *arg) {
+static void *speex_process_channel_short(void *arg) {
         auto *d = (speex_process_channel_data *) arg;
         speex_resampler_process_int(d->state,
                         d->channel_idx,
-                        d->in, &d->in_frames,
-                        d->out, &d->write_frames);
+                        (spx_int16_t *) d->in, &d->in_frames,
+                        (spx_int16_t *) d->out, &d->write_frames);
         return NULL;
 }
 
-/// @todo
-/// speex supports also floats so there could be possibility also to add support for more bps
+static void *speex_process_channel_int(void *arg) {
+        auto *d = (speex_process_channel_data *) arg;
+        int2float((char *) d->in, (char *) d->in, sizeof(float) * d->in_frames);
+        speex_resampler_process_float(d->state,
+                        d->channel_idx,
+                        (float *) d->in, &d->in_frames,
+                        (float *) d->out, &d->write_frames);
+        float2int((char *) d->out, (char *) d->out, sizeof(float) * d->write_frames);
+        return NULL;
+}
+
 tuple<bool, audio_frame2> speex_resampler::resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) {
         bool ret = check_reconfigure(a.get_sample_rate(), new_sample_rate_num, new_sample_rate_den, a.get_channel_count(), a.get_bps());
         if (!ret) {
@@ -314,19 +323,23 @@ tuple<bool, audio_frame2> speex_resampler::resample(audio_frame2 &a, vector<audi
         for (size_t i = 0; i < new_channels.size(); i++) {
                 speex_worker_data.at(i).state = state;
                 speex_worker_data.at(i).channel_idx = i;
-                speex_worker_data.at(i).in = (const spx_int16_t *)(const void *) a.get_data(i);
-                speex_worker_data.at(i).out = (spx_int16_t *)(void *) new_channels[i].data.get();
+                speex_worker_data.at(i).in = (void *) a.get_data(i);
+                speex_worker_data.at(i).out = (void *) new_channels[i].data.get();
                 speex_worker_data.at(i).in_frames_orig =
-                        speex_worker_data.at(i).in_frames = a.get_data_len(i) / sizeof(int16_t);
-                speex_worker_data.at(i).write_frames = new_channels[i].len / sizeof(int16_t);
+                        speex_worker_data.at(i).in_frames = a.get_data_len(i) / a.get_bps();
+                speex_worker_data.at(i).write_frames = new_channels[i].len / a.get_bps();
         }
-        task_run_parallel(speex_process_channel, new_channels.size(), speex_worker_data.data(), sizeof speex_worker_data[0], NULL);
+        if (a.get_bps() == 2) {
+                task_run_parallel(speex_process_channel_short, new_channels.size(), speex_worker_data.data(), sizeof speex_worker_data[0], NULL);
+        } else {
+                task_run_parallel(speex_process_channel_int, new_channels.size(), speex_worker_data.data(), sizeof speex_worker_data[0], NULL);
+        }
         for (size_t i = 0; i < new_channels.size(); i++) {
                 if (speex_worker_data.at(i).in_frames != speex_worker_data.at(i).in_frames_orig) {
-                        remainder.append(i, a.get_data(i) + speex_worker_data.at(i).in_frames * sizeof(int16_t),
+                        remainder.append(i, a.get_data(i) + speex_worker_data.at(i).in_frames * a.get_bps(),
                                         speex_worker_data.at(i).in_frames_orig - speex_worker_data.at(i).in_frames);
                 }
-                new_channels[i].len = speex_worker_data.at(i).write_frames * sizeof(int16_t);
+                new_channels[i].len = speex_worker_data.at(i).write_frames * a.get_bps();
         }
 
         if (remainder.get_data_len() == 0) {
