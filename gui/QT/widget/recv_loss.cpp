@@ -76,15 +76,21 @@ void RecvLossWidget::updateVal(){
 
 	reports.erase(endIt, reports.end());
 
+	QString tooltip;
 	for(auto& r : reports){
 		received += r.received;
 		total += r.total;
+		tooltip += QString::number(r.ssrc, 16) + ": "
+			+ QString::number(r.received) + '/' + QString::number(r.total) + '\n';
 	}
+
+	if(tooltip.endsWith('\n'))
+		tooltip.chop(1);
 
 	float ratio = ((float) received / total) * 100.f;
 	setFormat("Received %p% of packets");
 	setValue(ratio);
-	//setToolTip(QString::fromUtf8(line.data(), line.length()));
+	setToolTip(tooltip);
 	timer.start();
 }
 
