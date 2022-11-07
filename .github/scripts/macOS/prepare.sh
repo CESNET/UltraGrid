@@ -9,7 +9,7 @@ CPATH=/usr/local/include:/usr/local/opt/qt/include
 DYLIBBUNDLER_FLAGS="${DYLIBBUNDLER_FLAGS:+$DYLIBBUNDLER_FLAGS }-s /usr/local/lib"
 LIBRARY_PATH=/usr/local/lib:/usr/local/opt/qt/lib
 # shellcheck disable=SC2140
-printf "%b" "UG_SKIP_NET_TESTS=1\n"\
+printf "%b" \
 "CPATH=$CPATH\n"\
 "LIBRARY_PATH=$LIBRARY_PATH\n" >> "$GITHUB_ENV"
 echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/opt/qt/lib/pkgconfig" >> "$GITHUB_ENV"
