@@ -1229,7 +1229,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoOutputConversionMode, s->conversion_mode, true);
+                BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigVideoOutputConversionMode, s->conversion_mode, goto error);
 
                 if (!s->keep_device_defaults && use1080psf != BMD_OPT_KEEP) {
                         if (use1080psf == BMD_OPT_DEFAULT) {
@@ -1242,14 +1242,14 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                 }
 
-                BMD_CONFIG_SET(Flag, bmdDeckLinkConfigLowLatencyVideoOutput, s->low_latency, true);
+                BMD_CONFIG_SET_ACTION(Flag, bmdDeckLinkConfigLowLatencyVideoOutput, s->low_latency, goto error);
 
                 if (!s->keep_device_defaults && s->low_latency) {
-                        BMD_CONFIG_SET(Flag, bmdDeckLinkConfigFieldFlickerRemoval, false, false);
+                        BMD_CONFIG_SET_ACTION(Flag, bmdDeckLinkConfigFieldFlickerRemoval, false, BMD_NO_ACTION);
                 }
 
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigHDMI3DPackingFormat, HDMI3DPacking, true);
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoOutputIdleOperation, bmdIdleVideoOutputLastFrame, false);
+                BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigHDMI3DPackingFormat, HDMI3DPacking, goto error);
+                BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigVideoOutputIdleOperation, bmdIdleVideoOutputLastFrame, BMD_NO_ACTION);
 
                 if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
                         if (deckLinkAttributes) {

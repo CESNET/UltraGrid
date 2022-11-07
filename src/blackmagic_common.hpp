@@ -116,22 +116,6 @@ void r10k_full_to_limited(const char *in, char *out, size_t len);
 
 std::ostream &operator<<(std::ostream &output, REFIID iid);
 
-/// @param type - Int of Flag
-/// @param fatal - exit if failed to set (usually set to true for explicit settings, false implicit)
-#define BMD_CONFIG_SET(type, key, val, fatal) do {\
-        if (val != (decltype(val)) BMD_OPT_DEFAULT && val != (decltype(val)) BMD_OPT_KEEP) {\
-                HRESULT result = deckLinkConfiguration->Set##type(key, val);\
-                if (result != S_OK) {\
-                        LOG(fatal ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
-                        if (fatal) { \
-                                goto error;\
-                        } \
-                } else { \
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: " << val << "\n";\
-                } \
-        }\
-} while (0)
-
 /// action to BMD_CONFIG_SET_ACTION if no operation should be performed if error
 #define BMD_NO_ACTION
 /// same as BMD_CONFIG_SET, uses action instead of fatal
