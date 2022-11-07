@@ -16,9 +16,7 @@ install_svt() {
         ( git clone --depth 1 https://gitlab.com/AOMediaCodec/SVT-AV1.git && cd SVT-AV1 && cd Build && cmake .. -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Release && make -j "$(nproc)" && sudo make install || exit 1 )
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git && cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j "$(nproc)" && sudo make install || exit 1 )
         # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
-        #git apply -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
-        curl -LO https://github.com/OpenVisualCloud/SVT-HEVC/files/9913958/master-0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.txt
-        git apply -3 master-0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.txt
+        git apply -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
         git apply -3 SVT-VP9/ffmpeg_plugin/master-*.patch
 }
 
