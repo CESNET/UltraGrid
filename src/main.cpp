@@ -1324,8 +1324,9 @@ static int adjust_params(struct ug_options *opt) {
         // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
         // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possibile that we are sending
         // to a reflector, thats why we require equal ports (we are a receiver as well).
-        if (is_host_loopback(opt->requested_receiver) && opt->video_rx_port == opt->video_tx_port &&
-                        opt->audio.recv_port == opt->audio.send_port) {
+        if (is_host_loopback(opt->requested_receiver)
+                        && (opt->video_rx_port == opt->video_tx_port || opt->video_tx_port == 0)
+                        && (opt->audio.recv_port == opt->audio.send_port || opt->audio.send_port == 0)) {
                 opt->requested_mtu = opt->requested_mtu == 0 ? min(RTP_MAX_MTU, 65535) : opt->requested_mtu;
                 opt->bitrate = opt->bitrate == RATE_DEFAULT ? RATE_UNLIMITED : opt->bitrate;
         } else {
