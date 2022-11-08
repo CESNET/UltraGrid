@@ -122,7 +122,8 @@ static void process_rr(struct rtp *session, rtp_event * e)
                         }
                         //debug_msg("  RTT=%d usec\n", RTT);
                 }
-                log_msg(LOG_LEVEL_INFO, "Receiver reports RTT=%d usec, loss %.2f%%\n", RTT, fract_lost);
+                log_msg(LOG_LEVEL_INFO, "Receiver of 0x%08x reports RTT=%d usec, loss %.2f%%\n",
+                        r->ssrc, RTT, fract_lost);
         }
 }
 
