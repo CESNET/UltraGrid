@@ -1250,23 +1250,19 @@ AC_ARG_ENABLE(vulkan,
 
 PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
 
-if test $vulkan_req != no; then
-        if test $sdl = no -o $sdl_version != 2; then
-                AC_MSG_ERROR([SDL2 not found]);
-        fi
-fi
-
-#echo $vulkan_req $sdl $sdl_version $found_vulkan
-
 if test $vulkan_req != no -a $sdl = yes -a $sdl_version = 2 -a $found_vulkan = yes
-then        
-	VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o" 
+then
+	VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o"
         AC_DEFINE([HAVE_VULKAN], [1],  [Build with vulkan support])
         VULKAN_LIBS="$VULKAN_LIBS $SDL_LIB"
         ADD_MODULE("display_vulkan_sdl2", "$VULKAN_OBJ", "$VULKAN_LIBS")
 	VULKAN=vulkanEnabled
 	AC_SUBST(VULKAN)
-	vulkan=yes        
+	vulkan=yes
+fi
+
+if test "$vulkan_req" = yes && test "$vulkan" = no; then
+        AC_MSG_ERROR([Vulkan dependencies were not found (Vulkan ver 1.1.101 or SDL2)!])
 fi
 
 # ------------------------------------------------------------------------------
