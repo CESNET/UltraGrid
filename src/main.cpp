@@ -1296,7 +1296,11 @@ static int adjust_params(struct ug_options *opt) {
         }
 
         if (opt->video_tx_port == -1) {
-                opt->video_tx_port = opt->port_base;
+                if ((opt->video_rxtx_mode & MODE_SENDER) == 0U) {
+                        opt->video_tx_port = 0; // does not matter, we are receiver
+                } else {
+                        opt->video_tx_port = opt->port_base;
+                }
         }
 
         if (opt->audio.recv_port == -1) {
@@ -1310,7 +1314,11 @@ static int adjust_params(struct ug_options *opt) {
         }
 
         if (opt->audio.send_port == -1) {
-                opt->audio.send_port = opt->video_tx_port ? opt->video_tx_port + 2 : opt->port_base + 2;
+                if ((audio_rxtx_mode & MODE_SENDER) == 0U) {
+                        opt->audio.send_port = 0;
+                } else {
+                        opt->audio.send_port = opt->video_tx_port ? opt->video_tx_port + 2 : opt->port_base + 2;
+                }
         }
 
         // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
