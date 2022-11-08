@@ -1248,7 +1248,7 @@ AC_ARG_ENABLE(vulkan,
     [vulkan_req=$build_default]
     )
 
-PKG_CHECK_MODULES([VULKAN], [vulkan], [found_vulkan=yes], [found_vulkan=no])
+PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
 
 if test $vulkan_req != no; then
         if test $sdl = no -o $sdl_version != 2; then
