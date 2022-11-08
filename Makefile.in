@@ -706,9 +706,9 @@ install: all
 	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(srcdir)/data/hd-rum-transcode.1 $(DESTDIR)$(man1dir)
 	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
 	if [ -n "@VULKAN@" ]; then\
-		declare -a SHADERS=($(VULKAN_SHADERS))\
+		declare -a SHADERS=($(VULKAN_SHADERS));\
 		for shader in $${SHADERS[@]}; do \
-			$(INSTALL) -D -m 644 "$(srcdir)/share/ultragrid/vulkan_shaders/$$shader" "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/$$shader"; \
+			$(INSTALL) -D -m 644 "$(srcdir)/share/ultragrid/vulkan_shaders/$$shader.spv" "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/$$shader.spv"; \
 		done; \
 	fi
 uninstall:
@@ -725,9 +725,9 @@ uninstall:
 		$(RM) $(DESTDIR)$(datadir)/pixmaps/ultragrid.png;\
 	fi
 	if [ -n "@VULKAN@" ]; then\
-		declare -a SHADERS=($(VULKAN_SHADERS))\
+		declare -a SHADERS=($(VULKAN_SHADERS));\
 		for shader in $${SHADERS[@]}; do \
-			$(RM) "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/$$shader";\
+			$(RM) "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/$$shader.spv";\
 		done; \
 		rmdir $(DESTDIR)$(datadir)/ultragrid/vulkan_shaders;\
 		rmdir $(DESTDIR)$(datadir)/ultragrid;\
