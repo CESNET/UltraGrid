@@ -104,7 +104,7 @@ static bool old_tio_set = false;
 static struct termios old_tio;
 #endif
 
-struct keyboard_control::impl {
+class keyboard_control::impl {
 public:
         explicit impl(struct module *parent);
         ~impl();
