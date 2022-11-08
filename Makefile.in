@@ -260,8 +260,6 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/test_rtp.o \
 	    test/run_tests.o
 
-VULKAN_SHADERS="render.vert" "render.frag" "RGB10A2_conv.comp" "UYVA16_conv.comp" "UYVY8_conv.comp"
-
 DEP_FILES_1 = $(OBJS) $(REFLECTOR_OBJS) $(TEST_OBJS) $(ULTRAGRID_OBJS)
 DEP_FILES = $(patsubst %.lib,%.P,$(DEP_FILES_1:.o=.P)) # replace .o and also .lib (Windows) with .P
 # -------------------------------------------------------------------------------------------------
@@ -706,10 +704,7 @@ install: all
 	$(INSTALL) -m 644 $(srcdir)/data/uv.1 $(srcdir)/data/hd-rum-transcode.1 $(DESTDIR)$(man1dir)
 	if [ -n '@DLL_LIBS@' ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)$(bindir); fi
 	if [ -n "@VULKAN@" ]; then\
-		declare -a SHADERS=($(VULKAN_SHADERS));\
-		for shader in $${SHADERS[@]}; do \
-			$(INSTALL) -D -m 644 "$(srcdir)/share/ultragrid/vulkan_shaders/$$shader.spv" "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/$$shader.spv"; \
-		done; \
+		$(INSTALL) -D -m 644 "$(srcdir)/share/ultragrid/vulkan_shaders/"* -t "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders"; \
 	fi
 uninstall:
 	$(RM) $(DESTDIR)$(bindir)/uv
@@ -725,10 +720,7 @@ uninstall:
 		$(RM) $(DESTDIR)$(datadir)/pixmaps/ultragrid.png;\
 	fi
 	if [ -n "@VULKAN@" ]; then\
-		declare -a SHADERS=($(VULKAN_SHADERS));\
-		for shader in $${SHADERS[@]}; do \
-			$(RM) "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/$$shader.spv";\
-		done; \
+		$(RM) "$(DESTDIR)$(datadir)/ultragrid/vulkan_shaders/"*;\
 		rmdir $(DESTDIR)$(datadir)/ultragrid/vulkan_shaders;\
 		rmdir $(DESTDIR)$(datadir)/ultragrid;\
 	fi
