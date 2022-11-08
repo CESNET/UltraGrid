@@ -225,7 +225,7 @@ class VulkanInstance {
         void init_validation_layers_error_messenger();
 
         friend void vulkan_display_detail::VulkanContext::init(VulkanInstance&&,
-                VkSurfaceKHR, WindowParameters, uint32_t, vk::PresentModeKHR);
+                VkSurfaceKHR, vulkan_display::WindowParameters, uint32_t, vk::PresentModeKHR);
 public:
         VulkanInstance() = default;
         VulkanInstance(const VulkanInstance& other) = delete;
