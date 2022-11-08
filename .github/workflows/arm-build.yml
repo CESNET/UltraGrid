@@ -67,7 +67,7 @@ jobs:
         sudo .github/scripts/replace-asset.sh GITHUB_REPOSITORY=$GITHUB_REPOSITORY GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} continuous ~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage application/x-appimage Linux%20${{ matrix.arch }}%20build
     - name: Upload Build
       if: steps.upload-release-asset.conclusion == 'skipped'
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: UltraGrid CI ${{ matrix.arch }} build
         path: '~/chroot/UltraGrid/UltraGrid-latest-${{ matrix.arch }}.AppImage'
