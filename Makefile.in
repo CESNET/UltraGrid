@@ -710,9 +710,11 @@ uninstall:
 	$(RM) $(DESTDIR)$(bindir)/uv
 	$(RM) $(DESTDIR)$(bindir)/hd-rum-transcode
 	if [ -n "@MODULES@" ]; then for n in @MODULES@; do $(RM) $(DESTDIR)$(libdir)/ultragrid/`basename $$n`; done; fi
-	for n in $(DOCS); do $(RM) $(DESTDIR)$(docdir)$$n; done;
+	for n in $(DOCS); do $(RM) $(DESTDIR)$(docdir)/`basename $$n`; done;
 	$(RM) $(DESTDIR)$(docdir)/CONTRIBUTING.md $(DESTDIR)$(docdir)/COPYRIGHT $(DESTDIR)$(docdir)/INSTALL $(DESTDIR)$(docdir)/NEWS $(DESTDIR)$(docdir)/README.md
 	$(RM) $(DESTDIR)$(docdir)/ultragrid-bugreport-collect.sh
+	rmdir $(DESTDIR)$(docdir)
+	$(RM) $(DESTDIR)$(man1dir)/uv.1 $(DESTDIR)$(man1dir)/hd-rum-transcode.1
 	if [ -f "$(GUI_TARGET)" ]; then \
 		$(RM) $(DESTDIR)$(bindir)/`basename $(GUI_TARGET)`;\
 		$(RM) $(DESTDIR)$(datadir)/applications/uv-qt.desktop;\
