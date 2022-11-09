@@ -3029,6 +3029,14 @@ AC_ARG_ENABLE(openssl,
               [crypto_req=$build_default]
 )
 
+check_required_ciphers() {
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $CRYPTO_LIBS"
+        AC_CHECK_FUNCS(EVP_aes_128_cfb128, [], AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_cfb128, [], crypto_impl=))
+        AC_CHECK_FUNCS(EVP_aes_128_cbc, [], AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_cbc, [], crypto_impl=))
+        LIBS=$SAVED_LIBS
+}
+
 if test "$crypto_req" != no && test "$crypto_req" != wolfssl; then
         PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto_impl=OpenSSL], [crypto_impl=])
         if test -n "$crypto_impl"; then
@@ -3040,20 +3048,15 @@ if test "$crypto_req" != no && test "$crypto_req" != wolfssl; then
                         crypto_impl=
                 fi
                 CFLAGS=$SAVED_CFLAGS
+                check_required_ciphers
         fi
 fi
 if test -z "$crypto_impl" && test "$crypto_req" != no && test "$crypto_req" != openssl; then
         PKG_CHECK_MODULES([CRYPTO], [wolfssl], [crypto_impl=wolfSSL], [crypto_impl=])
         if test -n "$crypto_impl"; then
+                check_required_ciphers
                 AC_DEFINE([HAVE_WOLFSSL], [1], [Using WolfSSL instead of OpenSSL])
         fi
-fi
-
-if test -n "$crypto_impl"; then
-        SAVED_LIBS=$LIBS
-        LIBS="$LIBS $CRYPTO_LIBS"
-        AC_CHECK_FUNCS(EVP_aes_128_cfb128, [], AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_cfb128, [], crypto_impl=)) # CFB is a required mode
-        LIBS=$SAVED_LIBS
 fi
 
 if test -n "$crypto_impl"; then

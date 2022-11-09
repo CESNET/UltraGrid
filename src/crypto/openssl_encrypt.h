@@ -45,7 +45,8 @@ enum openssl_mode {
         MODE_AES128_CTR = 1, // no autenticity, only integrity (CRC)
         MODE_AES128_CFB = 2,
         MODE_AES128_ECB = 3,
-        MODE_AES128_MAX = MODE_AES128_ECB,
+        MODE_AES128_CBC = 4,
+        MODE_AES128_MAX = MODE_AES128_CBC,
 };
 
 const void *get_cipher(enum openssl_mode mode);

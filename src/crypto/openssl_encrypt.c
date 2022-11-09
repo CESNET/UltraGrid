@@ -88,6 +88,9 @@ const void *get_cipher(enum openssl_mode mode) {
                        return EVP_aes_128_ecb();
 #endif
                        break;
+               case MODE_AES128_CBC:
+                       return EVP_aes_128_cbc();
+                       break;
         }
         return NULL;
 }
