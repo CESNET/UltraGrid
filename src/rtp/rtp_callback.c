@@ -122,8 +122,16 @@ static void process_rr(struct rtp *session, rtp_event * e)
                         }
                         //debug_msg("  RTT=%d usec\n", RTT);
                 }
-                log_msg(LOG_LEVEL_INFO, "Receiver of 0x%08x reports RTT=%d usec, loss %.2f%%\n",
-                        r->ssrc, RTT, fract_lost);
+
+                int packet_count = 1;
+                const rtcp_rr *last_rr = rtp_get_rr(session, e->ssrc, r->ssrc);
+                if(last_rr){
+                    packet_count = (r->last_seq - last_rr->last_seq);
+                }
+                if(packet_count < 1) packet_count = 1;
+
+                log_msg(LOG_LEVEL_INFO, "Receiver of 0x%08x reports RTT=%d usec, loss %.2f%% (out of %d packets)\n",
+                        r->ssrc, RTT, fract_lost, packet_count);
         }
 }
 
