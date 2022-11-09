@@ -1,5 +1,6 @@
 #include <QString>
 #include "recv_report.hpp"
+#include "utils/string_view_utils.hpp"
 
 RecvReportWidget::RecvReportWidget(QWidget *parent) : QProgressBar(parent){
 	reset();
@@ -15,6 +16,19 @@ void RecvReportWidget::reset(){
 	setTextVisible(true);
 	setToolTip("No RTCP receiver report. Note that this does not necessarily mean"
 			" that the receiver isn't receiving.");
+}
+
+void RecvReportWidget::parseLine(std::string_view line){
+	if(!sv_is_prefix(line, "Receiver of 0x"))
+		return;
+
+	auto tmp = std::string(line);
+	int ssrc = 0;
+	int rtt = 0;
+	float loss = 0;
+	sscanf(tmp.c_str(), "Receiver of 0x%08x reports RTT=%d usec, loss %f%%", &ssrc, &rtt, &loss);
+
+	report(rtt, loss);
 }
 
 void RecvReportWidget::report(int rtt_usec, float loss){

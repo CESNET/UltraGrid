@@ -202,22 +202,8 @@ void UltragridWindow::about(){
 	aboutBox.exec();
 }
 
-static bool isPrefix(std::string_view str, std::string_view prefix){
-	return str.substr(0, prefix.size()) == prefix;
-}
-
 void UltragridWindow::processOutputLine(std::string_view line){
-	if(isPrefix(line, "Receiver of 0x")){
-		auto tmp = std::string(line);
-		int ssrc = 0;
-		int rtt = 0;
-		float loss = 0;
-		sscanf(tmp.c_str(), "Receiver of 0x%08x reports RTT=%d usec, loss %f%%", &ssrc, &rtt, &loss);
-
-		rtcpRr.report(rtt, loss);
-		return;
-	}
-
+	rtcpRr.parseLine(line);
 	controlPort.parseLine(line);
 	receiverLoss.parseLine(line);
 }
