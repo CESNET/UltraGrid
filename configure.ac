@@ -3052,7 +3052,7 @@ fi
 if test -n "$crypto_impl"; then
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $CRYPTO_LIBS"
-        AC_CHECK_FUNCS(AES_cfb128_encrypt, [], AC_CHECK_FUNCS(wolfSSL_AES_cfb128_encrypt, [], crypto_impl=)) # CFB is a required mode
+        AC_CHECK_FUNCS(EVP_aes_128_cfb128, [], AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_cfb128, [], crypto_impl=)) # CFB is a required mode
         LIBS=$SAVED_LIBS
 fi
 
@@ -3066,10 +3066,10 @@ if test -n "$crypto_impl"; then
         ADD_MODULE("openssl", "$OPENSSL_OBJ", "$CRYPTO_LIBS")
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $CRYPTO_LIBS"
-        AC_CHECK_FUNCS(AES_ctr128_encrypt)
-        AC_CHECK_FUNCS(AES_ecb_encrypt)
-        AC_CHECK_FUNCS(wolfSSL_AES_cfb128_encrypt)
-        AC_CHECK_FUNCS(wolfSSL_AES_ecb_encrypt)
+        AC_CHECK_FUNCS(EVP_aes_128_ctr)
+        AC_CHECK_FUNCS(EVP_aes_128_ecb)
+        AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_ctr)
+        AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_ecb)
         LIBS=$SAVED_LIBS
 fi
 

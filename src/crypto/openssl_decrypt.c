@@ -43,23 +43,31 @@
 #endif // HAVE_CONFIG_H
 
 
-#include "crypto/crc.h"
-#include "crypto/md5.h"
-#include "crypto/openssl_decrypt.h"
-#include "debug.h"
-#include "lib_common.h"
-
 #include <string.h>
 #ifdef HAVE_WOLFSSL
 #define OPENSSL_EXTRA
 #define WC_NO_HARDEN
 #include <wolfssl/openssl/aes.h>
+#include <wolfssl/openssl/err.h>
+#include <wolfssl/openssl/evp.h>
 #else
 #include <openssl/aes.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
 #endif
 
+#include "crypto/crc.h"
+#include "crypto/md5.h"
+#include "crypto/openssl_decrypt.h"
+#include "crypto/openssl_encrypt.h" // get_cipher
+#include "debug.h"
+#include "lib_common.h"
+
+#define MOD_NAME "[decrypt] "
+
 struct openssl_decrypt {
-        AES_KEY key;
+        EVP_CIPHER_CTX *ctx;
+        unsigned char key_hash[16];
 
         unsigned char ivec[AES_BLOCK_SIZE];
         unsigned char ecount[AES_BLOCK_SIZE];
@@ -70,19 +78,16 @@ static int openssl_decrypt_init(struct openssl_decrypt **state,
                                 const char *passphrase)
 {
         struct openssl_decrypt *s =
-                (struct openssl_decrypt *)
                 calloc(1, sizeof(struct openssl_decrypt));
 
         MD5CTX context;
-        unsigned char hash[16];
 
         MD5Init(&context);
         MD5Update(&context, (const unsigned char *) passphrase,
                         strlen(passphrase));
-        MD5Final(hash, &context);
+        MD5Final(s->key_hash, &context);
 
-        AES_set_encrypt_key(hash, 128, &s->key);
-        // for ECB it should be AES_set_decrypt_key(hash, 128, &s->key);
+        s->ctx = EVP_CIPHER_CTX_new();
 
         *state = s;
         return 0;
@@ -90,87 +95,50 @@ static int openssl_decrypt_init(struct openssl_decrypt **state,
 
 static void openssl_decrypt_destroy(struct openssl_decrypt *s)
 {
-        if(!s)
+        if(!s) {
                 return;
+        }
+        EVP_CIPHER_CTX_free(s->ctx);
         free(s);
 }
 
-static void openssl_decrypt_block(struct openssl_decrypt *s,
-                const unsigned char *ciphertext, unsigned char *plaintext, const char *ivec_or_nonce_and_counter,
-                int len, enum openssl_mode mode)
-{
-        if (ivec_or_nonce_and_counter) {
-                memcpy(s->ivec, ivec_or_nonce_and_counter, AES_BLOCK_SIZE);
-                s->num = 0;
-        }
-
-        switch (mode) {
-                case MODE_AES128_NONE:
-                        abort();
-                case MODE_AES128_ECB:
-#if defined HAVE_AES_ECB_ENCRYPT || defined HAVE_WOLFSSL_AES_ECB_ENCRYPT
-                        assert(len == AES_BLOCK_SIZE);
-                        AES_ecb_encrypt(ciphertext, plaintext,
-                                        &s->key, AES_DECRYPT);
-#else
-                        log_msg(LOG_LEVEL_ERROR, "AES ECB is not compiled in!\n");
-#endif
-                        break;
-                case MODE_AES128_CTR:
-#if defined HAVE_AES_CTR128_ENCRYPT || defined HAVE_WOLFSSL_AES_CTR128_ENCRYPT
-                        AES_ctr128_encrypt(ciphertext, plaintext, len, &s->key, s->ivec,
-                                        s->ecount, &s->num);
-#else
-                        log_msg(LOG_LEVEL_ERROR, "AES CTR not compiled in!\n");
-#endif
-                        break;
-                case MODE_AES128_CFB:
-                        {
-                                int inum = s->num;
-                                AES_cfb128_encrypt(ciphertext, plaintext, len, &s->key, s->ivec,
-                                                &inum, AES_DECRYPT);
-                                s->num = inum;
-                        }
-                        break;
-                default:
-                        abort();
-        }
-}
-
+#define CHECK(action, errmsg) { int rc = action; if (rc != 1) { log_msg(LOG_LEVEL_ERROR, MOD_NAME errmsg ": %s\n", ERR_error_string(ERR_get_error(), NULL)); return 0; } }
 static int openssl_decrypt(struct openssl_decrypt *decrypt,
                 const char *ciphertext, int ciphertext_len,
                 const char *aad, int aad_len,
                 char *plaintext, enum openssl_mode mode)
 {
-        UNUSED(ciphertext_len);
-        uint32_t data_len;
-        memcpy(&data_len, ciphertext, sizeof(uint32_t));
-        ciphertext += sizeof(uint32_t);
-
-        const char *nonce_and_counter = ciphertext;
-        ciphertext += 16;
-        uint32_t expected_crc;
-        uint32_t crc = 0;
-        if(aad_len > 0) {
-                crc = crc32buf_with_oldcrc((const char *) aad, aad_len, crc);
-        }
-        for(unsigned int i = 0; i < data_len; i += 16) {
-                int block_length = 16;
-                if(data_len - i < 16) block_length = data_len - i;
-                openssl_decrypt_block(decrypt,
-                                (const unsigned char *) ciphertext + i,
-                                (unsigned char *) plaintext + i,
-                                nonce_and_counter, block_length, mode);
-                nonce_and_counter = NULL;
-                crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
-        }
-        openssl_decrypt_block(decrypt,
-                        (const unsigned char *) ciphertext + data_len,
-                        (unsigned char *) &expected_crc,
-                        0, sizeof(uint32_t), mode);
-        if(crc != expected_crc) {
+        const EVP_CIPHER *cipher = get_cipher(mode);
+        if (cipher == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cipher %d not available!\n", (int) mode);
                 return 0;
         }
+        uint32_t data_len;
+        memcpy(&data_len, ciphertext, sizeof(uint32_t));
+        assert ((size_t) ciphertext_len >= data_len + sizeof(uint32_t) + 16 + sizeof(uint32_t));
+        ciphertext += sizeof(uint32_t);
+        const unsigned char *iv = (const unsigned char *) ciphertext;
+        ciphertext += 16;
+        ciphertext_len -= 20;
+
+        CHECK(EVP_CipherInit(decrypt->ctx, cipher, decrypt->key_hash, iv, 0), "Unable to initialize cipher");
+
+        int out_len = 0;
+        CHECK(EVP_CipherUpdate(decrypt->ctx, (unsigned char *) plaintext, &out_len, (const unsigned char *) ciphertext, ciphertext_len), "EVP_CipherUpdate");
+        int total_len = out_len;
+        CHECK(EVP_CipherFinal(decrypt->ctx, (unsigned char *) plaintext + out_len, &out_len), "EVP_CipherFinal");
+        total_len += out_len;
+
+        uint32_t expected_crc = 0;
+        assert((size_t) total_len >= data_len + sizeof expected_crc);
+        memcpy(&expected_crc, plaintext + data_len, sizeof expected_crc);
+        uint32_t crc = crc32buf((const char *) aad, aad_len);
+        crc = crc32buf_with_oldcrc(plaintext, data_len, crc);
+        if (crc != expected_crc) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Packet dropped AES - wrong CRC!\n");
+                return 0;
+        }
+
         return data_len;
 }
 

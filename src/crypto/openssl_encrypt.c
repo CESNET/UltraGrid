@@ -41,34 +41,56 @@
 #include "config_win32.h"
 #endif
 
+#include <string.h>
+#ifdef HAVE_WOLFSSL
+#define OPENSSL_EXTRA
+#define WC_NO_HARDEN
+#include <wolfssl/openssl/aes.h>
+#include <wolfssl/openssl/err.h>
+#include <wolfssl/openssl/evp.h>
+#include <wolfssl/openssl/rand.h>
+#else
+#include <openssl/aes.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#endif
+
 #include "crypto/crc.h"
 #include "crypto/md5.h"
 #include "crypto/openssl_encrypt.h"
 #include "debug.h"
 #include "lib_common.h"
 
-#include <string.h>
-#ifdef HAVE_WOLFSSL
-#define OPENSSL_EXTRA
-#define WC_NO_HARDEN
-#include <wolfssl/openssl/aes.h>
-#include <wolfssl/openssl/rand.h>
-#else
-#include <openssl/aes.h>
-#include <openssl/rand.h>
-#endif
-
 #define MOD_NAME "[encrypt] "
 
 struct openssl_encrypt {
-        AES_KEY key;
+        EVP_CIPHER_CTX *ctx;
+        const EVP_CIPHER *cipher;
 
-        enum openssl_mode mode;
-
-        unsigned char ivec[16];
-        unsigned int num;
-        unsigned char ecount[16];
+        unsigned char key_hash[16];
 };
+
+const void *get_cipher(enum openssl_mode mode) {
+        switch (mode) {
+               case MODE_AES128_NONE:
+                       abort();
+               case MODE_AES128_CFB:
+                       return EVP_aes_128_cfb();
+                       break;
+               case MODE_AES128_CTR:
+#if defined HAVE_EVP_AES_128_CTR || defined HAVE_WOLFSSL_EVP_AES_128_CTR
+                       return EVP_aes_128_ctr();
+#endif
+                       break;
+               case MODE_AES128_ECB:
+#if defined HAVE_EVP_AES_128_ECB || defined HAVE_WOLFSSL_EVP_AES_128_ECB
+                       return EVP_aes_128_ecb();
+#endif
+                       break;
+        }
+        return NULL;
+}
 
 static int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
                 enum openssl_mode mode)
@@ -77,120 +99,65 @@ static int openssl_encrypt_init(struct openssl_encrypt **state, const char *pass
                 calloc(1, sizeof(struct openssl_encrypt));
 
         MD5CTX context;
-        unsigned char hash[16];
 
         MD5Init(&context);
         MD5Update(&context, (const unsigned char *) passphrase,
                         strlen(passphrase));
-        MD5Final(hash, &context);
+        MD5Final(s->key_hash, &context);
 
-        AES_set_encrypt_key(hash, 128, &s->key);
-        if (RAND_bytes(s->ivec, 8) < 0) {
-                free(s);
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot generate random bytes!\n");
+        s->cipher = get_cipher(mode);
+        if (s->cipher == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cipher %d not available!\n", (int) mode);
                 return -1;
         }
-        s->mode = mode;
-        assert(s->mode == MODE_AES128_CFB || MODE_AES128_CTR); // only functional by now
+
+        s->ctx = EVP_CIPHER_CTX_new();
 
         *state = s;
         return 0;
 }
 
-static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plaintext,
-                unsigned char *ciphertext, char *ivec_or_nonce_plus_counter, int len)
-{
-        if (ivec_or_nonce_plus_counter) {
-                memcpy(ivec_or_nonce_plus_counter, (char *) s->ivec, 16);
-                /* We do start a new block so we zero the byte counter
-                 * Please NB that counter doesn't need to be incremented
-                 * because the counter is incremented everytime s->num == 0,
-                 * presumably before encryption, so setting it to 0 forces
-                 * counter increment as well.
-                 */
-                if(s->num != 0) {
-                        s->num = 0;
-                }
-        }
-
-        switch(s->mode) {
-                case MODE_AES128_NONE:
-                        abort();
-                case MODE_AES128_CTR:
-#if defined HAVE_AES_CTR128_ENCRYPT || defined HAVE_WOLFSSL_AES_CTR128_ENCRYPT
-                        AES_ctr128_encrypt(plaintext, ciphertext, len, &s->key, s->ivec,
-                                        s->ecount, &s->num);
-#else
-                        log_msg(LOG_LEVEL_ERROR, "AES CTR not compiled in!\n");
-#endif
-                        break;
-                case MODE_AES128_CFB:
-                        {
-                                int inum = s->num;
-                                AES_cfb128_encrypt(plaintext, ciphertext, len, &s->key, s->ivec,
-                                                &inum, AES_ENCRYPT);
-                                s->num = inum;
-                        }
-                        break;
-                case MODE_AES128_ECB:
-#if defined HAVE_AES_ECB_ENCRYPT || defined HAVE_WOLFSSL_AES_ECB_ENCRYPT
-                        assert(len == AES_BLOCK_SIZE);
-                        AES_ecb_encrypt(plaintext, ciphertext,
-                                        &s->key, AES_ENCRYPT);
-#else
-                        log_msg(LOG_LEVEL_ERROR, "AES ECB is not compiled in!\n");
-#endif
-                        break;
-        }
-}
-
 static void openssl_encrypt_destroy(struct openssl_encrypt *s)
 {
+        EVP_CIPHER_CTX_free(s->ctx);
         free(s);
 }
+
+#define CHECK(action, errmsg) { int rc = action; if (rc != 1) { log_msg(LOG_LEVEL_ERROR, MOD_NAME errmsg ": %s\n", ERR_error_string(ERR_get_error(), NULL)); return 0; } }
 
 static int openssl_encrypt(struct openssl_encrypt *encryption,
                 char *plaintext, int data_len, char *aad, int aad_len, char *ciphertext)
 {
-        uint32_t crc = 0;
         memcpy(ciphertext, &data_len, sizeof(uint32_t));
-        ciphertext += sizeof(uint32_t);
-        char *nonce_and_counter = ciphertext;
-        ciphertext += 16;
+        int total_len = sizeof(uint32_t);
 
-        if(aad_len > 0) {
-                crc = crc32buf_with_oldcrc(aad, aad_len, crc);
+        unsigned char ivec[16];
+        if (RAND_bytes(ivec, 8) < 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot generate random bytes!\n");
+                return 0;
         }
+        memcpy(ciphertext + total_len, ivec, sizeof ivec);
+        total_len += sizeof ivec;
 
-        for(int i = 0; i < data_len; i+=16) {
-                int block_length = 16;
-                if(data_len - i < 16) block_length = data_len - i;
-                crc = crc32buf_with_oldcrc(plaintext + i, block_length, crc);
-                openssl_encrypt_block(encryption,
-                                (unsigned char *) plaintext + i,
-                                (unsigned char *) ciphertext + i,
-                                nonce_and_counter,
-                                block_length);
-                nonce_and_counter = NULL;
-        }
-        openssl_encrypt_block(encryption,
-                        (unsigned char *) &crc,
-                        (unsigned char *) ciphertext + data_len,
-                        NULL,
-                        sizeof(uint32_t));
-        return data_len + sizeof(crc) + 16 + sizeof(uint32_t);
+        CHECK(EVP_CipherInit(encryption->ctx, encryption->cipher, encryption->key_hash, ivec, 1), "Cannot initialize cipher");
+        int out_len = 0;
+        CHECK(EVP_CipherUpdate(encryption->ctx, (unsigned char *) ciphertext + total_len, &out_len, (unsigned char *) plaintext, data_len), "EVP_CipherUpdate");
+        total_len += out_len;
+        uint32_t crc = crc32buf(aad, aad_len);
+        crc = crc32buf_with_oldcrc(plaintext, data_len, crc);
+        CHECK(EVP_CipherUpdate(encryption->ctx, (unsigned char *) ciphertext + total_len, &out_len, (unsigned char *) &crc, sizeof crc), "EVP_CipherUpdate CRC");
+        total_len += out_len;
+        CHECK(EVP_CipherFinal(encryption->ctx, (unsigned char *) ciphertext + total_len, &out_len), "EVP_CipherFinal");
+        total_len += out_len;
+
+        return total_len;
 }
 
 static int openssl_get_overhead(struct openssl_encrypt *s)
 {
-        switch(s->mode) {
-                case MODE_AES128_CFB:
-                case MODE_AES128_CTR:
-                        return sizeof(uint32_t) /* data_len */ +
-                                16 /* nonce + counter */ + sizeof(uint32_t) /* crc */;
-                default:
-                        abort();
-        }
+        UNUSED(s);
+        return sizeof(uint32_t) /* data_len */ +
+                16 /* nonce + counter */ + sizeof(uint32_t) /* crc */;
 }
 
 static const struct openssl_encrypt_info functions = {

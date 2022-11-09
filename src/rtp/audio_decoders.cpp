@@ -700,7 +700,6 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                                         ciphertext, ciphertext_len,
                                         (char *) audio_hdr, sizeof(audio_payload_hdr_t),
                                         plaintext, crypto_mode)) == 0) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Warning: Packet dropped AES - wrong CRC!\n";
                                 return FALSE;
                         }
                         data = plaintext;

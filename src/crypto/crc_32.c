@@ -173,7 +173,7 @@ uint32_t crc32buf_with_oldcrc(const char *buf, size_t len, uint32_t old_crc)
       return ~oldcrc32;
 }
 
-uint32_t crc32buf(char *buf, size_t len)
+uint32_t crc32buf(const char *buf, size_t len)
 {
       return crc32buf_with_oldcrc(buf, len, 0);
 }

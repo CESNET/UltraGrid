@@ -44,10 +44,11 @@ enum openssl_mode {
         MODE_AES128_NONE = 0,
         MODE_AES128_CTR = 1, // no autenticity, only integrity (CRC)
         MODE_AES128_CFB = 2,
-        MODE_AES128_MAX = MODE_AES128_CFB,
-        MODE_AES128_ECB = -1, // do not use
+        MODE_AES128_ECB = 3,
+        MODE_AES128_MAX = MODE_AES128_ECB,
 };
 
+const void *get_cipher(enum openssl_mode mode);
 
 #define MAX_CRYPTO_EXTRA_DATA 24 // == maximal overhead of available encryptions
 #define MAX_CRYPTO_PAD 0 // CTR does not need padding
@@ -83,6 +84,7 @@ struct openssl_encrypt_info {
          * @param[in] aad_len       length of AAD text
          * @param[out] ciphertext   resulting ciphertext, can be up to (plaintext_len + MAX_CRYPTO_EXCEED) length
          * @returns   size of writen ciphertext
+         * @retval 0 on error
          */
         int (*encrypt)(struct openssl_encrypt *encryption,
                         char *plaintext, int plaintext_len, char *aad, int aad_len, char *ciphertext);
