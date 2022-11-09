@@ -159,11 +159,11 @@ bool crc32file(char *name, uint32_t *crc, long *charcnt)
       return true;
 }
 
-uint32_t crc32buf(char *buf, size_t len)
+uint32_t crc32buf_with_oldcrc(const char *buf, size_t len, uint32_t old_crc)
 {
       register uint32_t oldcrc32;
 
-      oldcrc32 = 0xFFFFFFFF;
+      oldcrc32 = ~old_crc;
 
       for ( ; len; --len, ++buf)
       {
@@ -173,18 +173,9 @@ uint32_t crc32buf(char *buf, size_t len)
       return ~oldcrc32;
 }
 
-uint32_t crc32buf_with_oldcrc(const char *buf, size_t len, uint32_t old_crc)
+uint32_t crc32buf(char *buf, size_t len)
 {
-      register uint32_t oldcrc32;
-
-      oldcrc32 = old_crc;
-
-      for ( ; len; --len, ++buf)
-      {
-            oldcrc32 = UPDC32(*buf, oldcrc32);
-      }
-
-      return ~oldcrc32;
+      return crc32buf_with_oldcrc(buf, len, 0);
 }
 
 #ifdef TEST

@@ -152,7 +152,7 @@ static void openssl_encrypt_destroy(struct openssl_encrypt *s)
 static int openssl_encrypt(struct openssl_encrypt *encryption,
                 char *plaintext, int data_len, char *aad, int aad_len, char *ciphertext)
 {
-        uint32_t crc = 0xffffffff;
+        uint32_t crc = 0;
         memcpy(ciphertext, &data_len, sizeof(uint32_t));
         ciphertext += sizeof(uint32_t);
         char *nonce_and_counter = ciphertext;

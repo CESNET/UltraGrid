@@ -150,7 +150,7 @@ static int openssl_decrypt(struct openssl_decrypt *decrypt,
         const char *nonce_and_counter = ciphertext;
         ciphertext += 16;
         uint32_t expected_crc;
-        uint32_t crc = 0xffffffff;
+        uint32_t crc = 0;
         if(aad_len > 0) {
                 crc = crc32buf_with_oldcrc((const char *) aad, aad_len, crc);
         }
