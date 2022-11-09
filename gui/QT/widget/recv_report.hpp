@@ -8,13 +8,15 @@
 
 #include <string_view>
 
+#include "ssrc_container.hpp"
+
 class RecvReportWidget : public QProgressBar{
 	Q_OBJECT
 public:
 	RecvReportWidget(QWidget *parent = nullptr);
 	~RecvReportWidget() = default;
 
-	void report(int rtt_usec, float loss);
+	void updateVal();
 	void parseLine(std::string_view line);
 	void reset();
 
@@ -24,6 +26,13 @@ private slots:
 private:
 	QTimer timer;
 	QElapsedTimer elapsedTimer;
+
+	struct RecvReport{
+		int lost;
+		int total;
+		int rtt_usec;
+	};
+	SSRC_container<RecvReport, decltype(elapsedTimer.elapsed())> reports;
 
 	const int timeout_msec = 15000;
 };
