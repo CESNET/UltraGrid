@@ -5,7 +5,13 @@
 #ifndef CRC__H
 #define CRC__H
 
+#ifdef __cplusplus
+#include <cstdlib>
+#include <cinttypes>
+#else
 #include <stdlib.h>           /* For size_t                 */
+#include <stdint.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {

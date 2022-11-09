@@ -3032,8 +3032,8 @@ AC_ARG_ENABLE(openssl,
 check_required_ciphers() {
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $CRYPTO_LIBS"
-        AC_CHECK_FUNCS(EVP_aes_128_cfb128, [], AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_cfb128, [], crypto_impl=))
         AC_CHECK_FUNCS(EVP_aes_128_cbc, [], AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_cbc, [], crypto_impl=))
+        AC_CHECK_FUNCS(EVP_aes_128_gcm, [], AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_gcm, [], crypto_impl=))
         LIBS=$SAVED_LIBS
 }
 
@@ -3069,10 +3069,13 @@ if test -n "$crypto_impl"; then
         ADD_MODULE("openssl", "$OPENSSL_OBJ", "$CRYPTO_LIBS")
         SAVED_LIBS=$LIBS
         LIBS="$LIBS $CRYPTO_LIBS"
+        # optional ciphers
+        AC_CHECK_FUNCS(EVP_aes_128_cfb128)
         AC_CHECK_FUNCS(EVP_aes_128_ctr)
         AC_CHECK_FUNCS(EVP_aes_128_ecb)
-        AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_ctr)
-        AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_ecb)
+        AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_cfb128, AC_DEFINE([HAVE_EVP_AES_128_CFB128], [1], [have CFB128]))
+        AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_ctr, AC_DEFINE([HAVE_EVP_AES_128_CTR], [1], [have CTR]))
+        AC_CHECK_FUNCS(wolfSSL_EVP_aes_128_ecb, AC_DEFINE([HAVE_EVP_AES_ECB], [1], [have ECB]))
         LIBS=$SAVED_LIBS
 fi
 

@@ -107,7 +107,7 @@
 #define GET_DELTA delta = (long)((double)(stop.QuadPart - start.QuadPart) * 1000 * 1000 * 1000 / freq.QuadPart);
 #endif
 
-#define DEFAULT_CIPHER_MODE MODE_AES128_CFB
+#define DEFAULT_CIPHER_MODE MODE_AES128_GCM
 
 using std::array;
 using std::vector;

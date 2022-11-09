@@ -34,6 +34,18 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * Encryption is done on per-packet basis, for every packet, new IV is
+ * generated, which is send on the beginning, then length of data (uint32_t),
+ * and actual encrypted data with:
+ *
+ * 1. 32-bit CRC (encryptied) for non-GCM
+ * 2. GCM tag after encrypted data
+ *
+ * Encryption algorithm is set in transmit.cpp, detected on receiver. Required
+ * algorightms are currently GCM (default) and CBC.
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -45,6 +57,7 @@
 #ifdef HAVE_WOLFSSL
 #define OPENSSL_EXTRA
 #define WC_NO_HARDEN
+#include <wolfssl/options.h>
 #include <wolfssl/openssl/aes.h>
 #include <wolfssl/openssl/err.h>
 #include <wolfssl/openssl/evp.h>
@@ -62,12 +75,13 @@
 #include "debug.h"
 #include "lib_common.h"
 
+#define GCM_TAG_LEN 16
 #define MOD_NAME "[encrypt] "
 
 struct openssl_encrypt {
         EVP_CIPHER_CTX *ctx;
         const EVP_CIPHER *cipher;
-
+        enum openssl_mode mode;
         unsigned char key_hash[16];
 };
 
@@ -76,20 +90,25 @@ const void *get_cipher(enum openssl_mode mode) {
                case MODE_AES128_NONE:
                        abort();
                case MODE_AES128_CFB:
-                       return EVP_aes_128_cfb();
+#if defined HAVE_EVP_AES_128_CFB128
+                       return EVP_aes_128_cfb128();
+#endif
                        break;
                case MODE_AES128_CTR:
-#if defined HAVE_EVP_AES_128_CTR || defined HAVE_WOLFSSL_EVP_AES_128_CTR
+#if defined HAVE_EVP_AES_128_CTR
                        return EVP_aes_128_ctr();
 #endif
                        break;
                case MODE_AES128_ECB:
-#if defined HAVE_EVP_AES_128_ECB || defined HAVE_WOLFSSL_EVP_AES_128_ECB
+#if defined HAVE_EVP_AES_128_ECB
                        return EVP_aes_128_ecb();
 #endif
                        break;
                case MODE_AES128_CBC:
                        return EVP_aes_128_cbc();
+                       break;
+               case MODE_AES128_GCM:
+                       return EVP_aes_128_gcm();
                        break;
         }
         return NULL;
@@ -115,6 +134,8 @@ static int openssl_encrypt_init(struct openssl_encrypt **state, const char *pass
         }
 
         s->ctx = EVP_CIPHER_CTX_new();
+        s->mode = mode;
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Encryption set to mode %d\n", (int) mode);
 
         *state = s;
         return 0;
@@ -126,7 +147,7 @@ static void openssl_encrypt_destroy(struct openssl_encrypt *s)
         free(s);
 }
 
-#define CHECK(action, errmsg) { int rc = action; if (rc != 1) { log_msg(LOG_LEVEL_ERROR, MOD_NAME errmsg ": %s\n", ERR_error_string(ERR_get_error(), NULL)); return 0; } }
+#define CHECK(action, errmsg) do { int rc = action; if (rc != 1) { log_msg(LOG_LEVEL_ERROR, MOD_NAME errmsg ": %s\n", ERR_error_string(ERR_get_error(), NULL)); return 0; } } while(0)
 
 static int openssl_encrypt(struct openssl_encrypt *encryption,
                 char *plaintext, int data_len, char *aad, int aad_len, char *ciphertext)
@@ -143,24 +164,37 @@ static int openssl_encrypt(struct openssl_encrypt *encryption,
         total_len += sizeof ivec;
 
         CHECK(EVP_CipherInit(encryption->ctx, encryption->cipher, encryption->key_hash, ivec, 1), "Cannot initialize cipher");
+        /* Set IV length if default 12 bytes (96 bits) is not appropriate */
+        CHECK(EVP_CIPHER_CTX_ctrl(encryption->ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof ivec, NULL), "set IV len");
         int out_len = 0;
+        if (encryption->mode == MODE_AES128_GCM) {
+                if (aad_len > 0) {
+                        EVP_EncryptUpdate(encryption->ctx, NULL, &out_len, (unsigned char *) aad, aad_len);
+                }
+        }
         CHECK(EVP_CipherUpdate(encryption->ctx, (unsigned char *) ciphertext + total_len, &out_len, (unsigned char *) plaintext, data_len), "EVP_CipherUpdate");
         total_len += out_len;
-        uint32_t crc = crc32buf(aad, aad_len);
-        crc = crc32buf_with_oldcrc(plaintext, data_len, crc);
-        CHECK(EVP_CipherUpdate(encryption->ctx, (unsigned char *) ciphertext + total_len, &out_len, (unsigned char *) &crc, sizeof crc), "EVP_CipherUpdate CRC");
-        total_len += out_len;
+        if (encryption->mode != MODE_AES128_GCM) {
+                uint32_t crc = crc32buf(aad, aad_len);
+                crc = crc32buf_with_oldcrc(plaintext, data_len, crc);
+                CHECK(EVP_CipherUpdate(encryption->ctx, (unsigned char *) ciphertext + total_len, &out_len, (unsigned char *) &crc, sizeof crc), "EVP_CipherUpdate CRC");
+                total_len += out_len;
+        }
         CHECK(EVP_CipherFinal(encryption->ctx, (unsigned char *) ciphertext + total_len, &out_len), "EVP_CipherFinal");
         total_len += out_len;
+        if (encryption->mode == MODE_AES128_GCM) {
+                CHECK(EVP_CIPHER_CTX_ctrl(encryption->ctx, EVP_CTRL_GCM_GET_TAG, GCM_TAG_LEN, ciphertext + total_len), "GCM get tag");
+                total_len += GCM_TAG_LEN;
+        }
 
         return total_len;
 }
 
 static int openssl_get_overhead(struct openssl_encrypt *s)
 {
-        UNUSED(s);
         return sizeof(uint32_t) /* data_len */ +
-                16 /* nonce + counter */ + sizeof(uint32_t) /* crc */;
+                16 /* nonce + counter */ + (s->mode == MODE_AES128_GCM ? GCM_TAG_LEN : sizeof(uint32_t) /* crc */)
+                + (s->mode == MODE_AES128_ECB ? 15 : 0 /* padding */);
 }
 
 static const struct openssl_encrypt_info functions = {

@@ -40,19 +40,21 @@
 
 struct openssl_encrypt;
 
+/// only GCM provides autenticity, other modes only check integrity (CRC)
 enum openssl_mode {
         MODE_AES128_NONE = 0,
-        MODE_AES128_CTR = 1, // no autenticity, only integrity (CRC)
+        MODE_AES128_CTR = 1,
         MODE_AES128_CFB = 2,
         MODE_AES128_ECB = 3,
         MODE_AES128_CBC = 4,
-        MODE_AES128_MAX = MODE_AES128_CBC,
+        MODE_AES128_GCM = 5,
+        MODE_AES128_MAX = MODE_AES128_GCM,
 };
 
 const void *get_cipher(enum openssl_mode mode);
 
-#define MAX_CRYPTO_EXTRA_DATA 24 // == maximal overhead of available encryptions
-#define MAX_CRYPTO_PAD 0 // CTR does not need padding
+#define MAX_CRYPTO_EXTRA_DATA 36 // == maximal overhead of available encryptions (datalen+IV+CRC/tag)
+#define MAX_CRYPTO_PAD 15 // ECB needs to be padded
 #define MAX_CRYPTO_EXCEED (MAX_CRYPTO_EXTRA_DATA + MAX_CRYPTO_PAD)
 
 #define OPENSSL_ENCRYPT_ABI_VERSION 1

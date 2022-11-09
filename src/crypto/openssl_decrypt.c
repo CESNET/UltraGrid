@@ -47,6 +47,7 @@
 #ifdef HAVE_WOLFSSL
 #define OPENSSL_EXTRA
 #define WC_NO_HARDEN
+#include <wolfssl/options.h>
 #include <wolfssl/openssl/aes.h>
 #include <wolfssl/openssl/err.h>
 #include <wolfssl/openssl/evp.h>
@@ -63,6 +64,7 @@
 #include "debug.h"
 #include "lib_common.h"
 
+#define GCM_TAG_LEN 16
 #define MOD_NAME "[decrypt] "
 
 struct openssl_decrypt {
@@ -88,6 +90,7 @@ static int openssl_decrypt_init(struct openssl_decrypt **state,
         MD5Final(s->key_hash, &context);
 
         s->ctx = EVP_CIPHER_CTX_new();
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Enabled stream decryption.\n");
 
         *state = s;
         return 0;
@@ -102,7 +105,8 @@ static void openssl_decrypt_destroy(struct openssl_decrypt *s)
         free(s);
 }
 
-#define CHECK(action, errmsg) { int rc = action; if (rc != 1) { log_msg(LOG_LEVEL_ERROR, MOD_NAME errmsg ": %s\n", ERR_error_string(ERR_get_error(), NULL)); return 0; } }
+#define CHECK(action, errmsg) do { int rc = action; if (rc != 1) { log_msg(LOG_LEVEL_ERROR, MOD_NAME errmsg ": %s\n", ERR_error_string(ERR_get_error(), NULL)); return 0; } } while(0)
+#pragma GCC diagnostic ignored "-Wcast-qual"
 static int openssl_decrypt(struct openssl_decrypt *decrypt,
                 const char *ciphertext, int ciphertext_len,
                 const char *aad, int aad_len,
@@ -122,21 +126,35 @@ static int openssl_decrypt(struct openssl_decrypt *decrypt,
         ciphertext_len -= 20;
 
         CHECK(EVP_CipherInit(decrypt->ctx, cipher, decrypt->key_hash, iv, 0), "Unable to initialize cipher");
+        CHECK(EVP_CIPHER_CTX_ctrl(decrypt->ctx, EVP_CTRL_GCM_SET_IVLEN, 16, NULL), "set IV len"); // default IV len is presumably 12 bytes
 
         int out_len = 0;
+        if (mode == MODE_AES128_GCM) {
+                ciphertext_len -= GCM_TAG_LEN;
+                if (aad && aad_len > 0) {
+                        if (!EVP_DecryptUpdate(decrypt->ctx, NULL, &out_len, (void *) aad, aad_len)) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "AAD processing: %s\n", ERR_error_string(ERR_get_error(), NULL));
+                        }
+                }
+        }
         CHECK(EVP_CipherUpdate(decrypt->ctx, (unsigned char *) plaintext, &out_len, (const unsigned char *) ciphertext, ciphertext_len), "EVP_CipherUpdate");
         int total_len = out_len;
+        if (mode == MODE_AES128_GCM) {
+                CHECK(EVP_CIPHER_CTX_ctrl(decrypt->ctx, EVP_CTRL_GCM_SET_TAG, GCM_TAG_LEN, (void *) (ciphertext + ciphertext_len)), "GCM set tag");
+        }
         CHECK(EVP_CipherFinal(decrypt->ctx, (unsigned char *) plaintext + out_len, &out_len), "EVP_CipherFinal");
         total_len += out_len;
 
-        uint32_t expected_crc = 0;
-        assert((size_t) total_len >= data_len + sizeof expected_crc);
-        memcpy(&expected_crc, plaintext + data_len, sizeof expected_crc);
-        uint32_t crc = crc32buf((const char *) aad, aad_len);
-        crc = crc32buf_with_oldcrc(plaintext, data_len, crc);
-        if (crc != expected_crc) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Packet dropped AES - wrong CRC!\n");
-                return 0;
+        if (mode != MODE_AES128_GCM) {
+                uint32_t expected_crc = 0;
+                assert((size_t) total_len >= data_len + sizeof expected_crc);
+                memcpy(&expected_crc, plaintext + data_len, sizeof expected_crc);
+                uint32_t crc = crc32buf(aad, aad_len);
+                crc = crc32buf_with_oldcrc(plaintext, data_len, crc);
+                if (crc != expected_crc) {
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: Packet dropped AES - wrong CRC!\n");
+                        return 0;
+                }
         }
 
         return data_len;
