@@ -1,7 +1,7 @@
 name: C/C++ CI
 
 env:
-  FEATURES: '--enable-option-checking=fatal --with-live555=/usr/local --enable-aja --enable-blank --enable-cineform --enable-decklink --enable-file --enable-gl --enable-gl-display --enable-holepunch --enable-jack --enable-jack-transport --enable-libavcodec --enable-natpmp --enable-ndi --enable-openssl --enable-pcp --enable-portaudio --enable-qt --enable-resize --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-sdl2 --enable-sdl_mixer --enable-sdp-http --enable-soxr --enable-speexdsp --enable-swmix --enable-libswscale --enable-testcard-extras=all --enable-text --enable-video-mixer --enable-ximea --enable-zfec'
+  FEATURES: '--enable-option-checking=fatal --with-live555=/usr/local --enable-aja --enable-blank --enable-cineform --enable-decklink --enable-file --enable-gl --enable-gl-display --enable-holepunch --enable-jack --enable-jack-transport --enable-libavcodec --enable-natpmp --enable-ndi --enable-openssl --enable-pcp --enable-portaudio --enable-qt --enable-resize --enable-rtdxt --enable-rtsp --enable-rtsp-server --enable-scale --enable-sdl2 --enable-sdl_mixer --enable-sdp-http --enable-soxr --enable-speexdsp --enable-swmix --enable-libswscale --enable-testcard-extras=all --enable-text --enable-video-mixer --enable-vulkan --enable-ximea --enable-zfec'
   CUDA_FEATURES: '--enable-cuda_dxt --enable-gpujpeg --enable-ldgm-gpu --enable-uyvy'
 
 on:
@@ -105,7 +105,7 @@ jobs:
       if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
       run: .github/scripts/Linux/install_ffmpeg.sh
     - name: configure
-      run: "./autogen.sh --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa --enable-v4l2 || { RC=$?; cat config.log; exit $RC; }"
+      run: "./autogen.sh --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa --enable-v4l2 --enable-vulkan=auto || { RC=$?; cat config.log; exit $RC; }"
     - name: make
       run: make -j4
     - name: make check
