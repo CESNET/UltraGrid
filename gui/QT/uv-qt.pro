@@ -75,6 +75,7 @@ HEADERS += window/ultragrid_window.hpp \
 	util/debug.hpp \
 	util/line_buffer.hpp \
 	util/control_port.hpp \
+	util/ssrc_container.hpp \
 
 FORMS += ui/ultragrid_window.ui \
 	ui/log_window.ui \

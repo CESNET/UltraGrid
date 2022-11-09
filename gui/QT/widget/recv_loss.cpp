@@ -47,41 +47,24 @@ void RecvLossWidget::parseLine(std::string_view line){
 }
 
 void RecvLossWidget::addReport(int ssrc, int received, int total){
-	SSRC_report *rep = nullptr;
-	for(auto& r : reports){
-		if(r.ssrc == ssrc){
-			rep = &r;
-		}
-	}
-
-	if(!rep){
-		SSRC_report newRep;
-		newRep.ssrc = ssrc;
-		reports.push_back(newRep);
-		rep = &reports.back();
-	}
-
-	rep->received = received;
-	rep->total = total;
-	rep->lastReportMs = elapsedTimer.elapsed();
+	SSRC_report rep;
+	rep.received = received;
+	rep.total = total;
+	reports.insert(ssrc, rep, elapsedTimer.elapsed());
 }
 
 void RecvLossWidget::updateVal(){
 	int received = 0;
 	int total = 0;
 
-	auto now = elapsedTimer.elapsed();
-	auto endIt = std::remove_if(reports.begin(), reports.end(),
-			[now](const SSRC_report& r){ return now - r.lastReportMs > timeout_msec; });
-
-	reports.erase(endIt, reports.end());
+	reports.remove_timed_out(timeout_msec, elapsedTimer.elapsed());
 
 	QString tooltip;
-	for(auto& r : reports){
-		received += r.received;
-		total += r.total;
+	for(auto& r : reports.get()){
+		received += r.item.received;
+		total += r.item.total;
 		tooltip += QString::number(r.ssrc, 16) + ": "
-			+ QString::number(r.received) + '/' + QString::number(r.total) + '\n';
+			+ QString::number(r.item.received) + '/' + QString::number(r.item.total) + '\n';
 	}
 
 	if(tooltip.endsWith('\n'))

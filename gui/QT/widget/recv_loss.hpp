@@ -5,9 +5,10 @@
 #include <QProgressBar>
 #include <QTimer>
 
-#include <vector>
 #include <QElapsedTimer>
 #include <string_view>
+
+#include "ssrc_container.hpp"
 
 class RecvLossWidget : public QProgressBar{
 Q_OBJECT
@@ -27,13 +28,10 @@ private:
 	QElapsedTimer elapsedTimer;
 
 	struct SSRC_report{
-		int ssrc = 0;
 		int received = 0;
 		int total = 0;
-
-		qint64 lastReportMs = 0;
 	};
-	std::vector<SSRC_report> reports;
+	SSRC_container<SSRC_report, decltype(elapsedTimer.elapsed())> reports;
 
 	void addReport(int ssrc, int received, int total);
 	void updateVal();
