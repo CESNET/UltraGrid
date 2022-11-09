@@ -470,8 +470,8 @@ private:
         uint32_t neg_jitter = 5;
         // Currently unused but might form a part of a more dynamic
         // solution to finding good jitter values in the future. @todo
-        uint32_t max_avg = 3650;
-        uint32_t min_avg = 1800;
+        [[maybe_unused]] uint32_t max_avg = 3650;
+        [[maybe_unused]] uint32_t min_avg = 1800;
 
         // Store a audio_summary of resampling
         DecklinkAudioSummary audio_summary{};
