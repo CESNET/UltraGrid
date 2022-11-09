@@ -1917,9 +1917,6 @@ static void process_report_blocks(struct rtp *session, rtcp_t * packet,
                         /* Create a database entry for this SSRC, if one doesn't already exist... */
                         create_source(session, rr->ssrc, FALSE);
 
-                        /* Store the RR for later use... */
-                        insert_rr(session, ssrc, rr, rx);
-
                         /* Call the event handler... */
                         if (!filter_event(session, ssrc)) {
                                 event.ssrc = ssrc;
@@ -1927,6 +1924,9 @@ static void process_report_blocks(struct rtp *session, rtcp_t * packet,
                                 event.data = (void *)rr;
                                 session->callback(session, &event);
                         }
+
+                        /* Store the RR for later use... */
+                        insert_rr(session, ssrc, rr, rx);
                 }
         }
 }
