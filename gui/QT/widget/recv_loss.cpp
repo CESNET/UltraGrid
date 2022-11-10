@@ -1,3 +1,7 @@
+#include <QtGlobal>
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+#include <QStyleFactory>
+#endif
 #include "recv_loss.hpp"
 #include "utils/string_view_utils.hpp"
 
@@ -6,6 +10,9 @@ RecvLossWidget::RecvLossWidget(QWidget *parent) : QProgressBar(parent){
 	reset();
 	QObject::connect(&timer, &QTimer::timeout, this, &RecvLossWidget::timeout);
 	timer.setInterval(timeout_msec);
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+	setStyle(QStyleFactory::create("Fusion")); //mac style progressbars have no text
+#endif
 }
 
 void RecvLossWidget::reset(){
