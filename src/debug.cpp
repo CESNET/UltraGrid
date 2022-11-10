@@ -164,9 +164,9 @@ void log_perror(int level, const char *msg)
  * hexadecimal and an ascii representation of the memory region.
  *
  **/
-void debug_dump(void *lp, int len)
+void debug_dump(const void *lp, int len)
 {
-        char *p;
+        const char *p;
         int i, j, start;
         char Buff[81];
         char tmpBuf[10];
@@ -175,7 +175,7 @@ void debug_dump(void *lp, int len)
         start = 0L;
         while (start < len) {
                 /* start line with pointer position key */
-                p = (char *)lp + start;
+                p = (const char *)lp + start;
                 sprintf(Buff, "%p: ", p);
 
                 /* display each character as hex value */
@@ -192,7 +192,7 @@ void debug_dump(void *lp, int len)
                 strcat(Buff, "  ");
 
                 /* display each character as character value */
-                for (i = start, j = 0, p = (char *)lp + start;
+                for (i = start, j = 0, p = (const char *)lp + start;
                      (i < len && j < 16); p++, i++, j++) {
                         if (((*p) >= ' ') && ((*p) <= '~'))     /* test displayable */
                                 sprintf(tmpBuf, "%c", *p);

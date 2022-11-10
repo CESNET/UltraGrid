@@ -79,7 +79,7 @@ enum log_timestamp_mode{
 extern "C" {
 #endif
 
-void debug_dump(void*lp, int len);
+void debug_dump(const void*lp, int len);
 #ifdef DEBUG
 void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *), void *data);
 #else
