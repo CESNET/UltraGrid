@@ -240,12 +240,12 @@ void main(void) {
 )raw";
 
 /* DXT YUV (FastDXT) related */
-static const char *fp_display_dxt1 = R"raw(
+static const char *fp_display_dxt1_yuv = R"raw(
 #version 110
-uniform sampler2D yuvtex;
+uniform sampler2D image;
 
 void main(void) {
-        vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);
+        vec4 col = texture2D(image, gl_TexCoord[0].st);
 
         float Y = 1.1643 * (col[0] - 0.0625);
         float U = (col[1] - 0.5);
@@ -323,7 +323,7 @@ struct state_gl {
         GLuint          PHandle_uyvy = 0;
         GLuint          PHandle_yuva = 0;
         GLuint          PHandle_v210 = 0;
-        GLuint          PHandle_dxt = 0;
+        GLuint          PHandle_dxt1_yuv = 0;
         GLuint          PHandle_dxt5 = 0;
         GLuint          current_program = 0;
 
@@ -817,7 +817,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 free(buffer);
                 if(desc.color_spec == DXT1_YUV) {
                         glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                        glUseProgram(s->PHandle_dxt);
+                        glUseProgram(s->PHandle_dxt1_yuv);
                 }
         } else if (desc.color_spec == UYVY) {
                 glActiveTexture(GL_TEXTURE0 + 2);
@@ -1471,16 +1471,14 @@ static bool display_gl_init_opengl(struct state_gl *s)
         s->PHandle_uyvy = gl_substitute_compile_link(vert, uyvy_to_rgb_fp);
         s->PHandle_yuva = gl_substitute_compile_link(vert, yuva_to_rgb_fp);
         s->PHandle_v210 = gl_substitute_compile_link(vert, v210_to_rgb_fp);
-        // Create fbo
-        glGenFramebuffersEXT(1, &s->fbo_id);
-        s->PHandle_dxt = glsl_compile_link(vert, fp_display_dxt1);
-        glUseProgram(s->PHandle_dxt);
-        glUniform1i(glGetUniformLocation(s->PHandle_dxt,"yuvtex"),0);
-        glUseProgram(0);
-        s->PHandle_dxt5 = glsl_compile_link(vert, fp_display_dxt5ycocg);
+        s->PHandle_dxt1_yuv = gl_substitute_compile_link(vert, fp_display_dxt1_yuv);
+        s->PHandle_dxt5 = gl_substitute_compile_link(vert, fp_display_dxt5ycocg);
 
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // set row alignment to 1 byte instead of default
                                                // 4 bytes which won't work on row-unaligned RGB
+
+        // Create fbo
+        glGenFramebuffersEXT(1, &s->fbo_id);
 
         glGenBuffersARB(1, &s->pbo_id);
         glfwMakeContextCurrent(nullptr);
@@ -1496,7 +1494,7 @@ static void display_gl_cleanup_opengl(struct state_gl *s){
         glDeleteProgram(s->PHandle_uyvy);
         glDeleteProgram(s->PHandle_v210);
         glDeleteProgram(s->PHandle_yuva);
-        glDeleteProgram(s->PHandle_dxt);
+        glDeleteProgram(s->PHandle_dxt1_yuv);
         glDeleteProgram(s->PHandle_dxt5);
         glDeleteTextures(1, &s->texture_display);
         glDeleteTextures(1, &s->texture_raw);
