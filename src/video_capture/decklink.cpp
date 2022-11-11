@@ -1130,10 +1130,10 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         IDeckLinkProfileAttributes *deckLinkAttributes;
         BMD_CHECK(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes", INIT_ERR());
 
-        BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigVideoInputConnection, s->connection, INIT_ERR());
-        BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, INIT_ERR());
+        BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConnection, s->connection, INIT_ERR());
+        BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, INIT_ERR());
         BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
-        BMD_CONFIG_SET_ACTION(Int, bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, BMD_NO_ACTION);
+        BMD_CONFIG_SET(Int, bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, BMD_NO_ACTION);
 
         if (s->link != 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output link configuration on capture is deprecated and will be removed in future, let us know if this is needed!\n";

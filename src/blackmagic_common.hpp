@@ -116,10 +116,9 @@ void r10k_full_to_limited(const char *in, char *out, size_t len);
 
 std::ostream &operator<<(std::ostream &output, REFIID iid);
 
-/// action to BMD_CONFIG_SET_ACTION if no operation should be performed if error
+/// action to BMD_CONFIG_SET if no error handling is required (non-fatal)
 #define BMD_NO_ACTION
-/// same as BMD_CONFIG_SET, uses action instead of fatal
-#define BMD_CONFIG_SET_ACTION(type, key, val, action) do {\
+#define BMD_CONFIG_SET(type, key, val, action) do {\
         if (val != (decltype(val)) BMD_OPT_DEFAULT && val != (decltype(val)) BMD_OPT_KEEP) {\
                 HRESULT result = deckLinkConfiguration->Set##type(key, val);\
                 if (result != S_OK) {\
