@@ -67,6 +67,7 @@
 #include <queue>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 #include "color.h"
 #include "debug.h"
@@ -286,6 +287,14 @@ void main()
 } // main end
 )raw";
 
+unordered_map<codec_t, const char *> glsl_programs = {
+        { UYVY, uyvy_to_rgb_fp },
+        { Y416, yuva_to_rgb_fp },
+        { v210, v210_to_rgb_fp },
+        { DXT1_YUV, fp_display_dxt1_yuv },
+        { DXT5, fp_display_dxt5ycocg },
+};
+
 static constexpr array keybindings{
         pair<int64_t, string_view>{'f', "toggle fullscreen"},
         pair<int64_t, string_view>{'q', "quit"},
@@ -320,11 +329,7 @@ static bool check_rpi_pbo_quirks();
 static void set_gamma(struct state_gl *s);
 
 struct state_gl {
-        GLuint          PHandle_uyvy = 0;
-        GLuint          PHandle_yuva = 0;
-        GLuint          PHandle_v210 = 0;
-        GLuint          PHandle_dxt1_yuv = 0;
-        GLuint          PHandle_dxt5 = 0;
+        unordered_map<codec_t, GLuint> PHandles;
         GLuint          current_program = 0;
 
         // Framebuffer
@@ -817,7 +822,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 free(buffer);
                 if(desc.color_spec == DXT1_YUV) {
                         glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                        glUseProgram(s->PHandle_dxt1_yuv);
+                        glUseProgram(s->PHandles.at(DXT1_YUV));
                 }
         } else if (desc.color_spec == UYVY) {
                 glActiveTexture(GL_TEXTURE0 + 2);
@@ -832,7 +837,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                s->current_program = s->PHandle_uyvy;
+                s->current_program = s->PHandles.at(UYVY);
         } else if (desc.color_spec == v210) {
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
@@ -846,9 +851,9 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_SHORT,
                                 NULL);
-                s->current_program = s->PHandle_v210;
+                s->current_program = s->PHandles.at(v210);
         } else if (desc.color_spec == Y416) {
-                s->current_program = s->PHandle_yuva;
+                s->current_program = s->PHandles.at(Y416);
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
@@ -880,7 +885,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
                                 nullptr);
         } else if (desc.color_spec == DXT5) {
-                glUseProgram(s->PHandle_dxt5);
+                glUseProgram(s->PHandles.at(DXT5));
 
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
@@ -1468,11 +1473,14 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        s->PHandle_uyvy = gl_substitute_compile_link(vert, uyvy_to_rgb_fp);
-        s->PHandle_yuva = gl_substitute_compile_link(vert, yuva_to_rgb_fp);
-        s->PHandle_v210 = gl_substitute_compile_link(vert, v210_to_rgb_fp);
-        s->PHandle_dxt1_yuv = gl_substitute_compile_link(vert, fp_display_dxt1_yuv);
-        s->PHandle_dxt5 = gl_substitute_compile_link(vert, fp_display_dxt5ycocg);
+        for (auto &it : glsl_programs) {
+                GLuint prog = gl_substitute_compile_link(vert, it.second);
+                if (prog == 0U) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to link program for %s!\n", get_codec_name(it.first));
+                        continue;
+                }
+                s->PHandles[it.first] = prog;
+        }
 
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // set row alignment to 1 byte instead of default
                                                // 4 bytes which won't work on row-unaligned RGB
@@ -1491,11 +1499,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
 static void display_gl_cleanup_opengl(struct state_gl *s){
         glfwMakeContextCurrent(s->window);
 
-        glDeleteProgram(s->PHandle_uyvy);
-        glDeleteProgram(s->PHandle_v210);
-        glDeleteProgram(s->PHandle_yuva);
-        glDeleteProgram(s->PHandle_dxt1_yuv);
-        glDeleteProgram(s->PHandle_dxt5);
+        for (auto &it : s->PHandles) {
+                glDeleteProgram(it.second);
+        }
         glDeleteTextures(1, &s->texture_display);
         glDeleteTextures(1, &s->texture_raw);
         glDeleteFramebuffersEXT(1, &s->fbo_id);
@@ -1724,15 +1730,21 @@ static void glfw_close_callback(GLFWwindow *win)
 
 static int display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(state);
+        auto *s = (struct state_gl *) state;
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
                         if (sizeof gl_supp_codecs <= *len) {
-                                auto filter_codecs = [](codec_t c) {
-                                        return get_bits_per_component(c) <= 8 || commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) == commandline_params.end(); // option to disable 10-bit processing
+                                auto filter_codecs = [s](codec_t c) {
+                                        if (get_bits_per_component(c) > 8 && commandline_params.find(GL_DISABLE_10B_OPT_PARAM_NAME) != commandline_params.end()) { // option to disable 10-bit processing
+                                                return false;
+                                        }
+                                        if (glsl_programs.find(c) != glsl_programs.end() && s->PHandles.find(c) == s->PHandles.end()) { // GLSL shader needed but compilation failed
+                                                return false;
+                                        }
+                                        return true;
                                 };
                                 copy_if(gl_supp_codecs.begin(), gl_supp_codecs.end(), (codec_t *) val, filter_codecs);
                         } else {
