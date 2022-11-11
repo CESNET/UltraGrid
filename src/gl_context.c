@@ -149,41 +149,48 @@ bool init_gl_context(struct gl_context *context, int which) {
 GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
 {
         char log[32768];
-        GLuint vhandle, fhandle;
-        GLuint phandle;
+        GLuint vhandle = 0;
+        GLuint fhandle = 0;
         GLint status;
-
-        phandle = glCreateProgram();
-        vhandle = glCreateShader(GL_VERTEX_SHADER);
-        fhandle = glCreateShader(GL_FRAGMENT_SHADER);
 
         log_msg(LOG_LEVEL_DEBUG, "Compiling program:\nVertex:%s\nShader:\n%s\n", IF_NOT_NULL_ELSE(vprogram, "(none)"), IF_NOT_NULL_ELSE(fprogram, "(none)"));
 
         /* compile */
         /* fragmemt */
         if (fprogram) {
+                fhandle = glCreateShader(GL_FRAGMENT_SHADER);
                 glShaderSource(fhandle, 1, &fprogram, NULL);
                 glCompileShader(fhandle);
                 /* Print compile log */
                 glGetShaderInfoLog(fhandle, sizeof log, NULL, log);
                 if (strlen(log) > 0) {
-                        log_msg(LOG_LEVEL_INFO, "Fragment compile log: %s\n", log);
+                        log_msg(LOG_LEVEL_ERROR, "Fragment compile log: %s\n", log);
                 }
                 glGetShaderiv(fhandle, GL_COMPILE_STATUS, &status);
-                assert(status == GL_TRUE);
+                if (status != GL_TRUE) {
+                        glDeleteShader(fhandle);
+                        return 0;
+                }
         }
         /* vertex */
         if (vprogram) {
+                vhandle = glCreateShader(GL_VERTEX_SHADER);
                 glShaderSource(vhandle, 1, &vprogram, NULL);
                 glCompileShader(vhandle);
                 /* Print compile log */
                 glGetShaderInfoLog(vhandle, sizeof log, NULL, log);
                 if (strlen(log) > 0) {
-                        log_msg(LOG_LEVEL_INFO, "Vertex compile log: %s\n", log);
+                        log_msg(LOG_LEVEL_ERROR, "Vertex compile log: %s\n", log);
                 }
                 glGetShaderiv(vhandle, GL_COMPILE_STATUS, &status);
-                assert(status == GL_TRUE);
+                if (status != GL_TRUE) {
+                        glDeleteShader(fhandle);
+                        glDeleteShader(vhandle);
+                        return 0;
+                }
         }
+
+        GLuint phandle = glCreateProgram();
 
         /* attach and link */
         if (vprogram) {
@@ -193,19 +200,23 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
                 glAttachShader(phandle, fhandle);
         }
         glLinkProgram(phandle);
-        glGetProgramiv(phandle, GL_LINK_STATUS, &status);
-        assert(status == GL_TRUE);
-        glGetProgramInfoLog(phandle, sizeof log, NULL, (GLchar*) log);
-        if (strlen(log) > 0) {
-                log_msg(LOG_LEVEL_INFO, "Link Log: %s\n", log);
-        }
-
-        // check GL errors
-        gl_check_error();
 
         // mark shaders for deletion when program is deleted
         glDeleteShader(vhandle);
         glDeleteShader(fhandle);
+
+        glGetProgramInfoLog(phandle, sizeof log, NULL, (GLchar*) log);
+        if (strlen(log) > 0) {
+                log_msg(LOG_LEVEL_ERROR, "Link Log: %s\n", log);
+        }
+        glGetProgramiv(phandle, GL_LINK_STATUS, &status);
+        if (status != GL_TRUE) {
+                glDeleteProgram(phandle);
+                return 0;
+        }
+
+        // check GL errors
+        gl_check_error();
 
         return phandle;
 }

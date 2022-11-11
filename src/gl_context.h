@@ -123,6 +123,11 @@ void destroy_gl_context(struct gl_context *context);
         } \
 } while(0)
 
+/**
+ * compiles and links specified program shaders
+ * @returns shader ID
+ * @retval 0 on error
+ */
 GLuint glsl_compile_link(const char *vprogram, const char *fprogram);
 
 #ifdef __cplusplus
