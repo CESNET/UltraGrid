@@ -2,32 +2,42 @@
 
 There are couple of ways to report a problem:
 
-  - primary channel is an e-mail conference ultragrid-dev@cesnet.cz
-    which leads to developers of UltraGrid
   - you can use [GitHub issues](https://github.com/CESNET/UltraGrid/issues)
     for reporting bugs. You need to register, but it is only matter
     of filling username and password.
+  - alternativey you can use our an e-mail conference ultragrid-dev _\_at\__
+    cesnet.cz which leads to developers of UltraGrid
   - if not sure if the problem is a bug, you can also use
     [GitHub discussions](https://github.com/CESNET/UltraGrid/discussions)
     to ask a question.
 
+Please try to follow these _rules_ when reporting a bug if possible:
+
+1. test the issue with latest version of UltraGrid (either release or
+   continuous channel)
+2. if relevant, attach information about your environment (SW/HW)
+3. report a _minimal working example_ of the problem -- this mainly means
+   removing excess parameters from UltraGrid command-line
+4. if the problem is specific to some device, try to use either _testcard_ to
+   generate the signal that isn't displayed correctly or _GL_/_SDL_ display to
+   display the broken signal, eg.:
+
+       uv -t testcard:codec=RGB -d ndi # problems with NDI display
+       uv -t decklink[:args] -d gl     # problems with DeckLink capture (omit `-d gl` if the problem is not visual but eg. a crash)
+       uv -t testcard -c libavcodec:encoder=libx264 -d gl # problems with compression
+       uv -t decklink[:args] -d decklink[:args]  # WRONG: not sure what the signal actually is and if probiem is in capture or display
+
+If you suspect that the issue may not be always replicable, you can use a
+script
+[ultragrid-bugreport-collect.sh](../data/ultragrid-bugreport-collect.sh)
+to collect data about a computer and attach its result (Linux/macOS).
+
 If the problem is a **crash** (segmentation fault, abort), if possible, attach
-a _core dump_ (if generated) and the _binary_ (if you compiled by yourself, otherwise
-the _executable version_). If core dump is not generated, a _backtrace_ might have been
-generated to standard error output so please attach this. Also the terminal output
-containg the _error context_ would be helpful.
-
-If reporting a bug, please use the latest version of UltraGrid (release/nightly) if not
-already using that - either a stable release (a release/X.Y branch) or master for source,
-in case of a binary package its most recent version. If not using already, please retest
-the problem with that version and report the bugs against the current one.
-
-The actual _UltraGrid_ version can be seen by issuing:
-```
-$ uv -v
-UltraGrid 1.6+ (devel rev cc28cdd0a built Feb 25 2021 08:37:55)
-[... rest omitted ...]
-```
+a _core dump_ (if generated) and the _binary_ (if you compiled by yourself,
+otherwise the _executable version_). If core dump is not generated, a
+_backtrace_ (see below) might have been generated to standard error output so
+please attach this. Also the terminal output containg the _error context_ would
+be helpful.
 
 ## Decoding stacktrace (Linux)
 If reporting a bug, you can also decode the stacktrace for the bug report.

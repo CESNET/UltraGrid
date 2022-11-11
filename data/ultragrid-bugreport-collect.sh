@@ -5,7 +5,7 @@ DATE=`date +%y%m%d%H%M%S`
 LOG=ultragrid-bugreport-$DATE.txt
 export LC_ALL=C
 
-test "`id -nu`" = root || echo "You SHOULD run this script as a root!!" >&2
+#test "`id -nu`" = root || echo "You SHOULD run this script as a root!!" >&2
 
 (
 exec > "$LOG" || error "cannot create $LOG file"
@@ -38,7 +38,7 @@ fi
 uname -a
 sysctl -a
 
-ifconfig
+ip -s -s link show ||| ifconfig
 
 if [ -x /sbin/ethtool ]; then
         for n in `ls /sys/class/net/`; do
