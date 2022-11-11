@@ -104,8 +104,13 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         }
 
         s->decoder = NULL;
-        codec_t codec_try[3];
-        if (codec_is_a_rgb(frame->color_spec)) {
+        codec_t codec_try[3] = {};
+        if (s->color_spec == DXT1_YUV) {
+                codec_try[0] = UYVY; // RTDXT doesn't convert RGB to (DXT1_)YUV
+                if (codec_is_a_rgb(frame->color_spec)) {
+                        log_msg(LOG_LEVEL_WARNING, "[RTDXT] Compression of a RGB to DXT1_YUV will use CPU conversion!\n");
+                }
+        } else if (codec_is_a_rgb(frame->color_spec)) {
                 codec_try[0] = RGB;
                 codec_try[1] = RGBA;
                 codec_try[2] = UYVY;
@@ -120,6 +125,7 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                                 case RGB: format = DXT_FORMAT_RGB; break;
                                 case RGBA: format = DXT_FORMAT_RGBA; break;
                                 case UYVY: format = DXT_FORMAT_YUV422; break;
+                                case VIDEO_CODEC_NONE: break;
                                 default: assert(0 && "Shouldn't get other codecs than the above.");
                         }
                         break;
@@ -137,6 +143,13 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                 for(int i = 0; i < (int) frame->tile_count; ++i) {
                         s->encoder[i] =
                                 dxt_encoder_create(DXT_TYPE_DXT1, frame->tiles[0].width, frame->tiles[0].height, format,
+                                                s->gl_context.legacy);
+                }
+                data_len = dxt_get_size(frame->tiles[0].width, frame->tiles[0].height, DXT_TYPE_DXT1);
+        } else if(s->color_spec == DXT1_YUV) {
+                for(int i = 0; i < (int) frame->tile_count; ++i) {
+                        s->encoder[i] =
+                                dxt_encoder_create(DXT_TYPE_DXT1_YUV, frame->tiles[0].width, frame->tiles[0].height, format,
                                                 s->gl_context.legacy);
                 }
                 data_len = dxt_get_size(frame->tiles[0].width, frame->tiles[0].height, DXT_TYPE_DXT1);
@@ -216,6 +229,8 @@ struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
                 printf("DXT GLSL comperssion usage:\n");
                 printf("\t-c RTDXT:DXT1\n");
                 printf("\t\tcompress with DXT1\n");
+                printf("\t-c RTDXT:DXT1_YUV\n");
+                printf("\t\tcompress with DXT1_YUV\n");
                 printf("\t-c RTDXT:DXT5\n");
                 printf("\t\tcompress with DXT5 YCoCg\n");
                 return static_cast<module*>(INIT_NOERR);
@@ -227,6 +242,8 @@ struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
                 s->color_spec = DXT5;
         } else if (strcasecmp(opts, "DXT1") == 0) {
                 s->color_spec = DXT1;
+        } else if (strcasecmp(opts, "DXT1_YUV") == 0) {
+                s->color_spec = DXT1_YUV;
         } else if (opts[0] == '\0') {
                 s->color_spec = DXT1;
         } else {

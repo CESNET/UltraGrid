@@ -309,18 +309,13 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
             }
         }
     } else {
-        if(encoder->legacy) {
-            if(format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) {
-                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1_yuv_legacy, GL_FRAGMENT_SHADER);
-            } else {
-                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1_legacy, GL_FRAGMENT_SHADER);
-            }
+        if ((format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) && encoder->type == DXT_TYPE_DXT1 ) {
+            encoder->shader_fragment_compress = dxt_shader_create_from_source(encoder->legacy ? fp_compress_dxt1_yuv_legacy : fp_compress_dxt1_yuv, GL_FRAGMENT_SHADER);
+        } else if (((format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) && encoder->type == DXT_TYPE_DXT1_YUV) ||
+                ((format == DXT_FORMAT_RGB || format == DXT_FORMAT_RGBA) && encoder->type == DXT_TYPE_DXT1)) {
+            encoder->shader_fragment_compress = dxt_shader_create_from_source(encoder->legacy ? fp_compress_dxt1_legacy : fp_compress_dxt1, GL_FRAGMENT_SHADER);
         } else {
-            if(format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) {
-                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1_yuv, GL_FRAGMENT_SHADER);
-            } else {
-                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1, GL_FRAGMENT_SHADER);
-            }
+            fprintf(stderr, "RGB(A) to DXT1_YUV is not supported!\n");
         }
     }
     if ( encoder->shader_fragment_compress == 0 ) {
@@ -846,5 +841,4 @@ static void WriteSession( gpa_uint32 currentWaitSessionID,
 }
 #endif
 
-/* vim: set expandtab: sw=4 */
-
+/* vim: set expandtab sw=4: */
