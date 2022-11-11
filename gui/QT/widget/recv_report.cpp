@@ -61,6 +61,9 @@ void RecvReportWidget::updateVal(){
 			": RTT=" + QString::number(r.item.rtt_usec) + "us\n";
 	}
 
+	if(tooltip.endsWith('\n'))
+		tooltip.chop(1);
+
 	if(total < 1) total = 1;
 
 	float loss = (static_cast<float>(lost) / total) * 100.f;
