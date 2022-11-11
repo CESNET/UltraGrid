@@ -823,7 +823,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 glActiveTexture(GL_TEXTURE0 + 2);
                 glBindTexture(GL_TEXTURE_2D,s->texture_raw);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                desc.width / 2, desc.height, 0,
+                                (desc.width + 1) / 2, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
                 glActiveTexture(GL_TEXTURE0 + 0);
