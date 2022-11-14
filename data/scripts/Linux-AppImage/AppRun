@@ -231,7 +231,7 @@ elif [ "$1" = "--fullhelp" ]; then
         usage
         usage_aux
         exit 0
-elif [ "$1" = "-m" ] || [ "$1" = "--man" ]; then
+elif { [ $# -eq 1 ] || [ $# -eq 2 ]; } && { [ "$1" = "-m" ] || [ "$1" = "--man" ]; }; then
         PAGE=${2:-uv}
         man -l "$DIR/usr/share/man/man1/$PAGE.1"
 elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
