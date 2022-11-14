@@ -1064,7 +1064,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strstr(ptr, "keep-settings") == ptr) {
                         s->keep_device_defaults = true;
                 } else if (strstr(ptr, "drift_fix") == ptr) {
-                        s->audio_drift_fixer.m_enabled = true;
+                        s->audio_drift_fixer.enable();
                 } else if (strncasecmp(ptr, "maxresample=", strlen("maxresample=")) == 0) {
                         s->audio_drift_fixer.set_max_hz(parse_uint32(strchr(ptr, '=') + 1));
                 } else if (strncasecmp(ptr, "minresample=", strlen("minresample=")) == 0) {

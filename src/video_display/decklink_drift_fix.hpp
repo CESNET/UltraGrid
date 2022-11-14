@@ -41,6 +41,7 @@
 
 #include <string>
 
+#include "host.h"
 #include "utils/color_out.h"
 
 #define MAX_RESAMPLE_DELTA_DEFAULT 30
@@ -299,8 +300,13 @@ private:
  */
 class AudioDriftFixer {
 public:
-        bool m_enabled = false;
-
+        void enable() {
+                m_enabled = true;
+                if (commandline_params.find("resampler") == commandline_params.end()) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using SoxR resampler by default when DecKlink audio drift fixer is enabled.\n";
+                        commandline_params["resampler"] = "soxr";
+                }
+        }
         /**
          * @brief Set the max hz object
          * 
@@ -450,6 +456,8 @@ public:
         }
 
 private:
+        bool m_enabled = false;
+
         static constexpr unsigned long BASE = (1U<<8U);
         struct module *m_root = nullptr;
 
