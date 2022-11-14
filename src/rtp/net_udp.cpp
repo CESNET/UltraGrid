@@ -47,6 +47,9 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include <pthread.h>
+
 #include "debug.h"
 #include "host.h"
 #include "memory.h"
@@ -64,14 +67,6 @@
 #ifdef NEED_ADDRINFO_H
 #include "addrinfo.h"
 #endif
-
-#include <condition_variable>
-#include <chrono>
-#include <mutex>
-
-using std::condition_variable;
-using std::mutex;
-using std::unique_lock;
 
 #define DEFAULT_MAX_UDP_READER_QUEUE_LEN (1920/3*8*1080/1152) //< 10-bit FullHD frame divided by 1280 MTU packets (minus headers)
 
@@ -164,9 +159,9 @@ struct socket_udp_local {
         pthread_t thread_id;
         struct simple_linked_list *packets;
         unsigned int max_packets;
-        mutex lock;
-        condition_variable boss_cv;
-        condition_variable reader_cv;
+        pthread_mutex_t lock;
+        pthread_cond_t boss_cv;
+        pthread_cond_t reader_cv;
 
         bool should_exit;
         fd_t should_exit_fd[2];
@@ -799,11 +794,14 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         uint16_t tx_port, int ttl, int force_ip_version, bool multithreaded)
 {
         int ret;
-        socket_udp *s = new socket_udp();
-        s->local = new socket_udp_local();
+        socket_udp *s = (socket_udp *) calloc(1, sizeof *s);
+        s->local = (struct socket_udp_local*) calloc(1, sizeof(*s->local));
         s->local->packets = simple_linked_list_init();
         s->local->rx_fd =
                 s->local->tx_fd = INVALID_SOCKET;
+        pthread_mutex_init(&s->local->lock, NULL);
+        pthread_cond_init(&s->local->boss_cv, NULL);
+        pthread_cond_init(&s->local->reader_cv, NULL);
 
         assert(force_ip_version == 0 || force_ip_version == 4 || force_ip_version == 6);
         s->local->mode = force_ip_version;
@@ -936,7 +934,7 @@ socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa,
                 return NULL;
         }
 
-        struct _socket_udp *s = new _socket_udp{};
+        struct _socket_udp *s = (socket_udp *) calloc(1, sizeof *s);
         s->local = l;
         s->local_is_slave = true;
 
@@ -993,7 +991,7 @@ void udp_exit(socket_udp * s)
                         int ret = PLATFORM_PIPE_WRITE(s->local->should_exit_fd[1], &c, 1);
                         assert (ret == 1);
                         s->local->should_exit = true;
-                        s->local->reader_cv.notify_one();
+                        pthread_cond_signal(&s->local->reader_cv);
                         pthread_join(s->local->thread_id, NULL);
                         while (simple_linked_list_size(s->local->packets) > 0) {
                                 struct item *item = (struct item *) simple_linked_list_pop(s->local->packets);
@@ -1006,12 +1004,15 @@ void udp_exit(socket_udp * s)
                         CLOSESOCKET(s->local->tx_fd);
                 }
                 simple_linked_list_destroy(s->local->packets);
-                delete s->local;
+                pthread_mutex_destroy(&s->local->lock);
+                pthread_cond_destroy(&s->local->boss_cv);
+                pthread_cond_destroy(&s->local->reader_cv);
+                free(s->local);
         }
 
         udp_clean_async_state(s);
 
-        delete s;
+        free(s);
 }
 
 /**
@@ -1126,12 +1127,13 @@ static void *udp_reader(void *arg)
                         continue;
                 }
 
-                unique_lock<mutex> lk(s->local->lock);
+                pthread_mutex_lock(&s->local->lock);
                 while (simple_linked_list_size(s->local->packets) >= (int) s->local->max_packets && !s->local->should_exit) {
-                        s->local->reader_cv.wait(lk);
+                        pthread_cond_wait(&s->local->reader_cv, &s->local->lock);
                 }
                 if (s->local->should_exit) {
                         free(packet);
+                        pthread_mutex_unlock(&s->local->lock);
                         break;
                 }
 
@@ -1139,8 +1141,8 @@ static void *udp_reader(void *arg)
                 *i = (struct item){packet, size, src_addr, addrlen};
                 simple_linked_list_append(s->local->packets, i);
 
-                lk.unlock();
-                s->local->boss_cv.notify_one();
+                pthread_mutex_unlock(&s->local->lock);
+                pthread_cond_signal(&s->local->boss_cv);
         }
 
         platform_pipe_close(s->local->should_exit_fd[0]);
@@ -1196,15 +1198,29 @@ bool udp_not_empty(socket_udp * s, struct timeval *timeout)
 {
         assert(s->local->multithreaded);
 
-        unique_lock<mutex> lk(s->local->lock);
+        pthread_mutex_lock(&s->local->lock);
         if (timeout) {
-                std::chrono::microseconds tmout_us =
-                        std::chrono::microseconds(timeout->tv_sec * 1000000ll + timeout->tv_usec);
-                s->local->boss_cv.wait_for(lk, tmout_us, [s]{return simple_linked_list_size(s->local->packets) > 0;});
+                struct timeval tv;
+                gettimeofday(&tv, NULL);
+                tv.tv_sec += timeout->tv_sec;
+                tv.tv_usec += timeout->tv_usec;
+                if (tv.tv_usec >= 1000000) {
+                        tv.tv_sec += 1;
+                        tv.tv_usec -= 1000000;
+                }
+                struct timespec tmout_ts = { tv.tv_sec, tv.tv_usec * 1000 };
+                int rc = 0;
+                while (rc != ETIMEDOUT && simple_linked_list_size(s->local->packets) == 0) {
+                        rc = pthread_cond_timedwait(&s->local->boss_cv, &s->local->lock, &tmout_ts);
+                }
         } else {
-                s->local->boss_cv.wait(lk, [s]{return simple_linked_list_size(s->local->packets) > 0;});
+                while (simple_linked_list_size(s->local->packets) == 0) {
+                        pthread_cond_wait(&s->local->boss_cv, &s->local->lock);
+                }
         }
-        return simple_linked_list_size(s->local->packets) > 0;
+        bool ret = simple_linked_list_size(s->local->packets) > 0;
+        pthread_mutex_unlock(&s->local->lock);
+        return ret;
 }
 
 /**
@@ -1243,8 +1259,8 @@ int udp_recvfrom_data(socket_udp * s, char **buffer,
 {
         assert(s->local->multithreaded);
         int ret;
-        unique_lock<mutex> lk(s->local->lock);
 
+        pthread_mutex_lock(&s->local->lock);
         struct item *it = (struct item *)(simple_linked_list_pop(s->local->packets));
         *buffer = (char *) it->buf;
         if(src_addr){
@@ -1257,8 +1273,8 @@ int udp_recvfrom_data(socket_udp * s, char **buffer,
         }
         ret = it->size;
 
-        lk.unlock();
-        s->local->reader_cv.notify_one();
+        pthread_mutex_unlock(&s->local->lock);
+        pthread_cond_signal(&s->local->reader_cv);
 
         return ret;
 }
