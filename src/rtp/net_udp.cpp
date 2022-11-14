@@ -49,6 +49,7 @@
 #include "config_win32.h"
 
 #include <pthread.h>
+#include <stdalign.h>
 
 #include "debug.h"
 #include "host.h"
@@ -125,20 +126,13 @@ struct ip_mreq {
 #endif
 
 struct item {
-    inline item(uint8_t *b, int s, struct sockaddr *src_addr = nullptr,
-                    socklen_t addrlen = 0) :
-        buf(b),
-        size(s),
-        src_addr(src_addr),
-        addrlen(addrlen) {}
-
     uint8_t *buf;
     int size;
     struct sockaddr *src_addr;
     socklen_t addrlen;
 };
 
-#define ALIGNED_SOCKADDR_STORAGE_OFF ((RTP_MAX_PACKET_LEN + alignof(sockaddr_storage) - 1) / alignof(sockaddr_storage) * alignof(sockaddr_storage))
+#define ALIGNED_SOCKADDR_STORAGE_OFF ((RTP_MAX_PACKET_LEN + alignof(struct sockaddr_storage) - 1) / alignof(struct sockaddr_storage) * alignof(struct sockaddr_storage))
 #define ALIGNED_ITEM_OFF (((ALIGNED_SOCKADDR_STORAGE_OFF + sizeof(struct sockaddr_storage)) + alignof(struct item) - 1) / alignof(struct item) * alignof(struct item))
 
 /*
@@ -691,7 +685,8 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
 
 /// @param ipv6   socket is IPv6 (including v4-mapped)
 static bool set_sock_opts_and_bind(fd_t fd, bool ipv6, uint16_t rx_port, int ttl) {
-        struct sockaddr_storage s_in{};
+        struct sockaddr_storage s_in;
+        memset(&s_in, 0, sizeof s_in);
         socklen_t sin_len;
         int reuse = 1;
         int ipv6only = 0;
@@ -806,7 +801,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         assert(force_ip_version == 0 || force_ip_version == 4 || force_ip_version == 6);
         s->local->mode = force_ip_version;
         if (s->local->mode == 0 && is_addr_multicast(addr)) {
-                s->local->mode = strchr(addr, '.') != nullptr ? 4 : 6;
+                s->local->mode = strchr(addr, '.') != NULL ? 4 : 6;
         }
 
         if ((ret = resolve_address(s, addr, tx_port)) != 0) {
@@ -913,7 +908,7 @@ error:
         return NULL;
 }
 
-static const in6_addr in6_blackhole = IN6ADDR_BLACKHOLE_INIT;
+static const struct in6_addr in6_blackhole = IN6ADDR_BLACKHOLE_INIT;
 
 bool udp_is_blackhole(socket_udp *s) {
         return s->sock.ss_family == AF_INET6 &&
@@ -1111,7 +1106,7 @@ static void *udp_reader(void *arg)
                 }
                 uint8_t *packet = (uint8_t *) malloc(ALIGNED_ITEM_OFF + sizeof(struct item));
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
-                auto src_addr = (struct sockaddr *)(void *)(packet + ALIGNED_SOCKADDR_STORAGE_OFF);
+                struct sockaddr *src_addr = (struct sockaddr *)(void *)(packet + ALIGNED_SOCKADDR_STORAGE_OFF);
                 socklen_t addrlen = sizeof(struct sockaddr_storage);
                 int size = recvfrom(s->local->rx_fd, (char *) buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
@@ -1279,7 +1274,7 @@ int udp_recvfrom_data(socket_udp * s, char **buffer,
         return ret;
 }
 int udp_recv_data(socket_udp * s, char **buffer){
-        return udp_recvfrom_data(s, buffer, nullptr, nullptr);
+        return udp_recvfrom_data(s, buffer, NULL, NULL);
 }
 
 #ifndef WIN32
@@ -1597,14 +1592,16 @@ bool udp_is_ipv6(socket_udp *s)
  */
 int udp_port_pair_is_free(int force_ip_version, int even_port)
 {
-        struct addrinfo hints{};
-        struct addrinfo *res0 = nullptr;
+        struct addrinfo hints;
+        memset(&hints, 0, sizeof hints);
+        struct addrinfo *res0 = NULL;
         hints.ai_family = force_ip_version == 4 ? AF_INET : AF_INET6;
         hints.ai_flags = AI_NUMERICSERV | AI_PASSIVE;
         hints.ai_socktype = SOCK_DGRAM;
         char tx_port_str[7];
         snprintf(tx_port_str, sizeof tx_port_str, "%hu", (uint16_t) even_port);
-        if (int err = getaddrinfo(nullptr, tx_port_str, &hints, &res0)) {
+        int err = getaddrinfo(NULL, tx_port_str, &hints, &res0);
+        if (err) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s getaddrinfo port %d: %s\n", __func__, even_port, gai_strerror(err));
@@ -1730,7 +1727,7 @@ int udp_recvfrom_timeout(socket_udp *s, char *buffer, int buflen,
 
 int udp_recv_timeout(socket_udp *s, char *buffer, int buflen, struct timeval *timeout)
 {
-        return udp_recvfrom_timeout(s, buffer, buflen, timeout, nullptr, nullptr);
+        return udp_recvfrom_timeout(s, buffer, buflen, timeout, NULL, NULL);
 }
 
 struct socket_udp_local *udp_get_local(socket_udp *s)
