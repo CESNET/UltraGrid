@@ -259,9 +259,10 @@ struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio
 }
 
 /**
- * @brief Module doesn't have own FPS indicator -> use a generic one
+ * @brief If not-NULL returned, display doesn't hae own FPS indicator and wants
+ * to use a generic one (prefixed with returned module name)
  */
-const char *vidcap_generic_fps(struct vidcap *state)
+const char *vidcap_get_fps_print_prefix(struct vidcap *state)
 {
         assert(state->magic == VIDCAP_MAGIC);
         return state->funcs->generic_fps_indicator_prefix;

@@ -459,7 +459,7 @@ static void *capture_thread(void *arg)
         struct wait_obj *wait_obj = wait_obj_init();
         steady_clock::time_point t0 = steady_clock::now();
         int frames = 0;
-        const char *print_fps_prefix = vidcap_generic_fps(uv->capture_device);
+        const char *print_fps_prefix = vidcap_get_fps_print_prefix(uv->capture_device);
 
         while (!should_exit) {
                 /* Capture and transmit video... */
