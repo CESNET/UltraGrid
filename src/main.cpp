@@ -79,6 +79,7 @@
 #include <thread>
 #include <tuple>
 
+#include "compat/misc.h"
 #include "compat/platform_pipe.h"
 #include "control_socket.h"
 #include "debug.h"
@@ -438,7 +439,7 @@ static void print_fps(const char *prefix, steady_clock::time_point *t0, int *fra
         double seconds = duration_cast<duration<double>>(t1 - *t0).count();
         if (seconds >= 5.0) {
                 double fps = *frames / seconds;
-                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN "%s" TERM_RESET "%d frames in %g seconds = " TBOLD("%g FPS") "\n", prefix, *frames, seconds, fps);
+                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN "%s " TERM_RESET "%d frames in %g seconds = " TBOLD("%g FPS") "\n", prefix, *frames, seconds, fps);
                 *t0 = t1;
                 *frames = 0;
         }
@@ -459,7 +460,10 @@ static void *capture_thread(void *arg)
         struct wait_obj *wait_obj = wait_obj_init();
         steady_clock::time_point t0 = steady_clock::now();
         int frames = 0;
-        const char *print_fps_prefix = vidcap_get_fps_print_prefix(uv->capture_device);
+        char *print_fps_prefix = strdupa(vidcap_get_fps_print_prefix(uv->capture_device));
+        if (print_fps_prefix && print_fps_prefix[strlen(print_fps_prefix) - 1] == ' ') { // trim trailing ' '
+                print_fps_prefix[strlen(print_fps_prefix) - 1] = '\0';
+        }
 
         while (!should_exit) {
                 /* Capture and transmit video... */
