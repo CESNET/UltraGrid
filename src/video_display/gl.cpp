@@ -1578,16 +1578,21 @@ static void upload_texture(struct state_gl *s, char *data)
         if (s->current_display_desc.color_spec == UYVY || s->current_display_desc.color_spec == v210) {
                 width = vc_get_linesize(width, s->current_display_desc.color_spec) / 4;
         }
-        auto byte_swap_r10k = [](uint32_t * __restrict out, const uint32_t *__restrict in, long data_len) {
-                DEBUG_TIMER_START(byte_swap_r10k);
-                OPTIMIZED_FOR (int i = 0; i < data_len / 4; i += 1) {
-                        uint32_t x = *in++;
-                        *out++ = /* output is x2b8g8r8 little-endian */
-                                (x & 0xFFU) << 2U | (x & 0xC0'00U) >> 14U | // R
-                                (x & 0x3F'00U) << 6U | (x & 0xF0'00'00) >> 10U | // G
-                                (x & 0x0F'00'00U) << 10U | (x & 0xFC'00'00'00U) >> 6U; // B
+        /// swaps bytes and removes 256B padding
+        auto process_r10k = [](uint32_t * __restrict out, const uint32_t *__restrict in, long width, long height) {
+                DEBUG_TIMER_START(process_r10k);
+                long line_padding_b = vc_get_linesize(width, R10k) - 4 * width;
+                OPTIMIZED_FOR (long i = 0; i < height; i += 1) {
+                        OPTIMIZED_FOR (long j = 0; j < width; j += 1) {
+                                uint32_t x = *in++;
+                                *out++ = /* output is x2b8g8r8 little-endian */
+                                        (x & 0xFFU) << 2U | (x & 0xC0'00U) >> 14U | // R
+                                        (x & 0x3F'00U) << 6U | (x & 0xF0'00'00) >> 10U | // G
+                                        (x & 0x0F'00'00U) << 10U | (x & 0xFC'00'00'00U) >> 6U; // B
+                        }
+                        in += line_padding_b / sizeof(uint32_t);
                 }
-                DEBUG_TIMER_STOP(byte_swap_r10k);
+                DEBUG_TIMER_STOP(process_r10k);
         };
         int data_size = vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec) * s->current_display_desc.height;
         if (s->use_pbo) {
@@ -1596,7 +1601,7 @@ static void upload_texture(struct state_gl *s, char *data)
                 if (void *ptr = glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB)) {
                         // update data directly on the mapped buffer
                         if (s->current_display_desc.color_spec == R10k) { // perform byte swap
-                                byte_swap_r10k(static_cast<uint32_t *>(ptr), reinterpret_cast<uint32_t *>(data), data_size);
+                                process_r10k(static_cast<uint32_t *>(ptr), reinterpret_cast<uint32_t *>(data), s->current_display_desc.width, s->current_display_desc.height);
                         } else {
                                 memcpy(ptr, data, data_size);
                         }
@@ -1607,7 +1612,7 @@ static void upload_texture(struct state_gl *s, char *data)
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
         } else {
                 if (s->current_display_desc.color_spec == R10k) { // perform byte swap
-                        byte_swap_r10k(reinterpret_cast<uint32_t *>(s->scratchpad.data()), reinterpret_cast<uint32_t *>(data), data_size);
+                        process_r10k(reinterpret_cast<uint32_t *>(s->scratchpad.data()), reinterpret_cast<uint32_t *>(data), s->current_display_desc.width, s->current_display_desc.height);
                         data = s->scratchpad.data();
                 }
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, type, data);
