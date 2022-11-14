@@ -911,16 +911,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         return s;
 
 error:
-        if (s->local->rx_fd != INVALID_SOCKET) {
-                CLOSESOCKET(s->local->rx_fd);
-        }
-        if (s->local->tx_fd != s->local->rx_fd ||
-                        s->local->tx_fd != INVALID_SOCKET) {
-                CLOSESOCKET(s->local->tx_fd);
-        }
-        simple_linked_list_destroy(s->local->packets);
-        delete s->local;
-        delete s;
+        udp_exit(s);
         return NULL;
 }
 
@@ -1014,6 +1005,7 @@ void udp_exit(socket_udp * s)
                 if (s->local->tx_fd != s->local->rx_fd) {
                         CLOSESOCKET(s->local->tx_fd);
                 }
+                simple_linked_list_destroy(s->local->packets);
                 delete s->local;
         }
 
