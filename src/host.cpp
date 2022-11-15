@@ -792,7 +792,9 @@ void register_should_exit_callback(struct module *mod, void (*callback)(void *),
 }
 
 ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"
-                "  Treats every error as a fatal (exits " PACKAGE_NAME ")\n");
+                "  Treats some errors as fatal and exit even though " PACKAGE_NAME " could continue otherwise.\n"
+                "  This allows less severe errors to be catched (which should not occur under normal circumstances).\n"
+                "  An environment variable ULTRAGRID_ERRORS_FATAL with the same effect can also be used.\n");
 /**
  * Soft version of exit_uv() checks errors-fatal command-line parameters and
  * if set, exit UltraGrid. Otherwise error is ignored.
@@ -801,7 +803,7 @@ ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"
  * have been fatal and UltraGrid must remain in a consistent state.
  */
 void handle_error(int status) {
-        if (get_commandline_param("errors-fatal")) {
+        if (get_commandline_param("errors-fatal") || getenv("ULTRAGRID_ERRORS_FATAL")) {
                 exit_uv(status);
         }
 }
