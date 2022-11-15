@@ -241,6 +241,7 @@ bool parse_log_cfg(const char *conf_str,
                 col() << "][+repeat][+/-timestamps]\n";
                 col() << TBOLD("\trepeat") << " - print repeating log messages\n";
                 col() << TBOLD("\ttimestamps") << " - enable/disable timestamps\n";
+                col() << "environment variable " << SBOLD("ULTRAGRID_VERBOSE") << " - use verbose output (same as `-V` on command-line)\n";
                 return false;
         }
 

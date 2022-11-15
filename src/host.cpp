@@ -687,7 +687,10 @@ bool validate_param(const char *param)
  *                 false - set also remaining parameters including full check and "help" output
  *
  * @note
- * This function will be usually called twice - first with preinit=true and then with false
+ * This function will be usually called twice - first with preinit=true and then with false.
+ * It is because the bufffering parameter need to be set early (prior to any output). On the
+ * other hand not all params can be set immediately -- modules are not yet registered, so it
+ * is called once more the preinit is done.
  */
 bool parse_params(const char *optarg, bool preinit)
 {
