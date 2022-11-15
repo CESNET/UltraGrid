@@ -191,12 +191,12 @@ vec3 ycbcr2rgb(vec3 yuvToConvert) {
 }
 
 void main(void) {
-  float imageWidthOrig;
-  imageWidthOrig = float((int(imageWidth) + 47) / 48 * 32);
+  float imageWidthRaw; // v210 texture size
+  imageWidthRaw = float((int(imageWidth) + 47) / 48 * 32); // 720->480
 
-  // interpolate 0,0 -> 1,1 texcoords to 0,0 -> 720,486
+  // interpolate (0,1) texcoords to [0,719]
   int texcoordDenormX;
-  texcoordDenormX = int((2. * gl_TexCoord[0].x * imageWidth - 1.) / 2.);
+  texcoordDenormX = int(gl_TexCoord[0].x * imageWidth - .5);
 
   // 0 1 1 2 3 3 4 5 5 6 7 7 etc.
   int yOffset;
@@ -231,10 +231,9 @@ void main(void) {
   vec4 y;
   vec4 u;
   vec4 v;
-  y = texture2D(image, vec2(float(2 * sourceColumnIndexY + 1) / (2. * imageWidthOrig), gl_TexCoord[0].y));
-  u = texture2D(image, vec2(float(2 * sourceColumnIndexU + 1) / (2. * imageWidthOrig), gl_TexCoord[0].y));
-  v = texture2D(image, vec2(float(2 * sourceColumnIndexV + 1) / (2. * imageWidthOrig), gl_TexCoord[0].y));
-
+  y = texture2D(image, vec2((float(sourceColumnIndexY) + .5) / imageWidthRaw, gl_TexCoord[0].y));
+  u = texture2D(image, vec2((float(sourceColumnIndexU) + .5) / imageWidthRaw, gl_TexCoord[0].y));
+  v = texture2D(image, vec2((float(sourceColumnIndexV) + .5) / imageWidthRaw, gl_TexCoord[0].y));
 
   vec3 outColor = ycbcr2rgb(vec3(y[compY], u[compU], v[compV]));
 
@@ -1479,6 +1478,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 GLuint prog = gl_substitute_compile_link(vert, it.second);
                 if (prog == 0U) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to link program for %s!\n", get_codec_name(it.first));
+                        handle_error(1);
                         continue;
                 }
                 s->PHandles[it.first] = prog;
