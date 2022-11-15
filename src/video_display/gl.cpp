@@ -106,8 +106,10 @@ uniform sampler2D image;
 uniform float imageWidth;
 void main()
 {
+        float imageWidthRaw;
+        imageWidthRaw = float((int(imageWidth) + 1) / 2 * 2);
         vec4 yuv;
-        yuv.rgba  = texture2D(image, gl_TexCoord[0].xy).grba;
+        yuv.rgba  = texture2D(image, vec2(gl_TexCoord[0].x / imageWidthRaw * imageWidth, gl_TexCoord[0].y)).grba;
         if(gl_TexCoord[0].x * imageWidth / 2.0 - floor(gl_TexCoord[0].x * imageWidth / 2.0) > 0.5)
                 yuv.r = yuv.a;
         yuv.r = Y_SCALED_PLACEHOLDER * (yuv.r - 0.0625);
