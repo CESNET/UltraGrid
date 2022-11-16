@@ -97,7 +97,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles('.github/scripts/Linux/ffmpeg_deps.sh', '.github/scripts/Linux/download_build_ffmpeg.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
+        key: cache-ffmpeg-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/prepare.sh', '.github/scripts/Linux/download_build_ffmpeg.sh', '.github/scripts/Linux/ffmpeg-patches/*') }}
     - name: Build FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_ffmpeg.sh
@@ -109,7 +109,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: '/var/tmp/sdl'
-        key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/download_build_sdl.sh' ) }}
+        key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/prepare.sh', '.github/scripts/Linux/download_build_sdl.sh' ) }}
     - name: Build SDL
       if: steps.cache-sdl.outputs.cache-hit != 'true'
       run: .github/scripts/Linux/download_build_sdl.sh
