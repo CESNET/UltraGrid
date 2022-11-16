@@ -319,7 +319,6 @@ static void audio_cap_jack_done(void *state)
 
 static const struct audio_capture_info acap_jack_info = {
         audio_cap_jack_probe,
-        audio_cap_jack_help,
         audio_cap_jack_init,
         audio_cap_jack_read,
         audio_cap_jack_done

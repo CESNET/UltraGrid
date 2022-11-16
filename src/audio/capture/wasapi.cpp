@@ -129,12 +129,6 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
         CoUninitialize();
 }
 
-static void audio_cap_wasapi_help(const char *driver_name)
-{
-        UNUSED(driver_name);
-        show_help();
-}
-
 static string wstring_to_string(wstring const & wstr) {
         size_t len = wstr.length() * 4 + 1;
         auto str = (char *) calloc(len, 1);
@@ -415,7 +409,6 @@ static struct audio_frame *audio_cap_wasapi_read(void *state)
 
 static const struct audio_capture_info acap_wasapi_info = {
         audio_cap_wasapi_probe,
-        audio_cap_wasapi_help,
         audio_cap_wasapi_init,
         audio_cap_wasapi_read,
         audio_cap_wasapi_done

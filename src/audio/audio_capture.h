@@ -47,7 +47,6 @@ struct module;
 
 struct audio_capture_info {
         void (*probe)(struct device_info **available_devices, int *count);
-        void (*help)(const char *driver_name);
         void *(*init)(struct module *parent, const char *cfg); ///< @param cfg is not NULL
         struct audio_frame *(*read)(void *state);
         void (*done)(void *state);

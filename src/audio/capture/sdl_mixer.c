@@ -243,14 +243,8 @@ static void audio_cap_sdl_mixer_done(void *state)
         free(s);
 }
 
-static void audio_cap_sdl_mixer_help(const char *state)
-{
-        UNUSED(state);
-}
-
 static const struct audio_capture_info acap_sdl_mixer_info = {
         audio_cap_sdl_mixer_probe,
-        audio_cap_sdl_mixer_help,
         audio_cap_sdl_mixer_init,
         audio_cap_sdl_mixer_read,
         audio_cap_sdl_mixer_done

@@ -71,11 +71,6 @@ static void audio_cap_none_probe(struct device_info **available_devices, int *co
         *count = 0;
 }
 
-static void audio_cap_none_help(const char *driver_name)
-{
-        UNUSED(driver_name);
-}
-
 static void * audio_cap_none_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
@@ -104,7 +99,6 @@ static void audio_cap_none_done(void *state)
 
 static const struct audio_capture_info acap_none_info = {
         audio_cap_none_probe,
-        audio_cap_none_help,
         audio_cap_none_init,
         audio_cap_none_read,
         audio_cap_none_done

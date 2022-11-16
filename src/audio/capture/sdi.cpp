@@ -204,7 +204,6 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
 
 static const struct audio_capture_info acap_sdi_info_embedded = {
         audio_cap_sdi_probe_embedded,
-        audio_cap_sdi_help,
         audio_cap_sdi_init,
         audio_cap_sdi_read,
         audio_cap_sdi_done
@@ -212,7 +211,6 @@ static const struct audio_capture_info acap_sdi_info_embedded = {
 
 static const struct audio_capture_info acap_sdi_info_aesebu = {
         audio_cap_sdi_probe_aesebu,
-        audio_cap_sdi_help,
         audio_cap_sdi_init,
         audio_cap_sdi_read,
         audio_cap_sdi_done
@@ -220,7 +218,6 @@ static const struct audio_capture_info acap_sdi_info_aesebu = {
 
 static const struct audio_capture_info acap_sdi_info_analog = {
         audio_cap_sdi_probe_analog,
-        audio_cap_sdi_help,
         audio_cap_sdi_init,
         audio_cap_sdi_read,
         audio_cap_sdi_done

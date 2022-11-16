@@ -400,7 +400,6 @@ static void audio_cap_alsa_done(void *state)
 
 static const struct audio_capture_info acap_alsa_info = {
         audio_cap_alsa_probe,
-        audio_cap_alsa_help,
         audio_cap_alsa_init,
         audio_cap_alsa_read,
         audio_cap_alsa_done

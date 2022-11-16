@@ -444,7 +444,6 @@ static void audio_cap_ca_done(void *state)
 
 static const struct audio_capture_info acap_coreaudio_info = {
         audio_cap_ca_probe,
-        audio_cap_ca_help,
         audio_cap_ca_init,
         audio_cap_ca_read,
         audio_cap_ca_done

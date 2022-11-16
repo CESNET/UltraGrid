@@ -320,7 +320,6 @@ static void audio_cap_portaudio_done(void *state)
 
 static const struct audio_capture_info acap_portaudio_info = {
         audio_cap_portaudio_probe,
-        audio_cap_portaudio_help,
         audio_cap_portaudio_init,
         audio_cap_portaudio_read,
         audio_cap_portaudio_done

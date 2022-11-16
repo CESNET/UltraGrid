@@ -97,12 +97,6 @@ static void audio_cap_testcard_probe(struct device_info **available_devices, int
         *count = 1;
 }
 
-static void audio_cap_testcard_help(const char *driver_name)
-{
-        UNUSED(driver_name);
-        printf("\ttestcard : Testing sound signal\n");
-}
-
 /// @param if crescendo_spd >= 1, amplitude of sound is increasing
 static char *get_sine_signal(int sample_rate, int bps, int channels, int frequency, double volume, int crescendo_spd) {
         char *data = (char *) calloc(1, sample_rate * channels * bps);
@@ -414,7 +408,6 @@ static void audio_cap_testcard_done(void *state)
 
 static const struct audio_capture_info acap_testcard_info = {
         audio_cap_testcard_probe,
-        audio_cap_testcard_help,
         audio_cap_testcard_init,
         audio_cap_testcard_read,
         audio_cap_testcard_done
