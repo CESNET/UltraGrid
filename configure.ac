@@ -3432,8 +3432,10 @@ sdl_mixer=no
 if test $sdl = yes
 then
         PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer], [found_sdl_mixer=yes], [found_sdl_mixer=no])
-        SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
-        SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
+        if test "$found_sdl_mixer" = yes; then
+                SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
+                SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
+        fi
 fi
 
 if test $found_sdl_mixer = yes && test $sdl_mixer_req != no
