@@ -65,15 +65,20 @@ static bool crop_get_property(void *state, int property, void *val, size_t *len)
         return false;
 }
 
-static void * crop_init(const char *config) {
-
-        if (strcmp(config, "help") == 0) {
-                color_printf("This filter spatially crops video to given dimensions.\n\n");
-                color_printf("crop video postprocess takes optional parameters: " TBOLD("width") ", "
+static void usage(_Bool capture_filter) {
+        color_printf("This filter spatially crops video to given dimensions. If the video is smaller than the crop, no cropping is performed.\n\n");
+        color_printf("crop filter takes optional parameters: " TBOLD("width") ", "
                         TBOLD("height") ", "
                         TBOLD("xoff") " and "
                         TBOLD("yoff") ". Example:\n"
-                        "\t" TBOLD(TRED("-p crop") "[:width=<w>][:height=<h>][:xoff=<x>][:yoff=<y>]") "\n\n");
+                        "\t" TBOLD(TRED("%s crop") "[:width=<w>][:height=<h>][:xoff=<x>][:yoff=<y>]") "\n\n",
+                        capture_filter ? "--capture-filter" : "-p");
+}
+
+static void * crop_init(const char *config) {
+
+        if (strcmp(config, "help") == 0) {
+                usage(0);
                 return NULL;
         }
 
@@ -173,9 +178,13 @@ static void crop_get_out_desc(void *state, struct video_desc *out, int *in_displ
 static int cf_crop_init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
+        if (strcmp(cfg, "help") == 0) {
+                usage(1);
+                return 1;
+        }
         void *s = crop_init(cfg);
         if (!s) {
-                return strcmp(cfg, "help") == 0 ? 1 : -1;
+                return -1;
         }
         *state = s;
         return 0;
