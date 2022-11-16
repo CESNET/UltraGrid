@@ -41,9 +41,6 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
-#include <algorithm>
-#include <iostream>
-
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
@@ -52,37 +49,35 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
-using std::max;
-using std::min;
-
 struct state_crop {
-        int width = 0;
-        int height = 0;
-        int xoff = 0;
-        int yoff = 0;
-        struct video_desc in_desc = {};
-        struct video_desc out_desc = {};
-        struct video_frame *in = nullptr;
+        int width;
+        int height;
+        int xoff;
+        int yoff;
+        struct video_desc in_desc;
+        struct video_desc out_desc;
+        struct video_frame *in;
 };
 
-static bool crop_get_property(void * /* state */, int /* property */, void * /* val */, size_t * /* len */)
+static bool crop_get_property(void *state, int property, void *val, size_t *len)
 {
+        UNUSED(state), UNUSED(property), UNUSED(val), UNUSED(len);
         return false;
 }
 
 static void * crop_init(const char *config) {
 
         if (strcmp(config, "help") == 0) {
-                col() << "crop video postprocess takes optional parameters: "
-                        << SBOLD("width") << ", "
-                        << SBOLD("height") << ", "
-                        << SBOLD("xoff") << " and "
-                        << SBOLD("yoff") << ". Example:\n";
-                col() << "\t" << SBOLD(SRED("-p crop") << "[:width=<w>][:height=<h>][:xoff=<x>][:yoff=<y>]") << "\n\n";
-                return nullptr;
+                color_printf("This filter spatially crops video to given dimensions.\n\n");
+                color_printf("crop video postprocess takes optional parameters: " TBOLD("width") ", "
+                        TBOLD("height") ", "
+                        TBOLD("xoff") " and "
+                        TBOLD("yoff") ". Example:\n"
+                        "\t" TBOLD(TRED("-p crop") "[:width=<w>][:height=<h>][:xoff=<x>][:yoff=<y>]") "\n\n");
+                return NULL;
         }
 
-        struct state_crop *s = new state_crop();
+        struct state_crop *s = calloc(1, sizeof *s);
 
         char *tmp = strdup(config);
         char *config_copy = tmp;
@@ -99,11 +94,11 @@ static void * crop_init(const char *config) {
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "Wrong config: %s!\n", item);
                         free(tmp);
-                        delete s;
-                        return nullptr;
+                        free(s);
+                        return NULL;
                 }
 
-                config_copy = nullptr;
+                config_copy = NULL;
         }
 
         free(tmp);
@@ -113,15 +108,15 @@ static void * crop_init(const char *config) {
 
 static int crop_postprocess_reconfigure(void *state, struct video_desc desc)
 {
-        auto s = static_cast<struct state_crop *>(state);
+        struct state_crop *s = state;
         vf_free(s->in);
 
         s->in_desc = desc;
         s->in = vf_alloc_desc_data(desc);
 
         s->out_desc = desc;
-        s->out_desc.width = s->width ? min<int>(s->width, desc.width) : desc.width;
-        s->out_desc.height = s->height ? min<int>(s->height, desc.height) : desc.height;
+        s->out_desc.width = s->width ? MIN(s->width, desc.width) : desc.width;
+        s->out_desc.height = s->height ? MIN(s->height, desc.height) : desc.height;
 
         // make sure that width is divisible by pixel block size
         assert(get_pf_block_bytes(desc.color_spec) != 0);
@@ -134,7 +129,7 @@ static int crop_postprocess_reconfigure(void *state, struct video_desc desc)
 
 static struct video_frame * crop_getf(void *state)
 {
-        auto s = static_cast<struct state_crop *>(state);
+        struct state_crop *s = state;
         return s->in;
 }
 
@@ -143,12 +138,12 @@ static bool crop_postprocess(void *state, struct video_frame *in, struct video_f
         assert(in->tile_count == 1);
         assert(get_pf_block_bytes(in->color_spec) != 0);
 
-        auto s = static_cast<struct state_crop *>(state);
+        struct state_crop *s = state;
         int src_linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
-        int xoff = s->xoff - max<int>(0, out->tiles[0].width + s->xoff - in->tiles[0].width);
+        int xoff = s->xoff - MAX(0, out->tiles[0].width + s->xoff - in->tiles[0].width);
         int xoff_bytes = (int) (xoff * get_bpp(in->color_spec)) / get_pf_block_bytes(in->color_spec)
                 * get_pf_block_bytes(in->color_spec);
-        int yoff = s->yoff - max<int>(0, out->tiles[0].height + s->yoff - in->tiles[0].height);
+        int yoff = s->yoff - MAX(0, out->tiles[0].height + s->yoff - in->tiles[0].height);
 
         for (int y = 0 ; y < (int) out->tiles[0].height; y++) {
                 memcpy(out->tiles[0].data + y * req_pitch,
@@ -161,15 +156,15 @@ static bool crop_postprocess(void *state, struct video_frame *in, struct video_f
 
 static void crop_done(void *state)
 {
-        auto s = static_cast<struct state_crop *>(state);
+        struct state_crop *s = state;
 
         vf_free(s->in);
-        delete s;
+        free(s);
 }
 
 static void crop_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
-        *out = static_cast<struct state_crop *>(state)->out_desc;
+        *out = ((struct state_crop *) state)->out_desc;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
