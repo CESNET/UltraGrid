@@ -26,7 +26,7 @@ sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 sudo apt install uuid-dev # Cineform
 
-"$GITHUB_WORKSPACE/.github/scripts/Linux/install_sdl.sh"
+sudo aptitude -y build-dep libsdl2 libsdl2-mixer libsdl2-ttf libsdl2-dev:
 "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg_deps.sh"
 
 # Install cross-platform deps
