@@ -1132,7 +1132,7 @@ static void *udp_reader(void *arg)
                         break;
                 }
 
-                struct item *i = (struct item *)(packet + ALIGNED_ITEM_OFF);
+                struct item *i = (struct item *)(void *)(packet + ALIGNED_ITEM_OFF);
                 *i = (struct item){packet, size, src_addr, addrlen};
                 simple_linked_list_append(s->local->packets, i);
 
