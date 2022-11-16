@@ -52,9 +52,8 @@
 
 #include "debug.h"
 #include "host.h"
-
 #include "lib_common.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
 
 using namespace std;
 
@@ -296,7 +295,7 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
 void list_modules(enum library_class cls, int abi_version, bool full) {
         const auto & class_set = get_libraries_for_class(cls, abi_version, full);
         for (auto && item : class_set) {
-                cout << rang::style::bold << "\t" << item.first.c_str() << "\n" << rang::style::reset;
+                col() << "\t" << SBOLD(item.first.c_str()) << "\n";
         }
 }
 
@@ -313,7 +312,7 @@ bool list_all_modules() {
                 auto it = libraries.find(cls_it->first);
                 if (it != libraries.end()) {
                         for (auto && item : it->second) {
-                                cout << rang::style::bold << "\t" << item.first << "\n" << rang::style::reset;
+                                col() << "\t" << SBOLD(item.first) << "\n";
                         }
                 }
                 cout << "\n";
@@ -321,9 +320,9 @@ bool list_all_modules() {
 
         if (!lib_errors.empty()) {
                 ret = false;
-                cout << rang::style::bold << rang::fg::red << "Errors:\n" << rang::fg::reset << rang::style::reset;
+                col() << SBOLD(SRED("Errors:")) << "\n";
                 for (auto && item : lib_errors) {
-                        cout << "\t" << rang::fg::red << item.first << rang::fg::reset << "\n\t\t" << item.second << "\n";
+                        cout << "\t" << SRED(item.first) << "\n\t\t" << item.second << "\n";
                 }
                 cout << "\n";
         }

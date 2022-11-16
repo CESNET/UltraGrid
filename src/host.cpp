@@ -59,8 +59,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "rang.hpp"
-#include "utils/color_out.h" // unit_evaluate
+#include "utils/color_out.h"
 #include "utils/misc.h" // unit_evaluate
 #include "video_capture.h"
 #include "video_compress.h"
@@ -93,7 +92,6 @@
 #include <mcheck.h>
 #endif
 
-using rang::style;
 using namespace std;
 
 unsigned int audio_capture_channels = 0;
@@ -598,10 +596,9 @@ void print_version()
                 is_release = false;
         }
 #endif
-        cout << rang::fg::bright_blue << rang::style::bold << PACKAGE_STRING <<
-                (is_release ? "" : "+") <<
-                rang::fg::reset << rang::style::reset << " (" <<
-                get_version_details() << ")\n";
+        col() << SBRIGHT_BLUE(SBOLD(PACKAGE_STRING <<
+                (is_release ? "" : "+"))) <<
+                " (" << get_version_details() << ")\n";
 }
 
 void print_configuration()
@@ -738,31 +735,23 @@ void print_param_doc()
 void print_pixel_formats(void) {
         cout << "codec RGB/YCbCr depth description\n";
         for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
-                char tag;
                 if (is_codec_opaque(c)) {
                         continue;
                 }
 
-                tag = codec_is_a_rgb(c) ? 'R' : 'Y';
-                auto width = cout.width();
-                auto flags = cout.flags();
-                cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << setw(2) << get_bits_per_component(c) << setw(0) << "   " << get_codec_name_long(c) << setw(width) << "\n";
-                cout.flags(flags);
+                char tag = codec_is_a_rgb(c) ? 'R' : 'Y';
+                col() << " " << left << setw(12) << SBOLD(get_codec_name(c)) << setw(0) << " " << tag << " " << setw(2) << get_bits_per_component(c) << setw(0) << "   " << get_codec_name_long(c) << "\n";
         }
 }
 
 void print_video_codecs(void) {
         for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
-                char tag;
                 if (!is_codec_opaque(c)) {
                         continue;
                 }
 
-                tag = is_codec_interframe(c) ? 'I' : '.';
-                auto width = cout.width();
-                auto flags = cout.flags();
-                cout << " " << style::bold << left << setw(12) << get_codec_name(c) << style::reset << setw(0) << " " << tag << " " << "   " << get_codec_name_long(c) << setw(width) << "\n";
-                cout.flags(flags);
+                char tag = is_codec_interframe(c) ? 'I' : '.';
+                col() << " " << left << setw(12) << SBOLD(get_codec_name(c)) << setw(0) << " " << tag << " " << "   " << get_codec_name_long(c) << "\n";
         }
         cout << "\nLegend:\n" << " I - interframe codec\n";
 }

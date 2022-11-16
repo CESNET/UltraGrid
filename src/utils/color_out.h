@@ -51,6 +51,7 @@
 #define TERM_FG_BLUE    "\033[34m"
 #define TERM_FG_MAGENTA "\033[35m"
 #define TERM_FG_BRIGHT_GREEN "\033[92m"
+#define TERM_FG_BRIGHT_BLUE "\033[94m"
 #define TERM_FG_RESET   "\033[39m"
 #define TERM_BG_BLACK   "\033[40m"
 #define TERM_BG_RESET   "\033[49m"
@@ -60,6 +61,7 @@
 #define TGREEN(x) TERM_FG_GREEN x TERM_FG_RESET
 #define TMAGENTA(x) TERM_FG_MAGENTA x TERM_FG_RESET
 #define TRED(x) TERM_FG_RED x TERM_FG_RESET
+#define TBRIGHT_BLUE(x) TERM_FG_BRIGHT_BLUE x TERM_FG_RESET
 
 // macros intended for C++ streams - enclosed arg doesn't need to be C string literals
 #define SBOLD(x) TBOLD(<< x <<)
@@ -67,6 +69,7 @@
 #define SGREEN(x) TGREEN(<< x <<)
 #define SMAGENTA(x) TMAGENTA(<< x <<)
 #define SRED(x) TRED(<< x <<)
+#define SBRIGHT_BLUE(x) TBRIGHT_BLUE(<< x <<)
 
 #ifdef __cplusplus
 extern "C" {

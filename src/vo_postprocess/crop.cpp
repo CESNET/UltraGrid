@@ -47,14 +47,11 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
 
-using rang::fg;
-using rang::style;
-using std::cout;
 using std::max;
 using std::min;
 
@@ -76,12 +73,12 @@ static bool crop_get_property(void * /* state */, int /* property */, void * /* 
 static void * crop_init(const char *config) {
 
         if (strcmp(config, "help") == 0) {
-                cout << "crop video postprocess takes optional parameters: "
-                        << style::bold << "width" << style::reset << ", "
-                        << style::bold << "height" << style::reset << ", "
-                        << style::bold << "xoff" << style::reset << " and "
-                        << style::bold << "yoff" << style::reset << ". Example:\n";
-                cout << style::bold << fg::red << "\t-p crop" << fg::reset << "[:width=<w>][:height=<h>][:xoff=<x>][:yoff=<y>]\n\n" << style::reset;
+                col() << "crop video postprocess takes optional parameters: "
+                        << SBOLD("width") << ", "
+                        << SBOLD("height") << ", "
+                        << SBOLD("xoff") << " and "
+                        << SBOLD("yoff") << ". Example:\n";
+                col() << "\t" << SBOLD(SRED("-p crop") << "[:width=<w>][:height=<h>][:xoff=<x>][:yoff=<y>]") << "\n\n";
                 return nullptr;
         }
 

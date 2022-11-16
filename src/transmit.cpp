@@ -71,7 +71,6 @@
 #include "lib_common.h"
 #include "crypto/openssl_encrypt.h"
 #include "module.h"
-#include "rang.hpp"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
