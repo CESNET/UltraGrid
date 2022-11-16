@@ -1,10 +1,9 @@
 /**
- * @file   utils/misc.h
+ * @file   utils/ref_count.hpp
  * @author Martin Pulec     <pulec@cesnet.cz>
- * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2022 CESNET z.s.p.o.
+ * Copyright (c) 2022 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,46 +35,27 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_MISC_H_
-#define UTILS_MISC_H_
+#ifndef UTILS_REF_COUNT_H_0FC2C86B_8E95_45EF_AADE_F0A5C4ECBC31
+#define UTILS_REF_COUNT_H_0FC2C86B_8E95_45EF_AADE_F0A5C4ECBC31
 
-#ifdef __cplusplus
-#include <cstddef>
-#else
-#include <stdbool.h>
-#include <stddef.h>
-#endif
+#include <optional>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int clampi(long long val, int lo, int hi);
-
-bool is_wine(void);
-long long unit_evaluate(const char *str);
-double unit_evaluate_dbl(const char *str, bool case_sensitive);
-const char *format_in_si_units(unsigned long long int val);
-int get_framerate_n(double framerate);
-int get_framerate_d(double framerate);
-
-const char *ug_strerror(int errnum);
-void ug_perror(const char *s);
-int get_cpu_core_count(void);
-
-struct key_val {
-        const char *key;
-        const char *val;
+template<typename T> struct ref_count_init_once {
+        std::optional<T> operator()(T (*init)(void), int &i) {
+                if (i++ == 0) {
+                        return std::optional<T>(init());
+                }
+                return std::nullopt;
+        }
 };
-void print_module_usage(const char *module_name, const struct key_val *options, const struct key_val *options_full, bool print_full_help);
 
-#ifdef __cplusplus
-}
-#endif
+struct ref_count_terminate_last {
+        void operator()(void (*terminate)(void), int &i) {
+                if (--i == 0) {
+                        terminate();
+                }
+        }
+};
 
-#ifdef __cplusplus
-uint32_t parse_uint32(const char *value_str) noexcept(false);
-#endif //__cplusplus
-
-#endif// UTILS_MISC_H_
+#endif // defined UTILS_REF_COUNT_H_0FC2C86B_8E95_45EF_AADE_F0A5C4ECBC31
 

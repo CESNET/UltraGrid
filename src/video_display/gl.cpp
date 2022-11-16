@@ -79,7 +79,7 @@
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
-#include "utils/misc.h"
+#include "utils/ref_count.hpp"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
