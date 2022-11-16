@@ -170,6 +170,38 @@ static void crop_get_out_desc(void *state, struct video_desc *out, int *in_displ
         *out_frames = 1;
 }
 
+static int cf_crop_init(struct module *parent, const char *cfg, void **state)
+{
+        UNUSED(parent);
+        void *s = crop_init(cfg);
+        if (!s) {
+                return strcmp(cfg, "help") == 0 ? 1 : -1;
+        }
+        *state = s;
+        return 0;
+}
+
+static struct video_frame *cf_crop_filter(void *state, struct video_frame *f)
+{
+        struct state_crop *s = state;
+
+        if (!video_desc_eq(s->in_desc, video_desc_from_frame(f))) {
+                if (!crop_postprocess_reconfigure(s, video_desc_from_frame(f))) {
+                        abort(); // cannot fail now
+                }
+        }
+
+        struct video_frame *out = vf_alloc_desc_data(s->out_desc);
+        out->callbacks.dispose = vf_free;
+        if (!crop_postprocess(state, f, out, vc_get_linesize(s->out_desc.width, f->color_spec))) {
+                VIDEO_FRAME_DISPOSE(f);
+                vf_free(out);
+                return NULL;
+        }
+        VIDEO_FRAME_DISPOSE(f);
+        return out;
+}
+
 static const struct vo_postprocess_info vo_pp_crop_info = {
         crop_init,
         crop_postprocess_reconfigure,
@@ -180,5 +212,12 @@ static const struct vo_postprocess_info vo_pp_crop_info = {
         crop_done,
 };
 
+static const struct capture_filter_info capture_filter_crop_info = {
+        cf_crop_init,
+        crop_done,
+        cf_crop_filter
+};
+
 REGISTER_MODULE(crop, &vo_pp_crop_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(crop, &capture_filter_crop_info, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
