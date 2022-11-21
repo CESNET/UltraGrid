@@ -77,6 +77,9 @@ void RecvLossWidget::updateVal(){
 	if(tooltip.endsWith('\n'))
 		tooltip.chop(1);
 
+	if(total < 1)
+		total = 1;
+
 	float ratio = ((float) received / total) * 100.f;
 	setFormat("Received %p% of packets");
 	setValue(ratio);
