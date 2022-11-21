@@ -31,7 +31,7 @@ inline void SSRC_container<T, Ts_type>::insert(uint32_t ssrc, const T& item, Ts_
 	}
 
 	if(!h){
-		Holder newItem;
+		Holder newItem = {};
 		newItem.ssrc = ssrc;
 		items.push_back(newItem);
 		h = &items.back();
