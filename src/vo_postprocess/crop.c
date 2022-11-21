@@ -145,10 +145,10 @@ static bool crop_postprocess(void *state, struct video_frame *in, struct video_f
 
         struct state_crop *s = state;
         int src_linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
-        int xoff = s->xoff - MAX(0, out->tiles[0].width + s->xoff - in->tiles[0].width);
+        int xoff = s->xoff + out->tiles[0].width > in->tiles[0].width ? in->tiles[0].width - out->tiles[0].width : (unsigned) s->xoff;
         int xoff_bytes = (int) (xoff * get_bpp(in->color_spec)) / get_pf_block_bytes(in->color_spec)
                 * get_pf_block_bytes(in->color_spec);
-        int yoff = s->yoff - MAX(0, out->tiles[0].height + s->yoff - in->tiles[0].height);
+        int yoff = s->yoff + out->tiles[0].height > in->tiles[0].height ? in->tiles[0].height - out->tiles[0].height : (unsigned) s->yoff;
 
         for (int y = 0 ; y < (int) out->tiles[0].height; y++) {
                 memcpy(out->tiles[0].data + y * req_pitch,
