@@ -1385,7 +1385,22 @@ fi
 
 if test "$found_opencv" = no && test "$opencv_req" != no; then
         AC_CHECK_LIB(opencv_core, cvCreateMat)
-        if test "$ac_cv_lib_opencv_core_cvCreateMat" = yes; then
+        AC_LANG_PUSH(C++)
+        AC_CHECK_HEADERS([opencv2/core/mat.hpp])
+        # if hdrs not in default path, try also /usr/include/opencv4 (we don't have CFLAGS from .pc; eg. U20.04)
+        if test "$ac_cv_header_opencv2_core_mat_hpp" = no; then
+                OPENCV_CFLAGS=-I/usr/include/opencv4
+                SAVED_CPPFLAGS=$CPPFLAGS
+                SAVED_CXXFLAGS=$CXXFLAGS
+                CPPFLAGS="$CPPFLAGS $OPENCV_CFLAGS"
+                CXXFLAGS="$CXXFLAGS $OPENCV_CFLAGS"
+                unset ac_cv_header_opencv2_core_mat_hpp # prevent AC from using cached result
+                AC_CHECK_HEADERS([opencv2/core/mat.hpp])
+                CPPFLAGS=$SAVED_CPPFLAGS
+                CXXFLAGS=$SAVED_CXXFLAGS
+        fi
+        AC_LANG_POP(C++)
+        if test "$ac_cv_lib_opencv_core_cvCreateMat" = yes && test "$ac_cv_header_opencv2_core_mat_hpp" = yes; then
                 OPENCV_LIBS=-lopencv_core
                 opencv=yes
         fi
