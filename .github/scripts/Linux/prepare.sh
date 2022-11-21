@@ -26,7 +26,8 @@ sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 sudo apt install uuid-dev # Cineform
 
-sudo aptitude -y build-dep libsdl2 libsdl2-mixer libsdl2-ttf libsdl2-dev:
+sudo apt build-dep libsdl2
+sudo aptitude -y build-dep libsdl2-mixer libsdl2-ttf libsdl2-dev:
 
 # FFmpeg deps
 sudo add-apt-repository ppa:savoury1/vlc3 # new x265
@@ -39,8 +40,9 @@ update_nasm() {
         sudo ln -s /usr/lib/nasm-mozilla/bin/nasm /usr/bin/nasm
 }
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
-sudo aptitude -y build-dep ffmpeg libsdl2-dev: libzmq3-dev:
-sudo apt install libdav1d-dev
+FFMPEG_BUILD_DEP=$(apt-cache showsrc ffmpeg | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v 'libzmq3-dev\|libsdl2-dev')
+# shellcheck disable=SC2086
+sudo apt install $FFMPEG_BUILD_DEP libdav1d-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
 update_nasm
 # own x264 build
