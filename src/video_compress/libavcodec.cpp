@@ -1862,16 +1862,18 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->desc.fps;
 }
 
-static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
+static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         // see FFMPEG modules' sources for semantics
         set_forced_idr(codec_ctx, strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
 
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
-                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", 4, 0)) {
+                int tile_col_cnt = param->desc.width >= 1024 ? 4 : param->desc.width >= 512 ? 2 : 1;
+                int tile_row_cnt = param->desc.height >= 256 ? 4 : param->desc.height >= 128 ? 2 : 1;
+                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", tile_row_cnt, 0)) {
                         print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Row Count for SVT", ret);
                 }
-                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", 4, 0)) {
+                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt, 0)) {
                         print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Column Count for SVT", ret);
                 }
                 if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_slice_mode", 1, 0)) {
