@@ -130,6 +130,7 @@ static int openssl_encrypt_init(struct openssl_encrypt **state, const char *pass
         s->cipher = get_cipher(mode);
         if (s->cipher == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cipher %d not available!\n", (int) mode);
+                free(s);
                 return -1;
         }
 
