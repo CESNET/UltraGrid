@@ -112,9 +112,8 @@ static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
 namespace {
 
 struct setparam_param {
-        double fps;
+        struct video_desc desc;
         bool have_preset;
-        bool interlaced;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         string thread_mode;
         int slices = -1;
@@ -1216,8 +1215,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->sws_out_pixfmt = AV_PIX_FMT_NONE;
 #endif //HAVE_SWSCALE
 
-        s->params.fps = desc.fps;
-        s->params.interlaced = desc.interlacing == INTERLACED_MERGED;
+        s->params.desc = desc;
 
         if ((codec = get_av_codec(s, &ug_codec, codec_is_a_rgb(desc.color_spec))) == nullptr) {
                 return false;
@@ -1725,7 +1723,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         if (const char *val = get_commandline_param("lavc-rc-buffer-size-factor")) {
                 lavc_rc_buffer_size_factor = stof(val);
         }
-        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps * lavc_rc_buffer_size_factor; // "emulate" CBR. Note that factor less than 8 used to cause encoder buffer overflows and artifacts in stream.
+        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->desc.fps * lavc_rc_buffer_size_factor; // "emulate" CBR. Note that factor less than 8 used to cause encoder buffer overflows and artifacts in stream.
         codec_ctx->qcompress = codec_ctx->codec->id == AV_CODEC_ID_H265 ? 0.5F : 0.0F;
         //codec_ctx->qblur = 0.0f;
         //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
@@ -1738,7 +1736,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
 
         if (get_commandline_param("lavc-h264-interlaced-dct")) {
                 // this options increases variance in frame sizes quite a lot
-                if (param->interlaced) {
+                if (param->desc.interlacing == INTERLACED_MERGED) {
                         codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
                 }
         }
@@ -1861,7 +1859,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set zero latency operation (no reordering delay).\n");
         }
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
+        codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->desc.fps;
 }
 
 static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
@@ -1974,7 +1972,7 @@ static string get_av1_preset(string const & enc_name, int width, int height, dou
 
 static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->fps;
+        codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->desc.fps;
         //codec_ctx->rc_buffer_aggressivity = 0.5;
         if (av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0) != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set deadline.\n");
