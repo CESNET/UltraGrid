@@ -170,17 +170,20 @@ get_firejail_whitelist() {
                 printf -- "$separator--whitelist=%s" "$abs_path"
                 separator=' '
         fi
-        # print every argument of "filename=" or "file=" pattern
+        # print every argument of "filename=", "file=", "dump:" or "--record=" pattern
         for n in "$@"; do
-                file_path=$(echo "$n" | sed -n -e 's/.*filename=\([^:]*\).*/\1/p' -e 's/.*file=\([^:]*\).*/\1/p')
+                file_path=$(echo "$n" | sed -n -e 's/.*filename=\([^:]*\).*/\1/p' -e 's/.*file=\([^:]*\).*/\1/p' -e 's/dump:\([^:]*\).*/\1/p' -e 's/^--record=\([^:]*\).*/\1/p')
                 if [ -n "$file_path" ]; then
                         abs_path=$(realpath "$file_path")
                         printf -- "$separator--whitelist=%s" "$abs_path"
                         separator=' '
+                        if expr "$n" : 'dump:' >/dev/null || expr "$n" : '--record' >/dev/null; then
+                                printf -- "$separator--mkdir=%s" "$abs_path" # dir may not exist
+                        fi
                 fi
         done
         # -d dump or -d dummy:dump_to_file
-        if expr "$*" : '.*dump' >/dev/null || expr "$*" : '.*record' >/dev/null ; then
+        if expr "$*" : '.*dump' >/dev/null || expr "$*" : '.*record' >/dev/null; then
                 printf -- "$separator--whitelist=%s" "$(pwd)"
                 separator=' '
         fi
