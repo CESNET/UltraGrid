@@ -179,6 +179,11 @@ get_firejail_whitelist() {
                         separator=' '
                 fi
         done
+        # -d dump or -d dummy:dump_to_file
+        if expr "$*" : '.*dump' >/dev/null || expr "$*" : '.*record' >/dev/null ; then
+                printf -- "$separator--whitelist=%s" "$(pwd)"
+                separator=' '
+        fi
         if [ -z "$separator" ]; then
                 printf -- "--private"
         fi
