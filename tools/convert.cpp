@@ -69,13 +69,14 @@ int main(int argc, char *argv[]) {
                 return 0;
         }
         if (argc < 7) {
-                cout << "Usage:\n"
-                                "\t" << argv[0] << " <width> <height> <in_codec> <out_codec> <in_file> <out_file> | benchmark | list-conversions\n"
-                                "\n"
-                                "where\n"
-                                "\t" << "list-conversions - prints valid conversion pairs\n"
-                                "\t" << "benchmark - benchmark conversions\n";
-                return 1;
+                cout << "Tool to convert between UltraGrid raw pixel format with supported conversions.\n\n"
+                        "Usage:\n"
+                        "\t" << argv[0] << " <width> <height> <in_codec> <out_codec> <in_file> <out_file> | benchmark | list-conversions\n"
+                        "\n"
+                        "where\n"
+                        "\t" << "list-conversions - prints valid conversion pairs\n"
+                        "\t" << "benchmark - benchmark conversions\n";
+                return (argc == 1 || argc == 2 && string("help") == argv[1]) ? 0 : 1;
         }
         int width = stoi(argv[1]);
         int height = stoi(argv[2]);
