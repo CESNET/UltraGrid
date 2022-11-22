@@ -276,7 +276,7 @@ static bool testcard_load_from_file(const char *filename, long data_len, char *d
         bool ret = true;
         FILE *in = fopen(filename, "r");
         if (in == nullptr) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "fopen: " << ug_strerror(errno) << "\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << filename << " fopen: " << ug_strerror(errno) << "\n";
                 return false;
         }
         fseek(in, 0L, SEEK_END);
@@ -353,7 +353,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 if (strcmp(tmp, "p") == 0) {
                         s->pan = 48;
                 } else if (strstr(tmp, "file=") == tmp || strstr(tmp, "filename=") == tmp) {
-                        filename = strchr(tmp, '=');
+                        filename = strchr(tmp, '=') + 1;
                 } else if (strncmp(tmp, "s=", 2) == 0) {
                         strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
