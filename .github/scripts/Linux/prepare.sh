@@ -9,7 +9,6 @@ printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 
 sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/sources.list # for build-dep ffmpeg
 sudo apt update
-sudo apt -y upgrade
 sudo apt install appstream # appstreamcli for mkappimage AppStream validation
 sudo apt install aptitude
 sudo apt install fonts-dejavu-core
