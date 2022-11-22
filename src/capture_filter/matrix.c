@@ -45,6 +45,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "video.h"
 #include "video_codec.h"
 #include "vo_postprocess/capture_filter_wrapper.h"

@@ -66,6 +66,7 @@
 #include "playback.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
 #include "video_export.h"

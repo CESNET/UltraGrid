@@ -47,6 +47,7 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/macros.h"
 #include "utils/pam.hpp"
 #include "video.h"
 #include "video_codec.h"

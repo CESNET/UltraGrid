@@ -60,6 +60,7 @@
 #include "types.h"
 #include "utils/color_out.h"
 #include "utils/fs.h"
+#include "utils/macros.h"
 #include "utils/ring_buffer.h"
 
 #define DEFAULT_SDL_MIXER_BPS 2

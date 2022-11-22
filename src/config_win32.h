@@ -93,9 +93,6 @@
 
 #include <amstream.h>
 
-EXTERN_C const CLSID CLSID_NullRenderer;
-EXTERN_C const CLSID CLSID_SampleGrabber;
-
 typedef int		ttl_t;
 typedef unsigned char	byte;
 typedef SOCKET          fd_t;

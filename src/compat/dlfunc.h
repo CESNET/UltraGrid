@@ -39,7 +39,7 @@
 #define COMPAT_DLFUNC_H_08AEAEE7_485F_4969_8FDF_FBC2E4A78713
 
 #ifdef _WIN32
-#include "config_common.h" // EXTERN_C
+#include "utils/macros.h" // EXTERN_C
 #include <windows.h>
 #define LIB_HANDLE HMODULE
 #define dlopen(name, flags) LoadLibraryA(name)

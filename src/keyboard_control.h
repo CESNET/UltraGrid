@@ -40,6 +40,7 @@
 
 #include "host.h"
 #include "module.h"
+#include "utils/macros.h"
 
 #ifdef __cplusplus
 

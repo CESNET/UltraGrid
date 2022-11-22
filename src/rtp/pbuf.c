@@ -66,6 +66,7 @@
 #include "rtp/pbuf.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 
 #define PBUF_MAGIC	0xcafebabe
 

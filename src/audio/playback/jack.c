@@ -53,6 +53,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/audio_buffer.h"
+#include "utils/macros.h"
 #include "utils/ring_buffer.h"
 #include "jack_common.h"
 

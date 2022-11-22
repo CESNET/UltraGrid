@@ -43,6 +43,8 @@
 #ifndef COMPAT_ALARM_H
 #define COMPAT_ALARM_H
 
+#include "utils/macros.h"
+
 EXTERN_C void alarm(unsigned int sec);
 
 #endif // defined COMPAT_ALARM_H

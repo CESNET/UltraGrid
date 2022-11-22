@@ -66,8 +66,9 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "utils/ring_buffer.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
+#include "utils/ring_buffer.h"
 
 /* default variables for sender */
 #define BUF_MS 100
@@ -215,7 +216,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                 return NULL;
         }
 
-        inputParameters.channelCount = s->frame.ch_count = audio_capture_channels > 0 ? audio_capture_channels : MAX(device_info->maxInputChannels, DEFAULT_AUDIO_CAPTURE_CHANNELS);
+        inputParameters.channelCount = s->frame.ch_count = audio_capture_channels > 0 ? (int) audio_capture_channels : MAX(device_info->maxInputChannels, DEFAULT_AUDIO_CAPTURE_CHANNELS);
         if (s->frame.ch_count > device_info->maxInputChannels) {
                 fprintf(stderr, MODULE_NAME "Requested %d input channels, device offers only %d.\n",
                                 s->frame.ch_count,

@@ -51,6 +51,7 @@
 #include "rtp/rs.h"
 #include "rtp/rtp_callback.h"
 #include "ug_runtime_error.hpp"
+#include "utils/macros.h"
 
 using namespace std;
 

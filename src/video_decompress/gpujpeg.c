@@ -50,7 +50,9 @@
 //#include "compat/platform_semaphore.h"
 #include <pthread.h>
 #include <stdlib.h>
+
 #include "lib_common.h"
+#include "utils/macros.h"
 
 #define MOD_NAME "[GPUJPEG dec.] "
 

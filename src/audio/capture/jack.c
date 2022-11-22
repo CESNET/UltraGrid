@@ -53,6 +53,7 @@
 #include "jack_common.h"
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
+#include "utils/macros.h"
 
 #include <jack/jack.h>
 #include <stdio.h>

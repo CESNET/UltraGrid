@@ -49,6 +49,7 @@
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
 #include "debug.h"
+#include "utils/macros.h"
 #include "utils/misc.h"
 
 #define MOD_NAME "[WAV reader] "

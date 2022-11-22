@@ -33,6 +33,9 @@
 
 #define MOD_NAME "[dshow] "
 
+EXTERN_C const CLSID CLSID_NullRenderer;
+EXTERN_C const CLSID CLSID_SampleGrabber;
+
 using namespace std;
 
 static void DeleteMediaType(AM_MEDIA_TYPE *mediaType);

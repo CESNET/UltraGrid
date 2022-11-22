@@ -41,6 +41,8 @@
 
 #else
 
+#include "utils/macros.h"
+
 EXTERN_C int usleep(unsigned int usec);
 
 #endif /* !defined HAVE_USLEEP */

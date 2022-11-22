@@ -45,6 +45,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
@@ -120,8 +121,8 @@ static int crop_postprocess_reconfigure(void *state, struct video_desc desc)
         s->in = vf_alloc_desc_data(desc);
 
         s->out_desc = desc;
-        s->out_desc.width = s->width ? MIN(s->width, desc.width) : desc.width;
-        s->out_desc.height = s->height ? MIN(s->height, desc.height) : desc.height;
+        s->out_desc.width = s->width ? MIN(s->width, (int) desc.width) : (int) desc.width;
+        s->out_desc.height = s->height ? MIN(s->height, (int) desc.height) : (int) desc.height;
 
         // make sure that width is divisible by pixel block size
         assert(get_pf_block_bytes(desc.color_spec) != 0);

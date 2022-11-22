@@ -40,6 +40,7 @@
 
 #include "debug.h"
 #include "host.h"
+#include "utils/macros.h"
 #include "video.h"
 
 #ifdef __cplusplus
