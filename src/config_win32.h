@@ -63,8 +63,6 @@
 
 #define WIN32_LEAN_AND_MEAN
 
-#include "config_common.h"
-
 #include <assert.h>
 #include <process.h>
 #include <malloc.h>

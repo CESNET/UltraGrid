@@ -38,6 +38,10 @@
 #ifndef UTILS_JPEG_READER_H_
 #define UTILS_JPEG_READER_H_
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
+
 enum jpeg_color_spec {
         JPEG_COLOR_SPEC_NONE = 0,
         JPEG_COLOR_SPEC_YCBCR,

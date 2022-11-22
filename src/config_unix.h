@@ -57,8 +57,6 @@
 #ifndef _CONFIG_UNIX_H
 #define _CONFIG_UNIX_H
 
-#include "config_common.h"
-
 /* A lot of includes here that should all probably be in files where they   */
 /* are used.  If anyone ever has the time to reverse the includes into      */
 /* the files where they are actually used, there would be a couple of pints */

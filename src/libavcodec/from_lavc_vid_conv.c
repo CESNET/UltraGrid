@@ -55,7 +55,6 @@
 #include <stdint.h>
 
 #include "color.h"
-#include "config_common.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
 #include "hwaccel_rpi4.h"

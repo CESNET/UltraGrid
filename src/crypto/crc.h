@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cinttypes>
 #else
+#include <stdbool.h>
 #include <stdlib.h>           /* For size_t                 */
 #include <stdint.h>
 #endif

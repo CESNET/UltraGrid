@@ -47,10 +47,9 @@
 #include <Processing.NDI.Lib.h>
 
 #include "compat/dlfunc.h"
-#include "config_common.h" // MAX
 #include "debug.h"
 #include "utils/color_out.h"
-#include "utils/macros.h" // MERGE, TOSTRING
+#include "utils/macros.h" // MAX, MERGE, TOSTRING
 
 #define NDILIB_DEFAULT_PATH "/usr/local/lib"
 #ifndef USE_NDI_VERSION
