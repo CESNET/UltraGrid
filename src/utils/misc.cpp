@@ -53,6 +53,7 @@
 #include <string>
 
 #include "debug.h"
+#include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/color_out.h"
 

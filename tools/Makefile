@@ -1,4 +1,4 @@
-FLAGS ?= -O2
+FLAGS ?= -O2 -g
 COMMON_FLAGS = $(FLAGS) -D_GNU_SOURCE -I../src/
 
 %.o : %.c

@@ -46,6 +46,24 @@
 #define IF_NOT_UNDEF_ELSE(val, default_val) ((val) != UNDEF ? (val) : (default_val))
 #define DIV_ROUNDED_UP(value, div) ((((value) % (div)) != 0) ? ((value) / (div) + 1) : ((value) / (div)))
 
+#undef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#undef MAX
+#define MAX(a,b) (((a)>(b))?(a):(b))
+#undef CLAMP
+#define CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
+
+#ifndef EXTERN_C
+#ifdef __cplusplus
+#define EXTERN_C extern "C"
+#else
+#define EXTERN_C
+#endif
+#endif // defined EXTERN_C
+
+/// unconditional alternative to assert that is not affected by NDEBUG macro
+#define UG_ASSERT(cond) do { if (!(cond)) { fprintf(stderr, "%s:%d: %s: Assertion `" #cond "' failed.\n", __FILE__, __LINE__, __func__); abort(); } } while(0)
+
 /**
  * @brief Creates FourCC word
  *
