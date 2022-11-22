@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
 
                 auto *decode = get_decoder_from_to(in_codec, out_codec);
                 if (decode == nullptr) {
-                        cerr << "Cannot find decoder from " << argv[3] << " to " << argv[4] << "! See '" << argv[0] << " conversions'\n";
+                        cerr << "Cannot find decoder from " << argv[3] << " to " << argv[4] << "! See '" << argv[0] << " list-conversions'\n";
                         return 1;
                 }
 
