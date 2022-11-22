@@ -166,14 +166,16 @@ get_firejail_whitelist() {
         separator=''
         playback_path=$(echo "$@" | sed -n 's/.*--playback \([^ :]*\).*/\1/p')
         if [ -n "$playback_path" ]; then
-                printf -- "$separator--whitelist=%s" "$playback_path"
+                abs_path=$(realpath "$playback_path")
+                printf -- "$separator--whitelist=%s" "$abs_path"
                 separator=' '
         fi
         # print every argument of "filename=" or "file=" pattern
         for n in "$@"; do
                 file_path=$(echo "$n" | sed -n -e 's/.*filename=\([^:]*\).*/\1/p' -e 's/.*file=\([^:]*\).*/\1/p')
                 if [ -n "$file_path" ]; then
-                        printf -- "$separator--whitelist=%s" "$file_path"
+                        abs_path=$(realpath "$file_path")
+                        printf -- "$separator--whitelist=%s" "$abs_path"
                         separator=' '
                 fi
         done
