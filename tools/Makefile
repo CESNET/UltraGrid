@@ -1,25 +1,30 @@
 FLAGS ?= -O2 -g
-COMMON_FLAGS = $(FLAGS) -D_GNU_SOURCE -I../src/
+SRCDIR ?= ..
+COMMON_FLAGS = $(FLAGS) -D_GNU_SOURCE -I$(SRCDIR)/src/
+MKDIR_P = mkdir -p
+vpath %.c $(SRCDIR) $(SRCDIR)/tools
+vpath %.cpp $(SRCDIR) $(SRCDIR)/tools
 
 %.o : %.c
+	$(MKDIR_P) $(dir $@)
 	$(CC) $(COMMON_FLAGS) -c $< -o $@
 
 %.o : %.cpp
+	$(MKDIR_P) $(dir $@)
 	$(CXX) -std=c++17 $(COMMON_FLAGS) -c $< -o $@
 
-astat_test: astat.cpp ../src/compat/platform_pipe.cpp
-	c++ -g -DASTAT_DEBUG -DDEFINE_TEST_MAIN astat.cpp ../src/compat/platform_pipe.cpp -I../src -pthread -o astat_test
+astat_test: astat.cpp src/compat/platform_pipe.o
+	c++ -g -DASTAT_DEBUG -DDEFINE_TEST_MAIN $(COMMON_FLAGS) $^ -pthread -o astat_test
 
 astat_lib: astat.a
 
-astat.a: astat.cpp ../src/compat/platform_pipe.cpp
-	c++ -fpic -c -std=c++11 astat.cpp ../src/compat/platform_pipe.cpp -I../src -pthread
-	ar rcs astat.a astat.o platform_pipe.o
+astat.a: astat.o src/compat/platform_pipe.o
+	ar rcs astat.a $^
 
-convert: ../src/video_codec.o ../src/compat/platform_time.o convert.o ../src/debug.o ../src/utils/color_out.o ../src/utils/misc.o
+convert: src/video_codec.o src/compat/platform_time.o convert.o src/debug.o src/utils/color_out.o src/utils/misc.o
 	$(CXX) $^ -o convert
 
-decklink_temperature: decklink_temperature.cpp ../ext-deps/DeckLink/Linux/DeckLinkAPIDispatch.cpp
+decklink_temperature: decklink_temperature.cpp ext-deps/DeckLink/Linux/DeckLinkAPIDispatch.o
 	$(CXX) $^ -o $@
 
 uyvy2yuv422p: uyvy2yuv422p.c

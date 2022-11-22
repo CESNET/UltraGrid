@@ -2,4 +2,5 @@ astat.a
 astat.so
 astat_test
 convert
+decklink_temperature
 uyvy2yuv422p
