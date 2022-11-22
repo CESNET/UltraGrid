@@ -23,6 +23,8 @@ mv tmpinstall/usr/local $APPPREFIX
 # add packet reflector
 make -f "${srcdir?srcdir not found}/hd-rum-multi/Makefile" "SRCDIR=$srcdir/hd-rum-multi"
 cp hd-rum $APPPREFIX/bin
+make -C "$srcdir/tools" convert
+cp "$srcdir/tools/convert" $APPPREFIX/bin
 
 # add platform and other Qt plugins if using dynamic libs
 # @todo copy only needed ones
