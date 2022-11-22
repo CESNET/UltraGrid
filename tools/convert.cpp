@@ -1,5 +1,6 @@
 #include <cassert>
 #include <chrono>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -13,6 +14,7 @@ using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
 using std::cout;
 using std::cerr;
+using std::exception;
 using std::ifstream;
 using std::ofstream;
 using std::stoi;
@@ -81,30 +83,34 @@ int main(int argc, char *argv[]) {
         codec_t out_codec = get_codec_from_name(argv[4]);
         ifstream in(argv[5], ifstream::ate | ifstream::binary);
         std::ofstream out(argv[6], ofstream::binary);
-        in.exceptions(ifstream::failbit  | ifstream::badbit | ifstream::eofbit);
-        out.exceptions(ofstream::failbit | ofstream::badbit);
+        try {
+                in.exceptions(ifstream::failbit  | ifstream::badbit | ifstream::eofbit);
+                out.exceptions(ofstream::failbit | ofstream::badbit);
 
-        assert (width && height && in_codec && out_codec && in && out);
+                assert (width && height && in_codec && out_codec && in && out);
 
-        size_t in_size = vc_get_datalen(width, height, in_codec);
-        assert(in.tellg() >= in_size);
-        in.seekg (0, ifstream::beg);
+                size_t in_size = vc_get_datalen(width, height, in_codec);
+                assert(in.tellg() >= in_size);
+                in.seekg (0, ifstream::beg);
 
-        vector<char> in_data(in_size);
-        in.read(in_data.data(), in_size);
-        vector<char> out_data(vc_get_datalen(width, height, out_codec));
+                vector<char> in_data(in_size);
+                in.read(in_data.data(), in_size);
+                vector<char> out_data(vc_get_datalen(width, height, out_codec));
 
-        auto *decode = get_decoder_from_to(in_codec, out_codec);
-        if (decode == nullptr) {
-                cerr << "Cannot find decoder from " << argv[3] << " to " << argv[4] << "! See '" << argv[0] << " conversions'\n";
-                return 1;
+                auto *decode = get_decoder_from_to(in_codec, out_codec);
+                if (decode == nullptr) {
+                        cerr << "Cannot find decoder from " << argv[3] << " to " << argv[4] << "! See '" << argv[0] << " conversions'\n";
+                        return 1;
+                }
+
+                size_t dst_linesize = vc_get_linesize(width, out_codec);
+                for (int y = 0; y < height; ++y) {
+                        decode(reinterpret_cast<unsigned char *>(&out_data[y * dst_linesize]),
+                                        reinterpret_cast<unsigned char *>(&in_data[y * vc_get_linesize(width, in_codec)]),
+                                        dst_linesize, 0, 8, 16);
+                }
+                out.write(out_data.data(), out_data.size());
+        } catch (exception &e) {
+                cerr << "ERROR: " << e.what() << ": " << strerror(errno) << "\n";
         }
-
-        size_t dst_linesize = vc_get_linesize(width, out_codec);
-        for (int y = 0; y < height; ++y) {
-                decode(reinterpret_cast<unsigned char *>(&out_data[y * dst_linesize]),
-                                reinterpret_cast<unsigned char *>(&in_data[y * vc_get_linesize(width, in_codec)]),
-                                dst_linesize, 0, 8, 16);
-        }
-        out.write(out_data.data(), out_data.size());
 }
