@@ -56,6 +56,7 @@ HEADERS += window/ultragrid_window.hpp \
 	widget/vuMeterWidget.hpp \
 	widget/recv_report.hpp \
 	widget/recv_loss.hpp \
+	widget/bandwidth_widget.hpp \
 	window/settings_window.hpp \
 	option/widget_ui.hpp \
 	option/checkable_ui.hpp \
@@ -90,6 +91,7 @@ SOURCES += window/ultragrid_window.cpp \
 	widget/vuMeterWidget.cpp \
 	widget/recv_report.cpp \
 	widget/recv_loss.cpp \
+	widget/bandwidth_widget.cpp \
 	window/settings_window.cpp \
 	option/widget_ui.cpp \
 	option/checkable_ui.cpp \

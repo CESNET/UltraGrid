@@ -124,6 +124,9 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.statusbar->addPermanentWidget(&versionLabel);
 
 	ui.vuMeter->setControlPort(&controlPort);
+
+	using namespace std::placeholders;
+	controlPort.addLineCallback(std::bind(&BandwidthWidget::parseLine, ui.send_bandwidth, _1));
 }
 
 void UltragridWindow::refresh(){
@@ -458,6 +461,7 @@ void UltragridWindow::processStateChanged(UgProcessManager::State state){
 
 	receiverLoss.reset();
 	rtcpRr.reset();
+	ui.send_bandwidth->reset();
 }
 
 void UltragridWindow::unexpectedExit(UgProcessManager::State state,
