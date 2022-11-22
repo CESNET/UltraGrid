@@ -726,7 +726,9 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
                         if (control_stats_enabled(tx->control)) {
                                 if(start.tv_sec - tx->last_stat_report >= 1){
-                                        control_report_stats(tx->control, "tx_send video " + std::to_string(tx->sent_since_report));
+                                        std::ostringstream oss;
+                                        oss << "tx_send " << std::hex << rtp_my_ssrc(rtp_session) << std::dec << " video " << tx->sent_since_report;
+                                        control_report_stats(tx->control, oss.str());
                                         tx->last_stat_report = start.tv_sec;
                                         tx->sent_since_report = 0;
                                 }
@@ -896,7 +898,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
 
                                 if (control_stats_enabled(tx->control)) {
                                         if(start.tv_sec - tx->last_stat_report >= 1){
-                                                control_report_stats(tx->control, "tx_send audio " + std::to_string(tx->sent_since_report));
+                                                std::ostringstream oss;
+                                                oss << "tx_send " << std::hex << rtp_my_ssrc(rtp_session) << std::dec << " audio " << tx->sent_since_report;
+                                                control_report_stats(tx->control, oss.str());
                                                 tx->last_stat_report = start.tv_sec;
                                                 tx->sent_since_report = 0;
                                         }
