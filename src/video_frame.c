@@ -59,7 +59,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include "utils/pam.h"
 #include "video_codec.h"
 #include "video_frame.h"
 
@@ -400,6 +399,34 @@ struct video_frame *vf_get_copy(struct video_frame *original) {
         return frame_copy;
 }
 
+/**
+ * returns RGB >8-bit data eligible to be written to PNM (big endian in 16-bit container)
+ */
+static unsigned char *get_16_bit_pnm_data(struct video_frame *frame) {
+        decoder_t dec = get_decoder_from_to(frame->color_spec, RG48);
+        if (!dec) {
+                log_msg(LOG_LEVEL_WARNING, "Unable to find decoder from %s to RG48\n",
+                                get_codec_name(frame->color_spec));
+                return NULL;
+        }
+        unsigned char *tmp = malloc(vc_get_datalen(frame->tiles[0].width, frame->tiles[0].height, RG48));
+        assert (tmp);
+        int src_linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
+        int dst_linesize = vc_get_linesize(frame->tiles[0].width, RG48);
+        unsigned depth = get_bits_per_component(frame->color_spec);
+        for (unsigned i = 0; i < frame->tiles[0].height; ++i) {
+                uint16_t *dstline = (uint16_t *) (void *) (tmp + (size_t) i * dst_linesize);
+                dec((unsigned char *) dstline, (unsigned char *) frame->tiles[0].data + (size_t) i * src_linesize,
+                                dst_linesize, DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
+                for (unsigned i = 0; i < frame->tiles[0].width * 3; ++i) {
+                        uint16_t tmp = *dstline;
+                        tmp >>= 16U - depth;
+                        *dstline++ = htons(tmp);
+                }
+        }
+        return tmp;
+}
+
 bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
 {
         unsigned char *data = NULL, *tmp_data = NULL;
@@ -407,7 +434,8 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         int len = tile->width * tile->height * 3;
         if (frame->color_spec == RGB) {
                 data = (unsigned char *) tile->data;
-        } else {
+        } else if (get_bits_per_component(frame->color_spec) <= 8 ||
+                        get_decoder_from_to(frame->color_spec, RG48) == NULL) {
                 decoder_t dec = get_decoder_from_to(frame->color_spec, RGB);
                 if (!dec) {
                         log_msg(LOG_LEVEL_WARNING, "Unable to find decoder from %s to RGB\n",
@@ -416,6 +444,12 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
                 }
                 data = tmp_data = (unsigned char *) malloc(len);
                 dec (data, (const unsigned char *) tile->data, len, 0, 0, 0);
+        } else {
+                data = tmp_data = get_16_bit_pnm_data(frame);
+                if (!data) {
+                        return false;
+                }
+                len *= 2;
         }
 
         if (!data) {
@@ -424,7 +458,7 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
 
         FILE *out = fopen(name, "w");
         if(out) {
-                fprintf(out, "P6\n%d %d\n255\n", tile->width, tile->height);
+                fprintf(out, "P6\n%d %d\n%d\n", tile->width, tile->height, (1<<get_bits_per_component(frame->color_spec)) - 1);
                 if (fwrite(data, len, 1, out) != 1) {
                         perror("fwrite");
                 }
@@ -435,41 +469,17 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         return true;
 }
 
-static bool save_video_frame_as_pam(struct video_frame *frame, const char *name) {
-        unsigned char *tmp = malloc(vc_get_datalen(frame->tiles[0].width, frame->tiles[0].height, RG48));
-        decoder_t dec = get_decoder_from_to(frame->color_spec, RG48);
-        assert (tmp && dec);
-        int src_linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
-        int dst_linesize = vc_get_linesize(frame->tiles[0].width, RG48);
-        int depth = get_bits_per_component(frame->color_spec);
-        for (unsigned i = 0; i < frame->tiles[0].height; ++i) {
-                uint16_t *dstline = (uint16_t *) (tmp + i * dst_linesize);
-                dec((unsigned char *) dstline, (unsigned char *) frame->tiles[0].data + i * src_linesize, dst_linesize,
-                                DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
-                for (unsigned i = 0; i < frame->tiles[0].width * 3; ++i) {
-                        uint16_t tmp = *dstline;
-                        tmp >>= 16 - depth;
-                        *dstline++ = htons(tmp);
-                }
-        }
-        bool ret = pam_write(name, frame->tiles[0].width, frame->tiles[0].height, 3, (1<<depth) - 1, tmp);
-        free(tmp);
-        return ret;
-}
-
 /**
  * Saves video_frame to file name.<ext>.
  */
 const char *save_video_frame(struct video_frame *frame, const char *name) {
         _Thread_local static char filename[FILENAME_MAX];
-        if (frame->color_spec == RGB) {
+        snprintf(filename, sizeof filename, "%s.%s", name, get_codec_file_extension(frame->color_spec));
+        if (!is_codec_opaque(frame->color_spec) && codec_is_a_rgb(frame->color_spec) &&
+                        ((get_bits_per_component(frame->color_spec) <= 8 && get_decoder_from_to(frame->color_spec, RGB))
+                         || (get_bits_per_component(frame->color_spec) > 8 && get_decoder_from_to(frame->color_spec, RG48)))) {
                 snprintf(filename, sizeof filename, "%s.pnm", name);
                 bool ret = save_video_frame_as_pnm(frame, filename);
-                return ret ? filename : NULL;
-        }
-        if (!is_codec_opaque(frame->color_spec) && codec_is_a_rgb(frame->color_spec) && get_decoder_from_to(frame->color_spec, RG48)) {
-                snprintf(filename, sizeof filename, "%s.pam", name);
-                bool ret = save_video_frame_as_pam(frame, filename);
                 return ret ? filename : NULL;
         }
         snprintf(filename, sizeof filename, "%s.%s", name, get_codec_file_extension(frame->color_spec));
