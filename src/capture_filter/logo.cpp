@@ -48,7 +48,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/macros.h"
-#include "utils/pam.hpp"
+#include "utils/pam.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -74,7 +74,7 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
                 int depth = 0;
                 bool rgb;
                 unsigned char *data;
-                if (!pam_read(filename, &s->width, &s->height, &depth, &data)) {
+                if (!pam_read(filename, &s->width, &s->height, &depth, NULL, &data, malloc)) {
                         return false;
                 }
                 if (depth != 3 && depth != 4) {
