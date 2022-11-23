@@ -434,6 +434,26 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         return true;
 }
 
+/**
+ * Saves video_frame to file name.<ext>.
+ */
+const char *save_video_frame(struct video_frame *frame, const char *name) {
+        _Thread_local static char filename[FILENAME_MAX];
+        snprintf(filename, sizeof filename, "%s.%s", name, get_codec_file_extension(frame->color_spec));
+        FILE *out = fopen(filename, "wb");
+        if (out == NULL) {
+                perror("dummy fopen");
+                return NULL;
+        }
+        fwrite(frame->tiles[0].data, frame->tiles[0].data_len, 1, out);
+        if (ferror(out)) {
+                fclose(out);
+                return NULL;
+        }
+        fclose(out);
+        return filename;
+}
+
 void vf_copy_metadata(struct video_frame *desc, const struct video_frame *src)
 {
         memcpy((char *) desc + offsetof(struct video_frame, VF_METADATA_START), (const char *) src + offsetof(struct video_frame, VF_METADATA_START), VF_METADATA_SIZE);

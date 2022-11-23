@@ -164,16 +164,12 @@ static int display_dummy_putf(void *state, struct video_frame *frame, long long 
         }
         if (s->dump_to_file) {
                 if (s->dump_to_file_skip_frames-- == 0) {
-                        char filename[100];
-                        snprintf(filename, sizeof filename, "dummy.%s", get_codec_file_extension(frame->color_spec));
-                        FILE *out = fopen(filename, "wb");
-                        if (out == NULL) {
-                                perror("dummy fopen");
-                                return 0;
+                        const char *filename = save_video_frame(frame, "dummy");
+                        if (filename) {
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Written dump to file %s\n", filename);
+                        } else {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to write dump!\n");
                         }
-                        fwrite(frame->tiles[0].data, frame->tiles[0].data_len, 1, out);
-                        fclose(out);
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Written dump to file %s\n", filename);
                         s->dump_to_file = false;
                         if (s->oneshot) {
                                 exit_uv(0);
