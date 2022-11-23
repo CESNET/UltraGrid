@@ -903,6 +903,25 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
         }
 }
 
+static void
+vc_copyliner10ktoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        while  (dstlen > 0) {
+                dst[1] = *src++; // Rhi
+                unsigned int byte2 = *src++;
+                unsigned int byte3 = *src++;
+                unsigned int byte4 = *src++;
+                dst[0] = byte2 & 0xC0U; // Rlo
+                dst[3] = byte2 << 2U | byte3 >> 6U; // Ghi
+                dst[2] = (byte3 & 0x30U) << 2U; // Glo
+                dst[5] = (byte3 & 0xFU) << 4U | byte4 >> 4U; // Bhi
+                dst[4] = (byte4 & 0xCU) << 4U; // Blo
+                dst += 6;
+                dstlen -= 6;
+        }
+}
+
 /**
  * @brief Converts from R12L to RGB
  *
@@ -2848,6 +2867,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineYUYV,        YUYV,  UYVY, false },
         { vc_copylineYUYV,        UYVY,  YUYV, false },
         { vc_copyliner10k,        R10k,  RGBA, false },
+        { vc_copyliner10ktoRG48,  R10k,  RG48, false },
         { vc_copylineR12L,        R12L,  RGBA, false },
         { vc_copylineR12LtoRGB,   R12L,  RGB, false },
         { vc_copylineR12LtoRG48,  R12L,  RG48, false },
