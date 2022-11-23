@@ -249,10 +249,9 @@ void print_module_usage(const char *module_name, const struct key_val *options, 
         oss << TERM_BOLD << TERM_FG_RED << module_name << TERM_FG_RESET;
         int max_key_len = 0;
         auto desc_key = [](const char *key) {
-                if (const char *k = strchr(key, '='); k != nullptr) {
-                        if (k[-1] != '[') {
-                                key = k + 1;
-                        }
+                // print only <val> for key=<val> if right side is "simple" (mandatory and without further opts like "key=<val>:opt=<o>")
+                if (const char *k = strchr(key, '='); k != nullptr && strpbrk(key, "[:") == nullptr) {
+                        key = k + 1;
                 }
                 return key;
         };

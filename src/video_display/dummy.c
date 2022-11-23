@@ -71,13 +71,13 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
         if (strcmp(cfg, "help") == 0) {
                 char desc[] = "Display " TBOLD("dummy") " only consumes the video without displaying it. A difference to avoiding "
                                 "display specification is that it forces decoding (otherwise it will be skipped altogether).\n\n"
-                                "Additionally, options " TBOLD("hexdump") " and " TBOLD("dump_to_file") " are available for debugging.\n\n";
+                                "Additionally, options " TBOLD("hexdump") " and " TBOLD("dump") " are available for debugging.\n\n";
                 color_printf("%s", indent_paragraph(desc));
                 struct key_val options[] = {
                         { "codec=<codec>", "force the use of a codec instead of default set" },
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
+                        { "dump[:skip=<n>][:oneshot]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames); 'oneshot' - exit after dumping the picture" },
                         { "hexdump[=<n>]", "dump first n (default " TOSTRING(DEFAULT_DUMP_LEN) ") bytes of every frame in hexadecimal format" },
-                        { "dump_to_file[=skip=<n>][:oneshot]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames); 'oneshot' - exit after dumping the picture" },
                         { NULL, NULL }
                 };
                 print_module_usage("-d dummy", options, NULL, 0);
@@ -97,11 +97,8 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", strchr(item, '=') + 1);
                                 return NULL;
                         }
-                } else if (strstr(item, "dump_to_file") != NULL) {
+                } else if (strstr(item, "dump") != NULL) {
                         s.dump_to_file = 1;
-                        if (strstr(item, "dump_to_file=skip=") != NULL) {
-                                s.dump_to_file_skip_frames = atoi(item + strlen("dump_to_file=skip="));
-                        }
                 } else if (strstr(item, "hexdump") != NULL) {
                         if (strstr(item, "hexdump=") != NULL) {
                                 s.dump_bytes = atoi(item + strlen("hexdump="));
@@ -115,6 +112,8 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                         s.rgb_shift[1] = strtol(item, &item, 0);
                         item += 1;
                         s.rgb_shift[2] = strtol(item, &item, 0);
+                } else if (strstr(item, "skip=") != NULL) {
+                        s.dump_to_file_skip_frames = atoi(strchr(item, '=') + 1);
                 } else if (strcmp(item, "oneshot") == 0) {
                         s.oneshot = 1;
                 } else {
