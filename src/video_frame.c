@@ -59,6 +59,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include "utils/pam.h"
 #include "video_codec.h"
 #include "video_frame.h"
 
@@ -434,6 +435,28 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         return true;
 }
 
+static bool save_video_frame_as_pam(struct video_frame *frame, const char *name) {
+        unsigned char *tmp = malloc(vc_get_datalen(frame->tiles[0].width, frame->tiles[0].height, RG48));
+        decoder_t dec = get_decoder_from_to(frame->color_spec, RG48);
+        assert (tmp && dec);
+        int src_linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
+        int dst_linesize = vc_get_linesize(frame->tiles[0].width, RG48);
+        int depth = get_bits_per_component(frame->color_spec);
+        for (unsigned i = 0; i < frame->tiles[0].height; ++i) {
+                uint16_t *dstline = (uint16_t *) (tmp + i * dst_linesize);
+                dec((unsigned char *) dstline, (unsigned char *) frame->tiles[0].data + i * src_linesize, dst_linesize,
+                                DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
+                for (unsigned i = 0; i < frame->tiles[0].width * 3; ++i) {
+                        uint16_t tmp = *dstline;
+                        tmp >>= 16 - depth;
+                        *dstline++ = htons(tmp);
+                }
+        }
+        bool ret = pam_write(name, frame->tiles[0].width, frame->tiles[0].height, 3, (1<<depth) - 1, tmp);
+        free(tmp);
+        return ret;
+}
+
 /**
  * Saves video_frame to file name.<ext>.
  */
@@ -442,6 +465,11 @@ const char *save_video_frame(struct video_frame *frame, const char *name) {
         if (frame->color_spec == RGB) {
                 snprintf(filename, sizeof filename, "%s.pnm", name);
                 bool ret = save_video_frame_as_pnm(frame, filename);
+                return ret ? filename : NULL;
+        }
+        if (!is_codec_opaque(frame->color_spec) && codec_is_a_rgb(frame->color_spec) && get_decoder_from_to(frame->color_spec, RG48)) {
+                snprintf(filename, sizeof filename, "%s.pam", name);
+                bool ret = save_video_frame_as_pam(frame, filename);
                 return ret ? filename : NULL;
         }
         snprintf(filename, sizeof filename, "%s.%s", name, get_codec_file_extension(frame->color_spec));
