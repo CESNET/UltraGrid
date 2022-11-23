@@ -60,7 +60,8 @@ struct dummy_display_state {
         int rgb_shift[3];
 
         size_t dump_bytes;
-        bool dump_to_file;
+        _Bool dump_to_file;
+        _Bool oneshot;
         int dump_to_file_skip_frames;
 };
 
@@ -76,7 +77,7 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                         { "codec=<codec>", "force the use of a codec instead of default set" },
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
                         { "hexdump[=<n>]", "dump first n (default " TOSTRING(DEFAULT_DUMP_LEN) ") bytes of every frame in hexadecimal format" },
-                        { "dump_to_file[=skip=<n>]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames)" },
+                        { "dump_to_file[=skip=<n>][:oneshot]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames); 'oneshot' - exit after dumping the picture" },
                         { NULL, NULL }
                 };
                 print_module_usage("-d dummy", options, NULL, 0);
@@ -97,7 +98,7 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                                 return NULL;
                         }
                 } else if (strstr(item, "dump_to_file") != NULL) {
-                        s.dump_to_file = true;
+                        s.dump_to_file = 1;
                         if (strstr(item, "dump_to_file=skip=") != NULL) {
                                 s.dump_to_file_skip_frames = atoi(item + strlen("dump_to_file=skip="));
                         }
@@ -114,6 +115,8 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                         s.rgb_shift[1] = strtol(item, &item, 0);
                         item += 1;
                         s.rgb_shift[2] = strtol(item, &item, 0);
+                } else if (strcmp(item, "oneshot") == 0) {
+                        s.oneshot = 1;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s\n", item);
                         return NULL;
@@ -173,6 +176,9 @@ static int display_dummy_putf(void *state, struct video_frame *frame, long long 
                         fclose(out);
                         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Written dump to file %s\n", filename);
                         s->dump_to_file = false;
+                        if (s->oneshot) {
+                                exit_uv(0);
+                        }
                 }
         }
 
