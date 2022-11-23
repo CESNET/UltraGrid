@@ -458,6 +458,7 @@ void UltragridWindow::processStateChanged(UgProcessManager::State state){
 	 * when separate vuMeters for send and recv are implemented.
 	 */
 	receiverLoss.setEnabled(state == UgProcessManager::State::UgRunning);
+	ui.send_bandwidth->setEnabled(state == UgProcessManager::State::UgRunning);
 
 	receiverLoss.reset();
 	rtcpRr.reset();
