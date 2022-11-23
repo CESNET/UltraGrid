@@ -439,14 +439,21 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
  */
 const char *save_video_frame(struct video_frame *frame, const char *name) {
         _Thread_local static char filename[FILENAME_MAX];
+        if (frame->color_spec == RGB) {
+                snprintf(filename, sizeof filename, "%s.pnm", name);
+                bool ret = save_video_frame_as_pnm(frame, filename);
+                return ret ? filename : NULL;
+        }
         snprintf(filename, sizeof filename, "%s.%s", name, get_codec_file_extension(frame->color_spec));
+        errno = 0;
         FILE *out = fopen(filename, "wb");
         if (out == NULL) {
-                perror("dummy fopen");
+                perror("save_video_frame fopen");
                 return NULL;
         }
         fwrite(frame->tiles[0].data, frame->tiles[0].data_len, 1, out);
         if (ferror(out)) {
+                perror("save_video_frame fwrite");
                 fclose(out);
                 return NULL;
         }
