@@ -1,4 +1,5 @@
 #!/bin/sh -eu
+# shellcheck disable=SC2059 # use of $bold et al. in printf format str
 
 # defaults
 use_bundled_libva_default=0
