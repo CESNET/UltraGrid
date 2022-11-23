@@ -24,12 +24,15 @@ private slots:
 	void timeout();
 
 private:
-	void report(long long bytes_per_second);
-
 	QTimer timer;
 	QElapsedTimer elapsedTimer;
 
-	SSRC_container<long long, decltype(elapsedTimer.elapsed())> reports;
+	struct BandwidthReport{
+		long long bitsPerSecond;
+		std::string type;
+	};
+
+	SSRC_container<BandwidthReport, decltype(elapsedTimer.elapsed())> reports;
 
 	const int timeout_msec = 2500;
 };

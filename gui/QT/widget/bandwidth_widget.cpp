@@ -2,6 +2,21 @@
 #include "bandwidth_widget.hpp"
 #include "utils/string_view_utils.hpp"
 
+namespace {
+QString getBitrateStr(long long bitsPerSecond){
+	static constexpr std::string_view units = "kMG";
+
+	float num = bitsPerSecond;
+	char unit = ' ';
+
+	for(unsigned i = 0; num > 1000 && i < units.size(); i++){
+		unit = units[i];
+		num /= 1000;
+	}
+
+	return QString::number(num, 'f', 2) + " " + unit + "bps";
+}
+}
 
 BandwidthWidget::BandwidthWidget(QWidget *parent) : QLabel(parent){
 	elapsedTimer.start();
@@ -13,12 +28,27 @@ BandwidthWidget::BandwidthWidget(QWidget *parent) : QLabel(parent){
 void BandwidthWidget::updateVal(){
 	reports.remove_timed_out(timeout_msec, elapsedTimer.elapsed());
 
-	long long total = 0;
-	for(const auto& i : reports.get()){
-		total += i.item;
+	if(!isEnabled()){
+		setText("-- bps");
+		setToolTip("");
+		return;
 	}
 
-	report(total);
+	long long total = 0;
+	QString tooltip;
+	for(const auto& i : reports.get()){
+		total += i.item.bitsPerSecond;
+		tooltip += QString::number(i.ssrc, 16)
+			+ " (" + QString::fromStdString(i.item.type) + "): "
+			+ getBitrateStr(i.item.bitsPerSecond) + "\n";
+	}
+
+	if(tooltip.endsWith('\n'))
+		tooltip.chop(1);
+
+	setToolTip(tooltip);
+
+	setText(getBitrateStr(total));
 
 	timer.start();
 }
@@ -44,44 +74,28 @@ void BandwidthWidget::parseLine(std::string_view line){
 		return;
 	}
 
-	long long num = 0;
+	BandwidthReport report = {};
+	report.bitsPerSecond = 0;
+	report.type = type;
 
 	for(const auto& r : reports.get()){
 		if(r.ssrc != ssrc)
 			continue;
 
-		num = bytes * 1000 / (elapsedTimer.elapsed() - r.timestamp);
+		auto duration = std::max<qint64>(elapsedTimer.elapsed() - r.timestamp, 1);
+		report.bitsPerSecond = bytes * 8 * 1000 / duration;
 	}
 
-	reports.insert(ssrc, num, elapsedTimer.elapsed());
+	reports.insert(ssrc, report, elapsedTimer.elapsed());
 	updateVal();
 }
 
 void BandwidthWidget::reset(){
 	reports.clear();
-	report(0);
+	updateVal();
 	timer.stop();
 }
 
 void BandwidthWidget::timeout(){
 	reset();
-}
-
-void BandwidthWidget::report(long long bytes_per_second){
-	if(!isEnabled()){
-		setText("-- bps");
-		return;
-	}
-
-	static constexpr std::string_view units = "kMG";
-
-	float num = bytes_per_second * 8;
-	char unit = ' ';
-
-	for(unsigned i = 0; num > 1000 && i < units.size(); i++){
-		unit = units[i];
-		num /= 1000;
-	}
-
-	setText(QString::number(num, 'f', 2) + " " + unit + "bps");
 }
