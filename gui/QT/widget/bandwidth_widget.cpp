@@ -69,13 +69,13 @@ void BandwidthWidget::timeout(){
 
 void BandwidthWidget::report(long long bytes_per_second){
 	if(!isEnabled()){
-		setText("-- Bps");
+		setText("-- bps");
 		return;
 	}
 
 	static constexpr std::string_view units = "kMG";
 
-	float num = bytes_per_second;
+	float num = bytes_per_second * 8;
 	char unit = ' ';
 
 	for(unsigned i = 0; num > 1000 && i < units.size(); i++){
@@ -83,5 +83,5 @@ void BandwidthWidget::report(long long bytes_per_second){
 		num /= 1000;
 	}
 
-	setText(QString::number(num, 'f', 2) + " " + unit + "Bps");
+	setText(QString::number(num, 'f', 2) + " " + unit + "bps");
 }
