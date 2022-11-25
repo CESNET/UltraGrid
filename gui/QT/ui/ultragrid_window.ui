@@ -34,20 +34,40 @@
          </property>
          <layout class="QVBoxLayout" name="verticalLayout">
           <item>
-           <widget class="PreviewWidget" name="capturePreview" native="true">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>64</width>
-              <height>64</height>
-             </size>
-            </property>
-           </widget>
+           <layout class="QHBoxLayout" name="horizontalLayout_7">
+            <item>
+             <widget class="VuMeterWidget" name="vuMeterSend" native="true">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>50</width>
+                <height>100</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="PreviewWidget" name="capturePreview" native="true">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>64</width>
+                <height>64</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
           <item>
            <layout class="QHBoxLayout" name="localPreviewBar"/>
@@ -96,20 +116,40 @@
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
-           <widget class="PreviewWidget" name="displayPreview" native="true">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>64</width>
-              <height>64</height>
-             </size>
-            </property>
-           </widget>
+           <layout class="QHBoxLayout" name="horizontalLayout_6">
+            <item>
+             <widget class="PreviewWidget" name="displayPreview" native="true">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>64</width>
+                <height>64</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="VuMeterWidget" name="vuMeter" native="true">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>50</width>
+                <height>100</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
           <item>
            <layout class="QHBoxLayout" name="remotePreviewBar"/>
@@ -132,22 +172,6 @@
           </item>
          </layout>
         </widget>
-       </widget>
-      </item>
-      <item>
-       <widget class="VuMeterWidget" name="vuMeter" native="true">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>50</width>
-          <height>100</height>
-         </size>
-        </property>
        </widget>
       </item>
      </layout>

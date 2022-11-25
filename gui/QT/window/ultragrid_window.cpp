@@ -124,6 +124,8 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.statusbar->addPermanentWidget(&versionLabel);
 
 	ui.vuMeter->setControlPort(&controlPort);
+	ui.vuMeterSend->setControlPort(&controlPort);
+	ui.vuMeterSend->setParsePrefix("stats ASEND");
 
 	using namespace std::placeholders;
 	controlPort.addLineCallback(std::bind(&BandwidthWidget::parseLine, ui.send_bandwidth, _1));
