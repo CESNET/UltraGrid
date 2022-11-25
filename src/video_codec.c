@@ -3148,4 +3148,24 @@ bool codec_is_420(codec_t pix_fmt)
                 pixfmt_plane_info[pix_fmt].plane_info[5] == 2;
 }
 
+void uyvy_to_i422(int width, int height, const char *in, char *out)
+{
+        char *out_y = out;
+        char *out_cb = out + width * height;
+        char *out_cr = out + width * height + ((width + 1) / 2) * height;
+        for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width / 2; ++x) {
+                        *out_cb++ = *in++;
+                        *out_y++ = *in++;
+                        *out_cr++ = *in++;
+                        *out_y++ = *in++;
+                }
+                if (width % 2 == 1) {
+                        *out_cb++ = *in++;
+                        *out_y++ = *in++;
+                        *out_cr++ = *in++;
+                }
+        }
+}
+
 /* vim: set expandtab sw=8: */

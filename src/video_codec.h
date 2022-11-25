@@ -8,7 +8,7 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  */
-/* Copyright (c) 2005-2021 CESNET z.s.p.o.
+/* Copyright (c) 2005-2022 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -135,6 +135,8 @@ decoder_func_t vc_copylineUYVYtoGrayscale;
 decoder_func_t vc_memcpy;
 
 bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec);
+
+void uyvy_to_i422(int width, int height, const char *in, char *out);
 
 #ifdef __cplusplus
 }

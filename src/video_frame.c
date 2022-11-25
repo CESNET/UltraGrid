@@ -59,6 +59,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include "utils/y4m.h"
 #include "video_codec.h"
 #include "video_frame.h"
 
@@ -469,17 +470,52 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
         return true;
 }
 
+static bool save_video_frame_as_y4m(struct video_frame *frame, const char *name)
+{
+        char *uyvy = NULL, *tmp_data_uyvy = NULL;
+        struct tile *tile = &frame->tiles[0];
+        if (frame->color_spec == UYVY) {
+                uyvy = tile->data;
+        } else {
+                decoder_t dec = get_decoder_from_to(frame->color_spec, UYVY);
+                if (!dec) {
+                        log_msg(LOG_LEVEL_WARNING, "Unable to find decoder from %s to UYVY\n",
+                                        get_codec_name(frame->color_spec));
+                        return false;
+                }
+                int len = vc_get_datalen(tile->width, tile->height, frame->color_spec);
+                uyvy = tmp_data_uyvy = malloc(len);
+                dec ((unsigned char *) uyvy, (const unsigned char *) tile->data, len, 0, 0, 0);
+        }
+        char *i422 = malloc(tile->width * tile->height + 2 * ((tile->width + 1) / 2) * tile->height);
+        uyvy_to_i422(tile->width, tile->height, uyvy, i422);
+
+        bool ret = y4m_write(name, tile->width, tile->height, Y4M_SUBS_422, 8, true, (unsigned char *) i422);
+        free(tmp_data_uyvy);
+        free(i422);
+
+        return ret;
+}
+
 /**
  * Saves video_frame to file name.<ext>.
  */
 const char *save_video_frame(struct video_frame *frame, const char *name, bool raw) {
         _Thread_local static char filename[FILENAME_MAX];
-        if (!raw && !is_codec_opaque(frame->color_spec) && codec_is_a_rgb(frame->color_spec) &&
-                        ((get_bits_per_component(frame->color_spec) <= 8 && get_decoder_from_to(frame->color_spec, RGB))
-                         || (get_bits_per_component(frame->color_spec) > 8 && get_decoder_from_to(frame->color_spec, RG48)))) {
-                snprintf(filename, sizeof filename, "%s.pnm", name);
-                bool ret = save_video_frame_as_pnm(frame, filename);
-                return ret ? filename : NULL;
+        if (!raw && !is_codec_opaque(frame->color_spec)) {
+                if (codec_is_a_rgb(frame->color_spec) &&
+                                ((get_bits_per_component(frame->color_spec) <= 8 && get_decoder_from_to(frame->color_spec, RGB))
+                                 || (get_bits_per_component(frame->color_spec) > 8 && get_decoder_from_to(frame->color_spec, RG48)))) {
+                        snprintf(filename, sizeof filename, "%s.pnm", name);
+                        bool ret = save_video_frame_as_pnm(frame, filename);
+                        return ret ? filename : NULL;
+                } else if (!codec_is_a_rgb(frame->color_spec) &&
+                                ((get_bits_per_component(frame->color_spec) <= 8 && get_decoder_from_to(frame->color_spec, UYVY))
+                                 || (get_bits_per_component(frame->color_spec) > 8 && get_decoder_from_to(frame->color_spec, Y416)))) {
+                        snprintf(filename, sizeof filename, "%s.y4m", name);
+                        bool ret = save_video_frame_as_y4m(frame, filename);
+                        return ret ? filename : NULL;
+                }
         }
         snprintf(filename, sizeof filename, "%s.%s", name, get_codec_file_extension(frame->color_spec));
         errno = 0;
