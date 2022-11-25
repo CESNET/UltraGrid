@@ -11,6 +11,7 @@
 #include <QStyle>
 #include "vuMeterWidget.hpp"
 #include "control_port.hpp"
+#include "utils/string_view_utils.hpp"
 #include "astat.h"
 
 namespace{
@@ -34,13 +35,29 @@ VuMeterWidget::VuMeterWidget(QWidget *parent) :
 }
 
 void VuMeterWidget::parseLine(std::string_view line){
-	constexpr std::string_view prefix = "stats ARECV";
-	if(line.substr(0, prefix.length()) != prefix)
+	if(line.substr(0, parsePrefix.length()) != parsePrefix)
 		return;
 
-	std::string tmp(line);
-	if(astat_parse_line(tmp.c_str(), peak, rms))
-		lastUpdate = clock::now();
+	line.remove_prefix(parsePrefix.size());
+
+	for(int i = 0; !line.empty(); i++){
+		auto rmsTag = tokenize(line, ' ');
+		auto rms_sv = tokenize(line, ' ');
+		auto peakTag = tokenize(line, ' ');
+		auto peak_sv = tokenize(line, ' ');
+
+		double ch_rms = 0;
+		double ch_peak = 0;
+		parse_num(rms_sv, ch_rms);
+		parse_num(peak_sv, ch_peak);
+
+		if(i < 2){
+			peak[i] = ch_peak;
+			rms[i] = ch_rms;
+		}
+	}
+
+	lastUpdate = clock::now();
 }
 
 void VuMeterWidget::setControlPort(ControlPort *controlPort){
@@ -49,6 +66,10 @@ void VuMeterWidget::setControlPort(ControlPort *controlPort){
 	using namespace std::placeholders;
 	controlPort->addLineCallback(std::bind(&VuMeterWidget::parseLine, this, _1));
 	connect(controlPort, &ControlPort::connected, this, &VuMeterWidget::onControlPortConnect);
+}
+
+void VuMeterWidget::setParsePrefix(std::string_view prefix){
+	parsePrefix = prefix;
 }
 
 void VuMeterWidget::updateVal(){

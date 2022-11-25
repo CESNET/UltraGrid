@@ -18,12 +18,14 @@ public:
 
 	void parseLine(std::string_view line);
 	void setControlPort(ControlPort *controlPort);
+	void setParsePrefix(std::string_view prefix);
 
 protected:
 	void paintEvent(QPaintEvent *paintEvent);
 
 private:
 	static const int num_channels = 2;
+	std::string parsePrefix = "stats ARECV";
 
 	double peak[num_channels];
 	double rms[num_channels];
