@@ -413,9 +413,8 @@ static void usage(const char *exec_path, bool full = false)
                                 "(may be also negative to delay video)"});
                 print_help_item("--audio-scale <factor> | <method> | help",
                                 {"scales received audio"});
+                print_help_item("--echo-cancellation", {"apply acoustic echo cancellation to audio (experimental)"});
         }
-        printf("\t--echo-cancellation      \tapply acoustic echo cancellation to audio (experimental)\n");
-        printf("\n");
         print_help_item("--cuda-device <index> | help", {"use specified CUDA device"});
         if (full) {
                 print_help_item("--encryption <passphrase>", {"key material for encryption"});
