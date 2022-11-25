@@ -123,6 +123,7 @@ COMMON_OBJS     = \
 		src/audio/audio_filter.o \
 		src/audio/filter_chain.o \
 		src/audio/filter/delay.o \
+		src/audio/filter/controlport_stats.o \
 		src/capture_filter.o \
 		src/capture_filter/change_pixfmt.o \
 		src/capture_filter/color.o \
