@@ -62,6 +62,7 @@ struct dummy_display_state {
         size_t dump_bytes;
         _Bool dump_to_file;
         _Bool oneshot;
+        _Bool raw;
         int dump_to_file_skip_frames;
 };
 
@@ -76,7 +77,7 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                 struct key_val options[] = {
                         { "codec=<codec>", "force the use of a codec instead of default set" },
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
-                        { "dump[:skip=<n>][:oneshot]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames); 'oneshot' - exit after dumping the picture" },
+                        { "dump[:skip=<n>][:oneshot][:raw]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames); 'oneshot' - exit after dumping the picture; 'raw' - dump raw data" },
                         { "hexdump[=<n>]", "dump first n (default " TOSTRING(DEFAULT_DUMP_LEN) ") bytes of every frame in hexadecimal format" },
                         { NULL, NULL }
                 };
@@ -116,6 +117,8 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                         s.dump_to_file_skip_frames = atoi(strchr(item, '=') + 1);
                 } else if (strcmp(item, "oneshot") == 0) {
                         s.oneshot = 1;
+                } else if (strcmp(item, "raw") == 0) {
+                        s.raw = 1;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s\n", item);
                         return NULL;
@@ -164,7 +167,7 @@ static int display_dummy_putf(void *state, struct video_frame *frame, long long 
         }
         if (s->dump_to_file) {
                 if (s->dump_to_file_skip_frames-- == 0) {
-                        const char *filename = save_video_frame(frame, "dummy");
+                        const char *filename = save_video_frame(frame, "dummy", s->raw);
                         if (filename) {
                                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Written dump to file %s\n", filename);
                         } else {

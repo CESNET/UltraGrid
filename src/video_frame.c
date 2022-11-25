@@ -472,10 +472,9 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
 /**
  * Saves video_frame to file name.<ext>.
  */
-const char *save_video_frame(struct video_frame *frame, const char *name) {
+const char *save_video_frame(struct video_frame *frame, const char *name, bool raw) {
         _Thread_local static char filename[FILENAME_MAX];
-        snprintf(filename, sizeof filename, "%s.%s", name, get_codec_file_extension(frame->color_spec));
-        if (!is_codec_opaque(frame->color_spec) && codec_is_a_rgb(frame->color_spec) &&
+        if (!raw && !is_codec_opaque(frame->color_spec) && codec_is_a_rgb(frame->color_spec) &&
                         ((get_bits_per_component(frame->color_spec) <= 8 && get_decoder_from_to(frame->color_spec, RGB))
                          || (get_bits_per_component(frame->color_spec) > 8 && get_decoder_from_to(frame->color_spec, RG48)))) {
                 snprintf(filename, sizeof filename, "%s.pnm", name);
