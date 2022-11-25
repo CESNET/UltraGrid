@@ -405,6 +405,7 @@ static void usage(const char *exec_path, bool full = false)
         print_help_item("--audio-capture-format <fmt> | help", {"format of captured audio"});
         if (full) {
                 print_help_item("--audio-channel-map <mapping> | help", {});
+                print_help_item("--audio-filter <filter>[:<config>][#<filter>[:<config>]]...", {});
         }
         print_help_item("--audio-codec <codec>[:sample_rate=<sr>][:bitrate=<br>] | help", {"audio codec"});
         if (full) {
