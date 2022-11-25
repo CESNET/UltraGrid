@@ -52,6 +52,7 @@
 
 #ifdef __cplusplus
 double calculate_rms(audio_frame2 *frame, int channel, double *peak);
+double calculate_rms(audio_frame *frame, int channel, double *peak);
 void audio_channel_demux(const audio_frame2 *, int, audio_channel*);
 #endif
 

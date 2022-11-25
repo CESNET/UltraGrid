@@ -119,12 +119,16 @@ template<> void store_sample<4>(char *data, int32_t val) {
  * @returns            mean RMS
  */
 template<int BPS>
-static double calculate_rms_helper(const char *channel_data, int sample_count, double *peak)
+static double calculate_rms_helper(const char *channel_data,
+                int sample_count,
+                double *peak,
+                int sample_stride = 1)
 {
         double sum = 0;
         *peak = 0;
+        const int byte_stride = BPS * sample_stride;
         for (int i = 0; i < sample_count; i += 1) {
-                double val = load_sample<BPS>(channel_data + i * BPS) / static_cast<double>(1U << (BPS * CHAR_BIT - 1U));
+                double val = load_sample<BPS>(channel_data + i * byte_stride) / static_cast<double>(1U << (BPS * CHAR_BIT - 1U));
                 sum += val;
                 *peak = max(fabs(val), *peak);
         }
@@ -134,7 +138,7 @@ static double calculate_rms_helper(const char *channel_data, int sample_count, d
         double sumMeanSquare = 0.0;
 
         for (int i = 0; i < sample_count; i += 1) {
-                sumMeanSquare += pow(load_sample<BPS>(channel_data + i * BPS) / static_cast<double>(1U << (BPS * CHAR_BIT - 1U))
+                sumMeanSquare += pow(load_sample<BPS>(channel_data + i * byte_stride) / static_cast<double>(1U << (BPS * CHAR_BIT - 1U))
                                 - average, 2.0);
         }
 
@@ -168,6 +172,26 @@ double calculate_rms(audio_frame2 *frame, int channel, double *peak)
                 default:
                         LOG(LOG_LEVEL_FATAL) << "Wrong BPS " << frame->get_bps() << "\n";
                         abort();
+        }
+}
+
+double calculate_rms(audio_frame *frame, int channel, double *peak)
+{
+        assert(channel < frame->ch_count);
+        char *data = frame->data + channel * frame->bps;
+        int sample_count = frame->data_len / frame->bps / frame->ch_count;
+        switch (frame->bps) {
+        case 1:
+                return calculate_rms_helper<1>(data, sample_count, peak, frame->ch_count);
+        case 2:
+                return calculate_rms_helper<2>(data, sample_count, peak, frame->ch_count);
+        case 3:
+                return calculate_rms_helper<3>(data, sample_count, peak, frame->ch_count);
+        case 4:
+                return calculate_rms_helper<4>(data, sample_count, peak, frame->ch_count);
+        default:
+                LOG(LOG_LEVEL_FATAL) << "Wrong BPS " << frame->bps << "\n";
+                abort();
         }
 }
 
