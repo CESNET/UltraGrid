@@ -1860,24 +1860,27 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->desc.fps;
 }
 
+static inline void check_av_opt_set_int(void *priv_data, const char *key, int val) {
+        if (int ret = av_opt_set_int(priv_data, key, val, 0)) {
+                string err = string(MOD_NAME) + "Unable to set " + key + " to " + to_string(val);
+                print_libav_error(LOG_LEVEL_WARNING, err.c_str(), ret);
+        }
+}
+
 static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         // see FFMPEG modules' sources for semantics
         set_forced_idr(codec_ctx, strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
 
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
+                check_av_opt_set_int(codec_ctx->priv_data, "la_depth", 0);
+                check_av_opt_set_int(codec_ctx->priv_data, "pred_struct", 0);
                 int tile_col_cnt = param->desc.width >= 1024 ? 4 : param->desc.width >= 512 ? 2 : 1;
                 int tile_row_cnt = param->desc.height >= 256 ? 4 : param->desc.height >= 128 ? 2 : 1;
                 if (tile_col_cnt * tile_row_cnt > 1 && param->desc.width >= 256 && param->desc.height >= 64) {
-                        if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", tile_row_cnt, 0)) {
-                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Row Count for SVT", ret);
-                        }
-                        if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt, 0)) {
-                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Column Count for SVT", ret);
-                        }
-                        if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_slice_mode", 1, 0)) {
-                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Slice Mode for SVT", ret);
-                        }
+                        check_av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", tile_row_cnt);
+                        check_av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt);
+                        check_av_opt_set_int(codec_ctx->priv_data, "tile_slice_mode", 1);
                 }
         } else { // libsvtav1
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
