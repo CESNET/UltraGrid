@@ -102,7 +102,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot get decoder from %s to UYVY!\n", get_codec_name(in->color_spec));
                 return out;
         }
-        dec(uyvy, block_in, pix_blk_size, DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
+        dec(uyvy, block_in, 4, DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
         log_msg(LOG_LEVEL_INFO, "[color %s] Center color is Y=%hhu U=%hhu V=%hhu\n", s->vo_pp_out_buffer ? "pp" : "cap. f.", uyvy[1], uyvy[0], uyvy[2]);
 
         return out;
