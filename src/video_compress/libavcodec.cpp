@@ -1932,7 +1932,7 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
 }
 
 void show_encoder_help(string const &name) {
-        cout << "Options for " << SBOLD(name) << ":\n";
+        col() << "Options for " << SBOLD(name) << ":\n";
         auto *codec = avcodec_find_encoder_by_name(name.c_str());
         if (codec == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to find encoder " << name << "!\n";
@@ -1944,8 +1944,11 @@ void show_encoder_help(string const &name) {
         }
         while (opt->name != nullptr) {
                 cout << (opt->offset == 0 ? "\t\t* " : "\t- ");
-                cout << SBOLD(opt->name) << (opt->help != nullptr && strlen(opt->help) > 0 ? " - "s + opt->help : ""s) << "\n";
+                col() << SBOLD(opt->name) << (opt->help != nullptr && strlen(opt->help) > 0 ? " - "s + opt->help : ""s) << "\n";
                 opt++;
+        }
+        if (name == "libx264" || name == "libx265") {
+                col() << "(options for " << SBOLD(name.substr(3) << "-params") << " should be actually separated by '\\:', not ':' as indicated above)\n";
         }
 }
 
