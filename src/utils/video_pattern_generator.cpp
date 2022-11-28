@@ -86,6 +86,7 @@ using std::for_each;
 using std::make_unique;
 using std::max;
 using std::min;
+using std::stoi;
 using std::string;
 using std::swap;
 using std::unique_ptr;
@@ -522,9 +523,16 @@ struct still_image_video_pattern_generator : public video_pattern_generator {
 };
 
 struct gray_video_pattern_generator : public video_pattern_generator {
-        gray_video_pattern_generator(int w, int h, codec_t c)
+        gray_video_pattern_generator(int w, int h, codec_t c, const char *opts)
                 : width(w), height(h), color_spec(c)
         {
+                if (opts) {
+                        if (strcmp(opts, "help") == 0) {
+                                col() << "Usage:\n\t" SBOLD("gray[:step]") << " - interframe color increment (default " << DEFAULT_STEP << ")\n";
+                                throw 1;
+                        }
+                        step = stoi(opts);
+                }
                 int col = 0;
                 while (col < 0xFF) {
                         int pixels = get_pf_block_pixels(color_spec);
@@ -555,7 +563,8 @@ struct gray_video_pattern_generator : public video_pattern_generator {
                 return out;
         }
 private:
-        constexpr static int step = 16;
+        constexpr static int DEFAULT_STEP = 16;
+        int step = DEFAULT_STEP;
         int width;
         int height;
         codec_t color_spec;
@@ -582,8 +591,9 @@ video_pattern_generator_create(std::string const & config, int width, int height
         }
         assert(width > 0 && height > 0);
         try {
-                if (config == "gray") {
-                        return new gray_video_pattern_generator{width, height, color_spec};
+                if (config.substr(0, 4) == "gray") {
+                        const char *opts = strchr(config.c_str(), '=') ? strchr(config.c_str(), '=') + 1 : nullptr;
+                        return new gray_video_pattern_generator{width, height, color_spec, opts};
                 }
                 return new still_image_video_pattern_generator{config, width, height, color_spec, offset};
         } catch (...) {
