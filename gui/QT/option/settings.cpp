@@ -330,6 +330,7 @@ std::string Settings::getLaunchParams() const{
 		}
 	}
 
+	out += " --audio-filter controlport_stats";
 	out += getOption("audio.source").getLaunchOption();
 	out += getOption("audio.source.channels").getLaunchOption();
 	out += getOption("audio.compress").getLaunchOption();
@@ -358,6 +359,7 @@ std::string Settings::getPreviewParams() const{
 	out += getOption("video.source").getLaunchOption();
 	out += " -d preview";
 	out += ":key=" + getSessRndKey();
+	out += " --audio-filter controlport_stats#discard";
 	out += getOption("audio.source").getLaunchOption();
 	out += getOption("audio.source.channels").getLaunchOption();
 	out += " -r dummy";
