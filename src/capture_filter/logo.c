@@ -1,9 +1,9 @@
 /**
- * @file   capture_filter/logo.cpp
+ * @file   capture_filter/logo.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET z.s.p.o.
+ * Copyright (c) 2013-2022 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,9 +41,6 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
-#include <fstream>
-#include <iostream>
-
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
@@ -52,15 +49,14 @@
 #include "video.h"
 #include "video_codec.h"
 
-using namespace std;
+#define MOD_NAME "[logo] "
 
 struct state_capture_filter_logo {
-        unsigned char *logo = NULL;
-        unsigned int width{}, height{};
-        int x{}, y{};
-        ~state_capture_filter_logo() {
-                free(logo);
-        }
+        unsigned char *logo;
+        unsigned int width;
+        unsigned int height;
+        int x;
+        int y;
 };
 
 static int init(struct module *parent, const char *cfg, void **state);
@@ -78,7 +74,7 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
                 s->width = info.width;
                 s->height = info.height;
                 if (info.depth != 3 && info.depth != 4) {
-                        cerr << "Unsupported depth passed.";
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported depth %d in PAM file.\n", info.depth);
                         free(data);
                         return false;
                 }
@@ -86,7 +82,7 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
                 int datalen = info.depth * s->width * s->height;
                 if (rgb) {
                         datalen = 4 * s->width * s->height;
-                        auto tmp = (unsigned char *) malloc(datalen);
+                        unsigned char * tmp =  malloc(datalen);
                         vc_copylineRGBtoRGBA(tmp, data, datalen, 0, 8, 16);
                         s->logo = tmp;
                         free(data);
@@ -94,7 +90,7 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
                         s->logo = data;
                 }
         } else {
-                cerr << "Only logo in PAM format is currently supported.";
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only logo in PAM format is currently supported.\n");
                 return false;
         }
 
@@ -104,7 +100,7 @@ static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const 
 static int init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
-        struct state_capture_filter_logo *s = new state_capture_filter_logo();
+        struct state_capture_filter_logo *s = calloc(1, sizeof *s);
 
         s->x = s->y = -1;
 
@@ -113,7 +109,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 printf("'logo' usage:\n");
                 printf("\tlogo:<file>[:<x>[:<y>]]\n");
                 printf("\t\t<file> - is path to logo to be added in PAM format with alpha\n");
-                delete s;
+                free(s);
                 return 1;
         }
         char *tmp = strdup(cfg);
@@ -135,13 +131,14 @@ static int init(struct module *parent, const char *cfg, void **state)
                 }
         }
         free(tmp);
-        tmp = nullptr;
+        tmp = NULL;
 
         *state = s;
         return 0;
 error:
         free(tmp);
-        delete s;
+        free(s->logo);
+        free(s);
         return -1;
 }
 
@@ -149,7 +146,8 @@ static void done(void *state)
 {
         struct state_capture_filter_logo *s = (struct state_capture_filter_logo *)
                 state;
-        delete s;
+        free(s->logo);
+        free(s);
 }
 
 static struct video_frame *filter(void *state, struct video_frame *in)
