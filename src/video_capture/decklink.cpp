@@ -175,7 +175,6 @@ struct vidcap_decklink_state {
         int                     use1080psf = BMD_OPT_KEEP; // capture PsF instead of progressive
 
         uint32_t                profile{}; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
-        uint32_t                link = 0; /// @deprecated TOREMOVE? It sets output link configuration, not input thus it should not be used here.
         bool                    nosig_send = false; ///< send video even when no signal detected
         bool                    keep_device_defaults = false;
 
@@ -503,10 +502,6 @@ decklink_help(bool full)
         col() << "\tSet a profile that allows maximal number of simultaneous IOs.\n";
         col() << "\n";
 
-        col() << SBOLD("single-/dual-/quad-link") << "\n";
-        col() << "\tUse single-/dual-/quad-link.\n";
-        col() << "\n";
-
         if (full) {
                 col() << SBOLD("conversion") << "\n";
                 col() << SBOLD("\tnone") << " - No video input conversion\n";
@@ -712,12 +707,6 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if (strstr(opt, "half-duplex") == opt) {
                 s->profile = bmdDuplexHalf;
-        } else if (strcasecmp(opt, "single-link") == 0) {
-                s->link = bmdLinkConfigurationSingleLink;
-        } else if (strcasecmp(opt, "dual-link") == 0) {
-                s->link = bmdLinkConfigurationDualLink;
-        } else if (strcasecmp(opt, "quad-link") == 0) {
-                s->link = bmdLinkConfigurationQuadLink;
         } else if (strcasecmp(opt, "nosig-send") == 0) {
                 s->nosig_send = true;
         } else if (strstr(opt, "keep-settings") == opt) {
@@ -1135,10 +1124,6 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
         BMD_CONFIG_SET(Int, bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, BMD_NO_ACTION);
 
-        if (s->link != 0) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output link configuration on capture is deprecated and will be removed in future, let us know if this is needed!\n";
-                CALL_AND_CHECK( deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, s->link), "Unable set output SDI link mode");
-        }
         if (s->use1080psf != BMD_OPT_KEEP) {
                 CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf != 0), "Unable to set output as PsF");
         }
@@ -1366,16 +1351,6 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
 	if (!ret) {
                 delete s;
 		return VIDCAP_INIT_FAIL;
-	}
-
-	if (s->link == bmdLinkConfigurationQuadLink) {
-                if (!s->keep_device_defaults && s->profile == BMD_OPT_DEFAULT) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
-                        s->profile = bmdProfileOneSubDeviceHalfDuplex;
-                }
-                if (s->profile > 0 && s->profile != bmdProfileOneSubDeviceHalfDuplex) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and profile other than 1-subdevice-1/2-duplex may not be supported!\n";
-                }
 	}
 
         switch (get_bits_per_component(s->codec)) {
