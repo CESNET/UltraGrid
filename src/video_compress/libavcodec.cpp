@@ -54,6 +54,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #include "debug.h"
@@ -710,6 +711,23 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
         }
 
         return AV_PIX_FMT_NONE;
+}
+
+template<typename T>
+static inline void check_av_opt_set(void *priv_data, const char *key, T val) {
+        int ret = 0;
+        string val_str;
+        if constexpr (std::is_same_v<T, int>) {
+                ret = av_opt_set_int(priv_data, key, val, 0);
+                val_str = to_string(val);
+        } else if constexpr (std::is_same_v<T, const char *>) {
+                ret = av_opt_set(priv_data, key, val, 0);
+                val_str = val;
+        }
+        if (ret != 0) {
+                string err = string(MOD_NAME) + "Unable to set " + key + " to " + val_str;
+                print_libav_error(LOG_LEVEL_WARNING, err.c_str(), ret);
+        }
 }
 
 bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pix_fmt, struct video_desc desc, codec_t ug_codec)
@@ -1709,10 +1727,7 @@ ADD_TO_PARAM("lavc-rc-buffer-size-factor", "* lavc-rc-buffer-size-factor=<val>\n
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         const char *tune = codec_ctx->codec->id == AV_CODEC_ID_H264 ? "zerolatency,fastdecode" : "zerolatency"; // x265 supports only single tune parameter
-        if (int ret = av_opt_set(codec_ctx->priv_data, "tune", tune, 0)) {
-                string error = string(MOD_NAME) + "Unable to set tune to " + tune;
-                print_libav_error(LOG_LEVEL_WARNING, error.c_str(), ret);
-        }
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "tune", tune);
 
         // try to keep frame sizes as even as possible
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
@@ -1753,12 +1768,9 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         x265_params_append("keyint", to_string(codec_ctx->gop_size));
         /// turn on periodic intra refresh, unless explicitely disabled
         if (param->periodic_intra != 0) {
-                int ret = AVERROR_ENCODER_NOT_FOUND;
                 codec_ctx->refs = 1;
                 if ("libx264"s == codec_ctx->codec->name || "libx264rgb"s == codec_ctx->codec->name) {
-                        if ((ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0)) != 0) {
-                                print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
-                        }
+                        check_av_opt_set<const char *>(codec_ctx->priv_data, "intra-refresh", "1");
                 } else if ("libx265"s == codec_ctx->codec->name) {
                         x265_params_append("intra-refresh", "1");
                         x265_params_append("constrained-intra", "1");
@@ -1766,24 +1778,15 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
                 }
         }
         if ("libx265"s == codec_ctx->codec->name) {
-                if (int ret = av_opt_set(codec_ctx->priv_data, "x265-params", x265_params.c_str(), 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set x265-params", ret);
-                }
+                check_av_opt_set<const char *>(codec_ctx->priv_data, "x265-params", x265_params.c_str());
         }
 }
 
 static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        int ret;
-        ret = av_opt_set(codec_ctx->priv_data, "look_ahead", "0", 0);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set unset look-ahead.\n");
-        }
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "look_ahead", 0);
         if (param->periodic_intra != 0) {
-                ret = av_opt_set(codec_ctx->priv_data, "int_ref_type", "vertical", 0);
-                if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set intra refresh.\n");
-                }
+                check_av_opt_set<const char *>(codec_ctx->priv_data, "int_ref_type", "vertical");
 #if 0
                 ret = av_opt_set(codec_ctx->priv_data, "int_ref_cycle_size", "100", 0);
                 if (ret != 0) {
@@ -1871,27 +1874,20 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->desc.fps;
 }
 
-static inline void check_av_opt_set_int(void *priv_data, const char *key, int val) {
-        if (int ret = av_opt_set_int(priv_data, key, val, 0)) {
-                string err = string(MOD_NAME) + "Unable to set " + key + " to " + to_string(val);
-                print_libav_error(LOG_LEVEL_WARNING, err.c_str(), ret);
-        }
-}
-
 static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         // see FFMPEG modules' sources for semantics
         set_forced_idr(codec_ctx, strcmp(codec_ctx->codec->name, "libsvt_hevc") == 0 ? 0 : 1);
 
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
-                check_av_opt_set_int(codec_ctx->priv_data, "la_depth", 0);
-                check_av_opt_set_int(codec_ctx->priv_data, "pred_struct", 0);
+                check_av_opt_set<int>(codec_ctx->priv_data, "la_depth", 0);
+                check_av_opt_set<int>(codec_ctx->priv_data, "pred_struct", 0);
                 int tile_col_cnt = param->desc.width >= 1024 ? 4 : param->desc.width >= 512 ? 2 : 1;
                 int tile_row_cnt = param->desc.height >= 256 ? 4 : param->desc.height >= 128 ? 2 : 1;
                 if (tile_col_cnt * tile_row_cnt > 1 && param->desc.width >= 256 && param->desc.height >= 64) {
-                        check_av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", tile_row_cnt);
-                        check_av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt);
-                        check_av_opt_set_int(codec_ctx->priv_data, "tile_slice_mode", 1);
+                        check_av_opt_set<int>(codec_ctx->priv_data, "tile_row_cnt", tile_row_cnt);
+                        check_av_opt_set<int>(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt);
+                        check_av_opt_set<int>(codec_ctx->priv_data, "tile_slice_mode", 1);
                 }
         } else { // libsvtav1
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
