@@ -3168,4 +3168,20 @@ void uyvy_to_i422(int width, int height, const char *in, char *out)
         }
 }
 
+void y416_to_i444(int width, int height, const char *in, char *out, int depth)
+{
+        const uint16_t *inp = (const uint16_t *) in;
+        uint16_t *out_y = (uint16_t *) out;
+        uint16_t *out_cb = (uint16_t *) out + width * height;
+        uint16_t *out_cr = (uint16_t *) out + 2 * width * height;
+        for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                        *out_cb++ = *inp++ >> (16 - depth);
+                        *out_y++ = *inp++ >> (16 - depth);
+                        *out_cr++ = *inp++ >> (16 - depth);
+                        inp++; // alpha
+                }
+        }
+}
+
 /* vim: set expandtab sw=8: */

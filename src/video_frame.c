@@ -472,29 +472,45 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
 
 static bool save_video_frame_as_y4m(struct video_frame *frame, const char *name)
 {
-        char *uyvy = NULL, *tmp_data_uyvy = NULL;
         struct tile *tile = &frame->tiles[0];
-        if (frame->color_spec == UYVY) {
-                uyvy = tile->data;
-        } else {
-                decoder_t dec = get_decoder_from_to(frame->color_spec, UYVY);
-                if (!dec) {
-                        log_msg(LOG_LEVEL_WARNING, "Unable to find decoder from %s to UYVY\n",
-                                        get_codec_name(frame->color_spec));
-                        return false;
+        if (get_bits_per_component(frame->color_spec) <= 8 && (frame->color_spec == UYVY || get_decoder_from_to(frame->color_spec, UYVY))) {
+                char *uyvy = tile->data;
+                char *tmp_data_uyvy = NULL;
+                if (frame->color_spec != UYVY) {
+                        decoder_t dec = get_decoder_from_to(frame->color_spec, UYVY);
+                        int len = vc_get_datalen(tile->width, tile->height, UYVY);
+                        uyvy = tmp_data_uyvy = malloc(len);
+                        dec ((unsigned char *) uyvy, (const unsigned char *) tile->data, len, 0, 0, 0);
                 }
-                int len = vc_get_datalen(tile->width, tile->height, frame->color_spec);
-                uyvy = tmp_data_uyvy = malloc(len);
-                dec ((unsigned char *) uyvy, (const unsigned char *) tile->data, len, 0, 0, 0);
+                char *i422 = malloc(tile->width * tile->height + 2 * ((tile->width + 1) / 2) * tile->height);
+                uyvy_to_i422(tile->width, tile->height, uyvy, i422);
+
+                bool ret = y4m_write(name, tile->width, tile->height, Y4M_SUBS_422, 8, true, (unsigned char *) i422);
+                free(tmp_data_uyvy);
+                free(i422);
+                return ret;
+        } else if (get_decoder_from_to(frame->color_spec, Y416)) {
+                char *y416 = tile->data;
+                char *tmp_data_y416 = NULL;
+                if (frame->color_spec != Y416) {
+                        decoder_t dec = get_decoder_from_to(frame->color_spec, Y416);
+                        int len = vc_get_datalen(tile->width, tile->height, Y416);
+                        y416 = tmp_data_y416 = malloc(len);
+                        dec ((unsigned char *) y416, (const unsigned char *) tile->data, len, 0, 0, 0);
+                }
+                char *i444 = malloc(tile->width * tile->height * 6);
+                int depth = get_bits_per_component(frame->color_spec);
+                y416_to_i444(tile->width, tile->height, y416, i444, depth);
+
+                bool ret = y4m_write(name, tile->width, tile->height, Y4M_SUBS_444, depth, true, (unsigned char *) i444);
+                free(tmp_data_y416);
+                free(i444);
+                return ret;
         }
-        char *i422 = malloc(tile->width * tile->height + 2 * ((tile->width + 1) / 2) * tile->height);
-        uyvy_to_i422(tile->width, tile->height, uyvy, i422);
 
-        bool ret = y4m_write(name, tile->width, tile->height, Y4M_SUBS_422, 8, true, (unsigned char *) i422);
-        free(tmp_data_uyvy);
-        free(i422);
-
-        return ret;
+        log_msg(LOG_LEVEL_WARNING, "Unable to find decoder from %s to UYVY or Y416\n",
+                        get_codec_name(frame->color_spec));
+        return false;
 }
 
 /**
