@@ -1044,6 +1044,9 @@ static void *audio_sender_thread(void *arg)
 
                         s->filter_chain.filter(&buffer);
 
+                        if(!buffer)
+                                continue;
+
                         audio_frame2 bf_n(buffer);
 
                         // RESAMPLE
