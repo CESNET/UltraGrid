@@ -65,8 +65,8 @@
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "messaging.h"
 #include "module.h"
-#include "rang.hpp"
 #include "tv.h"
+#include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/text.h" // replace_all
@@ -98,7 +98,6 @@ extern "C"{
 
 using namespace std;
 using namespace std::string_literals;
-using namespace rang;
 
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
 static constexpr double DEFAULT_X264_X265_CRF = 22.0;
@@ -361,13 +360,12 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        cout << style::bold << fg::red << "\t-c libavcodec" << fg::reset << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>][q=<q>]"
+        col() << "\t" SBOLD(SRED("-c libavcodec") << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>][q=<q>]"
                         "[:subsampling=<subsampling>][:gop=<gop>]"
-                        "[:[disable_]intra_refresh][:threads=<threads>][:slices=<slices>][:<lavc_opt>=<val>]*\n" <<
-                        style::reset;
-        cout << "\nwhere\n";
-        cout << style::bold << "\t<encoder>" << style::reset << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
-        cout << style::bold << "\t<codec_name>" << style::reset << " may be specified codec name (default MJPEG), supported codecs:\n";
+                        "[:[disable_]intra_refresh][:threads=<threads>][:slices=<slices>][:<lavc_opt>=<val>]*") << "\n";
+        col() << "\nwhere\n";
+        col() << "\t" << SBOLD("<encoder>") << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
+        col() << "\t" << SBOLD("<codec_name>") << " may be specified codec name (default MJPEG), supported codecs:\n";
         for (auto && param : codec_params) {
                 enum AVCodecID avID = get_ug_to_av_codec(param.first);
                 if (avID == AV_CODEC_ID_NONE) { // old FFMPEG -> codec id is flushed to 0 in compat
@@ -382,30 +380,30 @@ static void usage() {
                 }
                 print_codec_info(avID, avail + strlen(avail), sizeof avail - strlen(avail));
 
-                cout << "\t\t" << style::bold << get_codec_name(param.first) << style::reset << " - " << avail << "\n";
+                col() << "\t\t" << SBOLD(get_codec_name(param.first)) << " - " << avail << "\n";
 
         }
-        cout << style::bold << "\t[disable_]intra_refresh" << style::reset << " - (do not) use Periodic Intra Refresh (H.264/H.265)\n";
-        cout << style::bold << "\t<bits_per_sec>" << style::reset << " specifies requested bitrate\n"
+        col() << "\t" << SBOLD("[disable_]intra_refresh") << " - (do not) use Periodic Intra Refresh (H.264/H.265)\n";
+        col() << "\t" << SBOLD("<bits_per_sec>") << " specifies requested bitrate\n"
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
-        cout << style::bold << "\t<bits_per_pixel>" << style::reset << " specifies requested bitrate using compressed bits per pixel\n"
+        col() << "\t" << SBOLD("<bits_per_pixel>") << " specifies requested bitrate using compressed bits per pixel\n"
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
-        cout << style::bold << "\t<cqp>" << style::reset << " use constant QP value\n";
-        cout << style::bold << "\t<crf>" << style::reset << " specifies CRF factor (only for libx264/libx265)\n";
-        cout << style::bold << "\t<q>" << style::reset << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
-        cout << style::bold << "\t<subsampling" << style::reset << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
-        cout << style::bold << "\t<threads>" << style::reset << " can be \"no\", or \"<number>[F][S][n]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice), 'n' means none\n";
-        cout << style::bold << "\t<slices>" << style::reset << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
-        cout << style::bold << "\t<gop>" << style::reset << " specifies GOP size\n";
-        cout << style::bold << "\t<lavc_opt>" << style::reset << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
-        cout << "\nUse '" << style::bold << "-c libavcodec:encoder=<enc>:help" << style::reset << "' to display encoder specific options.\n";
-        cout << "\n";
-        cout << "Libavcodec version (linked): " << style::bold << LIBAVCODEC_IDENT << style::reset << "\n";
+        col() << "\t" << SBOLD("<cqp>") << " use constant QP value\n";
+        col() << "\t" << SBOLD("<crf>") << " specifies CRF factor (only for libx264/libx265)\n";
+        col() << "\t" << SBOLD("<q>") << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
+        col() << "\t" << SBOLD("<subsampling") << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
+        col() << "\t" << SBOLD("<threads>") << " can be \"no\", or \"<number>[F][S][n]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice), 'n' means none\n";
+        col() << "\t" << SBOLD("<slices>") << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
+        col() << "\t" << SBOLD("<gop>") << " specifies GOP size\n";
+        col() << "\t" << SBOLD("<lavc_opt>") << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
+        col() << "\nUse '" << SBOLD("-c libavcodec:encoder=<enc>:help") << "' to display encoder specific options.\n";
+        col() << "\n";
+        col() << "Libavcodec version (linked): " << SBOLD(LIBAVCODEC_IDENT) << "\n";
         const char *swscale = "no";
 #ifdef HAVE_SWSCALE
         swscale = "yes";
 #endif
-        cout << "Libswscale supported: " << style::bold << swscale << style::reset << "\n";
+        col() << "Libswscale supported: " << SBOLD(swscale) << "\n";
 }
 
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
@@ -667,7 +665,7 @@ void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
         while (it != nullptr && *it != AV_PIX_FMT_NONE) {
                 out += " "s + av_get_pix_fmt_name(*it++);
         }
-        cerr << style::bold << MOD_NAME "Codec supported pixel formats:" << style::reset << out << "\n";
+        col() << MOD_NAME "Codec supported pixel formats:" << SBOLD(out) << "\n";
 }
 
 void print_pix_fmts(const list<enum AVPixelFormat>
@@ -677,7 +675,7 @@ void print_pix_fmts(const list<enum AVPixelFormat>
         for (auto &c : req_pix_fmts) {
                 out += " "s + av_get_pix_fmt_name(c);
         }
-        cerr << style::bold << MOD_NAME "Usable pixel formats:" << style::reset << out << "\n";
+        col() << MOD_NAME "Usable pixel formats:" << SBOLD(out) << "\n";
 }
 
 /**
@@ -1920,7 +1918,7 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
 }
 
 void show_encoder_help(string const &name) {
-        cout << "Options for " << style::bold << name << style::reset << ":\n";
+        cout << "Options for " << SBOLD(name) << ":\n";
         auto *codec = avcodec_find_encoder_by_name(name.c_str());
         if (codec == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to find encoder " << name << "!\n";
@@ -1932,7 +1930,7 @@ void show_encoder_help(string const &name) {
         }
         while (opt->name != nullptr) {
                 cout << (opt->offset == 0 ? "\t\t* " : "\t- ");
-                cout << style::bold << opt->name << style::reset << (opt->help != nullptr && strlen(opt->help) > 0 ? " - "s + opt->help : ""s) << "\n";
+                cout << SBOLD(opt->name) << (opt->help != nullptr && strlen(opt->help) > 0 ? " - "s + opt->help : ""s) << "\n";
                 opt++;
         }
 }
