@@ -563,7 +563,7 @@ struct gray_video_pattern_generator : public video_pattern_generator {
                 return out;
         }
 private:
-        constexpr static int DEFAULT_STEP = 16;
+        constexpr static int DEFAULT_STEP = 1;
         int step = DEFAULT_STEP;
         int width;
         int height;
