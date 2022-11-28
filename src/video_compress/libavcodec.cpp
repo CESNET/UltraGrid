@@ -110,11 +110,13 @@ static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
 namespace {
 
 struct setparam_param {
-        struct video_desc desc;
-        bool have_preset;
+        setparam_param(map<string, string> &lo) : lavc_opts(lo) {}
+        struct video_desc desc {};
+        bool have_preset = false;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         string thread_mode;
         int slices = -1;
+        map<string, string> &lavc_opts; ///< user-supplied options from command-line
 };
 
 constexpr string_view DEFAULT_NVENC_PRESET_H264 = "p4";
@@ -267,7 +269,7 @@ struct state_video_compress_libav {
 
         struct video_desc compressed_desc{};
 
-        struct setparam_param params{};
+        struct setparam_param params{lavc_opts};
         string              backend;
         int                 requested_gop = DEFAULT_GOP_SIZE;
 
@@ -1738,23 +1740,33 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
                 }
         }
 
-        string x265_params = "keyint=" + to_string(codec_ctx->gop_size);
+        string x265_params;
+        if (param->lavc_opts.find("x265-params") != param->lavc_opts.end()) {
+                x265_params = param->lavc_opts.at("x265-params");
+                param->lavc_opts.erase("x265-params");
+        }
+        auto x265_params_append = [&](const string &key, const string &val) {
+                if (x265_params.find(key) == string::npos) {
+                        x265_params += (x265_params.empty() ? "" : ":") + key + "=" + val;
+                }
+        };
+        x265_params_append("keyint", to_string(codec_ctx->gop_size));
         /// turn on periodic intra refresh, unless explicitely disabled
         if (param->periodic_intra != 0) {
                 int ret = AVERROR_ENCODER_NOT_FOUND;
                 codec_ctx->refs = 1;
                 if ("libx264"s == codec_ctx->codec->name || "libx264rgb"s == codec_ctx->codec->name) {
-                        ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
+                        if ((ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0)) != 0) {
+                                print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
+                        }
                 } else if ("libx265"s == codec_ctx->codec->name) {
-                        x265_params += ":intra-refresh=1:constrained-intra=1:no-open-gop=1";
-                        ret = av_opt_set(codec_ctx->priv_data, "x265-params", x265_params.c_str(), 0);
+                        x265_params_append("intra-refresh", "1");
+                        x265_params_append("constrained-intra", "1");
+                        x265_params_append("no-open-gop", "1");
                 }
-                if (ret != 0) {
-                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
-                }
-        } else if ("libx265"s == codec_ctx->codec->name) {
-                int ret = av_opt_set(codec_ctx->priv_data, "x265-params", x265_params.c_str(), 0);
-                if (ret != 0) {
+        }
+        if ("libx265"s == codec_ctx->codec->name) {
+                if (int ret = av_opt_set(codec_ctx->priv_data, "x265-params", x265_params.c_str(), 0)) {
                         print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set x265-params", ret);
                 }
         }
