@@ -591,7 +591,7 @@ video_pattern_generator_create(std::string const & config, int width, int height
         }
         assert(width > 0 && height > 0);
         try {
-                if (config.substr(0, 4) == "gray") {
+                if (config.substr(0, 4) == "gray" || config.substr(0, 4) == "grey") {
                         const char *opts = strchr(config.c_str(), '=') ? strchr(config.c_str(), '=') + 1 : nullptr;
                         return new gray_video_pattern_generator{width, height, color_spec, opts};
                 }
