@@ -54,7 +54,6 @@
 #include <string>
 #include <string_view>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 
 #include "debug.h"
@@ -151,7 +150,7 @@ static void usage(void);
 static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
 
-static unordered_map<codec_t, codec_params_t, hash<int>> codec_params = {
+static map<codec_t, codec_params_t> codec_params = {
         { H264, codec_params_t{
                 [](bool is_rgb) { return is_rgb ? "libx264rgb" : "libx264"; },
                 0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
