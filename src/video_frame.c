@@ -59,6 +59,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include "utils/pam.h"
 #include "utils/y4m.h"
 #include "video_codec.h"
 #include "video_frame.h"
@@ -432,7 +433,6 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
 {
         unsigned char *data = NULL, *tmp_data = NULL;
         struct tile *tile = &frame->tiles[0];
-        int len = tile->width * tile->height * 3;
         if (frame->color_spec == RGB) {
                 data = (unsigned char *) tile->data;
         } else if (get_bits_per_component(frame->color_spec) <= 8 ||
@@ -443,6 +443,7 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
                                         get_codec_name(frame->color_spec));
                         return false;
                 }
+                int len = tile->width * tile->height * 3;
                 data = tmp_data = (unsigned char *) malloc(len);
                 dec (data, (const unsigned char *) tile->data, len, 0, 0, 0);
         } else {
@@ -450,21 +451,13 @@ bool save_video_frame_as_pnm(struct video_frame *frame, const char *name)
                 if (!data) {
                         return false;
                 }
-                len *= 2;
         }
 
         if (!data) {
                 return false;
         }
 
-        FILE *out = fopen(name, "w");
-        if(out) {
-                fprintf(out, "P6\n%d %d\n%d\n", tile->width, tile->height, (1<<get_bits_per_component(frame->color_spec)) - 1);
-                if (fwrite(data, len, 1, out) != 1) {
-                        perror("fwrite");
-                }
-                fclose(out);
-        }
+        pam_write(name, tile->width, tile->height, 3, (1<<get_bits_per_component(frame->color_spec)) - 1, data, true);
         free(tmp_data);
 
         return true;

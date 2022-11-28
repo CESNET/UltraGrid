@@ -67,23 +67,23 @@ static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
-using namespace std;
-
 static bool load_logo_data_from_file(struct state_capture_filter_logo *s, const char *filename) {
         if (strcasecmp(filename + (MAX(strlen(filename), 4) - 4), ".pam") == 0) {
-                int depth = 0;
                 bool rgb;
                 unsigned char *data;
-                if (!pam_read(filename, &s->width, &s->height, &depth, NULL, &data, malloc)) {
+                struct pam_metadata info;
+                if (!pam_read(filename, &info, &data, malloc)) {
                         return false;
                 }
-                if (depth != 3 && depth != 4) {
+                s->width = info.width;
+                s->height = info.height;
+                if (info.depth != 3 && info.depth != 4) {
                         cerr << "Unsupported depth passed.";
                         free(data);
                         return false;
                 }
-                rgb = depth == 3;
-                int datalen = depth * s->width * s->height;
+                rgb = info.depth == 3;
+                int datalen = info.depth * s->width * s->height;
                 if (rgb) {
                         datalen = 4 * s->width * s->height;
                         auto tmp = (unsigned char *) malloc(datalen);
