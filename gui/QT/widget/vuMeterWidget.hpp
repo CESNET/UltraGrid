@@ -24,14 +24,15 @@ protected:
 	void paintEvent(QPaintEvent *paintEvent);
 
 private:
-	static const int num_channels = 2;
+	static const int max_channels = 8;
 	std::string parsePrefix = "stats ARECV";
 
-	double peak[num_channels];
-	double rms[num_channels];
+	int channels = 0;
+	double peak[max_channels];
+	double rms[max_channels];
 
-	double barLevel[num_channels];
-	double rmsLevel[num_channels];
+	double barLevel[max_channels];
+	double rmsLevel[max_channels];
 
 	QTimer timer;
 	int updatesPerSecond;

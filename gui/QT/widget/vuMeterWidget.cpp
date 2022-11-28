@@ -40,7 +40,7 @@ void VuMeterWidget::parseLine(std::string_view line){
 
 	line.remove_prefix(parsePrefix.size());
 
-	for(int i = 0; !line.empty(); i++){
+	for(channels = 0; !line.empty() && channels < max_channels; channels++){
 		auto rmsTag = tokenize(line, ' ');
 		auto rms_sv = tokenize(line, ' ');
 		auto peakTag = tokenize(line, ' ');
@@ -51,10 +51,8 @@ void VuMeterWidget::parseLine(std::string_view line){
 		parse_num(rms_sv, ch_rms);
 		parse_num(peak_sv, ch_peak);
 
-		if(i < 2){
-			peak[i] = ch_peak;
-			rms[i] = ch_rms;
-		}
+		peak[channels] = ch_peak;
+		rms[channels] = ch_rms;
 	}
 
 	lastUpdate = clock::now();
@@ -77,7 +75,7 @@ void VuMeterWidget::updateVal(){
 
 	connected = controlPort->getState() == QAbstractSocket::ConnectedState;
 
-	for(int i = 0; i < num_channels; i++){
+	for(int i = 0; i < channels; i++){
 
 		barLevel[i] = std::max(barLevel[i] - fallSpeed / updatesPerSecond, 0.0);
 		rmsLevel[i] = std::max(rmsLevel[i] - fallSpeed / updatesPerSecond, 0.0);
@@ -186,20 +184,30 @@ void VuMeterWidget::paintEvent(QPaintEvent * /*paintEvent*/){
 
 	QPainter painter(this);
 
+	int leftBar = barLevel[0];
+	int leftRms = rmsLevel[0];
+	int rightBar = leftBar;
+	int rightRms = leftRms;
+
+	if(channels > 1){
+		rightBar = barLevel[1];
+		rightRms = rmsLevel[1];
+	}
+
 	paintMeter(painter,
 			0,
 			meterVerticalPad,
 			meter_width,
 			height() - meterVerticalPad * 2,
-			barLevel[0],
-			rmsLevel[0]);
+			leftBar,
+			leftRms);
 	paintMeter(painter,
 			width() - meter_width,
 			meterVerticalPad,
 			meter_width,
 			height() - meterVerticalPad * 2,
-			barLevel[1],
-			rmsLevel[1]);
+			rightBar,
+			rightRms);
 
 	paintScale(painter,
 			meter_width,
