@@ -35,21 +35,29 @@ VuMeterWidget::VuMeterWidget(QWidget *parent) :
 }
 
 void VuMeterWidget::parseLine(std::string_view line){
-	if(line.substr(0, parsePrefix.length()) != parsePrefix)
+	if(!sv_is_prefix(line, parsePrefix))
 		return;
 
 	line.remove_prefix(parsePrefix.size());
 
 	for(channels = 0; !line.empty() && channels < max_channels; channels++){
 		auto rmsTag = tokenize(line, ' ');
+		if(!sv_is_prefix(rmsTag, "volrms"))
+			return;
 		auto rms_sv = tokenize(line, ' ');
+
 		auto peakTag = tokenize(line, ' ');
+		if(!sv_is_prefix(peakTag, "volpeak"))
+			return;
 		auto peak_sv = tokenize(line, ' ');
 
 		double ch_rms = 0;
 		double ch_peak = 0;
-		parse_num(rms_sv, ch_rms);
-		parse_num(peak_sv, ch_peak);
+		if(!parse_num(rms_sv, ch_rms)
+				|| !parse_num(peak_sv, ch_peak))
+		{
+			return;
+		}
 
 		peak[channels] = ch_peak;
 		rms[channels] = ch_rms;
