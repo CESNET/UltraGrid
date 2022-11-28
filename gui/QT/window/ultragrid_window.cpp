@@ -452,16 +452,6 @@ void UltragridWindow::processStateChanged(UgProcessManager::State state){
 	previewStatus.setText(vals.previewText);
 	processStatus.setText(vals.ugText);
 
-	/* Currently the preview for audio (vuMeter) sends the audio locally and
-	 * the volumes are reported from the recv side of ug. This causes ug to
-	 * report recv loss from the local loopback stream, which could confuse
-	 * users into believing they are receiving something from the network. For
-	 * now we just disable the widget when preview is running. TODO: Remove
-	 * when separate vuMeters for send and recv are implemented.
-	 */
-	receiverLoss.setEnabled(state == UgProcessManager::State::UgRunning);
-	ui.send_bandwidth->setEnabled(state == UgProcessManager::State::UgRunning);
-
 	receiverLoss.reset();
 	rtcpRr.reset();
 	ui.send_bandwidth->reset();
