@@ -1870,14 +1870,16 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
         if ("libsvt_hevc"s == codec_ctx->codec->name) {
                 int tile_col_cnt = param->desc.width >= 1024 ? 4 : param->desc.width >= 512 ? 2 : 1;
                 int tile_row_cnt = param->desc.height >= 256 ? 4 : param->desc.height >= 128 ? 2 : 1;
-                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", tile_row_cnt, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Row Count for SVT", ret);
-                }
-                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Column Count for SVT", ret);
-                }
-                if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_slice_mode", 1, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Slice Mode for SVT", ret);
+                if (tile_col_cnt * tile_row_cnt > 1 && param->desc.width >= 256 && param->desc.height >= 64) {
+                        if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_row_cnt", tile_row_cnt, 0)) {
+                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Row Count for SVT", ret);
+                        }
+                        if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt, 0)) {
+                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Column Count for SVT", ret);
+                        }
+                        if (int ret = av_opt_set_int(codec_ctx->priv_data, "tile_slice_mode", 1, 0)) {
+                                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable Tile Slice Mode for SVT", ret);
+                        }
                 }
         } else { // libsvtav1
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
