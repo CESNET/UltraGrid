@@ -713,7 +713,7 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
 }
 
 template<typename T>
-static inline void check_av_opt_set(void *priv_data, const char *key, T val) {
+static inline void check_av_opt_set(void *priv_data, const char *key, T val, const char *desc = nullptr) {
         int ret = 0;
         string val_str;
         if constexpr (std::is_same_v<T, int>) {
@@ -724,7 +724,7 @@ static inline void check_av_opt_set(void *priv_data, const char *key, T val) {
                 val_str = val;
         }
         if (ret != 0) {
-                string err = string(MOD_NAME) + "Unable to set " + key + " to " + val_str;
+                string err = string(MOD_NAME) + "Unable to set " + (desc ? desc : key) + " to " + val_str;
                 print_libav_error(LOG_LEVEL_WARNING, err.c_str(), ret);
         }
 }
@@ -2000,13 +2000,9 @@ static void setparam_vp8_vp9(AVCodecContext *codec_ctx, struct setparam_param *p
 {
         codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->desc.fps;
         //codec_ctx->rc_buffer_aggressivity = 0.5;
-        if (av_opt_set(codec_ctx->priv_data, "deadline", "realtime", 0) != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set deadline.\n");
-        }
-
-        if (av_opt_set(codec_ctx->priv_data, "cpu-used", "8", 0)) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set quality/speed ratio modifier.\n");
-        }
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "deadline", "realtime");
+        check_av_opt_set<int>(codec_ctx->priv_data, "cpu-used", 8, "quality/speed ration modifier");
+        check_av_opt_set<int>(codec_ctx->priv_data, "rc_lookahead", 0);
 }
 
 static void libavcodec_check_messages(struct state_video_compress_libav *s)
