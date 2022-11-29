@@ -120,8 +120,7 @@ struct setparam_param {
         map<string, string> &lavc_opts; ///< user-supplied options from command-line
 };
 
-constexpr string_view DEFAULT_NVENC_PRESET_H264 = "p4";
-constexpr string_view DEFAULT_NVENC_PRESET_HEVC = "p7";
+constexpr const char *DEFAULT_NVENC_PRESET = "p4";
 constexpr const char *DEFAULT_NVENC_RC = "cbr";
 constexpr const char *DEFAULT_NVENC_TUNE = "ull";
 constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
@@ -1816,7 +1815,7 @@ void set_forced_idr(AVCodecContext *codec_ctx, int value)
 
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        const char *preset = codec_ctx->codec_id == AV_CODEC_ID_H264 ? DEFAULT_NVENC_PRESET_H264.data() : DEFAULT_NVENC_PRESET_HEVC.data();
+        const char *preset = DEFAULT_NVENC_PRESET;
 
         // important: if "tune" is not supported, then FALLBACK_NVENC_PRESET must be used (it is correlated). If unsupported preset
         // were given, setting would succeed but would cause runtime errors.
