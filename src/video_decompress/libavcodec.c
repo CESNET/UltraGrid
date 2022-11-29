@@ -178,7 +178,7 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
         s->codec_ctx->thread_count = thread_count; // zero should mean count equal to the number of virtual cores
         s->codec_ctx->thread_type = 0;
         if (req_thread_type == 0) {
-                req_thread_type = FF_THREAD_SLICE | (strcmp(s->codec_ctx->codec->name, "hevc") == 0 ? FF_THREAD_FRAME : 0);
+                req_thread_type = FF_THREAD_SLICE;
         } if (req_thread_type == -1) {
                 req_thread_type = 0;
         }
