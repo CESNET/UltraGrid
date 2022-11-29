@@ -1938,8 +1938,20 @@ void show_encoder_help(string const &name) {
                 return;
         }
         while (opt->name != nullptr) {
-                cout << (opt->offset == 0 ? "\t\t* " : "\t- ");
-                col() << SBOLD(opt->name) << (opt->help != nullptr && strlen(opt->help) > 0 ? " - "s + opt->help : ""s) << "\n";
+                string default_val;
+                if (opt->offset != 0) {
+                        if (opt->type == AV_OPT_TYPE_FLOAT || opt->type == AV_OPT_TYPE_DOUBLE) {
+                                default_val = to_string(opt->default_val.dbl) + "F";
+                        } else if (opt->type == AV_OPT_TYPE_CONST || opt->type == AV_OPT_TYPE_INT64 || opt->type == AV_OPT_TYPE_INT || opt->type == AV_OPT_TYPE_BOOL) {
+                                default_val = to_string(opt->default_val.i64);
+                        } else if (opt->type == AV_OPT_TYPE_STRING && opt->default_val.str != nullptr) {
+                                default_val = string("\"") + opt->default_val.str + "\"";
+                        }
+                        if (!default_val.empty()) {
+                                default_val = ", default " + default_val;
+                        }
+                }
+                col() << (opt->offset == 0 ? "\t\t* " : "\t- ") << SBOLD(opt->name) << (opt->help != nullptr && strlen(opt->help) > 0 ? " - "s + opt->help : ""s) << default_val << "\n";
                 opt++;
         }
         if (name == "libx264" || name == "libx265") {
