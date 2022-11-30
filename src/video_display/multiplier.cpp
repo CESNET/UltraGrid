@@ -278,6 +278,10 @@ static int display_multiplier_reconfigure(void *state, struct video_desc desc)
 
         s->desc = desc;
 
+        for(auto& disp : s->common->displays){
+               display_reconfigure(disp.get(), desc, VIDEO_NORMAL); 
+        }
+
         return 1;
 }
 
