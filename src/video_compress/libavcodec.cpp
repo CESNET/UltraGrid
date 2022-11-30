@@ -1693,7 +1693,7 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                 codec_ctx->thread_count = req_thread_count;
         } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
                 // do not enable MT for eg. libx265 - libx265 uses frame threads
-                if (strncmp(codec_ctx->codec->name, "libvpx", 6)) {
+                if (strncmp(codec_ctx->codec->name, "libvpx", 6) == 0) {
                         codec_ctx->thread_count = 0;
                 }
         } else if (codec_ctx->thread_type != 0) {
