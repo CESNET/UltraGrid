@@ -391,14 +391,14 @@ static void usage(const char *exec_path, bool full = false)
         print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
                         "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%%\" or", "\"ldgm:<k>:<m>:<c>\"",
                         "\"rs:<k>:<n>\""});
-        print_help_item("-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]", { "",
-                        "<port> is base port number, also 3",
-                        "subsequent ports can be used for RTCP",
-                        "and audio streams. Default: " + to_string(PORT_BASE) + ".",
-                        "You can also specify all two or four", "ports directly."});
-        print_help_item("-l <limit_bitrate> | unlimited | auto", {"limit sending bitrate",
-                        "to <limit_bitrate> (with optional k/M/G suffix)"});
         if (full) {
+                print_help_item("-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]", { "",
+                                "<port> is base port number, also 3",
+                                "subsequent ports can be used for RTCP",
+                                "and audio streams. Default: " + to_string(PORT_BASE) + ".",
+                                "You can also specify all two or four", "ports directly."});
+                print_help_item("-l <limit_bitrate> | unlimited | auto", {"limit sending bitrate",
+                                "to <limit_bitrate> (with optional k/M/G suffix)"});
                 print_help_item("-A <address>", {"audio destination address",
                                 "If not specified, will use same as for video"});
         }
@@ -414,9 +414,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("--audio-scale <factor> | <method> | help",
                                 {"scales received audio"});
                 print_help_item("--echo-cancellation", {"apply acoustic echo cancellation to audio (experimental)"});
-        }
-        print_help_item("--cuda-device <index> | help", {"use specified CUDA device"});
-        if (full) {
+                print_help_item("--cuda-device <index> | help", {"use specified GPU"});
                 print_help_item("--encryption <passphrase>", {"key material for encryption"});
                 print_help_item("--playback <directory> | help", {"replays recorded audio and video"});
                 print_help_item("--record[=<directory>]", {"record captured audio and video"});
