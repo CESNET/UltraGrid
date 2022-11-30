@@ -1889,6 +1889,7 @@ static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *para
                         check_av_opt_set<int>(codec_ctx->priv_data, "tile_row_cnt", tile_row_cnt);
                         check_av_opt_set<int>(codec_ctx->priv_data, "tile_col_cnt", tile_col_cnt);
                         check_av_opt_set<int>(codec_ctx->priv_data, "tile_slice_mode", 1);
+                        check_av_opt_set<int>(codec_ctx->priv_data, "umv", 0);
                 }
         } else if ("libsvtav1"s == codec_ctx->codec->name) {
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
