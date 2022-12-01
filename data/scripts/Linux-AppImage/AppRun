@@ -161,6 +161,14 @@ setup_vaapi() {
         fi
 }
 
+add_whitelist() {
+        if expr "$1" : /tmp >/dev/null; then
+                printf -- "--read-write=%s --mkdir=%s" "$1" "$1"
+                return
+        fi
+        printf -- "--whitelist=%s" "$1"
+}
+
 ## Parse params to get whitelists that may be needed to add
 ## @todo spaces inside paths doesn't work
 get_firejail_whitelist() {
@@ -168,7 +176,7 @@ get_firejail_whitelist() {
         playback_path=$(echo "$@" | sed -n 's/.*--playback \([^ :]*\).*/\1/p')
         if [ -n "$playback_path" ]; then
                 abs_path=$(realpath "$playback_path")
-                printf -- "$separator--whitelist=%s" "$abs_path"
+                printf -- "$separator%s" "$(add_whitelist "$abs_path")"
                 separator=' '
         fi
         # print every argument of "filename=", "file=", "dump:" or "--record=" pattern
@@ -176,7 +184,7 @@ get_firejail_whitelist() {
                 file_path=$(echo "$n" | sed -n -e 's/.*filename=\([^:]*\).*/\1/p' -e 's/.*file=\([^:]*\).*/\1/p' -e 's/dump:\([^:]*\).*/\1/p' -e 's/^--record=\([^:]*\).*/\1/p')
                 if [ -n "$file_path" ]; then
                         abs_path=$(realpath "$file_path")
-                        printf -- "$separator--whitelist=%s" "$abs_path"
+                        printf -- "$separator%s" "$(add_whitelist "$abs_path")"
                         separator=' '
                         if expr "$n" : 'dump:' >/dev/null || expr "$n" : '--record' >/dev/null; then
                                 printf -- "$separator--mkdir=%s" "$abs_path" # dir may not exist
@@ -185,7 +193,12 @@ get_firejail_whitelist() {
         done
         # -d dump or -d dummy:dump_to_file
         if expr "$*" : '.*dump' >/dev/null || expr "$*" : '.*record' >/dev/null; then
-                printf -- "$separator--whitelist=%s" "$(pwd)"
+                printf -- "$separator%s" "$(add_whitelist "$(pwd)")"
+                separator=' '
+        fi
+        if ! expr "$DIR" : /tmp >/dev/null && command -v realpath >/dev/null; then
+                exe_path=$(realpath "$DIR")
+                printf -- "$separator%s" "$(add_whitelist "$exe_path")"
                 separator=' '
         fi
         if [ -z "$separator" ]; then
