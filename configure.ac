@@ -1249,6 +1249,7 @@ AC_ARG_ENABLE(vulkan,
     )
 
 PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
+AC_CHECK_HEADERS([vulkan/vulkan.h], [], [found_vulkan=no])
 
 if test $vulkan_req != no -a $sdl = yes -a $sdl_version = 2 -a $found_vulkan = yes
 then
