@@ -393,7 +393,8 @@ static void usage() {
         col() << "\t" << SBOLD("<crf>") << " specifies CRF factor (only for libx264/libx265)\n";
         col() << "\t" << SBOLD("<q>") << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
         col() << "\t" << SBOLD("<subsampling") << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
-        col() << "\t" << SBOLD("<threads>") << " can be \"no\", or \"<number>[F][S][n]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice), 'n' means none\n";
+        col() << "\t" << SBOLD("<threads>") << " can be \"no\", or \"<number>[F][S][n]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice), 'n' means none;\n";
+        col() << "\t" <<       "         "  << " use a comma to add also number of conversion threads (eg. \"0S,8\"), default: number of logical cores\n";
         col() << "\t" << SBOLD("<slices>") << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         col() << "\t" << SBOLD("<gop>") << " specifies GOP size\n";
         col() << "\t" << SBOLD("<lavc_opt>") << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
@@ -461,6 +462,10 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         s->params.periodic_intra = strstr(item, "disable_") == item ? 0 : 1;
                 } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
                         char *threads = item + strlen("threads=");
+                        if (strchr(threads, ',')) {
+                                s->conv_thread_count = stoi(strchr(threads, ',') + 1);
+                                *strchr(threads, ',') = '\0';
+                        }
                         s->params.thread_mode = threads;
                 } else if(strncasecmp("slices=", item, strlen("slices=")) == 0) {
                         char *slices = strchr(item, '=') + 1;
