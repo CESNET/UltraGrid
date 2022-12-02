@@ -1982,8 +1982,9 @@ av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
 }
 
 /**
- * Returns AVPixelFormat matching *ugc. If !*ugc, finds (probes) best UltraGrid codec
- * to which can be one of fmt converted and returns AV_PIX_FMT_NONE.
+ * Returns first AVPixelFormat convertible to *ugc. If !*ugc, finds (probes)
+ * best UltraGrid codec to which can be one of fmt converted and returns
+ * AV_PIX_FMT_NONE.
  *
  * @param[in,out] ugc        if zero, probing the codec, if nonzero, only finding matching AVPixelFormat
  * @retval AV_PIX_FMT_NONE   if !*ugc
@@ -2002,11 +2003,9 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                                 return *fmt_it;
                         }
                 }
-        }
-        bool use_native[] = { true, false }; // try native first
-        for (const bool *use_native_it = use_native; use_native_it !=
-                        use_native + sizeof use_native / sizeof use_native[0]; ++use_native_it) {
-                for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
+                bool use_native[] = { true, false }; // try native first
+                for (const bool *use_native_it = use_native; use_native_it !=
+                                use_native + sizeof use_native / sizeof use_native[0]; ++use_native_it) {
                         //If hwaccel is not enabled skip hw accel pixfmts even if there
                         //are convert functions
                         const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*fmt_it);
