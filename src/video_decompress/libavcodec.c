@@ -550,7 +550,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                 codec_t c = get_best_ug_codec_to_av(fmt, hwaccel);
                 if (c != VIDEO_CODEC_NONE) {
                         state->internal_codec = c;
-                        return AV_PIX_FMT_NONE;
+                        return lavd_get_av_to_ug_codec(fmt, c, hwaccel);
                 }
         } else {
                 enum AVPixelFormat f = lavd_get_av_to_ug_codec(fmt, state->out_codec, hwaccel);
@@ -965,7 +965,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
         }
 
-        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE) {
+        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE && res == DECODER_GOT_FRAME) {
                 *internal_codec = s->internal_codec;
                 return DECODER_GOT_CODEC;
         }
