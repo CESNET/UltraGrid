@@ -39,6 +39,7 @@ install_svt
 find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git apply
 ./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame \
         --enable-libdav1d \
+        --enable-libde265 \
         --enable-librav1e \
         --enable-libsvtav1 \
         --enable-libsvthevc \

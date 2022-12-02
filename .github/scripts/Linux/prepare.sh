@@ -41,7 +41,7 @@ update_nasm() {
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
 FFMPEG_BUILD_DEP=$(apt-cache showsrc ffmpeg | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v 'libzmq3-dev\|libsdl2-dev')
 # shellcheck disable=SC2086
-sudo apt install $FFMPEG_BUILD_DEP libdav1d-dev
+sudo apt install $FFMPEG_BUILD_DEP libdav1d-dev libde265-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
 update_nasm
 # own x264 build
