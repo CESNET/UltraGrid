@@ -438,34 +438,8 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
 }
 
 static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
-        {
-                codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(pix_fmt);
-                if (mapped_pix_fmt != VIDEO_CODEC_NONE) {
-                        *ug_pix_fmt = mapped_pix_fmt;
-                        return true;
-                }
-        }
-
-        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
-                if (c->av_codec != pix_fmt) { // this conversion is not valid
-                        continue;
-                }
-
-                if (c->native) {
-                        *ug_pix_fmt = c->uv_codec;
-                        return true;
-                }
-        }
-
-        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
-                if (c->av_codec != pix_fmt) { // this conversion is not valid
-                        continue;
-                }
-
-                *ug_pix_fmt = c->uv_codec;
-                return true;
-        }
-        return false;
+        enum AVPixelFormat fmt[2] = { pix_fmt };
+        return (*ug_pix_fmt = get_best_ug_codec_to_av(fmt, true)) != VIDEO_CODEC_NONE;
 }
 
 #ifdef HWACC_RPI4
@@ -724,8 +698,6 @@ static void parallel_convert(av_to_uv_convert_p convert, char *dst, AVFrame *in,
  */
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec_t out_codec, int width, int height,
                 int pitch, int rgb_shift[static restrict 3], struct state_libavcodec_decompress_sws *sws) {
-        av_to_uv_convert_p convert = NULL;
-
         debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
         if (get_av_to_ug_pixfmt(av_codec) == out_codec) {
@@ -737,11 +709,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
                 return FALSE;
         }
 
-        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
-                if (c->av_codec == av_codec && c->uv_codec == out_codec) {
-                        convert = c->convert;
-                }
-        }
+        av_to_uv_convert_p convert = get_av_to_uv_conversion(av_codec, out_codec);
 
         if (convert) {
                 if(!codec_is_const_size(out_codec))
