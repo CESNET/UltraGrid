@@ -155,7 +155,8 @@ struct video_display_info {
         void                    (*run) (void *state);                                               ///< may be NULL
         void                    (*done) (void *state);
         struct video_frame     *(*getf) (void *state);
-        int                     (*putf) (void *state, struct video_frame *frame, long long timeout_ns); ///< @copydoc display_put_frame
+        /// @param timeout_ns display is supposed immplement the PUTF_* macros, arbitrary timeout may be removed
+        int                     (*putf) (void *state, struct video_frame *frame, long long timeout_ns);
         int                     (*reconfigure_video)(void *state, struct video_desc desc);
         int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
         void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);  ///< may be NULL
