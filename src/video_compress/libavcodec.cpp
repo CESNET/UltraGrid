@@ -726,9 +726,14 @@ static inline bool check_av_opt_set(void *priv_data, const char *key, T val, con
         if constexpr (std::is_same_v<T, int>) {
                 ret = av_opt_set_int(priv_data, key, val, 0);
                 val_str = to_string(val);
+        } else if constexpr (std::is_same_v<T, double>) {
+                ret = av_opt_set_double(priv_data, key, val, 0);
+                val_str = to_string(val);
         } else if constexpr (std::is_same_v<T, const char *>) {
                 ret = av_opt_set(priv_data, key, val, 0);
                 val_str = val;
+        } else {
+                static_assert(!std::is_same_v<T, T>, "unsupported type");
         }
         if (ret != 0) {
                 string err = string(MOD_NAME) + "Unable to set " + (desc ? desc : key) + " to " + val_str;
@@ -756,16 +761,12 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         // set quality
         if (s->requested_cqp >= 0 || (is_vaapi && s->requested_crf == -1.0 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
                 int cqp = s->requested_cqp >= 0 ? s->requested_cqp : DEFAULT_CQP;
-                if (int rc = av_opt_set_int(s->codec_ctx->priv_data, "qp", cqp, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set CQP", rc);
-                } else {
+                if (check_av_opt_set<int>(s->codec_ctx->priv_data, "qp", cqp, "CQP")) {
                         LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting CQP to " << cqp <<  "\n";
                 }
         } else if (s->requested_crf >= 0.0 || (is_x264_x265 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
                 double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
-                if (int rc = av_opt_set_double(s->codec_ctx->priv_data, "crf", crf, 0)) {
-                        print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: Unable to set CRF", rc);
-                } else {
+                if (check_av_opt_set<double>(s->codec_ctx->priv_data, "crf", crf)) {
                         log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
                 }
         } else {
@@ -801,9 +802,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 }
 
                 if (!preset.empty() && preset != DONT_SET_PRESET) {
-                        if (av_opt_set(s->codec_ctx->priv_data, "preset", preset.c_str(), 0) != 0) {
-                                LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to set preset.\n";
-                        } else {
+                        if (check_av_opt_set<const char *>(s->codec_ctx->priv_data, "preset", preset.c_str())) {
                                 LOG(LOG_LEVEL_INFO) << "[lavc] Setting preset to " << preset <<  ".\n";
                         }
                 }
@@ -1751,15 +1750,11 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param * 
 
 static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
 {
-        if (av_opt_set(codec_ctx->priv_data, "huffman", "default", 0) != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Warning: Cannot set default Huffman tables.\n");
-        }
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "huffman", "default", "Huffman tables");
 }
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
-        if (int ret = av_opt_set(codec_ctx->priv_data, "header_insertion_mode", "gop", 0)) {
-                print_libav_error(LOG_LEVEL_WARNING, MOD_NAME "Unable to header_insertion_mode for AMF", ret);
-        }
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "header_insertion_mode", "gop", "header_insertion_mode for AMF");
 }
 
 ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
