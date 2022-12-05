@@ -400,7 +400,7 @@ static void usage() {
         col() << "\t" << SBOLD("<slices>") << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         col() << "\t" << SBOLD("<gop>") << " specifies GOP size\n";
         col() << "\t" << SBOLD("<lavc_opt>") << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
-        col() << "\nUse '" << SBOLD("-c libavcodec:encoder=<enc>:help") << "' to display encoder specific options.\n";
+        col() << "\nUse '" << SBOLD("-c libavcodec:encoder=<enc>:help") << "' to display encoder specific options, works on decoders as well (also use keyword \"encoder\").\n";
         col() << "\n";
         col() << "Libavcodec version (linked): " << SBOLD(LIBAVCODEC_IDENT) << "\n";
         const char *swscale = "no";
@@ -1941,6 +1941,9 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
 void show_encoder_help(string const &name) {
         col() << "Options for " << SBOLD(name) << ":\n";
         auto *codec = avcodec_find_encoder_by_name(name.c_str());
+        if (codec == nullptr) {
+                codec = avcodec_find_decoder_by_name(name.c_str());
+        }
         if (codec == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to find encoder " << name << "!\n";
                 return;
