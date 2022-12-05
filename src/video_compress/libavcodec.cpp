@@ -1681,7 +1681,8 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
         if (req_thread_type == 0) {
                 if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_SLICE_THREADS) != 0) {
                         req_thread_type = FF_THREAD_SLICE;
-                } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) == 0) {
+                } else if ((codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) == 0 &&
+                                (codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Slice-based or external multithreading not available, encoding won't be parallel. "
                                         "You may select frame-based paralellism if needed.\n");
                 }
