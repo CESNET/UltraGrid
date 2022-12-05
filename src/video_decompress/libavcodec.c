@@ -89,8 +89,6 @@ struct state_libavcodec_decompress {
         unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
         bool             last_frame_seq_initialized;
 
-        struct video_desc saved_desc;
-
         struct state_libavcodec_decompress_sws {
 #ifdef HAVE_SWSCALE
                 int width, height;
@@ -380,7 +378,6 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         s->pkt = av_packet_alloc();
 
         s->last_frame_seq_initialized = false;
-        s->saved_desc = desc;
 
         return true;
 }
