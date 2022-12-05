@@ -1392,6 +1392,7 @@ static void *pixfmt_conv_task(void *arg) {
         return NULL;
 }
 
+/// print hint to improve performance if not making it
 static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_ns)
 {
         constexpr int mov_window = 100;

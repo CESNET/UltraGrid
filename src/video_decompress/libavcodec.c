@@ -101,6 +101,8 @@ struct state_libavcodec_decompress {
         struct hw_accel_state hwaccel;
 
         _Bool h264_sps_found; ///< to avoid initial error flood, start decoding after SPS was received
+        double mov_avg_comp_duration;
+        long mov_avg_frames;
 };
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
@@ -794,6 +796,33 @@ static _Bool check_first_h264_sps(struct state_libavcodec_decompress *s, unsigne
         return 0;
 }
 
+/// print hint to improve performance if not making it
+static void check_duration(struct state_libavcodec_decompress *s, double duration)
+{
+        const int mov_window = 100;
+        if (s->mov_avg_frames >= 10 * mov_window) {
+                return;
+        }
+        s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration) / mov_window;
+        s->mov_avg_frames += 1;
+        if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->desc.fps) {
+                return;
+        }
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Average decompression time of last %d frames is %f ms but time per frame is only %f ms!\n",
+                        mov_window, s->mov_avg_comp_duration * 1000, 1000 / s->desc.fps);
+        const char *hint = NULL;
+        if ((s->codec_ctx->thread_type & FF_THREAD_SLICE) == 0 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
+                hint = "\"--param lavd-thread-count=<n>FS\" option with small <n> or 0 (nr of logical cores)";
+        } else if (s->codec_ctx->thread_count == 1 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
+                hint = "\"--param lavd-thread-count=<n>\" option with small <n> or 0 (nr of logical cores)";
+        }
+        if (hint) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Consider adding %s to increase throughput at the expense of latency.\n",
+                                hint);
+        }
+        s->mov_avg_frames = LONG_MAX;
+}
+
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
@@ -918,6 +947,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         struct timeval t4;
                         gettimeofday(&t4, NULL);
                         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f sec, pixfmt change %f s.\n", av_get_picture_type_char(s->frame->pict_type), tv_diff(t1, t0), tv_diff(t4, t3));
+                        check_duration(s, tv_diff(t4, t0));
                 }
 
                 if (len <= 0) {
