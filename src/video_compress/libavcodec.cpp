@@ -718,7 +718,7 @@ static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
 }
 
 template<typename T>
-static inline void check_av_opt_set(void *priv_data, const char *key, T val, const char *desc = nullptr) {
+static inline bool check_av_opt_set(void *priv_data, const char *key, T val, const char *desc = nullptr) {
         int ret = 0;
         string val_str;
         if constexpr (std::is_same_v<T, int>) {
@@ -732,6 +732,7 @@ static inline void check_av_opt_set(void *priv_data, const char *key, T val, con
                 string err = string(MOD_NAME) + "Unable to set " + (desc ? desc : key) + " to " + val_str;
                 print_libav_error(LOG_LEVEL_WARNING, err.c_str(), ret);
         }
+        return ret == 0;
 }
 
 bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pix_fmt, struct video_desc desc, codec_t ug_codec)
@@ -1826,19 +1827,13 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 
         // important: if "tune" is not supported, then FALLBACK_NVENC_PRESET must be used (it is correlated). If unsupported preset
         // were given, setting would succeed but would cause runtime errors.
-        if (int rc = av_opt_set(codec_ctx->priv_data, "tune", DEFAULT_NVENC_TUNE, 0)) {
-                array<char, LIBAV_ERRBUF_LEN> errbuf{};
-                av_strerror(rc, errbuf.data(), errbuf.size());
-                LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC tune to \"" << DEFAULT_NVENC_TUNE << "\" (" << errbuf.data() << "). Possibly old libavcodec or compiled with old NVIDIA NVENC headers.\n";
+        if (!check_av_opt_set<const char *>(codec_ctx->priv_data, "tune", DEFAULT_NVENC_TUNE, "NVENC tune")) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Possibly old libavcodec or compiled with old NVIDIA NVENC headers.\n";
                 preset = FALLBACK_NVENC_PRESET;
         }
         if (!param->have_preset) {
-                if (int rc = av_opt_set(codec_ctx->priv_data, "preset", preset, 0)) {
-                        array<char, LIBAV_ERRBUF_LEN> errbuf{};
-                        av_strerror(rc, errbuf.data(), errbuf.size());
-                        LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set NVENC preset to: " << preset << " (" << errbuf.data() << ").\n";
-                } else {
-                        LOG(LOG_LEVEL_INFO) << "[lavc] Setting NVENC preset to " << preset << ".\n";
+                if (check_av_opt_set<const char *>(codec_ctx->priv_data, "preset", preset, "NVENC preset")) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting NVENC preset to " << preset << ".\n";
                 }
         }
 
@@ -1848,34 +1843,14 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 #else
         if (param->periodic_intra == 1) {
 #endif
-                if (int ret = av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0) != 0) {
-                        print_libav_error(LOG_LEVEL_WARNING, "[lavc] Unable to set Intra Refresh", ret);
-                }
+                check_av_opt_set<int>(codec_ctx->priv_data, "intra-refresh", 1);
         }
 
-        int ret = av_opt_set(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC, 0);
-        if (ret != 0) { // older FFMPEG had only cbr
-                LOG(LOG_LEVEL_WARNING) << "[lavc] Cannot set RC " << DEFAULT_NVENC_RC << ".\n";
-        }
-
-        ret = av_opt_set(codec_ctx->priv_data, "spatial_aq", "0", 0);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to unset spatial AQ.\n");
-        }
-        char gpu[3] = "";
-        snprintf(gpu, 2, "%d", cuda_devices[0]);
-        ret = av_opt_set(codec_ctx->priv_data, "gpu", gpu, 0);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set GPU.\n");
-        }
-        ret = av_opt_set(codec_ctx->priv_data, "delay", "2", 0);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set delay.\n");
-        }
-        ret = av_opt_set(codec_ctx->priv_data, "zerolatency", "1", 0);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set zero latency operation (no reordering delay).\n");
-        }
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC);
+        check_av_opt_set<int>(codec_ctx->priv_data, "spatial_aq", 0);
+        check_av_opt_set<int>(codec_ctx->priv_data, "gpu", cuda_devices[0]);
+        check_av_opt_set<int>(codec_ctx->priv_data, "delay", 2); // increases throughput 2x at expense of higher latency
+        check_av_opt_set<int>(codec_ctx->priv_data, "zerolatency", 1, "zero latency operation (no reordering delay)");
         check_av_opt_set<const char *>(codec_ctx->priv_data, "b_ref_mode", "disabled", 0);
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->desc.fps;
