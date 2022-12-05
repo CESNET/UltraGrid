@@ -1876,6 +1876,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         if (ret != 0) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set zero latency operation (no reordering delay).\n");
         }
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "b_ref_mode", "disabled", 0);
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
         codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->desc.fps;
 }
