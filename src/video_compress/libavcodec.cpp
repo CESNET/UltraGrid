@@ -285,6 +285,8 @@ struct state_video_compress_libav {
 #endif
 
         int conv_thread_count = clamp<unsigned int>(thread::hardware_concurrency(), 1, INT_MAX); ///< number of threads used for UG conversions
+        double mov_avg_comp_duration = 0;
+        long mov_avg_frames = 0;
 };
 
 struct codec_encoders_decoders{
@@ -1353,6 +1355,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = ug_codec;
         s->compressed_desc.tile_count = 1;
+        s->mov_avg_frames = s->mov_avg_comp_duration = 0;
 
         s->out_codec = s->compressed_desc.color_spec;
 
@@ -1388,6 +1391,36 @@ static void *pixfmt_conv_task(void *arg) {
         struct pixfmt_conv_task_data *data = (struct pixfmt_conv_task_data *) arg;
         data->callback(data->out_frame, data->in_data, data->width, data->height);
         return NULL;
+}
+
+static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_ns)
+{
+        constexpr int mov_window = 100;
+        if (s->mov_avg_frames >= 10 * mov_window) {
+                return;
+        }
+        double duration = dur_ns / NS_IN_SEC_DBL;
+        s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration) / mov_window;
+        s->mov_avg_frames += 1;
+        if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->compressed_desc.fps) {
+                return;
+        }
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Average compression time of last %d frames is %f ms but time per frame is only %f ms!\n",
+                        mov_window, s->mov_avg_comp_duration * 1000, 1000 / s->compressed_desc.fps);
+        string hint;
+        if (regex_match(s->codec_ctx->codec->name, regex(".*nvenc.*"))) {
+                if (s->lavc_opts.find("delay") == s->lavc_opts.end()) {
+                        hint = "\"delay=<frames>\" option to NVENC compression (2 suggested)";
+                }
+        } else if ((s->codec_ctx->thread_type & FF_THREAD_SLICE) == 0 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
+                hint = "\"threads=<n>FS\" option with small <n> or 0 (nr of logical cores) to compression";
+        } else if (s->codec_ctx->thread_count == 1 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
+                hint = "\"threads=<n>\" option with small <n> or 0 (nr of logical cores) to compression";
+        }
+        if (!hint.empty()) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Consider adding " << hint << " to increase throughput at the expense of latency.\n";
+        }
+        s->mov_avg_frames = LONG_MAX;
 }
 
 static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
@@ -1590,6 +1623,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: " << (t1 - t0) / (double) NS_IN_SEC <<
                 " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<
                 " s, compression " << (t3 - t2) / (double) NS_IN_SEC << " s\n";
+        check_duration(s, t3 - t0);
 
         if (out->tiles[0].data_len == 0) { // videotoolbox returns sometimes frames with pkt->size == 0 but got_output == true
                 return {};
@@ -1850,7 +1884,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         check_av_opt_set<const char *>(codec_ctx->priv_data, "rc", DEFAULT_NVENC_RC);
         check_av_opt_set<int>(codec_ctx->priv_data, "spatial_aq", 0);
         check_av_opt_set<int>(codec_ctx->priv_data, "gpu", cuda_devices[0]);
-        check_av_opt_set<int>(codec_ctx->priv_data, "delay", 2); // increases throughput 2x at expense of higher latency
+        check_av_opt_set<int>(codec_ctx->priv_data, "delay", 0); // 2'd increase throughput 2x at expense of higher latency
         check_av_opt_set<int>(codec_ctx->priv_data, "zerolatency", 1, "zero latency operation (no reordering delay)");
         check_av_opt_set<const char *>(codec_ctx->priv_data, "b_ref_mode", "disabled", 0);
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
