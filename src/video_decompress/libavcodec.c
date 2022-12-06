@@ -460,6 +460,36 @@ static int rpi4_hwacc_init(struct AVCodecContext *s,
 }
 #endif
 
+
+#ifdef HWACC_COMMON_IMPL
+static int hwacc_cuda_init(struct AVCodecContext *s, struct hw_accel_state *state, codec_t out_codec)
+{
+        UNUSED(out_codec);
+
+        AVBufferRef *device_ref = NULL;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_CUDA, &device_ref);
+        if(ret < 0)
+                return ret;
+
+        state->tmp_frame = av_frame_alloc();
+        if(!state->tmp_frame){
+                ret = -1;
+                goto fail;
+        }
+
+        s->hw_device_ctx = device_ref;
+        state->type = HWACCEL_CUDA;
+        state->copy = true;
+
+        return 0;
+
+fail:
+        av_frame_free(&state->tmp_frame);
+        av_buffer_unref(&device_ref);
+        return ret;
+}
+#endif
+
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt)
 {
 #define SELECT_PIXFMT(pixfmt) { log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Selected pixel format: %s\n", av_get_pix_fmt_name(pixfmt)); return pixfmt; }
@@ -486,6 +516,7 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 #ifdef HWACC_VDPAU
                 {AV_PIX_FMT_VDPAU, HWACCEL_VDPAU, vdpau_init},
 #endif
+                {AV_PIX_FMT_CUDA, HWACCEL_CUDA, hwacc_cuda_init},
 #ifdef HWACC_VAAPI
                 {AV_PIX_FMT_VAAPI, HWACCEL_VAAPI, vaapi_init},
 #endif
