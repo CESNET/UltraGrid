@@ -1870,10 +1870,15 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
 
         set_forced_idr(codec_ctx, 1);
 #ifdef PATCHED_FF_NVENC_NO_INFINITE_GOP
-        if (param->periodic_intra != 0) {
+        const bool patched_ff = true;
 #else
-        if (param->periodic_intra == 1) {
+        const bool patched_ff = false;
+        if (param->periodic_intra != 0) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "FFmpeg not patched, " << (param->periodic_intra != 1 ? "not " : "") << "enabling Intra Refresh.\n";
+        }
 #endif
+
+        if ((patched_ff && param->periodic_intra != 0) || param->periodic_intra == 1) {
                 check_av_opt_set<int>(codec_ctx->priv_data, "intra-refresh", 1);
         }
 
