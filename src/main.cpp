@@ -458,7 +458,7 @@ static void *capture_thread(void *arg)
         struct wait_obj *wait_obj = wait_obj_init();
         steady_clock::time_point t0 = steady_clock::now();
         int frames = 0;
-        char *print_fps_prefix = strdupa(vidcap_get_fps_print_prefix(uv->capture_device));
+        char *print_fps_prefix = vidcap_get_fps_print_prefix(uv->capture_device) ? strdupa(vidcap_get_fps_print_prefix(uv->capture_device)) : NULL;
         if (print_fps_prefix && print_fps_prefix[strlen(print_fps_prefix) - 1] == ' ') { // trim trailing ' '
                 print_fps_prefix[strlen(print_fps_prefix) - 1] = '\0';
         }
