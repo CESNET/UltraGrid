@@ -148,6 +148,14 @@ static void deconfigure(struct state_libavcodec_decompress *s)
 #endif // defined HAVE_SWSCALE
 }
 
+static int check_av_opt_set(void *state, const char *key, const char *val) {
+        int ret = av_opt_set(state, key, val, 0);
+        if (ret != 0) {
+                printf_libav_error(LOG_LEVEL_WARNING, ret, MOD_NAME "Unable to set %s to %s", key, val);
+        }
+        return ret;
+}
+
 ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F][S][n]\n"
                 "  Use <thread_count> decoding threads (0 is usually auto).\n"
                 "  Flag 'F' enables frame parallelism (disabled by default), 'S' slice based, can be both (default slice), 'n' for none\n");
@@ -198,13 +206,17 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
         }
 
         s->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
-
         // set by decoder
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
         // callback to negotiate pixel format that is supported by UG
         s->codec_ctx->get_format = get_format_callback;
-
         s->codec_ctx->opaque = s;
+
+        if (strstr(s->codec_ctx->codec->name, "cuvid") != NULL) {
+                char gpu[3];
+                snprintf(gpu, sizeof gpu, "%u", cuda_devices[0]);
+                check_av_opt_set(s->codec_ctx->priv_data, "gpu", gpu);
+        }
 }
 
 static void jpeg_callback(void)

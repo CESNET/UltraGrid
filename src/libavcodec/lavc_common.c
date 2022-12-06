@@ -159,6 +159,17 @@ void print_libav_error(int verbosity, const char *msg, int rc) {
         log_msg(verbosity, "%s: %s\n", msg, errbuf);
 }
 
+void printf_libav_error(int verbosity, int rc, const char *msg, ...) {
+        char message[1024];
+
+        va_list ap;
+        va_start(ap, msg);
+        vsnprintf(message, sizeof message, msg, ap);
+        va_end(ap);
+
+        print_libav_error(verbosity, message, rc);
+}
+
 bool libav_codec_has_extradata(codec_t codec) {
         return codec == HFYU || codec == FFV1;
 }

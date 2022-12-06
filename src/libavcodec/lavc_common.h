@@ -219,6 +219,7 @@ inline static bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt
 }
 
 void print_libav_error(int verbosity, const char *msg, int rc);
+void printf_libav_error(int verbosity, int rc, const char *msg, ...) ATTRIBUTE(format (printf, 3, 4));
 bool libav_codec_has_extradata(codec_t codec);
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec);
