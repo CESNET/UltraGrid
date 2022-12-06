@@ -397,12 +397,7 @@ static void * libavcodec_decompress_init(void)
         avcodec_register_all();
 #endif
 
-        s->codec_ctx = NULL;
-        s->frame = NULL;
         s->pkt = av_packet_alloc();
-        s->pkt->data = NULL;
-        s->pkt->size = 0;
-
         hwaccel_state_init(&s->hwaccel);
 
         return s;
