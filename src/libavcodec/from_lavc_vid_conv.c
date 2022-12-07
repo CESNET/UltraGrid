@@ -1434,6 +1434,25 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
+static void yuv444p10le_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < (int) height; ++y) {
+                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
+                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
+                uint16_t *dst = (uint16_t *)(void *)(dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        *dst++ = *src_cb++ << 6U; // U
+                        *dst++ = *src_y++ << 6U; // Y
+                        *dst++ = *src_cr++ << 6U; // V
+                        *dst++ = 0xFFFFU; // A
+                }
+        }
+}
+
 #if defined __GNUC__
 static inline void yuvp10le_to_rgb(int subsampling, char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift, int out_bit_depth) __attribute__((always_inline));
@@ -1873,13 +1892,14 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV422P10LE, RGBA, yuv422p10le_to_rgb32, false},
                 {AV_PIX_FMT_YUV422P10LE, R10k, yuv422p10le_to_rgb30, false},
-                {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, true},
+                {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, false},
                 {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P10LE, R10k, yuv444p10le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
                 {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
                 {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
                 {AV_PIX_FMT_YUV444P10LE, RG48, yuv444p10le_to_rg48, false},
+                {AV_PIX_FMT_YUV444P10LE, Y416, yuv444p10le_to_y416, true},
 #ifdef HAVE_P210
                 {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
                 {AV_PIX_FMT_P210LE, UYVY, p210le_to_uyvy, false},

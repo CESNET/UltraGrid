@@ -1097,6 +1097,9 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, v210, RGBA, 800 },
         { VIDEO_CODEC_NONE, v210, UYVY, 500 },
         { VIDEO_CODEC_NONE, v210, v210, 500 },
+        { VIDEO_CODEC_NONE, Y416, UYVY, 800 },
+        { VIDEO_CODEC_NONE, Y416, v210, 800 },
+        { VIDEO_CODEC_NONE, Y416, Y416, 500 },
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, UYVY, 900 }, // provide also generic decoders
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RG48, 950 },
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGB, 950 },
@@ -1104,6 +1107,7 @@ static const struct decode_from_to dec_template[] = {
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R10k, 950 },
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R12L, 950 },
         { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, v210, 950 },
+        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, Y416, 950 },
 };
 #define SUPP_CODECS_CNT (sizeof decoders / sizeof decoders[0])
 #define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
