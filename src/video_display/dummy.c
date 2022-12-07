@@ -52,11 +52,12 @@
 #define DEFAULT_DUMP_LEN 32
 #define MOD_NAME "[dummy] "
 
-static const codec_t codecs[] = {I420, UYVY, YUYV, v210, R10k, R12L, RGBA, RGB, BGR, RG48};
+static const codec_t default_codecs[] = {I420, UYVY, YUYV, v210, R10k, R12L, RGBA, RGB, BGR, RG48};
 
 struct dummy_display_state {
         struct video_frame *f;
-        codec_t req_codec;
+        codec_t codecs[VIDEO_CODEC_COUNT];
+        int codec_count;
         int rgb_shift[3];
 
         size_t dump_bytes;
@@ -75,7 +76,7 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                                 "Additionally, options " TBOLD("hexdump") " and " TBOLD("dump") " are available for debugging.\n\n";
                 color_printf("%s", indent_paragraph(desc));
                 struct key_val options[] = {
-                        { "codec=<codec>", "force the use of a codec instead of default set" },
+                        { "codec=<codec>[,<codec2>]", "force the use of a codec instead of default set" },
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
                         { "dump[:skip=<n>][:oneshot][:raw]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames); 'oneshot' - exit after dumping the picture; 'raw' - dump raw data" },
                         { "hexdump[=<n>]", "dump first n (default " TOSTRING(DEFAULT_DUMP_LEN) ") bytes of every frame in hexadecimal format" },
@@ -84,7 +85,8 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                 print_module_usage("-d dummy", options, NULL, 0);
                 return INIT_NOERR;
         }
-        struct dummy_display_state s = { 0 };
+        struct dummy_display_state s = { .codec_count = sizeof default_codecs / sizeof default_codecs[0] };
+        memcpy(s.codecs, default_codecs, sizeof default_codecs);
         int rgb_shift_init[] = DEFAULT_RGB_SHIFT_INIT;
         memcpy(s.rgb_shift, &rgb_shift_init, sizeof s.rgb_shift);
         char *ccpy = alloca(strlen(cfg) + 1);
@@ -93,10 +95,17 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
         char *save_ptr = NULL;
         while ((item = strtok_r(ccpy, ":", &save_ptr)) != NULL) {
                 if (strstr(item, "codec=") != NULL) {
-                        s.req_codec = get_codec_from_name(strchr(item, '=') + 1);
-                        if (s.req_codec == VIDEO_CODEC_NONE) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", strchr(item, '=') + 1);
-                                return NULL;
+                        char *sptr = NULL;
+                        char *tok = NULL;
+                        char *str = strchr(item, '=') + 1;
+                        s.codec_count = 0;
+                        while ((tok = strtok_r(str, ",", &sptr))) {
+                                str = NULL;
+                                s.codecs[s.codec_count++] = get_codec_from_name(tok);
+                                if (s.codecs[s.codec_count - 1] == VIDEO_CODEC_NONE) {
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", tok);
+                                        return NULL;
+                                }
                         }
                 } else if (strstr(item, "dump") != NULL) {
                         s.dump_to_file = 1;
@@ -190,12 +199,12 @@ static int display_dummy_get_property(void *state, int property, void *val, size
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
                         {
-                                size_t req_len = s->req_codec ? sizeof(codec_t) : sizeof codecs;
+                                size_t req_len = s->codec_count * sizeof(codec_t);
                                 if (req_len > *len) {
                                         return FALSE;
                                 }
                                 *len = req_len;
-                                memcpy(val, s->req_codec ? &s->req_codec : codecs, *len);
+                                memcpy(val, s->codecs, *len);
                         }
                         break;
                 case DISPLAY_PROPERTY_RGB_SHIFT:
