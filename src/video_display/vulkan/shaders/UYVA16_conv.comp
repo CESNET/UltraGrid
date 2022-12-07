@@ -22,18 +22,18 @@ void main()
 
     vec4 yuv = (texture(inputImage, textureCoords).grba) / 65535.0;
 
-    float Y_SCALED_PLACEHOLDER = 1.1643835;
-    float R_CR_PLACEHOLDER = 1.7926522;
-    float G_CB_PLACEHOLDER = -0.21323606;
-    float G_CR_PLACEHOLDER = -0.5330038;
-    float B_CB_PLACEHOLDER = 2.11242;
+    float Y_SCALED = 1.1643835;
+    float R_CR_709 = 1.7926522;
+    float G_CB_709 = -0.21323606;
+    float G_CR_709 = -0.5330038;
+    float B_CB_709 = 2.11242;
     
-    yuv.r = Y_SCALED_PLACEHOLDER * (yuv.r - 0.0625);
+    yuv.r = Y_SCALED * (yuv.r - 0.0625);
     yuv.g = yuv.g - 0.5;
     yuv.b = yuv.b - 0.5;
-    float r = yuv.r + R_CR_PLACEHOLDER * yuv.b;
-    float g = yuv.r + G_CB_PLACEHOLDER * yuv.g + G_CR_PLACEHOLDER * yuv.b;
-    float b = yuv.r + B_CB_PLACEHOLDER * yuv.g;
+    float r = yuv.r + R_CR_709 * yuv.b;
+    float g = yuv.r + G_CB_709 * yuv.g + G_CR_709 * yuv.b;
+    float b = yuv.r + B_CB_709 * yuv.g;
     
     imageStore(resultImage, pixelCoords, vec4(r, g, b, 1.0));
 }
