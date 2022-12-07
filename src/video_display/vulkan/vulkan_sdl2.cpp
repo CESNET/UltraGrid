@@ -776,7 +776,7 @@ void* display_sdl2_init(module* parent, const char* fmt, unsigned int flags) {
 
         log_msg(LOG_LEVEL_NOTICE, "SDL2 initialized successfully.\n");
 
-        const char* window_title = "UltraGrid - SDL2 Display";
+        const char* window_title = "UltraGrid - Vulkan Display";
         if (get_commandline_param("window-title")) {
                 window_title = get_commandline_param("window-title");
         }
