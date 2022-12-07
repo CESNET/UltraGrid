@@ -50,6 +50,8 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#define MOD_NAME "[crop] "
+
 struct state_crop {
         int width;
         int height;
@@ -72,7 +74,7 @@ static void usage(_Bool capture_filter) {
                         TBOLD("height") ", "
                         TBOLD("xoff") " and "
                         TBOLD("yoff") ". Example:\n"
-                        "\t" TBOLD(TRED("%s crop") "[:width=<w>][:height=<h>][:xoff=<x>][:yoff=<y>]") "\n\n",
+                        "\t" TBOLD(TRED("%s crop") "[:size=<w>x<h>][:xoff=<x>][:yoff=<y>]") "\n\n",
                         capture_filter ? "--capture-filter" : "-p");
 }
 
@@ -89,7 +91,13 @@ static void * crop_init(const char *config) {
         char *config_copy = tmp;
         char *item, *save_ptr;
         while ((item = strtok_r(config_copy, ":", &save_ptr))) {
-                if (strncasecmp(item, "width=", strlen("width=")) == 0) {
+                if (strstr(item, "size=") == item) {
+                        if (strchr(item, 'x') == NULL) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing height!\n");
+                        }
+                        s->width = atoi(strchr(item, '=') + 1);
+                        s->height = atoi(strchr(item, 'x') + 1);
+                } else if (strncasecmp(item, "width=", strlen("width=")) == 0) {
                         s->width = atoi(item + strlen("width="));
                 } else if (strncasecmp(item, "height=", strlen("height=")) == 0) {
                         s->height = atoi(item + strlen("height="));
