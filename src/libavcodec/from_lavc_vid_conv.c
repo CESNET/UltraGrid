@@ -552,9 +552,9 @@ static inline void gbrpXXle_to_rgba(char * __restrict dst_buffer, AVFrame * __re
                 int width, int height, int pitch, const int * __restrict rgb_shift, unsigned int in_depth)
 {
         assert((uintptr_t) dst_buffer % 4 == 0);
-        assert((uintptr_t) frame->linesize[0] % 2 == 0);
-        assert((uintptr_t) frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) frame->linesize[2] % 2 == 0);
+        assert((uintptr_t) frame->data[0] % 2 == 0);
+        assert((uintptr_t) frame->data[1] % 2 == 0);
+        assert((uintptr_t) frame->data[2] % 2 == 0);
 
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rgb_shift[R]) ^ (0xFFU << rgb_shift[G]) ^ (0xFFU << rgb_shift[B]);
 
@@ -1437,6 +1437,10 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
 static void yuv444p10le_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
+        assert((uintptr_t) dst_buffer % 2 == 0);
+        assert((uintptr_t) in_frame->data[0] % 2 == 0);
+        assert((uintptr_t) in_frame->data[1] % 2 == 0);
+        assert((uintptr_t) in_frame->data[2] % 2 == 0);
         UNUSED(rgb_shift);
         for(int y = 0; y < (int) height; ++y) {
                 uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
