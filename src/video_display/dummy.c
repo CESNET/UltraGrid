@@ -38,6 +38,11 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -57,7 +62,7 @@ static const codec_t default_codecs[] = {I420, UYVY, YUYV, v210, R10k, R12L, RGB
 struct dummy_display_state {
         struct video_frame *f;
         codec_t codecs[VIDEO_CODEC_COUNT];
-        int codec_count;
+        size_t codec_count;
         int rgb_shift[3];
 
         size_t dump_bytes;
@@ -66,6 +71,54 @@ struct dummy_display_state {
         _Bool raw;
         int dump_to_file_skip_frames;
 };
+
+static _Bool dummy_parse_opts(struct dummy_display_state *s, char *fmt) {
+        char *item = NULL;
+        char *save_ptr = NULL;
+        while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
+                fmt = NULL;
+                if (strstr(item, "codec=") != NULL) {
+                        char *sptr = NULL;
+                        char *tok = NULL;
+                        char *str = strchr(item, '=') + 1;
+                        s->codec_count = 0;
+                        while ((tok = strtok_r(str, ",", &sptr))) {
+                                str = NULL;
+                                assert(s->codec_count < sizeof s->codecs / sizeof s->codecs[0]);
+                                s->codecs[s->codec_count++] = get_codec_from_name(tok);
+                                if (s->codecs[s->codec_count - 1] == VIDEO_CODEC_NONE) {
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", tok);
+                                        return 0;
+                                }
+                        }
+                } else if (strstr(item, "dump") != NULL) {
+                        s->dump_to_file = 1;
+                } else if (strstr(item, "hexdump") != NULL) {
+                        if (strstr(item, "hexdump=") != NULL) {
+                                s->dump_bytes = atoi(item + strlen("hexdump="));
+                        } else {
+                                s->dump_bytes = DEFAULT_DUMP_LEN;
+                        }
+                } else if (strstr(item, "rgb_shift=") != NULL) {
+                        item += strlen("rgb_shift=");
+                        s->rgb_shift[0] = strtol(item, &item, 0);
+                        item += 1;
+                        s->rgb_shift[1] = strtol(item, &item, 0);
+                        item += 1;
+                        s->rgb_shift[2] = strtol(item, &item, 0);
+                } else if (strstr(item, "skip=") != NULL) {
+                        s->dump_to_file_skip_frames = atoi(strchr(item, '=') + 1);
+                } else if (strcmp(item, "oneshot") == 0) {
+                        s->oneshot = 1;
+                } else if (strcmp(item, "raw") == 0) {
+                        s->raw = 1;
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s\n", item);
+                        return 0;
+                }
+        }
+        return 1;
+}
 
 static void *display_dummy_init(struct module *parent, const char *cfg, unsigned int flags)
 {
@@ -91,48 +144,9 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
         memcpy(s.rgb_shift, &rgb_shift_init, sizeof s.rgb_shift);
         char *ccpy = alloca(strlen(cfg) + 1);
         strcpy(ccpy, cfg);
-        char *item = NULL;
-        char *save_ptr = NULL;
-        while ((item = strtok_r(ccpy, ":", &save_ptr)) != NULL) {
-                if (strstr(item, "codec=") != NULL) {
-                        char *sptr = NULL;
-                        char *tok = NULL;
-                        char *str = strchr(item, '=') + 1;
-                        s.codec_count = 0;
-                        while ((tok = strtok_r(str, ",", &sptr))) {
-                                str = NULL;
-                                s.codecs[s.codec_count++] = get_codec_from_name(tok);
-                                if (s.codecs[s.codec_count - 1] == VIDEO_CODEC_NONE) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", tok);
-                                        return NULL;
-                                }
-                        }
-                } else if (strstr(item, "dump") != NULL) {
-                        s.dump_to_file = 1;
-                } else if (strstr(item, "hexdump") != NULL) {
-                        if (strstr(item, "hexdump=") != NULL) {
-                                s.dump_bytes = atoi(item + strlen("hexdump="));
-                        } else {
-                                s.dump_bytes = DEFAULT_DUMP_LEN;
-                        }
-                } else if (strstr(item, "rgb_shift=") != NULL) {
-                        item += strlen("rgb_shift=");
-                        s.rgb_shift[0] = strtol(item, &item, 0);
-                        item += 1;
-                        s.rgb_shift[1] = strtol(item, &item, 0);
-                        item += 1;
-                        s.rgb_shift[2] = strtol(item, &item, 0);
-                } else if (strstr(item, "skip=") != NULL) {
-                        s.dump_to_file_skip_frames = atoi(strchr(item, '=') + 1);
-                } else if (strcmp(item, "oneshot") == 0) {
-                        s.oneshot = 1;
-                } else if (strcmp(item, "raw") == 0) {
-                        s.raw = 1;
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s\n", item);
-                        return NULL;
-                }
-                ccpy = NULL;
+
+        if (!dummy_parse_opts(&s, ccpy)) {
+                return NULL;
         }
 
         struct dummy_display_state *ret = malloc(sizeof s);
