@@ -1,4 +1,4 @@
-next
+1.8
 ====
 * added Reed-Solomon for audio
 * added support for RPI4 hw. acceleration
