@@ -20,6 +20,11 @@ next
 * GUI: added send bandwidth indicator
 * GUI: separate vuMeters for send/receive
 * GUI: don't show crash dialog if UltraGrid crashed when exiting
+* added dynamical scaler for DeckLink audio to eliminate clock drift
+* support for libsoxr resampler (16/32 bits), added 32-bit support to SpeexDSP + use
+  multiple threads
+* encryption - added + made default encryption in AES GCM mode (+ support for WolfSSL)
+* added Vulkan display
 
 1.7
 ====
