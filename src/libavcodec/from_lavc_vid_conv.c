@@ -1390,7 +1390,12 @@ static void yuv422p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
-static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+#if defined __GNUC__
+static inline void yuv444p1Xle_to_uyvy(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+        __attribute__((always_inline));
+#endif
+static inline void yuv444p1Xle_to_uyvy(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
@@ -1401,14 +1406,26 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
                 uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        *dst++ = (src_cb[0] + src_cb[1]) / 2 >> 2;
-                        *dst++ = *src_y++ >> 2;
-                        *dst++ = (src_cr[0] + src_cr[1]) / 2 >> 2;
-                        *dst++ = *src_y++ >> 2;
+                        *dst++ = (src_cb[0] + src_cb[1]) / 2 >> (in_depth - 2U);
+                        *dst++ = *src_y++ >> (in_depth - 2U);
+                        *dst++ = (src_cr[0] + src_cr[1]) / 2 >> (in_depth - 2U);
+                        *dst++ = *src_y++ >> (in_depth - 2U);
                         src_cb += 2;
                         src_cr += 2;
                 }
         }
+}
+
+static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        yuv444p1Xle_to_uyvy(10, dst_buffer, in_frame, width, height, pitch, rgb_shift);
+}
+
+static void yuv444p12le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        yuv444p1Xle_to_uyvy(12, dst_buffer, in_frame, width, height, pitch, rgb_shift);
 }
 
 #if defined __GNUC__
@@ -1948,6 +1965,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P12LE, R10k, yuv444p12le_to_r10k, false},
                 {AV_PIX_FMT_YUV444P12LE, R12L, yuv444p12le_to_r12l, false},
                 {AV_PIX_FMT_YUV444P12LE, RG48, yuv444p12le_to_rg48, false},
+                {AV_PIX_FMT_YUV444P12LE, UYVY, yuv444p12le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P12LE, v210, yuv444p12le_to_v210, false},
                 {AV_PIX_FMT_YUV444P12LE, Y416, yuv444p12le_to_y416, true},
                 // 16-bit YUV
