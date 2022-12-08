@@ -596,7 +596,7 @@ void print_version()
                 is_release = false;
         }
 #endif
-        col() << SBRIGHT_BLUE(SBOLD(PACKAGE_STRING <<
+        col() << SDARK_YELLOW(SBOLD(PACKAGE_STRING <<
                 (is_release ? "" : "+"))) <<
                 " (" << get_version_details() << ")\n";
 }
