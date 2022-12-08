@@ -1434,7 +1434,11 @@ static void yuv444p10le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restri
         }
 }
 
-static void yuv444p10le_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+#if defined __GNUC__
+static inline void yuv444p1Xle_to_y416(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift);
+#endif
+static void yuv444p1Xle_to_y416(unsigned in_depth, char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         assert((uintptr_t) dst_buffer % 2 == 0);
@@ -1449,12 +1453,24 @@ static void yuv444p10le_to_y416(char * __restrict dst_buffer, AVFrame * __restri
                 uint16_t *dst = (uint16_t *)(void *)(dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        *dst++ = *src_cb++ << 6U; // U
-                        *dst++ = *src_y++ << 6U; // Y
-                        *dst++ = *src_cr++ << 6U; // V
+                        *dst++ = *src_cb++ << (16U - in_depth); // U
+                        *dst++ = *src_y++ << (16U - in_depth); // Y
+                        *dst++ = *src_cr++ << (16U - in_depth); // V
                         *dst++ = 0xFFFFU; // A
                 }
         }
+}
+
+static void yuv444p10le_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        yuv444p1Xle_to_y416(10, dst_buffer, in_frame, width, height, pitch, rgb_shift);
+}
+
+static void yuv444p16le_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        yuv444p1Xle_to_y416(16, dst_buffer, in_frame, width, height, pitch, rgb_shift);
 }
 
 #if defined __GNUC__
@@ -1954,6 +1970,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P16LE, RG48, yuv444p16le_to_rg48, false},
                 {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, false},
                 {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, false},
+                {AV_PIX_FMT_YUV444P16LE, Y416, yuv444p16le_to_y416, true},
                 {AV_PIX_FMT_AYUV64, UYVY, ayuv64_to_uyvy, false },
                 {AV_PIX_FMT_AYUV64, v210, ayuv64_to_v210, false },
                 {AV_PIX_FMT_AYUV64, Y416, ayuv64_to_y416, true },
