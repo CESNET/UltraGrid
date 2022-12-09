@@ -10,7 +10,6 @@ printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/sources.list # for build-dep ffmpeg
 sudo apt update
 sudo apt install appstream # appstreamcli for mkappimage AppStream validation
-sudo apt install aptitude
 sudo apt install fonts-dejavu-core
 sudo apt install libcppunit-dev
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
@@ -25,8 +24,14 @@ sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 sudo apt install uuid-dev # Cineform
 
+get_build_deps_excl() { # $2 - pattern to exclude
+        apt-cache showsrc "$1" | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v "$2"
+}
 sudo apt build-dep libsdl2
-sudo aptitude -y build-dep libsdl2-mixer libsdl2-ttf libsdl2-dev:
+sdl2_mix_build_dep=$(get_build_deps_excl libsdl2-mixer libsdl2-dev)
+sdl2_ttf_build_dep=$(get_build_deps_excl libsdl2-ttf libsdl2-dev)
+# shellcheck disable=SC2086 # intentional
+sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 
 # FFmpeg deps
 sudo add-apt-repository ppa:savoury1/vlc3 # new x265
@@ -39,9 +44,9 @@ update_nasm() {
         sudo ln -s /usr/lib/nasm-mozilla/bin/nasm /usr/bin/nasm
 }
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
-FFMPEG_BUILD_DEP=$(apt-cache showsrc ffmpeg | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v 'libzmq3-dev\|libsdl2-dev')
-# shellcheck disable=SC2086
-sudo apt install $FFMPEG_BUILD_DEP libdav1d-dev libde265-dev
+ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libzmq3-dev\|libsdl2-dev')
+# shellcheck disable=SC2086 # intentional
+sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
 update_nasm
 # own x264 build
