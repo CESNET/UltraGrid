@@ -413,8 +413,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         s->last_frame_time = std::chrono::steady_clock::now();
 
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << "capture set to " << desc << ", bpp "
-                << get_bpp(s->frame->color_spec) * 8 << ", pattern: " << s->pattern
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << "capture set to " << desc << ", bpc "
+                << get_bits_per_component(s->frame->color_spec) << ", pattern: " << s->pattern
                 << ", audio " << (s->grab_audio ? "on" : "off") << "\n";
 
         if (strip_fmt != NULL) {
