@@ -27,6 +27,15 @@ install_nv_codec_headers() {
         ( cd nv-codec-headers && make && sudo make install || exit 1 )
 }
 
+install_onevpl() {(
+        git clone --depth 1 https://github.com/oneapi-src/oneVPL
+        mkdir oneVPL/build
+        cd oneVPL/build
+        cmake ..
+        cmake --build . --config Release --parallel
+        sudo cmake --build . --config Release --target install
+)}
+
 rm -rf /var/tmp/ffmpeg
 git clone --depth $FFMPEG_GIT_DEPTH https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
@@ -34,6 +43,7 @@ cd /var/tmp/ffmpeg
 ( git clone --depth 1 https://aomedia.googlesource.com/aom && mkdir -p aom/build && cd aom/build && cmake -DBUILD_SHARED_LIBS=1 .. &&  cmake --build . --parallel && sudo cmake --install . || exit 1 )
 install_libvpx
 install_nv_codec_headers
+install_onevpl
 install_svt
 # apply patches
 find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git apply
@@ -44,6 +54,7 @@ find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -p
         --enable-libsvtav1 \
         --enable-libsvthevc \
         --enable-libsvtvp9 \
+        --enable-libvpl \
         --disable-sdl2 \
 
 make -j "$(nproc)"

@@ -8,6 +8,7 @@ cd /var/tmp/ffmpeg
 sudo cmake --install SVT-AV1/Build
 sudo cmake --install SVT-HEVC/Build/linux/Release
 sudo cmake --install SVT-VP9/Build
+sudo cmake --build oneVPL/build --config Release --target install
 
 sudo make install
 sudo ldconfig
