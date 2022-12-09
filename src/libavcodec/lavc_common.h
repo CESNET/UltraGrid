@@ -156,6 +156,10 @@ extern "C" {
 #define AVCODECCTX_CHANNELS(context) (context)->channels
 #endif
 
+#ifndef AV_CODEC_CAP_OTHER_THREADS
+#define AV_CODEC_CAP_OTHER_THREADS AV_CODEC_CAP_AUTO_THREADS
+#endif
+
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(57, 8, 0)
 static struct AVPacket *av_packet_alloc(void) ATTRIBUTE(unused);
 static struct AVPacket *av_packet_alloc() {
