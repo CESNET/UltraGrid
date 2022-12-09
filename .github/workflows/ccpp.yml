@@ -117,7 +117,7 @@ jobs:
       if: steps.cache-sdl.outputs.cache-hit == 'true'
       run: .github/scripts/Linux/install_sdl.sh
     - name: configure
-      run: "./autogen.sh --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa --enable-v4l2 --enable-vulkan=auto || { RC=$?; cat config.log; exit $RC; }"
+      run: "./autogen.sh --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa --enable-v4l2 || { RC=$?; cat config.log; exit $RC; }"
     - name: make
       run: make -j4
     - name: make check
