@@ -62,9 +62,9 @@ struct state_controlport_stats{
 
         control_state *control;
 
-        int bps;
-        int ch_count;
-        int sample_rate;
+        int bps = 0;
+        int ch_count = 0;
+        int sample_rate = 0;
                 
 };
 
