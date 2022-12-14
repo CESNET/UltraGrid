@@ -437,7 +437,7 @@ static void print_fps(const char *prefix, steady_clock::time_point *t0, int *fra
         double seconds = duration_cast<duration<double>>(t1 - *t0).count();
         if (seconds >= 5.0) {
                 double fps = *frames / seconds;
-                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN "%s " TERM_RESET "%d frames in %g seconds = " TBOLD("%g FPS") "\n", prefix, *frames, seconds, fps);
+                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_BG_BLACK TERM_FG_BRIGHT_GREEN "%s" TERM_RESET " %d frames in %g seconds = " TBOLD("%g FPS") "\n", prefix, *frames, seconds, fps);
                 *t0 = t1;
                 *frames = 0;
         }
