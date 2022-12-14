@@ -42,7 +42,6 @@
 #include "lib_common.h"
 
 #include <condition_variable>
-#include <chrono>
 #include <list>
 #include <map>
 #include <vector>
@@ -50,7 +49,6 @@
 #include <mutex>
 #include <queue>
 #include <cmath>
-#include <chrono>
 #include <iostream>
 
 #include "host.h"
@@ -176,12 +174,6 @@ static void display_unix_sock_run(void *state)
         auto s = static_cast<state_unix_sock *>(state);
         int skipped = 0;
 
-        using clk = std::chrono::steady_clock;
-
-        clk::duration report_period = std::chrono::seconds(5);
-        auto next_report = clk::now() + report_period;
-        int frames_sent = 0;
-
         while (1) {
                 auto frame = [&]{
                         std::unique_lock<std::mutex> l(s->lock);
@@ -219,14 +211,6 @@ static void display_unix_sock_run(void *state)
                 if(!ipc_frame_writer_write(s->frame_writer.get(), s->ipc_frame.get())){
                         perror(MOD_NAME "Unable to send frame");
                         continue;
-                }
-                frames_sent++;
-
-                if(clk::now() > next_report){
-                        float seconds = std::chrono::duration_cast<std::chrono::seconds>(report_period).count();
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "%d frames in %f seconds (%f fps)\n", frames_sent, seconds, (float) frames_sent / seconds); 
-                        frames_sent = 0;
-                        next_report = clk::now() + report_period;
                 }
         }
 }
@@ -366,7 +350,7 @@ static const struct video_display_info display_unix_sock_info = {
         display_unix_sock_put_audio_frame,
         display_unix_sock_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 static const struct video_display_info display_preview_info = {
@@ -381,7 +365,7 @@ static const struct video_display_info display_preview_info = {
         display_unix_sock_put_audio_frame,
         display_unix_sock_reconfigure_audio,
         DISPLAY_DOESNT_NEED_MAINLOOP,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
+        "[unix sock preview] ",
 };
 
 REGISTER_HIDDEN_MODULE(unix_sock, &display_unix_sock_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
