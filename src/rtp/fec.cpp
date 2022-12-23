@@ -107,7 +107,7 @@ fec *fec::create_from_desc(struct fec_desc desc) noexcept
                         case FEC_LDGM:
                                 return new ldgm(desc.k, desc.m, desc.c, desc.seed);
                         case FEC_RS:
-                                return new rs(desc.k, desc.k + desc.m);
+                                return new rs(desc.k, desc.k + desc.m, desc.mult);
                         default:
                                 abort();
                 }

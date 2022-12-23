@@ -719,7 +719,6 @@ static void *audio_receiver_thread(void *arg)
                                         // the playout buffer and it would be discarded by following pbuf_remove()
                                         // call.
                                         while (pbuf_decode(cp->playout_buffer, curr_time, s->receiver == NET_NATIVE ? decode_audio_frame : decode_audio_frame_mulaw, &dec_state->pbuf_data)) {
-
                                                 current_pbuf = &dec_state->pbuf_data;
                                                 decoded = true;
                                         }
@@ -1072,7 +1071,12 @@ static void *audio_sender_thread(void *arg)
                                         if (s->fec_state != nullptr) {
                                                 to_send = s->fec_state->encode(to_send);
                                         }
+                                    if(to_send.get_fec_params(0).type == FEC_RS) {
+                                        audio_fec_tx_send(s->tx_session, s->audio_network_device, &to_send);
+                                    }
+                                    else {
                                         audio_tx_send(s->tx_session, s->audio_network_device, &to_send);
+                                    }
                                         uncompressed = NULL;
                                 }
                         }else if(s->sender == NET_STANDARD){

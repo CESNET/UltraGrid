@@ -86,6 +86,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <iostream>
 #include <vector>
 
@@ -501,7 +502,7 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
         return htonl(tmp);
 }
 
-static inline void check_symbol_size(int fec_symbol_size, int payload_len)
+static inline void check_symbol_size(unsigned int fec_symbol_size, int payload_len)
 {
         thread_local static bool status_printed = false;
 
@@ -807,6 +808,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                 int rtp_hdr_len = 0;
                 int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12; // MTU - IP hdr - UDP hdr - RTP hdr - payload_hdr
                 unsigned int fec_symbol_size = buffer->get_fec_params(channel).symbol_size;
+                unsigned int fecMultFactor = buffer->get_fec_params(channel).mult;
 
                 chan_data = buffer->get_data(channel);
                 unsigned pos = 0u;
@@ -818,7 +820,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                         hdrs_len += (sizeof(audio_payload_hdr_t));
                         rtp_hdr_len = sizeof(audio_payload_hdr_t);
                         format_audio_header(buffer, channel, tx->buffer, rtp_hdr);
-                } else {
+                } else if(buffer->get_fec_params(0).type != FEC_RS) {
                         hdrs_len += (sizeof(fec_payload_hdr_t));
                         rtp_hdr_len = sizeof(fec_payload_hdr_t);
                         uint32_t tmp = channel << 22;
@@ -831,6 +833,28 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                                         buffer->get_fec_params(channel).m << 6 |
                                         buffer->get_fec_params(channel).c);
                         rtp_hdr[4] = htonl(buffer->get_fec_params(channel).seed);
+                }
+                // Setup the header for Reed Solomon
+                else {
+                    hdrs_len += (sizeof(fec_payload_hdr_t));
+                    rtp_hdr_len = sizeof(fec_payload_hdr_t);
+                    uint32_t tmp = channel << 22;
+                    tmp |= 0x3fffff & tx->buffer;
+                    // see definition in rtp_callback.h
+                    rtp_hdr[0] = htonl(tmp);
+                    rtp_hdr[2] = htonl(buffer->get_data_len(channel));
+                    rtp_hdr[3] = htonl(
+                            // Both k & m are limited to 256 in the existing implementation
+                            buffer->get_fec_params(channel).k << 24 |
+                            buffer->get_fec_params(channel).m << 16 |
+                            // Knowing the symbol size when it arrives is very important
+                            // as it will help with splitting up the data appropriately. 12 bits
+                            // allows for a symbol size up to the same size as a UDP packet (4096).
+                            buffer->get_fec_params(channel).symbol_size << 4 |
+                            // If every FEC packet knows the channel count, then receiving the M-bit
+                            // packet is not crucial to the entire frame being processed.
+                            (buffer->get_channel_count() - 1));
+                    rtp_hdr[4] = htonl(buffer->get_fec_params(channel).seed);
                 }
 
                 if (tx->encryption) {
@@ -874,12 +898,22 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
 #endif
 
                 do {
+                        int data_len = 0;
                         if(tx->fec_scheme == FEC_MULT) {
                                 pos = mult_pos[mult_index];
                         }
 
+                        // If we are using Reed Sollomon then we want to ensure that the packets we
+                        // are sending are a multiple of the size of the FEC symbols. This introduces
+                        // the risk that each packet being sent IS NOT within the MTU.
+                        if(tx->fec_scheme == FEC_RS) {
+                            data_len = fec_symbol_size * fecMultFactor;
+                        }
+                        else {
+                            data_len = tx->mtu - hdrs_len;
+                        }
+
                         const char *data = chan_data + pos;
-                        int data_len = tx->mtu - hdrs_len;
                         if(pos + data_len >= (unsigned int) buffer->get_data_len(channel)) {
                                 data_len = buffer->get_data_len(channel) - pos;
                                 if(channel == buffer->get_channel_count() - 1)
@@ -918,6 +952,16 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                                       (char *) rtp_hdr, rtp_hdr_len,
                                       const_cast<char *>(data), data_len,
                                       0, 0, 0);
+
+                                // If the expectation is that this is being used in a lossy network it is important
+                                // that this packet arrive, so send it twice.
+                                if(tx->fec_scheme == FEC_RS && m == 1) {
+                                    rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
+                                                      0,        /* contributing sources length */
+                                                      (char *) rtp_hdr, rtp_hdr_len,
+                                                      const_cast<char *>(data), data_len,
+                                                      0, 0, 0);
+                                }
                         }
 
                         if(tx->fec_scheme == FEC_MULT) {
@@ -945,7 +989,179 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * 
                 } while (pos < buffer->get_data_len(channel));
         }
 
-        tx->buffer ++;
+        tx->buffer++;
+}
+
+/**
+ * @brief A helper function for sending a block of segments from an audio buffer. This is useful when the transmission
+ *        should prioritise sending some of the packets first over others.
+ *
+ * @param tx             The transmission structure
+ * @param rtp_session    The RTP session
+ * @param buffer         The audio frame that is being sent
+ * @param channel        The channel number that is being sent from the buffer
+ * @param segmentOffset  The number of segments offset from the beginning of the channel data
+ * @param segmentCount   The number of segments to send
+ * @param pt             The pt
+ * @param timestamp      The timestamp for sending out the packets
+ */
+void audio_tx_send_channel_segments(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer, int channel, size_t segmentOffset, uint32_t segmentCount, int pt, uint32_t timestamp) {
+    unsigned m = 0u;
+#ifdef HAVE_LINUX
+    struct timespec start, stop;
+#elif defined HAVE_MACOSX
+    struct timeval start, stop;
+#else // Windows
+    LARGE_INTEGER start, stop, freq;
+#endif
+    long delta;
+    int rtp_hdr_len = 0;
+    int hdrs_len = (rtp_is_ipv6(rtp_session) ? 40 : 20) + 8 + 12; // MTU - IP hdr - UDP hdr - RTP hdr - payload_hdr
+    unsigned int fec_symbol_size = buffer->get_fec_params(channel).symbol_size;
+    unsigned int fecMultFactor = buffer->get_fec_params(channel).mult;
+
+    const char* chan_data = buffer->get_data(channel);
+    uint32_t rtp_hdr[100];
+    unsigned int pos = segmentOffset * fec_symbol_size;
+
+    hdrs_len += (sizeof(fec_payload_hdr_t));
+    rtp_hdr_len = sizeof(fec_payload_hdr_t);
+    uint32_t tmp = channel << 22;
+    tmp |= 0x3fffff & tx->buffer;
+    // see definition in rtp_callback.h
+    rtp_hdr[0] = htonl(tmp);
+    rtp_hdr[2] = htonl(buffer->get_data_len(channel));
+    rtp_hdr[3] = htonl(
+    // Both k & m are limited to 256 in the existing implementation
+            buffer->get_fec_params(channel).k << 24 |
+            buffer->get_fec_params(channel).m << 16 |
+            // Knowing the symbol size when it arrives is very important
+            // as it will help with splitting up the data appropriately. 12 bits
+            // allows for a symbol size up to the same size as a UDP packet (4096).
+            buffer->get_fec_params(channel).symbol_size << 4 |
+            // If every FEC packet knows the channel count, then receiving the M-bit
+            // packet is not crucial to the entire frame being processed.
+            (buffer->get_channel_count() - 1));
+    rtp_hdr[4] = htonl(buffer->get_fec_params(channel).seed);
+
+    if (tx->encryption) {
+        hdrs_len += sizeof(crypto_payload_hdr_t) + tx->enc_funcs->get_overhead(tx->encryption);
+        rtp_hdr[rtp_hdr_len / sizeof(uint32_t)] = htonl(DEFAULT_CIPHER_MODE << 24);
+        rtp_hdr_len += sizeof(crypto_payload_hdr_t);
+    }
+
+    check_symbol_size(fec_symbol_size, tx->mtu - hdrs_len);
+
+    int packet_rate;
+    if (tx->bitrate > 0 || tx->bitrate == RATE_UNLIMITED || tx->bitrate == RATE_AUTO) {
+        packet_rate = 0;
+    }
+    else {
+        abort();
+    }
+
+    do {
+        int data_len = 0;
+        data_len = fec_symbol_size * fecMultFactor;
+        segmentCount -= fecMultFactor;
+
+        const char *data = chan_data + pos;
+        if(pos + data_len >= (unsigned int) buffer->get_data_len(channel)) {
+            data_len = buffer->get_data_len(channel) - pos;
+            if(channel == buffer->get_channel_count() - 1)
+                m = 1;
+        }
+        rtp_hdr[1] = htonl(pos);
+        pos += data_len;
+
+        GET_STARTTIME;
+
+        if(data_len) { /* check needed for FEC_MULT */
+            char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
+            if(tx->encryption) {
+                data_len = tx->enc_funcs->encrypt(tx->encryption,
+                                                  const_cast<char *>(data), data_len,
+                                                  (char *) rtp_hdr, rtp_hdr_len - sizeof(crypto_payload_hdr_t),
+                                                  encrypted_data);
+                data = encrypted_data;
+            }
+
+            rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
+                              0,        /* contributing sources length */
+                              (char *) rtp_hdr, rtp_hdr_len,
+                              const_cast<char *>(data), data_len,
+                              0, 0, 0);
+            // If the expectation is that this is being used in a lossy network it is important
+            // that this packet arrive, so send it twice.
+            if(m == 1) {
+                rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
+                                  0,        /* contributing sources length */
+                                  (char *) rtp_hdr, rtp_hdr_len,
+                                  const_cast<char *>(data), data_len,
+                                  0, 0, 0);
+            }
+
+            if (pos < buffer->get_data_len(channel)) {
+                do {
+                    GET_STOPTIME;
+                    GET_DELTA;
+                    if (delta < 0)
+                        delta += 1000000000L;
+                } while (packet_rate - delta > 0);
+            }
+        }
+    } while (pos < buffer->get_data_len(channel) && segmentCount > 0);
+}
+
+/**
+ * @brief When using Reed-Solomon FEC it is best to send all of the audio data segments, followed by the parity segments.
+ *        This means that all of the audio data will be received first, which if there are late packets gives the audio
+ *        frame the best chance of being fully played back.
+ *
+ * @param tx           The transmission structure
+ * @param rtp_session  The rtp session
+ * @param buffer       The audio frame to be sent
+ */
+void audio_fec_tx_send(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer)
+{
+    if (!rtp_has_receiver(rtp_session)) {
+        return;
+    }
+
+    int pt = fec_pt_from_fec_type(TX_MEDIA_AUDIO, buffer->get_fec_params(0).type, tx->encryption); /* PT set for audio in our packet format */
+    uint32_t timestamp;
+    fec_check_messages(tx);
+
+    timestamp = get_local_mediatime();
+
+    unsigned int fecMultFactor = buffer->get_fec_params(0).mult;
+    unsigned int fecKSize = buffer->get_fec_params(0).k;
+    unsigned int fecMSize = buffer->get_fec_params(0).m + fecKSize;
+
+    // Calculate the total amount of packets that will be sent
+    unsigned int totalPackets = ceil(fecMSize / fecMultFactor);
+    // Calculate the total amount of packets that contain the audio data
+    unsigned int audioSegmentPackets = ceil(fecKSize / fecMultFactor);
+    // Calculate the amount of audio segments that need to be sent as a factor of the multiplication
+    // that is applied when RS FEC is in use
+    unsigned int audioSegmentCount = audioSegmentPackets * fecMultFactor;
+    // Calculate the remaining amount of parity segments that need to be sent (as a factor of the multiplication)
+    unsigned int paritySegmentCount = (totalPackets - audioSegmentPackets) * fecMultFactor;
+
+    // Start by sending all of the segments containing the audio data
+    for (int channel = 0; channel < buffer->get_channel_count(); channel++)
+    {
+        audio_tx_send_channel_segments(tx, rtp_session, buffer, channel, 0, audioSegmentCount, pt, timestamp);
+    }
+    // Loop over the parity bits and send the parity segments channel by channel
+    for(unsigned int i = 0; i < paritySegmentCount; i += fecMultFactor) {
+        // Follow up with the parity segments on the end of each channel
+        for (int channel = 0; channel < buffer->get_channel_count(); channel++)
+        {
+            audio_tx_send_channel_segments(tx, rtp_session, buffer, channel, audioSegmentCount + i, fecMultFactor, pt, timestamp);
+        }
+    }
+    tx->buffer++;
 }
 
 /**

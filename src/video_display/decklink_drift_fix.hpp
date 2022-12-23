@@ -400,7 +400,8 @@ public:
                 // Calculate the average
                 uint32_t average_buffer_depth = (uint32_t)(this->average_buffer_samples.avg());
 
-                int resample_hz = dst_frame_rate = (bmdAudioSampleRate48kHz) * BASE;
+                int resample_hz = 0;
+                dst_frame_rate = (bmdAudioSampleRate48kHz) * BASE;
 
                 // Check to see if our buffered samples has enough to calculate a good average
                 if (this->average_buffer_samples.filled()) {
@@ -456,7 +457,7 @@ public:
         }
 
 private:
-        bool m_enabled = false;
+        bool m_enabled = true;
 
         static constexpr unsigned long BASE = (1U<<8U);
         struct module *m_root = nullptr;

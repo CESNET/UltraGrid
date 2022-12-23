@@ -524,10 +524,10 @@ static int frame_complete(struct pbuf_node *frame)
         /* seqnum of the last packet in the previous frame, too?     */
         /* i dont think that would reflect correctly of weather this */
         /* frame is complete or not - however we should check for all */
-        /* the packtes of a frame being present - perhaps we should  */
+        /* the packets of a frame being present - perhaps we should  */
         /* keep a bit vector in pbuf_node? LG.  */
 
-        return (frame->mbit == 1 || frame->completed == true);
+        return (frame->mbit == 1 || frame->completed);
 }
 
 int pbuf_is_empty(struct pbuf *playout_buf)

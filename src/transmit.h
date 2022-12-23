@@ -92,6 +92,7 @@ int tx_get_buffer_id(struct tx *tx_session);
 #ifdef __cplusplus
 class audio_frame2;
 void             audio_tx_send(struct tx *tx_session, struct rtp *rtp_session, const audio_frame2 *buffer);
+void             audio_fec_tx_send(struct tx *tx_session, struct rtp *rtp_session, const audio_frame2 *buffer);
 void             audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer);
 void             format_audio_header(const class audio_frame2 *frame, int channel, int buffer_idx, uint32_t *audio_hdr);
 #endif

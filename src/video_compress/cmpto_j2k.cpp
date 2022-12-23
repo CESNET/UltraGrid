@@ -273,6 +273,7 @@ struct {
         {"Tile limit", "tile_limit", "Number of tiles encoded at moment (less to reduce latency, more to increase performance, 0 means infinity), default: " TOSTRING(DEFAULT_TILE_LIMIT), ":tile_limit=", false},
         {"Pool size", "pool_size", "Total number of tiles encoder can hold at moment (same meaning as above), default: " TOSTRING(DEFAULT_POOL_SIZE) ", should be greater than <t>", ":pool_size=", false},
         {"Use MCT", "mct", "use MCT", ":mct", true},
+        {"Use lossless", "lossless", "Whether the J2K lossless mode is enabled", ":lossless", true}
 };
 
 static void usage() {
@@ -312,6 +313,7 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
 {
         double quality = DEFAULT_QUALITY;
         int mct = -1;
+        int lossless = 0;
         long long int bitrate = 0;
         long long int mem_limit = DEFAULT_MEM_LIMIT;
         unsigned int tile_limit = DEFAULT_TILE_LIMIT;
@@ -331,6 +333,8 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                         quality = stod(strchr(item, '=') + 1);
                 } else if (strcasecmp("mct", item) == 0 || strcasecmp("nomct", item) == 0) {
                         mct = strcasecmp("mct", item) ? 1 : 0;
+                } else if (strcasecmp("lossless", item) == 0 || strcasecmp("nolossless", item) == 0) {
+                    lossless = strcasecmp("lossless", item) ? 0 : 1;
                 } else if (strncasecmp("mem_limit=", item, strlen("mem_limit=")) == 0) {
                         ASSIGN_CHECK_VAL(mem_limit, strchr(item, '=') + 1, 1);
                 } else if (strncasecmp("tile_limit=", item, strlen("tile_limit=")) == 0) {
@@ -371,12 +375,19 @@ static struct module * j2k_compress_init(struct module *parent, const char *c_cf
                                 &s->enc_settings),
                         "Creating context configuration:",
                         goto error);
-        CHECK_OK(cmpto_j2k_enc_cfg_set_quantization(
-                                s->enc_settings,
-                                quality /* 0.0 = poor quality, 1.0 = full quality */
-                                ),
-                        "Setting quantization",
-                        NOOP);
+        if(!lossless) {
+            CHECK_OK(cmpto_j2k_enc_cfg_set_quantization(
+                    s->enc_settings,
+                    quality /* 0.0 = poor quality, 1.0 = full quality */
+            ),
+                     "Setting quantization",
+                     NOOP);
+        }
+        else {
+            CHECK_OK(cmpto_j2k_enc_cfg_set_lossless(s->enc_settings, lossless),
+                     "Setting lossless",
+                     goto error);
+        }
 
         CHECK_OK(cmpto_j2k_enc_cfg_set_resolutions( s->enc_settings, 6),
                         "Setting DWT levels",
@@ -512,4 +523,3 @@ static struct video_compress_info j2k_compress_info = {
 };
 
 REGISTER_MODULE(cmpto_j2k, &j2k_compress_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
-
