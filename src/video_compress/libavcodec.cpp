@@ -1822,7 +1822,6 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
 
 static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        check_av_opt_set<const char *>(codec_ctx->priv_data, "look_ahead", 0);
         if (param->periodic_intra != 0) {
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "int_ref_type", "vertical");
 #if 0
