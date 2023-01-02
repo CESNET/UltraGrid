@@ -95,7 +95,7 @@ typedef enum {
         RG48,     ///< 16-bit RGB little-endian (RlRhGl...)
         AV1,      ///< AOMedia Video 1
         I420,     ///< planar YCbCr 4:2:0
-        Y216,     ///< YCbCr 422 16-bit - Y0 Cb Y1 Cr
+        Y216,     ///< YCbCr 422 16-bit little-endian - Y0 Cb Y1 Cr
         Y416,     ///< interleaved little-endian YCbCr 4444 16-bit - UYVA
         PRORES,           ///< abstract Apple ProRes, must not be used in transmit
         PRORES_4444,      ///< Apple ProRes 4444
