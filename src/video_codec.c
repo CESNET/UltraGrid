@@ -2763,13 +2763,37 @@ static void vc_copylineV210toY216(unsigned char * __restrict dst, const unsigned
         UNUSED(bshift);
         assert((uintptr_t) dst % 2 == 0);
         assert((uintptr_t) src % 4 == 0);
-        OPTIMIZED_FOR (int x = 0; x < dst_len / 6; ++x) {
-                const uint32_t *s = (const void *) (src + x * 4);
-                uint16_t *d = (void *) (dst + x * 6);
+        OPTIMIZED_FOR (int x = 0; x < dst_len / 24; ++x) {
+                const uint32_t *s = (const void *) (src + x * 16);
+                uint16_t *d = (void *) (dst + x * 24);
                 uint32_t tmp = *s++;
-                *d++ = (tmp & 0x3FFU) << 6U;
-                *d++ = ((tmp >> 10U) & 0x3FFU) << 6U;
-                *d++ = ((tmp >> 20U) & 0x3FFU) << 6U;
+                unsigned u = (tmp & 0x3FFU) << 6U;
+                unsigned y0 = ((tmp >> 10U) & 0x3FFU) << 6U;
+                unsigned v = ((tmp >> 20U) & 0x3FFU) << 6U;
+                tmp = *s++;
+                unsigned y1 = (tmp & 0x3FFU) << 6U;
+                *d++ = y0;
+                *d++ = u;
+                *d++ = y1;
+                *d++ = v;
+                u = ((tmp >> 10U) & 0x3FFU) << 6U;
+                y0 = ((tmp >> 20U) & 0x3FFU) << 6U;
+                tmp = *s++;
+                v = (tmp & 0x3FFU) << 6U;
+                y1 = ((tmp >> 10U) & 0x3FFU) << 6U;
+                *d++ = y0;
+                *d++ = u;
+                *d++ = y1;
+                *d++ = v;
+                u = ((tmp >> 20U) & 0x3FFU) << 6U;
+                tmp = *s++;
+                y0 = (tmp & 0x3FFU) << 6U;
+                v = ((tmp >> 10U) & 0x3FFU) << 6U;
+                y1 = ((tmp >> 20U) & 0x3FFU) << 6U;
+                *d++ = y0;
+                *d++ = u;
+                *d++ = y1;
+                *d++ = v;
         }
 }
 
