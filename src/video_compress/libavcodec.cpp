@@ -2001,7 +2001,7 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
         if (regex_match(enc_name, regex(".*nvenc.*"))) { // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
                 return string{DONT_SET_PRESET}; // nvenc preset is handled with configure_nvenc()
         }
-        if (enc_name == "h264_qsv") {
+        if (regex_match(enc_name, regex(".*_qsv"))) {
                 return string(DEFAULT_QSV_PRESET);
         }
         if (regex_match(enc_name, regex(".*_vaapi"))) {
