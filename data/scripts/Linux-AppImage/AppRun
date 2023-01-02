@@ -259,6 +259,9 @@ elif { [ $# -eq 1 ] || [ $# -eq 2 ]; } && { [ "$1" = "-m" ] || [ "$1" = "--man" 
 elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
         shift
         unset LD_LIBRARY_PATH
+        if [ -d "$DIR/appimageupdatetool-lib" ]; then
+                export LD_LIBRARY_PATH="$DIR/appimageupdatetool-lib"
+        fi
         touch "$APPIMAGE" # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
         "$DIR/appimageupdatetool" ${1+"$@" }"$APPIMAGE"
 else

@@ -120,6 +120,10 @@ if [ -z "$appimageupdatetool" ]; then
 fi
 cp "$appimageupdatetool" $APPDIR/appimageupdatetool
 chmod ugo+x $APPDIR/appimageupdatetool
+if [ -f /lib/x86_64-linux-gnu/libfuse.so.2 ]; then
+        mkdir $APPDIR/appimageupdatetool-lib
+        cp /lib/x86_64-linux-gnu/libfuse.so.2 $APPDIR/appimageupdatetool-lib
+fi
 
 GIT_ROOT=$(git rev-parse --show-toplevel || true)
 if [ -n "${appimage_key-}" ] && [ -n "${GIT_ROOT-}" ]; then
