@@ -42,6 +42,7 @@
 
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -52,12 +53,15 @@
 #include <iostream>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <unordered_map>
 
 #define MOD_NAME "[AVFoundation] "
 
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
+
+using std::string;
 
 namespace vidcap_avfoundation {
 std::unordered_map<std::string, NSString *> preset_to_av = {
@@ -126,34 +130,32 @@ fromConnection:(AVCaptureConnection *)connection;
 
 + (void)usage: (BOOL) verbose
 {
-        cout << "AV Foundation capture usage:" << "\n";
-        cout << "\t-t avfoundation[:device=<idx>|:name=<name>|:uid=<uid>]][:preset=<preset>][:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]" << "\n";
-        cout << "\n";
-        cout << "<idx> gives a device index\n";
-        cout << "<name> of the device\n";
-        cout << "<uid> is a device unique identifier\n";
-        cout << "<fps> is a number of frames per second (can be a number with a decimal point)\n";
-        cout << "<fr_idx> is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
-        cout << "<preset> may be \"low\", \"medium\", \"high\", \"VGA\" or \"HD\"" << "\n";
-        cout << "\n";
-        cout << "All other parameters are represented by appropriate numeric index." << "\n\n";
-        cout << "Examples:" << "\n";
-        cout << "\t-t avfoundation" << "\n";
-        cout << "\t-t avfoundation:preset=high" << "\n";
-        cout << "\t-t avfoundation:device=0:preset=high" << "\n";
-        cout << "\t-t avfoundation:device=0:mode=24:fps=30 (advanced)" << "\n";
-        cout << "\n";
-        cout << "Available AV foundation capture devices (index, uid, name) and modes:" << "\n";
-        cout << "(Type -t avfoundation:fullhelp to see available framerates)" << "\n\n";
+        col() << "AV Foundation capture usage:" << "\n";
+        col() << "\t" << SBOLD(SRED("-t avfoundation") << "[:device=<idx>|:name=<name>|:uid=<uid>][:preset=<preset>|:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]") << "\n";
+        col() << "\n";
+        col() << "where:\n";
+        col() << "\t" << SBOLD("<idx>") << " represents a device index in a list below\n";
+        col() << "\t" << SBOLD("<name>") << " of the device\n";
+        col() << "\t" << SBOLD("<uid>") << " is a device unique identifier\n";
+        col() << "\t" << SBOLD("<fps>") << " is a number of frames per second (can be a number with a decimal point)\n";
+        col() <<  "\t" << SBOLD("<fr_idx>") << " is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
+        col() <<"\t" << SBOLD("<preset>") << " may be " << SBOLD("\"low\"") << ", " << SBOLD("\"medium\"") << ", " << SBOLD("\"high\"") << ", " << SBOLD("\"VGA\"") << " or " << SBOLD("\"HD\"") << "\n";
+        col() << "\n";
+        col() << "All other parameters are represented by appropriate numeric index." << "\n\n";
+        col() << "Examples:" << "\n";
+        col() << "\t" << SBOLD("-t avfoundation") << "\n";
+        col() << "\t" << SBOLD("-t avfoundation:preset=high") << "\n";
+        col() << "\t" << SBOLD("-t avfoundation:device=0:preset=high") << "\n";
+        col() << "\t" << SBOLD("-t avfoundation:device=0:mode=24:fps=30") << " (advanced)" << "\n";
+        col() << "\n";
+        col() << "Available AV foundation capture devices and modes:" << "\n";
         int i = 0;
         // deprecated rewrite example: https://github.com/flutter/plugins/blob/e85f8ac1502db556e03953794ad0aa9149ddb02a/packages/camera/camera_avfoundation/ios/Classes/CameraPlugin.m#L108
         // but the new API doesn't seem to be eligible since individual AVCaptureDeviceType must be enumerated, perhaps better to keep the old one
         for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
                 int j = 0;
-                if (device == [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo]) {
-                        cout << "*";
-                }
-                cout << i << ": " << [[device uniqueID] UTF8String] << ": " << [[device localizedName] UTF8String] << "\n";
+                string default_dev = device == [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo] ? "*" : "";
+                col() << default_dev << i << ": " << SBOLD([[device localizedName] UTF8String]) << " (uid: " << [[device uniqueID] UTF8String] << ")\n";
                 for ( AVCaptureDeviceFormat *format in [device formats] ) {
                         CMVideoFormatDescriptionRef formatDesc = [format formatDescription];
                         FourCharCode fcc = CMFormatDescriptionGetMediaSubType(formatDesc);
@@ -176,8 +178,10 @@ fromConnection:(AVCaptureConnection *)connection;
                         printf("\n");
                         j++;
                 }
+                col() << "\n";
                 i++;
         }
+        col() << "(type '-t avfoundation:fullhelp' to see available framerates; device marked with an asterisk ('*') is default)" << "\n";
 }
 
 #ifdef __MAC_10_14
