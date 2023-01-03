@@ -54,6 +54,8 @@
 #include <queue>
 #include <unordered_map>
 
+#define MOD_NAME "[AVFoundation] "
+
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
 
@@ -114,6 +116,14 @@ fromConnection:(AVCaptureConnection *)connection;
 
 @implementation vidcap_avfoundation_state
 
+/// sort devices according to UID because macOS orders last used device first (doesn't keep stable order)
++(NSArray *) devices
+{
+   return [[AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo] sortedArrayUsingComparator: ^(AVCaptureDevice* o1, AVCaptureDevice* o2) {
+          return [[o1 uniqueID] compare: [o2 uniqueID]];
+   }];
+}
+
 + (void)usage: (BOOL) verbose
 {
         cout << "AV Foundation capture usage:" << "\n";
@@ -134,8 +144,9 @@ fromConnection:(AVCaptureConnection *)connection;
         cout << "Available AV foundation capture devices and modes:" << "\n";
         cout << "(Type -t avfoundation:fullhelp to see available framerates)" << "\n\n";
         int i = 0;
-        NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
-        for (AVCaptureDevice *device in devices) {
+        // deprecated rewrite example: https://github.com/flutter/plugins/blob/e85f8ac1502db556e03953794ad0aa9149ddb02a/packages/camera/camera_avfoundation/ios/Classes/CameraPlugin.m#L108
+        // but the new API doesn't seem to be eligible since individual AVCaptureDeviceType must be enumerated, perhaps better to keep the old one
+        for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
                 int j = 0;
                 if (device == [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo]) {
                         cout << "*";
@@ -211,8 +222,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         if ([params valueForKey:@"device"]) {
                 int device_idx = [[params valueForKey:@"device"] intValue];
                 int i = -1;
-                NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
-                for (AVCaptureDevice *device in devices) {
+                for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
                         i++;
                         if (i == device_idx) {
                                 m_device = device;
@@ -230,6 +240,8 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         if (m_device == nil) {
                 [NSException raise:@"No device" format:@"No capture device was found!"];
         }
+
+        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using device: " << [[m_device localizedName] UTF8String] << "\n";
 
         // Create a device input with the device and add it to the session.
         AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:m_device
