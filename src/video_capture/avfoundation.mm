@@ -127,11 +127,12 @@ fromConnection:(AVCaptureConnection *)connection;
 + (void)usage: (BOOL) verbose
 {
         cout << "AV Foundation capture usage:" << "\n";
-        cout << "\t-t avfoundation[:device=<dev>][:preset=<preset>][:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]" << "\n";
+        cout << "\t-t avfoundation[:device=<idx>|:uid=<uid>]][:preset=<preset>][:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]" << "\n";
         cout << "\n";
+        cout << "<idx> gives a device index\n";
+        cout << "<uid> is a device unique identifier\n";
         cout << "<fps> is a number of frames per second (can be a number with a decimal point)\n";
         cout << "<fr_idx> is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
-        cout << "\n";
         cout << "<preset> may be \"low\", \"medium\", \"high\", \"VGA\" or \"HD\"" << "\n";
         cout << "\n";
         cout << "All other parameters are represented by appropriate numeric index." << "\n\n";
@@ -141,7 +142,7 @@ fromConnection:(AVCaptureConnection *)connection;
         cout << "\t-t avfoundation:device=0:preset=high" << "\n";
         cout << "\t-t avfoundation:device=0:mode=24:fps=30 (advanced)" << "\n";
         cout << "\n";
-        cout << "Available AV foundation capture devices and modes:" << "\n";
+        cout << "Available AV foundation capture devices (index, uid, name) and modes:" << "\n";
         cout << "(Type -t avfoundation:fullhelp to see available framerates)" << "\n\n";
         int i = 0;
         // deprecated rewrite example: https://github.com/flutter/plugins/blob/e85f8ac1502db556e03953794ad0aa9149ddb02a/packages/camera/camera_avfoundation/ios/Classes/CameraPlugin.m#L108
@@ -151,7 +152,7 @@ fromConnection:(AVCaptureConnection *)connection;
                 if (device == [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo]) {
                         cout << "*";
                 }
-                cout << i << ": " << [[device localizedName] UTF8String] << "\n";
+                cout << i << ": " << [[device uniqueID] UTF8String] << ": " << [[device localizedName] UTF8String] << "\n";
                 for ( AVCaptureDeviceFormat *format in [device formats] ) {
                         CMVideoFormatDescriptionRef formatDesc = [format formatDescription];
                         FourCharCode fcc = CMFormatDescriptionGetMediaSubType(formatDesc);
@@ -219,18 +220,25 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         // chosen device.
 
         // Find a suitable AVCaptureDevice
-        if ([params valueForKey:@"device"]) {
-                int device_idx = [[params valueForKey:@"device"] intValue];
+        int device_idx = [params valueForKey:@"device"] ? [[params valueForKey:@"device"] intValue] : -1;
+        NSString *device_uid = [params valueForKey:@"uid"];
+        if (device_idx != 0 || device_uid) {
                 int i = -1;
                 for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
                         i++;
-                        if (i == device_idx) {
+                        if (device_idx != -1 && i == device_idx) {
+                                m_device = device;
+                                break;
+                        }
+                        if (device_uid && [[device uniqueID] caseInsensitiveCompare: device_uid] == NSOrderedSame) {
                                 m_device = device;
                                 break;
                         }
                 }
-                if (i != device_idx) {
+                if (device_idx != -1 && i != device_idx) {
                         [NSException raise:@"Invalid argument" format:@"Device index %d is invalid", device_idx];
+                } else if (!m_device) {
+                        [NSException raise:@"Invalid argument" format:@"Device uid %@ is invalid", device_uid];
                 }
         } else {
                 m_device = [AVCaptureDevice
@@ -271,7 +279,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 #endif
 
         // check if all options we get are recognized
-        id objects[] = { @"device", @"mode", @"fps", @"fr_idx", @"preset"};
+        id objects[] = { @"device", @"uid",  @"mode", @"fps", @"fr_idx", @"preset"};
         NSUInteger count = sizeof(objects) / sizeof(id);
         NSArray *knownKeys = [NSArray arrayWithObjects:objects
                 count:count];
