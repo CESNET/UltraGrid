@@ -127,9 +127,10 @@ fromConnection:(AVCaptureConnection *)connection;
 + (void)usage: (BOOL) verbose
 {
         cout << "AV Foundation capture usage:" << "\n";
-        cout << "\t-t avfoundation[:device=<idx>|:uid=<uid>]][:preset=<preset>][:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]" << "\n";
+        cout << "\t-t avfoundation[:device=<idx>|:name=<name>|:uid=<uid>]][:preset=<preset>][:mode=<mode>[:fps=<fps>|:fr_idx=<fr_idx>]]" << "\n";
         cout << "\n";
         cout << "<idx> gives a device index\n";
+        cout << "<name> of the device\n";
         cout << "<uid> is a device unique identifier\n";
         cout << "<fps> is a number of frames per second (can be a number with a decimal point)\n";
         cout << "<fr_idx> is index of frame rate obtained from '-t avfoundation:fullhelp'\n";
@@ -222,6 +223,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
         // Find a suitable AVCaptureDevice
         int device_idx = [params valueForKey:@"device"] ? [[params valueForKey:@"device"] intValue] : -1;
         NSString *device_uid = [params valueForKey:@"uid"];
+        NSString *device_name = [params valueForKey:@"name"];
         if (device_idx != 0 || device_uid) {
                 int i = -1;
                 for (AVCaptureDevice *device in [vidcap_avfoundation_state devices]) {
@@ -234,11 +236,19 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
                                 m_device = device;
                                 break;
                         }
+                        if (device_name && [[device localizedName] caseInsensitiveCompare: device_name] == NSOrderedSame) {
+                                m_device = device;
+                                break;
+                        }
                 }
-                if (device_idx != -1 && i != device_idx) {
-                        [NSException raise:@"Invalid argument" format:@"Device index %d is invalid", device_idx];
-                } else if (!m_device) {
-                        [NSException raise:@"Invalid argument" format:@"Device uid %@ is invalid", device_uid];
+                if (!m_device) {
+                        if (device_idx != -1) {
+                                [NSException raise:@"Invalid argument" format:@"Device index %d is invalid", device_idx];
+                        } else if (device_uid) {
+                                [NSException raise:@"Invalid argument" format:@"Device uid %@ is invalid", device_uid];
+                        } else {
+                                [NSException raise:@"Invalid argument" format:@"Device name %@ is invalid", device_name];
+                        }
                 }
         } else {
                 m_device = [AVCaptureDevice
@@ -279,7 +289,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 #endif
 
         // check if all options we get are recognized
-        id objects[] = { @"device", @"uid",  @"mode", @"fps", @"fr_idx", @"preset"};
+        id objects[] = { @"device", @"uid", @"name",  @"mode", @"fps", @"fr_idx", @"preset"};
         NSUInteger count = sizeof(objects) / sizeof(id);
         NSArray *knownKeys = [NSArray arrayWithObjects:objects
                 count:count];
