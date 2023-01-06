@@ -28,6 +28,9 @@ LogWindow::LogWindow(QWidget *parent): QDialog(parent){
 }
 
 void LogWindow::write(const QString& str){
+	if(str.isEmpty())
+		return;
+
 	ui.terminal->moveCursor(QTextCursor::End);
 	ui.terminal->insertPlainText(str);
 	ui.terminal->moveCursor(QTextCursor::End);

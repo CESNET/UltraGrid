@@ -72,7 +72,7 @@ HEADERS += window/ultragrid_window.hpp \
 	option/video_opts.hpp \
 	util/overload.hpp \
 	util/extra_callback_data.hpp \
-	util/ug_process_manager.hpp \
+	util/launch_manager.hpp \
 	util/debug.hpp \
 	util/line_buffer.hpp \
 	util/control_port.hpp \
@@ -105,9 +105,9 @@ SOURCES += window/ultragrid_window.cpp \
 	option/radioButton_ui.cpp \
 	option/audio_opts.cpp \
 	option/video_opts.cpp \
-	util/ug_process_manager.cpp \
 	util/line_buffer.cpp \
 	util/control_port.cpp \
+	util/launch_manager.cpp \
 	../../tools/astat.cpp \
 	../../tools/ipc_frame.cpp \
 	../../tools/ipc_frame_unix.cpp \

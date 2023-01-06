@@ -13,7 +13,7 @@
 #include "available_settings.hpp"
 #include "settings.hpp"
 #include "settings_ui.hpp"
-#include "ug_process_manager.hpp"
+#include "launch_manager.hpp"
 #include "recv_report.hpp"
 #include "recv_loss.hpp"
 #include "line_buffer.hpp"
@@ -32,6 +32,7 @@ protected:
 	void closeEvent(QCloseEvent *);
 
 private:
+	void start();
 	void checkPreview();
 	void setupPreviewCallbacks();
 
@@ -41,12 +42,9 @@ private:
 
 	static void schedulePreview(Option&, bool, void *);
 
-	void processOutputLine(std::string_view line);
-
 	Ui::UltragridWindow ui;
 
 	QString ultragridExecutable;
-	UgProcessManager processMngr;
 
 	AvailableSettings availableSettings;
 
@@ -62,7 +60,6 @@ private:
 	QLabel processStatus;
 	QLabel previewStatus;
 
-	LineBuffer lineBuf;
 	RecvReportWidget rtcpRr;
 	RecvLossWidget receiverLoss;
 
@@ -70,10 +67,11 @@ private:
 
 	ControlPort controlPort;
 
+	LaunchManager launchMngr;
+
 public slots:
 	void about();
-	void outputAvailable();
-	void start();
+	void startStop();
 
 	void editArgs(const QString &text);
 	void setArgs();
@@ -82,16 +80,12 @@ public slots:
 	void showSettings();
 
 	void updatePreview();
-	void switchToPreview();
 	bool launchPreview();
 
 	void saveSettings();
 	void loadSettings();
 
 private slots:
-	void processStateChanged(UgProcessManager::State state);
-	void unexpectedExit(UgProcessManager::State state,
-		int code, QProcess::ExitStatus status);
 	void enablePreview(bool);
 
 	void refresh();
