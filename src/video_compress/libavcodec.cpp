@@ -1050,6 +1050,21 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
         return get_available_pix_fmts(in_desc, codec, requested_subsampling, force_conv_to);
 }
 
+void apply_blacklist(list<enum AVPixelFormat> &formats, const char *encoder_name) {
+        // blacklist AV_PIX_FMT_X2RGB10LE for NVENC - with current FFmpeg (13d04e3), it produces
+        // 10-bit 4:2:0 YUV (FF macro IS_YUV444 and IS_GBRP should contain the codec - 1st one is ok,
+        // second produces incorrect colors)
+        if (strstr(encoder_name, "nvenc") != nullptr) {
+                if (formats.size() == 1) {
+                        LOG(LOG_LEVEL_WARNING) << "Only one codec remaining, not blacklisting!\n";
+                        return;
+                }
+                if (auto it = std::find(formats.begin(), formats.end(), AV_PIX_FMT_X2RGB10LE); it != formats.end()) {
+                        formats.erase(it);
+                }
+        }
+}
+
 static bool try_open_codec(struct state_video_compress_libav *s,
                            AVPixelFormat &pix_fmt,
                            struct video_desc desc,
@@ -1251,6 +1266,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
         list<enum AVPixelFormat> requested_pix_fmt_it = get_requested_pix_fmts(desc, codec, s->requested_subsampling);
+        apply_blacklist(requested_pix_fmt_it, codec->name);
         while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, codec->pix_fmts)) != AV_PIX_FMT_NONE) {
                 if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
                         break;
