@@ -419,6 +419,7 @@ static constexpr array gl_supp_codecs = {
         R10k,
         RGBA,
         RGB,
+        RG48,
         Y416,
         DXT1,
         DXT1_YUV,
@@ -885,6 +886,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 desc.width, desc.height, 0,
                                 GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV,
                                 nullptr);
+        } else if (desc.color_spec == RG48) {
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+                                desc.width, desc.height, 0,
+                                GL_RGB, GL_UNSIGNED_SHORT,
+                                nullptr);
         } else if (desc.color_spec == DXT5) {
                 glUseProgram(s->PHandles.at(DXT5));
 
@@ -983,6 +990,7 @@ static void gl_render(struct state_gl *s, char *data)
                 case R10k:
                 case RGB:
                 case RGBA:
+                case RG48:
                         upload_texture(s, data);
                         break;
                 case DXT5:                        
@@ -1569,11 +1577,11 @@ static void gl_resize(GLFWwindow *win, int width, int height)
 
 static void upload_texture(struct state_gl *s, char *data)
 {
-        GLuint format = s->current_display_desc.color_spec == RGB ? GL_RGB : GL_RGBA;
+        GLuint format = s->current_display_desc.color_spec == RGB || s->current_display_desc.color_spec == RG48 ? GL_RGB : GL_RGBA;
         GLenum type = GL_UNSIGNED_BYTE;
         if (s->current_display_desc.color_spec == R10k || s->current_display_desc.color_spec == v210) {
                 type = GL_UNSIGNED_INT_2_10_10_10_REV;
-        } else if (s->current_display_desc.color_spec == Y416) {
+        } else if (s->current_display_desc.color_spec == Y416 || s->current_display_desc.color_spec == RG48) {
                 type = GL_UNSIGNED_SHORT;
         }
         GLint width = s->current_display_desc.width;
@@ -1609,6 +1617,7 @@ static void upload_texture(struct state_gl *s, char *data)
                         }
                         glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
                 }
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, type, nullptr);
 
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
