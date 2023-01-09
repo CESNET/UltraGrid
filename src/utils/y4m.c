@@ -104,6 +104,7 @@ size_t y4m_read(const char *filename, struct y4m_metadata *info, unsigned char *
                 }
         }
         if (getc(file) != '\n') { // after FRAME
+                fclose(file);
                 return 0;
         }
         size_t datalen = y4m_get_data_len(info->width, info->height, info->subsampling);
@@ -140,6 +141,7 @@ bool y4m_write(const char *filename, int width, int height, enum y4m_subsampling
         } else if (subsampling == Y4M_SUBS_YUVA) {
                 if (depth != 8) {
                         fprintf(stderr, "Only 8-bit 444alpha is supported for Y4M!");
+                        fclose(file);
                         return false;
                 }
                 snprintf(chroma_type, sizeof chroma_type, "444alpha");
@@ -148,6 +150,7 @@ bool y4m_write(const char *filename, int width, int height, enum y4m_subsampling
         }
         size_t len = y4m_get_data_len(width, height, subsampling);
         if (len == 0) {
+                fclose(file);
                 return false;
         }
         if (depth > 8) {

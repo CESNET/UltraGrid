@@ -43,7 +43,7 @@
 
 #include "pam.h"
 
-static void parse_pam(FILE *file, struct pam_metadata *info) {
+static bool parse_pam(FILE *file, struct pam_metadata *info) {
         char line[128];
         fgets(line, sizeof line - 1, file);
         while (!feof(file) && !ferror(file)) {
@@ -66,13 +66,13 @@ static void parse_pam(FILE *file, struct pam_metadata *info) {
                 } else if (strcmp(key, "MAXVAL") == 0) {
                         info->maxval = atoi(val);
                 } else if (strcmp(key, "TUPLTYPE") == 0) {
-                        // ignored - assuming MAXVAL == 255, value of DEPTH is sufficient
-                        // to determine pixel format
+                        // ignored, value of DEPTH is sufficient to determine pixel format
                 } else {
                         fprintf(stderr, "unrecognized key %s in PAM header\n", key);
                 }
                 fgets(line, sizeof line - 1, file);
         }
+        return true;
 }
 
 static bool parse_pnm(FILE *file, char pnm_id, struct pam_metadata *info) {
@@ -106,7 +106,10 @@ static bool parse_pnm(FILE *file, char pnm_id, struct pam_metadata *info) {
                                         break;
                                 case 2:
                                         info->maxval = val;
-                                        getc(file); // skip whitespace following header
+                                        if (getc(file) != '\n') {
+                                                fprintf(stderr, "PNM maximal value isn't immediately followed by <NL>\n");
+                                                return false;
+                                        }
                                         return true;
                         }
                 } else {
@@ -136,33 +139,33 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
         if (feof(file) || ferror(file)) {
                 fprintf(stderr, "File '%s' read error: %s\n", filename, strerror(errno));
         }
+        bool parse_rc = false;
         if (strcmp(line, "P7\n") == 0) {
-                parse_pam(file, info);
+                parse_rc = parse_pam(file, info);
         } else if (strlen(line) == 3 && line[0] == 'P' && isspace(line[2])) {
-                parse_pnm(file, line[1], info);
+                parse_rc = parse_pnm(file, line[1], info);
         } else {
                fprintf(stderr, "File '%s' doesn't seem to be valid PAM or PNM.\n", filename);
+        }
+        if (!parse_rc) {
                fclose(file);
                return false;
         }
-        if (info->width * info->height == 0) {
-                fprintf(stderr, "Unspecified size header field!");
-                fclose(file);
-                return false;
+        if (info->width <= 0 || info->height <= 0) {
+                fprintf(stderr, "Unspecified/incorrect size %dx%d!\n", info->width, info->height);
+                parse_rc = false;
         }
-        if (info->depth == 0) {
-                fprintf(stderr, "Unspecified depth header field!");
-                fclose(file);
-                return false;
+        if (info->depth <= 0) {
+                fprintf(stderr, "Unspecified/incorrect depth %d!\n", info->depth);
+                parse_rc = false;
         }
-        if (info->maxval == 0) {
-                fprintf(stderr, "Unspecified maximal value field!");
-                fclose(file);
-                return false;
+        if (info->maxval <= 0 || info->maxval > 65535) {
+                fprintf(stderr, "Unspecified/incorrect maximal value %d!\n", info->maxval);
+                parse_rc = false;
         }
-        if (data == NULL || allocator == NULL) {
+        if (data == NULL || allocator == NULL || !parse_rc) {
                 fclose(file);
-                return true;
+                return parse_rc;
         }
         size_t datalen = (size_t) info->depth * info->width * info->height * (info->maxval <= 255 ? 1 : 2);
         *data = (unsigned char *) allocator(datalen);
@@ -171,9 +174,10 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
                 fclose(file);
                 return false;
         }
-        fread((char *) *data, datalen, 1, file);
-        if (feof(file) || ferror(file)) {
-                perror("Unable to load PAM/PNM data from file");
+        size_t bytes_read = fread((char *) *data, datalen, 1, file);
+        if (bytes_read != datalen) {
+                fprintf(stderr, "Unable to load PAM/PNM data from file - read %zu B, expected %zu B: %s\n",
+                                bytes_read, datalen, strerror(errno));
                 fclose(file);
                 return false;
         }
@@ -191,6 +195,7 @@ bool pam_write(const char *filename, unsigned int width, unsigned int height, in
         if (pnm) {
                 if (depth != 1 && depth != 3) {
                         fprintf(stderr, "Only 1 or 3 channels supported for PNM!\n");
+                        fclose(file);
                         return false;
                 }
                 fprintf(file, "P%d\n"
