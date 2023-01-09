@@ -49,7 +49,7 @@ jobs:
     - name: Build with cov-build
       if: ${{ env.coverity_token }}
       run: |
-        /tmp/cov-analysis/bin/cov-build --dir cov-int make
+        /tmp/cov-analysis/bin/cov-build --dir cov-int make -j2
     - name: Submit the result to Coverity Scan
       if: ${{ env.coverity_token }}
       run: |
