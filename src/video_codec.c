@@ -1878,6 +1878,61 @@ static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void vc_copylineR12LtoR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        OPTIMIZED_FOR (int x = 0; x <= dst_len - 32; x += 32) {
+                //0
+                // Rh8 (pattern repeating in each group)
+                *dst++ = (src[BYTE_SWAP(1)] << 4) | (src[BYTE_SWAP(0)] >> 4);
+                // Rl2 + Gh6
+                *dst++ = (src[BYTE_SWAP(0)] & 0xC) << 4 | src[BYTE_SWAP(2)] >> 2;
+                // Gl4 + Bh4
+                *dst++ = src[BYTE_SWAP(2)] << 6 | (src[BYTE_SWAP(1)] & 0xC0) >> 2 | // G
+                        (src[4 + BYTE_SWAP(0)] & 0xF);
+                // Blo6
+                *dst++ = src[BYTE_SWAP(3)];
+                // 1
+                *dst++ = src[4 + BYTE_SWAP(1)];
+                *dst++ = (src[4 + BYTE_SWAP(0)] & 0xC0) | (src[4 + BYTE_SWAP(3)] & 0xF) << 2 | src[4 + BYTE_SWAP(2)] >> 6;
+                *dst++ = (src[4 + BYTE_SWAP(2)] & 0x3C) << 2 | src[8 + BYTE_SWAP(0)] >> 4;
+                *dst++ = src[8 + BYTE_SWAP(0)] << 4 | (src[4 + BYTE_SWAP(0)] & 0xF0) >> 4;
+                // 2
+                *dst++ = (src[8 + BYTE_SWAP(2)] << 4) | (src[8 + BYTE_SWAP(1)] >> 4);
+                *dst++ = (src[8 + BYTE_SWAP(1)] & 0xC) << 4 | src[8 + BYTE_SWAP(3)] >> 2; // Rl2 + Gh6
+                *dst++ = src[8 + BYTE_SWAP(3)] << 6 | (src[8 + BYTE_SWAP(2)] & 0xC0) >> 2 | (src[12 + BYTE_SWAP(1)] & 0xF); // Gl4+Bh4
+                *dst++ = src[12 + BYTE_SWAP(0)];
+                // 3
+                *dst++ = src[12 + BYTE_SWAP(2)]; // Rh8
+                *dst++ = (src[12 + BYTE_SWAP(1)] & 0xC0) | ((src[16 + BYTE_SWAP(0)] & 0xF) << 2) | src[12 + BYTE_SWAP(3)] >> 6; // Rl2 + Gh6
+                *dst++ = (src[12 + BYTE_SWAP(3)] & 0x3C) << 2 | src[16 + BYTE_SWAP(1)] >> 4; // Gl4 + Bh4
+                *dst++ = src[16 + BYTE_SWAP(1)] << 4 | (src[16 + BYTE_SWAP(0)] & 0xF0) >> 4;
+                // 4
+                *dst++ = (src[16 + BYTE_SWAP(3)] << 4) | (src[16 + BYTE_SWAP(2)] >> 4);
+                *dst++ = (src[16 + BYTE_SWAP(2)] & 0xC) << 4 | src[20 + BYTE_SWAP(0)] >> 2;
+                *dst++ = src[20 + BYTE_SWAP(0)] << 6 | (src[16 + BYTE_SWAP(3)] & 0xC0) >> 2 | (src[20 + BYTE_SWAP(2)] & 0xF);
+                *dst++ = src[20 + BYTE_SWAP(1)];
+                // 5
+                *dst++ = src[20 + BYTE_SWAP(3)];
+                *dst++ = (src[20 + BYTE_SWAP(2)] & 0xC0) | (src[24 + BYTE_SWAP(1)] & 0xF) << 2 | src[24 + BYTE_SWAP(0)] >> 6;
+                *dst++ = (src[24 + BYTE_SWAP(0)] & 0x3C) << 2 | src[24 + BYTE_SWAP(2)] >> 4;
+                *dst++ = src[24 + BYTE_SWAP(2)] << 4 | src[24 + BYTE_SWAP(1)] >> 4;
+                // 6
+                *dst++ = (src[28 + BYTE_SWAP(0)] << 4) | (src[24 + BYTE_SWAP(3)] >> 4);
+                *dst++ = (src[24 + BYTE_SWAP(3)] & 0xC) << 4 | src[28 + BYTE_SWAP(1)] >> 2;
+                *dst++ = src[28 + BYTE_SWAP(1)] << 6 | (src[28 + BYTE_SWAP(0)] & 0xC0) >> 2 | (src[28 + BYTE_SWAP(3)] & 0xF);
+                *dst++ = src[28 + BYTE_SWAP(2)];
+                // 7
+                *dst++ = src[32 + BYTE_SWAP(0)];
+                *dst++ = (src[28 + BYTE_SWAP(3)] & 0xC0) | (src[32 + BYTE_SWAP(2)] & 0xF) << 2 | (src[32 + BYTE_SWAP(1)] >> 6);
+                *dst++ = (src[32 + BYTE_SWAP(1)] & 0x3C) << 2 | src[32 + BYTE_SWAP(3)] >> 4;
+                *dst++ = src[32 + BYTE_SWAP(3)] << 4 | src[32 + BYTE_SWAP(2)] >> 4;
+
+                src += 36;
+        }
+}
+
 /**
  * @brief Converts RG48 to R12L.
  * Converts 16-bit RGB to 12-bit packed RGB in full range (compatible with
@@ -2895,6 +2950,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineR12L,        R12L,  RGBA, false },
         { vc_copylineR12LtoRGB,   R12L,  RGB, false },
         { vc_copylineR12LtoRG48,  R12L,  RG48, false },
+        { vc_copylineR12LtoR10k,  R12L,  R10k, false },
         { vc_copylineRGBtoR12L,   RGB,   R12L, false },
         { vc_copylineRGBAtoRG48,  RGBA,  RG48, false },
         { vc_copylineRGBtoRG48,   RGB,   RG48, false },
