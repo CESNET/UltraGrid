@@ -789,16 +789,10 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 {
         assert(s->magic == MAGIC_GL);
 
-        if(desc.color_spec == DXT1 || desc.color_spec == DXT1_YUV || desc.color_spec == DXT5) {
-                s->dxt_height = (desc.height + 3) / 4 * 4;
-        } else {
-                s->dxt_height = desc.height;
-        }
+        s->dxt_height = desc.color_spec == DXT1 || desc.color_spec == DXT1_YUV || desc.color_spec == DXT5 ?
+                s->dxt_height = (desc.height + 3) / 4 * 4 : s->dxt_height = desc.height;
 
-        if(!s->video_aspect)
-                s->aspect = (double) desc.width / desc.height;
-        else
-                s->aspect = s->video_aspect;
+        s->aspect = s->video_aspect ? s->video_aspect : (double) desc.width / desc.height;
 
         log_msg(LOG_LEVEL_INFO, "Setting GL size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
@@ -1617,7 +1611,6 @@ static void upload_texture(struct state_gl *s, char *data)
                         }
                         glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
                 }
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, s->current_display_desc.height, format, type, nullptr);
 
                 glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
