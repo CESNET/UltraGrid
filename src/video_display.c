@@ -346,6 +346,27 @@ struct video_frame *display_get_frame(struct display *d)
         }
 }
 
+static int display_frame_helper(struct display *d, struct video_frame *frame, long long timeout_ns)
+{
+        int ret = d->funcs->putf(d->state, frame, timeout_ns);
+        if (ret != 0 || !d->funcs->generic_fps_indicator_prefix) {
+                return ret;
+        }
+        // display FPS
+        d->frames++;
+        time_ns_t t = get_time_in_ns();
+        long long seconds_ns = t - d->t0;
+        if (seconds_ns > 5 * NS_IN_SEC) {
+                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_FG_MAGENTA "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD "%g FPS\n" TERM_RESET,
+                                d->funcs->generic_fps_indicator_prefix,
+                                d->frames, (double) seconds_ns / NS_IN_SEC,
+                                (double) d->frames * NS_IN_SEC / seconds_ns);
+                d->frames = 0;
+                d->t0 = t;
+        }
+        return ret;
+}
+
 /**
  * @brief Puts filled video frame.
  * After calling this function, video frame cannot be used.
@@ -380,27 +401,11 @@ int display_put_frame(struct display *d, struct video_frame *frame, long long ti
 				return 1;
 			}
 
-			display_ret = d->funcs->putf(d->state, display_frame, timeout_ns);
+			display_ret = display_frame_helper(d, display_frame, timeout_ns);
 		}
                 return display_ret;
         }
-        int ret = d->funcs->putf(d->state, frame, timeout_ns);
-        if (ret != 0 || !d->funcs->generic_fps_indicator_prefix) {
-                return ret;
-        }
-        // display FPS
-        d->frames++;
-        time_ns_t t = get_time_in_ns();
-        long long seconds_ns = t - d->t0;
-        if (seconds_ns > 5 * NS_IN_SEC) {
-                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_FG_MAGENTA "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD "%g FPS\n" TERM_RESET,
-                                d->funcs->generic_fps_indicator_prefix,
-                                d->frames, (double) seconds_ns / NS_IN_SEC,
-                                (double) d->frames * NS_IN_SEC / seconds_ns);
-                d->frames = 0;
-                d->t0 = t;
-        }
-        return ret;
+        return display_frame_helper(d, frame, timeout_ns);
 }
 
 /**
