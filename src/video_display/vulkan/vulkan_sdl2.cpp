@@ -520,7 +520,7 @@ const std::vector<CodecToVulkanFormat>& get_ug_to_vkd_format_mapping(state_vulka
                 {Y216, vkd::Format::YUYV16_422},
                 {Y416, vkd::Format::UYVA16_422_conv},
                 {R10k, vkd::Format::RGB10A2_conv},
-                {RG48, vkd::Format::RGBA16},
+                {RG48, vkd::Format::RGB16},
         }};
 
         static std::vector<CodecToVulkanFormat> supported_formats_mapping{};
