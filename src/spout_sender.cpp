@@ -60,12 +60,12 @@ void spout_sender_unregister(void *s) {
 
 void spout_set_log_level(void *s, int ug_level) {
         auto *spout = static_cast<SPOUTHANDLE>(s);
-        enum LibLogLevel l;
+        enum SpoutLibLogLevel l;
         switch (ug_level) {
                 case LOG_LEVEL_QUIET: l = SPOUT_LOG_SILENT; break;
                 case LOG_LEVEL_FATAL:
                 case LOG_LEVEL_ERROR:
-                case LOG_LEVEL_WARNING: l = (enum LibLogLevel) (7 - ug_level); break;
+                case LOG_LEVEL_WARNING: l = (enum SpoutLibLogLevel) (7 - ug_level); break;
                 case LOG_LEVEL_NOTICE:
                 case LOG_LEVEL_INFO: l = SPOUT_LOG_NOTICE; break;
                 default: l = SPOUT_LOG_VERBOSE;
