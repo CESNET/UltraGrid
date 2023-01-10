@@ -79,7 +79,7 @@ static void * df_init(const char *config) {
                 deinterlace = true;
         } else if (strcmp(config, "nodelay") == 0) {
                 nodelay = true;
-        } else {
+        } else if (strlen(config) > 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unknown config: %s\n", config);
                 return NULL;
         }
