@@ -298,26 +298,18 @@ public:
         inline std::ostream& Get() {
                 return oss;
         }
-        inline void once(uint32_t id, const std::string &msg) {
-                if (oneshot_messages.count(id) > 0) {
-                        return;
-                }
-                oneshot_messages.insert(id);
-                oss << msg;
-        }
 
 private:
         int level;
         std::ostringstream oss;
 
+        friend void log_msg_once(int level, uint32_t id, const char *msg);
         static thread_local std::set<uint32_t> oneshot_messages;
 };
 
 #define LOG(level) \
 if ((level) <= log_level) Logger(level).Get()
 
-#define LOG_ONCE(level, id, msg) \
-if ((level) <= log_level) Logger(level).once(id, msg)
 
 #endif
 
