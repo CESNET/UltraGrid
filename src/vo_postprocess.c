@@ -184,7 +184,7 @@ bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
         if (s == NULL) {
                 return FALSE;
         }
-        assert(in == ((struct vo_postprocess_state_single *) simple_linked_list_first(s->postprocessors))->f);
+        assert(in == ((struct vo_postprocess_state_single *) simple_linked_list_first(s->postprocessors))->f || in == NULL);
 
         for(void *it = simple_linked_list_it_init(s->postprocessors); it != NULL; ) {
                 struct vo_postprocess_state_single *state = simple_linked_list_it_next(&it);
