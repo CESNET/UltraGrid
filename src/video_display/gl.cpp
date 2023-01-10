@@ -790,7 +790,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         assert(s->magic == MAGIC_GL);
 
         s->dxt_height = desc.color_spec == DXT1 || desc.color_spec == DXT1_YUV || desc.color_spec == DXT5 ?
-                s->dxt_height = (desc.height + 3) / 4 * 4 : s->dxt_height = desc.height;
+                (desc.height + 3) / 4 * 4 : desc.height;
 
         s->aspect = s->video_aspect ? s->video_aspect : (double) desc.width / desc.height;
 
