@@ -51,7 +51,7 @@ enum class Format{
         YUYV16_422,
         UYVA16_422_conv,
         RGB10A2_conv,
-        RGBA16
+        RGB16
 };
 
 struct ImageDescription;
@@ -82,7 +82,7 @@ inline const FormatInfo& format_info(vulkan_display::Format format){
 {F::YUYV16_422,      VkF::eG16B16G16R16422Unorm, },
 {F::UYVA16_422_conv, VkF::eR16G16B16A16Uint,     {"UYVA16_conv"}, VkF::eR16G16B16A16Sfloat},
 {F::RGB10A2_conv,    VkF::eR8G8B8A8Uint,         {"RGB10A2_conv"}, VkF::eA2B10G10R10UnormPack32},
-{F::RGBA16,          VkF::eR16G16B16Snorm        },
+{F::RGB16,          VkF::eR16G16B16Unorm        },
         }};
 
         auto& result = format_infos[static_cast<size_t>(format)];
