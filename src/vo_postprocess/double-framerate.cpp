@@ -50,6 +50,9 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#define MOD_NAME "[double_framerate] "
+#define TIMEOUT "20ms"
+
 struct state_df {
         struct video_frame *in;
         char *buffers[2];
@@ -92,7 +95,11 @@ static void * df_init(const char *config) {
         s->buffer_current = 0;
         s->deinterlace = deinterlace;
         s->nodelay = nodelay;
-        
+        if (commandline_params.find("decoder-drop-policy") == commandline_params.end()) {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Setting drop policy to %s timeout.\n", TIMEOUT);
+                commandline_params["decoder-drop-policy"] = TIMEOUT;
+        }
+
         return s;
 }
 
