@@ -88,6 +88,7 @@
 #define MAGIC_GL         0x1331018e
 #define MOD_NAME         "[GL] "
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
+#define GL_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x38e52705
 #define GL_DISABLE_10B_OPT_PARAM_NAME "gl-disable-10b"
 #define GL_WINDOW_HINT_OPT_PARAM_NAME "glfw-window-hint"
 #define MAX_BUFFER_SIZE 1
@@ -952,12 +953,14 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
 static void gl_render(struct state_gl *s, char *data)
 {
-        /* for DXT, deinterlacing doesn't make sense since it is
-         * always deinterlaced before comrpression */
-        if(s->deinterlace && (s->current_display_desc.color_spec == RGBA || s->current_display_desc.color_spec == UYVY))
-                vc_deinterlace((unsigned char *) data,
-                                vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
-                                s->current_display_desc.height);
+        if (s->deinterlace) {
+                if (!vc_deinterlace_ex(s->current_display_desc.color_spec,
+                                        (unsigned char *) data, vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
+                                        (unsigned char *) data, vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
+                                        s->current_display_desc.height)) {
+                         log_msg_once(LOG_LEVEL_ERROR, GL_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format!\n");
+                }
+        }
 
         gl_check_error();
 

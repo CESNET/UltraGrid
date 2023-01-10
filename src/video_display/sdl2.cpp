@@ -87,6 +87,7 @@
 #include <unordered_map>
 #include <utility> // pair
 
+#define SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x327058e5
 #define MAGIC_SDL2   0x3cc234a1
 #define MAX_BUFFER_SIZE   1
 #define MOD_NAME "[SDL] "
@@ -180,7 +181,9 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
                 unsigned char *pixels;
                 int pitch;
                 SDL_LockTexture(s->texture, NULL, (void **) &pixels, &pitch);
-                vc_deinterlace_ex((unsigned char *) frame->tiles[0].data, vc_get_linesize(frame->tiles[0].width, frame->color_spec), pixels, pitch, frame->tiles[0].height);
+                if (!vc_deinterlace_ex(frame->color_spec, (unsigned char *) frame->tiles[0].data, vc_get_linesize(frame->tiles[0].width, frame->color_spec), pixels, pitch, frame->tiles[0].height)) {
+                         log_msg_once(LOG_LEVEL_ERROR, SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format!\n");
+                }
                 SDL_UnlockTexture(s->texture);
         }
 

@@ -120,7 +120,7 @@ static bool deinterlace_postprocess(void *state, struct video_frame *in, struct 
         assert (in->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
         assert (out->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
 
-        vc_deinterlace_ex((unsigned char *) in->tiles[0].data, vc_get_linesize(in->tiles[0].width, in->color_spec),
+        vc_deinterlace_ex(in->color_spec, (unsigned char *) in->tiles[0].data, vc_get_linesize(in->tiles[0].width, in->color_spec),
                                 (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, in->color_spec),
                                 in->tiles[0].height);
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);

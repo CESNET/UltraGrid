@@ -122,7 +122,7 @@ bool codec_is_hw_accelerated(codec_t codec) ATTRIBUTE(const);
 bool codec_is_planar(codec_t codec) ATTRIBUTE(const);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
-void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines);
+bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines);
 
 decoder_func_t vc_copylineRGBA;
 decoder_func_t vc_copylineToRGBA_inplace;

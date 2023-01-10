@@ -689,9 +689,15 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
 /**
  * Extended version of vc_deinterlace(). The former version was in-place only.
  * This allows to output to different buffer.
+ *
+ * @returns false on unsupported codecs
  */
-void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines)
+bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines)
 {
+        (void) codec;
+        if (codec != RGB && codec != RGBA && codec != UYVY) {
+                return false;
+        }
         for (size_t y = 0; y < lines; y += 2) {
                 for (size_t x = 0; x < src_linesize; ++x) {
                         int val = (*src + src[src_linesize] + 1) >> 1;
@@ -702,6 +708,7 @@ void vc_deinterlace_ex(unsigned char *src, size_t src_linesize, unsigned char *d
                 src += src_linesize;
                 dst += dst_pitch;
         }
+        return true;
 }
 
 /**

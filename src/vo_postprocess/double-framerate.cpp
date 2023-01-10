@@ -52,6 +52,7 @@
 
 #define MOD_NAME "[double_framerate] "
 #define TIMEOUT "20ms"
+#define DFR_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x27ff0a78
 
 struct state_df {
         struct video_frame *in;
@@ -184,7 +185,12 @@ static bool df_postprocess(void *state, struct video_frame *in, struct video_fra
         }
 
         if (s->deinterlace) {
-                vc_deinterlace((unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec), out->tiles[0].height);
+                if (!vc_deinterlace_ex(in->color_spec,
+                                (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec),
+                                (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec),
+                                out->tiles[0].height)) {
+                         log_msg_once(LOG_LEVEL_ERROR, DFR_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format!\n");
+                }
         }
 
         if (!s->nodelay) {
