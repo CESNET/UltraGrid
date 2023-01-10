@@ -189,7 +189,7 @@ static bool df_postprocess(void *state, struct video_frame *in, struct video_fra
                                 (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec),
                                 (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec),
                                 out->tiles[0].height)) {
-                         log_msg_once(LOG_LEVEL_ERROR, DFR_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format!\n");
+                         log_msg_once(LOG_LEVEL_ERROR, DFR_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(in->color_spec));
                 }
         }
 

@@ -182,7 +182,7 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
                 int pitch;
                 SDL_LockTexture(s->texture, NULL, (void **) &pixels, &pitch);
                 if (!vc_deinterlace_ex(frame->color_spec, (unsigned char *) frame->tiles[0].data, vc_get_linesize(frame->tiles[0].width, frame->color_spec), pixels, pitch, frame->tiles[0].height)) {
-                         log_msg_once(LOG_LEVEL_ERROR, SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format!\n");
+                         log_msg_once(LOG_LEVEL_ERROR, SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(frame->color_spec));
                 }
                 SDL_UnlockTexture(s->texture);
         }

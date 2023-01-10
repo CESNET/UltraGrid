@@ -958,7 +958,7 @@ static void gl_render(struct state_gl *s, char *data)
                                         (unsigned char *) data, vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
                                         (unsigned char *) data, vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
                                         s->current_display_desc.height)) {
-                         log_msg_once(LOG_LEVEL_ERROR, GL_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format!\n");
+                         log_msg_once(LOG_LEVEL_ERROR, GL_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(s->current_display_desc.color_spec));
                 }
         }
 

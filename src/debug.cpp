@@ -140,12 +140,15 @@ void log_msg(int level, const char *format, ...) {
 
 }
 
-void log_msg_once(int level, uint32_t id, const char *msg) {
+void log_msg_once(int level, uint32_t id, const char *msg, ...) {
         if (Logger::oneshot_messages.count(id) > 0 || log_level < level) {
                 return;
         }
         Logger::oneshot_messages.insert(id);
-        Logger(level).Get() << msg;
+        va_list aq;
+        va_start(aq, msg);
+        log_vprintf(level, msg, aq);
+        va_end(aq);
 }
 
 /**

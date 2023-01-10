@@ -51,6 +51,8 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#define MOD_NAME "[deinterlace] "
+
 struct state_deinterlace {
         struct video_frame *out; ///< for postprocess only
 };
@@ -120,9 +122,11 @@ static bool deinterlace_postprocess(void *state, struct video_frame *in, struct 
         assert (in->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
         assert (out->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
 
-        vc_deinterlace_ex(in->color_spec, (unsigned char *) in->tiles[0].data, vc_get_linesize(in->tiles[0].width, in->color_spec),
+        if (!vc_deinterlace_ex(in->color_spec, (unsigned char *) in->tiles[0].data, vc_get_linesize(in->tiles[0].width, in->color_spec),
                                 (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, in->color_spec),
-                                in->tiles[0].height);
+                                in->tiles[0].height)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(in->color_spec));
+        }
         memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
 
         return true;
