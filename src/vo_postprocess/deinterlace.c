@@ -127,7 +127,6 @@ static bool deinterlace_postprocess(void *state, struct video_frame *in, struct 
                                 in->tiles[0].height)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(in->color_spec));
         }
-        memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
 
         return true;
 }
