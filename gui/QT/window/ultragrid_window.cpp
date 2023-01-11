@@ -62,9 +62,6 @@ void UltragridWindow::initializeUgOpts(){
 	connect(&previewTimer, SIGNAL(timeout()), this, SLOT(updatePreview()));
 	setupPreviewCallbacks();
 
-	availableSettings.queryAll(ultragridExecutable.toStdString());
-	settings.populateSettingsFromCapabilities(&availableSettings);
-
 	settingsUi.init(&settings, &availableSettings);
 	settingsUi.initMainWin(&ui);
 	settingsWindow.init(&settingsUi);
@@ -85,8 +82,8 @@ void UltragridWindow::initializeUgOpts(){
 		loadSettingsFile(filename);
 	}
 
-	checkPreview();
-	launchPreview();
+	launchQuery();
+
 	setupPreviewCallbacks();
 
 	previewStatus.setText("Preview: Stopped");
@@ -129,9 +126,55 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	controlPort.addLineCallback(std::bind(&BandwidthWidget::parseLine, ui.send_bandwidth, _1));
 }
 
+void UltragridWindow::launchQuery(){
+	auto ctx = std::make_unique<LaunchContext>();
+	ctx->executablePath = ultragridExecutable;
+	ctx->args = QStringList() << "--capabilities";
+	ctx->type = LaunchContext::Type::Query;
+
+	struct QueryData : public LaunchContext::ExtraData{
+		QString output;
+		QLabel queryMsg = QLabel("Querying UltraGrid capabilities...");
+	};
+
+	ctx->extraData = std::make_unique<QueryData>();
+	auto extraPtr = static_cast<QueryData *>(ctx->extraData.get());
+
+	connect(&ctx->process, &QProcess::started, 
+			[=]()
+			{
+				ui.statusbar->addWidget(&extraPtr->queryMsg);
+				ui.startButton->setEnabled(false);
+				ui.startButton->setText("Querying...");
+			});
+
+	connect(ctx.get(), &LaunchContext::processTerminated,
+			[=](int ec, QProcess::ExitStatus es, bool requested)
+			{
+				ui.startButton->setEnabled(true);
+				ui.startButton->setText("Start");
+
+				if(!requested && (es == QProcess::ExitStatus::CrashExit || ec != 0)){
+					ui.statusbar->showMessage("Capabilities querying failed!");
+				}
+
+				log.write(extraPtr->output);
+
+				availableSettings.queryFromString(extraPtr->output);
+				settings.populateSettingsFromCapabilities(&availableSettings);
+				settingsUi.refreshAll();
+				checkPreview();
+				launchPreview();
+			});
+
+	connect(ctx.get(), &LaunchContext::processOutputRead,
+			[=](QString str) { extraPtr->output += str; });
+
+	launchMngr.launch(std::move(ctx));
+}
+
 void UltragridWindow::refresh(){
-	availableSettings.queryAll(ultragridExecutable.toStdString());
-	settingsUi.refreshAll();
+	launchQuery();
 }
 
 void UltragridWindow::setupPreviewCallbacks(){
@@ -230,6 +273,7 @@ void UltragridWindow::start(){
 				ui.startButton->setText("Stop");
 				ui.startButton->setEnabled(true);
 				processStatus.setText("UG: Running");
+				ui.actionRefresh->setEnabled(false);
 			});
 
 	connect(ctx.get(), &LaunchContext::processTerminated,
@@ -237,6 +281,7 @@ void UltragridWindow::start(){
 			{
 				ui.startButton->setText("Start");
 				ui.startButton->setEnabled(true);
+				ui.actionRefresh->setEnabled(true);
 				receiverLoss.reset();
 				rtcpRr.reset();
 				ui.send_bandwidth->reset();
@@ -286,7 +331,8 @@ void UltragridWindow::schedulePreview(Option&, bool, void *opaque){
 }
 
 void UltragridWindow::updatePreview(){
-	if(launchMngr.getCurrentStatus() == LaunchContext::Type::Run)
+	if(launchMngr.getCurrentStatus() == LaunchContext::Type::Run
+			|| launchMngr.getCurrentStatus() == LaunchContext::Type::Query)
 	{
 		return;
 	}

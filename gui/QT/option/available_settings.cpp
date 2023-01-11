@@ -21,15 +21,14 @@ static bool vectorContains(const std::vector<std::string> &v, const std::string 
 	return false;
 }
 
-static QStringList getProcessOutput(const std::string& executable, const QStringList& args){
+static QString getProcessOutput(const std::string& executable, const QStringList& args){
 	QProcess process;
 	process.start(executable.c_str(), args);
 	process.waitForFinished();
 
 	QString output = QString(process.readAllStandardOutput());
-	QStringList lines = output.split(QRegularExpression("\n|\r\n|\r"));
 
-	return lines;
+	return output;
 }
 
 struct {
@@ -66,8 +65,8 @@ void AvailableSettings::queryProcessLine(const QString& line, bool *endMarker){
 	}
 }
 
-void AvailableSettings::queryAll(const std::string &executable){
-	QStringList lines = getProcessOutput(executable, QStringList() << "--capabilities");
+void AvailableSettings::queryFromString(const QString &string){
+	QStringList lines = string.split(QRegularExpression("\n|\r\n|\r"));
 
 	for(const auto& i : modulesQueryInfo){
 		available[i.type].clear();
@@ -132,6 +131,11 @@ static void maybeWriteString (const QJsonObject& obj,
 		if(obj.contains(key) && obj[key].isString()){
 			result = obj[key].toString().toStdString();
 		}
+}
+
+void AvailableSettings::queryAll(const std::string &executable){
+	QString output = getProcessOutput(executable, QStringList() << "--capabilities");
+	queryFromString(output);
 }
 
 void AvailableSettings::queryVideoCompress(const QString &line, size_t offset){

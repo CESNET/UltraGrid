@@ -75,6 +75,7 @@ public:
 	void queryVideoCompress(const QString &line, size_t offset);
 
 	void queryAll(const std::string &executable);
+	void queryFromString(const QString &string);
 
 	bool isAvailable(const std::string &name, SettingType type) const;
 	std::vector<std::string> getAvailableSettings(SettingType type) const;

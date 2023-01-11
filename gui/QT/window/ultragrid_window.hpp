@@ -42,6 +42,8 @@ private:
 
 	static void schedulePreview(Option&, bool, void *);
 
+	void launchQuery();
+
 	Ui::UltragridWindow ui;
 
 	QString ultragridExecutable;

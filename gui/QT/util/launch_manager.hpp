@@ -18,6 +18,10 @@ public:
 		Query
 	};
 
+	struct ExtraData{
+		virtual ~ExtraData() = default;
+	};
+
 	LaunchContext();
 
 	Type type = Type::None;
@@ -25,6 +29,7 @@ public:
 	QStringList args;
 	QProcess process;
 	LineBuffer lineBuf;
+	std::unique_ptr<ExtraData> extraData;
 
 	void terminate();
 
