@@ -96,8 +96,9 @@ static void * df_init(const char *config) {
         s->buffer_current = 0;
         s->deinterlace = deinterlace;
         s->nodelay = nodelay;
-        if (commandline_params.find("decoder-drop-policy") == commandline_params.end()) {
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Setting drop policy to %s timeout.\n", TIMEOUT);
+
+        if (s->nodelay && commandline_params.find("decoder-drop-policy") == commandline_params.end()) {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "nodelay option used, setting drop policy to %s timeout.\n", TIMEOUT);
                 commandline_params["decoder-drop-policy"] = TIMEOUT;
         }
 
@@ -154,22 +155,22 @@ static struct video_frame * df_getf(void *state)
         return s->in;
 }
 
+/// @param in  may be NULL
 static bool df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_df *s = (struct state_df *) state;
-        unsigned int y;
 
         if(in != NULL) {
                 char *src = s->buffers[(s->buffer_current + 1) % 2] + vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
                 char *dst = out->tiles[0].data + req_pitch;
-                for (y = 0; y < out->tiles[0].height; y += 2) {
+                for (unsigned y = 0; y < out->tiles[0].height; y += 2) {
                         memcpy(dst, src, vc_get_linesize(s->in->tiles[0].width, s->in->color_spec));
                         dst += 2 * req_pitch;
                         src += 2 * vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
                 }
                 src = s->buffers[s->buffer_current];
                 dst = out->tiles[0].data;
-                for (y = 1; y < out->tiles[0].height; y += 2) {
+                for (unsigned y = 1; y < out->tiles[0].height; y += 2) {
                         memcpy(dst, src, vc_get_linesize(s->in->tiles[0].width, s->in->color_spec));
                         dst += 2 * req_pitch;
                         src += 2 * vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
@@ -177,7 +178,7 @@ static bool df_postprocess(void *state, struct video_frame *in, struct video_fra
         } else {
                 char *src = s->buffers[s->buffer_current];
                 char *dst = out->tiles[0].data;
-                for (y = 0; y < out->tiles[0].height; ++y) {
+                for (unsigned y = 0; y < out->tiles[0].height; ++y) {
                         memcpy(dst, src, vc_get_linesize(s->in->tiles[0].width, s->in->color_spec));
                         dst += req_pitch;
                         src += vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
@@ -185,7 +186,7 @@ static bool df_postprocess(void *state, struct video_frame *in, struct video_fra
         }
 
         if (s->deinterlace) {
-                if (!vc_deinterlace_ex(in->color_spec,
+                if (!vc_deinterlace_ex(out->color_spec,
                                 (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec),
                                 (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, out->color_spec),
                                 out->tiles[0].height)) {

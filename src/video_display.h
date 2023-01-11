@@ -155,7 +155,7 @@ struct video_display_info {
         void                    (*run) (void *state);                                               ///< may be NULL
         void                    (*done) (void *state);
         struct video_frame     *(*getf) (void *state);
-        /// @param timeout_ns display is supposed immplement the PUTF_* macros, numerical timeout is seldom used (but double-framerate postprocess requires that)
+        /// @param timeout_ns display is supposed immplement the PUTF_* macros, numerical timeout is seldom used (but double-framerate postprocess can use that)
         int                     (*putf) (void *state, struct video_frame *frame, long long timeout_ns);
         int                     (*reconfigure_video)(void *state, struct video_desc desc);
         int                     (*ctl_property)(void *state, int property, void *val, size_t *len);
