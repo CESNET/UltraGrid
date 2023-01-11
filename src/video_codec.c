@@ -694,19 +694,31 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
  */
 bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines)
 {
-        (void) codec;
         if (codec != RGB && codec != RGBA && codec != UYVY) {
                 return false;
         }
         for (size_t y = 0; y < lines; y += 2) {
-                for (size_t x = 0; x < src_linesize; ++x) {
-                        int val = (*src + src[src_linesize] + 1) >> 1;
-                        *dst = dst[dst_pitch] = val;
-                        src++;
-                        dst++;
+                unsigned char *s = src + y * src_linesize;
+                unsigned char *d = dst + y * dst_pitch;
+                size_t x = 0;
+#ifdef __SSSE3__
+                for ( ; x < src_linesize / 16; ++x) {
+                        __m128i i1 = _mm_lddqu_si128((__m128i const*)(const void *) s);
+                        __m128i i2 = _mm_lddqu_si128((__m128i const*)(const void *) (s + src_linesize));
+                        __m128i res = _mm_avg_epu8(i1, i2);
+                        _mm_storeu_si128((__m128i *)(void *) d, res);
+                        _mm_storeu_si128((__m128i *)(void *) (d + dst_pitch), res);
+                        s += 16;
+                        d += 16;
                 }
-                src += src_linesize;
-                dst += dst_pitch;
+#endif
+                x *= 16;
+                for ( ; x < src_linesize; ++x) {
+                        int val = (*s + s[src_linesize] + 1) >> 1;
+                        *d = d[dst_pitch] = val;
+                        s++;
+                        d++;
+                }
         }
         return true;
 }
