@@ -694,31 +694,59 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
  */
 bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines)
 {
-        if (codec != RGB && codec != RGBA && codec != UYVY) {
+        if (is_codec_opaque(codec) && codec_is_planar(codec)) {
                 return false;
         }
-        for (size_t y = 0; y < lines; y += 2) {
-                unsigned char *s = src + y * src_linesize;
-                unsigned char *d = dst + y * dst_pitch;
-                size_t x = 0;
+        int bpp = get_bits_per_component(codec);
+        if (bpp == 8 || bpp == 16) {
+                for (size_t y = 0; y < lines; y += 2) {
+                        unsigned char *s = src + y * src_linesize;
+                        unsigned char *d = dst + y * dst_pitch;
+                        size_t x = 0;
 #ifdef __SSSE3__
-                for ( ; x < src_linesize / 16; ++x) {
-                        __m128i i1 = _mm_lddqu_si128((__m128i const*)(const void *) s);
-                        __m128i i2 = _mm_lddqu_si128((__m128i const*)(const void *) (s + src_linesize));
-                        __m128i res = _mm_avg_epu8(i1, i2);
-                        _mm_storeu_si128((__m128i *)(void *) d, res);
-                        _mm_storeu_si128((__m128i *)(void *) (d + dst_pitch), res);
-                        s += 16;
-                        d += 16;
-                }
+                        if (bpp == 8) {
+                                for ( ; x < src_linesize / 16; ++x) {
+                                        __m128i i1 = _mm_lddqu_si128((__m128i const*)(const void *) s);
+                                        __m128i i2 = _mm_lddqu_si128((__m128i const*)(const void *) (s + src_linesize));
+                                        __m128i res = _mm_avg_epu8(i1, i2);
+                                        _mm_storeu_si128((__m128i *)(void *) d, res);
+                                        _mm_storeu_si128((__m128i *)(void *) (d + dst_pitch), res);
+                                        s += 16;
+                                        d += 16;
+                                }
+                        } else {
+                                for ( ; x < src_linesize / 16; ++x) {
+                                        __m128i i1 = _mm_lddqu_si128((__m128i const*)(const void *) s);
+                                        __m128i i2 = _mm_lddqu_si128((__m128i const*)(const void *) (s + src_linesize));
+                                        __m128i res = _mm_avg_epu16(i1, i2);
+                                        _mm_storeu_si128((__m128i *)(void *) d, res);
+                                        _mm_storeu_si128((__m128i *)(void *) (d + dst_pitch), res);
+                                        s += 16;
+                                        d += 16;
+                                }
+                        }
 #endif
-                x *= 16;
-                for ( ; x < src_linesize; ++x) {
-                        int val = (*s + s[src_linesize] + 1) >> 1;
-                        *d = d[dst_pitch] = val;
-                        s++;
-                        d++;
+                        x *= 16;
+                        if (bpp  == 8) {
+                                for ( ; x < src_linesize; ++x) {
+                                        int val = (*s + s[src_linesize] + 1) >> 1;
+                                        *d = d[dst_pitch] = val;
+                                        s++;
+                                        d++;
+                                }
+                        } else {
+                                uint16_t *d16 = (void *) d;
+                                uint16_t *s16 = (void *) s;
+                                for ( ; x < src_linesize / 2; ++x) {
+                                        int val = (*s16 + s16[src_linesize] + 1) >> 1;
+                                        *d16 = d16[dst_pitch] = val;
+                                        s16++;
+                                        d16++;
+                                }
+                        }
                 }
+        } else {
+                return false;
         }
         return true;
 }
