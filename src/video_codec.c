@@ -758,6 +758,20 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                 s32++;
                                 d32++;
                         }
+                } else if (codec == R10k) {
+                        uint32_t *s32 = (void *) s;
+                        uint32_t *d32 = (void *) d;
+                        for (size_t x = 0; x < src_linesize / 4; ++x) {
+                                uint32_t v1 = ntohl(*s32);
+                                uint32_t v2 = ntohl(s32[src_linesize / 4]);
+                                uint32_t out =
+                                        (((v1 >> 22        ) + (v2 >> 22        ) + 1) / 2) << 22 |
+                                        (((v1 >> 12 & 0x3ff) + (v2 >> 12 & 0x3ff) + 1) / 2) << 12 |
+                                        (((v1 >>  2 & 0x3ff) + (v2 >>  2 & 0x3ff) + 1) / 2) << 2;
+                                *d32 = d32[dst_pitch / 4] = htonl(out);
+                                s32++;
+                                d32++;
+                        }
                 } else {
                         return false;
                 }
