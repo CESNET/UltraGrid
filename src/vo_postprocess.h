@@ -125,9 +125,6 @@ struct vo_postprocess_info {
         vo_postprocess_done_t done;
 };
 
-/**
- * Semantic and parameters of following functions is same as their typedef counterparts
- */
 struct vo_postprocess_state *vo_postprocess_init(const char *config_string);
 
 int vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);

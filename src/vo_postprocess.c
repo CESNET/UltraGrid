@@ -36,7 +36,15 @@
  */
 /**
  * @file
- * @todo test chainging complex filters that change video properties (tiling mode, codec)
+ * @todo
+ * Fix complex filters that 1. change video properties (tiling mode, codec) or
+ * 2. producing more frames (eg. double_framerate).
+ *
+ * Ideas for 2.:
+ * - change API - do not count output frames but always pass NULL to flush the queue
+ *   until there are frames
+ * - process the filter queueue backwards - first pass NULL to filter <n>, then <n>-1
+ *   up to first
  */
 
 #ifdef HAVE_CONFIG_H
@@ -53,7 +61,10 @@
 #include "utils/color_out.h"
 #include "utils/list.h"
 #include "video_codec.h"
+#include "video_display.h"
 #include "vo_postprocess.h"
+
+#define MOD_NAME "[vo_postprocess] "
 
 struct vo_postprocess_state_single {
         const struct vo_postprocess_info *funcs;
@@ -139,6 +150,8 @@ int vo_postprocess_reconfigure(struct vo_postprocess_state *s,
                 return FALSE;
         }
 
+        bool filter_complex = false;
+
         for(void *it = simple_linked_list_it_init(s->postprocessors); it != NULL; ) {
                 struct vo_postprocess_state_single *state = simple_linked_list_it_next(&it);
                 int ret = state->funcs->reconfigure(state->state, desc);
@@ -150,6 +163,17 @@ int vo_postprocess_reconfigure(struct vo_postprocess_state *s,
                 int display_mode = 0;
                 int out_frames_count = 0;
                 state->funcs->get_out_desc(state->state, &desc, &display_mode, &out_frames_count);
+
+                // check if convert is simple (doesn't change display mode and out_fr_count == 1); if not, only one filter allowed
+                if (display_mode != DISPLAY_PROPERTY_VIDEO_MERGED || out_frames_count != 1) {
+                        filter_complex = true;
+                }
+        }
+
+        if (filter_complex && simple_linked_list_size(s->postprocessors) > 1) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "One of postprocessors is complex (changing properties) and "
+                                "cannot be used in filter chain (more postprocessors)!\n");
+                return FALSE;
         }
 
         return TRUE;
@@ -178,6 +202,10 @@ struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *s)
         return out;
 }
 
+/**
+ * param in  will be NULL if vo_postprocess_get_out_desc() returns out_frames_count > 1 and will be called
+ *           out_frames_count-1 times
+ */
 bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
                 struct video_frame *out, int req_pitch)
 {
@@ -198,10 +226,11 @@ bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
                 if (it == NULL) {
                         pitch = req_pitch;
                 }
-                bool ret = state->funcs->vo_postprocess(state->state, state->f, next, pitch);
+                bool ret = state->funcs->vo_postprocess(state->state, in, next, pitch);
                 if (!ret) {
                         return false;
                 }
+                in = next;
         }
 
         return true;
