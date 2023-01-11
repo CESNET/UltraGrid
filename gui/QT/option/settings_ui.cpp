@@ -25,8 +25,6 @@ void SettingsUi::addControl(WidgetUi *widget){
 void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 	mainWin = ui;
 
-	refreshAll();
- 
 	addCallbacks();
 #ifdef DEBUG
 	connect(mainWin->actionTest, SIGNAL(triggered()), this, SLOT(test()));
@@ -123,6 +121,7 @@ void SettingsUi::refreshAll(){
 	for(auto &i : uiControls){
 		i->refresh();
 	}
+	buildSettingsCodecList();
 }
 
 void SettingsUi::refreshAllCallback(Option&, bool, void *opaque){
@@ -188,6 +187,9 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 }
 
 void SettingsUi::buildSettingsCodecList(){
+	if(!settingsWin)
+		return;
+
 	QListWidget *list = settingsWin->codecList;
 	list->clear();
 
