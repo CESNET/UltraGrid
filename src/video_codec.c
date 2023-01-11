@@ -698,10 +698,10 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                 return false;
         }
         int bpp = get_bits_per_component(codec);
-        if (bpp == 8 || bpp == 16) {
-                for (size_t y = 0; y < lines; y += 2) {
-                        unsigned char *s = src + y * src_linesize;
-                        unsigned char *d = dst + y * dst_pitch;
+        for (size_t y = 0; y < lines; y += 2) {
+                unsigned char *s = src + y * src_linesize;
+                unsigned char *d = dst + y * dst_pitch;
+                if (bpp == 8 || bpp == 16) {
                         size_t x = 0;
 #ifdef __SSSE3__
                         if (bpp == 8) {
@@ -738,15 +738,29 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                 uint16_t *d16 = (void *) d;
                                 uint16_t *s16 = (void *) s;
                                 for ( ; x < src_linesize / 2; ++x) {
-                                        int val = (*s16 + s16[src_linesize] + 1) >> 1;
-                                        *d16 = d16[dst_pitch] = val;
+                                        int val = (*s16 + s16[src_linesize / 2] + 1) >> 1;
+                                        *d16 = d16[dst_pitch / 2] = val;
                                         s16++;
                                         d16++;
                                 }
                         }
+                } else if (codec == v210) {
+                        uint32_t *s32 = (void *) s;
+                        uint32_t *d32 = (void *) d;
+                        for (size_t x = 0; x < src_linesize / 4; ++x) {
+                                uint32_t v1 = *s32;
+                                uint32_t v2 = s32[src_linesize / 4];
+                                uint32_t out =
+                                        (((v1 >> 20        ) + (v2 >> 20        ) + 1) / 2) << 20 |
+                                        (((v1 >> 10 & 0x3ff) + (v2 >> 10 & 0x3ff) + 1) / 2) << 10 |
+                                        (((v1       & 0x3ff) + (v2       & 0x3ff) + 1) / 2);
+                                *d32 = d32[dst_pitch / 4] = out;
+                                s32++;
+                                d32++;
+                        }
+                } else {
+                        return false;
                 }
-        } else {
-                return false;
         }
         return true;
 }
