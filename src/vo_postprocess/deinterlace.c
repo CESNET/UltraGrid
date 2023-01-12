@@ -51,7 +51,7 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
-#define MOD_NAME "[deinterlace] "
+#define MOD_NAME "[deinterlace_blend] "
 
 struct state_deinterlace {
         struct video_frame *out; ///< for postprocess only
@@ -73,6 +73,17 @@ static void * deinterlace_init(const char *config) {
         assert(s != NULL);
 
         return s;
+}
+
+static void * deinterlace_init_deprecated(const char *config) {
+        if (strcmp(config, "help") == 0) {
+                usage();
+                return NULL;
+        }
+
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "\"-p deinterlace\" is deprecated, use \"-p deinterlace_blend\" instead.\n");
+
+        return deinterlace_init(config);
 }
 
 static int cf_deinterlace_init(struct module *parent, const char *cfg, void **state)
@@ -175,12 +186,23 @@ static const struct vo_postprocess_info vo_pp_deinterlace_info = {
         deinterlace_done,
 };
 
+static const struct vo_postprocess_info vo_pp_deinterlace_deprecated_info = {
+        deinterlace_init_deprecated,
+        deinterlace_reconfigure,
+        deinterlace_getf,
+        deinterlace_get_out_desc,
+        deinterlace_get_property,
+        deinterlace_postprocess,
+        deinterlace_done,
+};
+
 static const struct capture_filter_info capture_filter_deinterlace_info = {
         cf_deinterlace_init,
         deinterlace_done,
         cf_deinterlace_filter
 };
 
-REGISTER_MODULE(deinterlace, &vo_pp_deinterlace_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(deinterlace_blend, &vo_pp_deinterlace_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(deinterlace, &vo_pp_deinterlace_deprecated_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 REGISTER_MODULE(deinterlace, &capture_filter_deinterlace_info, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
