@@ -5,7 +5,6 @@
 #include <string_view>
 #include <vector>
 #include <map>
-#include <QStringList>
 
 enum SettingType{
 	VIDEO_SRC = 0,
@@ -72,9 +71,6 @@ struct CompressModule{
 
 class AvailableSettings{
 public:
-	void queryAll(const std::string &executable);
-	void queryFromString(const QString &string);
-
 	void queryBegin();
 	void queryLine(std::string_view line);
 	void queryEnd();
@@ -99,7 +95,6 @@ private:
 	void queryVideoCompress(std::string_view line);
 
 	void parseStateVersion(std::string_view line);
-	//void parseStateParse(std::string_view line);
 
 	void (AvailableSettings::*parseFunc)(std::string_view str) = nullptr;
 

@@ -1,7 +1,4 @@
-#include <QProcess>
 #include <QString>
-#include <QStringList>
-#include <QRegularExpression>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -20,16 +17,6 @@ static bool vectorContains(const std::vector<std::string> &v, const std::string 
 			return true;
 	}
 	return false;
-}
-
-static QString getProcessOutput(const std::string& executable, const QStringList& args){
-	QProcess process;
-	process.start(executable.c_str(), args);
-	process.waitForFinished();
-
-	QString output = QString(process.readAllStandardOutput());
-
-	return output;
 }
 
 struct {
@@ -135,19 +122,6 @@ void AvailableSettings::queryLine(std::string_view line){
 	(this->*parseFunc)(line);
 }
 
-void AvailableSettings::queryFromString(const QString &string){
-	QStringList lines = string.split(QRegularExpression("\n|\r\n|\r"));
-
-	queryBegin();
-
-	for(int i = 0; i < lines.size(); i++){
-		auto stdStr = lines[i].toStdString();
-		queryLine(stdStr);
-	}
-
-	queryEnd();
-}
-
 static void maybeWriteString (const QJsonObject& obj,
 		const char *key,
 		std::string& result)
@@ -155,11 +129,6 @@ static void maybeWriteString (const QJsonObject& obj,
 		if(obj.contains(key) && obj[key].isString()){
 			result = obj[key].toString().toStdString();
 		}
-}
-
-void AvailableSettings::queryAll(const std::string &executable){
-	QString output = getProcessOutput(executable, QStringList() << "--capabilities");
-	queryFromString(output);
 }
 
 void AvailableSettings::queryVideoCompress(std::string_view line){
