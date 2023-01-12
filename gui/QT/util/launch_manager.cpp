@@ -2,10 +2,9 @@
 #include "debug.hpp"
 
 LaunchManager::~LaunchManager(){
-	queuedLaunch.reset();
-
 	if(currentLaunch){
 		auto& p = currentLaunch->process;
+		p.blockSignals(true);
 		p.terminate();
 		p.waitForFinished(500);
 		if(p.state() != QProcess::NotRunning){
@@ -13,6 +12,7 @@ LaunchManager::~LaunchManager(){
 			p.waitForFinished(1000);
 		}
 	}
+	queuedLaunch.reset();
 }
 
 void LaunchManager::launch(std::unique_ptr<LaunchContext>&& ctx){

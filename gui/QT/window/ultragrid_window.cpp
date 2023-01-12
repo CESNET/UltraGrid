@@ -252,7 +252,6 @@ void UltragridWindow::startStop(){
 		processStatus.setText("UG: Stopping");
 		ui.startButton->setEnabled(false);
 		launchMngr.stop();
-		launchPreview();
 	} else {
 		start();
 	}
@@ -303,6 +302,7 @@ void UltragridWindow::start(){
 
 				} else {
 					processStatus.setText("UG: Stopped");
+					launchPreview();
 				}
 			});
 
