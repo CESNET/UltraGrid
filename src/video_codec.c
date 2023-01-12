@@ -772,6 +772,45 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                 s32++;
                                 d32++;
                         }
+                } else if (codec == R12L) {
+                        uint32_t *s32 = (void *) s;
+                        uint32_t *d32 = (void *) d;
+                        int shift = 0;
+                        uint32_t remain1 = 0;
+                        uint32_t remain2 = 0;
+                        uint32_t out = 0;
+                        for (size_t x = 0; x < src_linesize / 4; ++x) {
+                                uint32_t in1 = *s32;
+                                uint32_t in2 = s32[src_linesize / 4];
+                                if (shift > 0) {
+                                        remain1 = remain1 | (in1 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
+                                        remain2 = remain2 | (in2 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
+                                        uint32_t ret = (remain1 + remain2 + 1) / 2;
+                                        out |= ret << shift;
+                                        *d32 = d32[dst_pitch / 4] = out;
+                                        d32++;
+                                        out = ret >> (32-shift);
+                                        shift = (shift + 12) % 32;
+                                        in1 >>= shift;
+                                        in2 >>= shift;
+                                }
+                                while (shift <= 32 - 12) {
+                                        out |= ((((in1 & 0xfff) + (in2 & 0xfff)) + 1) / 2) << shift;
+                                        in1 >>= 12;
+                                        in2 >>= 12;
+                                        shift += 12;
+                                }
+                                if (shift == 32) {
+                                        *d32 = d32[dst_pitch / 4] = out;
+                                        d32++;
+                                        out = 0;
+                                        shift = 0;
+                                } else {
+                                        remain1 = in1;
+                                        remain2 = in2;
+                                }
+                                s32++;
+                        }
                 } else {
                         return false;
                 }
