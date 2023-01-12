@@ -202,7 +202,7 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
         }
 
         *count = 0;
-        client = libjack->client_open(client_name, JackNullOption, &status);
+        client = libjack->client_open(client_name, JackNoStartServer, &status);
         if(status & JackFailure) {
                 log_msg(LOG_LEVEL_ERROR, "Opening JACK client failed.\n");
                 close_libjack(libjack);
