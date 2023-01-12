@@ -221,36 +221,31 @@ static void perform_df(struct state_df *s, struct video_frame *in, struct video_
         }
 }
 
-static void perform_bob(struct state_df *s, struct video_frame *in, struct video_frame *out, int req_pitch)
+static void perform_bob(struct state_df *s, struct video_frame *in, struct video_frame *out, int pitch)
 {
         int linesize = vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
-        if(in != NULL) {
-                // odd - copy & dup
-                char *src = s->buffers[s->buffer_current];
-                char *dst = out->tiles[0].data;
-                for (unsigned y = 0; y < out->tiles[0].height; y += 2) {
-                        memcpy(dst, src, linesize);
-                        memcpy(dst + req_pitch, src, linesize);
-                        dst += 2 * req_pitch;
-                        src += 2 * linesize;
-                }
-        } else {
-                char *src = s->buffers[s->buffer_current] + linesize;
-                char *dst = out->tiles[0].data;
-                // copy first line up
+        char *dst = out->tiles[0].data;
+        char *src = s->buffers[s->buffer_current] + (in ? 0 : linesize);
+        if (in == NULL) {
+                memcpy(dst, src, linesize); // copy first line up
+                dst += pitch; // then copy every even line to subsequent odd line
+        }
+        unsigned y = in ? 0 : 1;
+        for ( ; y < out->tiles[0].height - 1; y += 2) {
                 memcpy(dst, src, linesize);
-                // tehn copy every even line to subsequent odd line
-                dst += req_pitch;
-                for (unsigned y = 1; y < out->tiles[0].height - 1; y += 2) {
-                        memcpy(dst, src, linesize);
-                        memcpy(dst + req_pitch, src, linesize);
-                        dst += 2 * req_pitch;
-                        src += 2 * linesize;
-                }
+                memcpy(dst + pitch, src, linesize);
+                dst += 2 * pitch;
+                src += 2 * linesize;
+        }
+        if (y < out->tiles[0].height) {
+                memcpy(dst, dst - pitch, linesize);
         }
 }
 
-/// copied from vc_deinterlace_ex
+/// Copied from vc_deinterlace_ex, consider merging but perhaps not needed (vc_deinterlace_ex
+/// has slightly different structure - always averages 2 adjacent lines and
+/// writes the result twice to those. This version also uses GCC generic
+/// vectorization support instead of SSE (performs fast if vector_size==16)
 static bool avg_lines(codec_t codec, size_t linesize, char *src1, char *src2, char *dst)
 {
         char *s1 = (char *) src1;
@@ -367,44 +362,27 @@ static bool avg_lines(codec_t codec, size_t linesize, char *src1, char *src2, ch
         return true;
 }
 
-static void perform_linear(struct state_df *s, struct video_frame *in, struct video_frame *out, int req_pitch)
+static void perform_linear(struct state_df *s, struct video_frame *in, struct video_frame *out, int pitch)
 {
         int linesize = vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
-        if(in != NULL) {
-                // odd - copy & dup
-                char *src = s->buffers[s->buffer_current];
-                char *dst = out->tiles[0].data;
-                unsigned y = 0;
-                for ( ; y < out->tiles[0].height - 2; y += 2) {
-                        memcpy(dst, src, linesize);
-                        if (!avg_lines(out->color_spec, linesize, src, src + 2 * linesize, dst + req_pitch)) {
-                                memcpy(dst + req_pitch, src, linesize); // fallback bob
-                        }
-                        dst += 2 * req_pitch;
-                        src += 2 * linesize;
-                }
-                if (y < out->tiles[0].height) { // last line if nr of lines is even
-                        memcpy(dst - req_pitch, dst - 2 * req_pitch, linesize);
-                }
-        } else {
-                char *src = s->buffers[s->buffer_current] + linesize;
-                char *dst = out->tiles[0].data;
-                // copy first line up
+        char *src = s->buffers[s->buffer_current] + (in ? 0 : linesize);
+        char *dst = out->tiles[0].data;
+        if (in == NULL) {
+                memcpy(dst, src, linesize); // copy first line up
+                dst += pitch; // then copy every even line to subsequent odd line
+        }
+        unsigned y = in ? 0 : 1;
+        for ( ; y < out->tiles[0].height - 2; y += 2) {
                 memcpy(dst, src, linesize);
-                // tehn copy every even line to subsequent odd line
-                dst += req_pitch;
-                unsigned y = 1;
-                for ( ; y < out->tiles[0].height - 2; y += 2) {
-                        memcpy(dst, src, linesize);
-                        if (!avg_lines(out->color_spec, linesize, src, src + 2 * linesize, dst + req_pitch)) {
-                                memcpy(dst + req_pitch, src, linesize); // fallback bob
-                        }
-                        dst += 2 * req_pitch;
-                        src += 2 * linesize;
+                if (!avg_lines(out->color_spec, linesize, src, src + 2 * linesize, dst + pitch)) {
+                        memcpy(dst + pitch, src, linesize); // fallback bob
                 }
-                if (y < out->tiles[0].height) { // last line if nr of lines is even
-                        memcpy(dst - req_pitch, dst - 2 * req_pitch, linesize);
-                }
+                dst += 2 * pitch;
+                src += 2 * linesize;
+        }
+        for ( ; y < out->tiles[0].height; y++) { // last line(s) if needed
+                memcpy(dst, src, linesize);
+                dst += pitch;
         }
 }
 
