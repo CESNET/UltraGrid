@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2022 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,7 @@
 
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
@@ -54,7 +55,10 @@
 #define TIMEOUT "20ms"
 #define DFR_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x27ff0a78
 
+enum algo { DF, BOB };
+
 struct state_df {
+        enum algo algo;
         struct video_frame *in;
         char *buffers[2];
         int buffer_current;
@@ -64,7 +68,7 @@ struct state_df {
         std::chrono::steady_clock::time_point frame_received;
 };
 
-static void usage()
+static void df_usage()
 {
         printf("Usage:\n");
         printf("\t-p double_framerate[:d][:nodelay]\n");
@@ -72,14 +76,11 @@ static void usage()
         printf("\t\tnodelay - do not delay the other frame to keep timing. Both frames are output in burst. May not work correctly (depends on display).\n");
 }
 
-static void * df_init(const char *config) {
+static void * init_common(enum algo algo, const char *config) {
         bool deinterlace = false;
         bool nodelay = false;
 
-        if (strcmp(config, "help") == 0) {
-                usage();
-                return NULL;
-        } else if (strcmp(config, "d") == 0) {
+        if (strcmp(config, "d") == 0) {
                 deinterlace = true;
         } else if (strcmp(config, "nodelay") == 0) {
                 nodelay = true;
@@ -90,6 +91,7 @@ static void * df_init(const char *config) {
 
         struct state_df *s = new state_df{};
         assert(s != NULL);
+        s->algo = algo;
 
         s->in = vf_alloc(1);
         s->buffers[0] = s->buffers[1] = NULL;
@@ -105,7 +107,24 @@ static void * df_init(const char *config) {
         return s;
 }
 
-static bool df_get_property(void *state, int property, void *val, size_t *len)
+static void * df_init(const char *config) {
+        if (strcmp(config, "help") == 0) {
+                df_usage();
+                return NULL;
+        }
+        return init_common(DF, config);
+}
+
+static void * bob_init(const char *config) {
+        if (strcmp(config, "help") == 0) {
+                color_printf("Usage:\n");
+                color_printf("\t" TBOLD(TRED("-p deinterlace_bob")) "\n");
+                return NULL;
+        }
+        return init_common(BOB, config);
+}
+
+static bool common_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -115,7 +134,7 @@ static bool df_get_property(void *state, int property, void *val, size_t *len)
         return false;
 }
 
-static int df_postprocess_reconfigure(void *state, struct video_desc desc)
+static int common_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_df *s = (struct state_df *) state;
         struct tile *in_tile = vf_get_tile(s->in, 0);
@@ -145,7 +164,7 @@ static int df_postprocess_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-static struct video_frame * df_getf(void *state)
+static struct video_frame * common_getf(void *state)
 {
         struct state_df *s = (struct state_df *) state;
 
@@ -155,11 +174,9 @@ static struct video_frame * df_getf(void *state)
         return s->in;
 }
 
-/// @param in  may be NULL
-static bool df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+/// @todo perhaps suboptimal
+static void perform_df(struct state_df *s, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
-        struct state_df *s = (struct state_df *) state;
-
         if(in != NULL) {
                 char *src = s->buffers[(s->buffer_current + 1) % 2] + vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
                 char *dst = out->tiles[0].data + req_pitch;
@@ -193,6 +210,50 @@ static bool df_postprocess(void *state, struct video_frame *in, struct video_fra
                          log_msg_once(LOG_LEVEL_ERROR, DFR_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(out->color_spec));
                 }
         }
+}
+
+static void perform_bob(struct state_df *s, struct video_frame *in, struct video_frame *out, int req_pitch)
+{
+        int linesize = vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
+        if(in != NULL) {
+                // odd - copy & dup
+                char *src = s->buffers[s->buffer_current];
+                char *dst = out->tiles[0].data;
+                for (unsigned y = 1; y < out->tiles[0].height; y += 2) {
+                        memcpy(dst, src, linesize);
+                        memcpy(dst + req_pitch, src, linesize);
+                        dst += 2 * req_pitch;
+                        src += 2 * linesize;
+                }
+        } else {
+                char *src = s->buffers[s->buffer_current] + linesize;
+                char *dst = out->tiles[0].data;
+                // copy first line up
+                memcpy(dst, src, linesize);
+                // tehn copy every even line to subsequent odd line
+                dst += 2 * req_pitch;
+                for (unsigned y = 2; y < out->tiles[0].height; y += 2) {
+                        memcpy(dst, src, linesize);
+                        memcpy(dst + req_pitch, src, linesize);
+                        dst += 2 * req_pitch;
+                        src += 2 * linesize;
+                }
+        }
+}
+
+/// @param in  may be NULL
+static bool common_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+{
+        struct state_df *s = (struct state_df *) state;
+
+        switch (s->algo) {
+                case DF:
+                        perform_df(s, in, out, req_pitch);
+                        break;
+                case BOB:
+                        perform_bob(s, in, out, req_pitch);
+                        break;
+        }
 
         if (!s->nodelay) {
                 // In following code we fix timing in order not to pass both frames
@@ -210,7 +271,7 @@ static bool df_postprocess(void *state, struct video_frame *in, struct video_fra
         return true;
 }
 
-static void df_done(void *state)
+static void common_done(void *state)
 {
         struct state_df *s = (struct state_df *) state;
         
@@ -220,7 +281,7 @@ static void df_done(void *state)
         delete s;
 }
 
-static void df_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
+static void common_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_df *s = (struct state_df *) state;
 
@@ -237,13 +298,24 @@ static void df_get_out_desc(void *state, struct video_desc *out, int *in_display
 
 static const struct vo_postprocess_info vo_pp_df_info = {
         df_init,
-        df_postprocess_reconfigure,
-        df_getf,
-        df_get_out_desc,
-        df_get_property,
-        df_postprocess,
-        df_done,
+        common_postprocess_reconfigure,
+        common_getf,
+        common_get_out_desc,
+        common_get_property,
+        common_postprocess,
+        common_done,
+};
+
+static const struct vo_postprocess_info vo_pp_bob_info = {
+        bob_init,
+        common_postprocess_reconfigure,
+        common_getf,
+        common_get_out_desc,
+        common_get_property,
+        common_postprocess,
+        common_done,
 };
 
 REGISTER_MODULE(double_framerate, &vo_pp_df_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(deinterlace_bob, &vo_pp_bob_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 
