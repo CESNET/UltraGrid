@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <cstring>
 #include "available_settings.hpp"
+#include "utils/string_view_utils.hpp"
 
 #include <iostream>
 #include <map>
@@ -33,7 +34,7 @@ static QString getProcessOutput(const std::string& executable, const QStringList
 
 struct {
 	SettingType type;
-	const char *capStr;
+	std::string_view capStr;
 } modulesQueryInfo[] = {
 	{VIDEO_SRC, "[cap][capture] "},
 	{VIDEO_DISPLAY, "[cap][display] "}, 
@@ -44,30 +45,59 @@ struct {
 	{AUDIO_COMPRESS, "[cap][audio_compress] "},
 };
 
-void AvailableSettings::queryProcessLine(const QString& line, bool *endMarker){
+void AvailableSettings::queryProcessLine(std::string_view line){
 	for(const auto& i : modulesQueryInfo){
-		if(line.startsWith(i.capStr)){
-			available[i.type].push_back(line.mid(strlen(i.capStr)).toStdString());
+		if(sv_is_prefix(line, i.capStr)){
+			auto mod = line.substr(i.capStr.size());
+			auto cutIdx = mod.find_first_of("\n \r");
+			if(cutIdx != mod.npos)
+				mod.remove_suffix(mod.size() - cutIdx);
+			available[i.type].emplace_back(mod);
 			return;
 		}
 	}
 
-	const char * const devStr = "[capability][device]";
-	const char * const codecStr = "[capability][video_compress]";
-	const char * const endMarkerStr = "[capability][end]";
+	constexpr std::string_view devStr = "[capability][device]";
+	constexpr std::string_view codecStr = "[capability][video_compress]";
+	constexpr std::string_view endMarkerStr = "[capability][end]";
 
-	if(line.startsWith(devStr)){
-		queryDevice(line, strlen(devStr));
-	} else if(line.startsWith(codecStr)){
-		queryVideoCompress(line, strlen(codecStr));
-	} else if(line.startsWith(endMarkerStr)){
-		*endMarker = true;
+	if(sv_is_prefix(line, devStr)){
+		line.remove_prefix(devStr.size());
+		queryDevice(line);
+	} else if(sv_is_prefix(line, codecStr)){
+		line.remove_prefix(codecStr.size());
+		queryVideoCompress(line);
+	} else if(sv_is_prefix(line, endMarkerStr)){
+		endMarkerFound = true;
 	}
 }
 
-void AvailableSettings::queryFromString(const QString &string){
-	QStringList lines = string.split(QRegularExpression("\n|\r\n|\r"));
+void AvailableSettings::parseStateVersion(std::string_view line){
+	int ver = 0;
+	std::string_view verStr = "[capability][start] version ";
 
+	if(sv_is_prefix(line, verStr)){
+		line.remove_prefix(verStr.size());
+		parse_num(line, ver);
+
+		const int expectedVersion = 4;
+		if(ver != expectedVersion){
+			QMessageBox msgBox;
+			QString msg = "Capabilities start marker with expected version not found"
+				" in ug output.";
+			if(ver != 0)
+				msg += " Version found: " + QString::number(ver);
+			msgBox.setText(msg);
+			msgBox.setIcon(QMessageBox::Critical);
+			msgBox.exec();
+			parseFunc = nullptr;
+		} else {
+			parseFunc = &AvailableSettings::queryProcessLine;
+		}
+	}
+}
+
+void AvailableSettings::queryBegin(){
 	for(const auto& i : modulesQueryInfo){
 		available[i.type].clear();
 	}
@@ -79,37 +109,11 @@ void AvailableSettings::queryFromString(const QString &string){
 	videoCompressModules.emplace_back(CompressModule{"", {}, });
 	videoCompressCodecs.emplace_back(Codec{"None", "", {Encoder{"default", ""}}, 0});
 
-	int i;
-	int ver = 0;
-	const char *verStr = "[capability][start] version ";
-	for(i = 0; i < lines.size(); i++){
-		if(lines[i].startsWith(verStr)){
-			ver = lines[i].mid(strlen(verStr)).toInt();
-			break;
-		}
-	}
+	endMarkerFound = false;
+	parseFunc = &AvailableSettings::parseStateVersion;
+}
 
-	const int expectedVersion = 4;
-	if(ver != expectedVersion){
-		QMessageBox msgBox;
-		QString msg = "Capabilities start marker with expected version not found"
-				" in ug output.";
-		if(ver != 0)
-			msg += " Version found: " + QString::number(ver);
-		msgBox.setText(msg);
-		msgBox.setIcon(QMessageBox::Critical);
-		msgBox.exec();
-		return;
-	}
-
-	bool endMarkerFound = false;
-	for(; i < lines.size(); i++) {
-		queryProcessLine(lines[i], &endMarkerFound);
-
-		if(endMarkerFound)
-			break;
-	}
-
+void AvailableSettings::queryEnd(){
 	if(!endMarkerFound){
 		QMessageBox msgBox;
 		msgBox.setText("Capabilities end marker not found in ug output."
@@ -122,6 +126,26 @@ void AvailableSettings::queryFromString(const QString &string){
 			[](const Codec& a, const Codec& b){
 				return a.priority < b.priority;
 			});
+}
+
+void AvailableSettings::queryLine(std::string_view line){
+	if(!parseFunc || (!sv_is_prefix(line, "[cap]") && !sv_is_prefix(line, "[capability]")))
+		return;
+
+	(this->*parseFunc)(line);
+}
+
+void AvailableSettings::queryFromString(const QString &string){
+	QStringList lines = string.split(QRegularExpression("\n|\r\n|\r"));
+
+	queryBegin();
+
+	for(int i = 0; i < lines.size(); i++){
+		auto stdStr = lines[i].toStdString();
+		queryLine(stdStr);
+	}
+
+	queryEnd();
 }
 
 static void maybeWriteString (const QJsonObject& obj,
@@ -138,8 +162,8 @@ void AvailableSettings::queryAll(const std::string &executable){
 	queryFromString(output);
 }
 
-void AvailableSettings::queryVideoCompress(const QString &line, size_t offset){
-	QJsonDocument doc = QJsonDocument::fromJson(line.mid(offset).toUtf8());
+void AvailableSettings::queryVideoCompress(std::string_view line){
+	QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromRawData(line.data(), line.size()));
 	if(!doc.isObject())
 		return;
 
@@ -198,7 +222,7 @@ void AvailableSettings::queryVideoCompress(const QString &line, size_t offset){
 	videoCompressModules.emplace_back(std::move(compMod));
 }
 
-void AvailableSettings::queryDevice(const QString &line, size_t offset){
+void AvailableSettings::queryDevice(std::string_view line){
 	static std::map<std::string, SettingType> settingTypeMap = {
 		{"video_cap", VIDEO_SRC},
 		{"video_disp", VIDEO_DISPLAY},
@@ -206,7 +230,7 @@ void AvailableSettings::queryDevice(const QString &line, size_t offset){
 		{"audio_cap", AUDIO_SRC},
 	};
 
-	QJsonDocument doc = QJsonDocument::fromJson(line.mid(offset).toUtf8());
+	QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromRawData(line.data(), line.size()));
 	if(!doc.isObject())
 		return;
 

@@ -133,7 +133,6 @@ void UltragridWindow::launchQuery(){
 	ctx->type = LaunchContext::Type::Query;
 
 	struct QueryData : public LaunchContext::ExtraData{
-		QString output;
 		QLabel queryMsg = QLabel("Querying UltraGrid capabilities...");
 	};
 
@@ -146,6 +145,7 @@ void UltragridWindow::launchQuery(){
 				ui.statusbar->addWidget(&extraPtr->queryMsg);
 				ui.startButton->setEnabled(false);
 				ui.startButton->setText("Querying...");
+				availableSettings.queryBegin();
 			});
 
 	connect(ctx.get(), &LaunchContext::processTerminated,
@@ -158,17 +158,15 @@ void UltragridWindow::launchQuery(){
 					ui.statusbar->showMessage("Capabilities querying failed!");
 				}
 
-				log.write(extraPtr->output);
-
-				availableSettings.queryFromString(extraPtr->output);
+				availableSettings.queryEnd();
 				settings.populateSettingsFromCapabilities(&availableSettings);
 				settingsUi.refreshAll();
 				checkPreview();
 				launchPreview();
 			});
 
-	connect(ctx.get(), &LaunchContext::processOutputRead,
-			[=](QString str) { extraPtr->output += str; });
+	connect(ctx.get(), &LaunchContext::processOutputLine,
+			[=](std::string_view line) { availableSettings.queryLine(line); });
 
 	launchMngr.launch(std::move(ctx));
 }

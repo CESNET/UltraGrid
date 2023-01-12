@@ -2,6 +2,7 @@
 #define AVAILABLE_SETTINGS_HPP
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <map>
 #include <QStringList>
@@ -71,11 +72,12 @@ struct CompressModule{
 
 class AvailableSettings{
 public:
-	void queryDevice(const QString &line, size_t offset);
-	void queryVideoCompress(const QString &line, size_t offset);
-
 	void queryAll(const std::string &executable);
 	void queryFromString(const QString &string);
+
+	void queryBegin();
+	void queryLine(std::string_view line);
+	void queryEnd();
 
 	bool isAvailable(const std::string &name, SettingType type) const;
 	std::vector<std::string> getAvailableSettings(SettingType type) const;
@@ -92,12 +94,21 @@ public:
 
 private:
 
-	void queryProcessLine(const QString& line, bool *endMarker = nullptr);
+	void queryProcessLine(std::string_view line);
+	void queryDevice(std::string_view line);
+	void queryVideoCompress(std::string_view line);
+
+	void parseStateVersion(std::string_view line);
+	//void parseStateParse(std::string_view line);
+
+	void (AvailableSettings::*parseFunc)(std::string_view str) = nullptr;
 
 	std::vector<std::string> available[SETTING_TYPE_COUNT];
 	std::vector<Device> devices[SETTING_TYPE_COUNT];
 	std::vector<CompressModule> videoCompressModules;
 	std::vector<Codec> videoCompressCodecs;
+
+	bool endMarkerFound = false;
 
 };
 
