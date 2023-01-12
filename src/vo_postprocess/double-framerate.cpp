@@ -55,7 +55,7 @@
 #define TIMEOUT "20ms"
 #define DFR_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x27ff0a78
 
-enum algo { DF, BOB };
+enum algo { DF, BOB, LINEAR };
 
 struct state_df {
         enum algo algo;
@@ -122,6 +122,15 @@ static void * bob_init(const char *config) {
                 return NULL;
         }
         return init_common(BOB, config);
+}
+
+static void * linear_init(const char *config) {
+        if (strcmp(config, "help") == 0) {
+                color_printf("Usage:\n");
+                color_printf("\t" TBOLD(TRED("-p deinterlace_linear")) "\n");
+                return NULL;
+        }
+        return init_common(LINEAR, config);
 }
 
 static bool common_get_property(void *state, int property, void *val, size_t *len)
@@ -219,7 +228,7 @@ static void perform_bob(struct state_df *s, struct video_frame *in, struct video
                 // odd - copy & dup
                 char *src = s->buffers[s->buffer_current];
                 char *dst = out->tiles[0].data;
-                for (unsigned y = 1; y < out->tiles[0].height; y += 2) {
+                for (unsigned y = 0; y < out->tiles[0].height; y += 2) {
                         memcpy(dst, src, linesize);
                         memcpy(dst + req_pitch, src, linesize);
                         dst += 2 * req_pitch;
@@ -231,12 +240,170 @@ static void perform_bob(struct state_df *s, struct video_frame *in, struct video
                 // copy first line up
                 memcpy(dst, src, linesize);
                 // tehn copy every even line to subsequent odd line
-                dst += 2 * req_pitch;
-                for (unsigned y = 2; y < out->tiles[0].height; y += 2) {
+                dst += req_pitch;
+                for (unsigned y = 1; y < out->tiles[0].height - 1; y += 2) {
                         memcpy(dst, src, linesize);
                         memcpy(dst + req_pitch, src, linesize);
                         dst += 2 * req_pitch;
                         src += 2 * linesize;
+                }
+        }
+}
+
+/// copied from vc_deinterlace_ex
+static bool avg_lines(codec_t codec, size_t linesize, char *src1, char *src2, char *dst)
+{
+        char *s1 = (char *) src1;
+        char *s2 = (char *) src2;
+        char *d = (char *) dst;
+        if (is_codec_opaque(codec) && codec_is_planar(codec)) {
+                return false;
+        }
+        int bpp = get_bits_per_component(codec);
+        if (bpp == 8 || bpp == 16) {
+                size_t x = 0;
+                if (bpp == 8) {
+                        typedef unsigned char v16uc __attribute__ ((vector_size (16)));
+                        for ( ; x < linesize / 16; ++x) {
+                                v16uc i1, i2;
+                                memcpy(&i1, s1, sizeof i1);
+                                memcpy(&i2, s2, sizeof i2);
+                                v16uc res = ((i1 / 2) + (i2 / 2) + (i1 % 2 + i1 % 2) / 2);
+                                memcpy(d, &res, sizeof res);
+                                s1 += 16;
+                                s2 += 16;
+                                d += 16;
+                        }
+                } else {
+                        typedef unsigned short v16us __attribute__ ((vector_size (16)));
+                        for ( ; x < linesize / 16; ++x) {
+                                v16us i1, i2;
+                                memcpy(&i1, s1, sizeof i1);
+                                memcpy(&i2, s2, sizeof i2);
+                                v16us res = ((i1 / 2) + (i2 / 2) + (i1 % 2 + i1 % 2) / 2);
+                                memcpy(d, &res, sizeof res);
+                                s1 += 16;
+                                s2 += 16;
+                                d += 16;
+                        }
+                }
+                x *= 16;
+                if (bpp  == 8) {
+                        for ( ; x < linesize; ++x) {
+                                *d++ = (*s1++ + *s2++ + 1) >> 1;
+                        }
+                } else {
+                        uint16_t *d16 = (uint16_t *) d;
+                        uint16_t *s16_1 = (uint16_t *) s1;
+                        uint16_t *s16_2 = (uint16_t *) s2;
+                        for ( ; x < linesize / 2; ++x) {
+                                *d16++ = (*s16_1++ + *s16_2++ + 1) >> 1;
+                        }
+                }
+        } else if (codec == v210) {
+                uint32_t *s32_1 = (uint32_t *) s1;
+                uint32_t *s32_2 = (uint32_t *) s2;
+                uint32_t *d32 = (uint32_t *) d;
+                for (size_t x = 0; x < linesize / 4; ++x) {
+                        uint32_t v1 = *s32_1++;
+                        uint32_t v2 = *s32_2++;
+                        *d32++ =
+                                (((v1 >> 20        ) + (v2 >> 20        ) + 1) / 2) << 20 |
+                                (((v1 >> 10 & 0x3ff) + (v2 >> 10 & 0x3ff) + 1) / 2) << 10 |
+                                (((v1       & 0x3ff) + (v2       & 0x3ff) + 1) / 2);
+                }
+        } else if (codec == R10k) {
+                uint32_t *s32_1 = (uint32_t *) s1;
+                uint32_t *s32_2 = (uint32_t *) s2;
+                uint32_t *d32 = (uint32_t *) d;
+                for (size_t x = 0; x < linesize / 4; ++x) {
+                        uint32_t v1 = ntohl(*s32_1++);
+                        uint32_t v2 = ntohl(*s32_2++);
+                        *d32++ =
+                                (((v1 >> 22        ) + (v2 >> 22        ) + 1) / 2) << 22 |
+                                (((v1 >> 12 & 0x3ff) + (v2 >> 12 & 0x3ff) + 1) / 2) << 12 |
+                                (((v1 >>  2 & 0x3ff) + (v2 >>  2 & 0x3ff) + 1) / 2) << 2;
+                }
+        } else if (codec == R12L) {
+                uint32_t *s32_1 = (uint32_t *) s1;
+                uint32_t *s32_2 = (uint32_t *) s2;
+                uint32_t *d32 = (uint32_t *) d;
+                int shift = 0;
+                uint32_t remain1 = 0;
+                uint32_t remain2 = 0;
+                uint32_t out = 0;
+                for (size_t x = 0; x < linesize / 4; ++x) {
+                        uint32_t in1 = *s32_1++;
+                        uint32_t in2 = *s32_2++;
+                        if (shift > 0) {
+                                remain1 = remain1 | (in1 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
+                                remain2 = remain2 | (in2 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
+                                uint32_t ret = (remain1 + remain2 + 1) / 2;
+                                out |= ret << shift;
+                                *d32++ = out;
+                                out = ret >> (32-shift);
+                                shift = (shift + 12) % 32;
+                                in1 >>= shift;
+                                in2 >>= shift;
+                        }
+                        while (shift <= 32 - 12) {
+                                out |= ((((in1 & 0xfff) + (in2 & 0xfff)) + 1) / 2) << shift;
+                                in1 >>= 12;
+                                in2 >>= 12;
+                                shift += 12;
+                        }
+                        if (shift == 32) {
+                                *d32++ = out;
+                                out = 0;
+                                shift = 0;
+                        } else {
+                                remain1 = in1;
+                                remain2 = in2;
+                        }
+                }
+        } else {
+                return false;
+        }
+        return true;
+}
+
+static void perform_linear(struct state_df *s, struct video_frame *in, struct video_frame *out, int req_pitch)
+{
+        int linesize = vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
+        if(in != NULL) {
+                // odd - copy & dup
+                char *src = s->buffers[s->buffer_current];
+                char *dst = out->tiles[0].data;
+                unsigned y = 0;
+                for ( ; y < out->tiles[0].height - 2; y += 2) {
+                        memcpy(dst, src, linesize);
+                        if (!avg_lines(out->color_spec, linesize, src, src + 2 * linesize, dst + req_pitch)) {
+                                memcpy(dst + req_pitch, src, linesize); // fallback bob
+                        }
+                        dst += 2 * req_pitch;
+                        src += 2 * linesize;
+                }
+                if (y < out->tiles[0].height) { // last line if nr of lines is even
+                        memcpy(dst - req_pitch, dst - 2 * req_pitch, linesize);
+                }
+        } else {
+                char *src = s->buffers[s->buffer_current] + linesize;
+                char *dst = out->tiles[0].data;
+                // copy first line up
+                memcpy(dst, src, linesize);
+                // tehn copy every even line to subsequent odd line
+                dst += req_pitch;
+                unsigned y = 1;
+                for ( ; y < out->tiles[0].height - 2; y += 2) {
+                        memcpy(dst, src, linesize);
+                        if (!avg_lines(out->color_spec, linesize, src, src + 2 * linesize, dst + req_pitch)) {
+                                memcpy(dst + req_pitch, src, linesize); // fallback bob
+                        }
+                        dst += 2 * req_pitch;
+                        src += 2 * linesize;
+                }
+                if (y < out->tiles[0].height) { // last line if nr of lines is even
+                        memcpy(dst - req_pitch, dst - 2 * req_pitch, linesize);
                 }
         }
 }
@@ -252,6 +419,9 @@ static bool common_postprocess(void *state, struct video_frame *in, struct video
                         break;
                 case BOB:
                         perform_bob(s, in, out, req_pitch);
+                        break;
+                case LINEAR:
+                        perform_linear(s, in, out, req_pitch);
                         break;
         }
 
@@ -316,6 +486,17 @@ static const struct vo_postprocess_info vo_pp_bob_info = {
         common_done,
 };
 
+static const struct vo_postprocess_info vo_pp_linear_info = {
+        linear_init,
+        common_postprocess_reconfigure,
+        common_getf,
+        common_get_out_desc,
+        common_get_property,
+        common_postprocess,
+        common_done,
+};
+
 REGISTER_MODULE(double_framerate, &vo_pp_df_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 REGISTER_MODULE(deinterlace_bob, &vo_pp_bob_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(deinterlace_linear, &vo_pp_linear_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 
