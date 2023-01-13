@@ -592,7 +592,7 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                 parsed->control_connection_type = atoi(strchr(item, ':') + 1);
             }
         } else if(strcmp(argv[start_index], "--capabilities") == 0) {
-            print_capabilities(NULL, false);
+            print_capabilities();
             return 1;
         } else if(strcmp(argv[start_index], "--blend") == 0) {
             parsed->out_conf.mode = BLEND;

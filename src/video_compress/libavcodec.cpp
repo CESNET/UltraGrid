@@ -519,46 +519,6 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         return 0;
 }
 
-static list<compress_preset> get_libavcodec_presets() {
-        list<compress_preset> ret;
-#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
-        avcodec_register_all();
-#endif
-
-        static auto get_0_096 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);};
-        static auto get_0_193 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);};
-        static auto get_0_289 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);};
-
-        if (avcodec_find_encoder_by_name("libx264")) {
-                ret.push_back({"encoder=libx264:bpp=0.096", 20, get_0_096, {25, 1.5, 0}, {15, 1, 0}});
-                ret.push_back({"encoder=libx264:bpp=0.193", 30, get_0_193, {28, 1.5, 0}, {20, 1, 0}});
-                ret.push_back({"encoder=libx264:bpp=0.289", 50, get_0_289, {30, 1.5, 0}, {25, 1, 0}});
-        }
-        // NVENC and MJPEG are disabled in order not to be chosen by CoUniverse.
-        // Enable if needed (also possible to add H.265 etc).
-#if 0
-        AVCodec *codec;
-        if ((codec = avcodec_find_encoder_by_name("nvenc_h264"))) {
-                AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
-                assert(codec_ctx);
-                codec_ctx->pix_fmt = AV_PIX_FMT_NV12;
-                codec_ctx->width = 1920;
-                codec_ctx->height = 1080;
-                if (avcodec_open2(codec_ctx, codec, NULL) == 0) {
-                        ret.push_back({"encoder=nvenc_h264:bpp=0.096", 20, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.096);}, {25, 0, 0.2}, {15, 1, 0}});
-                        ret.push_back({"encoder=nvenc_h264:bpp=0.193", 30, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.193);}, {28, 0, 0.2}, {20, 1, 0}});
-                        ret.push_back({"encoder=nvenc_h264:bitrate=0.289", 50, [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.289);}, {30, 0, 0.2}, {25, 1, 0}});
-                }
-                avcodec_free_context(&codec_ctx);
-        }
-#endif
-#if 0
-        ret.push_back({ "codec=MJPEG", 35, 50*1000*1000, {20, 0.75, 0}, {10, 0.5, 0}});
-#endif
-
-        return ret;
-}
-
 static compress_module_info get_libavcodec_module_info(){
         compress_module_info module_info;
         module_info.name = "libavcodec";
@@ -2076,7 +2036,6 @@ const struct video_compress_info libavcodec_info = {
         NULL,
         NULL,
         NULL,
-        get_libavcodec_presets,
         get_libavcodec_module_info,
 };
 

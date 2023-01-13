@@ -512,12 +512,6 @@ static std::shared_ptr<video_frame> cineform_compress_pop(struct module *state)
         return out;
 }
 
-
-static std::list<compress_preset> get_cineform_presets() {
-        std::list<compress_preset> ret;
-        return ret;
-}
-
 static compress_module_info get_cineform_module_info(){
         compress_module_info module_info;
         module_info.name = "cineform";
@@ -546,7 +540,6 @@ const struct video_compress_info cineform_info = {
         NULL,
         cineform_compress_push,
         cineform_compress_pop,
-        get_cineform_presets,
         get_cineform_module_info,
 };
 

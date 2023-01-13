@@ -68,7 +68,7 @@
 
 #include "types.h"
 
-#define VIDEO_COMPRESS_ABI_VERSION 8
+#define VIDEO_COMPRESS_ABI_VERSION 9
 
 #ifdef __cplusplus
 extern "C" {
@@ -168,21 +168,6 @@ typedef void (*compress_tile_async_push_t)(struct module *state, std::shared_ptr
  */
 typedef  std::shared_ptr<video_frame> (*compress_tile_async_pop_t)(struct module *state);
 
-
-struct compress_preset {
-        struct compress_prop {
-                int latency; // ms
-                double cpu_cores;
-                double gpu_gflops;
-        };
-
-        std::string name;
-        int quality;
-        long (*compute_bitrate)(const struct video_desc *);
-        compress_prop enc_prop;
-        compress_prop dec_prop;
-};
-
 struct module_option{
         std::string display_name; //Name displayed to user
         std::string display_desc; //Description displayed to user
@@ -237,12 +222,6 @@ struct video_compress_info {
 
         compress_tile_async_push_t compress_tile_async_push_func; ///< Async tile API
         compress_tile_async_pop_t compress_tile_async_pop_func; ///< Async tile API
-
-        /**
-         * @brief list of available presets
-         * Optional - currently not used
-         */
-        std::list<compress_preset> (*get_presets)();
 
         compress_module_info (*get_module_info)();
 };

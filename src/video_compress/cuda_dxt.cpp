@@ -295,7 +295,6 @@ const struct video_compress_info cuda_dxt_info = {
         NULL,
         NULL,
         NULL,
-        [] { return list<compress_preset>{}; },
         NULL
 };
 

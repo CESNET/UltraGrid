@@ -391,39 +391,11 @@ struct init_data *common_preinit(int argc, char *argv[])
         return init;
 }
 
-/**
- * @param use_vidcap Try to capture video signal to adjust compress information
- *                   (preset bitrates according to the signal. The code can be
- *                   safely removed (only used by CoUniverse, not GUI).
- */
-void print_capabilities(struct module *root, bool use_vidcap)
+void print_capabilities()
 {
         auto flags = cout.flags();
         auto precision = cout.precision();
 
-        // try to figure out actual input video format
-        struct video_desc desc{};
-        if (use_vidcap && root) {
-                // try 30x in 100 ms intervals
-                for (int attempt = 0; attempt < 30; ++attempt) {
-                        auto t0 = std::chrono::steady_clock::now();
-                        struct msg_sender *m = (struct msg_sender *) new_message(sizeof(struct msg_sender));
-                        m->type = SENDER_MSG_QUERY_VIDEO_MODE;
-                        struct response *r = send_message_sync(root, "sender", (struct message *) m, 100, 0);
-                        if (response_get_status(r) == RESPONSE_OK) {
-                                const char *text = response_get_text(r);
-                                istringstream iss(text);
-                                iss >> desc;
-                                free_response(r);
-                                break;
-                        }
-                        free_response(r);
-                        auto query_lasted = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0);
-                        // wait some time (100 ms - time of the last query) in order to
-                        // the signal to "settle"
-                        usleep(max<int>(100,query_lasted.count())*1000);
-                }
-        }
         cout << "[capability][start] version 4" << endl;
         // compressions
         cout << "[cap] Compressions:" << endl;
@@ -431,15 +403,7 @@ void print_capabilities(struct module *root, bool use_vidcap)
 
         for (auto const &it : compressions) {
                 auto vci = static_cast<const struct video_compress_info *>(it.second);
-                auto presets = vci->get_presets();
                 cout << "[cap][compress] " << it.first << std::endl;
-                for (auto const & it : presets) {
-                        cout << "[cap] (" << vci->name << (it.name.empty() ? "" : ":") <<
-                                it.name << ";" << it.quality << ";" << setiosflags(ios_base::fixed) << setprecision(2) << it.compute_bitrate(&desc) << ";" <<
-                                it.enc_prop.latency << ";" << it.enc_prop.cpu_cores << ";" << it.enc_prop.gpu_gflops << ";" <<
-                                it.dec_prop.latency << ";" << it.dec_prop.cpu_cores << ";" << it.dec_prop.gpu_gflops <<
-                                ")\n";
-                }
 
                 if(vci->get_module_info){
                         auto module_info = vci->get_module_info();

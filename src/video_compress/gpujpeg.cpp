@@ -671,17 +671,6 @@ start:
         }
 }
 
-static auto gpujpeg_get_presets() {
-        static auto compute_bw60 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.68);};
-        static auto compute_bw80 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 0.87);};
-        static auto compute_bw90 = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 1.54);};
-        return gpujpeg_init_device(cuda_devices[0], TRUE) == 0 ? list<compress_preset>{
-                { "60", 60, compute_bw60, {10, 0.6, 75}, {10, 0.6, 75} },
-                { "80", 70, compute_bw80, {12, 0.6, 90}, {15, 0.6, 100} },
-                { "90", 80, compute_bw90, {15, 0.6, 100}, {20, 0.6, 150} },
-        } : list<compress_preset>{};
-}
-
 static compress_module_info get_gpujpeg_module_info(){
         compress_module_info module_info;
         module_info.name = "gpujpeg";
@@ -720,7 +709,6 @@ const struct video_compress_info gpujpeg_info = {
         gpujpeg_compress_pull,
         NULL,
         NULL,
-        gpujpeg_get_presets,
         get_gpujpeg_module_info
 };
 
@@ -738,9 +726,6 @@ const struct video_compress_info deprecated_jpeg_info = {
         gpujpeg_compress_pull,
         NULL,
         NULL,
-        [] {
-                return list<compress_preset>{};
-        },
         NULL
 };
 

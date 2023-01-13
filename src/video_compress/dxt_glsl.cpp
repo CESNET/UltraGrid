@@ -210,17 +210,6 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         return TRUE;
 }
 
-static bool dxt_is_supported()
-{
-        struct gl_context gl_context;
-        if (!init_gl_context(&gl_context, GL_CONTEXT_ANY)) {
-                return false;
-        } else {
-                destroy_gl_context(&gl_context);
-                return true;
-        }
-}
-
 struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
 {
         struct state_video_compress_rtdxt *s;
@@ -331,18 +320,6 @@ static void dxt_glsl_compress_done(struct module *mod)
         delete s;
 }
 
-static auto dxt_glsl_compress_get_presets()
-{
-        static auto compute_dxt1_bitrate = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 4.0);};
-        static auto compute_dxt5_bitrate = [](const struct video_desc *d){return (long)(d->width * d->height * d->fps * 8.0);};
-                return dxt_is_supported() ? list<compress_preset>{
-                        { "DXT1", 35, compute_dxt1_bitrate,
-                                {75, 0.3, 25}, {15, 0.1, 10} },
-                        { "DXT5", 50, compute_dxt5_bitrate,
-                                {75, 0.3, 35}, {15, 0.1, 20} },
-                } : list<compress_preset>{};
-}
-
 const struct video_compress_info rtdxt_info = {
         "RTDXT",
         dxt_glsl_compress_init,
@@ -352,7 +329,6 @@ const struct video_compress_info rtdxt_info = {
         NULL,
         NULL,
         NULL,
-        dxt_glsl_compress_get_presets,
         NULL
 };
 

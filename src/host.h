@@ -130,12 +130,7 @@ struct init_data;
 struct init_data *common_preinit(int argc, char *argv[]);
 void common_cleanup(struct init_data *init_data);
 
-/**
- * @param use_vidcap Use user suplied video capture device to elaborate input format.
- *                   This is used to adjust compression bitrate to correspond detected
- *                   input video format.
- */
-void print_capabilities(struct module *root, bool use_vidcap);
+void print_capabilities();
 
 const char *get_version_details(void);
 void print_version(void);
