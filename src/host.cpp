@@ -393,9 +393,6 @@ struct init_data *common_preinit(int argc, char *argv[])
 
 void print_capabilities()
 {
-        auto flags = cout.flags();
-        auto precision = cout.precision();
-
         cout << "[capability][start] version 4" << endl;
         // compressions
         cout << "[cap] Compressions:" << endl;
@@ -534,9 +531,6 @@ void print_capabilities()
         }
 
         cout << "[capability][end]" << endl;
-
-        cout.flags(flags);
-        cout.precision(precision);
 }
 
 const char *get_version_details()
