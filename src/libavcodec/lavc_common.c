@@ -219,13 +219,21 @@ static void av_log_ug_callback(void *avcl, int av_level, const char *fmt, va_lis
         if (av_log_filter(ff_module_name, fmt)) {
                 return;
         }
+        static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+        static _Bool nl_presented = 1;
         char new_fmt[1024];
-        if (ff_module_name) {
-                snprintf(new_fmt, sizeof new_fmt, "[lavc %s @ %p] %s", ff_module_name, avcl, fmt);
-        } else {
-                snprintf(new_fmt, sizeof new_fmt, "[lavc] %s", fmt);
+        pthread_mutex_lock(&lock);
+        if (nl_presented) {
+                if (ff_module_name) {
+                        snprintf(new_fmt, sizeof new_fmt, "[lavc %s @ %p] %s", ff_module_name, avcl, fmt);
+                } else {
+                        snprintf(new_fmt, sizeof new_fmt, "[lavc] %s", fmt);
+                }
+                fmt = new_fmt;
         }
-        log_vprintf(level, new_fmt, vl);
+        nl_presented = fmt[strlen(fmt) - 1] == '\n';
+        log_vprintf(level, fmt, vl);
+        pthread_mutex_unlock(&lock);
 }
 
 ADD_TO_PARAM("lavcd-log-level",
