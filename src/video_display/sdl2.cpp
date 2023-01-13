@@ -119,7 +119,7 @@ struct state_sdl2 {
         SDL_Texture            *texture{nullptr};
 
         bool                    fs{false};
-        bool                    deinterlace{false};
+        enum class deint { off, on, force } deinterlace = deint::off;
         bool                    keep_aspect{false};
         bool                    vsync{true};
         bool                    fixed_size{false};
@@ -150,6 +150,14 @@ struct state_sdl2 {
         ~state_sdl2() {
                 module_done(&mod);
         }
+        static const char *deint_to_string(deint val) {
+                switch (val) {
+                        case deint::off: return "OFF";
+                        case deint::on: return "ON";
+                        case deint::force: return "FORCE";
+                }
+                return NULL;
+        }
 };
 
 static constexpr array display_sdl2_keybindings{
@@ -169,7 +177,7 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
                 }
         }
 
-        if (!s->deinterlace) {
+        if (s->deinterlace == state_sdl2::deint::off || (s->deinterlace == state_sdl2::deint::on && frame->interlacing != INTERLACED_MERGED)) {
                 int pitch;
                 if (codec_is_planar(frame->color_spec)) {
                         pitch = frame->tiles[0].width;
@@ -248,9 +256,9 @@ static bool display_sdl2_process_key(struct state_sdl2 *s, int64_t key)
 {
         switch (key) {
         case 'd':
-                s->deinterlace = !s->deinterlace;
+                s->deinterlace = s->deinterlace == state_sdl2::deint::off ? state_sdl2::deint::on : state_sdl2::deint::off;
                 log_msg(LOG_LEVEL_INFO, "Deinterlacing: %s\n",
-                                s->deinterlace ? "ON" : "OFF");
+                                state_sdl2::deint_to_string(s->deinterlace));
                 return true;
         case 'f':
                 s->fs = !s->fs;
@@ -358,7 +366,7 @@ static void show_help(void)
         printf("SDL options:\n");
         cout << style::bold << fg::red << "\t-d sdl" << fg::reset << "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>|:keep-aspect]*|:help]\n" << style::reset;
         printf("\twhere:\n");
-        cout << style::bold <<"\t\t       d" << style::reset << " - deinterlace\n";
+        cout << style::bold <<"\t\td[force]" << style::reset << " - deinterlace (force even for progresive video)\n";
         cout << style::bold <<"\t\t      fs" << style::reset << " - fullscreen\n";
         cout << style::bold <<"\t\t  <didx>" << style::reset << " - display index, available indices: ";
         sdl2_print_displays();
@@ -390,6 +398,10 @@ static void show_help(void)
 static int display_sdl2_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sdl2 *s = (struct state_sdl2 *) state;
+
+        if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == state_sdl2::deint::off) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n";
+        }
 
         s->current_desc = desc;
         return 1;
@@ -566,8 +578,8 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         char *tok, *save_ptr;
         while((tok = strtok_r(tmp, ":", &save_ptr)))
         {
-                if (strcmp(tok, "d") == 0) {
-                        s->deinterlace = true;
+                if (strcmp(tok, "d") == 0 || strcmp(tok, "dforce") == 0) {
+                        s->deinterlace = strcmp(tok, "d") == 0 ? state_sdl2::deint::on : state_sdl2::deint::off;
                 } else if (strncmp(tok, "display=", strlen("display=")) == 0) {
                         s->display_idx = atoi(tok + strlen("display="));
                 } else if (strncmp(tok, "driver=", strlen("driver=")) == 0) {

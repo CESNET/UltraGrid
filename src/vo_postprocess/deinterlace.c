@@ -58,6 +58,7 @@
 
 struct state_deinterlace {
         struct video_frame *out; ///< for postprocess only
+        _Bool force;
 };
 
 static void usage(_Bool for_postprocessor)
@@ -66,10 +67,12 @@ static void usage(_Bool for_postprocessor)
                         " by applying linear blend on interleaved odd and even "
                         " fileds.\n\nUsage:\n");
         if (for_postprocessor) {
-                color_printf(TBOLD(TRED("\t-p deinterlace")) " | " TBOLD(TRED("-p deinterlace_blend")) "\n");
+                color_printf(TBOLD(TRED("\t-p deinterlace")) "[:options] | " TBOLD(TRED("-p deinterlace_blend")) "[:options]\n");
         } else {
-                color_printf(TBOLD(TRED("\t--capture-filter deinterlace")) " -t <capture>\n");
+                color_printf(TBOLD(TRED("\t--capture-filter deinterlace")) "[:options] -t <capture>\n");
         }
+        color_printf("\noptions:\n"
+                        "\t" TBOLD("force") " - apply deinterlacing even if input is progressive\n");
 }
 
 static void * deinterlace_blend_init(const char *config) {
@@ -80,6 +83,14 @@ static void * deinterlace_blend_init(const char *config) {
 
         struct state_deinterlace *s = calloc(1, sizeof(struct state_deinterlace));
         assert(s != NULL);
+
+        if (strcmp(config, "force") == 0) {
+                s->force = 1;
+        } else {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", config);
+                free(s);
+                return NULL;
+        }
 
         return s;
 }
@@ -140,16 +151,22 @@ static struct video_frame * deinterlace_getf(void *state)
 
 static bool deinterlace_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
-        UNUSED(state);
         assert (req_pitch == vc_get_linesize(in->tiles[0].width, in->color_spec));
         assert (video_desc_eq(video_desc_from_frame(out), video_desc_from_frame(in)));
         assert (in->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
         assert (out->tiles[0].data_len <= vc_get_linesize(in->tiles[0].width, in->color_spec) * in->tiles[0].height);
 
+        struct state_deinterlace *s = state;
+        if (in->interlacing != INTERLACED_MERGED && !s->force) {
+                memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
+                return true;
+        }
+
         if (!vc_deinterlace_ex(in->color_spec, (unsigned char *) in->tiles[0].data, vc_get_linesize(in->tiles[0].width, in->color_spec),
                                 (unsigned char *) out->tiles[0].data, vc_get_linesize(out->tiles[0].width, in->color_spec),
                                 in->tiles[0].height)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(in->color_spec));
+                memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
         }
 
         return true;

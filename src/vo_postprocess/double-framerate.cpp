@@ -57,7 +57,7 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
-#define MOD_NAME "[double_framerate] "
+#define MOD_NAME "[temporal deint] "
 #define TIMEOUT "20ms"
 #define DFR_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x27ff0a78
 
@@ -70,9 +70,15 @@ struct state_df {
         int buffer_current;
         bool deinterlace;
         bool nodelay;
+        bool force;
 
         std::chrono::steady_clock::time_point frame_received;
 };
+
+static void print_common_opts() {
+        color_printf("\t" TBOLD("force  ") " - apply deinterlacing even if input is not interlaced\n");
+        color_printf("\t" TBOLD("nodelay") " - do not delay the other frame to keep timing. Both frames are output in burst. May not work correctly (depends on display).\n");
+}
 
 static void df_usage()
 {
@@ -86,17 +92,20 @@ static void df_usage()
         color_printf("\t" TBOLD(TRED("-p double_framerate") "[:d][:nodelay]") "\n");
         color_printf("\nwhere:\n");
         color_printf("\t" TBOLD("d      ") " - blend the output\n");
-        color_printf("\t" TBOLD("nodelay") " - do not delay the other frame to keep timing. Both frames are output in burst. May not work correctly (depends on display).\n");
+        print_common_opts();
 }
 
 static void * init_common(enum algo algo, const char *config) {
         bool deinterlace = false;
+        bool force = false;
         bool nodelay = false;
 
         if (strcmp(config, "d") == 0) {
                 deinterlace = true;
         } else if (strcmp(config, "nodelay") == 0) {
                 nodelay = true;
+        } else if (strcmp(config, "force") == 0) {
+                force = true;
         } else if (strlen(config) > 0) {
                 log_msg(LOG_LEVEL_ERROR, "Unknown config: %s\n", config);
                 return NULL;
@@ -110,6 +119,7 @@ static void * init_common(enum algo algo, const char *config) {
         s->buffers[0] = s->buffers[1] = NULL;
         s->buffer_current = 0;
         s->deinterlace = deinterlace;
+        s->force = force;
         s->nodelay = nodelay;
 
         if (s->nodelay && commandline_params.find("decoder-drop-policy") == commandline_params.end()) {
@@ -171,9 +181,9 @@ static int common_postprocess_reconfigure(void *state, struct video_desc desc)
         s->in->color_spec = desc.color_spec;
         s->in->fps = desc.fps;
         s->in->interlacing = desc.interlacing;
-        if(desc.interlacing != INTERLACED_MERGED) {
-                log_msg(LOG_LEVEL_ERROR, "[Double Framerate] Warning: %s video detected. This filter is intended "
-                               "mainly for interlaced merged video. The result might be incorrect.\n",
+        if (desc.interlacing != INTERLACED_MERGED && !s->force) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Warning: %s video detected. This filter is intended "
+                               "mainly for interlaced merged video. Framerate will be needlessly doubled.\n",
                                get_interlacing_description(desc.interlacing)); 
         }
 
@@ -419,16 +429,23 @@ static bool common_postprocess(void *state, struct video_frame *in, struct video
 {
         struct state_df *s = (struct state_df *) state;
 
-        switch (s->algo) {
-                case DF:
-                        perform_df(s, in, out, req_pitch);
-                        break;
-                case BOB:
-                        perform_bob(s, in, out, req_pitch);
-                        break;
-                case LINEAR:
-                        perform_linear(s, in, out, req_pitch);
-                        break;
+        if (s->in->interlacing == INTERLACED_MERGED || s->force) {
+                switch (s->algo) {
+                        case DF:
+                                perform_df(s, in, out, req_pitch);
+                                break;
+                        case BOB:
+                                perform_bob(s, in, out, req_pitch);
+                                break;
+                        case LINEAR:
+                                perform_linear(s, in, out, req_pitch);
+                                break;
+                }
+        } else {
+                s->in->tiles[0].data = s->buffers[0]; // always write to first buffer
+                if (in) {
+                        memcpy(out->tiles[0].data, in->tiles[0].data, in->tiles[0].data_len);
+                }
         }
 
         if (!s->nodelay) {

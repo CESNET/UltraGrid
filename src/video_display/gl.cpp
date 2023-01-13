@@ -347,7 +347,7 @@ struct state_gl {
         GLFWwindow     *window = nullptr;
 
         bool            fs = false;
-        bool            deinterlace  = false;
+        enum class deint { off, on, force } deinterlace = deint::off;
 
         struct video_frame *current_frame = nullptr;
 
@@ -385,10 +385,10 @@ struct state_gl {
         enum modeset_t { MODESET = -2, MODESET_SIZE_ONLY = GLFW_DONT_CARE, NOMODESET = 0 } modeset = NOMODESET; ///< positive vals force framerate
         bool nodecorate = false;
         int use_pbo = -1;
-
 #ifdef HWACC_VDPAU
         struct state_vdpau vdp;
 #endif
+        vector<char> scratchpad; ///< scratchpad sized WxHx8
 
         state_gl(struct module *parent) {
                 glfwSetErrorCallback(glfw_print_error);
@@ -408,7 +408,14 @@ struct state_gl {
                 module_done(&mod);
         }
 
-        vector<char> scratchpad; ///< scratchpad sized WxHx8
+        static const char *deint_to_string(state_gl::deint val) {
+                switch (val) {
+                        case state_gl::deint::off: return "OFF";
+                        case state_gl::deint::on: return "ON";
+                        case state_gl::deint::force: return "FORCE";
+                }
+                return NULL;
+        }
 };
 
 static constexpr array gl_supp_codecs = {
@@ -477,7 +484,7 @@ static void gl_show_help(bool full) {
         col() << "options:\n";
         col() << TBOLD("\taspect=<w>/<h>") << "\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n";
         col() << TBOLD("\tcursor")      << "\t\tshow visible cursor\n";
-        col() << TBOLD("\td")           << "\t\tdeinterlace\n";
+        col() << TBOLD("\td[force]")    << "\tdeinterlace (optionally forcing deinterlace of progressive video)\n";
         col() << TBOLD("\tfs[=<monitor>]") << "\tfullscreen with optional display specification\n";
         col() << TBOLD("\tgamma[=<val>]") << "\tgamma value to be added _in addition_ to the hardware gamma correction\n";
         col() << TBOLD("\thide-window") << "\tdo not show OpenGL window (useful with Syphon/SPOUT)\n";
@@ -549,8 +556,8 @@ static void *display_gl_parse_fmt(struct state_gl *s, char *ptr) {
         char *tok, *save_ptr = NULL;
 
         while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
-                if(!strcmp(tok, "d")) {
-                        s->deinterlace = true;
+                if (!strcmp(tok, "d") || !strcmp(tok, "dforce")) {
+                        s->deinterlace = !strcmp(tok, "d") ? state_gl::deint::on : state_gl::deint::force;
                 } else if(!strncmp(tok, "fs", 2)) {
                         s->fs = true;
                         if (char *val = strchr(tok, '=')) {
@@ -663,7 +670,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         s->use_pbo = s->use_pbo == -1 ? !check_rpi_pbo_quirks() : s->use_pbo; // don't use PBO for Raspberry Pi (better performance)
 
         log_msg(LOG_LEVEL_INFO,"GL setup: fullscreen: %s, deinterlace: %s\n",
-                        s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
+                        s->fs ? "ON" : "OFF", state_gl::deint_to_string(s->deinterlace));
 
         gl_load_splashscreen(s);
         for (auto const &i : keybindings) {
@@ -693,6 +700,9 @@ static int display_gl_reconfigure(void *state, struct video_desc desc)
         assert (find(gl_supp_codecs.begin(), gl_supp_codecs.end(), desc.color_spec) != gl_supp_codecs.end());
         if (get_bits_per_component(desc.color_spec) > 8) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Displaying 10+ bits - performance degradation may occur, consider '--param " GL_DISABLE_10B_OPT_PARAM_NAME "'\n";
+        }
+        if (desc.interlacing == INTERLACED_MERGED && s->deinterlace == state_gl::deint::off) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n";
         }
 
         s->current_desc = desc;
@@ -953,7 +963,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
 static void gl_render(struct state_gl *s, char *data)
 {
-        if (s->deinterlace) {
+        if (s->deinterlace == state_gl::deint::force || (s->deinterlace == state_gl::deint::on && s->current_display_desc.interlacing == INTERLACED_MERGED)) {
                 if (!vc_deinterlace_ex(s->current_display_desc.color_spec,
                                         (unsigned char *) data, vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
                                         (unsigned char *) data, vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
@@ -1170,8 +1180,8 @@ static bool display_gl_process_key(struct state_gl *s, long long int key)
                         exit_uv(0);
                         break;
                 case 'd':
-                        s->deinterlace = !s->deinterlace;
-                        log_msg(LOG_LEVEL_NOTICE, "Deinterlacing: %s\n", s->deinterlace ? "ON" : "OFF");
+                        s->deinterlace = s->deinterlace == state_gl::deint::off ? state_gl::deint::on : state_gl::deint::off;
+                        log_msg(LOG_LEVEL_NOTICE, "Deinterlacing: %s\n", state_gl::deint_to_string(s->deinterlace));
                         break;
                 case 'p':
                         s->paused = !s->paused;

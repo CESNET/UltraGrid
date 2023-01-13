@@ -692,6 +692,8 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
  *
  * @returns false on unsupported codecs
  */
+// Sibling of this function is in double-framerate.cpp:avg_lines so consider
+// porting changes made here there.
 bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines)
 {
         if (is_codec_opaque(codec) && codec_is_planar(codec)) {
