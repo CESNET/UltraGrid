@@ -1,3 +1,8 @@
+next
+====
+* added basic nvdec support
+* GUI: Don't block whole interface when querying UG capabilities
+
 1.8
 ====
 * added Reed-Solomon for audio
