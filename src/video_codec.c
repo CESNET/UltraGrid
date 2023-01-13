@@ -694,12 +694,16 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
  */
 bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines)
 {
-        DEBUG_TIMER_START(vc_deinterlace_ex);
         if (is_codec_opaque(codec) && codec_is_planar(codec)) {
                 return false;
         }
+        if (lines == 1) {
+                memcpy(dst, src, src_linesize);
+                return true;
+        }
+        DEBUG_TIMER_START(vc_deinterlace_ex);
         int bpp = get_bits_per_component(codec);
-        for (size_t y = 0; y < lines; y += 2) {
+        for (size_t y = 0; y < lines - 1; y += 1) {
                 unsigned char *s = src + y * src_linesize;
                 unsigned char *d = dst + y * dst_pitch;
                 if (bpp == 8 || bpp == 16) {
@@ -711,7 +715,6 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                         __m128i i2 = _mm_lddqu_si128((__m128i const*)(const void *) (s + src_linesize));
                                         __m128i res = _mm_avg_epu8(i1, i2);
                                         _mm_storeu_si128((__m128i *)(void *) d, res);
-                                        _mm_storeu_si128((__m128i *)(void *) (d + dst_pitch), res);
                                         s += 16;
                                         d += 16;
                                 }
@@ -721,7 +724,6 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                         __m128i i2 = _mm_lddqu_si128((__m128i const*)(const void *) (s + src_linesize));
                                         __m128i res = _mm_avg_epu16(i1, i2);
                                         _mm_storeu_si128((__m128i *)(void *) d, res);
-                                        _mm_storeu_si128((__m128i *)(void *) (d + dst_pitch), res);
                                         s += 16;
                                         d += 16;
                                 }
@@ -731,18 +733,16 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                         if (bpp  == 8) {
                                 for ( ; x < src_linesize; ++x) {
                                         int val = (*s + s[src_linesize] + 1) >> 1;
-                                        *d = d[dst_pitch] = val;
+                                        *d++ = val;
                                         s++;
-                                        d++;
                                 }
                         } else {
                                 uint16_t *d16 = (void *) d;
                                 uint16_t *s16 = (void *) s;
                                 for ( ; x < src_linesize / 2; ++x) {
                                         int val = (*s16 + s16[src_linesize / 2] + 1) >> 1;
-                                        *d16 = d16[dst_pitch / 2] = val;
+                                        *d16++ = val;
                                         s16++;
-                                        d16++;
                                 }
                         }
                 } else if (codec == v210) {
@@ -755,9 +755,8 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                         (((v1 >> 20        ) + (v2 >> 20        ) + 1) / 2) << 20 |
                                         (((v1 >> 10 & 0x3ff) + (v2 >> 10 & 0x3ff) + 1) / 2) << 10 |
                                         (((v1       & 0x3ff) + (v2       & 0x3ff) + 1) / 2);
-                                *d32 = d32[dst_pitch / 4] = out;
+                                *d32++ = out;
                                 s32++;
-                                d32++;
                         }
                 } else if (codec == R10k) {
                         uint32_t *s32 = (void *) s;
@@ -769,9 +768,8 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                         (((v1 >> 22        ) + (v2 >> 22        ) + 1) / 2) << 22 |
                                         (((v1 >> 12 & 0x3ff) + (v2 >> 12 & 0x3ff) + 1) / 2) << 12 |
                                         (((v1 >>  2 & 0x3ff) + (v2 >>  2 & 0x3ff) + 1) / 2) << 2;
-                                *d32 = d32[dst_pitch / 4] = htonl(out);
+                                *d32++ = htonl(out);
                                 s32++;
-                                d32++;
                         }
                 } else if (codec == R12L) {
                         uint32_t *s32 = (void *) s;
@@ -788,8 +786,7 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                         remain2 = remain2 | (in2 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
                                         uint32_t ret = (remain1 + remain2 + 1) / 2;
                                         out |= ret << shift;
-                                        *d32 = d32[dst_pitch / 4] = out;
-                                        d32++;
+                                        *d32++ = out;
                                         out = ret >> (32-shift);
                                         shift = (shift + 12) % 32;
                                         in1 >>= shift;
@@ -802,8 +799,7 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                                         shift += 12;
                                 }
                                 if (shift == 32) {
-                                        *d32 = d32[dst_pitch / 4] = out;
-                                        d32++;
+                                        *d32++ = out;
                                         out = 0;
                                         shift = 0;
                                 } else {
@@ -816,6 +812,7 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                         return false;
                 }
         }
+        memcpy(dst + (lines - 1) * dst_pitch, dst + (lines - 2) * dst_pitch, src_linesize); // last line
         DEBUG_TIMER_STOP(vc_deinterlace_ex);
         return true;
 }
