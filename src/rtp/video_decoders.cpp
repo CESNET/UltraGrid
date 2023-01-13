@@ -1235,12 +1235,8 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 /* reconfigure VO and give it opportunity to pass us pitch */
                 ret = display_reconfigure(decoder->display, display_desc, decoder->video_mode);
                 if(!ret) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to reconfigure display to "
-                                << display_desc << "\n";
                         return false;
                 }
-                LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Successfully reconfigured display to "
-                        << display_desc << "\n";
                 decoder->display_desc = display_desc;
 
                 len = sizeof(display_requested_rgb_shift);

@@ -73,6 +73,7 @@
 #include "vo_postprocess.h"
 
 #define DISPLAY_MAGIC 0x01ba7ef1
+#define MOD_NAME "[display] "
 
 /// @brief This struct represents initialized video display state.
 struct display {
@@ -445,7 +446,7 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
                         pp_desc.tile_count = 1;
                 }
                 if (!vo_postprocess_reconfigure(d->postprocess, pp_desc)) {
-                        log_msg(LOG_LEVEL_ERROR, "[video dec.] Unable to reconfigure video "
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reconfigure video "
                                         "postprocess.\n");
                         return false;
                 }
@@ -453,6 +454,13 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
                 int render_mode; // WTF ?
 		vo_postprocess_get_out_desc(d->postprocess, &display_desc, &render_mode, &d->pp_output_frames_count);
 		int rc = d->funcs->reconfigure_video(d->state, display_desc);
+                if (rc) {
+                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully reconfigured display to %s\n",
+                                video_desc_to_string(display_desc));
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reconfigure display to %s\n",
+                                        video_desc_to_string(display_desc));
+                }
                 len = sizeof d->display_pitch;
                 d->display_pitch = PITCH_DEFAULT;
                 d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_BUF_PITCH,
