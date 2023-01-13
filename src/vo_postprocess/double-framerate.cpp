@@ -1,9 +1,14 @@
 /**
  * @file   vo_postprocess/double-framerate.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * This file contains multiple temporal deinterlacers (doubling frame-rate):
+ * 1. double-framerate
+ * 2. bob
+ * 2. linear
  */
 /*
- * Copyright (c) 2012-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +52,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/text.h" // indent_paragraph
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
@@ -70,10 +76,17 @@ struct state_df {
 
 static void df_usage()
 {
-        printf("Usage:\n");
-        printf("\t-p double_framerate[:d][:nodelay]\n");
-        printf("\t\td       - deinterlace\n");
-        printf("\t\tnodelay - do not delay the other frame to keep timing. Both frames are output in burst. May not work correctly (depends on display).\n");
+        char desc[] = TBOLD("double-framerate") " is an interleaver that "
+                "creates creates a progressive stream by consecutive "
+                "interleaving fields, eg. f1f2f3f4f5f6 -> \"f1-- f1f2 f3f2 "
+                "f3f4 f5f4 f5f6 --f6\". So saw-like artifacts will still occur "
+                "and blending can be used.\n\n";
+        color_printf(indent_paragraph(desc));
+        color_printf("Usage:\n");
+        color_printf("\t" TBOLD(TRED("-p double_framerate") "[:d][:nodelay]") "\n");
+        color_printf("\nwhere:\n");
+        color_printf("\t" TBOLD("d      ") " - blend the output\n");
+        color_printf("\t" TBOLD("nodelay") " - do not delay the other frame to keep timing. Both frames are output in burst. May not work correctly (depends on display).\n");
 }
 
 static void * init_common(enum algo algo, const char *config) {
@@ -117,6 +130,8 @@ static void * df_init(const char *config) {
 
 static void * bob_init(const char *config) {
         if (strcmp(config, "help") == 0) {
+                color_printf("Deinterlacer " TBOLD("bob") " is a simple doubler. It doubles "
+                                "every field line to achieve full resolution.\n\n");
                 color_printf("Usage:\n");
                 color_printf("\t" TBOLD(TRED("-p deinterlace_bob")) "\n");
                 return NULL;
@@ -126,6 +141,8 @@ static void * bob_init(const char *config) {
 
 static void * linear_init(const char *config) {
         if (strcmp(config, "help") == 0) {
+                color_printf(TBOLD("Linear") " deinterlacer doubles every field to "
+                                "full resolution by interpolating missing lines.\n\n");
                 color_printf("Usage:\n");
                 color_printf("\t" TBOLD(TRED("-p deinterlace_linear")) "\n");
                 return NULL;

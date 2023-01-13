@@ -1,9 +1,11 @@
 /**
- * @file   vo_postprocess/deinterlace.cpp
+ * @file   vo_postprocess/deinterlace.c
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * Blending deinterlace filter.
  */
 /*
- * Copyright (c) 2014 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +49,7 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
@@ -57,15 +60,21 @@ struct state_deinterlace {
         struct video_frame *out; ///< for postprocess only
 };
 
-static void usage()
+static void usage(_Bool for_postprocessor)
 {
-        printf("Deinterlaces output video frames.\nUsage:\n");
-        printf("\t-p deinterlace\n");
+        color_printf(TBOLD("deinterlace_blend") " deinterlaces output video frames "
+                        " by applying linear blend on interleaved odd and even "
+                        " fileds.\n\nUsage:\n");
+        if (for_postprocessor) {
+                color_printf(TBOLD(TRED("\t-p deinterlace")) " | " TBOLD(TRED("-p deinterlace_blend")) "\n");
+        } else {
+                color_printf(TBOLD(TRED("\t--capture-filter deinterlace")) " -t <capture>\n");
+        }
 }
 
-static void * deinterlace_init(const char *config) {
+static void * deinterlace_blend_init(const char *config) {
         if (strcmp(config, "help") == 0) {
-                usage();
+                usage(1);
                 return NULL;
         }
 
@@ -75,21 +84,25 @@ static void * deinterlace_init(const char *config) {
         return s;
 }
 
-static void * deinterlace_init_deprecated(const char *config) {
+static void * deinterlace_init(const char *config) {
         if (strcmp(config, "help") == 0) {
-                usage();
+                usage(1);
                 return NULL;
         }
 
-        log_msg(LOG_LEVEL_WARNING, MOD_NAME "\"-p deinterlace\" is deprecated, use \"-p deinterlace_blend\" instead.\n");
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "\"-p deinterlace\" is equivalent to \"-p deinterlace_blend\", you can choose different implementations as well.\n");
 
-        return deinterlace_init(config);
+        return deinterlace_blend_init(config);
 }
 
 static int cf_deinterlace_init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
-        void *s = deinterlace_init(cfg);
+        if (strcmp(cfg, "help") == 0) {
+                usage(0);
+                return 1;
+        }
+        void *s = deinterlace_blend_init(cfg);
         if (!s) {
                 return 1;
         }
@@ -176,8 +189,8 @@ static void deinterlace_get_out_desc(void *state, struct video_desc *out, int *i
         *out_frames = 1;
 }
 
-static const struct vo_postprocess_info vo_pp_deinterlace_info = {
-        deinterlace_init,
+static const struct vo_postprocess_info vo_pp_deinterlace_blend_info = {
+        deinterlace_blend_init,
         deinterlace_reconfigure,
         deinterlace_getf,
         deinterlace_get_out_desc,
@@ -186,8 +199,8 @@ static const struct vo_postprocess_info vo_pp_deinterlace_info = {
         deinterlace_done,
 };
 
-static const struct vo_postprocess_info vo_pp_deinterlace_deprecated_info = {
-        deinterlace_init_deprecated,
+static const struct vo_postprocess_info vo_pp_deinterlace_info = {
+        deinterlace_init,
         deinterlace_reconfigure,
         deinterlace_getf,
         deinterlace_get_out_desc,
@@ -202,7 +215,7 @@ static const struct capture_filter_info capture_filter_deinterlace_info = {
         cf_deinterlace_filter
 };
 
-REGISTER_MODULE(deinterlace_blend, &vo_pp_deinterlace_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
-REGISTER_MODULE(deinterlace, &vo_pp_deinterlace_deprecated_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(deinterlace_blend, &vo_pp_deinterlace_blend_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+REGISTER_MODULE(deinterlace, &vo_pp_deinterlace_info, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
 REGISTER_MODULE(deinterlace, &capture_filter_deinterlace_info, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
