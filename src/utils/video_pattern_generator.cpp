@@ -73,7 +73,7 @@
 #include "video_pattern_generator.hpp"
 
 constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
-constexpr const char *MOD_NAME = "[vid. patt. generator] ";
+#define MOD_NAME "[vid. patt. generator] "
 constexpr int rg48_bpp = 6;
 
 using namespace std::string_literals;
@@ -183,7 +183,7 @@ class image_pattern_bars : public image_pattern {
                                 r.y = j;
                                 r.w = rect_size;
                                 r.h = min<int>(rect_size, height - r.y);
-                                LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Fill rect at " << r.x << "," << r.y << "\n";
+                                LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Fill rect at " << r.x << "," << r.y << "\n";
                                 if (j != rect_size * 2) {
                                         testcard_fillRect(&pixmap, &r,
                                                         rect_colors[col_num]);
@@ -228,7 +228,7 @@ class image_pattern_ebu_smpte_bars : public image_pattern {
                                 r.y = j;
                                 r.w = rect_size;
                                 r.h = min<int>(rect_size, height - r.y);
-                                printf("Fill rect at %d,%d\n", r.x, r.y);
+                                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
                                 testcard_fillRect(&pixmap, &r,
                                                 bars.at(col_num));
                                 col_num = (col_num + 1) % columns;
@@ -257,7 +257,7 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
                 struct testcard_rect r{ .x = 0, .y = height / 3 * 2, .w = (width + columns - 1) / columns, .h = mid_strip_height};
                 for (int i = 0; i < columns; i += 1) {
                         r.x = i * r.w;
-                        printf("Fill rect at %d,%d\n", r.x, r.y);
+                        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
                         if (i % 2 == 1) testcard_fillRect(&pixmap, &r, 0);
                         else testcard_fillRect(&pixmap, &r, image_pattern_ebu_smpte_bars<0xBFU, 7>::bars.at(columns - 1 - i));
                 }
@@ -267,7 +267,7 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
                 r.y += mid_strip_height;
                 for (int i = 0; i < columns; i += 1) {
                         r.x = i * r.w;
-                        printf("Fill rect at %d,%d\n", r.x, r.y);
+                        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
                         testcard_fillRect(&pixmap, &r,
                                         bottom_bars.at(i));
                 }
@@ -275,7 +275,7 @@ class image_pattern_smpte_bars : public image_pattern_ebu_smpte_bars<0xBFU, 7> {
                 r.x = 5 * (width / 7);
                 r.w = (width / 7) / 3;
                 r.x += 2 * r.w;
-                printf("Fill rect at %d,%d\n", r.x, r.y);
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
                 testcard_fillRect(&pixmap, &r,
                                 0xFFU << 24 | 0x0A0A0A);
                 return generator_depth::bits8;
