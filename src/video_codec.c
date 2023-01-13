@@ -694,6 +694,7 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
  */
 bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines)
 {
+        DEBUG_TIMER_START(vc_deinterlace_ex);
         if (is_codec_opaque(codec) && codec_is_planar(codec)) {
                 return false;
         }
@@ -815,6 +816,7 @@ bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, u
                         return false;
                 }
         }
+        DEBUG_TIMER_STOP(vc_deinterlace_ex);
         return true;
 }
 
