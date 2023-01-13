@@ -259,7 +259,9 @@ static void perform_bob(struct state_df *s, struct video_frame *in, struct video
         }
 }
 
-/// Copied from vc_deinterlace_ex, consider merging but perhaps not needed (vc_deinterlace_ex
+/// copied from vc_deinterlace_ex
+///
+/// consider merging with vc_deinterlace_ex but perhaps not needed (that func
 /// has slightly different structure - always averages 2 adjacent lines and
 /// writes the result twice to those. This version also uses GCC generic
 /// vectorization support instead of SSE (performs fast if vector_size==16)
@@ -316,25 +318,31 @@ static bool avg_lines(codec_t codec, size_t linesize, char *src1, char *src2, ch
                 uint32_t *s32_1 = (uint32_t *) s1;
                 uint32_t *s32_2 = (uint32_t *) s2;
                 uint32_t *d32 = (uint32_t *) d;
-                for (size_t x = 0; x < linesize / 4; ++x) {
-                        uint32_t v1 = *s32_1++;
-                        uint32_t v2 = *s32_2++;
-                        *d32++ =
-                                (((v1 >> 20        ) + (v2 >> 20        ) + 1) / 2) << 20 |
-                                (((v1 >> 10 & 0x3ff) + (v2 >> 10 & 0x3ff) + 1) / 2) << 10 |
-                                (((v1       & 0x3ff) + (v2       & 0x3ff) + 1) / 2);
+                for (size_t x = 0; x < linesize / 16; ++x) {
+                        #pragma GCC unroll 4
+                        for (int y = 0; y < 4; ++y) {
+                                uint32_t v1 = *s32_1++;
+                                uint32_t v2 = *s32_2++;
+                                *d32++ =
+                                        (((v1 >> 20        ) + (v2 >> 20        ) + 1) / 2) << 20 |
+                                        (((v1 >> 10 & 0x3ff) + (v2 >> 10 & 0x3ff) + 1) / 2) << 10 |
+                                        (((v1       & 0x3ff) + (v2       & 0x3ff) + 1) / 2);
+                        }
                 }
         } else if (codec == R10k) {
                 uint32_t *s32_1 = (uint32_t *) s1;
                 uint32_t *s32_2 = (uint32_t *) s2;
                 uint32_t *d32 = (uint32_t *) d;
                 for (size_t x = 0; x < linesize / 4; ++x) {
-                        uint32_t v1 = ntohl(*s32_1++);
-                        uint32_t v2 = ntohl(*s32_2++);
-                        *d32++ =
-                                (((v1 >> 22        ) + (v2 >> 22        ) + 1) / 2) << 22 |
-                                (((v1 >> 12 & 0x3ff) + (v2 >> 12 & 0x3ff) + 1) / 2) << 12 |
-                                (((v1 >>  2 & 0x3ff) + (v2 >>  2 & 0x3ff) + 1) / 2) << 2;
+                        #pragma GCC unroll 4
+                        for (int y = 0; y < 4; ++y) {
+                                uint32_t v1 = ntohl(*s32_1++);
+                                uint32_t v2 = ntohl(*s32_2++);
+                                *d32++ =
+                                        (((v1 >> 22        ) + (v2 >> 22        ) + 1) / 2) << 22 |
+                                        (((v1 >> 12 & 0x3ff) + (v2 >> 12 & 0x3ff) + 1) / 2) << 12 |
+                                        (((v1 >>  2 & 0x3ff) + (v2 >>  2 & 0x3ff) + 1) / 2) << 2;
+                        }
                 }
         } else if (codec == R12L) {
                 uint32_t *s32_1 = (uint32_t *) s1;
@@ -344,33 +352,36 @@ static bool avg_lines(codec_t codec, size_t linesize, char *src1, char *src2, ch
                 uint32_t remain1 = 0;
                 uint32_t remain2 = 0;
                 uint32_t out = 0;
-                for (size_t x = 0; x < linesize / 4; ++x) {
-                        uint32_t in1 = *s32_1++;
-                        uint32_t in2 = *s32_2++;
-                        if (shift > 0) {
-                                remain1 = remain1 | (in1 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
-                                remain2 = remain2 | (in2 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
-                                uint32_t ret = (remain1 + remain2 + 1) / 2;
-                                out |= ret << shift;
-                                *d32++ = out;
-                                out = ret >> (32-shift);
-                                shift = (shift + 12) % 32;
-                                in1 >>= shift;
-                                in2 >>= shift;
-                        }
-                        while (shift <= 32 - 12) {
-                                out |= ((((in1 & 0xfff) + (in2 & 0xfff)) + 1) / 2) << shift;
-                                in1 >>= 12;
-                                in2 >>= 12;
-                                shift += 12;
-                        }
-                        if (shift == 32) {
-                                *d32++ = out;
-                                out = 0;
-                                shift = 0;
-                        } else {
-                                remain1 = in1;
-                                remain2 = in2;
+                for (size_t x = 0; x < linesize / 16; ++x) {
+                        #pragma GCC unroll 8
+                        for (int y = 0; y < 4; ++y) {
+                                uint32_t in1 = *s32_1++;
+                                uint32_t in2 = *s32_2++;
+                                if (shift > 0) {
+                                        remain1 = remain1 | (in1 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
+                                        remain2 = remain2 | (in2 & ((1<<((shift + 12) % 32)) - 1)) << (32-shift);
+                                        uint32_t ret = (remain1 + remain2 + 1) / 2;
+                                        out |= ret << shift;
+                                        *d32++ = out;
+                                        out = ret >> (32-shift);
+                                        shift = (shift + 12) % 32;
+                                        in1 >>= shift;
+                                        in2 >>= shift;
+                                }
+                                while (shift <= 32 - 12) {
+                                        out |= ((((in1 & 0xfff) + (in2 & 0xfff)) + 1) / 2) << shift;
+                                        in1 >>= 12;
+                                        in2 >>= 12;
+                                        shift += 12;
+                                }
+                                if (shift == 32) {
+                                        *d32++ = out;
+                                        out = 0;
+                                        shift = 0;
+                                } else {
+                                        remain1 = in1;
+                                        remain2 = in2;
+                                }
                         }
                 }
         } else {
