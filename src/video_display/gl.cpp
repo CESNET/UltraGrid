@@ -326,6 +326,7 @@ static void glfw_print_error(int error_code, const char* description);
 static void glfw_print_video_mode(struct state_gl *s);
 static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
+static void upload_compressed_texture(struct state_gl *s, char *data);
 static void upload_texture(struct state_gl *s, char *data);
 static bool check_rpi_pbo_quirks();
 static void set_gamma(struct state_gl *s);
@@ -810,12 +811,18 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         if (!s->hide_window)
                 glfwShowWindow(s->window);
 
-        glUseProgram(0);
+        s->current_program = 0;
 
         gl_check_error();
 
         if(desc.color_spec == DXT1 || desc.color_spec == DXT1_YUV) {
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                if (desc.color_spec == DXT1) {
+                        glActiveTexture(GL_TEXTURE0 + 0);
+                        glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                } else {
+                        glActiveTexture(GL_TEXTURE0 + 2);
+                        glBindTexture(GL_TEXTURE_2D,s->texture_raw);
+                }
                 size_t data_len = ((desc.width + 3) / 4 * 4* s->dxt_height)/2;
                 char *buffer = (char *) malloc(data_len);
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
@@ -828,8 +835,13 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 buffer);
                 free(buffer);
                 if(desc.color_spec == DXT1_YUV) {
+                        glActiveTexture(GL_TEXTURE0 + 0);
                         glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                        glUseProgram(s->PHandles.at(DXT1_YUV));
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                        desc.width, desc.height, 0,
+                                        GL_RGBA, GL_UNSIGNED_BYTE,
+                                        NULL);
+                        s->current_program = s->PHandles.at(DXT1_YUV);
                 }
         } else if (desc.color_spec == UYVY) {
                 glActiveTexture(GL_TEXTURE0 + 2);
@@ -898,14 +910,20 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                                 GL_RGB, GL_UNSIGNED_SHORT,
                                 nullptr);
         } else if (desc.color_spec == DXT5) {
-                glUseProgram(s->PHandles.at(DXT5));
-
-                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glActiveTexture(GL_TEXTURE0 + 2);
+                glBindTexture(GL_TEXTURE_2D,s->texture_raw);
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
                                 GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
                                 (desc.width + 3) / 4 * 4, s->dxt_height, 0,
                                 (desc.width + 3) / 4 * 4 * s->dxt_height,
                                 NULL);
+                glActiveTexture(GL_TEXTURE0 + 0);
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                desc.width, desc.height, 0,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
+                                NULL);
+                s->current_program = s->PHandles.at(DXT5);
         }
 #ifdef HWACC_VDPAU
         else if (desc.color_spec == HW_VDPAU) {
@@ -974,50 +992,10 @@ static void gl_render(struct state_gl *s, char *data)
 
         gl_check_error();
 
-        switch(s->current_display_desc.color_spec) {
-                case DXT1:
-                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        (s->current_display_desc.width + 3) / 4 * 4, s->dxt_height,
-                                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-                                        ((s->current_display_desc.width + 3) / 4 * 4 * s->dxt_height)/2,
-                                        data);
-                        break;
-                case DXT1_YUV:
-                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->current_display_desc.width, s->current_display_desc.height,
-                                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-                                        (s->current_display_desc.width * s->current_display_desc.height/16)*8,
-                                        data);
-                        break;
-                case UYVY:
-                case v210:
-                case Y416:
-                        gl_render_glsl(s, data);
-                        break;
-                case R10k:
-                case RGB:
-                case RGBA:
-                case RG48:
-                        upload_texture(s, data);
-                        break;
-                case DXT5:                        
-                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        (s->current_display_desc.width + 3) / 4 * 4, s->dxt_height,
-                                        GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-                                        (s->current_display_desc.width + 3) / 4 * 4 * s->dxt_height,
-                                        data);
-                        break;
-#ifdef HWACC_VDPAU
-                case HW_VDPAU:
-                        s->vdp.loadFrame(reinterpret_cast<hw_vdpau_frame *>(data));
-                        break;
-#endif
-                default:
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "error: received unsupported codec %s.\n",
-                                        get_codec_name(s->current_display_desc.color_spec));
-                        exit_uv(EXIT_FAILURE);
-                        return;
-
+        if (s->current_program) {
+                gl_render_glsl(s, data);
+        } else {
+                upload_texture(s, data);
         }
 
         gl_check_error();
@@ -1582,8 +1560,46 @@ static void gl_resize(GLFWwindow *win, int width, int height)
         }
 }
 
+static void upload_compressed_texture(struct state_gl *s, char *data) {
+        switch (s->current_display_desc.color_spec) {
+                case DXT1:
+                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                        (s->current_display_desc.width + 3) / 4 * 4, s->dxt_height,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
+                                        ((s->current_display_desc.width + 3) / 4 * 4 * s->dxt_height)/2,
+                                        data);
+                        break;
+                case DXT1_YUV:
+                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                        s->current_display_desc.width, s->current_display_desc.height,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
+                                        (s->current_display_desc.width * s->current_display_desc.height/16)*8,
+                                        data);
+                        break;
+                case DXT5:
+                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                        (s->current_display_desc.width + 3) / 4 * 4, s->dxt_height,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+                                        (s->current_display_desc.width + 3) / 4 * 4 * s->dxt_height,
+                                        data);
+                        break;
+                default:
+                        abort();
+        }
+}
+
 static void upload_texture(struct state_gl *s, char *data)
 {
+#ifdef HWACC_VDPAU
+        if (s->current_display_desc.color_spec == HW_VDPAU) {
+                s->vdp.loadFrame(reinterpret_cast<hw_vdpau_frame *>(data));
+                return;
+        }
+#endif
+        if (s->current_display_desc.color_spec == DXT1 || s->current_display_desc.color_spec == DXT1_YUV || s->current_display_desc.color_spec == DXT5) {
+                upload_compressed_texture(s, data);
+                return;
+        }
         GLuint format = s->current_display_desc.color_spec == RGB || s->current_display_desc.color_spec == RG48 ? GL_RGB : GL_RGBA;
         GLenum type = GL_UNSIGNED_BYTE;
         if (s->current_display_desc.color_spec == R10k || s->current_display_desc.color_spec == v210) {
