@@ -100,7 +100,7 @@ static _Bool init(struct vo_postprocess_state *s, const char *config_string) {
                 }
                 const struct vo_postprocess_info *funcs = load_library(lib_name, LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
                 if (!funcs) {
-                        fprintf(stderr, "Unknown postprocess module: %s\n", lib_name);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown postprocess module: %s\n", lib_name);
                         free(cpy);
                         return 0;
                 }
@@ -108,7 +108,7 @@ static _Bool init(struct vo_postprocess_state *s, const char *config_string) {
                 state->funcs = funcs;
                 state->state = state->funcs->init(vo_postprocess_options);
                 if (!state->state) {
-                        fprintf(stderr, "Postprocessing initialization failed: %s\n", config_string);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Postprocessing initialization failed: %s\n", config_string);
                         free(cpy);
                         free(state);
                         return 0;
