@@ -88,7 +88,6 @@
 #include <array>
 #include <atomic>
 #include <cassert>
-#include <charconv>
 #include <condition_variable>
 #include <cstdint>
 #include <cstring>
@@ -638,16 +637,9 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
 
                 //svtoi = string_view to int
                 auto svtoi = [token](std::string_view str) -> int {
-                        int base = 10;
-                        if (starts_with(str, "0x")) {
-                                base = 16;
-                                str.remove_prefix("0x"sv.size());
-                        }
-                        const char* last = str.data() + str.size();
-                        int result = 0;
-                        auto [ptr, err] = std::from_chars(str.data(), last, result, base);
-                        constexpr auto no_error = std::errc{};
-                        if (err != no_error || ptr != last) {
+                        std::size_t endpos = 0;
+                        int result = std::stoi(std::string(str), &endpos, 0);
+                        if (endpos != str.size()) {
                                 throw std::runtime_error{ std::string(token) };
                         }
                         return result;
