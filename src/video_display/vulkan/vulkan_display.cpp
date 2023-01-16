@@ -428,7 +428,7 @@ TransferImage VulkanDisplay::acquire_image(ImageDescription description) {
         return TransferImage{ transfer_image };
 }
 
-void VulkanDisplay::copy_and_queue_image(std::byte* frame, ImageDescription description) {
+void VulkanDisplay::copy_and_queue_image(unsigned char* frame, ImageDescription description) {
         TransferImage image = acquire_image(description);
         memcpy(image.get_memory_ptr(), frame, image.get_size().height * image.get_row_pitch());
         queue_image(image, false);

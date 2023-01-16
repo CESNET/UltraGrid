@@ -166,7 +166,7 @@ public:
         bool queue_image(TransferImage img, bool discardable);
 
         /** Thread-safe to call from provider thread.*/
-        void copy_and_queue_image(std::byte* frame, ImageDescription description);
+        void copy_and_queue_image(unsigned char* frame, ImageDescription description);
 
         /** Thread-safe to call from provider thread.*/
         void discard_image(TransferImage image) {

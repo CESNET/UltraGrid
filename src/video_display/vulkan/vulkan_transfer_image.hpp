@@ -168,7 +168,7 @@ public:
 class TransferImageImpl {
         Image2D buffer;
         uint32_t id = NO_ID;
-        std::byte* ptr = nullptr;
+        unsigned char* ptr = nullptr;
 
         vk::DeviceSize row_pitch = 0;
 
@@ -235,7 +235,7 @@ public:
                 return transfer_image->id;
         }
 
-        std::byte* get_memory_ptr() {
+        unsigned char* get_memory_ptr() {
                 assert(transfer_image);
                 return transfer_image->ptr;
         }
