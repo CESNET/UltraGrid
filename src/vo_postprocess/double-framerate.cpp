@@ -87,7 +87,7 @@ static void df_usage()
                 "interleaving fields, eg. f1f2f3f4f5f6 -> \"f1-- f1f2 f3f2 "
                 "f3f4 f5f4 f5f6 --f6\". So saw-like artifacts will still occur "
                 "and blending can be used.\n\n";
-        color_printf(indent_paragraph(desc));
+        color_printf("%s", indent_paragraph(desc));
         color_printf("Usage:\n");
         color_printf("\t" TBOLD(TRED("-p double_framerate") "[:d][:nodelay]") "\n");
         color_printf("\nwhere:\n");
