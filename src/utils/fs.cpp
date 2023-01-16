@@ -105,6 +105,38 @@ int get_exec_path(char* path) {
 }
 #endif  
 
+/// returns either last '/' or '\\' (Unix or Windows-style delim), '/' has a
+/// precedence
+static inline char *last_delim(char *path) {
+        char *delim = strrchr(path, '/');
+        if (delim) {
+                return delim;
+        }
+        return strrchr(path, '\\');
+}
 
-
+/**
+ * @returns  installation root without trailing '/', eg. installation prefix on
+ *           Linux - default "/usr/local", Windows - top-level directory extracted
+ *           UltraGrid directory
+ */
+const char *get_install_root(void) {
+        static __thread char exec_path[MAX_PATH_SIZE];
+        if (!get_exec_path(exec_path)) {
+                return NULL;
+        }
+        char *last_path_delim = last_delim(exec_path);
+        if (!last_path_delim) {
+                return NULL;
+        }
+        *last_path_delim = '\0'; // cut off executable name
+        last_path_delim = last_delim(exec_path);
+        if (!last_path_delim) {
+                return exec_path;
+        }
+        if (strcmp(last_path_delim + 1, "bin") == 0) {
+                *last_path_delim = '\0'; // remove "bin" suffix if there is (not in Windows builds)
+        }
+        return exec_path;
+}
 

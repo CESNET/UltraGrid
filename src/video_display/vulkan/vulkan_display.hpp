@@ -47,7 +47,7 @@
 #include <optional>
 #include <queue>
 #include <mutex>
-#include <filesystem>
+#include <string>
 #include <utility>
 
 namespace vulkan_display_detail {
@@ -82,7 +82,7 @@ public:
 };
 
 class VulkanDisplay {
-        std::filesystem::path path_to_shaders;
+        std::string path_to_shaders;
         WindowChangedCallback* window = nullptr;
         detail::VulkanContext context;
         
@@ -149,7 +149,7 @@ public:
 
         void init(VulkanInstance&& instance, VkSurfaceKHR surface, uint32_t transfer_image_count,
                 WindowChangedCallback& window, uint32_t gpu_index = no_gpu_selected,
-                std::filesystem::path path_to_shaders = "./shaders", bool vsync = true, bool tearing_permitted = false);
+                std::string path_to_shaders = "./shaders", bool vsync = true, bool tearing_permitted = false);
 
         void destroy();
 
