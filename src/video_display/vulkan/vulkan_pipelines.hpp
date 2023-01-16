@@ -39,7 +39,7 @@
 
 #include "vulkan_context.hpp"
 
-#include <filesystem>
+#include <string>
 
 namespace vulkan_display_detail{
 
@@ -66,7 +66,7 @@ class ConversionPipeline {
         vk::Sampler sampler{};
 
 public:
-        void create(vk::Device device, const std::filesystem::path& shader_path, vk::Format format);
+        void create(vk::Device device, const std::string& shader_path, vk::Format format);
 
         void destroy(vk::Device device);
 
@@ -110,7 +110,7 @@ class RenderPipeline {
         vk::Pipeline pipeline{};
 
 public:
-        void create(VulkanContext& context, const std::filesystem::path& path_to_shaders);
+        void create(VulkanContext& context, const std::string& path_to_shaders);
 
         void destroy(vk::Device device);
 

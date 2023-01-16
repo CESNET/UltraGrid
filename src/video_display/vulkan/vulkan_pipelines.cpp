@@ -49,20 +49,22 @@ namespace{
 
 vk::ShaderModule create_shader(
 
-        const std::filesystem::path& file_path,
+        const std::string& file_path,
         const vk::Device& device)
 {
         std::ifstream file(file_path, std::ios::binary);
         if(!file.is_open()){
-                throw VulkanError{"Failed to open file:"s + file_path.string()};
+                throw VulkanError{"Failed to open file:"s + file_path};
         }
-        auto size = std::filesystem::file_size(file_path);
+        file.seekg(0, std::ios_base::end);
+        auto size = file.tellg();
         assert(size % 4 == 0);
+        file.seekg(0);
         std::vector<std::uint32_t> shader_code(size / 4);
         file.read(reinterpret_cast<char*>(shader_code.data()), static_cast<std::streamsize>(size));
 
         if(!file.good()){
-                throw VulkanError{"Error reading from file:"s + file_path.string()};
+                throw VulkanError{"Error reading from file:"s + file_path};
         }
 
         vk::ShaderModuleCreateInfo shader_info;
@@ -171,7 +173,7 @@ vk::Pipeline create_compute_pipeline(vk::Device device, vk::PipelineLayout pipel
 
 namespace vulkan_display_detail {
 
-void ConversionPipeline::create(vk::Device device, const std::filesystem::path& shader_path, vk::Format format){
+void ConversionPipeline::create(vk::Device device, const std::string& shader_path, vk::Format format){
         assert(!valid);
         valid = true;
 
@@ -358,13 +360,13 @@ vk::Pipeline create_render_pipeline(vk::Device device, vk::PipelineLayout render
 
 namespace vulkan_display_detail {
 
-void RenderPipeline::create(VulkanContext& context, const std::filesystem::path& path_to_shaders){
+void RenderPipeline::create(VulkanContext& context, const std::string& path_to_shaders){
         assert(!valid);
         valid = true;
 
         auto device = context.get_device();
-        vertex_shader = create_shader(path_to_shaders / "render.vert.spv", device);
-        fragment_shader = create_shader(path_to_shaders / "render.frag.spv", device);
+        vertex_shader = create_shader(path_to_shaders + "/render.vert.spv", device);
+        fragment_shader = create_shader(path_to_shaders + "/render.frag.spv", device);
         render_pass = create_render_pass(device, context.get_swapchain_image_format());
 
         vk::ClearColorValue clear_color_value{};

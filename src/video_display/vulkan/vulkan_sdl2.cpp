@@ -804,10 +804,9 @@ void* display_sdl2_init(module* parent, const char* fmt, unsigned int flags) {
         SDL_Vulkan_GetInstanceExtensions(s->window, &extension_count, required_extensions.data());
         assert(extension_count > 0);
         
-        std::string path = get_executable_path();
-        std::filesystem::path path_to_shaders{ path.empty() ? "." : std::move(path) };
-        path_to_shaders.remove_filename(); //remove uv or uv.exe
-        path_to_shaders = path_to_shaders / "../share/ultragrid/vulkan_shaders";
+        const char *path = get_install_root();
+        std::string path_to_shaders{ path ? path : ".." };
+        path_to_shaders = path_to_shaders + "/share/ultragrid/vulkan_shaders";
         LOG(LOG_LEVEL_INFO) << MOD_NAME "Path to shaders: " << path_to_shaders << '\n';
         try {
                 vkd::VulkanInstance instance;

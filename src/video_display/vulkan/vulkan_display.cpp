@@ -41,7 +41,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -231,7 +230,7 @@ bool is_format_supported(vk::PhysicalDevice gpu, bool is_yCbCr_supported, vk::Ex
 namespace vulkan_display {
 
 void VulkanDisplay::init(VulkanInstance&& instance, VkSurfaceKHR surface, uint32_t initial_image_count,
-        WindowChangedCallback& window, uint32_t gpu_index, std::filesystem::path shaders_path, bool vsync, bool tearing_permitted) {
+        WindowChangedCallback& window, uint32_t gpu_index, std::string shaders_path, bool vsync, bool tearing_permitted) {
         assert(surface);
         this->window = &window;
         this->path_to_shaders = std::move(shaders_path);
@@ -473,8 +472,7 @@ void VulkanDisplay::reconfigure(const TransferImageImpl& transfer_image){
                 }
 
                 if(format_conversion_enabled){
-                        auto shader_path = path_to_shaders / image_format_info.conversion_shader;
-                        shader_path += ".comp.spv";
+                        auto shader_path = path_to_shaders + "/" + image_format_info.conversion_shader + ".comp.spv";
                         conversion_pipeline.create(device, shader_path, image_format_info.buffer_format);
                         vk::Extent2D image_size = transfer_image.get_image_description().size;
                         if (image_format_info.format == Format::UYVY8_422_conv){
