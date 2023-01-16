@@ -56,7 +56,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "video.h"
@@ -103,9 +103,6 @@
 #include <utility> // pair
 
 namespace {
-
-using rang::fg;
-using rang::style;
 
 namespace vkd = vulkan_display;
 namespace chrono = std::chrono;
@@ -430,7 +427,7 @@ void sdl2_print_displays() {
                 if (dname == nullptr) {
                         dname = SDL_GetError();
                 }
-                std::cout << style::bold << i << style::reset << " - " << dname;
+                col() << SBOLD(i) << " - " << dname;
         }
         std::cout << "\n";
 }
@@ -445,58 +442,56 @@ void print_gpus() {
         } 
         catch (std::exception& e) { log_and_exit_uv(e); return; }
         
-        std::cout << "\n\tVulkan GPUs:\n";
+        col() << "\n\tVulkan GPUs:\n";
         uint32_t counter = 0;
         for (const auto& gpu : gpus) {
-                std::cout << (gpu.second ? fg::reset : fg::red);
-                std::cout << "\t\t " << counter++ << "\t - " << gpu.first;
-                std::cout << (gpu.second ? "" : " - unsuitable") << fg::reset << '\n';
+                col() << (gpu.second ? "" : TERM_FG_RED);
+                col() << "\t\t " << counter++ << "\t - " << gpu.first;
+                col() << (gpu.second ? "" : " - unsuitable") << TERM_RESET << '\n';
         }
 }
 
 void show_help() {
         SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-        using std::cout;
 
         auto print_drivers = []() {
                 for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
-                        std::cout << (i == 0 ? "" : ", ") << style::bold << SDL_GetVideoDriver(i) << style::reset;
+                        col() << (i == 0 ? "" : ", ") << SBOLD(SDL_GetVideoDriver(i));
                 }
-                std::cout << '\n';
+                col() << '\n';
         };
         
-        cout << "VULKAN_SDL2 options:\n";
-        cout << style::bold << fg::red << "\t-d vulkan_sdl2" << fg::reset;
-        cout << "[:d|:fs|:keep-aspect|:nocursor|:nodecorate|:novsync|:tearing|:validation|:display=<dis_id>|"
-                ":driver=<drv>|:gpu=<gpu_id>|:pos=<x>,<y>|:size=<W>x<H>|:window_flags=<f>|:help]\n";
+        col() << "VULKAN_SDL2 options:\n";
+        col() << SBOLD(SRED("\t-d vulkan_sdl2")
+                        << "[:d|:fs|:keep-aspect|:nocursor|:nodecorate|:novsync|:tearing|:validation|:display=<dis_id>|"
+                        ":driver=<drv>|:gpu=<gpu_id>|:pos=<x>,<y>|:size=<W>x<H>|:window_flags=<f>|:help])") << "\n";
 
-        cout << style::reset << ("\twhere:\n");
+        col() << ("\twhere:\n");
 
-        cout << style::bold << "\t\t       d" << style::reset << " - deinterlace\n";
-        cout << style::bold << "\t\t      fs" << style::reset << " - fullscreen\n";
+        col() << SBOLD("\t               d") << " - deinterlace\n";
+        col() << SBOLD("\t              fs") << " - fullscreen\n";
         
-        cout << style::bold << "\t     keep-aspect" << style::reset << " - keep window aspect ratio respecive to the video\n";
-        cout << style::bold << "\t        nocursor" << style::reset << " - hides cursor\n";
-        cout << style::bold << "\t      nodecorate" << style::reset << " - disable window border\n";
-        cout << style::bold << "\t         novsync" << style::reset << " - disable vsync\n";
-        cout << style::bold << "\t         tearing" << style::reset << " - permits screen tearing\n"; 
-        cout << style::bold << "\t      validation" << style::reset << " - enable vulkan validation layers\n";
+        col() << SBOLD("\t     keep-aspect") << " - keep window aspect ratio respecive to the video\n";
+        col() << SBOLD("\t        nocursor") << " - hides cursor\n";
+        col() << SBOLD("\t      nodecorate") << " - disable window border\n";
+        col() << SBOLD("\t         novsync") << " - disable vsync\n";
+        col() << SBOLD("\t         tearing") << " - permits screen tearing\n";
+        col() << SBOLD("\t      validation") << " - enable vulkan validation layers\n";
 
-        cout << style::bold << "\tdisplay=<dis_id>" << style::reset << " - display index, available indices: ";
+        col() << SBOLD("\tdisplay=<dis_id>") << " - display index, available indices: ";
         sdl2_print_displays();
-        cout << style::bold << "\t    driver=<drv>" << style::reset << " - available drivers:";
+        col() << SBOLD("\t    driver=<drv>") << " - available drivers: ";
         print_drivers();
-        cout << style::bold << "\t    gpu=<gpu_id>" << style::reset << " - gpu index selected from the following list\n";
-        cout << style::bold << "\t     pos=<x>,<y>" << style::reset << " - set window position\n";
-        cout << style::bold << "\t    size=<W>x<H>" << style::reset << " - set window size\n";
-        cout << style::bold << "\twindow_flags=<f>" << style::reset << " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n";
+        col() << SBOLD("\t    gpu=<gpu_id>") << " - gpu index selected from the following list\n";
+        col() << SBOLD("\t     pos=<x>,<y>") << " - set window position\n";
+        col() << SBOLD("\t    size=<W>x<H>") << " - set window size\n";
+        col() << SBOLD("\twindow_flags=<f>") << " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n";
         
         print_gpus();
 
-        cout << "\n\tKeyboard shortcuts:\n";
+        col() << "\n\tKeyboard shortcuts:\n";
         for (auto& binding : display_sdl2_keybindings) {
-                cout << style::bold << "\t\t'" << binding.first << 
-                        style::reset << "'\t - " << binding.second << "\n";
+                col() << SBOLD("\t\t'" << binding.first) << "'\t - " << binding.second << "\n";
         }
         SDL_Quit();
 }
