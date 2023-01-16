@@ -199,7 +199,7 @@ void TransferImageImpl::recreate(VulkanContext& context, ImageDescription descri
         if (void_ptr == nullptr) {
                 throw VulkanError{"Image memory cannot be mapped."};
         }
-        ptr = reinterpret_cast<std::byte*>(void_ptr);
+        ptr = reinterpret_cast<unsigned char*>(void_ptr);
 
         vk::ImageSubresource subresource{ vk::ImageAspectFlagBits::eColor, 0, 0 };
         row_pitch = device.getImageSubresourceLayout(buffer.image, subresource).rowPitch;
