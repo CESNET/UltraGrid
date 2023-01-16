@@ -78,6 +78,9 @@ struct WindowParameters {
 };
 
 constexpr uint32_t no_gpu_selected = UINT32_MAX;
+constexpr uint32_t gpu_integrated = UINT32_MAX - 1;
+constexpr uint32_t gpu_discrete = UINT32_MAX - 2;
+constexpr uint32_t gpu_macro_min = gpu_discrete;
 
 class VulkanInstance;
 

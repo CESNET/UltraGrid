@@ -482,7 +482,7 @@ void show_help() {
         sdl2_print_displays();
         col() << SBOLD("\t    driver=<drv>") << " - available drivers: ";
         print_drivers();
-        col() << SBOLD("\t    gpu=<gpu_id>") << " - gpu index selected from the following list\n";
+        col() << SBOLD("\t    gpu=<gpu_id>") << " - gpu index selected from the following list or keywords " << SBOLD("integrated") " or " << SBOLD("discrete") "\n";
         col() << SBOLD("\t     pos=<x>,<y>") << " - set window position\n";
         col() << SBOLD("\t    size=<W>x<H>") << " - set window size\n";
         col() << SBOLD("\twindow_flags=<f>") << " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n";
@@ -671,8 +671,14 @@ bool parse_command_line_arguments(command_line_arguments& args, state_vulkan_sdl
                         constexpr auto pos = "driver="sv.size();
                         args.driver = std::string{ token.substr(pos) };
                 } else if (starts_with(token, "gpu=")) {
-                        constexpr auto pos = "gpu="sv.size();
-                        args.gpu_idx = svtoi(token.substr(pos));
+                        if (token == "integrated"sv) {
+                                args.gpu_idx = vulkan_display::gpu_integrated;
+                        } else if (token == "discrete"sv) {
+                                args.gpu_idx = vulkan_display::gpu_discrete;
+                        } else {
+                                constexpr auto pos = "gpu="sv.size();
+                                args.gpu_idx = svtoi(token.substr(pos));
+                        }
                 } else if (starts_with(token, "pos=")) {
                         auto tok = token;
                         tok.remove_prefix("pos="sv.size());

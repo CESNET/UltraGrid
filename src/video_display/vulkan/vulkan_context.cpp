@@ -140,12 +140,13 @@ bool is_gpu_suitable(bool propagate_error, vk::PhysicalDevice gpu, vk::SurfaceKH
         return index != no_queue_index_found;
 }
 
-vk::PhysicalDevice choose_suitable_GPU(const std::vector<vk::PhysicalDevice>& gpus, vk::SurfaceKHR surface) {
+vk::PhysicalDevice choose_suitable_GPU(const std::vector<vk::PhysicalDevice>& gpus, vk::SurfaceKHR surface, uint32_t req_device_type) {
         assert(surface);
         for (const auto& gpu : gpus) {
                 auto properties = gpu.getProperties();
                 if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
-                        if (is_gpu_suitable(false, gpu, surface)) {
+                        if (is_gpu_suitable(false, gpu, surface) && (req_device_type == vulkan_display::gpu_discrete
+                                                || req_device_type == vulkan_display::no_gpu_selected)) {
                                 return gpu;
                         }
                 }
@@ -154,14 +155,15 @@ vk::PhysicalDevice choose_suitable_GPU(const std::vector<vk::PhysicalDevice>& gp
         for (const auto& gpu : gpus) {
                 auto properties = gpu.getProperties();
                 if (properties.deviceType == vk::PhysicalDeviceType::eIntegratedGpu) {
-                        if (is_gpu_suitable(false, gpu, surface)) {
+                        if (is_gpu_suitable(false, gpu, surface) && (req_device_type == vulkan_display::gpu_integrated
+                                                || req_device_type == vulkan_display::no_gpu_selected)) {
                                 return gpu;
                         }
                 }
         }
 
         for (const auto& gpu : gpus) {
-                if (is_gpu_suitable(false, gpu, surface)) {
+                if (is_gpu_suitable(false, gpu, surface) && req_device_type == vulkan_display::no_gpu_selected) {
                         return gpu;
                 }
         }
@@ -253,8 +255,8 @@ vk::PhysicalDevice create_physical_device(vk::Instance instance, vk::SurfaceKHR 
         assert(surface);
         std::vector<vk::PhysicalDevice> gpus = instance.enumeratePhysicalDevices();
 
-        if (gpu_index == vulkan_display::no_gpu_selected) {
-                return choose_suitable_GPU(gpus, surface);
+        if (gpu_index >= vulkan_display::gpu_macro_min) {
+                return choose_suitable_GPU(gpus, surface, gpu_index);
         } else {
                 auto gpu = choose_gpu_by_index(gpus, gpu_index);
                 is_gpu_suitable(true, gpu, surface);
