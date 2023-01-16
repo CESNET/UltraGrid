@@ -1734,8 +1734,8 @@ static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_un
         check_av_opt_set<const char *>(codec_ctx->priv_data, "header_insertion_mode", "gop", "header_insertion_mode for AMF");
 }
 
-ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
-                 "  Use interlaced DCT for H.264\n");
+ADD_TO_PARAM("lavc-h264-no-interlaced-dct", "* lavc-h264-no-interlaced-dct\n"
+                 "  Do not use interlaced DCT for H.264\n");
 ADD_TO_PARAM("lavc-rc-buffer-size-factor", "* lavc-rc-buffer-size-factor=<val>\n"
                  "  Multiplier how much can individual frame overshot average size (default x264/5: " TOSTRING(DEFAULT_X26X_RC_BUF_SIZE_FACTOR) ", nvenc: 1).\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
@@ -1762,11 +1762,8 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         //codec_ctx->rc_qsquish = 0;
         //codec_ctx->scenechange_threshold = 100;
 
-        if (get_commandline_param("lavc-h264-interlaced-dct")) {
-                // this options increases variance in frame sizes quite a lot
-                if (param->desc.interlacing == INTERLACED_MERGED) {
-                        codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
-                }
+        if (param->desc.interlacing == INTERLACED_MERGED && get_commandline_param("lavc-h264-no-interlaced-dct") == NULL) {
+                codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
 
         string x265_params;
