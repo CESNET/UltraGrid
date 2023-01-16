@@ -101,6 +101,20 @@
 using namespace std;
 using namespace std::chrono_literals;
 
+static const char * deinterlace_fp = R"raw(
+#version 110
+uniform sampler2D image;
+uniform float lineOff;
+void main()
+{
+        vec4 pix;
+        vec4 pix_down;
+        pix = texture2D(image, gl_TexCoord[0].xy);
+        pix_down = texture2D(image, vec2(gl_TexCoord[0].x, gl_TexCoord[0].y + lineOff));
+        gl_FragColor = (pix + pix_down) / 2.0;
+}
+)raw";
+
 static const char * uyvy_to_rgb_fp = R"raw(
 #version 110
 uniform sampler2D image;
@@ -333,6 +347,7 @@ static void set_gamma(struct state_gl *s);
 
 struct state_gl {
         unordered_map<codec_t, GLuint> PHandles;
+        GLuint          PHandle_deint;
         GLuint          current_program = 0;
 
         // Framebuffer
@@ -940,7 +955,12 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 }
                 glUseProgram(0);
         }
-
+        if (s->PHandle_deint) {
+                glUseProgram(s->PHandle_deint);
+                glUniform1i(glGetUniformLocation(s->PHandle_deint, "image"), 0);
+                glUniform1f(glGetUniformLocation(s->PHandle_deint, "lineOff"), 1.0f / desc.height);
+                glUseProgram(0);
+        }
         gl_check_error();
 
         glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, s->pbo_id);
@@ -981,15 +1001,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
 static void gl_render(struct state_gl *s, char *data)
 {
-        if (s->deinterlace == state_gl::deint::force || (s->deinterlace == state_gl::deint::on && s->current_display_desc.interlacing == INTERLACED_MERGED)) {
-                if (!vc_deinterlace_ex(s->current_display_desc.color_spec,
-                                        (unsigned char *) data, vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
-                                        (unsigned char *) data, vc_get_linesize(s->current_display_desc.width, s->current_display_desc.color_spec),
-                                        s->current_display_desc.height)) {
-                         log_msg_once(LOG_LEVEL_ERROR, GL_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(s->current_display_desc.color_spec));
-                }
-        }
-
         gl_check_error();
 
         if (s->current_program) {
@@ -1080,7 +1091,11 @@ static void gl_process_frames(struct state_gl *s)
         }
 
         gl_render(s, frame->tiles[0].data);
+        if (s->deinterlace == state_gl::deint::force || (s->deinterlace == state_gl::deint::on && s->current_display_desc.interlacing == INTERLACED_MERGED)) {
+                glUseProgram(s->PHandle_deint);
+        }
         gl_draw(s->aspect, (s->dxt_height - s->current_display_desc.height) / (float) s->dxt_height * 2, s->vsync != SINGLE_BUF);
+        glUseProgram(0);
 
         // publish to Syphon/Spout
         if (s->syphon_spout) {
@@ -1475,6 +1490,11 @@ static bool display_gl_init_opengl(struct state_gl *s)
                         continue;
                 }
                 s->PHandles[it.first] = prog;
+        }
+
+        if ((s->PHandle_deint = gl_substitute_compile_link(vert, deinterlace_fp)) == 0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to compile deinterlace program!\n");
+                handle_error(1);
         }
 
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // set row alignment to 1 byte instead of default
