@@ -47,6 +47,7 @@
 #include <cstring>
 
 #include "utils/fs.h"
+#include "utils/text.h"
 
 /**
  * Returns temporary path ending with path delimiter ('/' or '\' in Windows)
@@ -105,16 +106,6 @@ int get_exec_path(char* path) {
 }
 #endif  
 
-/// returns either last '/' or '\\' (Unix or Windows-style delim), '/' has a
-/// precedence
-static inline char *last_delim(char *path) {
-        char *delim = strrchr(path, '/');
-        if (delim) {
-                return delim;
-        }
-        return strrchr(path, '\\');
-}
-
 /**
  * @returns  installation root without trailing '/', eg. installation prefix on
  *           Linux - default "/usr/local", Windows - top-level directory extracted
@@ -125,12 +116,12 @@ const char *get_install_root(void) {
         if (!get_exec_path(exec_path)) {
                 return NULL;
         }
-        char *last_path_delim = last_delim(exec_path);
+        char *last_path_delim = strrpbrk(exec_path, "/\\");
         if (!last_path_delim) {
                 return NULL;
         }
         *last_path_delim = '\0'; // cut off executable name
-        last_path_delim = last_delim(exec_path);
+        last_path_delim = strrpbrk(exec_path, "/\\");
         if (!last_path_delim) {
                 return exec_path;
         }

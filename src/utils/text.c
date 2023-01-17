@@ -273,3 +273,17 @@ char *indent_paragraph(char *text) {
         return text;
 }
 
+char *strrpbrk(char *s, const char *accept) {
+        char *end = s + strlen(s) - 1;
+        while (end >= s) {
+                const char *accept_it = accept;
+                while (*accept_it != '\0') {
+                        if (*accept_it++ == *end) {
+                                return end;
+                        }
+                }
+                end--;
+        }
+        return NULL;
+}
+

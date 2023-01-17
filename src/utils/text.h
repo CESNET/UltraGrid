@@ -54,6 +54,8 @@ int urlencode_html5_eval(int c);
 int urlencode_rfc3986_eval(int c);
 size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int c), bool space_plus_replace);
 size_t urldecode(char *out, size_t max_len, const char *in);
+/// same as strpbrk but finds in a reverse order (last occurence returned)
+char *strrpbrk(char *s, const char *accept);
 
 #ifdef __cplusplus
 }
