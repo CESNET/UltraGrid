@@ -57,10 +57,6 @@
 #include "utils/misc.h"
 #include "utils/color_out.h"
 
-#ifndef MIN
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#endif
-
 #define STRERROR_BUF_LEN 1024
 
 using std::invalid_argument;
