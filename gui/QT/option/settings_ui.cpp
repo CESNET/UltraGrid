@@ -205,6 +205,11 @@ void SettingsUi::buildSettingsCodecList(){
 }
 
 void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *){
+	if(!curr){
+		codecControls.clear();
+		return;
+	}
+
 	const SettingItem &settingItem = curr->data(Qt::UserRole).value<SettingItem>();
 
 	auto modIt = std::find_if(settingItem.opts.begin(), settingItem.opts.end(),
