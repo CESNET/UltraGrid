@@ -47,8 +47,6 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
-#include <memory>
-
 #ifdef WAND7
 #include <MagickWand/MagickWand.h>
 #else
@@ -64,17 +62,15 @@
 #include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/text.h" // replace_all
-
-using rang::style;
-using namespace std;
 
 struct state_text {
         struct video_frame *in;
-        unique_ptr<char []> data;
-        string text;
-        int req_x = -1, req_y = -1, req_h = -1;
+        char *data;
+        char *text;
+        int req_x, req_y, req_h;
         int width, height; // width in pixels
         int margin_x, margin_y, text_h;
         struct video_desc saved_desc;
@@ -112,20 +108,23 @@ static void * text_init(const char *config) {
         struct state_text *s;
 
         if (strlen(config) == 0 || strcmp(config, "help") == 0) {
-                cout << "text video postprocess takes as a parameter text to be drawed. Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
-                cout << "Usage:\n";
-                cout << style::bold << "\t-p text:<text>\n" << style::reset;
-                cout << style::bold << "\t-p text:x=<x>:y=<y>:h=<text_height>:t=<text>\n" << style::reset;
-                cout << "\nExamples:\n";
-                cout << style::bold << "\t-p text:stream1\n" << style::reset;
-                cout << style::bold << "\t-p text:x=100:y=100:h=20:t=text\n" << style::reset;
-                cout << style::bold << "\t-p \"text:Video stream from location XY\"\n" << style::reset;
-                cout << style::bold << "\t-p \"text:Text can also contains escaped colons - \\:\"\n" << style::reset;
-                printf("\n");
+                char desc[] = TBOLD("text") " video postprocess takes as a parameter text to be drawed. "
+                        "Colons in text must be escaped with a backslash (see Examples). Spaces may be escaped or the whole argument should be enclosed by quotation marks.\n";
+                color_printf("%s", indent_paragraph(desc));
+                color_printf("\nUsage:\n");
+                color_printf("\t" TBOLD("-p text:<text>") "\n");
+                color_printf("\t" TBOLD("-p text:x=<x>:y=<y>:h=<text_height>:t=<text>") "\n");
+                color_printf("\nExamples:\n");
+                color_printf(TBOLD("\t-p text:stream1\n"
+                                        "\t-p text:x=100:y=100:h=20:t=text\n"
+                                        "\t-p \"text:Video stream from location XY\"\n"
+                                        "\t-p \"text:Text can also contains escaped colons - \\:\"\n")
+                                "\n");
                 return NULL;
         }
 
-        s = new state_text();
+        s = calloc(1, sizeof *s);
+        s->req_x = s->req_y = s->req_h = -1;
 
         char *config_copy = strdup(config);
         replace_all(config_copy, ESCAPED_COLON, DELDEL);
@@ -139,10 +138,10 @@ static void * text_init(const char *config) {
                         s->req_h = atoi(item + 2);
                 } else if (strstr(item, "t=") != NULL) {
                         replace_all(item + 2, DELDEL, ":");
-                        s->text = item + 2;
+                        s->text = strdup(item + 2);
                 } else {
                         replace_all(item, DELDEL, ":");
-                        s->text = item;
+                        s->text = strdup(item);
                 }
                 tmp = NULL;
         }
@@ -151,8 +150,9 @@ static void * text_init(const char *config) {
         return s;
 }
 
-static int cf_text_init(struct module * /* parent */, const char *cfg, void **state)
+static int cf_text_init(struct module *parent, const char *cfg, void **state)
 {
+        (void) parent;
         void *s = text_init(cfg);
         if (!s) {
                 return 1;
@@ -177,11 +177,11 @@ static int text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->in = vf_alloc_desc_data(desc);
 
-        s->margin_x = s->req_x == -1 ? desc.width / MARGIN_X_DIV : s->req_x;
-        s->margin_y = s->req_y == -1 ? desc.height / MARGIN_Y_DIV : s->req_y;
-        s->text_h = s->req_h == -1 ? desc.height / TEXT_H_DIV : s->req_h;
-        s->width = min<unsigned long>(s->margin_x + s->text.length() * s->text_h, desc.width);
-        s->height = min<unsigned long>(s->margin_y + s->text_h, desc.height);
+        s->margin_x = s->req_x == -1 ? (int) desc.width / MARGIN_X_DIV : s->req_x;
+        s->margin_y = s->req_y == -1 ? (int) desc.height / MARGIN_Y_DIV : s->req_y;
+        s->text_h = s->req_h == -1 ? (int) desc.height / TEXT_H_DIV : s->req_h;
+        s->width = MIN(s->margin_x + strlen(s->text) * s->text_h, desc.width);
+        s->height = MIN(s->margin_y + s->text_h, (int) desc.height);
 
         const char *color;
         const char *color_outline;
@@ -206,7 +206,7 @@ static int text_postprocess_reconfigure(void *state, struct video_desc desc)
 
         s->dw = NewDrawingWand();
         DrawSetFontSize(s->dw, s->text_h);
-        auto status = DrawSetFont(s->dw, "helvetica");
+        MagickBooleanType status = DrawSetFont(s->dw, "helvetica");
         if(status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] DraweSetFont failed!\n");
                 return FALSE;
@@ -260,13 +260,13 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
 
         int dstlinesize = vc_get_linesize(s->width, in->color_spec);
         int srclinesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
-        auto tmp = unique_ptr<char []>(new char[s->height * dstlinesize]);
-        for (int y = 0; y < s->height; y++) {
-                memcpy(tmp.get() + y * dstlinesize, in->tiles[0].data + y * srclinesize, dstlinesize);
+        char *tmp = malloc((size_t) s->height * dstlinesize);
+        for (ptrdiff_t y = 0; y < s->height; y++) {
+                memcpy(tmp + y * dstlinesize, in->tiles[0].data + y * srclinesize, dstlinesize);
         }
 
         MagickRemoveImage(s->wand);
-        auto status = MagickReadImageBlob(s->wand, tmp.get(), s->height * dstlinesize);
+        MagickBooleanType status = MagickReadImageBlob(s->wand, tmp, s->height * dstlinesize);
         if (status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickReadImageBlob failed!\n");
                 return false;
@@ -275,7 +275,7 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         //fprintf(stderr, "%f %f %f %f %f\n", ret[0], ret[1], ret[2], ret[3], ret[4]);
         unsigned char *data;
         size_t data_len;
-        status = MagickAnnotateImage(s->wand, s->dw, s->margin_x, s->margin_y + s->text_h, 0, s->text.c_str());
+        status = MagickAnnotateImage(s->wand, s->dw, s->margin_x, s->margin_y + s->text_h, 0, s->text);
         if (status != MagickTrue) {
                 log_msg(LOG_LEVEL_WARNING, "[text vo_pp.] MagickAnnotateImage failed!\n");
                 return false;
@@ -300,6 +300,7 @@ static bool text_postprocess(void *state, struct video_frame *in, struct video_f
         }
 
         free(data);
+        free(tmp);
 
         return true;
 }
@@ -308,7 +309,7 @@ static struct video_frame *cf_text_filter(void *state, struct video_frame *f)
 {
         struct state_text *s = (struct state_text *) state;
 
-        if (s->saved_desc != video_desc_from_frame(f)) {
+        if (!video_desc_eq(s->saved_desc, video_desc_from_frame(f))) {
                 if (text_postprocess_reconfigure(state, video_desc_from_frame(f))) {
                         s->saved_desc = video_desc_from_frame(f);
                 } else {
@@ -338,7 +339,9 @@ static void text_done(void *state)
         DestroyMagickWand(s->wand);
         DestroyDrawingWand(s->dw);
 
-        delete s;
+        free(s->data);
+        free(s->text);
+        free(s);
 }
 
 static void text_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
