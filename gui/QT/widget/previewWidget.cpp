@@ -5,7 +5,6 @@
 #include <QOpenGLVersionFunctionsFactory>
 #endif
 #include "previewWidget.hpp"
-#include "utils/fs.h"
 #include "debug.hpp"
 
 static const GLfloat rectangle[] = {
@@ -256,6 +255,27 @@ void PreviewWidget::render(){
 void PreviewWidget::paintGL(){
 	loadFrame();
 	render();
+}
+
+static const char *get_temp_dir(void)
+{
+#ifdef _WIN32
+        static __thread char temp_dir[MAX_PATH];
+        if (GetTempPathA(sizeof temp_dir, temp_dir) == 0) {
+                return NULL;
+        }
+#else
+        static __thread char temp_dir[PATH_MAX];
+        if (char *req_tmp_dir = getenv("TMPDIR")) {
+                temp_dir[sizeof temp_dir - 1] = '\0';
+                strncpy(temp_dir, req_tmp_dir, sizeof temp_dir - 1);
+        } else {
+                strcpy(temp_dir, P_tmpdir);
+        }
+        strncat(temp_dir, "/", sizeof temp_dir - strlen(temp_dir) - 1);
+#endif
+
+        return temp_dir;
 }
 
 void PreviewWidget::setKey(std::string_view key){

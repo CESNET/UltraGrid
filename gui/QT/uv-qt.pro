@@ -51,7 +51,6 @@ HEADERS += window/ultragrid_window.hpp \
 	../../tools/ipc_frame.h \
 	../../tools/ipc_frame_unix.h \
 	../../src/compat/platform_pipe.h \
-	../../src/utils/fs.h \
 	../../src/utils/string_view_utils.hpp \
 	widget/vuMeterWidget.hpp \
 	widget/recv_report.hpp \
@@ -112,6 +111,5 @@ SOURCES += window/ultragrid_window.cpp \
 	../../tools/ipc_frame.cpp \
 	../../tools/ipc_frame_unix.cpp \
 	../../src/compat/platform_pipe.cpp \
-	../../src/utils/fs.cpp \
 	../../src/utils/string_view_utils.cpp \
 	main.cpp
