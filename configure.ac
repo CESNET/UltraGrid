@@ -1248,7 +1248,15 @@ AC_ARG_ENABLE(vulkan,
     [vulkan_req=$build_default]
     )
 
-PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
+SAVED_LIBS=$LIBS
+VULKAN_LIBS="-L/opt/homebrew/lib -lMoltenVK"
+LIBS="$LIBS $VULKAN_LIBS"
+AC_CHECK_FUNCS(vkCreateImage, [found_vulkan=yes], [found_vulkan=no])
+LIBS=$SAVED_LIBS
+if test "$found_vulkan" = no; then
+        VULKAN_LIBS=
+        PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
+fi
 AC_CHECK_HEADERS([vulkan/vulkan.h], [], [found_vulkan=no])
 
 if test $vulkan_req != no -a $sdl = yes -a $sdl_version = 2 -a $found_vulkan = yes
