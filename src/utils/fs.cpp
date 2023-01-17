@@ -125,8 +125,8 @@ const char *get_install_root(void) {
         if (!last_path_delim) {
                 return exec_path;
         }
-        if (strcmp(last_path_delim + 1, "bin") == 0) {
-                *last_path_delim = '\0'; // remove "bin" suffix if there is (not in Windows builds)
+        if (strcmp(last_path_delim + 1, "bin") == 0 || strcmp(last_path_delim + 1, "MacOS") == 0) {
+                *last_path_delim = '\0'; // remove "bin" suffix if there is one (not in Windows builds) or MacOS in a bundle
         }
         return exec_path;
 }

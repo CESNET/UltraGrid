@@ -654,6 +654,7 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 	echo quit | $(DYLIBBUNDLER) $(DYLIBBUNDLER_FLAGS) -of -p @executable_path/../libs/ -cd -b -x $(GUI_BUNDLE)/Contents/MacOS/uv-qt -d $(GUI_BUNDLE)/Contents/libs/; \
 	cp $(BUNDLE)/Contents/MacOS/* $(GUI_BUNDLE)/Contents/MacOS/
 	[ -d $(BUNDLE)/Contents/libs ] && cp $(BUNDLE)/Contents/libs/* $(GUI_BUNDLE)/Contents/libs
+	[ -d $(BUNDLE)/Contents/share ] && { mkdir -p $(GUI_BUNDLE)/Contents/share; cp -r $(BUNDLE)/Contents/share/* $(GUI_BUNDLE)/Contents/share; }
 	cp -R $(BUNDLE)/Contents/Frameworks/* $(GUI_BUNDLE)/Contents/Frameworks
 	# add Qt frameworks
 	command -v macdeployqt && macdeployqt $(GUI_BUNDLE) -verbose=2 -executable=$(GUI_BUNDLE)/Contents/MacOS/uv -executable=$(GUI_BUNDLE)/Contents/MacOS/hd-rum-transcode
