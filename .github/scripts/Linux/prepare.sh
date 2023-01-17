@@ -38,20 +38,11 @@ sudo apt install $sdl2_mix_build_dep $sdl2_ttf_build_dep
 
 # FFmpeg deps
 sudo add-apt-repository ppa:savoury1/vlc3 # new x265
-# updates nasm 2.13->2.14 in U18.04 (needed for rav1e)
-update_nasm() {
-        if [ -z "$(apt-cache search --names-only '^nasm-mozilla$')" ]; then
-                return
-        fi
-        sudo apt install nasm- nasm-mozilla
-        sudo ln -s /usr/lib/nasm-mozilla/bin/nasm /usr/bin/nasm
-}
 # for FFmpeg - libzmq3-dev needs to be ignored (cannot be installed, see run #380)
 ffmpeg_build_dep=$(get_build_deps_excl ffmpeg 'libzmq3-dev\|libsdl2-dev')
 # shellcheck disable=SC2086 # intentional
 sudo apt install $ffmpeg_build_dep libdav1d-dev libde265-dev
 sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx264*' nginx
-update_nasm
 # own x264 build
 sudo apt --no-install-recommends install asciidoc xmlto
 # openVPL

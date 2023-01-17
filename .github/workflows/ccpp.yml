@@ -54,7 +54,7 @@ jobs:
   Ubuntu:
     name: run Ubuntu
     needs: prepare
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env:
       appimage_key: ${{ secrets.appimage_key }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -125,7 +125,7 @@ jobs:
     - name: make distcheck
       run: make distcheck
     - name: check libc/libstdc++ ABI
-      run: .github/scripts/Linux/check_abi.sh 2.27 3.4.22 1.3.9 bin/* lib/ultragrid/*
+      run: .github/scripts/Linux/check_abi.sh 2.31 3.4.28 1.3.12 bin/* lib/ultragrid/*
     - name: Create AppImage
       run: data/scripts/Linux-AppImage/create-appimage.sh https://github.com/$GITHUB_REPOSITORY/releases/download/continuous/UltraGrid-$CHANNEL-x86_64.AppImage.zsync
     - name: Check AppImage
