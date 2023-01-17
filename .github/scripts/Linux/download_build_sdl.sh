@@ -12,7 +12,7 @@ make -j "$(nproc)"
 sudo make install # SDL needs to be installed here because it is a dependency for the below
 cd ..
 
-git clone --depth 1 https://github.com/libsdl-org/SDL_mixer
+git clone -b SDL2 --depth 1 https://github.com/libsdl-org/SDL_mixer
 cd SDL_mixer
 ./configure
 make -j "$(nproc)"
