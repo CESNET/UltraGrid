@@ -581,6 +581,11 @@ const char *get_commandline_param(const char *key)
         }
 }
 
+void set_commandline_param(const char *key, const char *val)
+{
+        commandline_params[key] = val;
+}
+
 int get_audio_delay(void)
 {
         return audio_offset > 0 ? audio_offset : -video_offset;

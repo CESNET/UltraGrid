@@ -1,5 +1,5 @@
 /**
- * @file   vo_postprocess/double-framerate.cpp
+ * @file   vo_postprocess/temporal-deint.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * This file contains multiple temporal deinterlacers (doubling frame-rate):
@@ -46,11 +46,11 @@
 #include "config_win32.h"
 #endif
 
-#include <chrono>
 #include <stdlib.h>
 
 #include "debug.h"
 #include "lib_common.h"
+#include "tv.h"
 #include "utils/color_out.h"
 #include "utils/text.h" // indent_paragraph
 #include "video.h"
@@ -72,7 +72,7 @@ struct state_df {
         bool nodelay;
         bool force;
 
-        std::chrono::steady_clock::time_point frame_received;
+        time_ns_t frame_received;
 };
 
 static void print_common_opts() {
@@ -111,7 +111,7 @@ static void * init_common(enum algo algo, const char *config) {
                 return NULL;
         }
 
-        struct state_df *s = new state_df{};
+        struct state_df *s = calloc(1, sizeof *s);
         assert(s != NULL);
         s->algo = algo;
 
@@ -122,9 +122,9 @@ static void * init_common(enum algo algo, const char *config) {
         s->force = force;
         s->nodelay = nodelay;
 
-        if (s->nodelay && commandline_params.find("decoder-drop-policy") == commandline_params.end()) {
+        if (s->nodelay && get_commandline_param("decoder-drop-policy") == NULL) {
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "nodelay option used, setting drop policy to %s timeout.\n", TIMEOUT);
-                commandline_params["decoder-drop-policy"] = TIMEOUT;
+                set_commandline_param("decoder-drop-policy", TIMEOUT);
         }
 
         return s;
@@ -452,12 +452,12 @@ static bool common_postprocess(void *state, struct video_frame *in, struct video
                 // In following code we fix timing in order not to pass both frames
                 // in bulk but rather we busy-wait half of the frame time.
                 if (in) {
-                        s->frame_received = std::chrono::steady_clock::now();
+                        s->frame_received = get_time_in_ns();
                 } else {
-                        decltype(s->frame_received) t;
+                        time_ns_t t = 0;
                         do {
-                                t = std::chrono::steady_clock::now();
-                        } while (std::chrono::duration_cast<std::chrono::duration<double>>(t - s->frame_received).count() <= 0.5 / out->fps);
+                                t = get_time_in_ns();
+                        } while ((t - s->frame_received) / NS_IN_SEC_DBL <= 0.5 / out->fps);
                 }
         }
 
@@ -471,7 +471,7 @@ static void common_done(void *state)
         free(s->buffers[0]);
         free(s->buffers[1]);
         vf_free(s->in);
-        delete s;
+        free(s);
 }
 
 static void common_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
