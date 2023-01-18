@@ -25,6 +25,7 @@ on:
       - 'configure.ac'
       - 'data/scripts/**'
       - 'Makefile.in'
+  workflow_dispatch:
 
 jobs:
   prepare:

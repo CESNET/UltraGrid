@@ -6,6 +6,7 @@ on:
       - arm-build
   schedule:
     - cron:  '0 4 20 * *' # 20th at 4:00 UTC
+  workflow_dispatch:
 
 jobs:
   Build:
