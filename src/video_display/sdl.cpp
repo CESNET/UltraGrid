@@ -620,7 +620,7 @@ static struct video_frame *display_sdl_getf(void *state)
         return vf_alloc_desc_data(s->current_desc);
 }
 
-static int display_sdl_putf(void *state, struct video_frame *frame, int nonblock)
+static int display_sdl_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         struct state_sdl *s = (struct state_sdl *)state;
 
