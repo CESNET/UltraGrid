@@ -427,6 +427,8 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
 
         d->saved_desc = desc;
         d->saved_mode = video_mode;
+        int rc = 0;
+        struct video_desc display_desc = desc;
 
         if (d->postprocess) {
                 bool pp_does_change_tiling_mode = false;
@@ -450,17 +452,9 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
                                         "postprocess.\n");
                         return false;
                 }
-		struct video_desc display_desc;
                 int render_mode; // WTF ?
 		vo_postprocess_get_out_desc(d->postprocess, &display_desc, &render_mode, &d->pp_output_frames_count);
-		int rc = d->funcs->reconfigure_video(d->state, display_desc);
-                if (rc) {
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully reconfigured display to %s\n",
-                                video_desc_to_string(display_desc));
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reconfigure display to %s\n",
-                                        video_desc_to_string(display_desc));
-                }
+		rc = d->funcs->reconfigure_video(d->state, display_desc);
                 len = sizeof d->display_pitch;
                 d->display_pitch = PITCH_DEFAULT;
                 d->funcs->ctl_property(d->state, DISPLAY_PROPERTY_BUF_PITCH,
@@ -468,11 +462,18 @@ int display_reconfigure(struct display *d, struct video_desc desc, enum video_mo
                 if (d->display_pitch == PITCH_DEFAULT) {
 			d->display_pitch = vc_get_linesize(display_desc.width, display_desc.color_spec);
 		}
-
-                return rc;
         } else {
-		return d->funcs->reconfigure_video(d->state, desc);
-	}
+		rc = d->funcs->reconfigure_video(d->state, desc);
+        }
+        if (rc) {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully reconfigured display to %s\n",
+                                video_desc_to_string(display_desc));
+        } else {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reconfigure display to %s\n",
+                                video_desc_to_string(display_desc));
+        }
+
+        return rc;
 }
 
 static void restrict_returned_codecs(codec_t *display_codecs,
