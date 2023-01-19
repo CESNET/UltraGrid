@@ -56,7 +56,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
         else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT & message_severity)    level = LogLevel::info;
         else if (VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT & message_severity) level = LogLevel::verbose;
 
-        log_msg(level, "validation layer: "s + callback_data->pMessage);
+        vulkan_log_msg(level, "validation layer: "s + callback_data->pMessage);
 
         if (message_type != VkDebugUtilsMessageTypeFlagBitsEXT::VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT){
                 //assert(false);
@@ -247,7 +247,7 @@ void log_gpu_info(vk::PhysicalDeviceProperties gpu_properties, uint32_t vulkan_v
                 "."s,
                 std::to_string(VK_VERSION_MINOR(vulkan_version))
                 });
-        log_msg(LogLevel::info, msg);
+        vulkan_log_msg(LogLevel::info, msg);
 }
 
 vk::PhysicalDevice create_physical_device(vk::Instance instance, vk::SurfaceKHR surface, uint32_t gpu_index) {
@@ -287,7 +287,7 @@ void create_swapchain_views(vk::Device device, vk::SwapchainKHR swapchain, vk::F
 namespace vulkan_display {
 
 void VulkanInstance::init(std::vector<const char*>& required_extensions, bool enable_validation, std::function<void(LogLevel, std::string_view sv)> logging_function) {
-        log_msg = std::move(logging_function);
+        vulkan_log_msg = std::move(logging_function);
         std::vector<const char*> validation_layers{};
         if (enable_validation) {
                 validation_layers.push_back("VK_LAYER_KHRONOS_validation");
@@ -402,7 +402,7 @@ void VulkanContext::create_logical_device() {
                 if (yCbCr_feature.samplerYcbcrConversion) {
                         yCbCr_supported = true;
                         device_info.setPNext(&features2);
-                        log_msg(LogLevel::info, "yCbCr feature supported.");
+                        vulkan_log_msg(LogLevel::info, "yCbCr feature supported.");
                 }
         }
 
@@ -444,7 +444,7 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                         ", format: "s,
                         vk::to_string(swapchain_atributes.format.format)
                 });
-                log_msg(LogLevel::info, msg);
+                vulkan_log_msg(LogLevel::info, msg);
 
                 //assert(capabilities.supportedUsageFlags & vk::ImageUsageFlagBits::eTransferDst);
                 vk::SwapchainCreateInfoKHR swapchain_info{};
@@ -469,7 +469,7 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                         return;
                 }
                 catch(std::exception& err){
-                        log_msg(LogLevel::info, "Recreation unsuccesful: "s + err.what());
+                        vulkan_log_msg(LogLevel::info, "Recreation unsuccesful: "s + err.what());
                         device.destroy(old_swapchain);
                         old_swapchain = nullptr;
                         if(attempt + 1 == initialization_attempts){

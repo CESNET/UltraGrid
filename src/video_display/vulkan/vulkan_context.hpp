@@ -112,7 +112,7 @@ constexpr uint32_t no_queue_index_found = UINT32_MAX;
 constexpr uint32_t swapchain_image_out_of_date = UINT32_MAX;
 constexpr uint32_t swapchain_image_timeout = UINT32_MAX - 1;
 
-inline std::function<void(vulkan_display::LogLevel, std::string_view)> log_msg;
+inline std::function<void(vulkan_display::LogLevel, std::string_view)> vulkan_log_msg;
 
 inline vk::ImageViewCreateInfo default_image_view_create_info(vk::Format format) {
         vk::ImageViewCreateInfo image_view_info{ {}, {}, vk::ImageViewType::e2D, format };
