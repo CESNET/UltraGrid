@@ -112,9 +112,9 @@ constexpr int initial_frame_count = 0;
 #define MOD_NAME "[VULKAN_SDL2] "
 
 
-void display_sdl2_new_message(module*);
-int display_sdl2_putf(void* state, video_frame* frame, long long timeout_ns);
-video_frame* display_sdl2_getf(void* state);
+void display_vulkan_new_message(module*);
+int display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns);
+video_frame* display_vulkan_getf(void* state);
 
 class WindowCallback final : public vkd::WindowChangedCallback {
         SDL_Window* window = nullptr;
@@ -200,7 +200,7 @@ struct state_vulkan_sdl2 {
         explicit state_vulkan_sdl2(module* parent) {
                 module_init_default(&mod);
                 mod.priv_magic = magic_vulkan_sdl2;
-                mod.new_message = display_sdl2_new_message;
+                mod.new_message = display_vulkan_new_message;
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
 
@@ -223,7 +223,7 @@ struct state_vulkan_sdl2 {
 static_assert(std::is_standard_layout_v<state_vulkan_sdl2>);
 
 //todo C++20 : change to to_array
-constexpr std::array<std::pair<char, std::string_view>, 3> display_sdl2_keybindings{{
+constexpr std::array<std::pair<char, std::string_view>, 3> display_vulkan_keybindings{{
         {'d', "toggle deinterlace"},
         {'f', "toggle fullscreen"},
         {'q', "quit"}
@@ -281,7 +281,7 @@ constexpr int64_t translate_sdl_key_to_ug(SDL_Keysym sym) {
         return -1;
 }
 
-constexpr bool display_sdl2_process_key(state_vulkan_sdl2& s, int64_t key) {
+constexpr bool display_vulkan_process_key(state_vulkan_sdl2& s, int64_t key) {
         switch (key) {
                 case 'd':
                         s.deinterlace = !s.deinterlace;
@@ -319,7 +319,7 @@ void process_user_messages(state_vulkan_sdl2& s) {
                         SDL_SetWindowTitle(s.window, msg->text + strlen("win-title "));
                         r = new_response(RESPONSE_OK, NULL);
                 } else if (sscanf(msg->text, "%d", &key) == 1) {
-                        if (!display_sdl2_process_key(s, key)) {
+                        if (!display_vulkan_process_key(s, key)) {
                                 r = new_response(RESPONSE_BAD_REQUEST, "Unsupported key for SDL");
                         } else {
                                 r = new_response(RESPONSE_OK, NULL);
@@ -346,7 +346,7 @@ void process_events(state_vulkan_sdl2& s) {
                                 keysym.mod);
                         int64_t sym = translate_sdl_key_to_ug(keysym);
                         if (sym > 0) {
-                                if (!display_sdl2_process_key(s, sym)) { 
+                                if (!display_vulkan_process_key(s, sym)) {
                                         // unknown key -> pass to control
                                         keycontrol_send_key(get_root_module(&s.mod), sym);
                                 }
@@ -390,7 +390,7 @@ void process_events(state_vulkan_sdl2& s) {
         }
 }
 
-void display_sdl2_run(void* state) {
+void display_vulkan_run(void* state) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
         
@@ -490,7 +490,7 @@ void show_help() {
         print_gpus();
 
         col() << "\n\tKeyboard shortcuts:\n";
-        for (auto& binding : display_sdl2_keybindings) {
+        for (auto& binding : display_vulkan_keybindings) {
                 col() << SBOLD("\t\t'" << binding.first) << "'\t - " << binding.second << "\n";
         }
         SDL_Quit();
@@ -549,7 +549,7 @@ vkd::ImageDescription to_vkd_image_desc(const video_desc& ultragrid_desc, state_
 }
 
 
-int display_sdl2_reconfigure(void* state, video_desc desc) {
+int display_vulkan_reconfigure(void* state, video_desc desc) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
@@ -729,7 +729,7 @@ void vulkan_display_log(vkd::LogLevel vkd_log_level, std::string_view sv){
         LOG(log_level) << MOD_NAME << sv << std::endl;
 }
 
-void* display_sdl2_init(module* parent, const char* fmt, unsigned int flags) {
+void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         if (flags & DISPLAY_FLAG_AUDIO_ANY) {
                 log_msg(LOG_LEVEL_ERROR, "UltraGrid VULKAN_SDL2 module currently doesn't support audio!\n");
                 return nullptr;
@@ -763,7 +763,7 @@ void* display_sdl2_init(module* parent, const char* fmt, unsigned int flags) {
         SDL_ShowCursor(args.cursor);
         SDL_DisableScreenSaver();
 
-        for (auto& binding : display_sdl2_keybindings) {
+        for (auto& binding : display_vulkan_keybindings) {
                 std::string msg = std::to_string(static_cast<int>(binding.first));
                 keycontrol_register_key(&s->mod, binding.first, msg.c_str(), binding.second.data());
         }
@@ -837,7 +837,7 @@ void* display_sdl2_init(module* parent, const char* fmt, unsigned int flags) {
         return static_cast<void*>(s.release());
 }
 
-void display_sdl2_done(void* state) {
+void display_vulkan_done(void* state) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
@@ -863,7 +863,7 @@ void display_sdl2_done(void* state) {
         delete s;
 }
 
-video_frame* display_sdl2_getf(void* state) {
+video_frame* display_vulkan_getf(void* state) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
         
@@ -881,7 +881,7 @@ video_frame* display_sdl2_getf(void* state) {
         return &frame;
 }
 
-int display_sdl2_putf(void* state, video_frame* frame, long long timeout_ns) {
+int display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
@@ -915,7 +915,7 @@ int display_sdl2_putf(void* state, video_frame* frame, long long timeout_ns) {
         return 0;
 }
 
-int display_sdl2_get_property(void* state, int property, void* val, size_t* len) {
+int display_vulkan_get_property(void* state, int property, void* val, size_t* len) {
         auto* s = static_cast<state_vulkan_sdl2*>(state);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
@@ -962,7 +962,7 @@ int display_sdl2_get_property(void* state, int property, void* val, size_t* len)
         return TRUE;
 }
 
-void display_sdl2_new_message(module* mod) {
+void display_vulkan_new_message(module* mod) {
         auto s = reinterpret_cast<state_vulkan_sdl2*>(mod);
         assert(s->mod.priv_magic == magic_vulkan_sdl2);
 
@@ -972,18 +972,18 @@ void display_sdl2_new_message(module* mod) {
 }
 
 
-static void display_sdl2_put_audio_frame([[maybe_unused]] void* state, [[maybe_unused]] const struct audio_frame* frame)
+static void display_vulkan_put_audio_frame([[maybe_unused]] void* state, [[maybe_unused]] const struct audio_frame* frame)
 {
 }
 
 
-int display_sdl2_reconfigure_audio([[maybe_unused]] void* state, [[maybe_unused]] int quant_samples,
+int display_vulkan_reconfigure_audio([[maybe_unused]] void* state, [[maybe_unused]] int quant_samples,
         [[maybe_unused]] int channels, [[maybe_unused]] int sample_rate)
 {
         return FALSE;
 }
 
-const video_display_info display_sdl2_info = {
+const video_display_info display_vulkan_info = {
         [](device_info** available_cards, int* count, [[maybe_unused]] void (**deleter)(void*)) {
                 *count = 1;
                 *available_cards = static_cast<device_info*>(calloc(1, sizeof(device_info)));
@@ -992,15 +992,15 @@ const video_display_info display_sdl2_info = {
                 strcpy(info.name, "VULKAN_SDL2 SW display");
                 info.repeatable = true;
         },
-        display_sdl2_init,
-        display_sdl2_run,
-        display_sdl2_done,
-        display_sdl2_getf,
-        display_sdl2_putf,
-        display_sdl2_reconfigure,
-        display_sdl2_get_property,
-        display_sdl2_put_audio_frame,
-        display_sdl2_reconfigure_audio,
+        display_vulkan_init,
+        display_vulkan_run,
+        display_vulkan_done,
+        display_vulkan_getf,
+        display_vulkan_putf,
+        display_vulkan_reconfigure,
+        display_vulkan_get_property,
+        display_vulkan_put_audio_frame,
+        display_vulkan_reconfigure_audio,
         DISPLAY_NEEDS_MAINLOOP,
         nullptr,
 };
@@ -1008,5 +1008,5 @@ const video_display_info display_sdl2_info = {
 } // namespace
 
 
-REGISTER_MODULE(vulkan_sdl2, &display_sdl2_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+REGISTER_MODULE(vulkan_sdl2, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
