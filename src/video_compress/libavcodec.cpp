@@ -1011,6 +1011,7 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
 }
 
 void apply_blacklist(list<enum AVPixelFormat> &formats, const char *encoder_name) {
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 55, 100) // FFMPEG commit b09fb030
         // blacklist AV_PIX_FMT_X2RGB10LE for NVENC - with current FFmpeg (13d04e3), it produces
         // 10-bit 4:2:0 YUV (FF macro IS_YUV444 and IS_GBRP should contain the codec - 1st one is ok,
         // second produces incorrect colors)
@@ -1023,6 +1024,7 @@ void apply_blacklist(list<enum AVPixelFormat> &formats, const char *encoder_name
                         formats.erase(it);
                 }
         }
+#endif
 }
 
 static bool try_open_codec(struct state_video_compress_libav *s,
