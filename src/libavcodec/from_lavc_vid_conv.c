@@ -1622,7 +1622,7 @@ static void yuv444p10le_to_rgb32(char * __restrict dst_buffer, AVFrame * __restr
         yuv444p10le_to_rgb(dst_buffer, in_frame, width, height, pitch, rgb_shift, true);
 }
 
-#ifdef HAVE_P210
+#if HAVE_P210
 static void p210le_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -1763,7 +1763,7 @@ static void p010le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
-#ifdef HAVE_P210
+#if HAVE_P210
 static void p210le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -1921,7 +1921,7 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
                 {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
                 {AV_PIX_FMT_YUV444P10LE, RG48, yuv444p10le_to_rg48, false},
                 {AV_PIX_FMT_YUV444P10LE, Y416, yuv444p10le_to_y416, true},
-#ifdef HAVE_P210
+#if HAVE_P210
                 {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
                 {AV_PIX_FMT_P210LE, UYVY, p210le_to_uyvy, false},
 #endif

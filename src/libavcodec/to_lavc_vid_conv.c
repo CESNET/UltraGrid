@@ -140,6 +140,27 @@ static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, const unsigned char 
         }
 }
 
+static void uyvy_to_vuya(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
+        ATTRIBUTE(unused);
+static void uyvy_to_vuya(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                unsigned char *dst = out_frame->data[0] + out_frame->linesize[0] * y;
+
+                OPTIMIZED_FOR (int x = 0; x < width; x += 2) {
+                        *dst++ = src[2];
+                        *dst++ = src[0];
+                        *dst++ = src[1];
+                        *dst++ = 0xff;
+                        *dst++ = src[2];
+                        *dst++ = src[0];
+                        *dst++ = src[3];
+                        *dst++ = 0xff;
+                        src += 4;
+                }
+        }
+}
+
 static void uyvy_to_yuv444p(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
 {
         for(int y = 0; y < height; ++y) {
@@ -434,6 +455,34 @@ static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned c
         }
 }
 
+static void v210_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+        ATTRIBUTE(unused);
+static void v210_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+{
+        assert((uintptr_t) in_data % 4 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 4 == 0);
+
+        for(int y = 0; y < height; y += 1) {
+                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                uint32_t *dst = (uint32_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+                        uint32_t w0 = *src++;
+                        uint32_t w1 = *src++;
+                        uint32_t w2 = *src++;
+                        uint32_t w3 = *src++;
+                        *dst++ = w0;
+                        *dst++ = (w0 & 0xFFF003FFU) | (w1 & 0x3FFU) << 10U;
+
+                        *dst++ = (w2 & 0x3FFU) << 20U | (w1 & 0x3FF00000U) >> 10U | (w1 & 0xFFC00U) >> 10U;
+                        *dst++ = (w2 & 0x3FFU) << 20U | (w2 & 0xFFC00U) | (w1 & 0xFFC00U) >> 10U;
+
+                        *dst++ = (w3 & 0xFFC00U) << 10U | (w3 & 0x3FFU) << 10U | (w2 & 0x3FF00000U) >> 20;
+                        *dst++ = (w3 & 0xFFC00U) << 10U | (w3 & 0x3FF00000U) >> 10 | (w2 & 0x3FF00000U) >> 20;
+                }
+        }
+}
+
 static void v210_to_p010le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
@@ -498,7 +547,7 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, const unsigned char *
         }
 }
 
-#ifdef HAVE_P210
+#if HAVE_P210
 static void v210_to_p210le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
@@ -1141,6 +1190,9 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { v210, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv422p10le },
                 { v210, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p10le },
                 { v210, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p16le },
+#if HAVE_XV30
+                { v210, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_xv30 },
+#endif
                 { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },
                 { R10k, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p12le },
                 { R10k, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p16le },
@@ -1153,11 +1205,15 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
 #endif
-#ifdef HAVE_P210
+#if HAVE_P210
                 { v210, AV_PIX_FMT_P210LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p210le },
 #endif
                 { UYVY, AV_PIX_FMT_YUV422P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
                 { UYVY, AV_PIX_FMT_YUVJ422P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
+#if HAVE_VUYX
+                { UYVY, AV_PIX_FMT_VUYA,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_vuya },
+                { UYVY, AV_PIX_FMT_VUYX,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_vuya },
+#endif
                 { UYVY, AV_PIX_FMT_YUV420P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
                 { UYVY, AV_PIX_FMT_YUVJ420P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
                 { UYVY, AV_PIX_FMT_NV12,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_nv12 },

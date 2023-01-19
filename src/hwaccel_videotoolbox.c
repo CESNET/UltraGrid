@@ -90,9 +90,9 @@ int videotoolbox_init(struct AVCodecContext *s,
                 return ret;
 
         enum AVPixelFormat probe_formats[] = { s->sw_pix_fmt, AV_PIX_FMT_UYVY422,
-#ifdef HAVE_P210
+#if HAVE_P210
                 AV_PIX_FMT_P210LE,
-#endif // defined HAVE_P210
+#endif // HAVE_P210
                 AV_PIX_FMT_AYUV64,
         };
         sort_codecs(s->sw_pix_fmt, sizeof probe_formats / sizeof probe_formats[0] - 1, probe_formats + 1);
