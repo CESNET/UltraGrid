@@ -1322,10 +1322,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         s->in_frame_part[i]->linesize[1] = s->in_frame->linesize[1];
                         s->in_frame_part[i]->linesize[2] = s->in_frame->linesize[2];
                 }
-        } else if (same_linesizes(s->decoded_codec, s->in_frame)) {
-                av_freep(s->in_frame->data); // allocated buffers won't be needed and pointers
-                                             // will be filled by input buffers. av_image_alloc()
-                                             // was called to fill linesizes, however.
         }
 
         s->saved_desc = desc;
@@ -1406,7 +1402,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         unsigned char *decoded;
         shared_ptr<video_frame> out{};
-        list<unique_ptr<state_video_compress_libav, void (*)(void *)>> cleanup_callbacks; // at function exit handlers
+        list<shared_ptr<void>> cleanup_callbacks; // at function exit handlers
 
         libavcodec_check_messages(s);
 
@@ -1462,6 +1458,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
 
         time_ns_t t0 = get_time_in_ns();
+        AVFrame *frame = s->in_frame;
         auto pixfmt_conv_callback = select_pixfmt_callback(s->selected_pixfmt, s->decoded_codec);
         if (pixfmt_conv_callback != nullptr) {
                 vector<struct pixfmt_conv_task_data> data(s->conv_thread_count);
@@ -1498,20 +1495,24 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                                         in += linesize;
                                 }
                         }
-                } else {
+                } else { // just set pointers to input buffer
+                        frame = av_frame_alloc();
+                        memcpy(frame->linesize, s->in_frame->linesize, sizeof frame->linesize);
+                        frame->width = s->in_frame->width;
+                        frame->height = s->in_frame->height;
+                        frame->format = s->in_frame->format;
                         if (codec_is_planar(s->decoded_codec)) {
-                                buf_get_planes(tx->tiles[0].width, tx->tiles[0].height, s->decoded_codec, (char *) decoded, (char **) s->in_frame->data);
+                                buf_get_planes(tx->tiles[0].width, tx->tiles[0].height, s->decoded_codec, (char *) decoded, (char **) frame->data);
                         } else {
-                                s->in_frame->data[0] = (uint8_t *) decoded;
+                                frame->data[0] = (uint8_t *) decoded;
                         }
                         // prevent leaving dangling pointer to the input buffer that may
                         // be freed by cleanup()
-                        static auto deleter = [](void *state) {
-                                auto s = (state_video_compress_libav *) state;
-                                s->in_frame->data[0] = s->in_frame->data[1] = s->in_frame->data[2] = s->in_frame->data[3] = nullptr;
-                        };
-                        std::unique_ptr<state_video_compress_libav, void (*)(void*)> clean_data_ptr{s,
-                                deleter};
+                        std::shared_ptr<void> clean_data_ptr((void*)frame,
+                                [](void *f) {
+                                        auto *frame = (AVFrame *) f;
+                                        av_frame_free(&frame);
+                                });
                         cleanup_callbacks.push_back(std::move(clean_data_ptr));
                 }
         }
@@ -1519,7 +1520,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         time_ns_t t1 = get_time_in_ns();
 
         debug_file_dump("lavc-avframe", serialize_video_avframe, s->in_frame);
-        AVFrame *frame = s->in_frame;
 #ifdef HWACC_VAAPI
         if(s->hwenc){
                 av_hwframe_transfer_data(s->hwframe, s->in_frame, 0);
@@ -1530,10 +1530,10 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 #ifdef HAVE_SWSCALE
         if(s->sws_ctx){
                 sws_scale(s->sws_ctx,
-                          s->in_frame->data,
-                          s->in_frame->linesize,
+                          frame->data,
+                          frame->linesize,
                           0,
-                          s->in_frame->height,
+                          frame->height,
                           s->sws_frame->data,
                           s->sws_frame->linesize);
                 frame = s->sws_frame;
