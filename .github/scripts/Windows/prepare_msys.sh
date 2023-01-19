@@ -57,10 +57,6 @@ $PACMAN_INSTALL p7zip
 $PACMAN_INSTALL libtool # PCP
 pacman -Scc --noconfirm
 
-# TOREMOVE curl error workaround - remowe when not needed
-mkdir -p /clang64/ssl/certs
-cp /clang64/etc/ssl/certs/ca-bundle.crt /clang64/ssl/certs
-
 # Build AJA wrapper if we have SDK
 install_aja() {(
         git clone --depth 1 https://github.com/aja-video/ntv2 AJA
