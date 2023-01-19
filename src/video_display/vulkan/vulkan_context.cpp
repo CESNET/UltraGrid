@@ -70,7 +70,7 @@ void check_validation_layers(const std::vector<const char*>& required_layers) {
         //for (auto& l : layers) puts(l.layerName);
 
         for (const auto& req_layer : required_layers) {
-                auto layer_equals = [req_layer](auto layer) { return strcmp(req_layer, layer.layerName) == 0; };
+                auto layer_equals = [req_layer](auto const &layer) { return strcmp(req_layer, layer.layerName) == 0; };
                 bool found = std::any_of(layers.begin(), layers.end(), layer_equals);
                 if (!found) {
                         throw VulkanError{"Layer "s + req_layer + " is not supported."};
@@ -82,7 +82,7 @@ void check_instance_extensions(const std::vector<const char*>& required_extensio
         std::vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties(nullptr);
 
         for (const auto& req_exten : required_extensions) {
-                auto extension_equals = [req_exten](auto exten) { return strcmp(req_exten, exten.extensionName) == 0; };
+                auto extension_equals = [req_exten](auto const &exten) { return strcmp(req_exten, exten.extensionName) == 0; };
                 bool found = std::any_of(extensions.begin(), extensions.end(), extension_equals);
                 if (!found) {
                         throw VulkanError{"Instance extension "s + req_exten + " is not supported."};
@@ -96,7 +96,7 @@ bool check_device_extensions(bool propagate_error,
         std::vector<vk::ExtensionProperties> extensions = device.enumerateDeviceExtensionProperties(nullptr);
 
         for (const auto& req_exten : required_extensions) {
-                auto extension_equals = [req_exten](auto exten) { return strcmp(req_exten, exten.extensionName) == 0; };
+                auto extension_equals = [req_exten](auto const &exten) { return strcmp(req_exten, exten.extensionName) == 0; };
                 bool found = std::any_of(extensions.begin(), extensions.end(), extension_equals);
                 if (!found) {
                         if (propagate_error) {
@@ -239,8 +239,8 @@ vk::PresentModeKHR get_present_mode(vk::PhysicalDevice gpu, vk::SurfaceKHR surfa
         return modes[0];
 }
 
-void log_gpu_info(vk::PhysicalDeviceProperties gpu_properties, uint32_t vulkan_version){
-        log_msg(LogLevel::info, "Vulkan uses GPU called: "s + &gpu_properties.deviceName[0]);
+void log_gpu_info(vk::PhysicalDeviceProperties const &gpu_properties, uint32_t vulkan_version){
+        vulkan_log_msg(LogLevel::info, "Vulkan uses GPU called: "s + &gpu_properties.deviceName[0]);
         std::string msg = concat(32, std::array{
                 "Used Vulkan API: "s,
                 std::to_string(VK_VERSION_MAJOR(vulkan_version)),

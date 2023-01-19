@@ -62,8 +62,8 @@ struct  VulkanError : public std::runtime_error {
 };
 
 struct WindowParameters {
-        uint32_t width;
-        uint32_t height;
+        uint32_t width = 0;
+        uint32_t height = 0;
 
         constexpr bool operator==(const WindowParameters& other) const {
                 return width == other.width &&
@@ -91,11 +91,11 @@ namespace vulkan_display_detail {
 
 // todo C++20 - replace with std::format
 template<size_t count>
-std::string concat(size_t expected_result_size, std::array<std::string, count> strings){
+std::string concat(size_t expected_result_size, std::array<std::string, count> const &strings){
         std::string result;
         result.reserve(expected_result_size);
 
-        for(auto sv: strings){
+        for(auto const &sv: strings){
                 result+= sv;
         }
         return result;
@@ -151,7 +151,7 @@ class VulkanContext {
         } swapchain_atributes;
 
         std::vector<SwapchainImage> swapchain_images{};
-        vk::PresentModeKHR preferred_present_mode;
+        vk::PresentModeKHR preferred_present_mode{};
 
         vulkan_display::WindowParameters window_parameters;
 public:

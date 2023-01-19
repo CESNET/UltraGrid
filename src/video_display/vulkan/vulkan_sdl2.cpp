@@ -214,6 +214,7 @@ struct state_vulkan_sdl2 {
         state_vulkan_sdl2& operator=(state_vulkan_sdl2&& other) = delete;
 
         ~state_vulkan_sdl2() {
+                delete frame_mappings;
                 module_done(&mod);
         }
 };
@@ -849,8 +850,6 @@ void display_sdl2_done(void* state) {
 
         delete s->vulkan;
         s->vulkan = nullptr;
-        delete s->frame_mappings;
-        s->frame_mappings = nullptr;
         delete s->window_callback;
         s->window_callback = nullptr;
 

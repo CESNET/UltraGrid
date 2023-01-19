@@ -347,7 +347,7 @@ static void set_gamma(struct state_gl *s);
 
 struct state_gl {
         unordered_map<codec_t, GLuint> PHandles;
-        GLuint          PHandle_deint;
+        GLuint          PHandle_deint = 0;
         GLuint          current_program = 0;
 
         // Framebuffer

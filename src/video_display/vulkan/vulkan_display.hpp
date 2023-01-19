@@ -143,7 +143,12 @@ public:
 
         ~VulkanDisplay() noexcept {
                 if (!destroyed) {
-                        destroy();
+                        try {
+                                destroy();
+                        } catch (vk::SystemError &e) {
+                                std::string err = std::string("~VulkanDisplay vk::SystemError: ") + e.what() + "\n";
+                                vulkan_display_detail::vulkan_log_msg(LogLevel::error, err);
+                        }
                 }
         }
 
