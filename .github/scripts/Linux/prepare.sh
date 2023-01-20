@@ -7,6 +7,9 @@ printf "%b" "AJA_DIRECTORY=/var/tmp/ntv2\n"\
 "PKG_CONFIG_PATH=/usr/local/qt/lib/pkgconfig\n" >> "$GITHUB_ENV"
 printf "/usr/local/qt/bin\n" >> "$GITHUB_PATH"
 
+git config --global user.name "UltraGrid Builder"
+git config --global user.email "ultragrid@example.org"
+
 sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sources.list.d/sources.list # for build-dep ffmpeg
 sudo apt update
 sudo apt install appstream # appstreamcli for mkappimage AppStream validation
