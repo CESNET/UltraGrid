@@ -1228,7 +1228,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_BGR0,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_bgr0 },
                 { R10k, AV_PIX_FMT_GBRP10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp10le },
                 { R10k, AV_PIX_FMT_GBRP16LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp16le },
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 55, 100) // FFMPEG commit b09fb030
+#if HAVE_X2RGB10LE
                 { R10k, AV_PIX_FMT_X2RGB10LE,   AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_x2rgb10le },
 #endif
                 { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },

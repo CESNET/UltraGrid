@@ -1011,16 +1011,19 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
 }
 
 void apply_blacklist(list<enum AVPixelFormat> &formats, const char *encoder_name) {
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 55, 100) // FFMPEG commit b09fb030
+#if HAVE_X2RGB10LE
         // blacklist AV_PIX_FMT_X2RGB10LE for NVENC - with current FFmpeg (13d04e3), it produces
-        // 10-bit 4:2:0 YUV (FF macro IS_YUV444 and IS_GBRP should contain the codec - 1st one is ok,
-        // second produces incorrect colors)
-        if (strstr(encoder_name, "nvenc") != nullptr) {
+        // 10-bit 4:2:0 YUV (FF macro IS_YUV444 and IS_GBRP should contain the codec - if set 1st
+        // one, picture is ok, second produces incorrect colors)
+        // Incorrect colors are produced also for qsv_hevc
+        if (strstr(encoder_name, "nvenc") != nullptr || strstr(encoder_name, "hevc_qsv") != nullptr) {
                 if (formats.size() == 1) {
-                        LOG(LOG_LEVEL_WARNING) << "Only one codec remaining, not blacklisting!\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Only one codec remaining, not blacklisting!\n";
                         return;
                 }
                 if (auto it = std::find(formats.begin(), formats.end(), AV_PIX_FMT_X2RGB10LE); it != formats.end()) {
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Blacklisting x2rgb10le because there has been issues with this pixfmt "
+                                "and current encoder (" << encoder_name << ") , use '--param lavc-use-codec=x2rgb10le' to enforce.\n";
                         formats.erase(it);
                 }
         }
