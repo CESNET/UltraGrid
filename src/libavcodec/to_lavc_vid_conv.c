@@ -547,7 +547,7 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, const unsigned char *
         }
 }
 
-#if HAVE_P210
+#if P210_PRESENT
 static void v210_to_p210le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
@@ -1190,7 +1190,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { v210, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv422p10le },
                 { v210, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p10le },
                 { v210, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p16le },
-#if HAVE_XV30
+#if XV30_PRESENT
                 { v210, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_xv30 },
 #endif
                 { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },
@@ -1205,12 +1205,12 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
 #endif
-#if HAVE_P210
+#if P210_PRESENT
                 { v210, AV_PIX_FMT_P210LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p210le },
 #endif
                 { UYVY, AV_PIX_FMT_YUV422P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
                 { UYVY, AV_PIX_FMT_YUVJ422P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
-#if HAVE_VUYX
+#if VUYX_PRESENT
                 { UYVY, AV_PIX_FMT_VUYA,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_vuya },
                 { UYVY, AV_PIX_FMT_VUYX,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_vuya },
 #endif
@@ -1228,7 +1228,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_BGR0,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_bgr0 },
                 { R10k, AV_PIX_FMT_GBRP10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp10le },
                 { R10k, AV_PIX_FMT_GBRP16LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp16le },
-#if HAVE_X2RGB10LE
+#if X2RGB10LE_PRESENT
                 { R10k, AV_PIX_FMT_X2RGB10LE,   AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_x2rgb10le },
 #endif
                 { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },

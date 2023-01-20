@@ -1010,8 +1010,8 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
         return get_available_pix_fmts(in_desc, codec, requested_subsampling, force_conv_to);
 }
 
-void apply_blacklist(list<enum AVPixelFormat> &formats, const char *encoder_name) {
-#if HAVE_X2RGB10LE
+void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe_unused]] const char *encoder_name) {
+#if X2RGB10LE_PRESENT
         // blacklist AV_PIX_FMT_X2RGB10LE for NVENC - with current FFmpeg (13d04e3), it produces
         // 10-bit 4:2:0 YUV (FF macro IS_YUV444 and IS_GBRP should contain the codec - if set 1st
         // one, picture is ok, second produces incorrect colors)

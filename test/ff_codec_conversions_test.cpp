@@ -388,7 +388,7 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
         uniform_int_distribution<uint32_t> dist(0, 0x3fffffffLU);
 
         for (const auto &c : {AV_PIX_FMT_P010LE,
-#ifdef HAVE_P210
+#if P210_PRESENT
                         AV_PIX_FMT_P210LE
 #endif
                         }) {
@@ -404,7 +404,7 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                         abort();
                 }
 
-#ifdef HAVE_P210
+#if P210_PRESENT
                 if (c == AV_PIX_FMT_P210LE) {
 #else
                 if (false) {
