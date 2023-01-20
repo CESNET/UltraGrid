@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 CESNET z.s.p.o.
+ * Copyright (c) 2012-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -197,7 +197,7 @@ static void show_help()
         printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]][:layout=<X>x<Y>]] "
                         "-t <dev1_config> -t <dev2_config>\n");
         printf("\tor\n");
-        printf("\t-t swmix:file -t <dev1_config> -t <dev2_config> ...\n");
+        printf("\t-t swmix:file[=<file_path>] -t <dev1_config> -t <dev2_config> ...\n");
         printf("\t\twhere <devn_config> is a configuration string of device as usual -\n"
                         "\t\t\tdevice config string or alias from UG config file.\n");
         printf("\t\t<width> width of resulting video\n");
@@ -922,7 +922,7 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
 #define PARSE_FILE 2
 static int parse_config_string(const char *fmt, unsigned int *width,
                 unsigned int *height, double *fps,
-        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, interlacing_t *interl, int *grid_x, int *grid_y)
+        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, interlacing_t *interl, int *grid_x, int *grid_y, char **filepath)
 {
         char *save_ptr = NULL;
         char *item;
@@ -939,7 +939,11 @@ static int parse_config_string(const char *fmt, unsigned int *width,
         while((item = strtok_r(tmp, ":", &save_ptr))) {
                 switch (token_nr) {
                         case 0:
-                                if(strcasecmp(item, "file") == 0) {
+                                if(strncasecmp(item, "file", strlen("file")) == 0) {
+                                        char *eq = strchr(item, '=');
+                                        if(filepath && eq){
+                                            *filepath = strdup(eq + 1);
+                                        }
                                         return PARSE_FILE;
                                 }
                                 *width = atoi(item);
@@ -1006,10 +1010,11 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 const struct vidcap_params *params)
 {
         *config_file = NULL;
+        char *config_path = NULL;
         int ret;
 
         ret = parse_config_string(fmt, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                        interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y);
+                        interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y, &config_path);
         if(ret == PARSE_ERROR) {
                 show_help();
                 return false;
@@ -1017,13 +1022,17 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
 
         if(ret == PARSE_FILE) {
                 s->use_config_file = true;
+                if(!config_path)
+                    config_path = strdup(get_config_name());
 
-                *config_file = fopen(get_config_name(), "r");
+                *config_file = fopen(config_path, "r");
                 if(!*config_file) {
                         fprintf(stderr, "Params not set and config file %s not found.\n",
-                                        get_config_name());
+                                        config_path);
                         return false;
                 }
+                free(config_path);
+
                 char line[1024];
                 if(!fgets(line, sizeof(line), *config_file)) {
                         fprintf(stderr, "Input file is empty!\n");
@@ -1031,7 +1040,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 }
                 while(isspace(line[strlen(line) - 1])) line[strlen(line) - 1] = '\0'; // trim trailing spaces
                 ret = parse_config_string(line, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                                interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y);
+                                interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y, NULL);
                 if(ret != PARSE_OK) {
                         fprintf(stderr, "Malformed input file! First line should contain config "
                                         "string same as for cmdline use (between first ':' and '#' "
