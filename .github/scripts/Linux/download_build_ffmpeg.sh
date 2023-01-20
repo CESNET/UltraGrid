@@ -1,5 +1,18 @@
 #!/bin/bash -eux
 
+install_aom() {(
+        git clone --depth 1 https://aomedia.googlesource.com/aom
+        mkdir -p aom/build
+        cd aom/build
+        if [ "$(lsb_release -rs)" = 18.04 ]; then
+                CC=gcc-10 CXX=g++-10 cmake -DBUILD_SHARED_LIBS=1 ..
+        else
+                cmake -DBUILD_SHARED_LIBS=1 ..
+        fi
+        cmake --build . --parallel
+        sudo cmake --install .
+)}
+
 install_libvpx() {
         (
         git clone --depth 1 https://github.com/webmproject/libvpx.git
@@ -39,8 +52,8 @@ install_onevpl() {(
 rm -rf /var/tmp/ffmpeg
 git clone --depth $FFMPEG_GIT_DEPTH https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
+install_aom
 ( git clone --depth 1 http://git.videolan.org/git/x264.git && cd x264 && ./configure --disable-static --enable-shared && make -j "$(nproc)" && sudo make install || exit 1 )
-( git clone --depth 1 https://aomedia.googlesource.com/aom && mkdir -p aom/build && cd aom/build && cmake -DBUILD_SHARED_LIBS=1 .. &&  cmake --build . --parallel && sudo cmake --install . || exit 1 )
 install_libvpx
 install_nv_codec_headers
 install_onevpl
