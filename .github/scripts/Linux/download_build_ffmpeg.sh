@@ -30,8 +30,8 @@ install_svt() {
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git && cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release && cmake --build . --parallel && sudo cmake --install . || exit 1 )
         # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
         patch SVT-HEVC/ffmpeg_plugin/master-*.patch < "$GITHUB_WORKSPACE/.github/scripts/Linux/tmp/0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch.patch"
-        git apply -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
-        git apply -3 SVT-VP9/ffmpeg_plugin/master-*.patch
+        git am -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
+        git am -3 SVT-VP9/ffmpeg_plugin/master-*.patch
 }
 
 # The NVENC API implies respective driver version (see libavcodec/nvenc.c) - 455.28 (Linux) / 456.71 (Windows) for v11.0
@@ -52,6 +52,8 @@ install_onevpl() {(
 rm -rf /var/tmp/ffmpeg
 git clone --depth $FFMPEG_GIT_DEPTH https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
+# apply Intel patches
+git clone https://github.com/intel/cartwheel-ffmpeg.git && git am -3 cartwheel-ffmpeg/patches/*
 install_aom
 ( git clone --depth 1 http://git.videolan.org/git/x264.git && cd x264 && ./configure --disable-static --enable-shared && make -j "$(nproc)" && sudo make install || exit 1 )
 install_libvpx
@@ -59,7 +61,7 @@ install_nv_codec_headers
 install_onevpl
 install_svt
 # apply patches
-find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git apply
+find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git am -3
 ./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame \
         --enable-libdav1d \
         --enable-libde265 \
