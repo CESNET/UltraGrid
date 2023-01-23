@@ -149,7 +149,6 @@ struct module;
 struct vidcap;
 
 void                     list_video_capture_devices(bool);
-void                     print_available_capturers(void);
 int initialize_video_capture(struct module *parent,
                 struct vidcap_params *params,
                 struct vidcap **state);

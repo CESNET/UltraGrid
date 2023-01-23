@@ -87,49 +87,6 @@ void list_video_capture_devices(bool full)
         list_modules(LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION, full);
 }
 
-void print_available_capturers()
-{
-        const auto & vidcaps = get_libraries_for_class(LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-        for (auto && item : vidcaps) {
-                auto vci = static_cast<const struct video_capture_info *>(item.second);
-
-                void (*deleter)(void *) = nullptr;
-                struct vidcap_type *vt = vci->probe(true, &deleter);
-                if (vt == nullptr) {
-                        continue;
-                }
-                std::cout << "[cap][capture] " << item.first << "\n";
-                for (int i = 0; i < vt->card_count; ++i) {
-                        std::cout << "[capability][device] {"
-                                "\"purpose\":\"video_cap\", "
-                                "\"module\":" << std::quoted(vt->name) << ", "
-                                "\"device\":" << std::quoted(vt->cards[i].dev) << ", "
-                                "\"name\":" << std::quoted(vt->cards[i].name) << ", "
-                                "\"extra\": {" << vt->cards[i].extra << "}, "
-                                "\"modes\": [";
-                        for (unsigned int j = 0; j < sizeof vt->cards[i].modes
-                                        / sizeof vt->cards[i].modes[0]; j++) {
-                                if (vt->cards[i].modes[j].id[0] == '\0') { // last item
-                                        break;
-                                }
-                                if (j > 0) {
-                                        printf(", ");
-                                }
-                                std::cout << "{\"name\":" << std::quoted(vt->cards[i].modes[j].name) << ", "
-                                        "\"opts\":" << vt->cards[i].modes[j].id << "}";
-                        }
-
-                        std::cout << "]}\n";
-                }
-                if(!deleter)
-                        deleter = free;
-
-                deleter(vt->cards);
-                deleter(vt);
-
-        }
-}
-
 /** @brief Initializes video capture
  * @param[in] parent  parent module
  * @param[in] param   driver parameters

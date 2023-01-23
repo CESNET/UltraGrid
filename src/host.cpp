@@ -392,13 +392,27 @@ struct init_data *common_preinit(int argc, char *argv[])
 }
 
 static void print_device(std::string_view purpose, std::string_view mod, const device_info& device){
-    cout << "[capability][device] {"
-        "\"purpose\":" << std::quoted(purpose) << ", "
-        "\"module\":" << std::quoted(mod) << ", "
-        "\"device\":" << std::quoted(device.dev) << ", "
-        "\"name\":" << std::quoted(device.name) << ", "
-        "\"extra\": {" << device.extra << "}, "
-        "\"repeatable\":\"" << device.repeatable << "\"}\n";
+        cout << "[capability][device] {"
+                "\"purpose\":" << std::quoted(purpose) << ", "
+                "\"module\":" << std::quoted(mod) << ", "
+                "\"device\":" << std::quoted(device.dev) << ", "
+                "\"name\":" << std::quoted(device.name) << ", "
+                "\"extra\": {" << device.extra << "}, "
+                "\"repeatable\":\"" << device.repeatable << "\", "
+                "\"modes\": [";
+
+        for(unsigned int j = 0; j < std::size(device.modes); j++) {
+                if (device.modes[j].id[0] == '\0') { // last item
+                        break;
+                }
+                if (j > 0) {
+                        printf(", ");
+                }
+                std::cout << "{\"name\":" << std::quoted(device.modes[j].name) << ", "
+                        "\"opts\":" << device.modes[j].id << "}";
+        }
+
+        std::cout << "]}\n";
 }
 
 void print_capabilities()
@@ -469,7 +483,27 @@ void print_capabilities()
 
         // capturers
         cout << "[cap] Capturers:" << endl;
-        print_available_capturers();
+        const auto & vidcaps = get_libraries_for_class(LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+        for (const auto& item : vidcaps) {
+                auto vci = static_cast<const struct video_capture_info *>(item.second);
+
+                void (*deleter)(void *) = nullptr;
+                struct vidcap_type *vt = vci->probe(true, &deleter);
+                if (vt == nullptr) {
+                        continue;
+                }
+                std::cout << "[cap][capture] " << item.first << "\n";
+
+                for (int i = 0; i < vt->card_count; ++i) {
+                        print_device("video_cap", item.first, vt->cards[i]);
+                }
+
+                if(!deleter)
+                        deleter = free;
+
+                deleter(vt->cards);
+                deleter(vt);
+        }
 
         // displays
         cout << "[cap] Displays:" << endl;
