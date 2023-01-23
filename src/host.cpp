@@ -391,7 +391,7 @@ struct init_data *common_preinit(int argc, char *argv[])
         return init;
 }
 
-static void print_device(std::string_view purpose, std::string_view mod, const device_info& device){
+static void print_device(std::string purpose, std::string mod, const device_info& device){
         cout << "[capability][device] {"
                 "\"purpose\":" << std::quoted(purpose) << ", "
                 "\"module\":" << std::quoted(mod) << ", "
