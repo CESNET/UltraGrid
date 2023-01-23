@@ -61,7 +61,6 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "module.h"
-#include "utils/config_file.h"
 #include "video_capture.h"
 
 #include <string>
@@ -129,16 +128,6 @@ void print_available_capturers()
                 deleter(vt);
 
         }
-
-        char buf[1024] = "";
-        struct config_file *conf = config_file_open(default_config_file(buf, sizeof buf));
-        if (conf) {
-                auto const & from_config_file = get_configured_capture_aliases(conf);
-                for (auto const & it : from_config_file) {
-                        printf("[cap] (%s;%s)\n", it.first.c_str(), it.second.c_str());
-                }
-        }
-        config_file_close(conf);
 }
 
 /** @brief Initializes video capture
