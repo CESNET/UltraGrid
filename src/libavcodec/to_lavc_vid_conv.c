@@ -483,6 +483,30 @@ static void v210_to_xv30(AVFrame * __restrict out_frame, const unsigned char * _
         }
 }
 
+static void y416_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+        ATTRIBUTE(unused);
+static void y416_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+{
+        assert((uintptr_t) in_data % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 4 == 0);
+
+        for(ptrdiff_t y = 0; y < height; y += 1) {
+                const uint16_t *src = (const void *) (in_data + y * vc_get_linesize(width, Y416));
+                uint32_t *dst = (uint32_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        unsigned u = *src++;
+                        unsigned y = *src++;
+                        unsigned v = *src++;
+                        unsigned a = *src++;
+                        *dst++ = (a >> 14U) << 30U |
+                                (v >> 6U) << 20U |
+                                (y >> 6U) << 10U |
+                                (u >> 6U);
+                }
+        }
+}
+
 static void v210_to_p010le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
@@ -1192,6 +1216,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { v210, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p16le },
 #if XV30_PRESENT
                 { v210, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_xv30 },
+                { Y416, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y416_to_xv30 },
 #endif
                 { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },
                 { R10k, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p12le },

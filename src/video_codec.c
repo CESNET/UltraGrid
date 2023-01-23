@@ -1046,6 +1046,30 @@ vc_copyliner10ktoRG48(unsigned char * __restrict dst, const unsigned char * __re
         }
 }
 
+static void vc_copyliner10ktoY416(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
+                int gshift, int bshift) {
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        assert((uintptr_t) dst % 2 == 0);
+        uint16_t *d = (void *) dst;
+        OPTIMIZED_FOR (int x = 0; x < dstlen; x += 8) {
+                unsigned int byte1 = *src++;
+                unsigned int byte2 = *src++;
+                unsigned int byte3 = *src++;
+                unsigned int byte4 = *src++;
+                comp_type_t r, g, b;
+                r = byte1 << 8U | (byte2 & 0xC0U);
+                g = (byte2 & 0x3FU) << 10U | (byte3 & 0xF0U) << 2U;
+                b = (byte3 & 0xFU) << 12U | (byte4 & 0xCU) << 4U;
+                comp_type_t u = (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15);
+                *d++ = CLAMP_LIMITED_CBCR(u, 16);
+                comp_type_t y = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12);
+                *d++ = CLAMP_LIMITED_Y(y, 16);
+                comp_type_t v = (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15);
+                *d++ = CLAMP_LIMITED_CBCR(v, 16);
+                *d++ = 0xFFFFU;
+        }
+}
+
 /**
  * @brief Converts from R12L to RGB
  *
@@ -2000,6 +2024,62 @@ static void vc_copylineR12LtoRG48(unsigned char * __restrict dst, const unsigned
 
                 src += 36;
         }
+}
+
+static void vc_copylineR12LtoY416(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        assert((uintptr_t) dst % sizeof(uint16_t) == 0);
+        uint16_t *d = (void *) dst;
+#define WRITE_RES \
+                u = (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15); \
+                *d++ = CLAMP_LIMITED_CBCR(u, 16); \
+                y = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12); \
+                *d++ = CLAMP_LIMITED_Y(y, 16); \
+                v = (RGB_TO_CR_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15); \
+                *d++ = CLAMP_LIMITED_CBCR(v, 16); \
+                *d++ = 0xFFFFU;
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 64) {
+                comp_type_t r, g, b;
+                comp_type_t y, u, v;
+
+                r = (src[BYTE_SWAP(1)] & 0xFU) << 12U | src[BYTE_SWAP(0)] << 4U;                        //0
+                g = src[BYTE_SWAP(2)] << 8U | (src[BYTE_SWAP(1)] & 0xF0U);
+                b = (src[4 + BYTE_SWAP(0)] & 0xFU) << 12U | src[BYTE_SWAP(3)] << 4U;
+                WRITE_RES
+                r = src[4 + BYTE_SWAP(1)] << 8U | (src[4 + BYTE_SWAP(0)] & 0xF0U);                      //1
+                g = (src[4 + BYTE_SWAP(3)] & 0xFU) << 12U | (src[4 + BYTE_SWAP(2)]) << 4U;
+                b = src[8 + BYTE_SWAP(0)] << 8U | (src[4 + BYTE_SWAP(3)] & 0xF0U);
+                WRITE_RES
+                r = (src[8 + BYTE_SWAP(2)] & 0xFU) << 12U |src[8 + BYTE_SWAP(1)] << 4U;                 //2
+                g = src[8 + BYTE_SWAP(3)] << 8U | (src[8 + BYTE_SWAP(2)] & 0xF0U);
+                b = (src[12 + BYTE_SWAP(1)] & 0xFU) << 12U | src[12 + BYTE_SWAP(0)] << 4U;
+                WRITE_RES
+                r = src[12 + BYTE_SWAP(2)] << 8U | (src[12 + BYTE_SWAP(1)] & 0xF0U);                    //3
+                g = (src[16 + BYTE_SWAP(0)] & 0xFU) << 12U | src[12 + BYTE_SWAP(3)] << 4U;
+                b = src[16 + BYTE_SWAP(1)] << 8U | (src[16 + BYTE_SWAP(0)] & 0xF0U);
+                WRITE_RES
+                r = (src[16 + BYTE_SWAP(3)] & 0xFU) << 12U | src[16 + BYTE_SWAP(2)] << 4U;              //4
+                g = src[20 + BYTE_SWAP(0)] << 8U | (src[16 + BYTE_SWAP(3)] & 0xF0U);
+                b = (src[20 + BYTE_SWAP(2)] & 0xFU) << 12U | src[20 + BYTE_SWAP(1)] << 4U;
+                WRITE_RES
+                r = src[20 + BYTE_SWAP(3)] << 8U | (src[20 + BYTE_SWAP(2)] & 0xF0U);                    //5
+                g = (src[24 + BYTE_SWAP(1)] & 0xFU) << 12U | src[24 + BYTE_SWAP(0)] << 4U;
+                b = src[24 + BYTE_SWAP(2)] << 8U | (src[24 + BYTE_SWAP(1)] & 0xF0U);
+                WRITE_RES
+                r = (src[28 + BYTE_SWAP(0)] & 0xFU) << 12U | src[24 + BYTE_SWAP(3)] << 4U;              //6
+                g = src[28 + BYTE_SWAP(1)] << 8U | (src[28 + BYTE_SWAP(0)] & 0xF0U);
+                b = (src[28 + BYTE_SWAP(3)] & 0xFU) << 12U | src[28 + BYTE_SWAP(2)] << 4U;
+                WRITE_RES
+                r = src[32 + BYTE_SWAP(0)] << 8U | (src[28 + BYTE_SWAP(3)] & 0xF0U);                    //7
+                g = (src[32 + BYTE_SWAP(2)] & 0xFU) << 12U | src[32 + BYTE_SWAP(1)] << 4U;
+                b = src[32 + BYTE_SWAP(3)] << 8U | (src[32 + BYTE_SWAP(2)] & 0xF0U);
+                WRITE_RES
+
+                src += 36;
+        }
+#undef WRITE_RES
 }
 
 static void vc_copylineR12LtoR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
@@ -3071,10 +3151,12 @@ static const struct decoder_item decoders[] = {
         { vc_copylineYUYV,        UYVY,  YUYV, false },
         { vc_copyliner10k,        R10k,  RGBA, false },
         { vc_copyliner10ktoRG48,  R10k,  RG48, false },
+        { vc_copyliner10ktoY416,  R10k,  Y416, false },
         { vc_copylineR12L,        R12L,  RGBA, false },
         { vc_copylineR12LtoRGB,   R12L,  RGB, false },
         { vc_copylineR12LtoRG48,  R12L,  RG48, false },
         { vc_copylineR12LtoR10k,  R12L,  R10k, false },
+        { vc_copylineR12LtoY416,  R12L,  Y416, false },
         { vc_copylineRGBtoR12L,   RGB,   R12L, false },
         { vc_copylineRGBAtoRG48,  RGBA,  RG48, false },
         { vc_copylineRGBtoRG48,   RGB,   RG48, false },
