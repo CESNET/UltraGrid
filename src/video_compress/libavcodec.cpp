@@ -633,7 +633,7 @@ void print_codec_supp_pix_fmts(const enum AVPixelFormat *first) {
         while (it != nullptr && *it != AV_PIX_FMT_NONE) {
                 out += " "s + av_get_pix_fmt_name(*it++);
         }
-        col() << MOD_NAME "Codec supported pixel formats:" << SBOLD(out) << "\n";
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Codec supported pixel formats:" << SBOLD(out) << "\n";
 }
 
 void print_pix_fmts(const list<enum AVPixelFormat>
@@ -643,7 +643,7 @@ void print_pix_fmts(const list<enum AVPixelFormat>
         for (auto &c : req_pix_fmts) {
                 out += " "s + av_get_pix_fmt_name(c);
         }
-        col() << MOD_NAME "Usable pixel formats:" << SBOLD(out) << "\n";
+        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Supported pixel formats:" << SBOLD(out) << "\n";
 }
 
 /**
