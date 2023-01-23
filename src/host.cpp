@@ -391,6 +391,16 @@ struct init_data *common_preinit(int argc, char *argv[])
         return init;
 }
 
+static void print_device(std::string_view purpose, std::string_view mod, const device_info& device){
+    cout << "[capability][device] {"
+        "\"purpose\":" << std::quoted(purpose) << ", "
+        "\"module\":" << std::quoted(mod) << ", "
+        "\"device\":" << std::quoted(device.dev) << ", "
+        "\"name\":" << std::quoted(device.name) << ", "
+        "\"extra\": {" << device.extra << "}, "
+        "\"repeatable\":\"" << device.repeatable << "\"}\n";
+}
+
 void print_capabilities()
 {
         cout << "[capability][start] version 4" << endl;
@@ -473,13 +483,7 @@ void print_capabilities()
                 vdi->probe(&devices, &count, &deleter);
                 cout << "[cap][display] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device] {"
-                                "\"purpose\":\"video_disp\", "
-                                "\"module\":" << std::quoted(it.first) << ", "
-                                "\"device\":" << std::quoted(devices[i].dev) << ", "
-                                "\"name\":" << std::quoted(devices[i].name) << ", "
-                                "\"extra\": {" << devices[i].extra << "}, "
-                                "\"repeatable\":\"" << devices[i].repeatable << "\"}\n";
+                        print_device("video_disp", it.first, devices[i]);
                 }
                 deleter ? deleter(devices) : free(devices);
         }
@@ -494,12 +498,7 @@ void print_capabilities()
                 aci->probe(&devices, &count);
                 cout << "[cap][audio_cap] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device] {"
-                                "\"purpose\":\"audio_cap\", "
-                                "\"module\":" << std::quoted(it.first) << ", "
-                                "\"device\":" << std::quoted(devices[i].dev) << ", "
-                                "\"extra\": {" << devices[i].extra << "}, "
-                                "\"name\":" << std::quoted(devices[i].name) << "}\n";
+                        print_device("audio_cap", it.first, devices[i]);
                 }
                 free(devices);
         }
@@ -514,12 +513,7 @@ void print_capabilities()
                 api->probe(&devices, &count);
                 cout << "[cap][audio_play] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
-                        cout << "[capability][device] {"
-                                "\"purpose\":\"audio_play\", "
-                                "\"module\":" << std::quoted(it.first) << ", "
-                                "\"device\":" << std::quoted(devices[i].dev) << ", "
-                                "\"extra\": {" << devices[i].extra << "}, "
-                                "\"name\":" << std::quoted(devices[i].name) << "}\n";
+                        print_device("audio_play", it.first, devices[i]);
                 }
                 free(devices);
         }
