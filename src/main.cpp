@@ -1632,8 +1632,6 @@ int main(int argc, char *argv[])
                                        (int (*)(void *, int, void *, size_t *)) display_ctl_property);
                 }
 
-                // This has to be run after start of capture thread since it may request
-                // captured video format information (@sa print_capabilities).
                 if (opt.print_capabilities_req) {
                         print_capabilities();
                         exit_uv(EXIT_SUCCESS);
