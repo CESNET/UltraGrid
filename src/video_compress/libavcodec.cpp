@@ -657,23 +657,22 @@ void print_pix_fmts(const list<enum AVPixelFormat>
  * Unusable pixel formats and a currently selected one are removed from
  * req_pix_fmts.
  */
-static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>
-                &req_pix_fmts, const enum AVPixelFormat *codec_pix_fmts)
+static enum AVPixelFormat get_first_matching_pix_fmt(list<enum AVPixelFormat>::const_iterator &it,
+                list<enum AVPixelFormat>::const_iterator end,
+                const enum AVPixelFormat *codec_pix_fmts)
 {
         if(codec_pix_fmts == NULL)
                 return AV_PIX_FMT_NONE;
 
-        for (auto it = req_pix_fmts.begin(); it != req_pix_fmts.end(); ) {
+        for ( ; it != end; it++) {
                 const enum AVPixelFormat *tmp = codec_pix_fmts;
                 enum AVPixelFormat fmt;
                 while((fmt = *tmp++) != AV_PIX_FMT_NONE) {
                         if (fmt == *it) {
-                                enum AVPixelFormat ret = *it;
-                                req_pix_fmts.erase(it);
+                                enum AVPixelFormat ret = *it++;
                                 return ret;
                         }
                 }
-                it = req_pix_fmts.erase(it);
         }
 
         return AV_PIX_FMT_NONE;
@@ -1230,16 +1229,17 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // It is done in a loop because some pixel formats that are reported
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
-        list<enum AVPixelFormat> requested_pix_fmt_it = get_requested_pix_fmts(desc, codec, s->requested_subsampling);
-        apply_blacklist(requested_pix_fmt_it, codec->name);
-        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+        list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc, codec, s->requested_subsampling);
+        apply_blacklist(requested_pix_fmt, codec->name);
+        auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
+        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
                 if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
                         break;
                 }
 	}
 
         if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
-                print_pix_fmts(get_requested_pix_fmts(desc, codec, s->requested_subsampling), codec->pix_fmts);
+                print_pix_fmts(requested_pix_fmt, codec->pix_fmts);
         }
 
 #ifdef HAVE_SWSCALE
