@@ -883,16 +883,12 @@ static int get_subsampling(enum AVPixelFormat fmt) {
  * The list is ordered according to input description and requested subsampling.
  */
 static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc,
-                const AVCodec *codec, int requested_subsampling, codec_t force_conv_to)
+                int requested_subsampling, codec_t force_conv_to)
 {
         list<enum AVPixelFormat> fmts;
 
 #ifdef HWACC_VAAPI
-        if (regex_match(codec->name, regex(".*vaapi.*"))) {
-                fmts.push_back(AV_PIX_FMT_VAAPI);
-        }
-#else
-        UNUSED(codec);
+        fmts.push_back(AV_PIX_FMT_VAAPI);
 #endif
 
         // add the format itself if it matches the ultragrid one
@@ -988,7 +984,7 @@ ADD_TO_PARAM("lavc-use-codec",
  * requested_subsampling.
  */
 list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
-                const AVCodec *codec, int requested_subsampling) {
+                int requested_subsampling) {
         codec_t force_conv_to = VIDEO_CODEC_NONE; // if non-zero, use only this codec as a target
                                                   // of UG conversions (before FFMPEG conversion)
                                                   // or (likely) no conversion at all
@@ -1006,7 +1002,7 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
                 }
         }
 
-        return get_available_pix_fmts(in_desc, codec, requested_subsampling, force_conv_to);
+        return get_available_pix_fmts(in_desc, requested_subsampling, force_conv_to);
 }
 
 void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe_unused]] const char *encoder_name) {
@@ -1153,13 +1149,13 @@ const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_co
         return avcodec_find_encoder(get_ug_to_av_codec(*ug_codec));
 }
 
-static bool configure_swscale(struct state_video_compress_libav *s, struct video_desc desc, const AVCodec *codec) {
+static bool configure_swscale(struct state_video_compress_libav *s, struct video_desc desc) {
 #ifndef HAVE_SWSCALE
-        UNUSED(s), UNUSED(desc), UNUSED(codec);
+        UNUSED(s), UNUSED(desc);
         return false;
 #else
         //get all AVPixelFormats we can convert to and pick the first
-        auto fmts = get_available_pix_fmts(desc, codec, s->requested_subsampling, VIDEO_CODEC_NONE);
+        auto fmts = get_available_pix_fmts(desc, s->requested_subsampling, VIDEO_CODEC_NONE);
         s->sws_out_pixfmt = s->selected_pixfmt;
         s->selected_pixfmt = fmts.empty() ? AV_PIX_FMT_UYVY422 : fmts.front();
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(s->selected_pixfmt), av_get_pix_fmt_name(s->sws_out_pixfmt));
@@ -1229,7 +1225,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // It is done in a loop because some pixel formats that are reported
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
-        list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc, codec, s->requested_subsampling);
+        list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc, s->requested_subsampling);
         apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
         while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
@@ -1280,7 +1276,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
                 log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to find a way to convert %s to %s\n",
                                 get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
-                if (!configure_swscale(s, desc, codec)) {
+                if (!configure_swscale(s, desc)) {
                         return false;
                 }
         }
