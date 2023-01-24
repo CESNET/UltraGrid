@@ -1029,7 +1029,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                         fprintf(stderr, "Input file is empty!\n");
                         return false;
                 }
-                while(isspace(line[strlen(line) - 1])) line[strlen(line) - 1] = '\0'; // trim trailing spaces
+                for(int i = strlen(line); i > 0 && isspace(line[i - 1]); i--) line[i - 1] = '\0'; // trim trailing spaces
                 ret = parse_config_string(line, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
                                 interpolation, &s->bicubic_algo, &desc->interlacing, &s->grid_x, &s->grid_y);
                 if(ret != PARSE_OK) {
