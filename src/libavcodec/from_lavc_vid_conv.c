@@ -1406,10 +1406,10 @@ static inline void yuv444p1Xle_to_uyvy(unsigned in_depth, char * __restrict dst_
                 uint8_t *dst = (uint8_t *)(void *)(dst_buffer + y * pitch);
 
                 OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        *dst++ = (src_cb[0] + src_cb[1]) / 2 >> (in_depth - 2U);
-                        *dst++ = *src_y++ >> (in_depth - 2U);
-                        *dst++ = (src_cr[0] + src_cr[1]) / 2 >> (in_depth - 2U);
-                        *dst++ = *src_y++ >> (in_depth - 2U);
+                        *dst++ = (src_cb[0] + src_cb[1] + 1) / 2 >> (in_depth - 8U);
+                        *dst++ = *src_y++ >> (in_depth - 8U);
+                        *dst++ = (src_cr[0] + src_cr[1] + 1) / 2 >> (in_depth - 8U);
+                        *dst++ = *src_y++ >> (in_depth - 8U);
                         src_cb += 2;
                         src_cr += 2;
                 }
