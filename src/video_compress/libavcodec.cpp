@@ -1447,6 +1447,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
         s->in_frame->pts += 1;
 
+        time_ns_t t_start = get_time_in_ns();
         if (s->decoder != vc_memcpy) {
                 int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);
                 int dst_linesize = vc_get_linesize(tx->tiles[0].width, s->decoded_codec);
@@ -1597,7 +1598,8 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
         time_ns_t t3 = get_time_in_ns();
-        LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: " << (t1 - t0) / (double) NS_IN_SEC <<
+        LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: "
+                << (t0 - t_start) / NS_IN_SEC_DBL << "+" << (t1 - t0) / NS_IN_SEC_DBL <<
                 " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<
                 " s, compression " << (t3 - t2) / (double) NS_IN_SEC << " s\n";
         check_duration(s, t3 - t0);
