@@ -73,7 +73,7 @@ if command wget >/dev/null && wget -V | grep -q https; then
         }
 elif command -v curl >/dev/null; then
         dl() {
-                curl -sSL ${GITHUB_TOKEN+-H "Authorization: token $GITHUB_TOKEN"} "$1"
+                curl --fail -sSL ${GITHUB_TOKEN+-H "Authorization: token $GITHUB_TOKEN"} "$1"
         }
 fi
 
