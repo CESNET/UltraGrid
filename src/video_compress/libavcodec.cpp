@@ -887,10 +887,6 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 {
         list<enum AVPixelFormat> fmts;
 
-#ifdef HWACC_VAAPI
-        fmts.push_back(AV_PIX_FMT_VAAPI);
-#endif
-
         // add the format itself if it matches the ultragrid one
         if (get_ug_to_av_pixfmt(in_desc.color_spec) != AV_PIX_FMT_NONE) {
                 if (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == in_desc.color_spec) {
@@ -969,6 +965,10 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         }
 
         copy(available_formats.begin(), available_formats.end(), back_inserter(fmts));
+
+#ifdef HWACC_VAAPI
+        fmts.push_back(AV_PIX_FMT_VAAPI);
+#endif
 
         return fmts;
 
@@ -1057,6 +1057,7 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 s->hwframe = av_frame_alloc();
                 av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
                 pix_fmt = AV_PIX_FMT_NV12;
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Using VA-API with sw format %s\n", av_get_pix_fmt_name(pix_fmt));
         }
 #endif
 
@@ -1290,9 +1291,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
         s->in_frame->pts = -1;
 
-        AVPixelFormat fmt = (s->hwenc) ? AV_PIX_FMT_NV12 : s->selected_pixfmt;
 #if LIBAVCODEC_VERSION_MAJOR >= 53
-        s->in_frame->format = fmt;
+        s->in_frame->format = s->selected_pixfmt;
         s->in_frame->width = s->codec_ctx->width;
         s->in_frame->height = s->codec_ctx->height;
 #endif
