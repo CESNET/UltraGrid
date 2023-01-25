@@ -117,6 +117,9 @@ static _Bool dummy_parse_opts(struct dummy_display_state *s, char *fmt) {
                         return 0;
                 }
         }
+        if (!s->dump_to_file && (s->oneshot || s->dump_to_file_skip_frames > 0 || s->raw)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Some of passed options don't do anything without \":dump\".\n");
+        }
         return 1;
 }
 
