@@ -738,12 +738,15 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
         if (get_av_to_ug_pixfmt(av_codec) == out_codec) {
-                if (!codec_is_planar(out_codec)) {
-                        memcpy(dst, frame->data[0], vc_get_datalen(width, height, out_codec));
-                        return TRUE;
+                if (codec_is_planar(out_codec)) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Planar pixfmts not support here, please report a bug!\n");
+                        return FALSE;
                 }
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Planar pixfmts not support here, please report a bug!\n");
-                return FALSE;
+                size_t linesize = vc_get_linesize(width, out_codec);
+                for (ptrdiff_t i = 0; i < height; ++i) {
+                        memcpy(dst + i * linesize, frame->data[0] + i * frame->linesize[0], linesize);
+                }
+                return TRUE;
         }
 
         av_to_uv_convert_p convert = get_av_to_uv_conversion(av_codec, out_codec);
