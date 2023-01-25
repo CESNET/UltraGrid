@@ -130,7 +130,7 @@ struct init_data;
 struct init_data *common_preinit(int argc, char *argv[]);
 void common_cleanup(struct init_data *init_data);
 
-void print_capabilities();
+void print_capabilities(const char *cfg);
 
 const char *get_version_details(void);
 void print_version(void);

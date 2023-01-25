@@ -730,7 +730,7 @@ struct ug_options {
         bool is_client = false;
         bool is_server = false;
 
-        bool print_capabilities_req = false;
+        const char *requested_capabilities = nullptr;
         bool start_paused = false;
 
         const char *video_protocol = "ultragrid_rtp";
@@ -826,7 +826,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
                 {"verbose", optional_argument, nullptr, 'V'},
                 {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
-                {"capabilities", no_argument, 0, OPT_CAPABILITIES},
+                {"capabilities", optional_argument, 0, OPT_CAPABILITIES},
                 {"audio-delay", required_argument, 0, OPT_AUDIO_DELAY},
                 {"list-modules", no_argument, 0, OPT_LIST_MODULES},
                 {"start-paused", no_argument, 0, OPT_START_PAUSED},
@@ -1073,7 +1073,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         commandline_params["window-title"] = optarg;
                         break;
                 case OPT_CAPABILITIES:
-                        opt->print_capabilities_req = true;
+                        opt->requested_capabilities = optarg ? optarg : "";
                         break;
                 case OPT_AUDIO_DELAY:
                         set_audio_delay(stoi(optarg));
@@ -1632,8 +1632,8 @@ int main(int argc, char *argv[])
                                        (int (*)(void *, int, void *, size_t *)) display_ctl_property);
                 }
 
-                if (opt.print_capabilities_req) {
-                        print_capabilities();
+                if (opt.requested_capabilities != nullptr) {
+                        print_capabilities(opt.requested_capabilities);
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup;
                 }

@@ -391,6 +391,18 @@ struct init_data *common_preinit(int argc, char *argv[])
         return init;
 }
 
+using module_info_map = std::map<std::string, const void *>;
+
+static void print_modules(std::string_view desc_text,
+                std::string_view cap_str,
+                module_info_map& modules)
+{
+        std::cout << "[cap] " << desc_text << ":\n";
+        for(const auto& i : modules){
+                cout << "[cap][" << cap_str <<"] " << i.first << std::endl;
+        }
+}
+
 static void print_device(std::string purpose, std::string mod, const device_info& device){
         cout << "[capability][device] {"
                 "\"purpose\":" << std::quoted(purpose) << ", "
@@ -415,16 +427,42 @@ static void print_device(std::string purpose, std::string mod, const device_info
         std::cout << "]}\n";
 }
 
-void print_capabilities()
+void print_capabilities(const char *cfg)
 {
-        cout << "[capability][start] version 4" << endl;
-        // compressions
-        cout << "[cap] Compressions:" << endl;
-        auto compressions = get_libraries_for_class(LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
+        struct {
+                std::string_view desc;
+                std::string_view cap_str;
+                enum library_class cls;
+                int abi_ver;
+        } mod_classes[] = {
+                {"Compressions", "compress", LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION},
+                {"Capture filters", "capture_filter", LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION},
+                {"Capturers", "capture", LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION},
+                {"Displays", "display", LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION},
+                {"Audio capturers", "audio_cap", LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION},
+                {"Audio playback", "audio_play", LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION},
+        };
 
-        for (auto const &it : compressions) {
+        std::cout << "[capability][start] version 4" << endl;
+
+        std::map<enum library_class, module_info_map> class_mod_map;
+        for(const auto& mod_class: mod_classes){
+                auto [it, inserted] = class_mod_map.emplace(mod_class.cls,
+                                get_libraries_for_class(mod_class.cls, mod_class.abi_ver));
+                print_modules(mod_class.desc, mod_class.cap_str, it->second);
+        }
+
+        // audio compressions
+        auto codecs = get_audio_codec_list();
+        for(const auto& codec : codecs){
+                cout << "[cap][audio_compress] " << codec.first << std::endl;
+        }
+
+        if(strcmp(cfg, "noprobe") == 0)
+                goto end;
+
+        for (auto const &it : class_mod_map[LIBRARY_CLASS_VIDEO_COMPRESS]) {
                 auto vci = static_cast<const struct video_compress_info *>(it.second);
-                cout << "[cap][compress] " << it.first << std::endl;
 
                 if(vci->get_module_info){
                         auto module_info = vci->get_module_info();
@@ -473,18 +511,7 @@ void print_capabilities()
                 }
         }
 
-        // capture filters
-        cout << "[cap] Capture filters:" << endl;
-        auto cap_filters = get_libraries_for_class(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
-
-        for (auto const &it : cap_filters) {
-                cout << "[cap][capture_filter] " << it.first << std::endl;
-        }
-
-        // capturers
-        cout << "[cap] Capturers:" << endl;
-        const auto & vidcaps = get_libraries_for_class(LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-        for (const auto& item : vidcaps) {
+        for (const auto& item : class_mod_map[LIBRARY_CLASS_VIDEO_CAPTURE]) {
                 auto vci = static_cast<const struct video_capture_info *>(item.second);
 
                 void (*deleter)(void *) = nullptr;
@@ -492,7 +519,6 @@ void print_capabilities()
                 if (vt == nullptr) {
                         continue;
                 }
-                std::cout << "[cap][capture] " << item.first << "\n";
 
                 for (int i = 0; i < vt->card_count; ++i) {
                         print_device("video_cap", item.first, vt->cards[i]);
@@ -505,59 +531,41 @@ void print_capabilities()
                 deleter(vt);
         }
 
-        // displays
-        cout << "[cap] Displays:" << endl;
-        auto const & display_capabilities =
-                get_libraries_for_class(LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-        for (auto const & it : display_capabilities) {
+        for (auto const & it : class_mod_map[LIBRARY_CLASS_VIDEO_DISPLAY]) {
                 auto vdi = static_cast<const struct video_display_info *>(it.second);
                 int count = 0;
                 struct device_info *devices;
                 void (*deleter)(void *) = nullptr;
                 vdi->probe(&devices, &count, &deleter);
-                cout << "[cap][display] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
                         print_device("video_disp", it.first, devices[i]);
                 }
                 deleter ? deleter(devices) : free(devices);
         }
 
-        cout << "[cap] Audio capturers:" << endl;
-        auto const & audio_cap_capabilities =
-                get_libraries_for_class(LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-        for (auto const & it : audio_cap_capabilities) {
+        for (auto const & it : class_mod_map[LIBRARY_CLASS_AUDIO_CAPTURE]) {
                 auto aci = static_cast<const struct audio_capture_info *>(it.second);
                 int count = 0;
                 struct device_info *devices;
                 aci->probe(&devices, &count);
-                cout << "[cap][audio_cap] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
                         print_device("audio_cap", it.first, devices[i]);
                 }
                 free(devices);
         }
 
-        cout << "[cap] Audio playback:" << endl;
-        auto const & audio_play_capabilities =
-                get_libraries_for_class(LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-        for (auto const & it : audio_play_capabilities) {
+        for (auto const & it : class_mod_map[LIBRARY_CLASS_AUDIO_PLAYBACK]) {
                 auto api = static_cast<const struct audio_playback_info *>(it.second);
                 int count = 0;
                 struct device_info *devices;
                 api->probe(&devices, &count);
-                cout << "[cap][audio_play] " << it.first << std::endl;
                 for (int i = 0; i < count; ++i) {
                         print_device("audio_play", it.first, devices[i]);
                 }
                 free(devices);
         }
 
-        // audio compressions
-        auto codecs = get_audio_codec_list();
-        for(const auto& codec : codecs){
-                cout << "[cap][audio_compress] " << codec.first << std::endl;
-        }
-
+end:
         cout << "[capability][end]" << endl;
 }
 
