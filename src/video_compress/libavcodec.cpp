@@ -1519,10 +1519,10 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         time_ns_t t1 = get_time_in_ns();
 
-        debug_file_dump("lavc-avframe", serialize_video_avframe, s->in_frame);
+        debug_file_dump("lavc-avframe", serialize_video_avframe, frame);
 #ifdef HWACC_VAAPI
         if(s->hwenc){
-                av_hwframe_transfer_data(s->hwframe, s->in_frame, 0);
+                av_hwframe_transfer_data(s->hwframe, frame, 0);
                 frame = s->hwframe;
         }
 #endif
