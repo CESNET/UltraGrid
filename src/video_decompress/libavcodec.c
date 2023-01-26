@@ -742,18 +742,6 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
                 int pitch, int rgb_shift[static restrict 3], struct state_libavcodec_decompress_sws *sws) {
         debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
-        if (get_av_to_ug_pixfmt(av_codec) == out_codec) {
-                if (codec_is_planar(out_codec)) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Planar pixfmts not support here, please report a bug!\n");
-                        return FALSE;
-                }
-                size_t linesize = vc_get_linesize(width, out_codec);
-                for (ptrdiff_t i = 0; i < height; ++i) {
-                        memcpy(dst + i * linesize, frame->data[0] + i * frame->linesize[0], linesize);
-                }
-                return TRUE;
-        }
-
         av_to_uv_convert_t convert = get_av_to_uv_conversion(av_codec, out_codec);
         if (convert.valid) {
                 parallel_convert(out_codec, &convert, (char *) dst, frame, width, height, pitch, rgb_shift);

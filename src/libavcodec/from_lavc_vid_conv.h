@@ -52,7 +52,7 @@ extern "C" {
 struct av_to_uv_convert_state;
 
 typedef struct av_to_uv_convert_state {
-        alignas(8) char priv_data[8];
+        alignas(8) char priv_data[16];
         bool valid;
 } av_to_uv_convert_t;
 

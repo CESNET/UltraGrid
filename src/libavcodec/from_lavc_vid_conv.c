@@ -1984,7 +1984,14 @@ typedef void av_to_uv_convert_f(char * __restrict dst_buffer, AVFrame * __restri
 typedef av_to_uv_convert_f *av_to_uv_convert_fp;
 
 struct av_to_uv_convert_state_priv {
-        av_to_uv_convert_fp convert;
+        union {
+                av_to_uv_convert_fp convert;
+                codec_t pixfmt;
+        };
+        enum conversion_type {
+                TYPE_AV_TO_UV,
+                TYPE_MEMCPY,
+        } type;
 };
 
 _Static_assert(sizeof(struct av_to_uv_convert_state_priv) <= sizeof ((struct av_to_uv_convert_state *) 0)->priv_data, "increase av_to_uv_convert_state::priv_data");
@@ -2124,13 +2131,26 @@ static const struct av_to_uv_conversion *get_av_to_uv_conversions() {
 
 av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         av_to_uv_convert_t ret;
-        struct av_to_uv_convert_state_priv *priv = (void *) ret.priv_data;
         ret.valid = false;
+        struct av_to_uv_convert_state_priv *priv = (void *) ret.priv_data;
+
+        if (get_av_to_ug_pixfmt(av_codec) == uv_codec) {
+                if (codec_is_planar(uv_codec)) {
+                        log_msg(LOG_LEVEL_ERROR, "Planar pixfmts not support here, please report a bug!\n");
+                } else {
+                        priv->type = TYPE_MEMCPY;
+                        priv->pixfmt = uv_codec;
+                        ret.valid = true;
+                }
+                return ret;
+        }
+
         for (const struct av_to_uv_conversion *conversions = get_av_to_uv_conversions();
                         conversions->convert != 0; conversions++) {
                 if (conversions->av_codec == av_codec &&
                                 conversions->uv_codec == uv_codec) {
                         priv->convert = conversions->convert;
+                        priv->type = TYPE_AV_TO_UV;
                         ret.valid = true;
                         return ret;
                 }
@@ -2209,6 +2229,7 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
                                 av_conv->valid = true;
                                 struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
                                 priv->convert = c->convert;
+                                priv->type = TYPE_AV_TO_UV;
                                 return c->av_codec;
                         }
                 }
@@ -2218,7 +2239,18 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
 
 void av_to_uv_convert(av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift) {
         struct av_to_uv_convert_state_priv *priv = (void *) state->priv_data;
-        priv->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
+        switch (priv->type) {
+                case TYPE_AV_TO_UV:
+                        priv->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
+                        break;
+                case TYPE_MEMCPY:
+                {
+                        int linesize = vc_get_linesize(width, priv->pixfmt);
+                        for (ptrdiff_t i = 0; i < height; ++i) {
+                                memcpy(dst_buffer + i * linesize, in_frame->data[0] + i * in_frame->linesize[0], linesize);
+                        }
+                }
+        }
 }
 
 #pragma GCC diagnostic pop
