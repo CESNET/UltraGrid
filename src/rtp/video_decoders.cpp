@@ -223,13 +223,18 @@ struct reported_statistics_cumul {
                 if (fec_ok + fec_nok + fec_corrected > 0) {
                         fec << " FEC noerr/OK/NOK: " << SBOLD(fec_ok) << "/" << SBOLD(fec_corrected) << "/" << SBOLD(fec_nok);
                 }
+                unsigned long total = displayed + dropped + missing;
                 LOG(LOG_LEVEL_INFO) << SUNDERLINE("Video dec stats") << " (cumulative): "
-                        << SBOLD(displayed + dropped + missing) << " total / "
+                        << SBOLD(total) << " total / "
                         << SBOLD(displayed) << " disp / "
                         << SBOLD(dropped) << " drop / "
                         << SBOLD(corrupted) << " corr / "
                         << SBOLD(missing) << " missing."
                         << fec.str() << "\n";
+                if (dropped * 50 >= total) { // more than 2% frames were dropped
+                        log_msg_once(LOG_LEVEL_WARNING, to_fourcc('D', 'R', 'P', 'S'), MOD_NAME "Dropped %lu of %lu frames. This may be due "
+                                        "to network jitter, try adding \"--param decoder-drop-policy=blocking\" if the problem persists.\n", dropped, total);
+                }
         }
         void update(int buffer_number) {
                 if (last_buffer_number != -1) {
