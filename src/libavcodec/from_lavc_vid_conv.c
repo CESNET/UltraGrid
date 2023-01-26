@@ -1980,10 +1980,21 @@ static void ayuv64_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
+struct av_to_uv_conversion {
+        int av_codec;
+        codec_t uv_codec;
+        av_to_uv_convert_p convert;
+        bool native; ///< there is a 1:1 mapping between the FFMPEG and UV codec (matching
+                     ///< color space, channel count (w/wo alpha), bit-depth,
+                     ///< subsampling etc.). Supported out are: RGB, UYVY, v210 (in future
+                     ///< also 10,12 bit RGB). Subsampling doesn't need to be respected (we do
+                     ///< not have codec for eg. 4:4:4 UYVY).
+};
+
 /**
  * @brief returns list of available conversion. Terminated by uv_to_av_conversion::uv_codec == VIDEO_CODEC_NONE
  */
-const struct av_to_uv_conversion *get_av_to_uv_conversions() {
+static const struct av_to_uv_conversion *get_av_to_uv_conversions() {
         static const struct av_to_uv_conversion av_to_uv_conversions[] = {
                 // 10-bit YUV
                 {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210, true},
@@ -2173,6 +2184,19 @@ codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel)
 
 enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel) {
         return get_ug_codec_to_av(fmt, &c, use_hwaccel);
+}
+
+enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_p *av_conv) {
+        bool native[2] = { true, false };
+        for (int n = 0; n < 2; n++) {
+                for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                        if (c->native == native[n] && c->uv_codec == color_spec) { // pick first native, in 2nd round any
+                                *av_conv = c->convert;
+                                return c->av_codec;
+                        }
+                }
+        }
+        return AV_PIX_FMT_NONE;
 }
 
 #pragma GCC diagnostic pop

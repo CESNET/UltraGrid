@@ -761,28 +761,13 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         }
 
 #ifdef HAVE_SWSCALE
-        if (get_ug_to_av_pixfmt(out_codec) != AV_PIX_FMT_NONE) {
+        if (get_ug_to_av_pixfmt(out_codec) != AV_PIX_FMT_NONE) { // the UG pixfmt can be used directly as dst for sws
                 lavd_sws_convert_to_buffer(sws, av_codec, get_ug_to_av_pixfmt(out_codec), width, height, frame, (char *) dst);
                 return TRUE;
         }
 
         // else try to find swscale
-        enum AVPixelFormat sws_out_codec = 0;
-
-        bool native[2] = { true, false };
-        for (int n = 0; n < 2; n++) {
-                for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
-                        if (c->native == native[n] && c->uv_codec == out_codec) { // pick first native, in 2nd round any
-                                sws_out_codec = c->av_codec;
-                                convert = c->convert;
-                                break;
-                        }
-                }
-                if (sws_out_codec) {
-                        break;
-                }
-        }
-
+        enum AVPixelFormat sws_out_codec = pick_av_convertible_to_ug(out_codec, &convert);
         if (!sws_out_codec) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel "
                                 "format: %s (id %d)\n",

@@ -47,21 +47,10 @@ extern "C" {
 typedef void av_to_uv_convert(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
 typedef av_to_uv_convert *av_to_uv_convert_p;
 
-struct av_to_uv_conversion {
-        int av_codec;
-        codec_t uv_codec;
-        av_to_uv_convert_p convert;
-        bool native; ///< there is a 1:1 mapping between the FFMPEG and UV codec (matching
-                     ///< color space, channel count (w/wo alpha), bit-depth,
-                     ///< subsampling etc.). Supported out are: RGB, UYVY, v210 (in future
-                     ///< also 10,12 bit RGB). Subsampling doesn't need to be respected (we do
-                     ///< not have codec for eg. 4:4:4 UYVY).
-};
-
 av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec);
-const struct av_to_uv_conversion *get_av_to_uv_conversions(void);
 codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel);
 enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_t c, bool use_hwaccel);
+enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_p *av_conv);
 
 #ifdef __cplusplus
 }
