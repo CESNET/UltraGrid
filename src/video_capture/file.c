@@ -97,7 +97,7 @@ struct vidcap_state_lavf_decoder {
         int thread_type;
 
         struct SwsContext *sws_ctx;
-        av_to_uv_convert_p conv_uv;
+        av_to_uv_convert_t conv_uv;
 
         bool failed;
         bool loop;
@@ -371,9 +371,9 @@ static void *vidcap_file_worker(void *state) {
                                  * this is required since rawvideo expects non aligned data */
                                 int video_dst_linesize[4] = { vc_get_linesize(out->tiles[0].width, out->color_spec) };
                                 uint8_t *dst[4] = { (uint8_t *) out->tiles[0].data };
-                                if (s->conv_uv) {
+                                if (s->conv_uv.valid) {
                                         int rgb_shift[] = DEFAULT_RGB_SHIFT_INIT;
-                                        s->conv_uv(out->tiles[0].data, frame, out->tiles[0].width, out->tiles[0].height, video_dst_linesize[0], rgb_shift);
+                                        av_to_uv_convert(&s->conv_uv, out->tiles[0].data, frame, out->tiles[0].width, out->tiles[0].height, video_dst_linesize[0], rgb_shift);
                                 } else {
                                         sws_scale(s->sws_ctx, (const uint8_t * const *) frame->data, frame->linesize, 0,
                                                         frame->height, dst, video_dst_linesize);
@@ -605,7 +605,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                 s->video_desc.color_spec = UYVY; // fallback, swscale will perhaps be used
                         }
 
-                        if ((s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt, s->video_desc.color_spec)) == NULL) {
+                        if ((s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt, s->video_desc.color_spec)).valid) {
                                 s->sws_ctx = sws_getContext(s->video_desc.width, s->video_desc.height, s->vid_ctx->pix_fmt,
                                                 s->video_desc.width, s->video_desc.height, get_ug_to_av_pixfmt(s->video_desc.color_spec),
                                                 0, NULL, NULL, NULL);

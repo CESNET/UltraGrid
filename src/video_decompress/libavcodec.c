@@ -678,7 +678,7 @@ static bool lavd_sws_convert_to_buffer(struct state_libavcodec_decompress_sws *s
 #endif
 
 struct convert_task_data {
-        av_to_uv_convert_p convert;
+        av_to_uv_convert_t *convert;
         unsigned char *out_data;
         AVFrame *in_frame;
         int width;
@@ -689,13 +689,13 @@ struct convert_task_data {
 
 static void *convert_task(void *arg) {
         struct convert_task_data *d = arg;
-        d->convert((char *) d->out_data, d->in_frame, d->width, d->height, d->pitch, d->rgb_shift);
+        av_to_uv_convert(d->convert, (char *) d->out_data, d->in_frame, d->width, d->height, d->pitch, d->rgb_shift);
         return NULL;
 }
 
-static void parallel_convert(codec_t out_codec, av_to_uv_convert_p convert, char *dst, AVFrame *in, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
+static void parallel_convert(codec_t out_codec, av_to_uv_convert_t *convert, char *dst, AVFrame *in, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
         if (codec_is_const_size(out_codec)) { // VAAPI etc
-                convert((char *) dst, in, width, height, pitch, rgb_shift);
+                av_to_uv_convert(convert, dst, in, width, height, pitch, rgb_shift);
                 return;
         }
 
@@ -754,9 +754,9 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
                 return TRUE;
         }
 
-        av_to_uv_convert_p convert = get_av_to_uv_conversion(av_codec, out_codec);
-        if (convert) {
-                parallel_convert(out_codec, convert, (char *) dst, frame, width, height, pitch, rgb_shift);
+        av_to_uv_convert_t convert = get_av_to_uv_conversion(av_codec, out_codec);
+        if (convert.valid) {
+                parallel_convert(out_codec, &convert, (char *) dst, frame, width, height, pitch, rgb_shift);
                 return TRUE;
         }
 
@@ -778,7 +778,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         if(!lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame))
                 return FALSE;
 
-        parallel_convert(out_codec, convert, (char *) dst, sws->frame, width, height, pitch, rgb_shift);
+        parallel_convert(out_codec, &convert, (char *) dst, sws->frame, width, height, pitch, rgb_shift);
         return TRUE;
 #else
         UNUSED(sws);

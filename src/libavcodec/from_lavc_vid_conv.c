@@ -1980,10 +1980,19 @@ static void ayuv64_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
+typedef void av_to_uv_convert_f(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
+typedef av_to_uv_convert_f *av_to_uv_convert_fp;
+
+struct av_to_uv_convert_state_priv {
+        av_to_uv_convert_fp convert;
+};
+
+_Static_assert(sizeof(struct av_to_uv_convert_state_priv) <= sizeof ((struct av_to_uv_convert_state *) 0)->priv_data, "increase av_to_uv_convert_state::priv_data");
+
 struct av_to_uv_conversion {
         int av_codec;
         codec_t uv_codec;
-        av_to_uv_convert_p convert;
+        av_to_uv_convert_fp convert;
         bool native; ///< there is a 1:1 mapping between the FFMPEG and UV codec (matching
                      ///< color space, channel count (w/wo alpha), bit-depth,
                      ///< subsampling etc.). Supported out are: RGB, UYVY, v210 (in future
@@ -2113,16 +2122,21 @@ static const struct av_to_uv_conversion *get_av_to_uv_conversions() {
         return av_to_uv_conversions;
 }
 
-av_to_uv_convert_p get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
+av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
+        av_to_uv_convert_t ret;
+        struct av_to_uv_convert_state_priv *priv = (void *) ret.priv_data;
+        ret.valid = false;
         for (const struct av_to_uv_conversion *conversions = get_av_to_uv_conversions();
                         conversions->convert != 0; conversions++) {
                 if (conversions->av_codec == av_codec &&
                                 conversions->uv_codec == uv_codec) {
-                        return conversions->convert;
+                        priv->convert = conversions->convert;
+                        ret.valid = true;
+                        return ret;
                 }
         }
 
-        return NULL;
+        return ret;
 }
 
 /**
@@ -2186,17 +2200,25 @@ enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_
         return get_ug_codec_to_av(fmt, &c, use_hwaccel);
 }
 
-enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_p *av_conv) {
+enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t *av_conv) {
+        av_conv->valid = false;
         bool native[2] = { true, false };
         for (int n = 0; n < 2; n++) {
                 for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
                         if (c->native == native[n] && c->uv_codec == color_spec) { // pick first native, in 2nd round any
-                                *av_conv = c->convert;
+                                av_conv->valid = true;
+                                struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
+                                priv->convert = c->convert;
                                 return c->av_codec;
                         }
                 }
         }
         return AV_PIX_FMT_NONE;
+}
+
+void av_to_uv_convert(av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift) {
+        struct av_to_uv_convert_state_priv *priv = (void *) state->priv_data;
+        priv->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
 }
 
 #pragma GCC diagnostic pop
