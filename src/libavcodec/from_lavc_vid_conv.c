@@ -4,7 +4,7 @@
  * @author Martin Piatka    <445597@mail.muni.cz>
  */
 /*
- * Copyright (c) 2013-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1785,6 +1785,35 @@ static void p210le_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in
 }
 #endif
 
+#if XV3X_PRESENT
+static void xv30_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 4 == 0);
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                uint32_t *src = (void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint8_t *dst = (void *)(dst_buffer + y * pitch);
+                int x = 0;
+                OPTIMIZED_FOR ( ; x < width - 1; x += 2) {
+                        uint32_t in1 = *src++;
+                        uint32_t in2 = *src++;
+                        *dst++ = (((in1 >> 2U) & 0xFFU) + (((in2 >> 2U) & 0xFFU) + 1)) >> 1;
+                        *dst++ = (in1 >> 12U) & 0xFFU;
+                        *dst++ = (((in1 >> 22U) & 0xFFU) + (((in2 >> 22U) & 0xFFU) + 1)) >> 1;
+                        *dst++ = (in2 >> 12U) & 0xFFU;
+                }
+                if (x < width) {
+                        uint32_t last = *src++;
+                        *dst++ = (last >> 2U) & 0xFFU;
+                        *dst++ = (last >> 12U) & 0xFFU;
+                        *dst++ = (last >> 22U) & 0xFFU;
+                        *dst++ = 0;
+                }
+        }
+}
+#endif
+
 #ifdef HWACC_VDPAU
 static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
@@ -1924,6 +1953,9 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
 #if P210_PRESENT
                 {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
                 {AV_PIX_FMT_P210LE, UYVY, p210le_to_uyvy, false},
+#endif
+#if XV3X_PRESENT
+                {AV_PIX_FMT_XV30,   UYVY, xv30_to_uyvy, false},
 #endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
