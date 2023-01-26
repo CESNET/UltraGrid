@@ -115,36 +115,22 @@ static void usage(void)
                         "(except of UHD modes). Default codec is UYVY.\n");
 }
 
-static struct vidcap_type *
-vidcap_deltacast_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_deltacast_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-	struct vidcap_type*		vt;
         *deleter = free;
-    
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt == NULL) {
-                return NULL;
-        }
-
-        vt->name        = "deltacast";
-        vt->description = "DELTACAST card";
-
-        if (!verbose) {
-                return vt;
-        }
 
         ULONG             Result,DllVersion,NbBoards;
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result == VHDERR_NOERROR) {
-                vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
-                vt->card_count = NbBoards;
+                *available_cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
+                *count = NbBoards;
                 for (ULONG i = 0; i < NbBoards; ++i) {
-                        snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%" PRIu_ULONG, i);
-                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST SDI board %" PRIu_ULONG, i);
-                        snprintf(vt->cards[i].extra, sizeof vt->cards[i].extra, "\"embeddedAudioAvailable\":\"t\"");
+                        auto& card = (*available_cards)[i];
+                        snprintf(card.dev, sizeof(card.dev), ":device=%" PRIu_ULONG, i);
+                        snprintf(card.name, sizeof(card.name), "DELTACAST SDI board %" PRIu_ULONG, i);
+                        snprintf(card.extra, sizeof(card.extra), "\"embeddedAudioAvailable\":\"t\"");
                 }
 	}
-	return vt;
 }
 
 class delta_init_exception {

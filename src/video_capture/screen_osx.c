@@ -120,42 +120,27 @@ static bool initialize(struct vidcap_screen_osx_state *s) {
         return true;
 }
 
-static struct vidcap_type * vidcap_screen_osx_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_screen_osx_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type*		vt;
         *deleter = free;
+        *count = 1;
+        *available_cards = calloc(*count, sizeof(struct device_info));
 
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == NULL) {
-                return NULL;
-        }
-        vt->name        = "screen";
-        vt->description = "Grabbing screen";
-
-        if (!verbose) {
-                return vt;
-        }
-
-        vt->card_count = 1;
-        vt->cards = calloc(vt->card_count, sizeof(struct device_info));
-        // vt->cards[0].dev can be "" since screen cap. doesn't require parameters
-        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
+        snprintf((*available_cards)[0].name, sizeof (*available_cards)[0].name, "Screen capture");
 
         int framerates[] = {24, 30, 60};
 
-        snprintf(vt->cards[0].modes[0].name, sizeof vt->cards[0].name,
+        snprintf((*available_cards)[0].modes[0].name, sizeof (*available_cards)[0].name,
                         "Unlimited fps");
-        snprintf(vt->cards[0].modes[0].id, sizeof vt->cards[0].modes[0].id,
+        snprintf((*available_cards)[0].modes[0].id, sizeof (*available_cards)[0].modes[0].id,
                         "{\"fps\":\"\"}");
 
         for(unsigned i = 0; i < sizeof(framerates) / sizeof(framerates[0]); i++){
-                snprintf(vt->cards[0].modes[i + 1].name, sizeof vt->cards[0].name,
+                snprintf((*available_cards)[0].modes[i + 1].name, sizeof (*available_cards)[0].name,
                                 "%d fps", framerates[i]);
-                snprintf(vt->cards[0].modes[i + 1].id, sizeof vt->cards[0].modes[0].id,
+                snprintf((*available_cards)[0].modes[i + 1].id, sizeof (*available_cards)[0].modes[0].id,
                                 "{\"fps\":\"%d\"}", framerates[i]);
         }
-
-        return vt;
 }
 
 static int vidcap_screen_osx_init(struct vidcap_params *params, void **state)

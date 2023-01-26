@@ -297,48 +297,37 @@ static struct video_frame *vidcap_ximea_grab(void *state, struct audio_frame **a
         return out;
 }
 
-static struct vidcap_type *vidcap_ximea_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_ximea_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type *vt;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == NULL) {
-                return NULL;
-        }
-
-        vt->name = "XIMEA";
-        vt->description = "XIMEA capture card";
         *deleter = free;
-
-        if (!verbose) {
-                return vt;
-        }
+        *count = 0;
 
         struct ximea_functions funcs;
         if (!vidcap_ximea_fill_symbols(&funcs)) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot load XIMEA library!\n");
-                return vt;
+                return;
         }
 
-        DWORD count;
-        XI_RETURN ret = funcs.xiGetNumberDevices(&count);
+        DWORD card_count;
+        XI_RETURN ret = funcs.xiGetNumberDevices(&card_count);
         if (ret != XI_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get device count!\n");
                 vidcap_ximea_close_lib(&funcs);
-                return vt;
+                return;
         }
 
-        vt->cards = calloc(count, sizeof(struct device_info));
-        for (DWORD i = 0; i < count; ++i) {
-                snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%d", (int) i);
+        struct device_info *cards = calloc(card_count, sizeof(struct device_info));
+        for (DWORD i = 0; i < card_count; ++i) {
+                snprintf(cards[i].dev, sizeof cards[i].dev, ":device=%d", (int) i);
                 char name[256];
                 if (funcs.xiGetDeviceInfoString(i, XI_PRM_DEVICE_NAME, name, sizeof name) == XI_OK) {
-                        strncpy(vt->cards[i].name, name, sizeof vt->cards[i].name);
+                        strncpy(cards[i].name, name, sizeof cards[i].name);
                 }
         }
         vidcap_ximea_close_lib(&funcs);
 
-        return vt;
+        *available_cards = cards;
+        *count = card_count;
 }
 
 static const struct video_capture_info vidcap_ximea_info = {

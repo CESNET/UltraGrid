@@ -332,6 +332,8 @@ struct device_info {
         } modes[512];
 };
 
+typedef void (*device_probe_func)(struct device_info **available_cards, int *count, void (**deleter)(void *));
+
 struct vidcap_params;
 
 #ifdef __cplusplus

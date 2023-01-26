@@ -488,31 +488,17 @@ static void probe_devices_callback(state_vidcap_syphon *s)
         }
 }
 
-static struct vidcap_type *vidcap_syphon_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_syphon_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
         *deleter = free;
-        struct vidcap_type *vt;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == NULL) {
-                return NULL;
-        }
-        vt->name = "syphon";
-        vt->description = "Syphon capture client";
-        if (!verbose) {
-                return vt;
-        }
-
 
         state_vidcap_syphon *s = new state_vidcap_syphon();
         s->probe_devices = true;
         syphon_mainloop(s);
-        vt->card_count = s->probed_devices_count;
-        vt->cards = s->probed_devices;
+        *count = s->probed_devices_count;
+        *available_devices = s->probed_devices;
         s->probed_devices = NULL;
         vidcap_syphon_done(s);
-
-        return vt;
 }
 
 static const struct video_capture_info vidcap_syphon_info = {

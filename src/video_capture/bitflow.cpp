@@ -342,18 +342,11 @@ static struct video_frame *vidcap_bitflow_grab(void *state, struct audio_frame *
         return out;
 }
 
-static struct vidcap_type *vidcap_bitflow_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_bitflow_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
-        struct vidcap_type *vt;
+        *available_cards = nullptr;
+        *count = 0;
         *deleter = free;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "bitflow";
-                vt->description = "BitFlow video capture device";
-        }
-        return vt;
 }
 
 static const struct video_capture_info vidcap_bitflow_info = {

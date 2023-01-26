@@ -172,32 +172,20 @@ static decltype(EEDDIDOK) CheckEEDID(BYTE pEEDIDBuffer[256])
         return Return;
 }
 
-static struct vidcap_type *
-vidcap_deltacast_dvi_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_deltacast_dvi_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-	struct vidcap_type*		vt;
         *deleter = free;
+        *count = 0;
+        *available_cards = nullptr;
     
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt == NULL) {
-                return NULL;
-        }
-
-        vt->name        = "deltacast-dv";
-        vt->description = "DELTACAST DVI/HDMI card";
-
-        if (!verbose) {
-                return vt;
-        }
-
         ULONG Result,DllVersion,NbBoards;
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
-                return vt;
+                return;
         }
 
-        vt->cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
-        vt->card_count = NbBoards;
+        *available_cards = (struct device_info *) calloc(NbBoards, sizeof(struct device_info));
+        *count = NbBoards;
         for (ULONG i = 0; i < NbBoards; ++i) {
                 string board{"Unknown board type"};
                 ULONG BoardType;
@@ -213,11 +201,11 @@ vidcap_deltacast_dvi_probe(bool verbose, void (**deleter)(void *))
                 }
                 VHD_CloseBoardHandle(BoardHandle);
 
-                snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%" PRIu_ULONG, i);
-                snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "DELTACAST %s #%" PRIu_ULONG,
+                auto& card = (*available_cards)[i];
+                snprintf(card.dev, sizeof card.dev, ":device=%" PRIu_ULONG, i);
+                snprintf(card.name, sizeof card.name, "DELTACAST %s #%" PRIu_ULONG,
                                 board.c_str(), i);
         }
-	return vt;
 }
 
 static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool have_dvi_a_format,

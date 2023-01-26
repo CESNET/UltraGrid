@@ -154,19 +154,12 @@ struct grab_worker_state {
         cudaStream_t tmp_in_frame_stream;
 };
 
-static struct vidcap_type *
-vidcap_gpustitch_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_gpustitch_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
         *deleter = free;
-        struct vidcap_type* vt;
-    
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name        = "gpustitch";
-                vt->description = "gpustitch video capture";
-        }
-        return vt;
+        *available_cards = nullptr;
+        *count = 0;
+        return;
 }
 
 static bool check_in_format(grab_worker_state *gs, video_frame *in, int i){

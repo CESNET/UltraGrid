@@ -781,29 +781,20 @@ static int settings_init(struct vidcap_decklink_state *s, char *fmt)
 
 /* External API ***************************************************************/
 
-static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_decklink_probe(device_info **available_cards, int *card_count, void (**deleter)(void *))
 {
+        device_info *cards = nullptr;
+        *card_count = 0;
         *deleter = free;
-        auto vt = static_cast<struct vidcap_type *>(calloc(1, sizeof(struct vidcap_type)));
-        if (vt == nullptr) {
-                return nullptr;
-        }
 
-        vt->name        = "decklink";
-        vt->description = "Blackmagic DeckLink card";
-
-        if (!verbose) {
-                return vt;
-        }
-
-        IDeckLinkIterator*		deckLinkIterator;
-        IDeckLink*			deckLink;
-        int				numDevices = 0;
+        IDeckLinkIterator* deckLinkIterator;
+        IDeckLink* deckLink;
+        int numDevices = 0;
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = create_decklink_iterator(false);
         if (deckLinkIterator == nullptr) {
-                return vt;
+                return;
         }
 
         // Enumerate all cards in this system
@@ -826,15 +817,15 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
                         deviceName = "(unknown)";
                 }
 
-                vt->card_count += 1;
-                vt->cards = (struct device_info *)
-                        realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                snprintf(vt->cards[vt->card_count - 1].dev, sizeof vt->cards[vt->card_count - 1].dev,
+                *card_count += 1;
+                cards = (struct device_info *)
+                        realloc(cards, *card_count * sizeof(struct device_info));
+                memset(&cards[*card_count - 1], 0, sizeof(struct device_info));
+                snprintf(cards[*card_count - 1].dev, sizeof cards[*card_count - 1].dev,
                                 ":device=%d", numDevices);
-                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                snprintf(cards[*card_count - 1].name, sizeof cards[*card_count - 1].name,
                                 "%s #%d", deviceName.c_str(), numDevices);
-                snprintf(vt->cards[vt->card_count - 1].extra, sizeof vt->cards[vt->card_count - 1].extra,
+                snprintf(cards[*card_count - 1].extra, sizeof cards[*card_count - 1].extra,
                                 "\"embeddedAudioAvailable\":\"t\"");
 
 
@@ -846,20 +837,20 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
                 }
                 list<tuple<int, string, string, string>> modes = get_input_modes (deckLink);
                 int i = 0;
-                const int mode_count = sizeof vt->cards[vt->card_count - 1].modes /
-                                                sizeof vt->cards[vt->card_count - 1].modes[0];
+                const int mode_count = sizeof cards[*card_count - 1].modes /
+                                                sizeof cards[*card_count - 1].modes[0];
                 for (auto &m : modes) {
                         for (auto &c : connections) {
                                 if (i >= mode_count) { // no space
                                         break;
                                 }
 
-                                snprintf(vt->cards[vt->card_count - 1].modes[i].id,
-                                                sizeof vt->cards[vt->card_count - 1].modes[i].id,
+                                snprintf(cards[*card_count - 1].modes[i].id,
+                                                sizeof cards[*card_count - 1].modes[i].id,
                                                 R"({"modeOpt":"connection=%s:mode=%s:codec=UYVY"})",
                                                 c.c_str(), get<1>(m).c_str());
-                                snprintf(vt->cards[vt->card_count - 1].modes[i].name,
-                                                sizeof vt->cards[vt->card_count - 1].modes[i].name,
+                                snprintf(cards[*card_count - 1].modes[i].name,
+                                                sizeof cards[*card_count - 1].modes[i].name,
                                                 "%s (%s)", get<2>(m).c_str(), c.c_str());
                                 i++;
                         }
@@ -869,22 +860,22 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
                         if (i >= mode_count) {
                                 break;
                         }
-                        snprintf(vt->cards[vt->card_count - 1].modes[i].id,
-                                        sizeof vt->cards[vt->card_count - 1].modes[i].id,
+                        snprintf(cards[*card_count - 1].modes[i].id,
+                                        sizeof cards[*card_count - 1].modes[i].id,
                                         "{\"modeOpt\":\"connection=%s\"}",
                                         c.c_str());
-                        snprintf(vt->cards[vt->card_count - 1].modes[i].name,
-                                        sizeof vt->cards[vt->card_count - 1].modes[i].name,
+                        snprintf(cards[*card_count - 1].modes[i].name,
+                                        sizeof cards[*card_count - 1].modes[i].name,
                                         "Decklink Auto (%s)", c.c_str());
                         if (++i >= mode_count) {
                                 break;
                         }
-                        snprintf(vt->cards[vt->card_count - 1].modes[i].id,
-                                        sizeof vt->cards[vt->card_count - 1].modes[i].id,
+                        snprintf(cards[*card_count - 1].modes[i].id,
+                                        sizeof cards[*card_count - 1].modes[i].id,
                                         "{\"modeOpt\":\"detect-format:connection=%s\"}",
                                         c.c_str());
-                        snprintf(vt->cards[vt->card_count - 1].modes[i].name,
-                                        sizeof vt->cards[vt->card_count - 1].modes[i].name,
+                        snprintf(cards[*card_count - 1].modes[i].name,
+                                        sizeof cards[*card_count - 1].modes[i].name,
                                         "UltraGrid auto-detect (%s)", c.c_str());
                         i++;
                 }
@@ -899,8 +890,7 @@ static struct vidcap_type *vidcap_decklink_probe(bool verbose, void (**deleter)(
 
         deckLinkIterator->Release();
         decklink_uninitialize();
-
-        return vt;
+        *available_cards = cards;
 }
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)

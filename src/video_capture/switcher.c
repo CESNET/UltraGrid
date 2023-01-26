@@ -84,19 +84,11 @@ struct vidcap_switcher_state {
 };
 
 
-static struct vidcap_type *
-vidcap_switcher_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_switcher_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
         *deleter = free;
-	struct vidcap_type*		vt;
-    
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->name        = "switcher";
-		vt->description = "Video switcher pseudodevice";
-	}
-	return vt;
+        *available_cards = NULL;
+        *count = 0;
 }
 
 static void vidcap_switcher_register_keyboard_ctl(struct vidcap_switcher_state *s) {

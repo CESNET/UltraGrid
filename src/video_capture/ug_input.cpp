@@ -234,17 +234,11 @@ static struct video_frame *vidcap_ug_input_grab(void *state, struct audio_frame 
         }
 }
 
-static struct vidcap_type *vidcap_ug_input_probe(bool /* verbose */, void (**deleter)(void *))
+static void vidcap_ug_input_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type *vt;
         *deleter = free;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "ug_input";
-                vt->description = "Dummy capture from UG received network";
-        }
-        return vt;
+        *count = 0;
+        *available_cards = nullptr;
 }
 
 static const struct video_capture_info vidcap_ug_input_info = {

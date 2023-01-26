@@ -344,37 +344,22 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
         }
 }
 
-static struct vidcap_type *
-vidcap_bluefish444_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_bluefish444_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-	struct vidcap_type*		vt;
         *deleter = free;
-    
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt == NULL) {
-                return NULL;
-        }
-
-        vt->name        = "bluefish444";
-        vt->description = "Bluefish444 video capture";
-
-        if (!verbose) {
-                return vt;
-        }
 
         BLUE_S32 iDevices;
         BLUEVELVETC_HANDLE pSDK = bfcFactory();
         bfcEnumerate(pSDK, &iDevices);
         bfcDestroy(pSDK);
 
-        vt->card_count = iDevices;
-        vt->cards = (struct device_info *) calloc(iDevices, sizeof(struct device_info));
+        *count = iDevices;
+        *available_cards = (struct device_info *) calloc(iDevices, sizeof(struct device_info));
         for (int i = 0; i < iDevices; ++i) {
-                snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%d", i + 1);
-                snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Bluefish444 card #%d", i);
+                auto& card = (*available_cards)[i];
+                snprintf(card.dev, sizeof(card.dev), ":device=%d", i + 1);
+                snprintf(card.name, sizeof(card.name), "Bluefish444 card #%d", i);
         }
-
-	return vt;
 }
 
 #ifdef HAVE_BLUE_AUDIO

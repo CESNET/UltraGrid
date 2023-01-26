@@ -42,7 +42,7 @@ static void DeleteMediaType(AM_MEDIA_TYPE *mediaType);
 static const CHAR * GetSubtypeName(const GUID *pSubtype);
 static codec_t get_ug_codec(const GUID *pSubtype);
 static codec_t get_ug_from_subtype_name(const char *subtype_name);
-static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(void *));
+static void vidcap_dshow_probe(device_info **available_cards, int *count, void (**deleter)(void *));
 
 static void ErrorDescription(HRESULT hr)
 { 
@@ -366,18 +366,20 @@ static void show_help(struct vidcap_dshow_state *s) {
 
 	if (!common_init(s)) return;
 
-	color_printf("Devices:\n");
-	void (*deleter)(void *) = NULL;
-	struct vidcap_type *vt = vidcap_dshow_probe(true, &deleter);
+        color_printf("Devices:\n");
+        device_info *cards = nullptr;
+        int count = 0;
+        void (*deleter)(void *) = NULL;
+        vidcap_dshow_probe(&cards, &count, &deleter);
 
 	// Enumerate all capture devices
-	for (int n = 0; n < vt->card_count; ++n) {
-		color_printf("Device %d) " TERM_BOLD "%s\n" TERM_RESET, n, vt->cards[n].name);
+	for (int n = 0; n < count; ++n) {
+		color_printf("Device %d) " TERM_BOLD "%s\n" TERM_RESET, n, cards[n].name);
 
 		int i = 0;
 		// iterate over all capabilities
-		while (strlen(vt->cards[n].modes[i].id) > 0) {
-			printf("    Mode %2d: %s", i, vt->cards[n].modes[i].name);
+		while (strlen(cards[n].modes[i].id) > 0) {
+			printf("    Mode %2d: %s", i, cards[n].modes[i].name);
 			putchar(i % 2 == 1 ? '\n' : '\t');
 			++i;
 		}
@@ -385,41 +387,33 @@ static void show_help(struct vidcap_dshow_state *s) {
 		printf("\n\n");
 	}
 	deleter = IF_NOT_NULL_ELSE(deleter, (void (*)(void *)) free);
-	deleter(vt->cards);
-	deleter(vt);
+	deleter(cards);
 
 	printf("Mode flags:\n");
 	printf("C - codec is not supported in UG; F - video format is not supported\n\n");
 }
 
-static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_dshow_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-	struct vidcap_type*		vt;
         *deleter = free;
-
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt == nullptr) {
-		return nullptr;
-	}
-	vt->name        = "dshow";
-	vt->description = "DirectShow Capture";
-
-	if (!verbose) {
-		return vt;
-	}
 	struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) calloc(1, sizeof(struct vidcap_dshow_state));
 
-	if (!common_init(s)) return vt;
+	if (!common_init(s))
+                return;
+
+        device_info *cards = nullptr;
+        int card_count = 0;
+
 	HRESULT res;
 	int n = 0;
 	// Enumerate all capture devices
 	while ((res = s->videoInputEnumerator->Next(1, &s->moniker, NULL)) == S_OK) {
 		n++;
-		vt->card_count = n;
-		vt->cards = (struct device_info *) realloc(vt->cards, n * sizeof(struct device_info));
-		memset(&vt->cards[n - 1], 0, sizeof(struct device_info));
-		snprintf(vt->cards[n-1].dev, sizeof vt->cards[n-1].dev - 1, ":device=%d", n);
-		snprintf(vt->cards[n-1].name, sizeof vt->cards[n-1].name - 1, "_DSHOW_FAILED_TO_READ_NAME_%d_", n);
+		card_count = n;
+		cards = (struct device_info *) realloc(cards, n * sizeof(struct device_info));
+		memset(&cards[n - 1], 0, sizeof(struct device_info));
+		snprintf(cards[n-1].dev, sizeof cards[n-1].dev - 1, ":device=%d", n);
+		snprintf(cards[n-1].name, sizeof cards[n-1].name - 1, "_DSHOW_FAILED_TO_READ_NAME_%d_", n);
 
 		// Attach structure for reading basic device properties
 		IPropertyBag *properties;
@@ -441,8 +435,8 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 			continue;
 		}
 
-		wcstombs(vt->cards[n-1].name, var.bstrVal, sizeof vt->cards[n-1].name - 1);
-		const char *name = vt->cards[n-1].name;
+		wcstombs(cards[n-1].name, var.bstrVal, sizeof cards[n-1].name - 1);
+		const char *name = cards[n-1].name;
 
 		// clean up structures
 		VariantClear(&var);
@@ -487,8 +481,8 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
 
                 // iterate over all capabilities
                 for (int i = 0; i < capCount; i++) {
-			if (i >= (int) (sizeof vt->cards[vt->card_count - 1].modes /
-						sizeof vt->cards[vt->card_count - 1].modes[0])) { // no space
+			if (i >= (int) (sizeof cards[card_count - 1].modes /
+						sizeof cards[card_count - 1].modes[0])) { // no space
 				break;
 			}
 
@@ -505,11 +499,11 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
                                 continue;
                         }
 
-			snprintf(vt->cards[vt->card_count - 1].modes[i].id,
-					sizeof vt->cards[vt->card_count - 1].modes[i].id,
+			snprintf(cards[card_count - 1].modes[i].id,
+					sizeof cards[card_count - 1].modes[i].id,
 					"{\"mode\":\"%d\"}", i);
-			snprintf(vt->cards[vt->card_count - 1].modes[i].name,
-					sizeof vt->cards[vt->card_count - 1].modes[i].name,
+			snprintf(cards[card_count - 1].modes[i].name,
+					sizeof cards[card_count - 1].modes[i].name,
 					"%s %ux%u @%0.2lf%s %s%s", GetSubtypeName(&mediaType->subtype),
 					desc.width, desc.height, desc.fps * (desc.interlacing == INTERLACED_MERGED ? 2 : 1), get_interlacing_suffix(desc.interlacing),
 					desc.color_spec ? "" : "C",
@@ -528,7 +522,8 @@ static struct vidcap_type * vidcap_dshow_probe(bool verbose, void (**deleter)(vo
                 s->moniker->Release();
 	}
 	cleanup(s);
-	return vt;
+        *available_cards = cards;
+        *count = card_count;
 }
 
 static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {

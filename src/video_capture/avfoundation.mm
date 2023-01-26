@@ -530,37 +530,28 @@ fromConnection:(AVCaptureConnection *)connection
 }
 @end
 
-static struct vidcap_type *vidcap_avfoundation_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_avfoundation_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type *vt;
         *deleter = free;
 
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == nullptr) {
-                return nullptr;
-        }
-        vt->name = "avfoundation";
-        vt->description = "AV Foundation capture device";
-
-        if (!verbose) {
-                return vt;
-        }
+        struct device_info *cards = NULL;
+        int card_count = 0;
 
         int i = 0;
         NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
         for (AVCaptureDevice *device in devices) {
-                vt->card_count += 1;
-                vt->cards = (struct device_info *) realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                snprintf(vt->cards[vt->card_count - 1].dev, sizeof vt->cards[vt->card_count - 1].dev,
+                card_count += 1;
+                cards = (struct device_info *) realloc(cards, card_count * sizeof(struct device_info));
+                memset(&cards[card_count - 1], 0, sizeof(struct device_info));
+                snprintf(cards[card_count - 1].dev, sizeof cards[card_count - 1].dev,
                                 ":device=%d", i);
-                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                snprintf(cards[card_count - 1].name, sizeof cards[card_count - 1].name,
                                 "AV Foundation %s", [[device localizedName] UTF8String]);
 
                 int j = 0;
                 for ( AVCaptureDeviceFormat *format in [device formats] ) {
-                        if (j >= (int) (sizeof vt->cards[vt->card_count - 1].modes /
-                                                sizeof vt->cards[vt->card_count - 1].modes[0])) { // no space
+                        if (j >= (int) (sizeof cards[card_count - 1].modes /
+                                                sizeof cards[card_count - 1].modes[0])) { // no space
                                 break;
                         }
 
@@ -574,11 +565,11 @@ static struct vidcap_type *vidcap_avfoundation_probe(bool verbose, void (**delet
                                 break;
                         }
 
-                        snprintf(vt->cards[vt->card_count - 1].modes[j].id,
-                                        sizeof vt->cards[vt->card_count - 1].modes[j].id,
+                        snprintf(cards[card_count - 1].modes[j].id,
+                                        sizeof cards[card_count - 1].modes[j].id,
                                         "{\"mode\":\"%d\", \"fps\":\"%d\"}", j, maxrate);
-                        snprintf(vt->cards[vt->card_count - 1].modes[j].name,
-                                        sizeof vt->cards[vt->card_count - 1].modes[j].name,
+                        snprintf(cards[card_count - 1].modes[j].name,
+                                        sizeof cards[card_count - 1].modes[j].name,
                                         "%.4s %dx%d (%d FPS)", (const char *) &fcc_host, dim.width, dim.height, maxrate);
                         j++;
                 }
@@ -586,7 +577,8 @@ static struct vidcap_type *vidcap_avfoundation_probe(bool verbose, void (**delet
                 i++;
         }
 
-        return vt;
+        *available_cards = cards;
+        *count = card_count;
 }
 
 static int vidcap_avfoundation_init(struct vidcap_params *params, void **state)

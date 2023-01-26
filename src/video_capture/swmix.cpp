@@ -267,19 +267,11 @@ struct vidcap_swmix_state {
 };
 
 
-static struct vidcap_type *
-vidcap_swmix_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_swmix_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
         *deleter = free;
-	struct vidcap_type*		vt;
-
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->name        = "swmix";
-		vt->description = "SW mix video capture";
-	}
-	return vt;
+        *available_cards = nullptr;
+        *count = 0;
 }
 
 struct slave_data {

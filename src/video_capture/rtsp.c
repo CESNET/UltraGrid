@@ -1032,18 +1032,10 @@ rtsp_teardown(CURL *curl, const char *uri) {
     return 1;
 }
 
-static struct vidcap_type *
-vidcap_rtsp_probe(bool verbose, void (**deleter)(void *)) {
-    UNUSED(verbose);
+static void vidcap_rtsp_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
     *deleter = free;
-    struct vidcap_type *vt;
-
-    vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-    if (vt != NULL) {
-        vt->name = "rtsp";
-        vt->description = "Video capture from RTSP remote server";
-    }
-    return vt;
+    *available_cards = NULL;
+    *count = 0;
 }
 
 static void

@@ -78,19 +78,11 @@ struct vidcap_aggregate_state {
 };
 
 
-static struct vidcap_type *
-vidcap_aggregate_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_aggregate_probe(struct device_info **cards, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
+        *cards = NULL;
+        *count = 0;
         *deleter = free;
-	struct vidcap_type*		vt;
-    
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->name        = "aggregate";
-		vt->description = "Aggregate video capture";
-	}
-	return vt;
 }
 
 static int

@@ -1113,39 +1113,30 @@ LINK_SPEC struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **
         return ((vidcap_state_aja *) state)->grab(audio);
 }
 
-LINK_SPEC struct vidcap_type *vidcap_aja_probe(bool verbose, void (**deleter)(void *))
+LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type *vt;
         *deleter = free;
 
-        vt = (struct vidcap_type *)calloc(1, sizeof(struct vidcap_type));
-        if (vt == nullptr) {
-                return nullptr;
-        }
-
-        vt->name = "aja";
-        vt->description = "AJA capture card";
-
-        if (!verbose) {
-                return vt;
-        }
+        device_info *cards = nullptr;
+        int card_count = 0;
 
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
                 NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
-                vt->card_count += 1;
-                vt->cards = (struct device_info *)
-                        realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                snprintf(vt->cards[vt->card_count - 1].dev, sizeof vt->cards[vt->card_count - 1].dev,
+                card_count += 1;
+                cards = (struct device_info *)
+                        realloc(cards, card_count * sizeof(struct device_info));
+                memset(&cards[card_count - 1], 0, sizeof(struct device_info));
+                snprintf(cards[card_count - 1].dev, sizeof cards[card_count - 1].dev,
                                 ":device=%d", i);
-                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name,
+                snprintf(cards[card_count - 1].name, sizeof cards[card_count - 1].name,
                                 "AJA %s", info.deviceIdentifier.c_str());
-                snprintf(vt->cards[vt->card_count - 1].extra, sizeof vt->cards[vt->card_count - 1].extra,
+                snprintf(cards[card_count - 1].extra, sizeof cards[card_count - 1].extra,
                                 "\"embeddedAudioAvailable\":\"t\"");
         }
 
-        return vt;
+        *available_cards = cards;
+        *count = card_count;
 }
 
 static void supersede_compiler_warning_workaround() ATTRIBUTE(unused);

@@ -523,18 +523,11 @@ static struct video_frame *vidcap_testcard2_grab(void *arg, struct audio_frame *
         return frame;
 }
 
-static struct vidcap_type *vidcap_testcard2_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_testcard2_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
         *deleter = free;
-        struct vidcap_type *vt;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "testcard2";
-                vt->description = "Video testcard 2";
-        }
-        return vt;
+        *available_devices = NULL;
+        *count = 0;
 }
 
 static const struct video_capture_info vidcap_testcard2_info = {

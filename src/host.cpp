@@ -514,21 +514,14 @@ void print_capabilities(const char *cfg)
         for (const auto& item : class_mod_map[LIBRARY_CLASS_VIDEO_CAPTURE]) {
                 auto vci = static_cast<const struct video_capture_info *>(item.second);
 
+                int count = 0;
+                struct device_info *devices;
                 void (*deleter)(void *) = nullptr;
-                struct vidcap_type *vt = vci->probe(true, &deleter);
-                if (vt == nullptr) {
-                        continue;
+                vci->probe(&devices, &count, &deleter);
+                for (int i = 0; i < count; ++i) {
+                        print_device("video_cap", item.first, devices[i]);
                 }
-
-                for (int i = 0; i < vt->card_count; ++i) {
-                        print_device("video_cap", item.first, vt->cards[i]);
-                }
-
-                if(!deleter)
-                        deleter = free;
-
-                deleter(vt->cards);
-                deleter(vt);
+                deleter ? deleter(devices) : free(devices);
         }
 
         for (auto const & it : class_mod_map[LIBRARY_CLASS_VIDEO_DISPLAY]) {

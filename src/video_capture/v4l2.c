@@ -347,25 +347,12 @@ static void write_mode(struct mode *m,
                         tpf_num, tpf_denom);
 }
 
-static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_v4l2_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type*		vt;
         *deleter = free;
 
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == NULL) {
-                return NULL;
-        }
-
-        vt->name        = "v4l2";
-        vt->description = "V4L2 capture";
-
-        vt->card_count = 0;
-        vt->cards = 0;
-
-        if (!verbose) {
-                return vt;
-        }
+        int card_count = 0;
+        struct device_info *cards = NULL;
 
         for (int i = 0; i < V4L2_PROBE_MAX; ++i) {
                 char name[32];
@@ -384,11 +371,11 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
                         goto next_device;
                 }
 
-                vt->card_count += 1;
-                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                memset(&vt->cards[vt->card_count - 1], 0, sizeof(struct device_info));
-                snprintf(vt->cards[vt->card_count - 1].dev, sizeof vt->cards[vt->card_count - 1].dev, ":device=%s", name);
-                snprintf(vt->cards[vt->card_count - 1].name, sizeof vt->cards[vt->card_count - 1].name, "V4L2 %s", capab.card);
+                card_count += 1;
+                cards = realloc(cards, card_count * sizeof(struct device_info));
+                memset(&cards[card_count - 1], 0, sizeof(struct device_info));
+                snprintf(cards[card_count - 1].dev, sizeof cards[card_count - 1].dev, ":device=%s", name);
+                snprintf(cards[card_count - 1].name, sizeof cards[card_count - 1].name, "V4L2 %s", capab.card);
 
                 struct v4l2_fmtdesc format;
                 memset(&format, 0, sizeof(format));
@@ -426,7 +413,7 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
                                                 switch (frame_int.type) {
                                                         case V4L2_FRMIVAL_TYPE_DISCRETE:
                                                                 while(ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == 0) {
-                                                                        write_mode(&vt->cards[vt->card_count - 1].modes[fmt_idx++],
+                                                                        write_mode(&cards[card_count - 1].modes[fmt_idx++],
                                                                                         size.discrete.width, size.discrete.height,
                                                                                         frame_int.discrete.numerator, frame_int.discrete.denominator,
                                                                                         format.pixelformat);
@@ -448,8 +435,8 @@ static struct vidcap_type * vidcap_v4l2_probe(bool verbose, void (**deleter)(voi
 next_device:
                 close(fd);
         }
-
-        return vt;
+        *available_cards = cards;
+        *count = card_count;
 }
 
 

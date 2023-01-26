@@ -214,19 +214,11 @@ static void message_queue_clear(struct message_queue *queue) {
         queue->len = 0;
 }
 
-static struct vidcap_type *
-vidcap_import_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_import_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
         *deleter = free;
-	struct vidcap_type*		vt;
-    
-	vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->name        = "import";
-		vt->description = "Video importer (not to be called directly)";
-	}
-	return vt;
+        *available_cards = nullptr;
+        *count = 0;
 }
 
 #define READ_N(buf, len) if (fread(buf, len, 1, audio_file) != 1) goto error_format;

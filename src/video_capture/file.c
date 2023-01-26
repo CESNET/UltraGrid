@@ -700,17 +700,10 @@ static struct video_frame *vidcap_file_grab(void *state, struct audio_frame **au
         return out;
 }
 
-static struct vidcap_type *vidcap_file_probe(bool verbose, void (**deleter)(void *)) {
-        UNUSED(verbose);
+static void vidcap_file_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
         *deleter = free;
-        struct vidcap_type *vt;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "file";
-                vt->description = "Input file playback";
-        }
-        return vt;
+        *available_cards = NULL;
+        *count = 0;
 }
 
 static const struct video_capture_info vidcap_file_info = {

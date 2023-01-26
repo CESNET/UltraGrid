@@ -251,48 +251,33 @@ static void *grab_thread(void *args)
         return NULL;
 }
 
-static struct vidcap_type * vidcap_screen_x11_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_screen_x11_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type*		vt;
         *deleter = free;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == NULL) {
-                return NULL;
-        }
-
-        vt->name        = "screen";
-        vt->description = "Grabbing screen";
-
-        if (!verbose) {
-                return vt;
-        }
-
-        vt->card_count = 1;
-        vt->cards = calloc(vt->card_count, sizeof(struct device_info));
-        // vt->cards[0].dev can be "" since screen cap. doesn't require parameters
-        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
+        *count = 1;
+        *available_devices = calloc(*count, sizeof(struct device_info));
+        // (*available_devices)[0].dev can be "" since screen cap. doesn't require parameters
+        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Screen capture");
 
         int framerates[] = {24, 30, 60};
 
-        snprintf(vt->cards[0].modes[0].name,
-                        sizeof vt->cards[0].modes[0].name,
+        snprintf((*available_devices)[0].modes[0].name,
+                        sizeof (*available_devices)[0].modes[0].name,
                         "Unlimited fps");
-        snprintf(vt->cards[0].modes[0].id,
-                        sizeof vt->cards[0].modes[0].id,
+        snprintf((*available_devices)[0].modes[0].id,
+                        sizeof (*available_devices)[0].modes[0].id,
                         "{\"fps\":\"\"}");
 
         for(unsigned i = 0; i < sizeof(framerates) / sizeof(framerates[0]); i++){
-                snprintf(vt->cards[0].modes[i + 1].name,
-                                sizeof vt->cards[0].modes[0].name,
+                snprintf((*available_devices)[0].modes[i + 1].name,
+                                sizeof (*available_devices)[0].modes[0].name,
                                 "%d fps",
                                 framerates[i]);
-                snprintf(vt->cards[0].modes[i + 1].id,
-                                sizeof vt->cards[0].modes[0].id,
+                snprintf((*available_devices)[0].modes[i + 1].id,
+                                sizeof (*available_devices)[0].modes[0].id,
                                 "{\"fps\":\"%d\"}",
                                 framerates[i]);
         }
-        return vt;
 }
 
 static _Bool parse_fmt(struct vidcap_screen_x11_state *s, char *fmt) {

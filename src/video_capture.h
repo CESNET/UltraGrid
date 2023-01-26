@@ -99,22 +99,13 @@
 #include "types.h"
 #include "video_capture_params.h"
 
-#define VIDEO_CAPTURE_ABI_VERSION 10
+#define VIDEO_CAPTURE_ABI_VERSION 11
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
 struct audio_frame;
-
-/** Defines video capture device */
-struct vidcap_type {
-        const char              *name;        ///< short name (one word)
-        const char              *description; ///< description of the video device
-
-        int                      card_count;
-        struct device_info      *cards;
-};
 
 /// @name vidcap_retval
 /// @anchor vidcap_retval
@@ -132,11 +123,10 @@ struct vidcap_type {
  * API for video capture modules
  */
 struct video_capture_info {
-        struct vidcap_type    *(*probe) (bool verbose, void (**deleter)(void *));
+        device_probe_func probe;
         /**
-         * @param[in]  driver configuration string
          * @param[in]  param  driver parameters
-         * @param[out] param  returned capture state
+         * @param[out] state  returned capture state
          * @returns           one of @ref vidcap_retval
          */
         int                    (*init) (struct vidcap_params *param, void **state);

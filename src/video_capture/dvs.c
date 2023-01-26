@@ -643,21 +643,13 @@ static struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **aud
         return NULL;
 }
 
-static struct vidcap_type *vidcap_dvs_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_dvs_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-       struct vidcap_type *vt;
         *deleter = free;
- 
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == NULL) {
-                return NULL;
-        }
-        vt->name = "dvs";
-        vt->description = "DVS (SMPTE 274M/25i)";
 
-        if (!verbose) {
-                return vt;
-        }
+        struct device_info *cards = NULL;
+        int card_count = 0;
+ 
         int card_idx = 0;
         sv_handle *sv;
         char name[128];
@@ -665,14 +657,14 @@ static struct vidcap_type *vidcap_dvs_probe(bool verbose, void (**deleter)(void 
         snprintf(name, 128, "PCI,card:%d", card_idx);
         res = sv_openex(&sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
         while (res == SV_OK) {
-                vt->card_count = card_idx + 1;
-                vt->cards = realloc(vt->cards, vt->card_count * sizeof(struct device_info));
-                memset(&vt->cards[card_idx], 0, sizeof(struct device_info));
-                snprintf(vt->cards[card_idx].dev, sizeof vt->cards[card_idx].dev,
+                card_count = card_idx + 1;
+                cards = realloc(cards, card_count * sizeof(struct device_info));
+                memset(&cards[card_idx], 0, sizeof(struct device_info));
+                snprintf(cards[card_idx].dev, sizeof cards[card_idx].dev,
                                 ":device=%d", card_idx);
-                snprintf(vt->cards[card_idx].name, sizeof vt->cards[card_idx].name,
+                snprintf(cards[card_idx].name, sizeof cards[card_idx].name,
                                 "DVS card #%d", card_idx);
-                snprintf(vt->cards[card_idx].extra, sizeof vt->cards[card_idx].extra,
+                snprintf(cards[card_idx].extra, sizeof cards[card_idx].extra,
                                 "\"embeddedAudioAvailable\":\"t\"", card_idx);
 
                 sv_close(sv);
@@ -680,7 +672,8 @@ static struct vidcap_type *vidcap_dvs_probe(bool verbose, void (**deleter)(void 
                 snprintf(name, 128, "PCI,card:%d", card_idx);
                 res = sv_openex(&sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
         }
-        return vt;
+        *available_cards = cards;
+        *count = card_count;
 }
 
 static const struct video_capture_info vidcap_dvs_info = {

@@ -242,48 +242,37 @@ static struct video_frame *vidcap_spout_grab(void *state, struct audio_frame **a
         return out;
 }
 
-static struct vidcap_type *vidcap_spout_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_spout_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
         *deleter = free;
-        struct vidcap_type *vt;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt != NULL) {
-                vt->name = "spout";
-                vt->description = "Spout capture client";
-        }
-
-        if (!verbose) {
-                return vt;
-        }
+        *count = 0;
 
         auto receiver = shared_ptr<SPOUTLIBRARY>(GetSpout(), [](auto s) {s->Release();});
 
-        int count = receiver->GetSenderCount();
+        int sender_count = receiver->GetSenderCount();
 
-        vt->cards = (struct device_info *) calloc(count, sizeof(struct device_info));
-        if (vt->cards == nullptr) {
-                return vt;
+        *available_cards = (struct device_info *) calloc(sender_count, sizeof(struct device_info));
+        if (*available_cards == nullptr) {
+                return;
         }
-        vt->card_count = count;
+        *count = sender_count;
 
-        for (int i = 0; i < count; ++i) {
+        for (int i = 0; i < *count; ++i) {
                 array<char, 256> name{};
+                auto& card = (*available_cards)[i];
                 if (!receiver->GetSender(i, name.data(), name.size())) {
                         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Cannot get name for server #" << i << "\n";
-                        snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":device=%d", i);
-                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Spout #%d", i);
+                        snprintf(card.dev, sizeof card.dev, ":device=%d", i);
+                        snprintf(card.name, sizeof card.name, "Spout #%d", i);
                 } else {
-                        snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":name=urlencoded=");
-                        urlencode(vt->cards[i].dev + strlen(vt->cards[i].dev),
-                                        sizeof vt->cards[i].dev - strlen(vt->cards[i].dev),
+                        snprintf(card.dev, sizeof card.dev, ":name=urlencoded=");
+                        urlencode(card.dev + strlen(card.dev),
+                                        sizeof card.dev - strlen(card.dev),
                                         name.data(), urlencode_rfc3986_eval, false);
-                        snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "Spout %s", name.data());
+                        snprintf(card.name, sizeof card.name, "Spout %s", name.data());
                 }
-                vt->cards[i].repeatable = true;
+                card.repeatable = true;
         }
-        return vt;
 }
 
 static const struct video_capture_info vidcap_spout_info = {

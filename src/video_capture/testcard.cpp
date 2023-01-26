@@ -513,26 +513,14 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         return state->frame;
 }
 
-static struct vidcap_type *vidcap_testcard_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_testcard_probe(device_info **available_devices, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type *vt;
         *deleter = free;
 
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == NULL) {
-                return NULL;
-        }
-
-        vt->name = "testcard";
-        vt->description = "Video testcard";
-
-        if (!verbose) {
-                return vt;
-        }
-
-        vt->card_count = 1;
-        vt->cards = (struct device_info *) calloc(vt->card_count, sizeof(struct device_info));
-        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Testing signal");
+        *count = 1;
+        *available_devices = (struct device_info *) calloc(*count, sizeof(struct device_info));
+        auto& card = **available_devices;
+        snprintf(card.name, sizeof card.name, "Testing signal");
 
         struct {
                 int width;
@@ -545,10 +533,10 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose, void (**deleter)(
         int framerates[] = {24, 30, 60};
         const char * const pix_fmts[] = {"UYVY", "RGB"};
 
-        snprintf(vt->cards[0].modes[0].name,
-                        sizeof vt->cards[0].modes[0].name, "Default");
-        snprintf(vt->cards[0].modes[0].id,
-                        sizeof vt->cards[0].modes[0].id,
+        snprintf(card.modes[0].name,
+                        sizeof card.modes[0].name, "Default");
+        snprintf(card.modes[0].id,
+                        sizeof card.modes[0].id,
                         "{\"width\":\"\", "
                         "\"height\":\"\", "
                         "\"format\":\"\", "
@@ -558,13 +546,13 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose, void (**deleter)(
         for(const auto &pix_fmt : pix_fmts){
                 for(const auto &size : sizes){
                         for(const auto &fps : framerates){
-                                snprintf(vt->cards[0].modes[i].name,
-                                                sizeof vt->cards[0].name,
+                                snprintf(card.modes[i].name,
+                                                sizeof card.name,
                                                 "%dx%d@%d %s",
                                                 size.width, size.height,
                                                 fps, pix_fmt);
-                                snprintf(vt->cards[0].modes[i].id,
-                                                sizeof vt->cards[0].modes[0].id,
+                                snprintf(card.modes[i].id,
+                                                sizeof card.modes[0].id,
                                                 "{\"width\":\"%d\", "
                                                 "\"height\":\"%d\", "
                                                 "\"format\":\"%s\", "
@@ -575,7 +563,6 @@ static struct vidcap_type *vidcap_testcard_probe(bool verbose, void (**deleter)(
                         }
                 }
         }
-        return vt;
 }
 
 static const struct video_capture_info vidcap_testcard_info = {

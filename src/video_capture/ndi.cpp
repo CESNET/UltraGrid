@@ -600,32 +600,24 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
         return nullptr;
 }
 
-static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_ndi_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
         *deleter = free;
-        auto vt = static_cast<struct vidcap_type *>(calloc(1, sizeof(struct vidcap_type)));
-        if (vt == nullptr) {
-                return nullptr;
-        }
-        vt->name = "ndi";
-        vt->description = "NDI source";
-
-        if (!verbose) {
-                return vt;
-        }
+        *available_cards = nullptr;
+        *count = 0;
 
         LIB_HANDLE tmp = nullptr;
         const NDIlib_t *NDIlib = NDIlib_load(&tmp);
         if (NDIlib == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot open NDI library!\n";
-                return vt;
+                return;
         }
         std::unique_ptr<std::remove_pointer<LIB_HANDLE>::type, void (*)(LIB_HANDLE)> lib(tmp, close_ndi_library);
 
         auto pNDI_find = NDIlib->find_create_v2(nullptr);
         if (pNDI_find == nullptr) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Cannot create finder object!\n";
-                return vt;
+                return;
         }
 
         uint32_t nr_sources = 0;
@@ -637,22 +629,21 @@ static struct vidcap_type *vidcap_ndi_probe(bool verbose, void (**deleter)(void 
         // more sources, it will continue after first source found while there can be more
         p_sources = NDIlib->find_get_current_sources(pNDI_find, &nr_sources);
 
-        vt->cards = (struct device_info *) calloc(nr_sources, sizeof(struct device_info));
-        if (vt->cards == nullptr) {
+        *available_cards = (struct device_info *) calloc(nr_sources, sizeof(struct device_info));
+        if (*available_cards == nullptr) {
                 NDIlib->find_destroy(pNDI_find);
-                return vt;
+                return;
         }
-        vt->card_count = nr_sources;
+        *count = nr_sources;
         for (int i = 0; i < static_cast<int>(nr_sources); ++i) {
-                snprintf(vt->cards[i].dev, sizeof vt->cards[i].dev, ":url=%s", p_sources[i].p_url_address);
-                snprintf(vt->cards[i].name, sizeof vt->cards[i].name, "%s", p_sources[i].p_ndi_name);
-                snprintf(vt->cards[i].extra, sizeof vt->cards[i].extra, "\"embeddedAudioAvailable\":\"t\"");
-                vt->cards[i].repeatable = true;
+                auto& card = (*available_cards)[i];
+                snprintf(card.dev, sizeof card.dev, ":url=%s", p_sources[i].p_url_address);
+                snprintf(card.name, sizeof card.name, "%s", p_sources[i].p_ndi_name);
+                snprintf(card.extra, sizeof card.extra, "\"embeddedAudioAvailable\":\"t\"");
+                card.repeatable = true;
         }
 
         NDIlib->find_destroy(pNDI_find);
-
-        return vt;
 }
 
 static const struct video_capture_info vidcap_ndi_info = {

@@ -46,7 +46,7 @@ extern "C" {
 __declspec(dllimport) int vidcap_aja_init(struct vidcap_params *params, void **state);
 __declspec(dllimport) void vidcap_aja_done(void *state);
 __declspec(dllimport) struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio);
-__declspec(dllimport) struct vidcap_type *vidcap_aja_probe(bool, void (**)(void *));
+__declspec(dllimport) void vidcap_aja_probe(struct device_info **available_cards, int *count, void (**deleter)(void *));
 __declspec(dllimport) volatile bool *aja_should_exit;
 __declspec(dllimport) unsigned int *aja_audio_capture_channels;
 }

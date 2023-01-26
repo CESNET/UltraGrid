@@ -92,29 +92,15 @@ static void show_help()
         color_printf(TBOLD("DShow") " filter " TBOLD("%s") " registered\n", is_library_registered() ? "is" : "is not");
 }
 
-static struct vidcap_type * vidcap_screen_win_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_screen_win_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        struct vidcap_type*		vt;
-        *deleter = free;
+        int card_count = 1;
+        struct device_info *cards = calloc(card_count, sizeof(struct device_info));
+        // cards[0].dev can be "" since screen cap. doesn't require parameters
+        snprintf(cards[0].name, sizeof cards[0].name, "Screen capture");
 
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == NULL) {
-                return NULL;
-        }
-
-        vt->name        = "screen";
-        vt->description = "Grabbing screen";
-
-        if (!verbose) {
-                return vt;
-        }
-
-        vt->card_count = 1;
-        vt->cards = calloc(vt->card_count, sizeof(struct device_info));
-        // vt->cards[0].dev can be "" since screen cap. doesn't require parameters
-        snprintf(vt->cards[0].name, sizeof vt->cards[0].name, "Screen capture");
-
-        return vt;
+		*available_cards = cards;
+		*count = card_count;
 }
 
 static bool set_key(const char *key, int val)
@@ -201,20 +187,19 @@ static void cleanup(struct vidcap_screen_win_state *s) {
 
 static bool is_library_registered() {
         void (*deleter)(void *) = NULL;
-        struct vidcap_type *vt = vidcap_dshow_info.probe(true, &deleter);
-        if (!vt) {
-                return false;
-        }
+		struct device_info *cards = NULL;
+		int count = 0;
+        vidcap_dshow_info.probe(&cards, &count, &deleter);
+
         bool ret = false;
-        for (int i = 0; i < vt->card_count; ++i) {
-                if (strcmp(vt->cards[i].name, "screen-capture-recorder") == 0) {
+        for (int i = 0; i < count; ++i) {
+                if (strcmp(cards[i].name, "screen-capture-recorder") == 0) {
                         ret = true;
                         break;
                 }
         }
         deleter = IF_NOT_NULL_ELSE(deleter, free);
-        deleter(vt->cards);
-        deleter(vt);
+        deleter(cards);
         return ret;
 }
 
