@@ -1812,6 +1812,60 @@ static void xv30_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_f
                 }
         }
 }
+
+static void xv30_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 4 == 0);
+        assert((uintptr_t) dst_buffer % 4 == 0 && pitch % 4 == 0);
+        for(int y = 0; y < height; ++y) {
+                uint16_t *src = (uint16_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+#define FETCH_IN \
+                in0 = *src++; \
+                in1 = *src++; \
+                u = ((in0 & 0x3FFU) + (in1 & 0x3FFU) + 1) >> 1; \
+                y0 = (in0 >> 10U) & 0x3FFU; \
+                v = ((in0 >> 20U & 0x3FFU) + ((in1 >> 20U & 0x3FFU) + 1)) >> 1; \
+                y1 = (in1 >> 10U) & 0x3FFU; \
+
+                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+                        uint32_t in0, in1;
+                        uint32_t u, y0, v, y1;
+
+                        FETCH_IN
+                        *dst++ = v << 20U | y1 << 10U | u;
+                        uint32_t tmp = y1;
+                        FETCH_IN
+                        *dst++ = y0 << 20U | u << 10U | tmp;
+                        tmp = y1 << 10U | v;
+                        FETCH_IN
+                        *dst++ = u << 20U | tmp;
+                        *dst++ = y1 << 20U | v << 10U | y0;
+                }
+        }
+}
+
+static void xv30_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 4 == 0);
+        assert((uintptr_t) dst_buffer % 2 == 0 && pitch % 2 == 0);
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                uint32_t *src = (void *)(in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *dst = (void *)(dst_buffer + y * pitch);
+                OPTIMIZED_FOR (int x = 0; x < width; x += 1) {
+                        uint32_t in = *src++;
+                        *dst++ = (in & 0x3FFU) << 6U;
+                        *dst++ = ((in >> 10U) & 0x3FFU) << 6U;
+                        *dst++ = ((in >> 20U) & 0x3FFU) << 6U;
+                        *dst++ = 0xFFFFU;
+                }
+        }
+}
 #endif
 
 #ifdef HWACC_VDPAU
@@ -1956,6 +2010,8 @@ const struct av_to_uv_conversion *get_av_to_uv_conversions() {
 #endif
 #if XV3X_PRESENT
                 {AV_PIX_FMT_XV30,   UYVY, xv30_to_uyvy, false},
+                {AV_PIX_FMT_XV30,   v210, xv30_to_v210, false},
+                {AV_PIX_FMT_XV30,   Y416, xv30_to_y416, true},
 #endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
