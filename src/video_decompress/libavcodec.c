@@ -693,7 +693,12 @@ static void *convert_task(void *arg) {
         return NULL;
 }
 
-static void parallel_convert(av_to_uv_convert_p convert, char *dst, AVFrame *in, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
+static void parallel_convert(codec_t out_codec, av_to_uv_convert_p convert, char *dst, AVFrame *in, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
+        if (codec_is_const_size(out_codec)) { // VAAPI etc
+                convert((char *) dst, in, width, height, pitch, rgb_shift);
+                return;
+        }
+
         int cpu_count = get_cpu_core_count();
 
         struct convert_task_data d[cpu_count];
@@ -750,12 +755,8 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         }
 
         av_to_uv_convert_p convert = get_av_to_uv_conversion(av_codec, out_codec);
-
         if (convert) {
-                if(!codec_is_const_size(out_codec))
-                        parallel_convert(convert, (char *) dst, frame, width, height, pitch, rgb_shift);
-                else
-                        convert((char *) dst, frame, width, height, pitch, rgb_shift);
+                parallel_convert(out_codec, convert, (char *) dst, frame, width, height, pitch, rgb_shift);
                 return TRUE;
         }
 
@@ -792,7 +793,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec
         if(!lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame))
                 return FALSE;
 
-        parallel_convert(convert, (char *) dst, sws->frame, width, height, pitch, rgb_shift);
+        parallel_convert(out_codec, convert, (char *) dst, sws->frame, width, height, pitch, rgb_shift);
         return TRUE;
 #else
         UNUSED(sws);
