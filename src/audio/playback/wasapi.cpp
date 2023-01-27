@@ -116,8 +116,9 @@ static string get_name(IMMDevice *pDevice) {
         return wstring_to_string(out);
 }
 
-static void audio_play_wasapi_probe(struct device_info **available_devices, int *dev_count)
+static void audio_play_wasapi_probe(struct device_info **available_devices, int *dev_count, void (**deleter)(void *))
 {
+        *deleter = free;
         *available_devices = (struct device_info *) malloc(0);
         *dev_count = 0;
 

@@ -397,8 +397,9 @@ static void usage()
                uv_argv[0], uv_argv[0]);
 }
 
-static void audio_play_mixer_probe(struct device_info **available_devices, int *count)
+static void audio_play_mixer_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         *available_devices = NULL;
         *count = 0;
 }

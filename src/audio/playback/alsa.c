@@ -658,8 +658,9 @@ error:
         return FALSE;
 }
 
-static void audio_play_alsa_probe(struct device_info **available_devices, int *count)
+static void audio_play_alsa_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         const char *whitelist[] = {"pulse", "dmix"};
         audio_alsa_probe(available_devices, count, whitelist, sizeof(whitelist) / sizeof(*whitelist));
         strcpy((*available_devices)[0].dev, "");

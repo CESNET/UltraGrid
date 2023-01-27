@@ -115,8 +115,9 @@ public:
         //virtual HRESULT         RenderAudioSamples (bool preroll);
 };
 
-static void audio_play_decklink_probe(struct device_info **available_devices, int *count)
+static void audio_play_decklink_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         *available_devices = static_cast<struct device_info *>(calloc(1, sizeof(struct device_info)));
         strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Audio-only output through DeckLink device");

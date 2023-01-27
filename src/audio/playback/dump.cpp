@@ -94,8 +94,9 @@ static void audio_play_dump_done(void *state){
         delete s;
 }
 
-static void audio_play_dump_probe(struct device_info **available_devices, int *count)
+static void audio_play_dump_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         *available_devices = NULL;
         *count = 0;
 }

@@ -124,8 +124,9 @@ static bool portaudio_start_stream(PaStream *stream)
 	return true;
 }
 
-static void audio_play_portaudio_probe(struct device_info **available_devices, int *count)
+static void audio_play_portaudio_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         audio_portaudio_probe(available_devices, count, PORTAUDIO_OUT);
 }
 

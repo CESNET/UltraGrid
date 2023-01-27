@@ -339,8 +339,9 @@ error:
         LOG(LOG_LEVEL_ERROR) << MOD_NAME "Error obtaining device list.\n";
 }
 
-static void audio_play_ca_probe(struct device_info **available_devices, int *count)
+static void audio_play_ca_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         audio_ca_probe(available_devices, count, 1);
 }
 
@@ -349,12 +350,13 @@ static void audio_play_ca_help(const char *driver_name)
         UNUSED(driver_name);
         struct device_info *available_devices;
         int count;
-        audio_play_ca_probe(&available_devices, &count);
+        void (*deleter)(void *);
+        audio_play_ca_probe(&available_devices, &count, &deleter);
 
         for (int i = 0; i < count; ++i) {
                 printf("\tcoreaudio%-4s: %s\n", available_devices[i].dev, available_devices[i].name);
         }
-        free(available_devices);
+        deleter ? deleter(available_devices) : free(available_devices);
 }
 
 

@@ -552,11 +552,12 @@ void print_capabilities(const char *cfg)
                 auto api = static_cast<const struct audio_playback_info *>(it.second);
                 int count = 0;
                 struct device_info *devices;
-                api->probe(&devices, &count);
+                void (*deleter)(void *) = nullptr;
+                api->probe(&devices, &count, &deleter);
                 for (int i = 0; i < count; ++i) {
                         print_device("audio_play", it.first, devices[i]);
                 }
-                free(devices);
+                deleter ? deleter(devices) : free(devices);
         }
 
 end:

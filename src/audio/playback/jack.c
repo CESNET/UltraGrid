@@ -126,8 +126,9 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         return 0;
 }
 
-static void audio_play_jack_probe(struct device_info **available_devices, int *count)
+static void audio_play_jack_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         *available_devices = audio_jack_probe(PACKAGE_STRING, JackPortIsInput, count);
 }
 

@@ -60,8 +60,9 @@ static void audio_play_none_help(const char *driver_name)
         UNUSED(driver_name);
 }
 
-static void audio_play_none_probe(struct device_info **available_devices, int *count)
+static void audio_play_none_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         *available_devices = NULL;
         *count = 0;
 }
