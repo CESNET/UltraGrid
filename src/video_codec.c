@@ -3470,4 +3470,44 @@ void y416_to_i444(int width, int height, const char *in, char *out, int depth)
         }
 }
 
+struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt)
+{
+        struct pixfmt_desc ret;
+        ret.depth = codec_info[pixfmt].bits_per_channel;
+        ret.subsampling = codec_info[pixfmt].subsampling;
+        ret.rgb = codec_info[pixfmt].rgb;
+        ret.id = (unsigned) pixfmt;
+        return ret;
+}
+
+/**
+ * qsort(_s)-compatible comparator
+ *
+ * @todo
+ * add compare policy
+ */
+int compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *desc_b, const struct pixfmt_desc *src_desc)
+{
+        if (desc_a->rgb != desc_b->rgb) {
+                return desc_a->rgb == src_desc->rgb ? -1 : 1;
+        }
+
+        if (desc_a->depth != desc_b->depth) {
+                // either a or b is lower than orig - sort higher bit depth first
+                if (desc_a->depth < src_desc->depth || desc_b->depth < src_desc->depth) {
+                        return desc_b->depth - desc_a->depth;
+                }
+                // both are equal or higher - sort lower bit depth first
+                return desc_a->depth - desc_b->depth;
+        }
+
+        if (desc_a->subsampling != desc_b->subsampling) {
+                if (desc_a->subsampling < src_desc->subsampling || desc_b->subsampling < src_desc->subsampling) {
+                        return desc_b->subsampling - desc_a->subsampling; // return better subs
+                }
+                return desc_a->subsampling - desc_b->subsampling;
+        }
+        return desc_a->id < desc_b->id ? -1 : 1;
+}
+
 /* vim: set expandtab sw=8: */

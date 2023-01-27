@@ -108,6 +108,13 @@ typedef enum {
         VIDEO_CODEC_END = VIDEO_CODEC_COUNT
 } codec_t;
 
+struct pixfmt_desc {
+        int depth;
+        int subsampling; //< in 'JabA' format, eg. '4444'
+        bool rgb;
+        unsigned id; //
+};
+
 /**
  * @enum interlacing_t
  * Specifies interlacing mode of the frame

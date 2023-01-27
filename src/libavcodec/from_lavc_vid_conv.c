@@ -44,6 +44,8 @@
  * Some conversions to RGBA ignore RGB-shifts - either fix that or deprecate RGB-shifts
  */
 
+#include "compat/qsort_s.h"
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -2167,6 +2169,21 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         return ret;
 }
 
+// less is better
+#ifdef QSORT_S_COMP_FIRST
+static int compare_convs(void *orig_c, const void *a, const void *b) {
+#else
+static int compare_convs(const void *a, const void *b, void *orig_c) {
+#endif
+        const struct av_to_uv_conversion *conv_a = a;
+        const struct av_to_uv_conversion *conv_b = b;
+        const struct pixfmt_desc *src_desc = orig_c;
+        struct pixfmt_desc desc_a = get_pixfmt_desc(conv_a->uv_codec);
+        struct pixfmt_desc desc_b = get_pixfmt_desc(conv_b->uv_codec);
+
+        return compare_pixdesc(&desc_a, &desc_b, src_desc);
+}
+
 /**
  * Returns first AVPixelFormat convertible to *ugc. If !*ugc, finds (probes)
  * best UltraGrid codec to which can be one of fmt converted and returns
@@ -2179,6 +2196,12 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
 static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, codec_t *ugc, bool use_hwaccel) {
         // directly mapped UG codecs
         for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
+                //If hwaccel is not enabled skip hw accel pixfmts even if there
+                //are convert functions
+                if (!use_hwaccel && (av_pix_fmt_desc_get(*fmt_it)->flags & AV_PIX_FMT_FLAG_HWACCEL)) {
+                        continue;
+                }
+
                 codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(*fmt_it);
                 if (mapped_pix_fmt != VIDEO_CODEC_NONE) {
                         if (*ugc == VIDEO_CODEC_NONE) { // just probing internal format
@@ -2190,30 +2213,27 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                         }
                 }
 
-                bool use_native[] = { true, false }; // try native first
-                for (const bool *use_native_it = use_native; use_native_it !=
-                                use_native + sizeof use_native / sizeof use_native[0]; ++use_native_it) {
-                        //If hwaccel is not enabled skip hw accel pixfmts even if there
-                        //are convert functions
-                        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*fmt_it);
-                        if(!use_hwaccel && fmt_desc && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)){
-                                continue;
-                        }
-
-                        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
-                                if (c->av_codec != *fmt_it) // this conversion is not valid
-                                        continue;
-                                if (*ugc == VIDEO_CODEC_NONE) { // just probing internal format
-                                        if (!*use_native_it || c->native) {
-                                                *ugc = c->uv_codec;
-                                                return AV_PIX_FMT_NONE;
-                                        }
-                                } else {
-                                        if (*ugc == c->uv_codec) { // conversion found
-                                                return *fmt_it;
-                                        }
+                if (*ugc != VIDEO_CODEC_NONE) {
+                        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                                if (c->av_codec == *fmt_it && *ugc == c->uv_codec) {
+                                        return *fmt_it;
                                 }
                         }
+                } else { // probe
+                        struct av_to_uv_conversion usable_convs[sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0]];
+                        int usable_convs_count = 0;
+                        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                                if (c->av_codec == *fmt_it) {
+                                        memcpy(usable_convs + usable_convs_count++, c, sizeof av_to_uv_conversions[0]);
+                                }
+                        }
+                        if (usable_convs_count == 0) {
+                                continue;
+                        }
+                        struct pixfmt_desc src_desc = av_pixfmt_get_desc(*fmt_it);
+                        qsort_s(usable_convs, usable_convs_count, sizeof usable_convs[0], compare_convs, &src_desc);
+                        *ugc = usable_convs[0].uv_codec;
+                        return AV_PIX_FMT_NONE;
                 }
         }
         return AV_PIX_FMT_NONE;
