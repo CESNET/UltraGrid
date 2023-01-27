@@ -150,7 +150,7 @@ typedef bool (*display_needs_mainloop_t)(void *);
 #define DISPLAY_NO_GENERIC_FPS_INDICATOR ((const char *) 0x00)
 
 struct video_display_info {
-        void                    (*probe)(struct device_info **available_cards, int *count, void (**deleter)(void *));
+        device_probe_func         probe;
         void                   *(*init) (struct module *parent, const char *fmt, unsigned int flags);
         void                    (*run) (void *state);                                               ///< may be NULL
         void                    (*done) (void *state);
