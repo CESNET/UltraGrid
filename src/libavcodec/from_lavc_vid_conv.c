@@ -2196,8 +2196,7 @@ static int compare_convs(const void *a, const void *b, void *orig_c) {
 static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, codec_t *ugc, bool use_hwaccel) {
         // directly mapped UG codecs
         for (const enum AVPixelFormat *fmt_it = fmt; *fmt_it != AV_PIX_FMT_NONE; fmt_it++) {
-                //If hwaccel is not enabled skip hw accel pixfmts even if there
-                //are convert functions
+                //If hwaccel is not enabled skip hw accel pixfmts even if there are convert functions
                 if (!use_hwaccel && (av_pix_fmt_desc_get(*fmt_it)->flags & AV_PIX_FMT_FLAG_HWACCEL)) {
                         continue;
                 }
@@ -2251,6 +2250,15 @@ enum AVPixelFormat lavd_get_av_to_ug_codec(const enum AVPixelFormat *fmt, codec_
 
 enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_convert_t *av_conv) {
         av_conv->valid = false;
+
+        if (get_ug_to_av_pixfmt(color_spec) != AV_PIX_FMT_NONE) {
+                av_conv->valid = true;
+                struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
+                priv->type = TYPE_MEMCPY;
+                priv->dst_pixfmt = color_spec;
+                return get_ug_to_av_pixfmt(color_spec);
+        }
+
         bool native[2] = { true, false };
         for (int n = 0; n < 2; n++) {
                 for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
