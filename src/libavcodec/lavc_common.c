@@ -264,4 +264,19 @@ void ug_set_av_logging() {
         }
 }
 
+/// @returns subsampling in 'JabA' format (compatible with @ref get_subsamping)
+int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) {
+        const struct AVPixFmtDescriptor *pd = av_pix_fmt_desc_get(fmt);
+        if (pd->log2_chroma_w == 0 && pd->log2_chroma_h == 0) {
+                return 4440;
+        }
+        if (pd->log2_chroma_w == 1 && pd->log2_chroma_h == 0) {
+                return 4220;
+        }
+        if (pd->log2_chroma_w == 1 && pd->log2_chroma_h == 1) {
+                return 4200;
+        }
+        return 0; // other (todo)
+}
+
 /* vi: set expandtab sw=8: */

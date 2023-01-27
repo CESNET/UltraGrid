@@ -864,20 +864,6 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
         return get_decoder_from_to(in, *out);
 }
 
-static int get_subsampling(enum AVPixelFormat fmt) {
-        const struct AVPixFmtDescriptor *pd = av_pix_fmt_desc_get(fmt);
-        if (pd->log2_chroma_w == 0 && pd->log2_chroma_h == 0) {
-                return 444;
-        }
-        if (pd->log2_chroma_w == 1 && pd->log2_chroma_h == 0) {
-                return 422;
-        }
-        if (pd->log2_chroma_w == 1 && pd->log2_chroma_h == 1) {
-                return 420;
-        }
-        return 0; // other (todo)
-}
-
 /**
  * Returns list of pix_fmts that UltraGrid can supply to the encoder.
  * The list is ordered according to input description and requested subsampling.
@@ -896,7 +882,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
         int bits_per_comp = get_bits_per_component(in_desc.color_spec);
         bool is_rgb = codec_is_a_rgb(in_desc.color_spec);
-        int subsampling = IF_NOT_NULL_ELSE(requested_subsampling, get_subsampling(in_desc.color_spec) / 10);
+        int subsampling = IF_NOT_NULL_ELSE(requested_subsampling, get_subsampling(in_desc.color_spec));
         // sort
         auto compare = [bits_per_comp, is_rgb, subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
                 const struct AVPixFmtDescriptor *pda = av_pix_fmt_desc_get(a);
@@ -915,8 +901,8 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                 bool rgba = pda->flags & PIX_FMT_RGB;
                 bool rgbb = pdb->flags & PIX_FMT_RGB;
 #endif
-                int subsa = get_subsampling(a);
-                int subsb = get_subsampling(b);
+                int subsa = av_pixfmt_get_subsampling(a);
+                int subsb = av_pixfmt_get_subsampling(b);
 
                 if (rgba != rgbb) {
                         if (rgba == is_rgb) {
@@ -944,7 +930,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         set<enum AVPixelFormat, decltype(compare)> available_formats(compare); // those for that there exitst a conversion and respect requested subsampling (if given)
         for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
                 if (get_decoder_from_to(in_desc.color_spec, i->uv_codec)) {
-                        int codec_subsampling = get_subsampling(i->av_pixfmt);
+                        int codec_subsampling = av_pixfmt_get_subsampling(i->av_pixfmt);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
                                        (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == i->uv_codec)) {
@@ -955,7 +941,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
         for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
                 if (c->src == in_desc.color_spec ||
                                 get_decoder_from_to(in_desc.color_spec, c->src)) {
-                        int codec_subsampling = get_subsampling(c->dst);
+                        int codec_subsampling = av_pixfmt_get_subsampling(c->dst);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
                                        (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == c->src)) {
