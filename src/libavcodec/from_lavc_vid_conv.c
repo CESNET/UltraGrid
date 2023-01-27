@@ -2129,6 +2129,22 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {0, 0, 0, 0}
 };
 
+static void set_decoder_mapped_to_uv(av_to_uv_convert_t *ret, decoder_t dec,
+                codec_t dst_pixfmt) {
+        struct av_to_uv_convert_state_priv *priv = (void *) ret->priv_data;
+        priv->type = TYPE_MAPPED_TO_UV;
+        priv->dec = dec;
+        priv->dst_pixfmt = dst_pixfmt;
+        ret->valid = true;
+}
+
+static void set_decoder_memcpy(av_to_uv_convert_t *ret, codec_t color_spec) {
+        struct av_to_uv_convert_state_priv *priv = (void *) ret->priv_data;
+        priv->type = TYPE_MEMCPY;
+        priv->dst_pixfmt = color_spec;
+        ret->valid = true;
+}
+
 av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         av_to_uv_convert_t ret;
         ret.valid = false;
@@ -2139,18 +2155,13 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
                 if (codec_is_planar(uv_codec)) {
                         log_msg(LOG_LEVEL_ERROR, "Planar pixfmts not support here, please report a bug!\n");
                 } else {
-                        priv->type = TYPE_MEMCPY;
-                        priv->dst_pixfmt = uv_codec;
-                        ret.valid = true;
+                        set_decoder_memcpy(&ret, uv_codec);
                 }
                 return ret;
         } else if (mapped_pix_fmt) {
                 decoder_t dec = get_decoder_from_to(mapped_pix_fmt, uv_codec);
                 if (dec) {
-                        priv->type = TYPE_MAPPED_TO_UV;
-                        priv->dec = dec;
-                        priv->dst_pixfmt = uv_codec;
-                        ret.valid = true;
+                        set_decoder_mapped_to_uv(&ret, dec, uv_codec);
                         return ret;
                 }
         }
@@ -2252,23 +2263,38 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
         av_conv->valid = false;
 
         if (get_ug_to_av_pixfmt(color_spec) != AV_PIX_FMT_NONE) {
-                av_conv->valid = true;
-                struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
-                priv->type = TYPE_MEMCPY;
-                priv->dst_pixfmt = color_spec;
+                set_decoder_memcpy(av_conv, color_spec);
                 return get_ug_to_av_pixfmt(color_spec);
         }
 
-        bool native[2] = { true, false };
-        for (int n = 0; n < 2; n++) {
-                for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
-                        if (c->native == native[n] && c->uv_codec == color_spec) { // pick first native, in 2nd round any
-                                av_conv->valid = true;
-                                struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
-                                priv->convert = c->convert;
-                                priv->type = TYPE_AV_TO_UV;
-                                return c->av_codec;
-                        }
+        struct pixfmt_desc out_desc = get_pixfmt_desc(color_spec);
+        decoder_t dec;
+        if (out_desc.rgb) {
+                if (out_desc.depth > 8 && (dec = get_decoder_from_to(RG48, color_spec))) {
+                        set_decoder_mapped_to_uv(av_conv, dec, color_spec);
+                        return AV_PIX_FMT_RGB48LE;
+                } else if ((dec = get_decoder_from_to(RGB, color_spec))) {
+                        set_decoder_mapped_to_uv(av_conv, dec, color_spec);
+                        return AV_PIX_FMT_RGB24;
+                }
+        }
+#if XV3X_PRESENT
+        if (out_desc.depth > 8 || (dec = get_decoder_from_to(Y416, color_spec))) {
+                set_decoder_mapped_to_uv(av_conv, dec, color_spec);
+                return AV_PIX_FMT_XV36;
+        }
+#endif
+        if ((dec = get_decoder_from_to(UYVY, color_spec))) {
+                set_decoder_mapped_to_uv(av_conv, dec, color_spec);
+                return AV_PIX_FMT_UYVY422;
+        }
+        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                if (c->uv_codec == color_spec) { // pick any (first usable)
+                        av_conv->valid = true;
+                        struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
+                        priv->convert = c->convert;
+                        priv->type = TYPE_AV_TO_UV;
+                        return c->av_codec;
                 }
         }
         return AV_PIX_FMT_NONE;
