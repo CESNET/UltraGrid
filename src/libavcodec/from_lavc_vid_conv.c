@@ -1986,15 +1986,18 @@ typedef av_to_uv_convert_f *av_to_uv_convert_fp;
 struct av_to_uv_convert_state_priv {
         union {
                 av_to_uv_convert_fp convert;
-                codec_t pixfmt;
+                struct {
+                        codec_t dst_pixfmt;
+                        decoder_t dec;
+                };
         };
         enum conversion_type {
                 TYPE_AV_TO_UV,
                 TYPE_MEMCPY,
+                TYPE_MAPPED_TO_UV,
         } type;
 };
-
-_Static_assert(sizeof(struct av_to_uv_convert_state_priv) <= sizeof ((struct av_to_uv_convert_state *) 0)->priv_data, "increase av_to_uv_convert_state::priv_data");
+_Static_assert(sizeof(struct av_to_uv_convert_state_priv) <= sizeof ((struct av_to_uv_convert_state *) 0)->priv_data, "increase av_to_uv_convert_state::priv_data size");
 
 struct av_to_uv_conversion {
         int av_codec;
@@ -2134,15 +2137,25 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         ret.valid = false;
         struct av_to_uv_convert_state_priv *priv = (void *) ret.priv_data;
 
-        if (get_av_to_ug_pixfmt(av_codec) == uv_codec) {
+        codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(av_codec);
+        if (mapped_pix_fmt == uv_codec) {
                 if (codec_is_planar(uv_codec)) {
                         log_msg(LOG_LEVEL_ERROR, "Planar pixfmts not support here, please report a bug!\n");
                 } else {
                         priv->type = TYPE_MEMCPY;
-                        priv->pixfmt = uv_codec;
+                        priv->dst_pixfmt = uv_codec;
                         ret.valid = true;
                 }
                 return ret;
+        } else if (mapped_pix_fmt) {
+                decoder_t dec = get_decoder_from_to(mapped_pix_fmt, uv_codec);
+                if (dec) {
+                        priv->type = TYPE_MAPPED_TO_UV;
+                        priv->dec = dec;
+                        priv->dst_pixfmt = uv_codec;
+                        ret.valid = true;
+                        return ret;
+                }
         }
 
         for (const struct av_to_uv_conversion *conversions = get_av_to_uv_conversions();
@@ -2177,7 +2190,7 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                                 *ugc = mapped_pix_fmt;
                                 return AV_PIX_FMT_NONE;
                         }
-                        if (*ugc == mapped_pix_fmt) {
+                        if (*ugc == mapped_pix_fmt || get_decoder_from_to(mapped_pix_fmt, *ugc)) { // either mapped or convertible
                                 return *fmt_it;
                         }
                 }
@@ -2245,10 +2258,19 @@ void av_to_uv_convert(av_to_uv_convert_t *state, char * __restrict dst_buffer, A
                         break;
                 case TYPE_MEMCPY:
                 {
-                        int linesize = vc_get_linesize(width, priv->pixfmt);
+                        int linesize = vc_get_linesize(width, priv->dst_pixfmt);
                         for (ptrdiff_t i = 0; i < height; ++i) {
-                                memcpy(dst_buffer + i * linesize, in_frame->data[0] + i * in_frame->linesize[0], linesize);
+                                memcpy(dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], linesize);
                         }
+                        break;
+                }
+                case TYPE_MAPPED_TO_UV:
+                {
+                        int dst_linesize = vc_get_linesize(width, priv->dst_pixfmt);
+                        for (ptrdiff_t i = 0; i < height; ++i) {
+                                priv->dec((unsigned char *) dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], dst_linesize, rgb_shift[0], rgb_shift[1], rgb_shift[2]);
+                        }
+                        break;
                 }
         }
 }
