@@ -427,6 +427,19 @@ static void print_device(std::string purpose, std::string mod, const device_info
         std::cout << "]}\n";
 }
 
+template<typename T>
+static void probe_and_print(const module_info_map::value_type& it, std::string cap_str){
+        auto vdi = static_cast<T>(it.second);
+        int count = 0;
+        struct device_info *devices;
+        void (*deleter)(void *) = nullptr;
+        vdi->probe(&devices, &count, &deleter);
+        for (int i = 0; i < count; ++i) {
+                print_device(cap_str, it.first, devices[i]);
+        }
+        deleter ? deleter(devices) : free(devices);
+}
+
 void print_capabilities(const char *cfg)
 {
         struct {
@@ -511,53 +524,23 @@ void print_capabilities(const char *cfg)
                 }
         }
 
-        for (const auto& item : class_mod_map[LIBRARY_CLASS_VIDEO_CAPTURE]) {
-                auto vci = static_cast<const struct video_capture_info *>(item.second);
 
-                int count = 0;
-                struct device_info *devices;
-                void (*deleter)(void *) = nullptr;
-                vci->probe(&devices, &count, &deleter);
-                for (int i = 0; i < count; ++i) {
-                        print_device("video_cap", item.first, devices[i]);
-                }
-                deleter ? deleter(devices) : free(devices);
+        for (auto const & it : class_mod_map[LIBRARY_CLASS_VIDEO_CAPTURE]) {
+                probe_and_print<const struct video_capture_info *>(it, "video_cap");
         }
 
+
         for (auto const & it : class_mod_map[LIBRARY_CLASS_VIDEO_DISPLAY]) {
-                auto vdi = static_cast<const struct video_display_info *>(it.second);
-                int count = 0;
-                struct device_info *devices;
-                void (*deleter)(void *) = nullptr;
-                vdi->probe(&devices, &count, &deleter);
-                for (int i = 0; i < count; ++i) {
-                        print_device("video_disp", it.first, devices[i]);
-                }
-                deleter ? deleter(devices) : free(devices);
+                probe_and_print<const struct video_display_info *>(it, "video_disp");
         }
 
         for (auto const & it : class_mod_map[LIBRARY_CLASS_AUDIO_CAPTURE]) {
-                auto aci = static_cast<const struct audio_capture_info *>(it.second);
-                int count = 0;
-                struct device_info *devices;
-                void (*deleter)(void *) = nullptr;
-                aci->probe(&devices, &count, &deleter);
-                for (int i = 0; i < count; ++i) {
-                        print_device("audio_cap", it.first, devices[i]);
-                }
-                deleter ? deleter(devices) : free(devices);
+                probe_and_print<const struct audio_capture_info *>(it, "audio_cap");
         }
 
+
         for (auto const & it : class_mod_map[LIBRARY_CLASS_AUDIO_PLAYBACK]) {
-                auto api = static_cast<const struct audio_playback_info *>(it.second);
-                int count = 0;
-                struct device_info *devices;
-                void (*deleter)(void *) = nullptr;
-                api->probe(&devices, &count, &deleter);
-                for (int i = 0; i < count; ++i) {
-                        print_device("audio_play", it.first, devices[i]);
-                }
-                deleter ? deleter(devices) : free(devices);
+                probe_and_print<const struct audio_playback_info *>(it, "audio_play");
         }
 
 end:
