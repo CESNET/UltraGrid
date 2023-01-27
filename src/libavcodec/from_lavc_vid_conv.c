@@ -59,6 +59,7 @@
 #include "hwaccel_vdpau.h"
 #include "hwaccel_rpi4.h"
 #include "libavcodec/from_lavc_vid_conv.h"
+#include "libavcodec/lavc_common.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
 #include "video.h"
 
@@ -2000,7 +2001,7 @@ struct av_to_uv_convert_state_priv {
 _Static_assert(sizeof(struct av_to_uv_convert_state_priv) <= sizeof ((struct av_to_uv_convert_state *) 0)->priv_data, "increase av_to_uv_convert_state::priv_data size");
 
 struct av_to_uv_conversion {
-        int av_codec;
+        enum AVPixelFormat av_codec;
         codec_t uv_codec;
         av_to_uv_convert_fp convert;
         bool native; ///< there is a 1:1 mapping between the FFMPEG and UV codec (matching
@@ -2010,127 +2011,121 @@ struct av_to_uv_conversion {
                      ///< not have codec for eg. 4:4:4 UYVY).
 };
 
-/**
- * @brief returns list of available conversion. Terminated by uv_to_av_conversion::uv_codec == VIDEO_CODEC_NONE
- */
-static const struct av_to_uv_conversion *get_av_to_uv_conversions() {
-        static const struct av_to_uv_conversion av_to_uv_conversions[] = {
-                // 10-bit YUV
-                {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210, true},
-                {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy, false},
-                {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24, false},
-                {AV_PIX_FMT_YUV420P10LE, RGBA, yuv420p10le_to_rgb32, false},
-                {AV_PIX_FMT_YUV420P10LE, R10k, yuv420p10le_to_rgb30, false},
-                {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210, true},
-                {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy, false},
-                {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
-                {AV_PIX_FMT_YUV422P10LE, RGBA, yuv422p10le_to_rgb32, false},
-                {AV_PIX_FMT_YUV422P10LE, R10k, yuv422p10le_to_rgb30, false},
-                {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, false},
-                {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
-                {AV_PIX_FMT_YUV444P10LE, R10k, yuv444p10le_to_r10k, false},
-                {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
-                {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
-                {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
-                {AV_PIX_FMT_YUV444P10LE, RG48, yuv444p10le_to_rg48, false},
-                {AV_PIX_FMT_YUV444P10LE, Y416, yuv444p10le_to_y416, true},
+static const struct av_to_uv_conversion av_to_uv_conversions[] = {
+        // 10-bit YUV
+        {AV_PIX_FMT_YUV420P10LE, v210, yuv420p10le_to_v210, true},
+        {AV_PIX_FMT_YUV420P10LE, UYVY, yuv420p10le_to_uyvy, false},
+        {AV_PIX_FMT_YUV420P10LE, RGB, yuv420p10le_to_rgb24, false},
+        {AV_PIX_FMT_YUV420P10LE, RGBA, yuv420p10le_to_rgb32, false},
+        {AV_PIX_FMT_YUV420P10LE, R10k, yuv420p10le_to_rgb30, false},
+        {AV_PIX_FMT_YUV422P10LE, v210, yuv422p10le_to_v210, true},
+        {AV_PIX_FMT_YUV422P10LE, UYVY, yuv422p10le_to_uyvy, false},
+        {AV_PIX_FMT_YUV422P10LE, RGB, yuv422p10le_to_rgb24, false},
+        {AV_PIX_FMT_YUV422P10LE, RGBA, yuv422p10le_to_rgb32, false},
+        {AV_PIX_FMT_YUV422P10LE, R10k, yuv422p10le_to_rgb30, false},
+        {AV_PIX_FMT_YUV444P10LE, v210, yuv444p10le_to_v210, false},
+        {AV_PIX_FMT_YUV444P10LE, UYVY, yuv444p10le_to_uyvy, false},
+        {AV_PIX_FMT_YUV444P10LE, R10k, yuv444p10le_to_r10k, false},
+        {AV_PIX_FMT_YUV444P10LE, RGB, yuv444p10le_to_rgb24, false},
+        {AV_PIX_FMT_YUV444P10LE, RGBA, yuv444p10le_to_rgb32, false},
+        {AV_PIX_FMT_YUV444P10LE, R12L, yuv444p10le_to_r12l, false},
+        {AV_PIX_FMT_YUV444P10LE, RG48, yuv444p10le_to_rg48, false},
+        {AV_PIX_FMT_YUV444P10LE, Y416, yuv444p10le_to_y416, true},
 #if P210_PRESENT
-                {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
-                {AV_PIX_FMT_P210LE, UYVY, p210le_to_uyvy, false},
+        {AV_PIX_FMT_P210LE, v210, p210le_to_v210, true},
+        {AV_PIX_FMT_P210LE, UYVY, p210le_to_uyvy, false},
 #endif
 #if XV3X_PRESENT
-                {AV_PIX_FMT_XV30,   UYVY, xv30_to_uyvy, false},
-                {AV_PIX_FMT_XV30,   v210, xv30_to_v210, false},
-                {AV_PIX_FMT_XV30,   Y416, xv30_to_y416, true},
+        {AV_PIX_FMT_XV30,   UYVY, xv30_to_uyvy, false},
+        {AV_PIX_FMT_XV30,   v210, xv30_to_v210, false},
+        {AV_PIX_FMT_XV30,   Y416, xv30_to_y416, true},
 #endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
-                {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
-                {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
+        {AV_PIX_FMT_P010LE, v210, p010le_to_v210, true},
+        {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy, true},
 #endif
-                // 8-bit YUV
-                {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
-                {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_uyvy, true},
-                {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24, false},
-                {AV_PIX_FMT_YUV420P, RGBA, yuv420p_to_rgb32, false},
-                {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210, false},
-                {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_uyvy, true},
-                {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24, false},
-                {AV_PIX_FMT_YUV422P, RGBA, yuv422p_to_rgb32, false},
-                {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210, false},
-                {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy, true},
-                {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
-                {AV_PIX_FMT_YUV444P, RGBA, yuv444p_to_rgb32, false},
-                // 8-bit YUV - this should be supposedly full range JPEG but lavd decoder doesn't honor
-                // GPUJPEG's SPIFF header indicating YUV BT.709 limited range. The YUVJ pixel formats
-                // are detected only for GPUJPEG generated JPEGs.
-                {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
-                {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
-                {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
-                {AV_PIX_FMT_YUVJ420P, RGBA, yuv420p_to_rgb32, false},
-                {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210, false},
-                {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_uyvy, true},
-                {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24, false},
-                {AV_PIX_FMT_YUVJ422P, RGBA, yuv422p_to_rgb32, false},
-                {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210, false},
-                {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy, true},
-                {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
-                {AV_PIX_FMT_YUVJ444P, RGBA, yuv444p_to_rgb32, false},
-                // 8-bit YUV (NV12)
-                {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
-                {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
-                {AV_PIX_FMT_NV12, RGBA, nv12_to_rgb32, false},
-                // 12-bit YUV
-                {AV_PIX_FMT_YUV444P12LE, R10k, yuv444p12le_to_r10k, false},
-                {AV_PIX_FMT_YUV444P12LE, R12L, yuv444p12le_to_r12l, false},
-                {AV_PIX_FMT_YUV444P12LE, RG48, yuv444p12le_to_rg48, false},
-                {AV_PIX_FMT_YUV444P12LE, UYVY, yuv444p12le_to_uyvy, false},
-                {AV_PIX_FMT_YUV444P12LE, v210, yuv444p12le_to_v210, false},
-                {AV_PIX_FMT_YUV444P12LE, Y416, yuv444p12le_to_y416, true},
-                // 16-bit YUV
-                {AV_PIX_FMT_YUV444P16LE, R10k, yuv444p16le_to_r10k, false},
-                {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p16le_to_r12l, false},
-                {AV_PIX_FMT_YUV444P16LE, RG48, yuv444p16le_to_rg48, false},
-                {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, false},
-                {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, false},
-                {AV_PIX_FMT_YUV444P16LE, Y416, yuv444p16le_to_y416, true},
-                {AV_PIX_FMT_AYUV64, UYVY, ayuv64_to_uyvy, false },
-                {AV_PIX_FMT_AYUV64, v210, ayuv64_to_v210, false },
-                {AV_PIX_FMT_AYUV64, Y416, ayuv64_to_y416, true },
-                // RGB
-                {AV_PIX_FMT_GBRAP, RGB, gbrap_to_rgb, false},
-                {AV_PIX_FMT_GBRAP, RGBA, gbrap_to_rgba, true},
-                {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
-                {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
-                {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
-                {AV_PIX_FMT_RGB24, RGB, memcpy_data, true},
-                {AV_PIX_FMT_RGB24, RGBA, rgb24_to_rgb32, false},
-                {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
-                {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
-                {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
+        // 8-bit YUV
+        {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210, false},
+        {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_uyvy, true},
+        {AV_PIX_FMT_YUV420P, RGB, yuv420p_to_rgb24, false},
+        {AV_PIX_FMT_YUV420P, RGBA, yuv420p_to_rgb32, false},
+        {AV_PIX_FMT_YUV422P, v210, yuv422p_to_v210, false},
+        {AV_PIX_FMT_YUV422P, UYVY, yuv422p_to_uyvy, true},
+        {AV_PIX_FMT_YUV422P, RGB, yuv422p_to_rgb24, false},
+        {AV_PIX_FMT_YUV422P, RGBA, yuv422p_to_rgb32, false},
+        {AV_PIX_FMT_YUV444P, v210, yuv444p_to_v210, false},
+        {AV_PIX_FMT_YUV444P, UYVY, yuv444p_to_uyvy, true},
+        {AV_PIX_FMT_YUV444P, RGB, yuv444p_to_rgb24, false},
+        {AV_PIX_FMT_YUV444P, RGBA, yuv444p_to_rgb32, false},
+        // 8-bit YUV - this should be supposedly full range JPEG but lavd decoder doesn't honor
+        // GPUJPEG's SPIFF header indicating YUV BT.709 limited range. The YUVJ pixel formats
+        // are detected only for GPUJPEG generated JPEGs.
+        {AV_PIX_FMT_YUVJ420P, v210, yuv420p_to_v210, false},
+        {AV_PIX_FMT_YUVJ420P, UYVY, yuv420p_to_uyvy, true},
+        {AV_PIX_FMT_YUVJ420P, RGB, yuv420p_to_rgb24, false},
+        {AV_PIX_FMT_YUVJ420P, RGBA, yuv420p_to_rgb32, false},
+        {AV_PIX_FMT_YUVJ422P, v210, yuv422p_to_v210, false},
+        {AV_PIX_FMT_YUVJ422P, UYVY, yuv422p_to_uyvy, true},
+        {AV_PIX_FMT_YUVJ422P, RGB, yuv422p_to_rgb24, false},
+        {AV_PIX_FMT_YUVJ422P, RGBA, yuv422p_to_rgb32, false},
+        {AV_PIX_FMT_YUVJ444P, v210, yuv444p_to_v210, false},
+        {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy, true},
+        {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24, false},
+        {AV_PIX_FMT_YUVJ444P, RGBA, yuv444p_to_rgb32, false},
+        // 8-bit YUV (NV12)
+        {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy, true},
+        {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24, false},
+        {AV_PIX_FMT_NV12, RGBA, nv12_to_rgb32, false},
+        // 12-bit YUV
+        {AV_PIX_FMT_YUV444P12LE, R10k, yuv444p12le_to_r10k, false},
+        {AV_PIX_FMT_YUV444P12LE, R12L, yuv444p12le_to_r12l, false},
+        {AV_PIX_FMT_YUV444P12LE, RG48, yuv444p12le_to_rg48, false},
+        {AV_PIX_FMT_YUV444P12LE, UYVY, yuv444p12le_to_uyvy, false},
+        {AV_PIX_FMT_YUV444P12LE, v210, yuv444p12le_to_v210, false},
+        {AV_PIX_FMT_YUV444P12LE, Y416, yuv444p12le_to_y416, true},
+        // 16-bit YUV
+        {AV_PIX_FMT_YUV444P16LE, R10k, yuv444p16le_to_r10k, false},
+        {AV_PIX_FMT_YUV444P16LE, R12L, yuv444p16le_to_r12l, false},
+        {AV_PIX_FMT_YUV444P16LE, RG48, yuv444p16le_to_rg48, false},
+        {AV_PIX_FMT_YUV444P16LE, UYVY, yuv444p16le_to_uyvy, false},
+        {AV_PIX_FMT_YUV444P16LE, v210, yuv444p16le_to_v210, false},
+        {AV_PIX_FMT_YUV444P16LE, Y416, yuv444p16le_to_y416, true},
+        {AV_PIX_FMT_AYUV64, UYVY, ayuv64_to_uyvy, false },
+        {AV_PIX_FMT_AYUV64, v210, ayuv64_to_v210, false },
+        {AV_PIX_FMT_AYUV64, Y416, ayuv64_to_y416, true },
+        // RGB
+        {AV_PIX_FMT_GBRAP, RGB, gbrap_to_rgb, false},
+        {AV_PIX_FMT_GBRAP, RGBA, gbrap_to_rgba, true},
+        {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb, true},
+        {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba, true},
+        {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy, false},
+        {AV_PIX_FMT_RGB24, RGB, memcpy_data, true},
+        {AV_PIX_FMT_RGB24, RGBA, rgb24_to_rgb32, false},
+        {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k, true},
+        {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb, false},
+        {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba, false},
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
-                {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
-                {AV_PIX_FMT_GBRP12LE, R10k, gbrp12le_to_r10k, true},
-                {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
-                {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
+        {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l, true},
+        {AV_PIX_FMT_GBRP12LE, R10k, gbrp12le_to_r10k, true},
+        {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb, false},
+        {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba, false},
 #endif
-                {AV_PIX_FMT_GBRP16LE, R12L, gbrp16le_to_r12l, true},
-                {AV_PIX_FMT_GBRP16LE, R10k, gbrp16le_to_r10k, true},
-                {AV_PIX_FMT_GBRP12LE, RGB, gbrp16le_to_rgb, false},
-                {AV_PIX_FMT_GBRP12LE, RGBA, gbrp16le_to_rgba, false},
-                {AV_PIX_FMT_RGB48LE, RG48, memcpy_data, true},
-                {AV_PIX_FMT_RGB48LE, R12L, rgb48le_to_r12l, false},
-                {AV_PIX_FMT_RGB48LE, RGBA, rgb48le_to_rgba, false},
+        {AV_PIX_FMT_GBRP16LE, R12L, gbrp16le_to_r12l, true},
+        {AV_PIX_FMT_GBRP16LE, R10k, gbrp16le_to_r10k, true},
+        {AV_PIX_FMT_GBRP12LE, RGB, gbrp16le_to_rgb, false},
+        {AV_PIX_FMT_GBRP12LE, RGBA, gbrp16le_to_rgba, false},
+        {AV_PIX_FMT_RGB48LE, RG48, memcpy_data, true},
+        {AV_PIX_FMT_RGB48LE, R12L, rgb48le_to_r12l, false},
+        {AV_PIX_FMT_RGB48LE, RGBA, rgb48le_to_rgba, false},
 #ifdef HWACC_VDPAU
-                // HW acceleration
-                {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
+        // HW acceleration
+        {AV_PIX_FMT_VDPAU, HW_VDPAU, av_vdpau_to_ug_vdpau, false},
 #endif
 #ifdef HWACC_RPI4
-                {AV_PIX_FMT_RPI4_8, RPI4_8, av_rpi4_8_to_ug, false},
+        {AV_PIX_FMT_RPI4_8, RPI4_8, av_rpi4_8_to_ug, false},
 #endif
-                {0, 0, 0, 0}
-        };
-        return av_to_uv_conversions;
-}
+        {0, 0, 0, 0}
+};
 
 av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         av_to_uv_convert_t ret;
@@ -2158,7 +2153,7 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
                 }
         }
 
-        for (const struct av_to_uv_conversion *conversions = get_av_to_uv_conversions();
+        for (const struct av_to_uv_conversion *conversions = av_to_uv_conversions;
                         conversions->convert != 0; conversions++) {
                 if (conversions->av_codec == av_codec &&
                                 conversions->uv_codec == uv_codec) {
@@ -2194,6 +2189,7 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                                 return *fmt_it;
                         }
                 }
+
                 bool use_native[] = { true, false }; // try native first
                 for (const bool *use_native_it = use_native; use_native_it !=
                                 use_native + sizeof use_native / sizeof use_native[0]; ++use_native_it) {
@@ -2204,7 +2200,7 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                                 continue;
                         }
 
-                        for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
                                 if (c->av_codec != *fmt_it) // this conversion is not valid
                                         continue;
                                 if (*ugc == VIDEO_CODEC_NONE) { // just probing internal format
@@ -2237,7 +2233,7 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
         av_conv->valid = false;
         bool native[2] = { true, false };
         for (int n = 0; n < 2; n++) {
-                for (const struct av_to_uv_conversion *c = get_av_to_uv_conversions(); c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
                         if (c->native == native[n] && c->uv_codec == color_spec) { // pick first native, in 2nd round any
                                 av_conv->valid = true;
                                 struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
