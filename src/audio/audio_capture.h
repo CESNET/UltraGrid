@@ -43,10 +43,10 @@ extern "C" {
 
 struct module;
 
-#define AUDIO_CAPTURE_ABI_VERSION 4
+#define AUDIO_CAPTURE_ABI_VERSION 5
 
 struct audio_capture_info {
-        void (*probe)(struct device_info **available_devices, int *count);
+        device_probe_func probe;
         void *(*init)(struct module *parent, const char *cfg); ///< @param cfg is not NULL
         struct audio_frame *(*read)(void *state);
         void (*done)(void *state);

@@ -95,18 +95,21 @@ static void audio_cap_sdi_probe_common(struct device_info **available_devices, i
         *count = 1;
 }
 
-static void audio_cap_sdi_probe_embedded(struct device_info **available_devices, int *count)
+static void audio_cap_sdi_probe_embedded(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         audio_cap_sdi_probe_common(available_devices, count, "", "Embedded SDI/HDMI audio");
 }
 
-static void audio_cap_sdi_probe_aesebu(struct device_info **available_devices, int *count)
+static void audio_cap_sdi_probe_aesebu(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         audio_cap_sdi_probe_common(available_devices, count, "", "Digital AES/EBU audio");
 }
 
-static void audio_cap_sdi_probe_analog(struct device_info **available_devices, int *count)
+static void audio_cap_sdi_probe_analog(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         audio_cap_sdi_probe_common(available_devices, count, "", "Analog audio through capture card");
 }
 

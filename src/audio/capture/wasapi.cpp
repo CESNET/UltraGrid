@@ -86,8 +86,9 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
     do { if ((u) != NULL) (u)->Release(); (u) = NULL; } while(0)
 #undef THROW_IF_FAILED
 #define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { ostringstream oss; oss << #cmd << ": " << hresult_to_str(hr); throw ug_runtime_error(oss.str()); } } while(0)
-static void audio_cap_wasapi_probe(struct device_info **available_devices, int *dev_count)
+static void audio_cap_wasapi_probe(struct device_info **available_devices, int *dev_count, void (**deleter)(void *))
 {
+        *deleter = free;
         *available_devices = (struct device_info *) malloc(0);
         *dev_count = 0;
 

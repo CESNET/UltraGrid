@@ -540,11 +540,12 @@ void print_capabilities(const char *cfg)
                 auto aci = static_cast<const struct audio_capture_info *>(it.second);
                 int count = 0;
                 struct device_info *devices;
-                aci->probe(&devices, &count);
+                void (*deleter)(void *) = nullptr;
+                aci->probe(&devices, &count, &deleter);
                 for (int i = 0; i < count; ++i) {
                         print_device("audio_cap", it.first, devices[i]);
                 }
-                free(devices);
+                deleter ? deleter(devices) : free(devices);
         }
 
         for (auto const & it : class_mod_map[LIBRARY_CLASS_AUDIO_PLAYBACK]) {

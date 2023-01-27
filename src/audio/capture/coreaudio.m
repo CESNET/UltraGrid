@@ -162,8 +162,9 @@ static OSStatus InputProc(void *inRefCon,
         return err;
 }
 
-static void audio_cap_ca_probe(struct device_info **available_devices, int *count)
+static void audio_cap_ca_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         audio_ca_probe(available_devices, count, -1);
 }
 
@@ -172,12 +173,13 @@ static void audio_cap_ca_help(const char *driver_name)
         UNUSED(driver_name);
         struct device_info *available_devices;
         int count;
-        audio_cap_ca_probe(&available_devices, &count);
+        void (*deleter)(void *) = NULL;
+        audio_cap_ca_probe(&available_devices, &count, &deleter);
 
         for (int i = 0; i < count; ++i) {
                 printf("\tcoreaudio%-4s: %s\n", available_devices[i].dev, available_devices[i].name);
         }
-        free(available_devices);
+        deleter ? deleter(available_devices) : free(available_devices);
 }
 
 #define CA_STRINGIFY(A) #A

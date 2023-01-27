@@ -65,8 +65,9 @@ struct state_audio_capture_none {
         uint32_t magic;
 };
 
-static void audio_cap_none_probe(struct device_info **available_devices, int *count)
+static void audio_cap_none_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         *available_devices = NULL;
         *count = 0;
 }

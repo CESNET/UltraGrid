@@ -77,8 +77,9 @@ struct state_sdl_mixer_capture {
 
 static void audio_cap_sdl_mixer_done(void *state);
 
-static void audio_cap_sdl_mixer_probe(struct device_info **available_devices, int *count)
+static void audio_cap_sdl_mixer_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        *deleter = free;
         *count = 1;
         *available_devices = calloc(1, sizeof **available_devices);
         strncat((*available_devices)[0].dev, "sdl_mixer", sizeof (*available_devices)[0].dev - 1);
