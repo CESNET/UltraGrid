@@ -88,12 +88,12 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
 
                 auto from_conv = get_uv_to_av_conversion(R10k, frame.format);
                 auto to_conv = get_av_to_uv_conversion(frame.format, R10k);
-                assert(to_conv != nullptr && from_conv != nullptr);
+                assert(to_conv.valid && from_conv != nullptr);
 
                 TIMER(t0);
                 from_conv(&frame, r10k_buf.data(), width, height);
                 TIMER(t1);
-                to_conv(reinterpret_cast<char*>(r10k_buf.data()), &frame, width, height, vc_get_linesize(width, R10k), nullptr);
+                av_to_uv_convert(&to_conv, reinterpret_cast<char*>(r10k_buf.data()), &frame, width, height, vc_get_linesize(width, R10k), nullptr);
                 TIMER(t2);
 
                 if (getenv("PERF") != nullptr) {
@@ -165,12 +165,12 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
 
                 auto from_conv = get_uv_to_av_conversion(R12L, frame.format);
                 auto to_conv = get_av_to_uv_conversion(frame.format, R12L);
-                assert(to_conv != nullptr && from_conv != nullptr);
+                assert(to_conv.valid && from_conv != nullptr);
 
                 TIMER(t0);
                 from_conv(&frame, r12l_buf.data(), width, height);
                 TIMER(t1);
-                to_conv(reinterpret_cast<char*>(r12l_buf.data()), &frame, width, height, vc_get_linesize(width, R12L), nullptr);
+                av_to_uv_convert(&to_conv, reinterpret_cast<char*>(r12l_buf.data()), &frame, width, height, vc_get_linesize(width, R12L), nullptr);
                 TIMER(t2);
 
                 if (getenv("PERF") != nullptr) {
@@ -232,12 +232,12 @@ static void yuv444p16le_rg48_encode_decode(int width, int height, char *in, char
 
         auto from_conv = get_uv_to_av_conversion(RG48, frame.format);
         auto to_conv = get_av_to_uv_conversion(frame.format, RG48);
-        assert(to_conv != nullptr && from_conv != nullptr);
+        assert(to_conv.valid && from_conv != nullptr);
 
         TIMER(t0);
         from_conv(&frame, reinterpret_cast<unsigned char *>(in), width, height);
         TIMER(t1);
-        to_conv(reinterpret_cast<char*>(out), &frame, width, height, vc_get_linesize(width, RG48), nullptr);
+        av_to_uv_convert(&to_conv, reinterpret_cast<char*>(out), &frame, width, height, vc_get_linesize(width, RG48), nullptr);
         TIMER(t2);
 
         if (getenv("PERF") != nullptr) {
@@ -420,10 +420,10 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                 auto from_conv = get_uv_to_av_conversion(codec, frame.format);
                 auto to_conv = get_av_to_uv_conversion(frame.format, codec);
                 assert(from_conv != nullptr);
-                assert(to_conv != nullptr);
+                assert(to_conv.valid);
 
                 from_conv(&frame, (unsigned char *) in.data(), width, height);
-                to_conv(reinterpret_cast<char *>(out.data()), &frame, width, height, vc_get_linesize(width, codec), nullptr);
+                av_to_uv_convert(&to_conv, reinterpret_cast<char *>(out.data()), &frame, width, height, vc_get_linesize(width, codec), nullptr);
 
                 if (getenv("DEBUG_DUMP") != nullptr) {
                         for (int i = 0; i < 128; i += 1) {
