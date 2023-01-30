@@ -87,6 +87,7 @@ using std::make_unique;
 using std::max;
 using std::min;
 using std::stoi;
+using std::stoll;
 using std::string;
 using std::swap;
 using std::unique_ptr;
@@ -286,7 +287,7 @@ class image_pattern_blank : public image_pattern {
         public:
                 explicit image_pattern_blank(string const &init) {
                         if (!init.empty()) {
-                                color = stoi(init, nullptr, 0);
+                                color = stoll(init, nullptr, 0);
                         }
                 }
 
