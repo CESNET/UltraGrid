@@ -1987,18 +1987,10 @@ typedef void av_to_uv_convert_f(char * __restrict dst_buffer, AVFrame * __restri
 typedef av_to_uv_convert_f *av_to_uv_convert_fp;
 
 struct av_to_uv_convert_state_priv {
-        union {
-                av_to_uv_convert_fp convert;
-                struct {
-                        codec_t dst_pixfmt;
-                        decoder_t dec;
-                };
-        };
-        enum conversion_type {
-                TYPE_AV_TO_UV,
-                TYPE_MEMCPY,
-                TYPE_MAPPED_TO_UV,
-        } type;
+        av_to_uv_convert_fp convert;
+        codec_t src_pixfmt;
+        codec_t dst_pixfmt;
+        decoder_t dec;
 };
 _Static_assert(sizeof(struct av_to_uv_convert_state_priv) <= sizeof ((struct av_to_uv_convert_state *) 0)->priv_data, "increase av_to_uv_convert_state::priv_data size");
 
@@ -2128,7 +2120,7 @@ static const struct av_to_uv_conversion *av_to_uv_conversions_end = av_to_uv_con
 static void set_decoder_mapped_to_uv(av_to_uv_convert_t *ret, decoder_t dec,
                 codec_t dst_pixfmt) {
         struct av_to_uv_convert_state_priv *priv = (void *) ret->priv_data;
-        priv->type = TYPE_MAPPED_TO_UV;
+        memset(priv, 0, sizeof *priv);
         priv->dec = dec;
         priv->dst_pixfmt = dst_pixfmt;
         ret->valid = true;
@@ -2136,14 +2128,53 @@ static void set_decoder_mapped_to_uv(av_to_uv_convert_t *ret, decoder_t dec,
 
 static void set_decoder_memcpy(av_to_uv_convert_t *ret, codec_t color_spec) {
         struct av_to_uv_convert_state_priv *priv = (void *) ret->priv_data;
-        priv->type = TYPE_MEMCPY;
+        memset(priv, 0, sizeof *priv);
         priv->dst_pixfmt = color_spec;
         ret->valid = true;
 }
 
+#ifdef QSORT_S_COMP_FIRST
+static int compare_convs(void *orig_c, const void *a, const void *b) {
+#else
+static int compare_convs(const void *a, const void *b, void *orig_c) {
+#endif
+        const struct av_to_uv_conversion *conv_a = a;
+        const struct av_to_uv_conversion *conv_b = b;
+        const struct pixfmt_desc *src_desc = orig_c;
+        struct pixfmt_desc desc_a = get_pixfmt_desc(conv_a->uv_codec);
+        struct pixfmt_desc desc_b = get_pixfmt_desc(conv_b->uv_codec);
+
+        return compare_pixdesc(&desc_a, &desc_b, src_desc);
+}
+
+static decoder_t get_av_and_uv_conversion(enum AVPixelFormat av_codec, codec_t uv_codec,
+                codec_t *intermediate_c, av_to_uv_convert_fp *av_convert) {
+        struct av_to_uv_conversion convs[AV_TO_UV_CONVERSION_COUNT];
+        size_t convs_count = 0;
+        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c < av_to_uv_conversions_end; c++) {
+                if (c->av_codec == av_codec) {
+                        memcpy(convs + convs_count++, c, sizeof av_to_uv_conversions[0]);
+                }
+        }
+        struct pixfmt_desc src_desc = av_pixfmt_get_desc(av_codec);
+        qsort_s(convs, convs_count, sizeof convs[0], compare_convs, &src_desc);
+        for (size_t i = 0; i < convs_count; ++i) {
+                decoder_t dec = get_decoder_from_to(convs[i].uv_codec, uv_codec);
+                if (dec != NULL) {
+                        if (av_convert) {
+                                *av_convert = convs[i].convert;
+                        }
+                        if (intermediate_c) {
+                                *intermediate_c = convs[i].uv_codec;
+                        }
+                        return dec;
+                }
+        }
+        return NULL;
+}
+
 av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
-        av_to_uv_convert_t ret;
-        ret.valid = false;
+        av_to_uv_convert_t ret = { .valid = false };
         struct av_to_uv_convert_state_priv *priv = (void *) ret.priv_data;
 
         codec_t mapped_pix_fmt = get_av_to_ug_pixfmt(av_codec);
@@ -2167,28 +2198,24 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
                 if (conversions->av_codec == av_codec &&
                                 conversions->uv_codec == uv_codec) {
                         priv->convert = conversions->convert;
-                        priv->type = TYPE_AV_TO_UV;
                         ret.valid = true;
                         return ret;
                 }
         }
 
+        av_to_uv_convert_fp av_convert = NULL;
+        codec_t intermediate;
+        decoder_t dec = get_av_and_uv_conversion(av_codec, uv_codec,
+                &intermediate, &av_convert);
+        if (dec) {
+                priv->dec = dec;
+                priv->convert = av_convert;
+                priv->src_pixfmt = intermediate;
+                priv->dst_pixfmt = uv_codec;
+                ret.valid = true;
+        }
+
         return ret;
-}
-
-// less is better
-#ifdef QSORT_S_COMP_FIRST
-static int compare_convs(void *orig_c, const void *a, const void *b) {
-#else
-static int compare_convs(const void *a, const void *b, void *orig_c) {
-#endif
-        const struct av_to_uv_conversion *conv_a = a;
-        const struct av_to_uv_conversion *conv_b = b;
-        const struct pixfmt_desc *src_desc = orig_c;
-        struct pixfmt_desc desc_a = get_pixfmt_desc(conv_a->uv_codec);
-        struct pixfmt_desc desc_b = get_pixfmt_desc(conv_b->uv_codec);
-
-        return compare_pixdesc(&desc_a, &desc_b, src_desc);
 }
 
 /**
@@ -2224,6 +2251,14 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                                 if (c->av_codec == *fmt_it && *ugc == c->uv_codec) {
                                         return *fmt_it;
                                 }
+                        }
+
+                        // AV+UV conversion needed
+                        codec_t c;
+                        if (get_av_and_uv_conversion(*fmt_it, *ugc, &c, NULL)) {
+                                log_msg(LOG_LEVEL_VERBOSE, __FILE__ ": selected conversion from %s to %s with %s intermediate.\n",
+                                                av_get_pix_fmt_name(*fmt_it), get_codec_name(*ugc), get_codec_name(c));
+                                return *fmt_it;
                         }
                 } else { // probe
                         struct av_to_uv_conversion usable_convs[sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0]];
@@ -2288,8 +2323,8 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
                 if (c->uv_codec == color_spec) { // pick any (first usable)
                         av_conv->valid = true;
                         struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
+                        memset(priv, 0, sizeof *priv);
                         priv->convert = c->convert;
-                        priv->type = TYPE_AV_TO_UV;
                         return c->av_codec;
                 }
         }
@@ -2298,26 +2333,32 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
 
 void av_to_uv_convert(av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift) {
         struct av_to_uv_convert_state_priv *priv = (void *) state->priv_data;
-        switch (priv->type) {
-                case TYPE_AV_TO_UV:
+        unsigned char *dec_input = in_frame->data[0];
+        size_t src_linesize = in_frame->linesize[0];
+        unsigned char *tmp = NULL;
+        if (priv->convert) {
+                if (!priv->dec) {
                         priv->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
-                        break;
-                case TYPE_MEMCPY:
-                {
-                        int linesize = vc_get_linesize(width, priv->dst_pixfmt);
-                        for (ptrdiff_t i = 0; i < height; ++i) {
-                                memcpy(dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], linesize);
-                        }
-                        break;
+                        return;
                 }
-                case TYPE_MAPPED_TO_UV:
-                {
-                        int dst_linesize = vc_get_linesize(width, priv->dst_pixfmt);
-                        for (ptrdiff_t i = 0; i < height; ++i) {
-                                priv->dec((unsigned char *) dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], dst_linesize, rgb_shift[0], rgb_shift[1], rgb_shift[2]);
-                        }
-                        break;
+                src_linesize = vc_get_linesize(width, priv->src_pixfmt);
+                dec_input = tmp = malloc(vc_get_datalen(width, height, priv->src_pixfmt));
+                int default_rgb_shift[] = { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT };
+                priv->convert((char *) dec_input, in_frame, width, height, src_linesize, default_rgb_shift);
+        }
+        if (priv->dec) {
+                int dst_linesize = vc_get_linesize(width, priv->dst_pixfmt);
+                for (ptrdiff_t i = 0; i < height; ++i) {
+                        priv->dec((unsigned char *) dst_buffer + i * pitch, dec_input + i * src_linesize, dst_linesize, rgb_shift[0], rgb_shift[1], rgb_shift[2]);
                 }
+                free(tmp);
+                return;
+        }
+
+        // memcpy only
+        int linesize = vc_get_linesize(width, priv->dst_pixfmt);
+        for (ptrdiff_t i = 0; i < height; ++i) {
+                memcpy(dst_buffer + i * pitch, in_frame->data[0] + i * in_frame->linesize[0], linesize);
         }
 }
 
