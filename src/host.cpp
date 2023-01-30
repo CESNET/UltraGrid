@@ -453,6 +453,7 @@ void print_capabilities(const char *cfg)
                 {"Capturers", "capture", LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION},
                 {"Displays", "display", LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION},
                 {"Audio capturers", "audio_cap", LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION},
+                {"Audio filters", "audio_filter", LIBRARY_CLASS_AUDIO_FILTER, AUDIO_FILTER_ABI_VERSION},
                 {"Audio playback", "audio_play", LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION},
         };
 
