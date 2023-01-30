@@ -2121,8 +2121,9 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
 #ifdef HWACC_RPI4
         {AV_PIX_FMT_RPI4_8, RPI4_8, av_rpi4_8_to_ug},
 #endif
-        {0, 0, 0}
 };
+#define AV_TO_UV_CONVERSION_COUNT (sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0])
+static const struct av_to_uv_conversion *av_to_uv_conversions_end = av_to_uv_conversions + AV_TO_UV_CONVERSION_COUNT;
 
 static void set_decoder_mapped_to_uv(av_to_uv_convert_t *ret, decoder_t dec,
                 codec_t dst_pixfmt) {
@@ -2162,7 +2163,7 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         }
 
         for (const struct av_to_uv_conversion *conversions = av_to_uv_conversions;
-                        conversions->convert != 0; conversions++) {
+                        conversions < av_to_uv_conversions_end; conversions++) {
                 if (conversions->av_codec == av_codec &&
                                 conversions->uv_codec == uv_codec) {
                         priv->convert = conversions->convert;
@@ -2219,7 +2220,7 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                 }
 
                 if (*ugc != VIDEO_CODEC_NONE) {
-                        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c < av_to_uv_conversions_end; c++) {
                                 if (c->av_codec == *fmt_it && *ugc == c->uv_codec) {
                                         return *fmt_it;
                                 }
@@ -2227,7 +2228,7 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                 } else { // probe
                         struct av_to_uv_conversion usable_convs[sizeof av_to_uv_conversions / sizeof av_to_uv_conversions[0]];
                         int usable_convs_count = 0;
-                        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
+                        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c < av_to_uv_conversions_end; c++) {
                                 if (c->av_codec == *fmt_it) {
                                         memcpy(usable_convs + usable_convs_count++, c, sizeof av_to_uv_conversions[0]);
                                 }
@@ -2283,7 +2284,7 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
                 set_decoder_mapped_to_uv(av_conv, dec, color_spec);
                 return AV_PIX_FMT_UYVY422;
         }
-        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c->uv_codec != VIDEO_CODEC_NONE; c++) {
+        for (const struct av_to_uv_conversion *c = av_to_uv_conversions; c < av_to_uv_conversions_end; c++) {
                 if (c->uv_codec == color_spec) { // pick any (first usable)
                         av_conv->valid = true;
                         struct av_to_uv_convert_state_priv *priv = (void *) av_conv->priv_data;
