@@ -999,7 +999,7 @@ void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe
         // Incorrect colors are produced also for qsv_hevc
         if (strstr(encoder_name, "nvenc") != nullptr || strstr(encoder_name, "hevc_qsv") != nullptr) {
                 if (formats.size() == 1) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Only one codec remaining, not blacklisting!\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Only one codec remaining, not blacklisting x2rgb10le!\n";
                         return;
                 }
                 if (auto it = std::find(formats.begin(), formats.end(), AV_PIX_FMT_X2RGB10LE); it != formats.end()) {
@@ -1226,7 +1226,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
 #ifdef HAVE_SWSCALE
-        if (pix_fmt == AV_PIX_FMT_NONE) {
+        if (pix_fmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: " << get_codec_name(desc.color_spec) << ". Trying to convert with swscale instead.\n";
                 for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE; ++pix) {
                         const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
@@ -1243,10 +1243,11 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
-                if (s->requested_subsampling != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "[lavc] Requested subsampling not supported. "
-                                        "Try different subsampling, eg. "
-                                        "\"subsampling={420,422,444}\".\n");
+                if (s->requested_subsampling != 0 || get_commandline_param("lavc-use-codec") != NULL) {
+                        log_msg(LOG_LEVEL_ERROR, "[lavc] Requested parameters not supported. %s\n",
+                                        s->requested_subsampling != 0 ? "Try different subsampling, eg. \"subsampling={420,422,444}\"." :
+                                        "Do not enforce encoder codec or use a supported one.");
+
                 }
                 return false;
         }
