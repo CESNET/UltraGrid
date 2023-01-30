@@ -267,12 +267,7 @@ static void display_frame(struct state_sdl *s, struct video_frame *frame)
                 }
         }
 
-        if (codec_is_a_rgb(frame->color_spec)) {
-                if (s->sdl_screen->format->BitsPerPixel != 32 && s->sdl_screen->format->BitsPerPixel != 24) {
-                        log_msg(LOG_LEVEL_WARNING, "[SDL] Unsupported bpp %d!\n",
-                                        s->sdl_screen->format->BitsPerPixel);
-                        goto free_frame;
-                }
+        if (codec_is_a_rgb(frame->color_spec) && (s->sdl_screen->format->BitsPerPixel == 32 || s->sdl_screen->format->BitsPerPixel == 24)) {
                 codec_t dst_codec = s->sdl_screen->format->BitsPerPixel == 32 ? RGBA : RGB;
                 decoder_t decoder = get_decoder_from_to(frame->color_spec, dst_codec);
                 assert(decoder != nullptr);
@@ -291,6 +286,28 @@ static void display_frame(struct state_sdl *s, struct video_frame *frame)
                                         s->sdl_screen->format->Bshift);
                 }
 
+                SDL_UnlockSurface(s->sdl_screen);
+                SDL_Flip(s->sdl_screen);
+        } else if (codec_is_a_rgb(frame->color_spec)) {
+                int bpp = get_bpp(frame->color_spec);
+                size_t src_linesize = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
+                SDL_LockSurface(s->sdl_screen);
+                for (size_t i = 0; i < min<size_t>(frame->tiles[0].height, s->sdl_screen->h); ++i) {
+                        unsigned char *src = (unsigned char *) frame->tiles[0].data + i * src_linesize;
+                        for (size_t j = 0; j < frame->tiles[0].width; j++) {
+                                uint32_t rgba =
+                                        (src[0] >> s->sdl_screen->format->Rloss) << s->sdl_screen->format->Rshift |
+                                        (src[1] >> s->sdl_screen->format->Gloss) << s->sdl_screen->format->Gshift |
+                                        (src[2] >> s->sdl_screen->format->Bloss) << s->sdl_screen->format->Bshift;
+                                memcpy((unsigned char *) s->sdl_screen->pixels +
+                                                s->sdl_screen->pitch * (s->dst_rect.y + i) +
+                                                (s->dst_rect.x + j) *
+                                                s->sdl_screen->format->BytesPerPixel,
+                                                &rgba,
+                                                s->sdl_screen->format->BytesPerPixel);
+                                src += bpp;
+                        }
+                }
                 SDL_UnlockSurface(s->sdl_screen);
                 SDL_Flip(s->sdl_screen);
         } else {
