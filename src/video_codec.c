@@ -2354,6 +2354,33 @@ static void vc_copylineY416toR12L(unsigned char * __restrict dst, const unsigned
 #undef GET_NEXT
 }
 
+static void vc_copylineY416toR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        const uint16_t *in = (const void *) src;
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 4) {
+                comp_type_t y, u, v, r, g, b;
+
+                u = *in++ - (1<<15);
+                y = Y_SCALE * (*in++ - (1<<12));
+                v = *in++ - (1<<15);
+                in++;
+                r = (YCBCR_TO_R_709_SCALED(y, u, v) >> (COMP_BASE + 6U));
+                g = (YCBCR_TO_G_709_SCALED(y, u, v) >> (COMP_BASE + 6U));
+                b = (YCBCR_TO_B_709_SCALED(y, u, v) >> (COMP_BASE + 6U));
+                r = CLAMP_FULL(r, 10);
+                g = CLAMP_FULL(g, 10);
+                b = CLAMP_FULL(b, 10);
+
+                *dst++ = r >> 2U;
+                *dst++ = (r & 0x3U) << 6U | g >> 4U;
+                *dst++ = (g & 0xFU) << 4U | b >> 6U;
+                *dst++ = (b & 0x3FU) << 2U;
+        }
+}
+
 static void vc_copylineRG48toR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -3278,6 +3305,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineY416toUYVY,  Y416,  UYVY, false },
         { vc_copylineY416toV210,  Y416,  v210, false },
         { vc_copylineY416toR12L,  Y416,  R12L, true },
+        { vc_copylineY416toR10k,  Y416,  R10k, true },
         { vc_copylineV210toY216,  v210,  Y216, false },
         { vc_copylineV210toY416,  v210,  Y416, false },
 };
