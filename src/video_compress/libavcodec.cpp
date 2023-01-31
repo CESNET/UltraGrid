@@ -120,6 +120,7 @@ struct setparam_param {
         map<string, string> &lavc_opts; ///< user-supplied options from command-line
 };
 
+constexpr const char *DEFAULT_AMF_USAGE = "lowlatency";
 constexpr const char *DEFAULT_NVENC_PRESET = "p4";
 constexpr const char *DEFAULT_NVENC_RC = "cbr";
 constexpr const char *DEFAULT_NVENC_TUNE = "ull";
@@ -1723,7 +1724,12 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* 
 }
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
-        check_av_opt_set<const char *>(codec_ctx->priv_data, "header_insertion_mode", "gop", "header_insertion_mode for AMF");
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "usage", DEFAULT_AMF_USAGE, "AMF usage (preset)");
+        if ("hevc_amf"s == codec_ctx->codec->name) {
+                check_av_opt_set<const char *>(codec_ctx->priv_data, "header_insertion_mode", "gop", "header_insertion_mode for AMF");
+        } else if ("h264_amf"s == codec_ctx->codec->name) {
+                check_av_opt_set<int>(codec_ctx->priv_data, "header_spacing", 1);
+        }
 }
 
 ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
@@ -1906,7 +1912,7 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
 {
         if (regex_match(codec_ctx->codec->name, regex(".*_amf"))) {
                 configure_amf(codec_ctx, param);
-        } if (regex_match(codec_ctx->codec->name, regex(".*_vaapi"))) {
+        } else if (regex_match(codec_ctx->codec->name, regex(".*_vaapi"))) {
                 configure_vaapi(codec_ctx, param);
         } else if (strncmp(codec_ctx->codec->name, "libx264", strlen("libx264")) == 0 || // libx264 and libx264rgb
                         strcmp(codec_ctx->codec->name, "libx265") == 0) {
@@ -1971,6 +1977,9 @@ static string get_h264_h265_preset(string const & enc_name, int width, int heigh
         }
         if (enc_name == "libx265") {
                 return string("ultrafast");
+        }
+        if (regex_match(enc_name, regex(".*_amf"))) {
+                return string{DONT_SET_PRESET}; // AMF uses "usage"
         }
         if (regex_match(enc_name, regex(".*nvenc.*"))) { // so far, there are at least nvenc, nvenc_h264 and h264_nvenc variants
                 return string{DONT_SET_PRESET}; // nvenc preset is handled with configure_nvenc()
