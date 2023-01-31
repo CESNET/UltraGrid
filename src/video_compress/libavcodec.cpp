@@ -260,8 +260,7 @@ struct state_video_compress_libav {
         double              requested_crf = -1;
         int                 requested_cqp = -1;
         int                 requested_q = -1;
-        // may be 422, 420 or 0 (no subsampling explicitly requested
-        int                 requested_subsampling = 0;
+        int                 requested_subsampling = 0; ///< 4440, 4220, 4200 or 0 (no subsampling explicitly requested)
         // contains format that is supplied by UG to the encoder or swscale (if used)
         AVPixelFormat       selected_pixfmt = AV_PIX_FMT_NONE;
 
@@ -454,9 +453,12 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
                         char *subsample_str = item + strlen("subsampling=");
                         s->requested_subsampling = atoi(subsample_str);
-                        if (s->requested_subsampling != 444 &&
-                                        s->requested_subsampling != 422 &&
-                                        s->requested_subsampling != 420) {
+                        if (s->requested_subsampling < 1000) {
+                                s->requested_subsampling *= 10; // 420->4200
+                        }
+                        if (s->requested_subsampling != 4440 &&
+                                        s->requested_subsampling != 4220 &&
+                                        s->requested_subsampling != 4200) {
                                 log_msg(LOG_LEVEL_ERROR, "[lavc] Supported subsampling is 444, 422, or 420.\n");
                                 return -1;
                         }
