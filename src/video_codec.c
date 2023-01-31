@@ -2421,7 +2421,7 @@ static void vc_copylineY416toRGBA(unsigned char * __restrict dst, const unsigned
         const uint16_t *in = (const void *) src;
         uint32_t *out = (void *) dst;
         const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
-        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 3) {
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 4) {
                 comp_type_t y, u, v, r, g, b;
 
                 u = *in++ - (1<<15);
