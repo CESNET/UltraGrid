@@ -2344,7 +2344,7 @@ void av_to_uv_convert(av_to_uv_convert_t *state, char * __restrict dst_buffer, A
                 src_linesize = vc_get_linesize(width, priv->src_pixfmt);
                 dec_input = tmp = malloc(vc_get_datalen(width, height, priv->src_pixfmt) + MAX_PADDING);
                 int default_rgb_shift[] = { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT };
-                priv->convert((char *) dec_input, in_frame, width, height, vc_get_size(width, priv->src_pixfmt), default_rgb_shift);
+                priv->convert((char *) dec_input, in_frame, width, height, src_linesize, default_rgb_shift);
         }
         if (priv->dec) {
                 int dst_size = vc_get_size(width, priv->dst_pixfmt);
