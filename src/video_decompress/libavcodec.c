@@ -84,7 +84,7 @@ struct state_libavcodec_decompress {
         codec_t          out_codec;
         bool             blacklist_vdpau;
         bool             block_accel[HWACCEL_COUNT];
-        int              consecutive_failed_decodes;
+        long long        consecutive_failed_decodes;
 
         unsigned         last_frame_seq:22; // This gives last sucessfully decoded frame seq number. It is the buffer number from the packet format header, uses 22 bits.
         bool             last_frame_seq_initialized;
@@ -838,6 +838,29 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         s->mov_avg_frames = LONG_MAX;
 }
 
+static void handle_lavd_error(struct state_libavcodec_decompress *s, int ret)
+{
+        print_decoder_error(MOD_NAME, ret);
+        if(ret == AVERROR(EIO)){
+                s->consecutive_failed_decodes++;
+                if(s->consecutive_failed_decodes > 70){
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Decode failing, "
+                                        " blacklisting hw. accelerator...\n");
+                        s->block_accel[s->hwaccel.type] = true;
+                        deconfigure(s);
+                        configure_with(s, s->desc, NULL, 0);
+                        if(s->out_codec == HW_VDPAU){
+                                s->blacklist_vdpau = true;
+                        }
+                }
+        } else if (ret == AVERROR(EAGAIN) && strcmp(s->codec_ctx->codec->name, "hevc_qsv") == 0) {
+                if (s->consecutive_failed_decodes++ == 70) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "hevc_qsv decoder keeps failing, which may be caused by intra refresh period.\n"
+                                        "Try disabling intra refresh on encoder: `-c libavcodec:encoder=libx265:disable_intra_refresh`\n");
+                }
+        }
+}
+
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
 {
@@ -875,26 +898,13 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
                 if (ret == 0 || ret == AVERROR(EAGAIN)) {
                         ret = avcodec_receive_frame(s->codec_ctx, s->frame);
-                        s->consecutive_failed_decodes = 0;
                         if (ret == 0) {
+                                s->consecutive_failed_decodes = 0;
                                 got_frame = 1;
                         }
                 }
                 if (ret != 0) {
-                        print_decoder_error(MOD_NAME, ret);
-                        if(ret == AVERROR(EIO)){
-                                s->consecutive_failed_decodes++;
-                                if(s->consecutive_failed_decodes > 70){
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Decode failing, "
-                                                        " blacklisting hw. accelerator...\n");
-                                        s->block_accel[s->hwaccel.type] = true;
-                                        deconfigure(s);
-                                        configure_with(s, s->desc, NULL, 0);
-                                        if(s->out_codec == HW_VDPAU){
-                                                s->blacklist_vdpau = true;
-                                        }
-                                }
-                        }
+                        handle_lavd_error(s, ret);
                 }
                 len = s->pkt->size;
 #endif
