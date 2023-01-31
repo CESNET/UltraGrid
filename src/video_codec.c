@@ -2270,6 +2270,90 @@ static void vc_copylineRG48toR12L(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void vc_copylineY416toR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+#define GET_NEXT \
+        u = *in++ - (1<<15); \
+        y = Y_SCALE * (*in++ - (1<<12)); \
+        v = *in++ - (1<<15); \
+        in++; \
+        r = (YCBCR_TO_R_709_SCALED(y, u, v) >> (COMP_BASE + 4U)); \
+        g = (YCBCR_TO_G_709_SCALED(y, u, v) >> (COMP_BASE + 4U)); \
+        b = (YCBCR_TO_B_709_SCALED(y, u, v) >> (COMP_BASE + 4U)); \
+        r = CLAMP_FULL(r, 12); \
+        g = CLAMP_FULL(g, 12); \
+        b = CLAMP_FULL(b, 12);
+
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        const uint16_t *in = (const void *) src;
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 36) {
+                comp_type_t y, u, v, r, g, b;
+                comp_type_t tmp;
+
+                GET_NEXT // 0
+                dst[BYTE_SWAP(0)] = r & 0xFFU;
+                dst[BYTE_SWAP(1)] = (g & 0xFU) << 4U | r >> 8U;
+                dst[BYTE_SWAP(2)] = g >> 4U;
+                dst[BYTE_SWAP(3)] = b & 0xFFU;
+                tmp = b >> 8U;
+
+                GET_NEXT // 1
+                dst[4 + BYTE_SWAP(0)] = (r & 0xFU) << 4U | tmp;
+                dst[4 + BYTE_SWAP(1)] = r >> 4U;
+                dst[4 + BYTE_SWAP(2)] = g & 0xFFU;
+                dst[4 + BYTE_SWAP(3)] = (b & 0xFU) << 4U | g >> 8U;
+
+                dst[8 + BYTE_SWAP(0)] = b >> 4U;
+                GET_NEXT // 2
+                dst[8 + BYTE_SWAP(1)] = r & 0xFFu;
+                dst[8 + BYTE_SWAP(2)] = (g & 0xFU) << 4U | r >> 8U;
+                dst[8 + BYTE_SWAP(3)] = g >> 4U;
+
+                dst[12 + BYTE_SWAP(0)] = b & 0xFFU;
+                tmp = b >> 8U;
+                GET_NEXT // 3
+                dst[12 + BYTE_SWAP(1)] = (r & 0xFU) << 4U | tmp;
+                dst[12 + BYTE_SWAP(2)] = r >> 4U;
+                dst[12 + BYTE_SWAP(3)] = g & 0xFFU;
+
+                dst[16 + BYTE_SWAP(0)] = (b & 0xFU) << 4U | g >> 8U;
+                dst[16 + BYTE_SWAP(1)] = b >> 4U;
+                GET_NEXT // 4
+                dst[16 + BYTE_SWAP(2)] = r & 0xFFU;
+                dst[16 + BYTE_SWAP(3)] = (g & 0xFU) << 4U | r >> 8U;
+
+                dst[20 + BYTE_SWAP(0)] = g >> 4U;
+                dst[20 + BYTE_SWAP(1)] = b & 0xFFU;
+                tmp = b >> 8U;
+                GET_NEXT // 5
+                dst[20 + BYTE_SWAP(2)] = (r & 0xFU) << 4U | tmp;
+                dst[20 + BYTE_SWAP(3)] = r >> 4U;
+
+                dst[24 + BYTE_SWAP(0)] = g & 0xFFU;
+                dst[24 + BYTE_SWAP(1)] = (b & 0xFU) << 4U | g >> 8U;
+                dst[24 + BYTE_SWAP(2)] = b >> 4U;
+                GET_NEXT // 6
+                dst[24 + BYTE_SWAP(3)] = r & 0xFFU;
+
+                dst[28 + BYTE_SWAP(0)] = (g & 0xFU) << 4U | r >> 8U;
+                dst[28 + BYTE_SWAP(1)] = g >> 4U;
+                dst[28 + BYTE_SWAP(2)] = b & 0xFFU;
+                tmp = b >> 8U;
+                GET_NEXT // 7
+                dst[28 + BYTE_SWAP(3)] = (r & 0xFU) << 4U | tmp;
+
+                dst[32 + BYTE_SWAP(0)] = r >> 4U;
+                dst[32 + BYTE_SWAP(1)] = g & 0xFFU;
+                dst[32 + BYTE_SWAP(2)] = (b & 0xFU) << 4U | g >> 8U;
+                dst[32 + BYTE_SWAP(3)] = b >> 4U;
+
+                dst += 36;
+        }
+#undef GET_NEXT
+}
+
 static void vc_copylineRG48toR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -3193,6 +3277,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineY216toV210,  Y216,  v210, false },
         { vc_copylineY416toUYVY,  Y416,  UYVY, false },
         { vc_copylineY416toV210,  Y416,  v210, false },
+        { vc_copylineY416toR12L,  Y416,  R12L, true },
         { vc_copylineV210toY216,  v210,  Y216, false },
         { vc_copylineV210toY416,  v210,  Y416, false },
 };
