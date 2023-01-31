@@ -2381,6 +2381,58 @@ static void vc_copylineY416toR10k(unsigned char * __restrict dst, const unsigned
         }
 }
 
+static void vc_copylineY416toRGB(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        assert((uintptr_t) src % 2 == 0);
+        const uint16_t *in = (const void *) src;
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 3) {
+                comp_type_t y, u, v, r, g, b;
+
+                u = *in++ - (1<<15);
+                y = Y_SCALE * (*in++ - (1<<12));
+                v = *in++ - (1<<15);
+                in++;
+                r = (YCBCR_TO_R_709_SCALED(y, u, v) >> (COMP_BASE + 8U));
+                g = (YCBCR_TO_G_709_SCALED(y, u, v) >> (COMP_BASE + 8U));
+                b = (YCBCR_TO_B_709_SCALED(y, u, v) >> (COMP_BASE + 8U));
+                r = CLAMP_FULL(r, 8);
+                g = CLAMP_FULL(g, 8);
+                b = CLAMP_FULL(b, 8);
+
+                *dst++ = r;
+                *dst++ = g;
+                *dst++ = b;
+        }
+}
+
+static void vc_copylineY416toRGBA(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
+                int gshift, int bshift)
+{
+        assert((uintptr_t) src % 2 == 0);
+        assert((uintptr_t) dst % 4 == 0);
+        const uint16_t *in = (const void *) src;
+        uint32_t *out = (void *) dst;
+        const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
+        OPTIMIZED_FOR (int x = 0; x < dst_len; x += 3) {
+                comp_type_t y, u, v, r, g, b;
+
+                u = *in++ - (1<<15);
+                y = Y_SCALE * (*in++ - (1<<12));
+                v = *in++ - (1<<15);
+                in++;
+                r = (YCBCR_TO_R_709_SCALED(y, u, v) >> (COMP_BASE + 8U));
+                g = (YCBCR_TO_G_709_SCALED(y, u, v) >> (COMP_BASE + 8U));
+                b = (YCBCR_TO_B_709_SCALED(y, u, v) >> (COMP_BASE + 8U));
+                r = CLAMP_FULL(r, 8);
+                g = CLAMP_FULL(g, 8);
+                b = CLAMP_FULL(b, 8);
+
+                *out++ = alpha_mask | r << rshift | g << gshift | b << bshift;
+        }
+}
+
 static void vc_copylineRG48toR10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
@@ -3306,6 +3358,8 @@ static const struct decoder_item decoders[] = {
         { vc_copylineY416toV210,  Y416,  v210, false },
         { vc_copylineY416toR12L,  Y416,  R12L, true },
         { vc_copylineY416toR10k,  Y416,  R10k, true },
+        { vc_copylineY416toRGB,   Y416,  RGB, true },
+        { vc_copylineY416toRGBA,  Y416,  RGBA, true },
         { vc_copylineV210toY216,  v210,  Y216, false },
         { vc_copylineV210toY416,  v210,  Y416, false },
 };
