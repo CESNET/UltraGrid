@@ -480,7 +480,11 @@ bool codec_is_hw_accelerated(codec_t codec) {
         return codec == HW_VDPAU;
 }
 
-/** @brief Returns aligned linesize according to pixelformat specification (in bytes) */
+/**
+ * @returns aligned linesize according to pixelformat specification (in bytes)
+ *
+ * @sa vc_get_size that should be used eg. as decoder_t linesize parameter instead
+ * */
 int vc_get_linesize(unsigned int width, codec_t codec)
 {
         if (codec >= sizeof codec_info / sizeof(struct codec_info_t)) {
@@ -498,9 +502,11 @@ int vc_get_linesize(unsigned int width, codec_t codec)
 }
 
 /**
- * Returns size of "width" pixels in codec _excluding_ padding.
- * This is most likely only distinctive for vc_get_linesize for v210,
- * eg. for width=1 that function returns 128, while this function 16.
+ * @returns size of "width" pixels in codec _excluding_ line padding
+ *
+ * This differs from vc_get_linesize for v210, eg. for width=1 that function
+ * returns 128, while this function 16. Also for R10k, lines are aligned to
+ * 256 B (64 pixels), while single pixel is only 4 B.
  */
 int vc_get_size(unsigned int width, codec_t codec)
 {
