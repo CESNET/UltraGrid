@@ -1059,7 +1059,7 @@ static void vc_copyliner10ktoY416(unsigned char * __restrict dst, const unsigned
                 comp_type_t r, g, b;
                 r = byte1 << 8U | (byte2 & 0xC0U);
                 g = (byte2 & 0x3FU) << 10U | (byte3 & 0xF0U) << 2U;
-                b = (byte3 & 0xFU) << 12U | (byte4 & 0xCU) << 4U;
+                b = (byte3 & 0xFU) << 12U | (byte4 & 0xFCU) << 4U;
                 comp_type_t u = (RGB_TO_CB_709_SCALED(r, g, b) >> COMP_BASE) + (1<<15);
                 *d++ = CLAMP_LIMITED_CBCR(u, 16);
                 comp_type_t y = (RGB_TO_Y_709_SCALED(r, g, b) >> COMP_BASE) + (1<<12);
@@ -2712,9 +2712,9 @@ static void vc_copylineY416toRG48(unsigned char * __restrict dst, const unsigned
                 comp_type_t y = Y_SCALE * (*in++ - (1<<12));
                 comp_type_t v = *in++ - (1<<15);
                 in++;
-                comp_type_t r = (YCBCR_TO_R_709_SCALED(y, u, v) >> COMP_BASE) + FULL_FOOT(16);
-                comp_type_t g = (YCBCR_TO_G_709_SCALED(y, u, v) >> COMP_BASE) + FULL_FOOT(16);
-                comp_type_t b = (YCBCR_TO_B_709_SCALED(y, u, v) >> COMP_BASE) + FULL_FOOT(16);
+                comp_type_t r = (YCBCR_TO_R_709_SCALED(y, u, v) >> COMP_BASE);
+                comp_type_t g = (YCBCR_TO_G_709_SCALED(y, u, v) >> COMP_BASE);
+                comp_type_t b = (YCBCR_TO_B_709_SCALED(y, u, v) >> COMP_BASE);
                 *d++ = CLAMP_FULL(r, 16);
                 *d++ = CLAMP_FULL(g, 16);
                 *d++ = CLAMP_FULL(b, 16);
@@ -3150,13 +3150,13 @@ static const struct decoder_item decoders[] = {
         { vc_copylineYUYV,        YUYV,  UYVY, false },
         { vc_copylineYUYV,        UYVY,  YUYV, false },
         { vc_copyliner10k,        R10k,  RGBA, false },
-        { vc_copyliner10ktoRG48,  R10k,  RG48, false },
-        { vc_copyliner10ktoY416,  R10k,  Y416, false },
+        { vc_copyliner10ktoRG48,  R10k,  RG48, true },
+        { vc_copyliner10ktoY416,  R10k,  Y416, true },
         { vc_copylineR12L,        R12L,  RGBA, false },
         { vc_copylineR12LtoRGB,   R12L,  RGB, false },
         { vc_copylineR12LtoRG48,  R12L,  RG48, false },
         { vc_copylineR12LtoR10k,  R12L,  R10k, false },
-        { vc_copylineR12LtoY416,  R12L,  Y416, false },
+        { vc_copylineR12LtoY416,  R12L,  Y416, true },
         { vc_copylineRGBtoR12L,   RGB,   R12L, false },
         { vc_copylineRGBAtoRG48,  RGBA,  RG48, false },
         { vc_copylineRGBtoRG48,   RGB,   RG48, false },
