@@ -483,6 +483,39 @@ static void v210_to_xv30(AVFrame * __restrict out_frame, const unsigned char * _
         }
 }
 
+static void v210_to_y210(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+        ATTRIBUTE(unused);
+static void v210_to_y210(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+{
+        assert((uintptr_t) in_data % 4 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+
+        for(int y = 0; y < height; y += 1) {
+                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst = (void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+
+                OPTIMIZED_FOR (int x = 0; x < (width + 5) / 6; ++x) {
+                        uint32_t w = *src++;
+                        dst[1] = ((w >>  0U) & 0x3FFU) << 6U; // U
+                        dst[0] = ((w >> 10U) & 0x3FFU) << 6U; // Y
+                        dst[3] = ((w >> 20U) & 0x3FFU) << 6U; // V
+                        w = *src++;
+                        dst[2] = ((w >>  0U) & 0x3FFU) << 6U; // Y
+                        dst[5] = ((w >> 10U) & 0x3FFU) << 6U; // U
+                        dst[4] = ((w >> 20U) & 0x3FFU) << 6U; // Y
+                        w = *src++;
+                        dst[7] = ((w >>  0U) & 0x3FFU) << 6U; // V
+                        dst[6] = ((w >> 10U) & 0x3FFU) << 6U; // Y
+                        dst[9] = ((w >> 20U) & 0x3FFU) << 6U; // U
+                        w = *src++;
+                        dst[8] = ((w >>  0U) & 0x3FFU) << 6U; // Y
+                        dst[11] = ((w >> 10U) & 0x3FFU) << 6U; // V
+                        dst[10] = ((w >> 20U) & 0x3FFU) << 6U; // Y
+                        dst += 12;
+                }
+        }
+}
+
 static void y416_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
         ATTRIBUTE(unused);
 static void y416_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
@@ -1227,6 +1260,7 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #if XV3X_PRESENT
                 { v210, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_xv30 },
                 { Y416, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y416_to_xv30 },
+                { v210, AV_PIX_FMT_Y210,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_y210 },
 #endif
                 { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },
                 { R10k, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p12le },
