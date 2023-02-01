@@ -1983,6 +1983,69 @@ static void ayuv64_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
         }
 }
 
+static void vuya_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift) ATTRIBUTE(unused);
+static void vuya_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        (void) rgb_shift;
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                unsigned char *src = in_frame->data[0] + in_frame->linesize[0] * y;
+                unsigned char *dst = (void *) (dst_buffer + pitch * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width / 2; x += 1) {
+                        *dst++ = (src[1] + src[5] + 1U) >> 1U;
+                        *dst++ = src[2];
+                        *dst++ = (src[0] + src[4] + 1U) >> 1U;
+                        *dst++ = src[6];
+                        src += 8;
+                }
+                if (width % 2 == 1) {
+                        *dst++ = src[1];
+                        *dst++ = src[2];
+                        *dst++ = src[0];
+                        *dst++ = 0;
+                }
+        }
+}
+
+#if defined __GNUC__
+static inline void vuyax_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, bool use_alpha)
+        __attribute__((always_inline));
+#endif
+static inline void vuyax_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, bool use_alpha)
+{
+        assert((uintptr_t) dst_buffer % 2 == 0);
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                unsigned char *src = in_frame->data[0] + in_frame->linesize[0] * y;
+                uint16_t *dst = (void *) (dst_buffer + pitch * y);
+
+                OPTIMIZED_FOR (int x = 0; x < width; x += 1) {
+                        *dst++ = src[1] << 8U;
+                        *dst++ = src[2] << 8U;
+                        *dst++ = src[0] << 8U;
+                        *dst++ = use_alpha ? src[3] << 8U : 0xFFFF;
+                        src += 4;
+                }
+        }
+}
+static void vuya_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift) ATTRIBUTE(unused);
+static void vuya_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift) {
+        (void) rgb_shift;
+        vuyax_to_y416(dst_buffer, in_frame, width, height, pitch, true);
+}
+static void vuyx_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift) ATTRIBUTE(unused);
+static void vuyx_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift) {
+        (void) rgb_shift;
+        vuyax_to_y416(dst_buffer, in_frame, width, height, pitch, false);
+}
+
 typedef void av_to_uv_convert_f(char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
 typedef av_to_uv_convert_f *av_to_uv_convert_fp;
 
@@ -2061,6 +2124,12 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_YUVJ444P, UYVY, yuv444p_to_uyvy},
         {AV_PIX_FMT_YUVJ444P, RGB, yuv444p_to_rgb24},
         {AV_PIX_FMT_YUVJ444P, RGBA, yuv444p_to_rgb32},
+#if VUYX_PRESENT
+        {AV_PIX_FMT_VUYA, UYVY, vuya_to_uyvy},
+        {AV_PIX_FMT_VUYX, UYVY, vuya_to_uyvy},
+        {AV_PIX_FMT_VUYA, Y416, vuya_to_y416},
+        {AV_PIX_FMT_VUYX, Y416, vuyx_to_y416},
+#endif
         // 8-bit YUV (NV12)
         {AV_PIX_FMT_NV12, UYVY, nv12_to_uyvy},
         {AV_PIX_FMT_NV12, RGB, nv12_to_rgb24},
