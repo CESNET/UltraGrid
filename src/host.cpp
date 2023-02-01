@@ -53,6 +53,7 @@
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
 #include "audio/codec.h"
+#include "audio/audio_filter.h"
 #include "audio/utils.h"
 #include "compat/misc.h"
 #include "debug.h"
@@ -61,6 +62,7 @@
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/misc.h" // unit_evaluate
+#include "utils/string_view_utils.hpp"
 #include "video_capture.h"
 #include "video_compress.h"
 #include "video_display.h"
@@ -164,7 +166,7 @@ static bool set_output_buffering() {
 #endif
                 { "stderr-buf", pair{stderr, _IONBF} }
         };
-        for (auto const &outp : outs) {
+        for (const auto& outp : outs) {
                 int mode = outp.second.second; // default
 
                 if(running_in_debugger()){
@@ -428,34 +430,114 @@ static void print_device(std::string purpose, std::string mod, const device_info
 }
 
 template<typename T>
-static void probe_and_print(const module_info_map::value_type& it, std::string cap_str){
-        auto vdi = static_cast<T>(it.second);
+static void probe_device(std::string_view cap_str, std::string name, const void *mod){
+        auto vdi = static_cast<T>(mod);
         int count = 0;
         struct device_info *devices;
         void (*deleter)(void *) = nullptr;
         vdi->probe(&devices, &count, &deleter);
         for (int i = 0; i < count; ++i) {
-                print_device(cap_str, it.first, devices[i]);
+                print_device(std::string(cap_str), name, devices[i]);
         }
         deleter ? deleter(devices) : free(devices);
 }
 
+static void probe_compress(std::string_view /*cap_str*/, std::string name, const void *mod){
+        auto vci = static_cast<const struct video_compress_info *>(mod);
+
+        if(vci->get_module_info){
+                auto module_info = vci->get_module_info();
+                cout << "[capability][video_compress] {"
+                        "\"name\":" << std::quoted(name) << ", "
+                        "\"options\": [";
+
+                int i = 0;
+                for(const auto& opt : module_info.opts){
+                        if(i++ > 0)
+                                cout << ", ";
+
+                        cout << "{"
+                                "\"display_name\":" << std::quoted(opt.display_name) << ", "
+                                "\"display_desc\":" << std::quoted(opt.display_desc) << ", "
+                                "\"key\":" << std::quoted(opt.key) << ", "
+                                "\"opt_str\":" << std::quoted(opt.opt_str) << ", "
+                                "\"is_boolean\":\"" << (opt.is_boolean ? "t" : "f") << "\"}";
+                }
+
+                cout << "], "
+                        "\"codecs\": [";
+
+                int j = 0;
+                for(const auto& c : module_info.codecs){
+                        if(j++ > 0)
+                                cout << ", ";
+
+                        cout << "{\"name\":" << std::quoted(c.name) << ", "
+                                "\"priority\": " << c.priority << ", "
+                                "\"encoders\":[";
+
+                        int z = 0;
+                        for(const auto& e : c.encoders){
+                                if(z++ > 0)
+                                        cout << ", ";
+
+                                cout << "{\"name\":" << std::quoted(e.name) << ", "
+                                        "\"opt_str\":" << std::quoted(e.opt_str) << "}";
+                        }
+                        cout << "]}";
+                }
+
+                cout << "]}" << std::endl;
+
+        }
+}
+
+const static struct {
+        std::string_view desc;
+        std::string_view cap_str;
+        enum library_class cls;
+        int abi_ver;
+        void (*probe_print)(std::string name, const void *);
+} mod_classes[] = {
+        {"Compressions", "compress",
+                LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION,
+                [](auto name, const void *m) { probe_compress("compress", name, m); }},
+        {"Capture filters", "capture_filter",
+                LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION,
+                nullptr},
+        {"Capturers", "capture",
+                LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION,
+                [](auto name, const void *m){ probe_device<const video_capture_info *>("capture", name, m); }},
+        {"Displays", "display",
+                LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION,
+                [](auto name, const void *m){ probe_device<const video_display_info *>("video_disp", name, m); }},
+        {"Audio capturers", "audio_cap",
+                LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION,
+                [](auto name, const void *m){ probe_device<const audio_capture_info *>("audio_cap", name, m); }},
+        {"Audio filters", "audio_filter",
+                LIBRARY_CLASS_AUDIO_FILTER, AUDIO_FILTER_ABI_VERSION,
+                nullptr},
+        {"Audio playback", "audio_play",
+                LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION,
+                [](auto name, const void *m){ probe_device<const audio_playback_info *>("audio_play", name, m); }},
+};
+
+
+static void probe_all(std::map<enum library_class, module_info_map>& class_mod_map)
+{
+        for(const auto& mod_class : mod_classes){
+                for(const auto& mod : class_mod_map[mod_class.cls]){
+                        if(!mod_class.probe_print)
+                                continue;
+                        mod_class.probe_print(std::string(mod_class.cap_str), mod.second);
+                }
+        }
+}
+
+
 void print_capabilities(const char *cfg)
 {
-        struct {
-                std::string_view desc;
-                std::string_view cap_str;
-                enum library_class cls;
-                int abi_ver;
-        } mod_classes[] = {
-                {"Compressions", "compress", LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION},
-                {"Capture filters", "capture_filter", LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION},
-                {"Capturers", "capture", LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION},
-                {"Displays", "display", LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION},
-                {"Audio capturers", "audio_cap", LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION},
-                {"Audio filters", "audio_filter", LIBRARY_CLASS_AUDIO_FILTER, AUDIO_FILTER_ABI_VERSION},
-                {"Audio playback", "audio_play", LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION},
-        };
+        std::string_view conf(cfg);
 
         std::cout << "[capability][start] version 4" << endl;
 
@@ -472,79 +554,41 @@ void print_capabilities(const char *cfg)
                 cout << "[cap][audio_compress] " << codec.first << std::endl;
         }
 
-        if(strcmp(cfg, "noprobe") == 0)
-                goto end;
+        if(conf == "noprobe"){
+                //Do nothing
+        } else if(conf.empty()){
+                probe_all(class_mod_map);
+        } else {
+                auto class_sv = tokenize(conf, ':');
+                auto mod_sv = tokenize(conf, ':');
 
-        for (auto const &it : class_mod_map[LIBRARY_CLASS_VIDEO_COMPRESS]) {
-                auto vci = static_cast<const struct video_compress_info *>(it.second);
-
-                if(vci->get_module_info){
-                        auto module_info = vci->get_module_info();
-                        cout << "[capability][video_compress] {"
-                                "\"name\":" << std::quoted(it.first) << ", "
-                                "\"options\": [";
-
-                        int i = 0;
-                        for(const auto& opt : module_info.opts){
-                                if(i++ > 0)
-                                        cout << ", ";
-
-                                cout << "{"
-                                        "\"display_name\":" << std::quoted(opt.display_name) << ", "
-                                        "\"display_desc\":" << std::quoted(opt.display_desc) << ", "
-                                        "\"key\":" << std::quoted(opt.key) << ", "
-                                        "\"opt_str\":" << std::quoted(opt.opt_str) << ", "
-                                        "\"is_boolean\":\"" << (opt.is_boolean ? "t" : "f") << "\"}";
+                enum library_class cls = LIBRARY_CLASS_UNDEFINED;
+                void (*probe_print)(std::string name, const void *) = nullptr;
+                for(const auto& i : mod_classes){
+                        if(i.cap_str == class_sv){
+                                cls = i.cls;
+                                probe_print = i.probe_print;
                         }
-
-                        cout << "], "
-                                "\"codecs\": [";
-
-                        int j = 0;
-                        for(const auto& c : module_info.codecs){
-                                if(j++ > 0)
-                                        cout << ", ";
-
-                                cout << "{\"name\":" << std::quoted(c.name) << ", "
-                                        "\"priority\": " << c.priority << ", "
-                                        "\"encoders\":[";
-
-                                int z = 0;
-                                for(const auto& e : c.encoders){
-                                        if(z++ > 0)
-                                                cout << ", ";
-
-                                        cout << "{\"name\":" << std::quoted(e.name) << ", "
-                                                "\"opt_str\":" << std::quoted(e.opt_str) << "}";
-                                }
-                                cout << "]}";
-                        }
-
-                        cout << "]}" << std::endl;
-
                 }
+
+                if(cls == LIBRARY_CLASS_UNDEFINED){
+                        log_msg(LOG_LEVEL_FATAL, "Unknown library class\n");
+                        return;
+                }
+
+                auto& modmap = class_mod_map[cls];
+
+                auto modinfo = modmap.find(std::string(mod_sv));
+                if(modinfo == modmap.end()){
+                        log_msg(LOG_LEVEL_FATAL, "Module not found\n");
+                        return;
+                }
+
+                if(probe_print)
+                        probe_print(std::string(mod_sv), modinfo->second);
+
         }
 
-
-        for (auto const & it : class_mod_map[LIBRARY_CLASS_VIDEO_CAPTURE]) {
-                probe_and_print<const struct video_capture_info *>(it, "video_cap");
-        }
-
-
-        for (auto const & it : class_mod_map[LIBRARY_CLASS_VIDEO_DISPLAY]) {
-                probe_and_print<const struct video_display_info *>(it, "video_disp");
-        }
-
-        for (auto const & it : class_mod_map[LIBRARY_CLASS_AUDIO_CAPTURE]) {
-                probe_and_print<const struct audio_capture_info *>(it, "audio_cap");
-        }
-
-
-        for (auto const & it : class_mod_map[LIBRARY_CLASS_AUDIO_PLAYBACK]) {
-                probe_and_print<const struct audio_playback_info *>(it, "audio_play");
-        }
-
-end:
         cout << "[capability][end]" << endl;
 }
 
