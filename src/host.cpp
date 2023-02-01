@@ -423,7 +423,7 @@ template<typename T>
 static void probe_device(std::string_view cap_str, std::string name, const void *mod){
         auto vdi = static_cast<T>(mod);
         int count = 0;
-        struct device_info *devices;
+        struct device_info *devices = nullptr;
         void (*deleter)(void *) = nullptr;
         vdi->probe(&devices, &count, &deleter);
         for (int i = 0; i < count; ++i) {
