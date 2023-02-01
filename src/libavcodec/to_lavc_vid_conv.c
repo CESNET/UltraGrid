@@ -1260,6 +1260,9 @@ const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #if XV3X_PRESENT
                 { v210, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_xv30 },
                 { Y416, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y416_to_xv30 },
+                { v210, AV_PIX_FMT_Y212,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_y210 },
+#endif
+#if Y210_PRESENT
                 { v210, AV_PIX_FMT_Y210,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_y210 },
 #endif
                 { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },

@@ -1823,7 +1823,7 @@ static void xv30_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_f
         assert((uintptr_t) in_frame->data[0] % 4 == 0);
         assert((uintptr_t) dst_buffer % 4 == 0 && pitch % 4 == 0);
         for(int y = 0; y < height; ++y) {
-                uint16_t *src = (uint16_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint32_t *src = (uint32_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * y);
                 uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
 
 #define FETCH_IN \
@@ -1839,7 +1839,7 @@ static void xv30_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_f
                         uint32_t u, y0, v, y1;
 
                         FETCH_IN
-                        *dst++ = v << 20U | y1 << 10U | u;
+                        *dst++ = v << 20U | y0 << 10U | u;
                         uint32_t tmp = y1;
                         FETCH_IN
                         *dst++ = y0 << 20U | u << 10U | tmp;
@@ -1849,6 +1849,7 @@ static void xv30_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_f
                         *dst++ = y1 << 20U | v << 10U | y0;
                 }
         }
+#undef FETCH_IN
 }
 
 static void xv30_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
@@ -1869,7 +1870,97 @@ static void xv30_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_f
                 }
         }
 }
-#endif
+#endif // XV3X_PRESENT
+
+#if Y210_PRESENT
+static void y210_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 2 == 0);
+        assert((uintptr_t) dst_buffer % 4 == 0 && pitch % 4 == 0);
+        for(int y = 0; y < height; ++y) {
+                uint16_t *src = (uint16_t *)(void *) (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint32_t *dst = (uint32_t *)(void *)(dst_buffer + y * pitch);
+
+                // Y210 is like YUYV but with 10-bit in high bits of 16-bit container
+#define FETCH_IN \
+                y0 = *src++ >> 6U; \
+                u = *src++ >> 6U; \
+                y1 = *src++ >> 6U; \
+                v = *src++ >> 6U;
+
+                OPTIMIZED_FOR (int x = 0; x < (width + 5) / 6; ++x) {
+                        unsigned y0, u, y1, v;
+                        unsigned tmp;
+
+                        FETCH_IN
+                        *dst++ = v << 20U | y0 << 10U | u;
+                        tmp = y1;
+                        FETCH_IN
+                        *dst++ = y0 << 20U | u << 10U | tmp;
+                        tmp = y1 << 10U | v;
+                        FETCH_IN
+                        *dst++ = u << 20U | tmp;
+                        *dst++ = y1 << 20U | v << 10U | y0;
+                }
+        }
+#undef FETCH_IN
+}
+
+static void y210_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        assert((uintptr_t) in_frame->data[0] % 2 == 0);
+        assert((uintptr_t) dst_buffer % 2 == 0 && pitch % 2 == 0);
+        for(int y = 0; y < height; ++y) {
+                uint16_t *src = (void *) (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint16_t *dst = (void *) (dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < (width + 1) / 2; ++x) {
+                        unsigned y0, u, y1, v;
+                        y0 = *src++;
+                        u = *src++;
+                        y1 = *src++;
+                        v = *src++;
+
+                        *dst++ = u;
+                        *dst++ = y0;
+                        *dst++ = v;
+                        *dst++ = 0xFFFFU;
+                        *dst++ = u;
+                        *dst++ = y1;
+                        *dst++ = v;
+                        *dst++ = 0xFFFFU;
+                }
+        }
+}
+
+static void y210_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        UNUSED(rgb_shift);
+        for(int y = 0; y < height; ++y) {
+                uint8_t *src = (void *) (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint8_t *dst = (void *) (dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < (width + 1) / 2; ++x) {
+                        unsigned y0, u, y1, v;
+                        y0 = src[1];
+                        u = src[3];
+                        y1 = src[5];
+                        v = src[7];
+                        src += 8;
+
+                        *dst++ = u;
+                        *dst++ = y0;
+                        *dst++ = v;
+                        *dst++ = y1;
+                }
+        }
+}
+#endif // Y210_PRESENT
 
 #ifdef HWACC_VDPAU
 static void av_vdpau_to_ug_vdpau(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
@@ -2091,6 +2182,14 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_XV30,   UYVY, xv30_to_uyvy},
         {AV_PIX_FMT_XV30,   v210, xv30_to_v210},
         {AV_PIX_FMT_XV30,   Y416, xv30_to_y416},
+        {AV_PIX_FMT_Y212,   UYVY, y210_to_uyvy},
+        {AV_PIX_FMT_Y212,   v210, y210_to_v210},
+        {AV_PIX_FMT_Y212,   Y416, y210_to_y416},
+#endif
+#if Y210_PRESENT
+        {AV_PIX_FMT_Y210,   UYVY, y210_to_uyvy},
+        {AV_PIX_FMT_Y210,   v210, y210_to_v210},
+        {AV_PIX_FMT_Y210,   Y416, y210_to_y416},
 #endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
         {AV_PIX_FMT_P010LE, v210, p010le_to_v210},
