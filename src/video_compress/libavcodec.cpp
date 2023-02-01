@@ -331,7 +331,7 @@ static codec_encoders_decoders get_codec_encoders_decoders(AVCodecID id){
         return res;
 }
 
-static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
+static void get_codec_details(AVCodecID id, char *buf, size_t buflen)
 {
         auto info = get_codec_encoders_decoders(id);
         assert(buflen > 0);
@@ -341,7 +341,7 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 
         strncat(buf, " (", buflen - strlen(buf) - 1);
         if (!info.encoders.empty()) {
-                strncat(buf, "encoders:", buflen - strlen(buf) - 1);
+                strncat(buf, TERM_BOLD "encoders:" TERM_RESET, buflen - strlen(buf) - 1);
                 for(const auto& enc : info.encoders){
                         strncat(buf, " ", buflen - strlen(buf) - 1);
                         strncat(buf, enc.c_str(), buflen - strlen(buf) - 1);
@@ -349,9 +349,9 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
         }
         if (!info.decoders.empty()) {
                 if (!info.encoders.empty()) {
-                        strncat(buf, ", ", buflen - strlen(buf) - 1);
+                        strncat(buf, "; ", buflen - strlen(buf) - 1);
                 }
-                strncat(buf, "decoders:", buflen - strlen(buf) - 1);
+                strncat(buf, TERM_BOLD "decoders:" TERM_RESET, buflen - strlen(buf) - 1);
 
                 for(const auto& dec : info.decoders){
                         strncat(buf, " ", buflen - strlen(buf) - 1);
@@ -363,29 +363,12 @@ static void print_codec_info(AVCodecID id, char *buf, size_t buflen)
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        col() << "\t" SBOLD(SRED("-c libavcodec") << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>][q=<q>]"
-                        "[:subsampling=<subsampling>][:gop=<gop>]"
+        col() << "\t" SBOLD(SRED("-c libavcodec") << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>][q=<q>]\n"
+                        "\t\t[:subsampling=<subsampling>][:gop=<gop>]"
                         "[:[disable_]intra_refresh][:threads=<threads>][:slices=<slices>][:<lavc_opt>=<val>]*") << "\n";
         col() << "\nwhere\n";
         col() << "\t" << SBOLD("<encoder>") << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
-        col() << "\t" << SBOLD("<codec_name>") << " may be specified codec name (default MJPEG), supported codecs:\n";
-        for (auto && param : codec_params) {
-                enum AVCodecID avID = get_ug_to_av_codec(param.first);
-                if (avID == AV_CODEC_ID_NONE) { // old FFMPEG -> codec id is flushed to 0 in compat
-                        continue;
-                }
-                char avail[1024];
-                const AVCodec *codec;
-                if ((codec = avcodec_find_encoder(avID))) {
-                        strcpy(avail, "available");
-                } else {
-                        strcpy(avail, "not available");
-                }
-                print_codec_info(avID, avail + strlen(avail), sizeof avail - strlen(avail));
-
-                col() << "\t\t" << SBOLD(get_codec_name(param.first)) << " - " << avail << "\n";
-
-        }
+        col() << "\t" << SBOLD("<codec_name>") << " - codec name (default MJPEG) if encoder name is not specified\n";
         col() << "\t" << SBOLD("[disable_]intra_refresh") << " - (do not) use Periodic Intra Refresh (H.264/H.265)\n";
         col() << "\t" << SBOLD("<bits_per_sec>") << " specifies requested bitrate\n"
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
@@ -400,6 +383,23 @@ static void usage() {
         col() << "\t" << SBOLD("<slices>") << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
         col() << "\t" << SBOLD("<gop>") << " specifies GOP size\n";
         col() << "\t" << SBOLD("<lavc_opt>") << " arbitrary option to be passed directly to libavcodec (eg. preset=veryfast), eventual colons must be backslash-escaped (eg. for x264opts)\n";
+        col() << "\nSupported codecs:\n";
+        for (auto && param : codec_params) {
+                enum AVCodecID avID = get_ug_to_av_codec(param.first);
+                if (avID == AV_CODEC_ID_NONE) { // old FFMPEG -> codec id is flushed to 0 in compat
+                        continue;
+                }
+                char avail[1024];
+                const AVCodec *codec;
+                if ((codec = avcodec_find_encoder(avID))) {
+                        strcpy(avail, "available");
+                } else {
+                        strcpy(avail, "not available");
+                }
+                get_codec_details(avID, avail + strlen(avail), sizeof avail - strlen(avail));
+                col() << "\t" << SBOLD(get_codec_name(param.first)) << " - " << avail << "\n";
+
+        }
         col() << "\nUse '" << SBOLD("-c libavcodec:encoder=<enc>:help") << "' to display encoder specific options, works on decoders as well (also use keyword \"encoder\").\n";
         col() << "\n";
         col() << "Libavcodec version (linked): " << SBOLD(LIBAVCODEC_IDENT) << "\n";
