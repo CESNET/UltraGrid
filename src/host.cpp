@@ -395,16 +395,6 @@ struct init_data *common_preinit(int argc, char *argv[])
 
 using module_info_map = std::map<std::string, const void *>;
 
-static void print_modules(std::string_view desc_text,
-                std::string_view cap_str,
-                module_info_map& modules)
-{
-        std::cout << "[cap] " << desc_text << ":\n";
-        for(const auto& i : modules){
-                cout << "[cap][" << cap_str <<"] " << i.first << std::endl;
-        }
-}
-
 static void print_device(std::string purpose, std::string mod, const device_info& device){
         cout << "[capability][device] {"
                 "\"purpose\":" << std::quoted(purpose) << ", "
@@ -517,6 +507,9 @@ const static struct {
         {"Audio filters", "audio_filter",
                 LIBRARY_CLASS_AUDIO_FILTER, AUDIO_FILTER_ABI_VERSION,
                 nullptr},
+        {"Audio compress", "audio_compress",
+                LIBRARY_CLASS_AUDIO_COMPRESS, AUDIO_COMPRESS_ABI_VERSION,
+                nullptr},
         {"Audio playback", "audio_play",
                 LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION,
                 [](auto name, const void *m){ probe_device<const audio_playback_info *>("audio_play", name, m); }},
@@ -534,6 +527,15 @@ static void probe_all(std::map<enum library_class, module_info_map>& class_mod_m
         }
 }
 
+static void print_modules(std::map<enum library_class, module_info_map>& class_mod_map)
+{
+        for(const auto& mod_class : mod_classes){
+                std::cout << "[cap] " << mod_class.desc << ":\n";
+                for(const auto& mod : class_mod_map[mod_class.cls]){
+                        cout << "[cap][" << mod_class.cap_str <<"] " << mod.first << "\n";
+                }
+        }
+}
 
 void print_capabilities(const char *cfg)
 {
@@ -543,20 +545,18 @@ void print_capabilities(const char *cfg)
 
         std::map<enum library_class, module_info_map> class_mod_map;
         for(const auto& mod_class: mod_classes){
-                auto [it, inserted] = class_mod_map.emplace(mod_class.cls,
+                class_mod_map.emplace(mod_class.cls,
                                 get_libraries_for_class(mod_class.cls, mod_class.abi_ver));
-                print_modules(mod_class.desc, mod_class.cap_str, it->second);
         }
-
-        // audio compressions
         auto codecs = get_audio_codec_list();
         for(const auto& codec : codecs){
-                cout << "[cap][audio_compress] " << codec.first << std::endl;
+                class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS].emplace(codec.first, nullptr);
         }
 
         if(conf == "noprobe"){
-                //Do nothing
+                print_modules(class_mod_map);
         } else if(conf.empty()){
+                print_modules(class_mod_map);
                 probe_all(class_mod_map);
         } else {
                 auto class_sv = tokenize(conf, ':');
