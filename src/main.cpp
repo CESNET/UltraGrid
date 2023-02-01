@@ -1523,9 +1523,6 @@ int main(int argc, char *argv[])
 #endif /* HAVE_SCHED_SETSCHEDULER */
 #endif /* USE_RT */
 
-        control_start(control);
-        kc.start();
-
         try {
                 map<string, param_u> params;
 
@@ -1639,6 +1636,9 @@ int main(int argc, char *argv[])
                 }
 
                 audio_start(uv.audio);
+
+                control_start(control);
+                kc.start();
 
                 if(mainloop) {
                         if (display_needs_mainloop(uv.display_device)) {
