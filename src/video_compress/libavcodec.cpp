@@ -376,7 +376,7 @@ static void usage() {
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
         col() << "\t" << SBOLD("<cqp>") << " use constant QP value\n";
         col() << "\t" << SBOLD("<crf>") << " specifies CRF factor (only for libx264/libx265)\n";
-        col() << "\t" << SBOLD("<q>") << " quality (qmin, qmax) - range usually from 0 (best) to 50-100 (worst)\n";
+        col() << "\t" << SBOLD("<q>") << " quality (qmin, qmax, global_quality) - range usually from 0 (best) to 50-100 (worst)\n";
         col() << "\t" << SBOLD("<subsampling") << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
         col() << "\t" << SBOLD("<threads>") << " can be \"no\", or \"<number>[F][S][n]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice), 'n' means none;\n";
         col() << "\t" <<       "         "  << " use a comma to add also number of conversion threads (eg. \"0S,8\"), default: number of logical cores\n";
@@ -738,7 +738,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         }
 
         if (s->requested_q != -1) {
-                s->codec_ctx->qmin = s->codec_ctx->qmax = s->requested_q;
+                s->codec_ctx->global_quality = s->codec_ctx->qmin = s->codec_ctx->qmax = s->requested_q;
         }
 
         /* resolution must be a multiple of two */
