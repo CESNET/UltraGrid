@@ -3665,21 +3665,24 @@ int compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *
                 return desc_a->rgb == src_desc->rgb ? -1 : 1;
         }
 
-        if (desc_a->depth != desc_b->depth) {
-                // either a or b is lower than orig - sort higher bit depth first
-                if (desc_a->depth < src_desc->depth || desc_b->depth < src_desc->depth) {
-                        return desc_b->depth - desc_a->depth;
-                }
-                // both are equal or higher - sort lower bit depth first
-                return desc_a->depth - desc_b->depth;
+        if (desc_a->depth != desc_b->depth &&
+                        (desc_a->depth < src_desc->depth || desc_b->depth < src_desc->depth)) { // either a or b is lower than orig - sort higher bit depth first
+                return desc_b->depth - desc_a->depth;
         }
 
+        if (desc_a->subsampling != desc_b->subsampling &&
+                        (desc_a->subsampling < src_desc->subsampling || desc_b->subsampling < src_desc->subsampling)) {
+                return desc_b->subsampling - desc_a->subsampling; // return better subs
+        }
+
+        // if both A and B are either undistinguishable or better than src, return closer ("worse") pixfmt
+        if (desc_a->depth != desc_b->depth) {
+                return desc_a->depth - desc_b->depth;
+        }
         if (desc_a->subsampling != desc_b->subsampling) {
-                if (desc_a->subsampling < src_desc->subsampling || desc_b->subsampling < src_desc->subsampling) {
-                        return desc_b->subsampling - desc_a->subsampling; // return better subs
-                }
                 return desc_a->subsampling - desc_b->subsampling;
         }
+
         return desc_a->id < desc_b->id ? -1 : 1;
 }
 
