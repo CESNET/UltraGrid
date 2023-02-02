@@ -428,7 +428,7 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         s->internal_codec = VIDEO_CODEC_NONE;
         s->blacklist_vdpau = false;
         for(int i = 0; i < HWACCEL_COUNT; i++){
-                s->block_accel[i] = false;
+                s->block_accel[i] = get_commandline_param("use-hw-accel") == NULL;
         }
         s->out_codec = out_codec;
         s->desc = desc;
@@ -843,7 +843,7 @@ static void handle_lavd_error(struct state_libavcodec_decompress *s, int ret)
         print_decoder_error(MOD_NAME, ret);
         if(ret == AVERROR(EIO)){
                 s->consecutive_failed_decodes++;
-                if(s->consecutive_failed_decodes > 70){
+                if(s->consecutive_failed_decodes > 70 && !s->block_accel[s->hwaccel.type]){
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Decode failing, "
                                         " blacklisting hw. accelerator...\n");
                         s->block_accel[s->hwaccel.type] = true;
