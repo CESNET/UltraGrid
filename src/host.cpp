@@ -432,7 +432,7 @@ static void probe_device(std::string_view cap_str, std::string name, const void 
         deleter ? deleter(devices) : free(devices);
 }
 
-static void probe_compress(std::string_view /*cap_str*/, std::string name, const void *mod){
+static void probe_compress(std::string name, const void *mod){
         auto vci = static_cast<const struct video_compress_info *>(mod);
 
         if(vci->get_module_info){
@@ -491,19 +491,19 @@ const static struct {
 } mod_classes[] = {
         {"Compressions", "compress",
                 LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION,
-                [](auto name, const void *m) { probe_compress("compress", name, m); }},
+                [](std::string name, const void *m) { probe_compress(name, m); }},
         {"Capture filters", "capture_filter",
                 LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION,
                 nullptr},
         {"Capturers", "capture",
                 LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION,
-                [](auto name, const void *m){ probe_device<const video_capture_info *>("capture", name, m); }},
+                [](std::string name, const void *m){ probe_device<const video_capture_info *>("capture", name, m); }},
         {"Displays", "display",
                 LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION,
-                [](auto name, const void *m){ probe_device<const video_display_info *>("video_disp", name, m); }},
+                [](std::string name, const void *m){ probe_device<const video_display_info *>("video_disp", name, m); }},
         {"Audio capturers", "audio_cap",
                 LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION,
-                [](auto name, const void *m){ probe_device<const audio_capture_info *>("audio_cap", name, m); }},
+                [](std::string name, const void *m){ probe_device<const audio_capture_info *>("audio_cap", name, m); }},
         {"Audio filters", "audio_filter",
                 LIBRARY_CLASS_AUDIO_FILTER, AUDIO_FILTER_ABI_VERSION,
                 nullptr},
@@ -512,7 +512,7 @@ const static struct {
                 nullptr},
         {"Audio playback", "audio_play",
                 LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION,
-                [](auto name, const void *m){ probe_device<const audio_playback_info *>("audio_play", name, m); }},
+                [](std::string name, const void *m){ probe_device<const audio_playback_info *>("audio_play", name, m); }},
 };
 
 
