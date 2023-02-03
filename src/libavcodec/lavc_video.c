@@ -86,7 +86,7 @@ struct SwsContext *getSwsContext(unsigned int SrcW, unsigned int SrcH, enum AVPi
     av_opt_set_int(Context, "dst_range",  DstRange, 0);
     av_opt_set_int(Context, "src_format", SrcFormat, 0);
     av_opt_set_int(Context, "dst_format", DstFormat, 0);
-    if ((rc = av_opt_set(Context, "thread", "auto", 0)) != 0) {
+    if ((rc = av_opt_set(Context, "threads", "auto", 0)) != 0) {
             print_libav_error(LOG_LEVEL_VERBOSE, "Swscale - cannot set thread mode", rc);
     }
 
