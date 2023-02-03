@@ -53,8 +53,12 @@ rm -rf /var/tmp/ffmpeg
 git clone --depth $FFMPEG_GIT_DEPTH https://git.ffmpeg.org/ffmpeg.git /var/tmp/ffmpeg
 cd /var/tmp/ffmpeg
 # apply Intel patches
-git clone https://github.com/intel/cartwheel-ffmpeg.git && git am -3 cartwheel-ffmpeg/patches/* && if [ "$(lsb_release -rs)" = 18.04 ]; then
-        git am -3 $GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches/0001-removed-bits-incompatible-with-old-vaapi.patch-noauto; fi || exit 1
+git clone https://github.com/intel/cartwheel-ffmpeg.git
+git checkout "$(GIT_DIR=cartwheel-ffmpeg/.git git submodule status ffmpeg | sed 's/-\([[:xdigit:]]*\).*/\1/')"
+git am -3 cartwheel-ffmpeg/patches/*
+if [ "$(lsb_release -rs)" = 18.04 ]; then
+        git am -3 "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches/0001-removed-bits-incompatible-with-old-vaapi.patch-noauto"
+fi
 install_aom
 ( git clone --depth 1 http://git.videolan.org/git/x264.git && cd x264 && ./configure --disable-static --enable-shared && make -j "$(nproc)" && sudo make install || exit 1 )
 install_libvpx
