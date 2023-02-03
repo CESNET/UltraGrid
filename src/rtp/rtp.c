@@ -98,6 +98,9 @@
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
 
+#define IPPORT_DYNAMIC ((1<<15) + (1<<14))
+#define IPPORT_MAX ((1<<16) - 1)
+
 /*
  * Encryption stuff.
  */
@@ -1105,7 +1108,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->send_rtcp_to_origin = tx_port == 0 && is_host_loopback(addr);
 
         if (rx_port == 0) {
-                for (int i = 1<<15; i < 1<<16; i += 2) {
+                for (int i = IPPORT_DYNAMIC; i <= IPPORT_MAX; i += 2) {
                         // this stuff is not atomic. but... it cannot be done in this way, either
                         int ret = udp_port_pair_is_free(force_ip_version, i);
                         if (ret == 0) {
