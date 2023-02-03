@@ -2505,20 +2505,25 @@ void av_to_uv_convert(av_to_uv_convert_t *state, char * __restrict dst_buffer, A
         size_t src_linesize = in_frame->linesize[0];
         unsigned char *tmp = NULL;
         if (priv->convert) {
+                DEBUG_TIMER_START(lavd_av_to_uv);
                 if (!priv->dec) {
                         priv->convert(dst_buffer, in_frame, width, height, pitch, rgb_shift);
+                        DEBUG_TIMER_STOP(lavd_av_to_uv);
                         return;
                 }
                 src_linesize = vc_get_linesize(width, priv->src_pixfmt);
                 dec_input = tmp = malloc(vc_get_datalen(width, height, priv->src_pixfmt) + MAX_PADDING);
                 int default_rgb_shift[] = { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT };
                 priv->convert((char *) dec_input, in_frame, width, height, src_linesize, default_rgb_shift);
+                DEBUG_TIMER_STOP(lavd_av_to_uv);
         }
         if (priv->dec) {
+                DEBUG_TIMER_START(lavd_dec);
                 int dst_size = vc_get_size(width, priv->dst_pixfmt);
                 for (ptrdiff_t i = 0; i < height; ++i) {
                         priv->dec((unsigned char *) dst_buffer + i * pitch, dec_input + i * src_linesize, dst_size, rgb_shift[0], rgb_shift[1], rgb_shift[2]);
                 }
+                DEBUG_TIMER_STOP(lavd_dec);
                 free(tmp);
                 return;
         }
