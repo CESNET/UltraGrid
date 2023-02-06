@@ -630,6 +630,56 @@ static void gbrp16le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
         gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 16U);
 }
 
+#if defined __GNUC__
+static inline void gbrpXXle_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, unsigned int in_depth)
+        __attribute__((always_inline));
+#endif
+static inline void gbrpXXle_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, unsigned int in_depth)
+{
+        assert((uintptr_t) dst_buffer % 2 == 0);
+        assert((uintptr_t) frame->data[0] % 2 == 0);
+        assert((uintptr_t) frame->data[1] % 2 == 0);
+        assert((uintptr_t) frame->data[2] % 2 == 0);
+
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                uint16_t *src_g = (void *) (frame->data[0] + frame->linesize[0] * y);
+                uint16_t *src_b = (void *) (frame->data[1] + frame->linesize[1] * y);
+                uint16_t *src_r = (void *) (frame->data[2] + frame->linesize[2] * y);
+                uint16_t *dst = (void *) (dst_buffer + y * pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        *dst++ = *src_r++ << (16U - in_depth);
+                        *dst++ = *src_g++ << (16U - in_depth);
+                        *dst++ = *src_b++ << (16U - in_depth);
+                }
+        }
+}
+
+static void gbrp10le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        (void) rgb_shift;
+        gbrpXXle_to_rg48(dst_buffer, frame, width, height, pitch, 10);
+}
+
+#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
+static void gbrp12le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        (void) rgb_shift;
+        gbrpXXle_to_rg48(dst_buffer, frame, width, height, pitch, 12);
+}
+#endif
+
+static void gbrp16le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift)
+{
+        (void) rgb_shift;
+        gbrpXXle_to_rg48(dst_buffer, frame, width, height, pitch, 16);
+}
+
 static void rgb48le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -2261,14 +2311,17 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k},
         {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb},
         {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba},
+        {AV_PIX_FMT_GBRP10LE, RG48, gbrp10le_to_rg48},
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
         {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l},
         {AV_PIX_FMT_GBRP12LE, R10k, gbrp12le_to_r10k},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb},
         {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba},
+        {AV_PIX_FMT_GBRP12LE, RG48, gbrp12le_to_rg48},
 #endif
         {AV_PIX_FMT_GBRP16LE, R12L, gbrp16le_to_r12l},
         {AV_PIX_FMT_GBRP16LE, R10k, gbrp16le_to_r10k},
+        {AV_PIX_FMT_GBRP16LE, RG48, gbrp16le_to_rg48},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp16le_to_rgb},
         {AV_PIX_FMT_GBRP12LE, RGBA, gbrp16le_to_rgba},
         {AV_PIX_FMT_RGB48LE, RG48, memcpy_data},
