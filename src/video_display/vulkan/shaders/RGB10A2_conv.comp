@@ -17,10 +17,8 @@ void main()
     if(pixelCoords.x >= image_size.width || pixelCoords.y >= image_size.height){
         return;
     }
-
-    vec2 textureCoords = vec2(float(pixelCoords.x) / image_size.width, float(pixelCoords.y) / image_size.height);
     
-    uvec4 x = texture(inputImage, textureCoords);
+    uvec4 x = texelFetch(inputImage, pixelCoords, 0);
     // RGBA in big endian representation
     // RRRRRRRR|RRGGGGGG|GGGGBBBB|BBBBBBAA
 
