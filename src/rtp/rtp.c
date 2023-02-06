@@ -98,8 +98,9 @@
 #define max(a, b)      (((a) > (b))? (a): (b))
 #define min(a, b)      (((a) < (b))? (a): (b))
 
-#define IPPORT_DYNAMIC ((1<<15) + (1<<14))
-#define IPPORT_MAX ((1<<16) - 1)
+// IANA/RFC 6335 suggested range 49152-65535. Implementatins may differ, eg. Linux uses 32768-60999.
+#define IPPORT_DYNAMIC ((1U<<15U) + (1U<<14U))
+#define IPPORT_MAX ((1U<<16U) - 1U)
 
 /*
  * Encryption stuff.
@@ -1108,11 +1109,13 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->send_rtcp_to_origin = tx_port == 0 && is_host_loopback(addr);
 
         if (rx_port == 0) {
-                for (int i = IPPORT_DYNAMIC; i <= IPPORT_MAX; i += 2) {
+                const unsigned random_off = ((uint32_t) lrand48() % (IPPORT_MAX - IPPORT_DYNAMIC + 1)) & ~1U;
+                for (int i = 0; i <= (IPPORT_MAX - IPPORT_DYNAMIC) - 1; i += 2) {
+                        int port = IPPORT_DYNAMIC + ((random_off + i) % (IPPORT_MAX - IPPORT_DYNAMIC + 1));
                         // this stuff is not atomic. but... it cannot be done in this way, either
-                        int ret = udp_port_pair_is_free(force_ip_version, i);
+                        int ret = udp_port_pair_is_free(force_ip_version, port);
                         if (ret == 0) {
-                                rx_port = i;
+                                rx_port = port;
                                 break;
                         }
                         if (ret == -2) {
@@ -1121,7 +1124,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                         }
                 }
                 if (rx_port == 0) {
-                        fprintf(stderr, "Unable to find empty RTP port pair!\n");
+                        log_msg(LOG_LEVEL_ERROR, "Unable to find empty RTP port pair!\n");
                 } else {
                         verbose_msg("Found empty UDP port pair %d/%d\n", rx_port, rx_port + 1);
                 }
