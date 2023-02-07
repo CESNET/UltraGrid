@@ -1110,7 +1110,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
 
         if (rx_port == 0) {
                 const unsigned random_off = ((uint32_t) lrand48() % (IPPORT_MAX - IPPORT_DYNAMIC + 1)) & ~1U;
-                for (int i = 0; i <= (IPPORT_MAX - IPPORT_DYNAMIC) - 1; i += 2) {
+                for (unsigned i = 0; i <= (IPPORT_MAX - IPPORT_DYNAMIC) - 1; i += 2) {
                         int port = IPPORT_DYNAMIC + ((random_off + i) % (IPPORT_MAX - IPPORT_DYNAMIC + 1));
                         // this stuff is not atomic. but... it cannot be done in this way, either
                         int ret = udp_port_pair_is_free(force_ip_version, port);
