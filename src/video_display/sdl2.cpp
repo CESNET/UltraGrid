@@ -482,7 +482,7 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         if (s->window) {
                 SDL_DestroyWindow(s->window);
         }
-        int flags = s->window_flags | SDL_WINDOW_RESIZABLE;
+        int flags = s->window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
         if (s->fs) {
                 flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
         }
