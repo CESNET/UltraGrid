@@ -522,7 +522,7 @@ static void probe_all(std::map<enum library_class, module_info_map>& class_mod_m
                 for(const auto& mod : class_mod_map[mod_class.cls]){
                         if(!mod_class.probe_print)
                                 continue;
-                        mod_class.probe_print(std::string(mod_class.cap_str), mod.second);
+                        mod_class.probe_print(mod.first, mod.second);
                 }
         }
 }
