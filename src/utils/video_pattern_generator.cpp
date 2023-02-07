@@ -102,7 +102,7 @@ enum class generator_depth {
 class image_pattern {
         public:
                 static unique_ptr<image_pattern> create(string const & config);
-                auto init(int width, int height, enum generator_depth depth) {
+                auto init(int width, int height, enum generator_depth depth) noexcept {
                         size_t data_len = width * height * rg48_bpp + headroom;
                         vector<unsigned char> out(data_len);
                         auto actual_bit_depth = fill(width, height, out.data());
@@ -598,6 +598,9 @@ video_pattern_generator_create(std::string const & config, int width, int height
                         return new gray_video_pattern_generator{width, height, color_spec, opts};
                 }
                 return new still_image_video_pattern_generator{config, width, height, color_spec, offset};
+        } catch (exception const &e) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
+                return nullptr;
         } catch (...) {
                 return nullptr;
         }
