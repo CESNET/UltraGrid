@@ -58,6 +58,7 @@ extern "C" {
  */
 int get_exec_path(char* path);
 const char *get_temp_dir(void);
+FILE *get_temp_file(const char **filename);
 const char *get_install_root(void);
 
 #ifdef __cplusplus

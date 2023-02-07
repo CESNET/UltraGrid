@@ -128,17 +128,8 @@ static int parse_opts(struct state_sdl_mixer_capture *s, char *cfg) {
 }
 
 static const char *load_song1() {
-#ifdef _WIN32
-        const char *filename = tmpnam(NULL);
-        FILE *f = fopen(filename, "wb");
-#else
-        static _Thread_local char filename[MAX_PATH_SIZE];
-        strncpy(filename, get_temp_dir(), sizeof filename - 1);
-        strncat(filename, "/uv.sdl_mixerXXXXXX", sizeof filename - strlen(filename) - 1);
-        umask(S_IRWXG|S_IRWXO);
-        int fd = mkstemp(filename);
-        FILE *f = fd == -1 ? NULL : fdopen(fd, "wb");
-#endif
+        const char *filename = NULL;
+        FILE *f = get_temp_file(&filename);
         if (f == NULL) {
                 perror("fopen audio");
                 return NULL;

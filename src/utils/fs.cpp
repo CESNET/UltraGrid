@@ -131,3 +131,26 @@ const char *get_install_root(void) {
         return exec_path;
 }
 
+/**
+ * opens and returns temporary file and stores its name in filename
+ *
+ * Caller is resposible for both closing and unlinking the file.
+ *
+ * Reason for this file is because the linker complains about tmpnam as unsafe
+ * thus we create a "safer" workaround (at least for POSIX systems) returning
+ * both FILE pointer and file name.
+ */
+FILE *get_temp_file(const char **filename) {
+        static thread_local char filename_buf[MAX_PATH_SIZE];
+#ifdef _WIN32
+        *filename = tmpnam(filename_buf);
+        return fopen(*filename, "wbx");
+#else
+        *filename = filename_buf;
+        strncpy(filename_buf, get_temp_dir(), sizeof filename_buf - 1);
+        strncat(filename_buf, "/uv.XXXXXX", sizeof filename_buf - strlen(filename_buf) - 1);
+        umask(S_IRWXG|S_IRWXO);
+        int fd = mkstemp(filename_buf);
+        return fd == -1 ? NULL : fdopen(fd, "wb");
+#endif
+}
