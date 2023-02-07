@@ -213,7 +213,8 @@ class image_pattern_ebu_smpte_bars : public image_pattern {
                         uint32_t{0xFFU << 24U | 0U << 16U | f  << 8U | 0U },
                         uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | f  },
                         uint32_t{0xFFU << 24U | 0U << 16U | 0U << 8U | f  },
-                        uint32_t{0xFFU << 24U | 0xFFU << 16U | 0U << 8U | 0U },
+                        uint32_t{0xFFU << 24U | f  << 16U | 0U << 8U | 0U },
+                        uint32_t{0xFFU << 24U | 0U << 16U | 0U << 8U | 0U },
         };
         enum generator_depth fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
