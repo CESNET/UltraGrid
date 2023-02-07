@@ -174,7 +174,7 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
                 fclose(file);
                 return false;
         }
-        size_t bytes_read = fread((char *) *data, datalen, 1, file);
+        size_t bytes_read = fread((char *) *data, 1, datalen, file);
         if (bytes_read != datalen) {
                 fprintf(stderr, "Unable to load PAM/PNM data from file - read %zu B, expected %zu B: %s\n",
                                 bytes_read, datalen, strerror(errno));
