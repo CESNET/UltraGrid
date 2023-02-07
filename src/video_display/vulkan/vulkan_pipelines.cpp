@@ -215,7 +215,7 @@ void ConversionPipeline::record_commands(vk::CommandBuffer cmd_buffer, ImageSize
 
         cmd_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
         cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeline_layout, 0, descriptor_sets, nullptr);
-        cmd_buffer.dispatch(image_size.width / 16, image_size.height / 16, 1);
+        cmd_buffer.dispatch((image_size.width + 16 - 1) / 16, (image_size.height + 16 - 1) / 16, 1);
 }
 
 } //namespace vulkan_display_detail
