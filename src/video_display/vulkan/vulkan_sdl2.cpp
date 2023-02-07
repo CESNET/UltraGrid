@@ -780,7 +780,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int flags) {
         if (s->width == 0) s->width = 960;
         if (s->height == 0) s->height = 540;
 
-        int window_flags = args.window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN;
+        int window_flags = args.window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_ALLOW_HIGHDPI;
         if (s->fullscreen) {
                 window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
         }
