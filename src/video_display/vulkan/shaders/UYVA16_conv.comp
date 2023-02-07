@@ -18,9 +18,8 @@ void main()
         return;
     }
 
-    vec2 textureCoords = vec2(float(pixelCoords.x) / image_size.width, float(pixelCoords.y) / image_size.height);
-
-    vec4 yuv = (texture(inputImage, textureCoords).grba) / 65535.0;
+    ivec2 textureCoords = ivec2(pixelCoords.x, pixelCoords.y);
+    vec4 yuv = texelFetch(inputImage, textureCoords, 0).grba / 65535.0;
 
     float Y_SCALED = 1.1643835;
     float R_CR_709 = 1.7926522;
