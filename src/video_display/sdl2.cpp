@@ -195,6 +195,7 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
                 SDL_UnlockTexture(s->texture);
         }
 
+        SDL_RenderClear(s->renderer);
         SDL_RenderCopy(s->renderer, s->texture, NULL, NULL);
         SDL_RenderPresent(s->renderer);
 
