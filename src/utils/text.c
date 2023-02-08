@@ -43,7 +43,11 @@
 
 #include <string.h>
 
+#include "debug.h"
+#include "utils/bitmap_font.h"
 #include "utils/color_out.h" // prune_ansi_sequences_inplace_cstr
+#include "utils/fs.h"
+#include "utils/pam.h"
 #include "utils/text.h"
 
 /**
@@ -285,5 +289,75 @@ char *strrpbrk(char *s, const char *accept) {
                 end--;
         }
         return NULL;
+}
+
+/**
+ * draws a line with built-in bitmap 12x7 bitmap font separated by 1 px space, RGBA
+ */
+bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool solid) {
+        enum {
+                FONT_W = 7,
+                FONT_H = 12,
+                WIDTH = FONT_W + 1, ///< adding 1 pix space between letters
+        };
+        const char *filename = NULL;
+        FILE *f = get_temp_file(&filename);
+        if (!f) {
+                log_msg(LOG_LEVEL_ERROR, "Cannot get temporary file!\n");
+                return false;
+        }
+        fwrite(font, sizeof font, 1, f);
+        rewind(f);
+        struct pam_metadata info;
+        unsigned char *font_data = NULL;
+
+        bool ret = pam_read(filename, &info, &font_data, malloc);
+        fclose(f);
+        unlink(filename);
+        if (!ret) {
+                log_msg(LOG_LEVEL_ERROR, "Cannot read PAM!\n");
+                return false;
+        }
+        assert(info.width == FONT_W * ('~' - ' ' + 1) && info.height == FONT_H && info.maxval == 1 && info.bitmap_pbm);
+        int idx = 0;
+        while (*text) {
+                char c = *text;
+                if (c < ' ' || c > '~') {
+                        c = '?';
+                }
+                c -= ' ';
+                for (int j = 0; j < FONT_H; ++j) {
+                        for (int i = 0; i < FONT_W; ++i) {
+                                int pos_x = (FONT_W * c + i) / 8;
+                                int mask = 1 << (FONT_W - ((FONT_W * c + i) % 8));
+                                int offset = (info.width + FONT_W) / 8 * j;
+                                if (font_data[offset + pos_x] & mask) {
+                                        buf[j * pitch + 4 * (i + idx * WIDTH)] = color & 0xFFU;
+                                        buf[j * pitch + 4 * (i + idx * WIDTH) + 1] = (color >> 8U) & 0xFFU;
+                                        buf[j * pitch + 4 * (i + idx * WIDTH) + 2] = (color >> 16U) & 0xFFU;
+                                        buf[j * pitch + 4 * (i + idx * WIDTH) + 3] = (color >> 24U) & 0xFFU;
+                                } else if (solid) {
+                                        buf[j * pitch + 4 * (i + idx * WIDTH)] =
+                                                buf[j * pitch + 4 * (i + idx * WIDTH) + 1] =
+                                                buf[j * pitch + 4 * (i + idx * WIDTH) + 2] = 0;
+                                        buf[j * pitch + 4 * (i + idx * WIDTH) + 3] = 0xFFU;
+                                }
+                        }
+                        if (solid) { // fill space between characters
+                                buf[j * pitch + 4 * ((WIDTH-1) + idx * WIDTH)] =
+                                        buf[j * pitch + 4 * ((WIDTH-1) + idx * WIDTH) + 1] =
+                                        buf[j * pitch + 4 * ((WIDTH-1) + idx * WIDTH) + 2] = 0;
+                                buf[j * pitch + 4 * ((WIDTH-1) + idx * WIDTH) + 3] = 0xFFU;
+                        }
+                }
+                if ((++idx + 1) * WIDTH * 4 > pitch) {
+                        return true;
+                }
+                ++text;
+        }
+
+        free(font_data);
+
+        return true;
 }
 

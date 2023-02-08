@@ -68,6 +68,7 @@
 #include "debug.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/text.h"
 #include "video.h"
 #include "video_capture/testcard_common.h"
 #include "video_pattern_generator.hpp"
@@ -158,6 +159,15 @@ class image_pattern {
 };
 
 class image_pattern_bars : public image_pattern {
+        public:
+        explicit image_pattern_bars(string const &init) {
+                if (init == "help"s) {
+                        col() << "Testcard bar usage:\n\t" << SBOLD(SRED("-t testcard:pattern=bars") << "[=text]") << " - optionally annotate with text" << "\n";
+                        throw 1;
+                }
+                annotate = init;
+        }
+        private:
         enum generator_depth fill(int width, int height, unsigned char *data) override {
                 int col_num = 0;
                 int rect_size = COL_NUM;
@@ -197,8 +207,12 @@ class image_pattern_bars : public image_pattern {
                                 }
                         }
                 }
+                if (!annotate.empty()) {
+                        draw_line((char *) data, width * 4, annotate.c_str(), 0xFFFFFFFF, true);
+                }
                 return generator_depth::bits8;
         }
+        string annotate;
 };
 
 /**
@@ -437,7 +451,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
                 params = config.substr(delim + 1);
         }
         if (pattern == "bars") {
-                return make_unique<image_pattern_bars>();
+                return make_unique<image_pattern_bars>(params);
         }
         if (pattern == "blank") {
                 return make_unique<image_pattern_blank>(params);
