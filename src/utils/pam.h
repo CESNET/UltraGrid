@@ -54,6 +54,8 @@ struct pam_metadata {
         int height;
         int depth; // == channel count
         int maxval;
+        bool bitmap_pbm; // bitmap data is stored in PBM format (1 bit per pixel, line aligned to whole byte, 1 is black /"ink on"/),
+                         // otherwise 1 byte per pixel, 1 is white "light on"); if .depth != 1 || .maxval != 1, this value is undefined
 };
 
 bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **data, void *(*allocator)(size_t));
