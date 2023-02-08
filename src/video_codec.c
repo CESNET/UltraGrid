@@ -3643,6 +3643,22 @@ void y416_to_i444(int width, int height, const char *in, char *out, int depth)
         }
 }
 
+void i444_to_y416(int width, int height, const char *in, char *out, int in_depth)
+{
+        const uint16_t *in_y = (const uint16_t *) in;
+        const uint16_t *in_cb = (const uint16_t *) in + width * height;
+        const uint16_t *in_cr = (const uint16_t *) in + 2 * width * height;
+        uint16_t *outp = (uint16_t *) out;
+        for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                        *outp++ = *in_cb++ << (16 - in_depth);
+                        *outp++ = *in_y++ << (16 - in_depth);
+                        *outp++ = *in_cr++ << (16 - in_depth);
+                        *outp++ = 0xFFFFU; // alpha
+                }
+        }
+}
+
 struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt)
 {
         struct pixfmt_desc ret;

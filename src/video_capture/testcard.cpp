@@ -68,7 +68,10 @@
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/ring_buffer.h"
+#include "utils/text.h"
 #include "utils/vf_split.h"
+#include "utils/pam.h"
+#include "utils/y4m.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <chrono>
@@ -92,7 +95,6 @@ struct testcard_state {
         video_pattern_generator_t generator;
         std::chrono::steady_clock::time_point t0;
         struct video_frame *frame{nullptr};
-        int frame_linesize;
         struct video_frame *tiled;
 
         struct audio_frame audio;
@@ -272,7 +274,55 @@ static auto parse_format(char **fmt, char **save_ptr) {
         return desc;
 }
 
-static bool testcard_load_from_file(const char *filename, long data_len, char *data) {
+static bool testcard_load_from_file_pam(const char *filename, struct video_desc *desc, vector<char>& in_file_contents) {
+        struct pam_metadata info;
+        unsigned char *data = nullptr;
+        if (pam_read(filename, &info, &data, malloc) == 0) {
+                return false;
+        }
+        assert(info.depth == 3);
+        desc->width = info.width;
+        desc->height = info.height;
+        desc->color_spec = info.maxval == 255 ? RGB : RG48;
+        in_file_contents.resize(vc_get_datalen(desc->width, desc->height, desc->color_spec));
+        if (desc->color_spec == RGB) {
+                memcpy(in_file_contents.data(), data, info.width * info.height * 3);
+        } else {
+                uint16_t *in = (uint16_t *) data;
+                uint16_t *out = (uint16_t *) in_file_contents.data();
+                for (size_t i = 0; i < (size_t) info.width * info.height * 3; ++i) {
+                        *out++ = ntohs(*in++) * ((1<<16U) / (info.maxval + 1));
+                }
+        }
+        free(data);
+        return true;
+}
+
+static bool testcard_load_from_file_y4m(const char *filename, struct video_desc *desc, vector<char>& in_file_contents) {
+        struct y4m_metadata info;
+        unsigned char *data = nullptr;
+        if (y4m_read(filename, &info, &data, malloc) == 0) {
+                return false;
+        }
+        assert(info.subsampling == Y4M_SUBS_444);
+        desc->width = info.width;
+        desc->height = info.height;
+        desc->color_spec = Y416;
+        in_file_contents.resize(vc_get_datalen(desc->width, desc->height, desc->color_spec));
+        i444_to_y416(desc->width, desc->height, (char *) data, in_file_contents.data(), info.bitdepth);
+        free(data);
+        return true;
+}
+
+static bool testcard_load_from_file(const char *filename, struct video_desc *desc, vector<char>& in_file_contents) {
+        if (ends_with(filename, ".pam") || ends_with(filename, ".pnm") || ends_with(filename, ".ppm")) {
+                return testcard_load_from_file_pam(filename, desc, in_file_contents);
+        } else if (ends_with(filename, ".y4m")) {
+                return testcard_load_from_file_y4m(filename, desc, in_file_contents);
+        }
+        long data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
+        in_file_contents.resize(data_len);
+        char *data = in_file_contents.data();
         bool ret = true;
         FILE *in = fopen(filename, "r");
         if (in == nullptr) {
@@ -317,6 +367,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         char *save_ptr = NULL;
         int ret = VIDCAP_INIT_FAIL;
         char *tmp;
+        vector<char> in_file_contents;
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
@@ -388,22 +439,22 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 goto error;
         }
 
+        if (filename) {
+                if (!testcard_load_from_file(filename, &desc, in_file_contents)) {
+                        goto error;
+                }
+        }
+
         s->frame = vf_alloc_desc(desc);
-        s->frame_linesize = vc_get_linesize(desc.width, desc.color_spec);
 
         s->generator = video_pattern_generator_create(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec,
-                        s->still_image ? 0 : s->frame_linesize + s->pan);
+                        s->still_image ? 0 : vc_get_linesize(desc.width, desc.color_spec) + s->pan);
         if (!s->generator) {
                 ret = s->pattern.find("help") != string::npos ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
                 goto error;
         }
-
-        if (filename) {
-                vector<char> tmp(s->frame->tiles[0].data_len);
-                if (!testcard_load_from_file(filename, s->frame->tiles[0].data_len, tmp.data())) {
-                        goto error;
-                }
-                video_pattern_generator_fill_data(s->generator, tmp.data());
+        if (in_file_contents.size() > 0) {
+                video_pattern_generator_fill_data(s->generator, in_file_contents.data());
         }
 
         if (!s->still_image && codec_is_planar(s->frame->color_spec)) {

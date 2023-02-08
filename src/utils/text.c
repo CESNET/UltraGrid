@@ -374,3 +374,10 @@ bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool soli
         return true;
 }
 
+bool ends_with(const char *haystick, const char *needle) {
+        if (strlen(haystick) < strlen(needle)) {
+                return false;
+        }
+        return strcmp(haystick + strlen(haystick) - strlen(needle), needle) == 0;
+}
+

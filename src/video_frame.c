@@ -478,7 +478,8 @@ static bool save_video_frame_as_y4m(struct video_frame *frame, const char *name)
                 char *i422 = malloc(tile->width * tile->height + 2 * ((tile->width + 1) / 2) * tile->height);
                 uyvy_to_i422(tile->width, tile->height, uyvy, i422);
 
-                bool ret = y4m_write(name, tile->width, tile->height, Y4M_SUBS_422, 8, true, (unsigned char *) i422);
+                struct y4m_metadata info = { .width = tile->width, .height = tile->height, .bitdepth = 8, .subsampling = Y4M_SUBS_422, .limited = true };
+                bool ret = y4m_write(name, &info, (unsigned char *) i422);
                 free(tmp_data_uyvy);
                 free(i422);
                 return ret;
@@ -495,7 +496,8 @@ static bool save_video_frame_as_y4m(struct video_frame *frame, const char *name)
                 int depth = get_bits_per_component(frame->color_spec);
                 y416_to_i444(tile->width, tile->height, y416, i444, depth);
 
-                bool ret = y4m_write(name, tile->width, tile->height, Y4M_SUBS_444, depth, true, (unsigned char *) i444);
+                struct y4m_metadata info = { .width = tile->width, .height = tile->height, .bitdepth = depth, .subsampling = Y4M_SUBS_422, .limited = true };
+                bool ret = y4m_write(name, &info, (unsigned char *) i444);
                 free(tmp_data_y416);
                 free(i444);
                 return ret;

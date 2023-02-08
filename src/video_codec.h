@@ -140,6 +140,7 @@ bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size
 
 void uyvy_to_i422(int width, int height, const char *in, char *out);
 void y416_to_i444(int width, int height, const char *in, char *out, int depth);
+void i444_to_y416(int width, int height, const char *in, char *out, int depth);
 
 #ifdef __cplusplus
 }

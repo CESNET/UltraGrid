@@ -56,6 +56,7 @@ size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int
 size_t urldecode(char *out, size_t max_len, const char *in);
 /// same as strpbrk but finds in a reverse order (last occurence returned)
 char *strrpbrk(char *s, const char *accept);
+bool ends_with(const char *haystick, const char *needle);
 
 bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool solid);
 
