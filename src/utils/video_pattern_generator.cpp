@@ -68,6 +68,7 @@
 #include "debug.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
+#include "utils/string_view_utils.hpp"
 #include "utils/text.h"
 #include "video.h"
 #include "video_capture/testcard_common.h"
@@ -83,6 +84,7 @@ using std::copy;
 using std::cout;
 using std::default_random_engine;
 using std::exception;
+using std::fill;
 using std::for_each;
 using std::make_unique;
 using std::max;
@@ -90,6 +92,7 @@ using std::min;
 using std::stoi;
 using std::stoll;
 using std::string;
+using std::string_view;
 using std::swap;
 using std::unique_ptr;
 using std::uniform_int_distribution;
@@ -442,6 +445,45 @@ class image_pattern_raw : public image_pattern {
                 vector<unsigned char> m_pattern;
 };
 
+class image_pattern_text : public image_pattern {
+        public:
+                explicit image_pattern_text(const string & config) {
+                        if (config == "help"s) {
+                                col() << "Testcard text usage:\n\t" << SBOLD(SRED("-t testcard:pattern=text") << "[=pattern][,bg=0x<AABBGGRR<][,fg=0x<AABBGGRR>]") << "\n";
+                                throw 1;
+                        }
+                        if (!config.empty()) {
+                                string_view sv = config;
+                                text = "";
+                                while (!sv.empty()) {
+                                        auto tok = tokenize(sv, ',');
+                                        if (text.empty()) {
+                                                text = tok;
+                                        } else if (tok.substr(0,3) == "bg=") {
+                                                bg = stol((string) tok.substr(3), nullptr, 0);
+                                        } else if (tok.substr(0,3) == "fg=") {
+                                                fg = stol((string) tok.substr(3), nullptr, 0);
+                                        }
+                                }
+                        }
+                }
+
+        private:
+                enum generator_depth fill(int width, int height, unsigned char *data) override {
+                        std::fill((uint32_t *) data, (uint32_t *) (data + width * height * 4), bg);
+                        string line;
+                        for (int i = 0; i < width; i += 8 * (text.size() + 1)) {
+                                line += " " + text;
+                        }
+                        for (int i = 0; i < height / 16; ++i) {
+                                draw_line((char *) data + (i * 16 * width * 4), width * 4, line.c_str(), fg, false);
+                        }
+                        return generator_depth::bits8;
+                }
+                string text = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+                uint32_t bg = 0xFF0000AAU;
+                uint32_t fg = 0xFFFFFFFFU;
+};
 
 unique_ptr<image_pattern> image_pattern::create(string const &config) {
         string pattern = config;
@@ -473,6 +515,9 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         }
         if (pattern == "smpte_bars") {
                 return make_unique<image_pattern_smpte_bars>();
+        }
+        if (pattern == "text") {
+                return make_unique<image_pattern_text>(params);
         }
         if (pattern == "uv_plane") {
                 return make_unique<image_pattern_uv_plane>(params);
