@@ -3,6 +3,12 @@
   for n in `seq 32 126`; do printf "\x$(printf %x $n)"; done |  pbmtext -space 0 -lspace 0 -nomargins -builtin fixed >| tmp.pbm
   convert tmp.pbm bitmap_font.h
 */
+enum {
+        FONT_W = 7,
+        FONT_H = 12,
+        FONT_COUNT = ('~' - ' ' + 1),
+};
+
 static const unsigned char
   font[] =
   {

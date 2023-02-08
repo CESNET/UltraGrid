@@ -291,15 +291,9 @@ char *strrpbrk(char *s, const char *accept) {
         return NULL;
 }
 
-/**
- * draws a line with built-in bitmap 12x7 bitmap font separated by 1 px space, RGBA
- */
-bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool solid) {
-        enum {
-                FONT_W = 7,
-                FONT_H = 12,
-                WIDTH = FONT_W + 1, ///< adding 1 pix space between letters
-        };
+// since the data are already in memory, it would be also possible to use
+// pointer directly to font array (skipping or deleting PBM header)
+static bool draw_line_init(unsigned char *out) {
         const char *filename = NULL;
         FILE *f = get_temp_file(&filename);
         if (!f) {
@@ -318,8 +312,29 @@ bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool soli
                 log_msg(LOG_LEVEL_ERROR, "Cannot read PAM!\n");
                 return false;
         }
-        assert(info.width == FONT_W * ('~' - ' ' + 1) && info.height == FONT_H && info.maxval == 1 && info.bitmap_pbm);
+        assert(info.width == FONT_W * FONT_COUNT && info.height == FONT_H && info.maxval == 1 && info.bitmap_pbm);
+
+        memcpy(out, font_data, (info.width + 7) / 8 * info.height);
+        free(font_data);
+        return true;
+}
+
+/**
+ * draws a line with built-in bitmap 12x7 bitmap font separated by 1 px space, RGBA
+ */
+bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool solid) {
+        static unsigned char font_data[(FONT_W * FONT_COUNT + 7) / 8 * FONT_H];
+        static bool font_data_initialized = false;
+        if (!font_data_initialized) {
+                if (!draw_line_init(font_data)) {
+                        return false;
+                }
+                font_data_initialized = true;
+        }
         int idx = 0;
+        enum {
+                WIDTH = FONT_W + 1, ///< adding 1 pix space between letters
+        };
         while (*text) {
                 char c = *text;
                 if (c < ' ' || c > '~') {
@@ -330,7 +345,7 @@ bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool soli
                         for (int i = 0; i < FONT_W; ++i) {
                                 int pos_x = (FONT_W * c + i) / 8;
                                 int mask = 1 << (FONT_W - ((FONT_W * c + i) % 8));
-                                int offset = (info.width + FONT_W) / 8 * j;
+                                int offset = (FONT_W * FONT_COUNT + 7) / 8 * j;
                                 if (font_data[offset + pos_x] & mask) {
                                         buf[j * pitch + 4 * (i + idx * WIDTH)] = color & 0xFFU;
                                         buf[j * pitch + 4 * (i + idx * WIDTH) + 1] = (color >> 8U) & 0xFFU;
@@ -355,8 +370,6 @@ bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool soli
                 }
                 ++text;
         }
-
-        free(font_data);
 
         return true;
 }
