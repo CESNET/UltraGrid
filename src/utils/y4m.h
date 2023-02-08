@@ -67,7 +67,7 @@ struct y4m_metadata {
  * @returns number of raw image data
  */
 size_t y4m_read(const char *filename, struct y4m_metadata *info, unsigned char **data, void *(*allocator)(size_t));
-bool y4m_write(const char *filename, int width, int height, enum y4m_subsampling subsampling, int depth, bool limited, const unsigned char *data);
+bool y4m_write(const char *filename, const struct y4m_metadata *info, const unsigned char *data);
 
 #ifdef __cplusplus
 } // extern "C"
