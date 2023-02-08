@@ -88,7 +88,7 @@ static bool parse_pnm(FILE *file, char pnm_id, struct pam_metadata *info) {
                 case '1':
                 case '2':
                 case '3':
-                        fprintf(stderr, "Unsupported PNM P%c\n", pnm_id);
+                        fprintf(stderr, "Plain (ASCII) PNM are not supported, input is P%c\n", pnm_id);
                         return false;
                 case '4':
                         info->depth = 1;
@@ -102,7 +102,7 @@ static bool parse_pnm(FILE *file, char pnm_id, struct pam_metadata *info) {
                         info->depth = 3;
                         break;
                 default:
-                        fprintf(stderr, "Wrong PNM P%c\n", pnm_id);
+                        fprintf(stderr, "Wrong PNM type P%c\n", pnm_id);
                         return false;
         }
         int item_nr = 0;
@@ -142,7 +142,7 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
         errno = 0;
         FILE *file = fopen(filename, "rb");
         if (!file) {
-                fprintf(stderr, "Failed to open %s: %s", filename, strerror(errno));
+                fprintf(stderr, "Failed to open %s: %s\n", filename, strerror(errno));
                 return false;
         }
         memset(info, 0, sizeof *info);
@@ -186,7 +186,7 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
         }
         *data = (unsigned char *) allocator(datalen);
         if (!*data) {
-                fprintf(stderr, "Unspecified depth header field!");
+                fprintf(stderr, "Unspecified depth header field!\n");
                 fclose(file);
                 return false;
         }
@@ -205,7 +205,7 @@ bool pam_write(const char *filename, unsigned int width, unsigned int height, in
         errno = 0;
         FILE *file = fopen(filename, "wb");
         if (!file) {
-                fprintf(stderr, "Failed to open %s for writing: %s", filename, strerror(errno));
+                fprintf(stderr, "Failed to open %s for writing: %s\n", filename, strerror(errno));
                 return false;
         }
         if (pnm) {
