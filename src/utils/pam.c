@@ -8,7 +8,7 @@
  * This file is part of GPUJPEG.
  */
 /*
- * Copyright (c) 2013-2022, CESNET z.s.p.o.
+ * Copyright (c) 2013-2023, CESNET z.s.p.o.
  *
  * All rights reserved.
  *

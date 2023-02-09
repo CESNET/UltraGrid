@@ -6,6 +6,7 @@
  * hardware or do not wish to transmit. This fits the interface of the other
  * capture devices, but never produces any video.
  *
+ * Copyright (c) 2005-2023 CESNET
  * Copyright (c) 2004 University of Glasgow
  * Copyright (c) 2003 University of Southern California
  *

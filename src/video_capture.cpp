@@ -13,7 +13,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2005-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2005-2023 CESNET, z. s. p. o.
  * Copyright (c) 2001-2004 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without

@@ -6,7 +6,7 @@
  * Merge to mainline testcard.
  */
 /*
- * Copyright (c) 2011-2022 CESNET z.s.p.o.
+ * Copyright (c) 2011-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
