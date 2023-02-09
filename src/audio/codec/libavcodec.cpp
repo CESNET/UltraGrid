@@ -638,17 +638,16 @@ static void cleanup_common(struct libavcodec_codec_state *s)
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
                                                 ret);
                         }
+                        AVPacket *pkt = av_packet_alloc();
                         do {
-                                AVPacket *pkt = av_packet_alloc();
                                 ret = avcodec_receive_packet(s->codec_ctx, pkt);
                                 av_packet_unref(pkt);
-                                av_packet_free(&pkt);
-                                if (ret != 0 && ret != AVERROR_EOF) {
-                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
-                                                        ret);
-                                        break;
-                                }
-                        } while (ret != AVERROR_EOF);
+                        } while (ret >= 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN));
+                        av_packet_free(&pkt);
+                        if (ret >= 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
+                                                ret);
+                        }
                 }
 #endif
         }
