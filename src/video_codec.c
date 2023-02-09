@@ -415,6 +415,17 @@ const char *get_codec_file_extension(codec_t codec)
         }
 }
 
+codec_t get_codec_from_file_extension(const char *ext)
+{
+        for (unsigned int i = 0; i < sizeof codec_info / sizeof(struct codec_info_t); ++i) {
+                if (codec_info[i].file_extension && strcasecmp(codec_info[i].file_extension, ext) == 0) {
+                        return i;
+                }
+        }
+
+        return VIDEO_CODEC_NONE;
+}
+
 /**
  * @retval TRUE if codec is compressed
  * @retval FALSE if codec is pixelformat

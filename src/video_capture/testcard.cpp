@@ -318,11 +318,15 @@ static bool testcard_load_from_file_y4m(const char *filename, struct video_desc 
         return true;
 }
 
-static bool testcard_load_from_file(const char *filename, struct video_desc *desc, vector<char>& in_file_contents) {
+static bool testcard_load_from_file(const char *filename, struct video_desc *desc, vector<char>& in_file_contents, bool deduce_pixfmt) {
         if (ends_with(filename, ".pam") || ends_with(filename, ".pnm") || ends_with(filename, ".ppm")) {
                 return testcard_load_from_file_pam(filename, desc, in_file_contents);
         } else if (ends_with(filename, ".y4m")) {
                 return testcard_load_from_file_y4m(filename, desc, in_file_contents);
+        }
+
+        if (deduce_pixfmt && strchr(filename, '.') != nullptr && get_codec_from_file_extension(strrchr(filename, '.') + 1)) {
+                desc->color_spec = get_codec_from_file_extension(strrchr(filename, '.') + 1);
         }
         long data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
         in_file_contents.resize(data_len);
@@ -398,7 +402,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *ptr = fmt;
 
-        struct video_desc desc = [&]{ return strlen(ptr) == 0 || !isdigit(ptr[0]) ? default_format : parse_format(&ptr, &save_ptr);}();
+        bool pixfmt_default = true;
+        struct video_desc desc = [&]{ return strlen(ptr) == 0 || !isdigit(ptr[0]) ? default_format : (pixfmt_default = false, parse_format(&ptr, &save_ptr));}();
         if (!desc) {
                 goto error;
         }
@@ -424,6 +429,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         s->pattern = pattern;
                 } else if (strstr(tmp, "codec=") == tmp) {
                         desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
+                        pixfmt_default = false;
                 } else if (strstr(tmp, "size=") == tmp && strchr(tmp, 'x') != nullptr) {
                         desc.width = stoi(strchr(tmp, '=') + 1);
                         desc.height = stoi(strchr(tmp, 'x') + 1);
@@ -444,7 +450,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if (filename) {
-                if (!testcard_load_from_file(filename, &desc, in_file_contents)) {
+                if (!testcard_load_from_file(filename, &desc, in_file_contents, pixfmt_default)) {
                         goto error;
                 }
         }
