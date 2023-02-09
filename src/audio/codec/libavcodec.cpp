@@ -630,21 +630,7 @@ static void cleanup_common(struct libavcodec_codec_state *s)
         if (s->context_initialized) {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
                 if (s->direction == AUDIO_DECODER) {
-                        int ret;
-                        ret = avcodec_send_packet(s->codec_ctx, NULL);
-                        if (ret != 0) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
-                                                ret);
-                        }
-                        do {
-                                ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
-                                if (ret != 0 && ret != AVERROR_EOF) {
-                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
-                                                        ret);
-                                        break;
-                                }
-
-                        } while (ret != AVERROR_EOF);
+                        lavd_flush(s->codec_ctx);
                 } else {
                         int ret;
                         ret = avcodec_send_frame(s->codec_ctx, NULL);

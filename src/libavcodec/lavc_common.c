@@ -58,6 +58,8 @@
 #include "libavcodec/lavc_common.h"
 #include "video.h"
 
+#define MOD_NAME "[lavc_common] "
+
 //
 // UG <-> FFMPEG format translations
 //
@@ -287,6 +289,29 @@ struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt) {
         ret.subsampling = av_pixfmt_get_subsampling(pixfmt);
         ret.id = VIDEO_CODEC_END + (unsigned) pixfmt;
         return ret;
+}
+
+
+void lavd_flush(AVCodecContext *codec_ctx) {
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
+        int ret = 0;
+        ret = avcodec_send_packet(codec_ctx, NULL);
+        if (ret != 0) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
+                                ret);
+        }
+        AVFrame *frame = av_frame_alloc();
+        do {
+                ret = avcodec_receive_frame(codec_ctx, frame);
+        } while (ret >= 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN));
+        if (ret < 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
+                                ret);
+        }
+        av_frame_free(&frame);
+#else
+        UNUSED(codec_ctx);
+#endif
 }
 
 /* vi: set expandtab sw=8: */

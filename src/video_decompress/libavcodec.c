@@ -109,26 +109,8 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
-        if (s->codec_ctx) {
-                int ret;
-                ret = avcodec_send_packet(s->codec_ctx, NULL);
-                if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
-                                        ret);
-                }
-                do {
-                        ret = avcodec_receive_frame(s->codec_ctx, s->frame);
-                        if (ret != 0 && ret != AVERROR_EOF) {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
-                                                ret);
-                                break;
-                        }
-
-                } while (ret != AVERROR_EOF);
-        }
-#endif
         if(s->codec_ctx) {
+                lavd_flush(s->codec_ctx);
                 avcodec_free_context(&s->codec_ctx);
         }
         av_frame_free(&s->frame);

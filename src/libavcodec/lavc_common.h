@@ -241,6 +241,7 @@ const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) ATTRIBUTE(const);
 void ug_set_av_logging(void);
 int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) ATTRIBUTE(const);
 struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt);
+void lavd_flush(AVCodecContext *codec_ctx);
 
 #ifdef __cplusplus
 }
