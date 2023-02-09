@@ -156,7 +156,6 @@ bool y4m_write(const char *filename, const struct y4m_metadata *info, const unsi
                 return false;
         }
         if (info->bitdepth > 8) {
-                len *= 2;
                 snprintf(chroma_type + strlen(chroma_type), sizeof chroma_type - strlen(chroma_type), "%s%d",
                                 info->subsampling != Y4M_SUBS_MONO ? "p" : "", info->bitdepth); // 'p' in 420p10 but not mono10
         }

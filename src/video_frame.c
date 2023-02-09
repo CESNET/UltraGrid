@@ -496,7 +496,7 @@ static bool save_video_frame_as_y4m(struct video_frame *frame, const char *name)
                 int depth = get_bits_per_component(frame->color_spec);
                 y416_to_i444(tile->width, tile->height, y416, i444, depth);
 
-                struct y4m_metadata info = { .width = tile->width, .height = tile->height, .bitdepth = depth, .subsampling = Y4M_SUBS_422, .limited = true };
+                struct y4m_metadata info = { .width = tile->width, .height = tile->height, .bitdepth = depth, .subsampling = Y4M_SUBS_444, .limited = true };
                 bool ret = y4m_write(name, &info, (unsigned char *) i444);
                 free(tmp_data_y416);
                 free(i444);
