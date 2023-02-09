@@ -3643,7 +3643,7 @@ void y416_to_i444(int width, int height, const char *in, char *out, int depth)
         }
 }
 
-void i444_to_y416(int width, int height, const char *in, char *out, int in_depth)
+void i444_16_to_y416(int width, int height, const char *in, char *out, int in_depth)
 {
         const uint16_t *in_y = (const uint16_t *) in;
         const uint16_t *in_cb = (const uint16_t *) in + width * height;
@@ -3655,6 +3655,22 @@ void i444_to_y416(int width, int height, const char *in, char *out, int in_depth
                         *outp++ = *in_y++ << (16 - in_depth);
                         *outp++ = *in_cr++ << (16 - in_depth);
                         *outp++ = 0xFFFFU; // alpha
+                }
+        }
+}
+
+void i422_8_to_uyvy(int width, int height, const char *in, char *out)
+{
+        const char *in_y = in;
+        const char *in_cb = in + width * height;
+        const char *in_cr = in_cb + (((width + 1) / 2) * height);
+        char *outp = out;
+        for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < (width + 1) / 2; ++x) {
+                        *outp++ = *in_cb++;
+                        *outp++ = *in_y++;
+                        *outp++ = *in_cr++;
+                        *outp++ = *in_y++;
                 }
         }
 }

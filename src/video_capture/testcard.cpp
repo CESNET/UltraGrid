@@ -304,12 +304,16 @@ static bool testcard_load_from_file_y4m(const char *filename, struct video_desc 
         if (y4m_read(filename, &info, &data, malloc) == 0) {
                 return false;
         }
-        assert(info.subsampling == Y4M_SUBS_444);
+        assert((info.subsampling == Y4M_SUBS_422 && info.bitdepth == 8) || (info.subsampling == Y4M_SUBS_444 && info.bitdepth > 8));
         desc->width = info.width;
         desc->height = info.height;
-        desc->color_spec = Y416;
+        desc->color_spec = info.bitdepth == 8 ? UYVY : Y416;
         in_file_contents.resize(vc_get_datalen(desc->width, desc->height, desc->color_spec));
-        i444_to_y416(desc->width, desc->height, (char *) data, in_file_contents.data(), info.bitdepth);
+        if (info.bitdepth == 8) {
+                i422_8_to_uyvy(desc->width, desc->height, (char *) data, in_file_contents.data());
+        } else {
+                i444_16_to_y416(desc->width, desc->height, (char *) data, in_file_contents.data(), info.bitdepth);
+        }
         free(data);
         return true;
 }
