@@ -871,21 +871,21 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
  * Returns list of pix_fmts that UltraGrid can supply to the encoder.
  * The list is ordered according to input description and requested subsampling.
  */
-static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc,
+static list<enum AVPixelFormat> get_available_pix_fmts(codec_t in_codec,
                 int requested_subsampling, codec_t force_conv_to)
 {
         list<enum AVPixelFormat> fmts;
 
         // add the format itself if it matches the ultragrid one
-        if (get_ug_to_av_pixfmt(in_desc.color_spec) != AV_PIX_FMT_NONE) {
-                if (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == in_desc.color_spec) {
-                        fmts.push_back(get_ug_to_av_pixfmt(in_desc.color_spec));
+        if (get_ug_to_av_pixfmt(in_codec) != AV_PIX_FMT_NONE) {
+                if (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == in_codec) {
+                        fmts.push_back(get_ug_to_av_pixfmt(in_codec));
                 }
         }
 
-        int bits_per_comp = get_bits_per_component(in_desc.color_spec);
-        bool is_rgb = codec_is_a_rgb(in_desc.color_spec);
-        int subsampling = IF_NOT_NULL_ELSE(requested_subsampling, get_subsampling(in_desc.color_spec));
+        int bits_per_comp = get_bits_per_component(in_codec);
+        bool is_rgb = codec_is_a_rgb(in_codec);
+        int subsampling = IF_NOT_NULL_ELSE(requested_subsampling, get_subsampling(in_codec));
         // sort
         auto compare = [bits_per_comp, is_rgb, subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
                 const struct AVPixFmtDescriptor *pda = av_pix_fmt_desc_get(a);
@@ -932,7 +932,7 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
 
         set<enum AVPixelFormat, decltype(compare)> available_formats(compare); // those for that there exitst a conversion and respect requested subsampling (if given)
         for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
-                if (get_decoder_from_to(in_desc.color_spec, i->uv_codec)) {
+                if (get_decoder_from_to(in_codec, i->uv_codec)) {
                         int codec_subsampling = av_pixfmt_get_subsampling(i->av_pixfmt);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
@@ -942,8 +942,8 @@ static list<enum AVPixelFormat> get_available_pix_fmts(struct video_desc in_desc
                 }
         }
         for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
-                if (c->src == in_desc.color_spec ||
-                                get_decoder_from_to(in_desc.color_spec, c->src)) {
+                if (c->src == in_codec ||
+                                get_decoder_from_to(in_codec, c->src)) {
                         int codec_subsampling = av_pixfmt_get_subsampling(c->dst);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
@@ -972,7 +972,7 @@ ADD_TO_PARAM("lavc-use-codec",
  * Returns ordered list of codec preferences for input description and
  * requested_subsampling.
  */
-list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
+list<enum AVPixelFormat> get_requested_pix_fmts(codec_t in_codec,
                 int requested_subsampling) {
         codec_t force_conv_to = VIDEO_CODEC_NONE; // if non-zero, use only this codec as a target
                                                   // of UG conversions (before FFMPEG conversion)
@@ -991,7 +991,7 @@ list<enum AVPixelFormat> get_requested_pix_fmts(struct video_desc in_desc,
                 }
         }
 
-        return get_available_pix_fmts(in_desc, requested_subsampling, force_conv_to);
+        return get_available_pix_fmts(in_codec, requested_subsampling, force_conv_to);
 }
 
 void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe_unused]] const char *encoder_name) {
@@ -1145,7 +1145,7 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
         return false;
 #else
         //get all AVPixelFormats we can convert to and pick the first
-        auto fmts = get_available_pix_fmts(desc, s->requested_subsampling, VIDEO_CODEC_NONE);
+        auto fmts = get_available_pix_fmts(desc.color_spec, s->requested_subsampling, VIDEO_CODEC_NONE);
         s->sws_out_pixfmt = s->selected_pixfmt;
         s->selected_pixfmt = fmts.empty() ? AV_PIX_FMT_UYVY422 : fmts.front();
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(s->selected_pixfmt), av_get_pix_fmt_name(s->sws_out_pixfmt));
@@ -1215,7 +1215,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // It is done in a loop because some pixel formats that are reported
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
-        list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc, s->requested_subsampling);
+        list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc.color_spec, s->requested_subsampling);
         apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
         while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
