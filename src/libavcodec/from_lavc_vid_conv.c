@@ -2235,11 +2235,13 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_Y212,   UYVY, y210_to_uyvy},
         {AV_PIX_FMT_Y212,   v210, y210_to_v210},
         {AV_PIX_FMT_Y212,   Y416, y210_to_y416},
+        {AV_PIX_FMT_Y212,   Y216, memcpy_data},
 #endif
 #if Y210_PRESENT
         {AV_PIX_FMT_Y210,   UYVY, y210_to_uyvy},
         {AV_PIX_FMT_Y210,   v210, y210_to_v210},
         {AV_PIX_FMT_Y210,   Y416, y210_to_y416},
+        {AV_PIX_FMT_Y210,   Y216, memcpy_data},
 #endif
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
         {AV_PIX_FMT_P010LE, v210, p010le_to_v210},
@@ -2306,7 +2308,6 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_GBRP, RGB, gbrp_to_rgb},
         {AV_PIX_FMT_GBRP, RGBA, gbrp_to_rgba},
         {AV_PIX_FMT_RGB24, UYVY, rgb24_to_uyvy},
-        {AV_PIX_FMT_RGB24, RGB, memcpy_data},
         {AV_PIX_FMT_RGB24, RGBA, rgb24_to_rgb32},
         {AV_PIX_FMT_GBRP10LE, R10k, gbrp10le_to_r10k},
         {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb},
@@ -2324,7 +2325,6 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_GBRP16LE, RG48, gbrp16le_to_rg48},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp16le_to_rgb},
         {AV_PIX_FMT_GBRP12LE, RGBA, gbrp16le_to_rgba},
-        {AV_PIX_FMT_RGB48LE, RG48, memcpy_data},
         {AV_PIX_FMT_RGB48LE, R12L, rgb48le_to_r12l},
         {AV_PIX_FMT_RGB48LE, RGBA, rgb48le_to_rgba},
 #ifdef HWACC_VDPAU
