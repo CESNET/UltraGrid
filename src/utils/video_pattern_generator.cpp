@@ -454,15 +454,18 @@ class image_pattern_text : public image_pattern {
                         }
                         if (!config.empty()) {
                                 string_view sv = config;
-                                text = "";
+                                bool text_set = false;
                                 while (!sv.empty()) {
                                         auto tok = tokenize(sv, ',');
-                                        if (text.empty()) {
-                                                text = tok;
-                                        } else if (tok.substr(0,3) == "bg=") {
+                                        if (tok.substr(0,3) == "bg=") {
                                                 bg = stol((string) tok.substr(3), nullptr, 0);
                                         } else if (tok.substr(0,3) == "fg=") {
                                                 fg = stol((string) tok.substr(3), nullptr, 0);
+                                        } else if (!text_set) {
+                                                text = tok;
+                                                text_set = true;
+                                        } else {
+                                                throw ug_runtime_error("Testcard text - wrong option: " + string(tok));
                                         }
                                 }
                         }
@@ -481,7 +484,7 @@ class image_pattern_text : public image_pattern {
                         return generator_depth::bits8;
                 }
                 string text = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
-                uint32_t bg = 0xFF0000AAU;
+                uint32_t bg = 0xFFCC00CCU;
                 uint32_t fg = 0xFFFFFFFFU;
 };
 
