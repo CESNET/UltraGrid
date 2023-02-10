@@ -36,6 +36,7 @@
  */
 
 #define __STDC_CONSTANT_MACROS
+#define __STDC_WANT_LIB_EXT1__ 1 // qsort_s
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -57,6 +58,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "compat/qsort_s.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -867,77 +869,45 @@ decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) 
         return get_decoder_from_to(in, *out);
 }
 
+#ifdef QSORT_S_COMP_FIRST
+static int lavc_compare_convs(void *orig_c, const void *a, const void *b) {
+#else
+static int lavc_compare_convs(const void *a, const void *b, void *orig_c) {
+#endif
+        const enum AVPixelFormat *pix_a = (const enum AVPixelFormat *) a;
+        const enum AVPixelFormat *pix_b = (const enum AVPixelFormat *) b;
+        const struct pixfmt_desc *src_desc = (struct pixfmt_desc *) orig_c;
+        struct pixfmt_desc desc_a = av_pixfmt_get_desc(*pix_a);
+        struct pixfmt_desc desc_b = av_pixfmt_get_desc(*pix_b);
+
+        return compare_pixdesc(&desc_a, &desc_b, src_desc);
+}
+
 /**
  * Returns list of pix_fmts that UltraGrid can supply to the encoder.
  * The list is ordered according to input description and requested subsampling.
  */
-static list<enum AVPixelFormat> get_available_pix_fmts(codec_t in_codec,
-                int requested_subsampling, codec_t force_conv_to)
+static int get_available_pix_fmts(codec_t in_codec,
+                int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat *fmts)
 {
-        list<enum AVPixelFormat> fmts;
-
+        int nb_fmts = 0;
         // add the format itself if it matches the ultragrid one
         if (get_ug_to_av_pixfmt(in_codec) != AV_PIX_FMT_NONE) {
                 if (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == in_codec) {
-                        fmts.push_back(get_ug_to_av_pixfmt(in_codec));
+                        fmts[nb_fmts++] = get_ug_to_av_pixfmt(in_codec);
                 }
         }
 
-        int bits_per_comp = get_bits_per_component(in_codec);
-        bool is_rgb = codec_is_a_rgb(in_codec);
-        int subsampling = IF_NOT_NULL_ELSE(requested_subsampling, get_subsampling(in_codec));
-        // sort
-        auto compare = [bits_per_comp, is_rgb, subsampling](enum AVPixelFormat a, enum AVPixelFormat b) {
-                const struct AVPixFmtDescriptor *pda = av_pix_fmt_desc_get(a);
-                const struct AVPixFmtDescriptor *pdb = av_pix_fmt_desc_get(b);
-#if LIBAVUTIL_VERSION_MAJOR >= 56
-                int deptha = pda->comp[0].depth;
-                int depthb = pdb->comp[0].depth;
-#else
-                int deptha = pda->comp[0].depth_minus1 + 1;
-                int depthb = pdb->comp[0].depth_minus1 + 1;
-#endif
-#if defined(AV_PIX_FMT_FLAG_RGB)
-                bool rgba = pda->flags & AV_PIX_FMT_FLAG_RGB;
-                bool rgbb = pdb->flags & AV_PIX_FMT_FLAG_RGB;
-#else
-                bool rgba = pda->flags & PIX_FMT_RGB;
-                bool rgbb = pdb->flags & PIX_FMT_RGB;
-#endif
-                int subsa = av_pixfmt_get_subsampling(a);
-                int subsb = av_pixfmt_get_subsampling(b);
+        int sort_start_idx = nb_fmts;
 
-                if (rgba != rgbb) {
-                        if (rgba == is_rgb) {
-                                return true;
-                        }
-                        return false;
-                }
-                if (deptha != depthb) {
-                        // either a or b is lower than bits_per_comp - sort higher bit depth first
-                        if (deptha < bits_per_comp || depthb < bits_per_comp) {
-                                return deptha > depthb;
-                        }
-                        // both are equal or higher - sort lower bit depth first
-                        return deptha < depthb;
-                }
-                if (subsa != subsb) {
-                        if (subsa < subsampling || subsb < subsampling) {
-                                return subsa > subsb;
-                        }
-                        return subsa < subsb;
-                }
-                return a < b;
-        };
-
-        set<enum AVPixelFormat, decltype(compare)> available_formats(compare); // those for that there exitst a conversion and respect requested subsampling (if given)
+        int fmt_set[AV_PIX_FMT_NB] = { 0 }; // avoid multiple occurences
         for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
                 if (get_decoder_from_to(in_codec, i->uv_codec)) {
                         int codec_subsampling = av_pixfmt_get_subsampling(i->av_pixfmt);
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
                                        (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == i->uv_codec)) {
-                                available_formats.insert(i->av_pixfmt);
+                                fmt_set[i->av_pixfmt] = 1;
                         }
                 }
         }
@@ -948,18 +918,24 @@ static list<enum AVPixelFormat> get_available_pix_fmts(codec_t in_codec,
                         if ((requested_subsampling == 0 ||
                                         requested_subsampling == codec_subsampling) &&
                                        (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == c->src)) {
-                                available_formats.insert(c->dst);
+                                fmt_set[c->dst] = 1;
                         }
                 }
         }
+        for (int i = 0; i < AV_PIX_FMT_NB; ++i) {
+                if (fmt_set[i]) {
+                        fmts[nb_fmts++] = (enum AVPixelFormat) i;
+                }
+        }
 
-        copy(available_formats.begin(), available_formats.end(), back_inserter(fmts));
+        struct pixfmt_desc src_desc = get_pixfmt_desc(in_codec);
+        qsort_s(fmts + sort_start_idx, nb_fmts - sort_start_idx, sizeof fmts[0], lavc_compare_convs, &src_desc);
 
 #ifdef HWACC_VAAPI
-        fmts.push_back(AV_PIX_FMT_VAAPI);
+        fmts[nb_fmts++] = AV_PIX_FMT_VAAPI;
 #endif
 
-        return fmts;
+        return nb_fmts;
 
 }
 
@@ -991,7 +967,9 @@ list<enum AVPixelFormat> get_requested_pix_fmts(codec_t in_codec,
                 }
         }
 
-        return get_available_pix_fmts(in_codec, requested_subsampling, force_conv_to);
+        enum AVPixelFormat pixfmts[AV_PIX_FMT_NB];
+        int nb_fmts = get_available_pix_fmts(in_codec, requested_subsampling, force_conv_to, pixfmts);
+        return { pixfmts, pixfmts + nb_fmts };
 }
 
 void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe_unused]] const char *encoder_name) {
@@ -1145,9 +1123,10 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
         return false;
 #else
         //get all AVPixelFormats we can convert to and pick the first
-        auto fmts = get_available_pix_fmts(desc.color_spec, s->requested_subsampling, VIDEO_CODEC_NONE);
+        enum AVPixelFormat pixfmts[AV_PIX_FMT_NB];
+        int nb_fmts = get_available_pix_fmts(desc.color_spec, s->requested_subsampling, VIDEO_CODEC_NONE, pixfmts);
         s->sws_out_pixfmt = s->selected_pixfmt;
-        s->selected_pixfmt = fmts.empty() ? AV_PIX_FMT_UYVY422 : fmts.front();
+        s->selected_pixfmt = nb_fmts == 0 ? AV_PIX_FMT_UYVY422 : pixfmts[0];
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(s->selected_pixfmt), av_get_pix_fmt_name(s->sws_out_pixfmt));
         if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
                 //Should not happen as get_available_pix_fmts should only
