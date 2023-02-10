@@ -1795,14 +1795,11 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
 
 static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "scenario", "livestreaming");
+
         if (param->periodic_intra != 0) {
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "int_ref_type", "vertical");
-#if 0
-                ret = av_opt_set(codec_ctx->priv_data, "int_ref_cycle_size", "100", 0);
-                if (ret != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to set intra refresh size.\n");
-                }
-#endif
+                check_av_opt_set<int>(codec_ctx->priv_data, "int_ref_cycle_size", 20);
         }
         codec_ctx->rc_max_rate = codec_ctx->bit_rate;
         // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
