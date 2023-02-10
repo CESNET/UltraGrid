@@ -888,7 +888,7 @@ static int lavc_compare_convs(const void *a, const void *b, void *orig_c) {
  * The list is ordered according to input description and requested subsampling.
  */
 static int get_available_pix_fmts(codec_t in_codec,
-                int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat *fmts)
+                int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat fmts[AV_PIX_FMT_NB])
 {
         int nb_fmts = 0;
         // add the format itself if it matches the ultragrid one
@@ -899,25 +899,18 @@ static int get_available_pix_fmts(codec_t in_codec,
         }
 
         int sort_start_idx = nb_fmts;
-
-        int fmt_set[AV_PIX_FMT_NB] = { 0 }; // avoid multiple occurences
-        for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no conversion needed - direct mapping
+#define MATCH_SUBS_AND_UVC_IF_REQ(avpixfmt, uvpixfmt) (requested_subsampling == 0 || requested_subsampling == av_pixfmt_get_subsampling(avpixfmt)) && (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == uvpixfmt)
+        int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurences
+        for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no UV conversion needed, only AV
                 if (get_decoder_from_to(in_codec, i->uv_codec)) {
-                        int codec_subsampling = av_pixfmt_get_subsampling(i->av_pixfmt);
-                        if ((requested_subsampling == 0 ||
-                                        requested_subsampling == codec_subsampling) &&
-                                       (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == i->uv_codec)) {
+                        if (MATCH_SUBS_AND_UVC_IF_REQ(i->av_pixfmt, i->uv_codec)) {
                                 fmt_set[i->av_pixfmt] = 1;
                         }
                 }
         }
-        for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // conversion needed
-                if (c->src == in_codec ||
-                                get_decoder_from_to(in_codec, c->src)) {
-                        int codec_subsampling = av_pixfmt_get_subsampling(c->dst);
-                        if ((requested_subsampling == 0 ||
-                                        requested_subsampling == codec_subsampling) &&
-                                       (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == c->src)) {
+        for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // both UV and AV conv needed
+                if (c->src == in_codec || get_decoder_from_to(in_codec, c->src)) {
+                        if (MATCH_SUBS_AND_UVC_IF_REQ(c->dst, c->src)) {
                                 fmt_set[c->dst] = 1;
                         }
                 }
@@ -936,7 +929,6 @@ static int get_available_pix_fmts(codec_t in_codec,
 #endif
 
         return nb_fmts;
-
 }
 
 ADD_TO_PARAM("lavc-use-codec",
