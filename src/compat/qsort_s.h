@@ -41,11 +41,15 @@
 #ifndef COMPAT_QSORT_S_H_81DF21DE_370E_4C70_8559_600C1A9B6059
 #define COMPAT_QSORT_S_H_81DF21DE_370E_4C70_8559_600C1A9B6059
 
-#ifdef NULL
+#if defined NULL && __STDC_WANT_LIB_EXT1__ != 1
 #error "compat/qsort_s.h compat must be included before stdlib.h"
 #endif
-
+#if defined  __STDC_WANT_LIB_EXT1__  && __STDC_WANT_LIB_EXT1__  != 1
+#error "__STDC_WANT_LIB_EXT1__  defined but not set to 1"
+#endif
+#if !defined  __STDC_WANT_LIB_EXT1__
 #define __STDC_WANT_LIB_EXT1__ 1 // we want qsort_s
+#endif
 
 #ifdef __cplusplus
 #include <cstdlib>
