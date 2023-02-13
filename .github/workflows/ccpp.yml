@@ -118,7 +118,7 @@ jobs:
       if: steps.cache-sdl.outputs.cache-hit == 'true'
       run: .github/scripts/Linux/install_sdl.sh
     - name: configure
-      run: "./autogen.sh --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa --enable-v4l2 || { RC=$?; cat config.log; exit $RC; }"
+      run: "./autogen.sh --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa --enable-v4l2 --enable-screen=x11 || { RC=$?; cat config.log; exit $RC; }"
     - name: make
       run: make -j4
     - name: make check
@@ -213,7 +213,7 @@ jobs:
         . .github/scripts/environment.sh
         .github/scripts/macOS/prepare.sh
     - name: configure
-      run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio --enable-syphon || { RC=$?; cat config.log; exit $RC; }"
+      run: "export ARCH=-msse4.2; ./autogen.sh ${{ env.FEATURES }} --enable-avfoundation --enable-coreaudio --enable-screen --enable-syphon || { RC=$?; cat config.log; exit $RC; }"
     - name: make bundle
       run: make -j4 gui-bundle
     - name: make check
@@ -309,7 +309,7 @@ jobs:
     - name: Install live555
       run: C:\msys64\usr\bin\bash -cel 'make -C /c/live555 install'
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-dshow --enable-spout --enable-wasapi || { RC=$?; cat config.log; exit $RC; }'
+      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc ${{ env.FEATURES }} ${{ env.CUDA_FEATURES }} --enable-dshow --enable-screen --enable-spout --enable-wasapi || { RC=$?; cat config.log; exit $RC; }'
     - name: make
       run: C:\msys64\usr\bin\bash -cel "make -j4"
     - name: make check
