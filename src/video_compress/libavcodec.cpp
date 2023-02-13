@@ -786,22 +786,42 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         return true;
 }
 
-auto get_intermediate_codecs_from_uv_to_av(codec_t in, AVPixelFormat av) {
-        set<codec_t> intermediate_codecs; // using set to avoid duplicities
+int get_intermediate_codecs_from_uv_to_av(codec_t in, AVPixelFormat av, codec_t fmts[VIDEO_CODEC_COUNT]) {
+        int fmt_set[VIDEO_CODEC_COUNT] = { VIDEO_CODEC_NONE }; // to avoid multiple occurences
         for (const auto *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed - direct mapping
                 auto decoder = get_decoder_from_to(in, i->uv_codec);
                 if (decoder != nullptr && i->av_pixfmt == av) {
-                        intermediate_codecs.insert(i->uv_codec);
+                        fmt_set[i->uv_codec] = 1;
                 }
         }
         for (const auto *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; ++c) { // AV conversion needed
                 auto decoder = get_decoder_from_to(in, c->src);
                 if (decoder != nullptr && c->dst == av) {
-                        intermediate_codecs.insert(c->src);
+                        fmt_set[c->src] = 1;
                 }
         }
 
-        return vector<codec_t>(intermediate_codecs.begin(), intermediate_codecs.end());
+        int nb_fmts = 0;
+        for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
+                if (fmt_set[i]) {
+                        fmts[nb_fmts++] = (codec_t) i;
+                }
+        }
+        return nb_fmts;
+}
+
+#ifdef QSORT_S_COMP_FIRST
+static int compare_uv_pixfmts(void *orig_c, const void *a, const void *b) {
+#else
+static int compare_uv_pixfmts(const void *a, const void *b, void *orig_c) {
+#endif
+        const codec_t *pix_a = (const codec_t *) a;
+        const codec_t *pix_b = (const codec_t *) b;
+        const struct pixfmt_desc *src_desc = (struct pixfmt_desc *) orig_c;
+        struct pixfmt_desc desc_a = get_pixfmt_desc(*pix_a);
+        struct pixfmt_desc desc_b = get_pixfmt_desc(*pix_b);
+
+        return compare_pixdesc(&desc_a, &desc_b, src_desc);
 }
 
 /**
@@ -812,59 +832,14 @@ auto get_intermediate_codecs_from_uv_to_av(codec_t in, AVPixelFormat av) {
  * ug_to_av_pixfmt_map).
  */
 decoder_t get_decoder_from_uv_to_uv(codec_t in, AVPixelFormat av, codec_t *out) {
-        vector<codec_t> intermediate_codecs = get_intermediate_codecs_from_uv_to_av(in, av);
-        if (intermediate_codecs.empty()) {
+        codec_t intermediate_codecs[VIDEO_CODEC_COUNT];
+        int ic_count = get_intermediate_codecs_from_uv_to_av(in, av, intermediate_codecs);
+        if (ic_count == 0) {
                 return nullptr;
         }
 
-        // select intermediate UG codec same or better in following order of
-        // importance: 1) depth, 2) subsampling, 3) color space
-        sort(intermediate_codecs.begin(), intermediate_codecs.end(), [&](codec_t a, codec_t b) {
-                int depth_in = get_bits_per_component(in);
-                int depth_a = get_bits_per_component(a);
-                int depth_b = get_bits_per_component(b);
-                bool rgb_in = codec_is_a_rgb(in);
-                bool rgb_a = codec_is_a_rgb(a);
-                bool rgb_b = codec_is_a_rgb(b);
-                int subs_in = get_subsampling(in);
-                int subs_a = get_subsampling(a);
-                int subs_b = get_subsampling(b);
-                // check identity first
-                if (a == in || b == in) {
-                        return a == in;
-                }
-                // either a or b is narrower than depth_in - sort higher bit depth first
-                if (depth_a != depth_b &&
-                                (depth_a < depth_in || depth_b < depth_in)) {
-                        return depth_a > depth_b;
-                }
-                if (subs_a != subs_b &&
-                                (subs_a < subs_in || subs_b < subs_in)) {
-                        return subs_a > subs_b;
-                }
-                if (rgb_a != rgb_b) {
-                        return rgb_a == rgb_in;
-                }
-
-                // now all rgb/depth/subs pairs are either the same or both better than in
-                assert((depth_a == depth_b || (depth_a >= depth_in && depth_b >= depth_in)) && (subs_a == subs_b || (subs_a >= subs_in && subs_b >= subs_in)));
-                if (depth_a != depth_b) {
-                        return depth_a < depth_b;
-                }
-                if (subs_a != subs_b) {
-                        return subs_a < subs_b;
-                }
-
-                codec_t comp_codecs[] = { a, b, VIDEO_CODEC_NONE };
-                codec_t out = VIDEO_CODEC_NONE;
-                get_fastest_decoder_from(in, comp_codecs, &out);
-                if (out) {
-                        return out == a;
-                }
-
-                return a < b;
-        });
-
+        struct pixfmt_desc src_desc = get_pixfmt_desc(in);
+        qsort_s(intermediate_codecs, ic_count, sizeof intermediate_codecs[0], compare_uv_pixfmts, &src_desc);
         *out = intermediate_codecs[0];
         return get_decoder_from_to(in, *out);
 }
