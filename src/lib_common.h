@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,9 +37,6 @@
 
 #ifndef LIB_COMMON_H
 #define LIB_COMMON_H
-
-#include "config_unix.h"
-#include "config_win32.h"
 
 #include "host.h" // UNIQUE_LABEL
 

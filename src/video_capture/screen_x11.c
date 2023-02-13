@@ -257,7 +257,7 @@ static void vidcap_screen_x11_probe(struct device_info **available_devices, int 
         *count = 1;
         *available_devices = calloc(*count, sizeof(struct device_info));
         // (*available_devices)[0].dev can be "" since screen cap. doesn't require parameters
-        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Screen capture");
+        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Screen capture X11");
 
         int framerates[] = {24, 30, 60};
 
@@ -488,5 +488,5 @@ static const struct video_capture_info vidcap_screen_x11_info = {
         VIDCAP_NO_GENERIC_FPS_INDICATOR,
 };
 
-REGISTER_MODULE(screen, &vidcap_screen_x11_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+REGISTER_MODULE(screen_x11, &vidcap_screen_x11_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 

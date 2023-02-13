@@ -856,21 +856,13 @@ static void run_screencast(screen_cast_session *session_ptr) {
         session.portal->run_loop();
 }
 
-static struct vidcap_type * vidcap_screen_pw_probe(bool verbose, void (**deleter)(void *))
+static void vidcap_screen_pw_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
-        UNUSED(verbose);
-        
-        struct vidcap_type* vt;
         *deleter = free;
-
-        vt = (struct vidcap_type *) calloc(1, sizeof(struct vidcap_type));
-        if (vt == nullptr) {
-                return nullptr;
-        }
-
-        vt->name = "screen_pw";
-        vt->description = "Grabbing screen using PipeWire";
-        return vt;
+        *count = 1;
+        *available_devices = (struct device_info *) calloc(*count, sizeof(struct device_info));
+        // (*available_devices)[0].dev can be "" since screen cap. doesn't require parameters
+        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Screen capture PipeWire");
 }
 
 static void show_help() {
@@ -984,7 +976,9 @@ static const struct video_capture_info vidcap_screen_pw_info = {
         vidcap_screen_pw_init,
         vidcap_screen_pw_done,
         vidcap_screen_pw_grab,
-        true,
+        "[screen_pw] ",
 };
 
 REGISTER_MODULE(screen_pw, &vidcap_screen_pw_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
+
+/* vim: set expandtab sw=8: */
