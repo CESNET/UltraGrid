@@ -63,6 +63,7 @@
 #include "utils/color_out.h"
 #include "utils/misc.h" // unit_evaluate
 #include "utils/string_view_utils.hpp"
+#include "utils/text.h"
 #include "video_capture.h"
 #include "video_compress.h"
 #include "video_display.h"
@@ -244,6 +245,28 @@ int set_audio_capture_format(const char *optarg)
         audio_capture_channels = IF_NOT_NULL_ELSE(desc.ch_count, audio_capture_channels);
         audio_capture_sample_rate = IF_NOT_NULL_ELSE(desc.sample_rate, audio_capture_sample_rate);
 
+        return 0;
+}
+
+int set_pixfmt_conv_policy(const char *optarg) {
+        if (strcmp(optarg, "help") == 0) {
+                char desc[] =
+                        TBOLD("--conv-policy") " specifies the order in which various pixfmt properties are to be evaluated "
+                        "if some pixel format needs conversion to another suitable pixel format.\n\n"
+                        "Default: \"" TBOLD("dsc") "\" - first is respected bit-depth, then subsampling and finally color space\n\n"
+                        "Permute the above letters to change the default order, eg. \"" TBOLD("cds") "\" to attempt to keep colorspace.\n";
+                 color_printf("%s", indent_paragraph(desc));
+                 return 1;
+        }
+        if (strlen(optarg) != strlen(pixfmt_conv_pref)) {
+                log_msg(LOG_LEVEL_ERROR,  "Wrong pixfmt conversion policy length (exactly 3 letters need to be used)!\n");
+                return -1;
+        }
+        if (strchr(optarg, 'd') == NULL || strchr(optarg, 's') == NULL || strchr(optarg, 'c') == NULL) {
+                log_msg(LOG_LEVEL_ERROR,  "Wrong pixfmt conversion policy - use exactly the set 'dsc'!\n");
+                return -1;
+        }
+        memcpy(pixfmt_conv_pref, optarg, strlen(pixfmt_conv_pref));
         return 0;
 }
 

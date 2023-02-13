@@ -87,6 +87,8 @@ using std::min;
 #define min(a, b)      (((a) < (b))? (a): (b))
 #endif
 
+char pixfmt_conv_pref[] = "dsc"; ///< bitdepth, subsampling, color space
+
 #ifdef WORDS_BIGENDIAN
 #define BYTE_SWAP(x) (3 - x)
 #else
@@ -3698,32 +3700,48 @@ struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt)
 
 /**
  * qsort(_s)-compatible comparator
- *
- * @todo
- * add compare policy
  */
 int compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *desc_b, const struct pixfmt_desc *src_desc)
 {
-        if (desc_a->rgb != desc_b->rgb) {
-                return desc_a->rgb == src_desc->rgb ? -1 : 1;
-        }
-
-        if (desc_a->depth != desc_b->depth &&
-                        (desc_a->depth < src_desc->depth || desc_b->depth < src_desc->depth)) { // either a or b is lower than orig - sort higher bit depth first
-                return desc_b->depth - desc_a->depth;
-        }
-
-        if (desc_a->subsampling != desc_b->subsampling &&
-                        (desc_a->subsampling < src_desc->subsampling || desc_b->subsampling < src_desc->subsampling)) {
-                return desc_b->subsampling - desc_a->subsampling; // return better subs
+        for (char *feature = pixfmt_conv_pref; *feature != '\0'; ++feature) {
+                switch (*feature) {
+                        case 'd':
+                                if (desc_a->depth != desc_b->depth &&
+                                                (desc_a->depth < src_desc->depth || desc_b->depth < src_desc->depth)) { // either a or b is lower than orig - sort higher bit depth first
+                                        return desc_b->depth - desc_a->depth;
+                                }
+                                break;
+                        case 's':
+                                if (desc_a->subsampling != desc_b->subsampling &&
+                                                (desc_a->subsampling < src_desc->subsampling || desc_b->subsampling < src_desc->subsampling)) {
+                                        return desc_b->subsampling - desc_a->subsampling; // return better subs
+                                }
+                                break;
+                        case 'c':
+                                if (desc_a->rgb != desc_b->rgb) {
+                                        return desc_a->rgb == src_desc->rgb ? -1 : 1;
+                                }
+                                break;
+                }
         }
 
         // if both A and B are either undistinguishable or better than src, return closer ("worse") pixfmt
-        if (desc_a->depth != desc_b->depth) {
-                return desc_a->depth - desc_b->depth;
-        }
-        if (desc_a->subsampling != desc_b->subsampling) {
-                return desc_a->subsampling - desc_b->subsampling;
+        for (char *feature = pixfmt_conv_pref; *feature != '\0'; ++feature) {
+                switch (*feature) {
+                        case 'd':
+                                if (desc_a->depth != desc_b->depth) {
+                                        return desc_a->depth - desc_b->depth;
+                                }
+                                break;
+                        case 's':
+                                if (desc_a->subsampling != desc_b->subsampling) {
+                                        return desc_a->subsampling - desc_b->subsampling;
+                                }
+                                break;
+                        case 'c':
+                                // will be a tie here
+                                break;
+                }
         }
 
         return desc_a->id < desc_b->id ? -1 : 1;

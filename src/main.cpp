@@ -140,6 +140,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
+#define OPT_PIXFMT_CONV_POLICY (('P' << 8) | 'C')
 #define OPT_PROTOCOL (('P' << 8) | 'R')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_VIDEO_CODECS (('V' << 8) | 'C')
@@ -422,6 +423,7 @@ static void usage(const char *exec_path, bool full = false)
                                 {"capture filter(s), must be given before capture device"});
                 print_help_item("--param <params> | help", {"additional advanced parameters, use help for list"});
                 print_help_item("--pix-fmts", {"list of pixel formats"});
+                print_help_item("--conv-policy", {"pixel format conversion policy"});
                 print_help_item("--video-codecs", {"list of video codecs"});
         }
         print_help_item("address", {"destination address"});
@@ -836,6 +838,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"rtsp-server", optional_argument, 0, 'H'},
                 {"param", required_argument, 0, OPT_PARAM},
                 {"pix-fmts", no_argument, 0, OPT_PIX_FMTS},
+                {"conv-policy", required_argument, 0, OPT_PIXFMT_CONV_POLICY},
                 {"video-codecs", no_argument, 0, OPT_VIDEO_CODECS},
                 {"nat-traverse", optional_argument, nullptr, 'N'},
                 {"client", no_argument, nullptr, 'C'},
@@ -1091,6 +1094,11 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case OPT_PIX_FMTS:
                         print_pixel_formats();
                         return 1;
+                case OPT_PIXFMT_CONV_POLICY:
+                        if (int ret = set_pixfmt_conv_policy(optarg)) {
+                                return ret < 0 ? -EXIT_FAIL_USAGE : 1;
+                        }
+                        break;
                 case OPT_VIDEO_CODECS:
                         print_video_codecs();
                         return 1;

@@ -103,13 +103,13 @@ extern unsigned int cuda_devices_count;
 #define MODE_SENDER   (1U<<0U)
 #define MODE_RECEIVER (1U<<1U)
 
-extern char *sage_network_device;
-
 typedef void (*mainloop_t)(void *);
 extern mainloop_t mainloop;
 extern void *mainloop_udata;
 
 extern int glfw_init_count;
+extern char pixfmt_conv_pref[]; // defined in video_codec.c
+extern char *sage_network_device;
 
 // Both of following varables are non-negative. It indicates amount of milliseconds that
 // audio or video should be delayed. This shall be used for AV sync control. For
@@ -140,6 +140,7 @@ const char *get_commandline_param(const char *key);
 void set_commandline_param(const char *key, const char *val);
 
 int set_audio_capture_format(const char *optarg);
+int set_pixfmt_conv_policy(const char *optarg);
 bool parse_params(const char *optarg, bool preinit);
 void print_pixel_formats(void);
 void print_video_codecs(void);
