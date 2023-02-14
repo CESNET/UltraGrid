@@ -52,8 +52,6 @@ int get_available_pix_fmts(codec_t in_codec, int requested_subsampling, codec_t 
 decoder_t get_decoder_from_uv_to_uv(codec_t in, enum AVPixelFormat av, codec_t *out);
 pixfmt_callback_t select_pixfmt_callback(enum AVPixelFormat fmt, codec_t src);
 
-pixfmt_callback_t get_uv_to_av_conversion(codec_t uv_codec, int av_codec);
-
 /**
  * Returns AV format details for given pair UV,AV codec (must be unique then)
  */
