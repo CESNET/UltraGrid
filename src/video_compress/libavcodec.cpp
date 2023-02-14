@@ -237,6 +237,7 @@ struct state_video_compress_libav {
         }
         ~state_video_compress_libav() {
                 av_packet_free(&pkt);
+                av_frame_free(&tmp_frame);
         }
 
         struct module       module_data;
@@ -248,6 +249,7 @@ struct state_video_compress_libav {
         // for every core - parts of the above
         vector<AVFrame *>   in_frame_part;
         AVCodecContext     *codec_ctx = nullptr;
+        AVFrame            *tmp_frame = av_frame_alloc();
 
         unsigned char      *decoded = nullptr; ///< intermediate representation for codecs
                                      ///< that are not directly supported
@@ -1292,7 +1294,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                                 }
                         }
                 } else { // just set pointers to input buffer
-                        frame = av_frame_alloc();
+                        frame = s->tmp_frame;
                         memcpy(frame->linesize, s->in_frame->linesize, sizeof frame->linesize);
                         frame->width = s->in_frame->width;
                         frame->height = s->in_frame->height;
@@ -1302,14 +1304,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         } else {
                                 frame->data[0] = (uint8_t *) decoded;
                         }
-                        // prevent leaving dangling pointer to the input buffer that may
-                        // be freed by cleanup()
-                        std::shared_ptr<void> clean_data_ptr((void*)frame,
-                                [](void *f) {
-                                        auto *frame = (AVFrame *) f;
-                                        av_frame_free(&frame);
-                                });
-                        cleanup_callbacks.push_back(std::move(clean_data_ptr));
                 }
         }
 
