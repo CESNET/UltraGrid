@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,6 +105,19 @@ public:
                 return ret;
         }
 
+        template<typename Rep, typename Period>
+        bool timed_pop(T& result, std::chrono::duration<Rep, Period> const& timeout)
+        {
+                std::unique_lock<std::mutex> l(m_lock);
+                if (!m_queue_incremented.wait_for(l, timeout, [this]{return m_queue.size() > 0;})) {
+                        return false;
+                }
+                result = std::move(m_queue.front());
+                m_queue.pop();
+                l.unlock();
+                m_queue_decremented.notify_one();
+                return true;
+        }
 
 private:
         std::queue<T>           m_queue;

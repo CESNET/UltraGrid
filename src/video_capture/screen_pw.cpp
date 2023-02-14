@@ -5,6 +5,7 @@
 #include <future>
 #include <chrono>
 #include <atomic>
+#include <cassert>
 #include <fstream>
 #include <algorithm>
 #include <unistd.h>
@@ -22,7 +23,6 @@
 #include "lib_common.h"
 #include "video.h"
 #include "video_capture.h"
-#include "concurrent_queue/readerwriterqueue.h"
 
 //#define ENABLE_INSTRUMENTATION
 
@@ -299,8 +299,8 @@ struct screen_cast_session {
         // used exlusively by ultragrid thread
         video_frame_wrapper in_flight_frame;
 
-        moodycamel::BlockingReaderWriterQueue<video_frame_wrapper> blank_frames {QUEUE_SIZE};
-        moodycamel::BlockingReaderWriterQueue<video_frame_wrapper> sending_frames {QUEUE_SIZE};
+        synchronized_queue<video_frame_wrapper, QUEUE_SIZE> blank_frames;
+        synchronized_queue<video_frame_wrapper, QUEUE_SIZE> sending_frames;
 
         struct {
                 bool show_cursor = false;
@@ -448,7 +448,7 @@ static void on_stream_param_changed(void *session_ptr, uint32_t id, const struct
         pw_stream_update_params(session.pw.stream, params, n_params);
 
         for(int i = 0; i < QUEUE_SIZE; ++i)
-                session.blank_frames.enqueue(session.pw.allocate_video_frame());
+                session.blank_frames.push(session.pw.allocate_video_frame());
 
         session.init_error.set_value("");
 }
@@ -545,7 +545,7 @@ static void on_process(void *session_ptr) {
                         continue;
                 }
 
-                if(!session.blank_frames.wait_dequeue_timed(next_frame, 1000ms / session.pw.expecting_fps)) {
+                if(!session.blank_frames.timed_pop(next_frame, 1000ms / session.pw.expecting_fps)) {
                         LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: dropping frame (blank frame dequeue timed out)\n";
                         pw_stream_queue_buffer(session.pw.stream, buffer);
                         continue;
@@ -559,7 +559,7 @@ static void on_process(void *session_ptr) {
                 }
 
                 copy_frame(session.pw.video_format(), buffer->buffer, next_frame, session.pw.width(), session.pw.height(), crop_region);
-                session.sending_frames.enqueue(std::move(next_frame));
+                session.sending_frames.push(std::move(next_frame));
                 pw_stream_queue_buffer(session.pw.stream, buffer);
                 
                 ++session.pw.frame_count;
@@ -577,7 +577,7 @@ static void on_process(void *session_ptr) {
                 }
         }
         
-        LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << "\n";
+        //LOG(LOG_LEVEL_DEBUG) << "[screen_pw]: from pw: "<< n_buffers_from_pw << "\t sending: "<<session.sending_frames.size_approx() << "\t blank: " << session.blank_frames.size_approx() << "\n";
         
 }
 
@@ -963,11 +963,11 @@ static struct video_frame *vidcap_screen_pw_grab(void *session_ptr, struct audio
         *audio = nullptr;
    
         if(session.in_flight_frame.get() != nullptr){
-                session.blank_frames.enqueue(std::move(session.in_flight_frame));
+                session.blank_frames.push(std::move(session.in_flight_frame));
         }
 
         using namespace std::chrono_literals;
-        session.sending_frames.wait_dequeue_timed(session.in_flight_frame, 500ms);
+        session.sending_frames.timed_pop(session.in_flight_frame, 500ms);
         return session.in_flight_frame.get();
 }
 
