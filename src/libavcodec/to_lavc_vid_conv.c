@@ -1254,8 +1254,6 @@ static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char
 struct uv_to_av_conversion {
         codec_t src;
         enum AVPixelFormat dst;
-        enum AVColorSpace colorspace;  ///< destination colorspace
-        enum AVColorRange color_range; ///< destination color range
         pixfmt_callback_t func;        ///< conversion function
 };
 /**
@@ -1271,79 +1269,81 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
          * conversions below the others.
          */
         static const struct uv_to_av_conversion uv_to_av_conversions[] = {
-                { v210, AV_PIX_FMT_YUV420P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv420p10le },
-                { v210, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv422p10le },
-                { v210, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p10le },
-                { v210, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_yuv444p16le },
+                { v210, AV_PIX_FMT_YUV420P10LE, v210_to_yuv420p10le },
+                { v210, AV_PIX_FMT_YUV422P10LE, v210_to_yuv422p10le },
+                { v210, AV_PIX_FMT_YUV444P10LE, v210_to_yuv444p10le },
+                { v210, AV_PIX_FMT_YUV444P16LE, v210_to_yuv444p16le },
 #if XV3X_PRESENT
-                { v210, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_xv30 },
-                { Y416, AV_PIX_FMT_XV30,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y416_to_xv30 },
-                { v210, AV_PIX_FMT_Y212,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_y210 },
+                { v210, AV_PIX_FMT_XV30,         v210_to_xv30 },
+                { Y416, AV_PIX_FMT_XV30,         y416_to_xv30 },
+                { v210, AV_PIX_FMT_Y212,         v210_to_y210 },
 #endif
 #if Y210_PRESENT
-                { v210, AV_PIX_FMT_Y210,         AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_y210 },
+                { v210, AV_PIX_FMT_Y210,         v210_to_y210 },
 #endif
-                { R10k, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p10le },
-                { R10k, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p12le },
-                { R10k, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv444p16le },
-                { R12L, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p10le },
-                { R12L, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p12le },
-                { R12L, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r12l_to_yuv444p16le },
-                { RG48, AV_PIX_FMT_YUV444P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, rg48_to_yuv444p10le },
-                { RG48, AV_PIX_FMT_YUV444P12LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, rg48_to_yuv444p12le },
-                { RG48, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, rg48_to_yuv444p16le },
+                { R10k, AV_PIX_FMT_YUV444P10LE, r10k_to_yuv444p10le },
+                { R10k, AV_PIX_FMT_YUV444P12LE, r10k_to_yuv444p12le },
+                { R10k, AV_PIX_FMT_YUV444P16LE, r10k_to_yuv444p16le },
+                { R12L, AV_PIX_FMT_YUV444P10LE, r12l_to_yuv444p10le },
+                { R12L, AV_PIX_FMT_YUV444P12LE, r12l_to_yuv444p12le },
+                { R12L, AV_PIX_FMT_YUV444P16LE, r12l_to_yuv444p16le },
+                { RG48, AV_PIX_FMT_YUV444P10LE, rg48_to_yuv444p10le },
+                { RG48, AV_PIX_FMT_YUV444P12LE, rg48_to_yuv444p12le },
+                { RG48, AV_PIX_FMT_YUV444P16LE, rg48_to_yuv444p16le },
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
-                { v210, AV_PIX_FMT_P010LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p010le },
+                { v210, AV_PIX_FMT_P010LE,      v210_to_p010le },
 #endif
 #if P210_PRESENT
-                { v210, AV_PIX_FMT_P210LE,      AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, v210_to_p210le },
+                { v210, AV_PIX_FMT_P210LE,      v210_to_p210le },
 #endif
-                { UYVY, AV_PIX_FMT_YUV422P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
-                { UYVY, AV_PIX_FMT_YUVJ422P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv422p },
+                { UYVY, AV_PIX_FMT_YUV422P,     uyvy_to_yuv422p },
+                { UYVY, AV_PIX_FMT_YUVJ422P,    uyvy_to_yuv422p },
 #if VUYX_PRESENT
-                { UYVY, AV_PIX_FMT_VUYA,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_vuya },
-                { UYVY, AV_PIX_FMT_VUYX,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_vuya },
+                { UYVY, AV_PIX_FMT_VUYA,        uyvy_to_vuya },
+                { UYVY, AV_PIX_FMT_VUYX,        uyvy_to_vuya },
 #endif
-                { UYVY, AV_PIX_FMT_YUV420P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
-                { UYVY, AV_PIX_FMT_YUVJ420P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv420p },
-                { UYVY, AV_PIX_FMT_NV12,        AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_nv12 },
-                { UYVY, AV_PIX_FMT_YUV444P,     AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv444p },
-                { UYVY, AV_PIX_FMT_YUVJ444P,    AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, uyvy_to_yuv444p },
-                { Y216, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y216_to_yuv422p10le },
-                { Y216, AV_PIX_FMT_YUV422P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y216_to_yuv422p16le },
-                { Y216, AV_PIX_FMT_YUV444P16LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, y216_to_yuv444p16le },
-                { RGB, AV_PIX_FMT_BGR0,         AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgb_to_bgr0 },
-                { RGB, AV_PIX_FMT_GBRP,         AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgb_to_gbrp },
-                { RGBA, AV_PIX_FMT_GBRP,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgba_to_gbrp },
-                { RGBA, AV_PIX_FMT_BGRA,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rgba_to_bgra },
-                { R10k, AV_PIX_FMT_BGR0,        AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_bgr0 },
-                { R10k, AV_PIX_FMT_GBRP10LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp10le },
-                { R10k, AV_PIX_FMT_GBRP16LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_gbrp16le },
+                { UYVY, AV_PIX_FMT_YUV420P,     uyvy_to_yuv420p },
+                { UYVY, AV_PIX_FMT_YUVJ420P,    uyvy_to_yuv420p },
+                { UYVY, AV_PIX_FMT_NV12,        uyvy_to_nv12 },
+                { UYVY, AV_PIX_FMT_YUV444P,     uyvy_to_yuv444p },
+                { UYVY, AV_PIX_FMT_YUVJ444P,    uyvy_to_yuv444p },
+                { Y216, AV_PIX_FMT_YUV422P10LE, y216_to_yuv422p10le },
+                { Y216, AV_PIX_FMT_YUV422P16LE, y216_to_yuv422p16le },
+                { Y216, AV_PIX_FMT_YUV444P16LE, y216_to_yuv444p16le },
+                { RGB, AV_PIX_FMT_BGR0,         rgb_to_bgr0 },
+                { RGB, AV_PIX_FMT_GBRP,         rgb_to_gbrp },
+                { RGBA, AV_PIX_FMT_GBRP,        rgba_to_gbrp },
+                { RGBA, AV_PIX_FMT_BGRA,        rgba_to_bgra },
+                { R10k, AV_PIX_FMT_BGR0,        r10k_to_bgr0 },
+                { R10k, AV_PIX_FMT_GBRP10LE,    r10k_to_gbrp10le },
+                { R10k, AV_PIX_FMT_GBRP16LE,    r10k_to_gbrp16le },
 #if X2RGB10LE_PRESENT
-                { R10k, AV_PIX_FMT_X2RGB10LE,   AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r10k_to_x2rgb10le },
+                { R10k, AV_PIX_FMT_X2RGB10LE,   r10k_to_x2rgb10le },
 #endif
-                { R10k, AV_PIX_FMT_YUV422P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv422p10le },
-                { R10k, AV_PIX_FMT_YUV420P10LE, AVCOL_SPC_BT709, AVCOL_RANGE_MPEG, r10k_to_yuv420p10le },
+                { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
+                { R10k, AV_PIX_FMT_YUV420P10LE, r10k_to_yuv420p10le },
 #ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
-                { R12L, AV_PIX_FMT_GBRP12LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r12l_to_gbrp12le },
-                { R12L, AV_PIX_FMT_GBRP16LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, r12l_to_gbrp16le },
-                { RG48, AV_PIX_FMT_GBRP12LE,    AVCOL_SPC_RGB,   AVCOL_RANGE_JPEG, rg48_to_gbrp12le },
+                { R12L, AV_PIX_FMT_GBRP12LE,    r12l_to_gbrp12le },
+                { R12L, AV_PIX_FMT_GBRP16LE,    r12l_to_gbrp16le },
+                { RG48, AV_PIX_FMT_GBRP12LE,    rg48_to_gbrp12le },
 #endif
-                { 0, 0, 0, 0, 0 }
+                { 0, 0, 0 }
         };
         return uv_to_av_conversions;
 }
 
-void get_av_pixfmt_details(codec_t uv_codec, int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range)
+void get_av_pixfmt_details(int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range)
 {
-        for (const struct uv_to_av_conversion *conversions = get_uv_to_av_conversions();
-                        conversions->func != 0; conversions++) {
-                if (conversions->dst == av_codec &&
-                                conversions->src == uv_codec) {
-                        *colorspace = conversions->colorspace;
-                        *color_range = conversions->color_range;
-                        return;
-                }
+        const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(av_codec);
+        if (!avd) {
+                return;
+        }
+        if ((avd->flags & AV_PIX_FMT_FLAG_RGB) != 0) {
+                *colorspace = AVCOL_SPC_RGB;
+                *color_range = AVCOL_RANGE_JPEG;
+        } else {
+                *colorspace = AVCOL_SPC_BT709;
+                *color_range = AVCOL_RANGE_MPEG;
         }
 }
 

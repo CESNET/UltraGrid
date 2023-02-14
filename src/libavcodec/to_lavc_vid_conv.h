@@ -55,7 +55,7 @@ pixfmt_callback_t select_pixfmt_callback(enum AVPixelFormat fmt, codec_t src);
 /**
  * Returns AV format details for given pair UV,AV codec (must be unique then)
  */
-void get_av_pixfmt_details(codec_t uv_codec, int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range);
+void get_av_pixfmt_details(int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range);
 
 #ifdef __cplusplus
 }

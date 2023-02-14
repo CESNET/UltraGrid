@@ -878,7 +878,7 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 s->codec_ctx->colorspace = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_SPC_RGB : AVCOL_SPC_BT709;
                 s->codec_ctx->color_range = (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
         }
-        get_av_pixfmt_details(ug_codec, pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
+        get_av_pixfmt_details(pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
 
         /* open it */
         if (avcodec_open2(s->codec_ctx, codec, NULL) < 0) {
