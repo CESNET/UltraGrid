@@ -938,8 +938,8 @@ static int vidcap_screen_pw_init(struct vidcap_params *params, void **state)
         
         if (std::string error_msg = future_error.get(); !error_msg.empty()) {
                 LOG(LOG_LEVEL_FATAL) << "[screen_pw]: " << error_msg << "\n";
-                dbus_thread.join();
                 session.portal->quit_loop();
+                dbus_thread.join();
                 return VIDCAP_INIT_FAIL;
         }
 
