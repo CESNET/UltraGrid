@@ -168,6 +168,7 @@ vidcap_aggregate_done(void *state)
 	}
         
         vf_free(s->frame);
+        free(s);
 }
 
 static struct video_frame *
