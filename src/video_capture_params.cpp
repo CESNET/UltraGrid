@@ -5,7 +5,7 @@
  * @ingroup vidcap
  */
 /*
- * Copyright (c) 2013-2017 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -181,6 +181,12 @@ void vidcap_params_set_device(struct vidcap_params *params, const char *config)
                         params->fmt = strdup("");
                 }
         }
+}
+
+void vidcap_params_set_driver(struct vidcap_params *params, const char *driver)
+{
+        free(params->driver);
+        params->driver = strdup(driver);
 }
 
 void vidcap_params_set_capture_filter(struct vidcap_params *params,

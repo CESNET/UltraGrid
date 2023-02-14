@@ -2016,10 +2016,12 @@ SCREEN_CAP_INC=
 SCREEN_CAP_OBJ=
 SCREEN_CAP_LIB=
 screen_cap=no
+screen_cap_x11=no
+sc_details=
 
 AC_ARG_ENABLE(screen,
 [  --disable-screen        disable screen capture (default is auto)]
-[                          Requires: none (OSX) x11 (Linux) dshow (Win)],
+[                          Requires: none (OSX) x11 or pipewire (Linux) dshow (Win)],
     [screen_cap_req=$enableval],
     [screen_cap_req=$build_default]
     )
@@ -2050,6 +2052,7 @@ case "$system" in
                          $ac_cv_header_X11_Xlib_h = yes -a $ac_cv_header_X11_Xutil_h = yes
 		then
                         screen_cap=yes
+                        screen_cap_x11=yes
                         SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11"
                         if test $ac_cv_lib_Xfixes_XFixesGetCursorImage = yes -a \
                                 $ac_cv_header_X11_extensions_Xfixes_h = yes
@@ -2057,39 +2060,16 @@ case "$system" in
                                 AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])
                                 SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lXfixes"
                         fi
-
-		else
-                        screen_cap=no
 		fi
 	;;
 esac
 
-if test $screen_cap_req != no -a $screen_cap = yes
-then
-        AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
-        if test $system = MacOSX; then
-                SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
-        elif test $system = Linux; then
-                SCREEN_CAP_OBJ="src/video_capture/screen_x11.o src/x11_common.o"
-        else
-                SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
-                DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${srcdir}/data/screen-capture-recorder-x64.dll"
-        fi
-        ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
-else
-        screen_cap=no
-fi
-
-
-
-
+# PipeWire
 PKG_CHECK_MODULES([SCREEN_PW_DEPS], [libpipewire-0.3  glib-2.0 gobject-2.0 gio-unix-2.0 ], [FOUND_SCREEN_SCREEN_PW_DEPS=yes], [FOUND_SCREEN_SCREEN_PW_DEPS=no])
 screen_cap_pw=no
-if test $screen_cap_pw_req = yes -a $FOUND_SCREEN_SCREEN_PW_DEPS = no; then
-        AC_MSG_ERROR([Screen capture pipewire not found]);
-fi
 
-if test $FOUND_SCREEN_SCREEN_PW_DEPS = yes; then
+if { test $screen_cap_req != no && test $screen_cap_req != x11; } && test $FOUND_SCREEN_SCREEN_PW_DEPS = yes; then
+        screen_cap=yes
         screen_cap_pw=yes
         SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs libpipewire-0.3)"
         SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs glib-2.0)"
@@ -2109,10 +2089,42 @@ if test $FOUND_SCREEN_SCREEN_PW_DEPS = yes; then
         INC="$INC $INCSCREEN_CAP_PIPEWIRE_INC"
         CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
 
-        #BLANK_OBJ="$BLANK_OBJ src/libavcodec_common.o" # get_ug_to_av_pixfmt()
         ADD_MODULE("vidcap_screen_pipewire", "$SCREEN_CAP_PIPEWIRE_OBJ", "$SCREEN_CAP_PIPEWIRE_LIBS")
+        screen_modules=PipeWire
 fi
 
+if { test $screen_cap_req != no && test $screen_cap_req != pipewire; } && test $screen_cap_x11 = yes; then
+        ADD_MODULE("vidcap_screen_x11", "src/video_capture/screen_x11.o src/x11_common.o", "$SCREEN_CAP_LIB")
+        screen_modules="${screen_modules:+$screen_modules,}X11"
+else
+        screen_cap_x11=no
+fi
+
+if test $screen_cap_req != no && test $screen_cap = yes
+then
+        AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
+        if test $system = MacOSX; then
+                SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
+        elif test $system = Linux; then
+                SCREEN_CAP_OBJ="src/video_capture/screen_linux.o"
+        else
+                SCREEN_CAP_OBJ="src/video_capture/screen_win.o"
+                DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${srcdir}/data/screen-capture-recorder-x64.dll"
+        fi
+        ADD_MODULE("vidcap_screen", "$SCREEN_CAP_OBJ", "$SCREEN_CAP_LIB")
+else
+        screen_cap=no
+fi
+
+if { test $screen_cap_req = yes && { test $screen_cap = no || { test $system = Linux && { test $screen_cap_x11 = no || test $screen_cap_pw = no; }; }; }; } \
+        || { test $screen_cap_req = x11 && test $screen_cap_x11 = no; } || { test $screen_cap_req = pipewire && test $screen_cap_pw = no; }
+then
+        AC_MSG_ERROR([Screen capture not found]);
+fi
+
+if test -n "$screen_modules"; then
+        screen_modules=" ($screen_modules)"
+fi
 
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
@@ -3627,8 +3639,7 @@ RESULT=`add_column "$RESULT" "OpenXR VR Display" $xrgl_disp $?`
 RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
-RESULT=`add_column "$RESULT" "Screen capture" $screen_cap $?`
-RESULT=`add_column "$RESULT" "Screen capture PipeWire" $screen_cap_pw $?`
+RESULT=`add_column "$RESULT" "Screen capture$screen_modules" $screen_cap $?`
 RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
