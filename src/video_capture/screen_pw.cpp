@@ -16,11 +16,11 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/format.h>
-#include <rang.hpp>
 
 #include "utils/synchronized_queue.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -867,7 +867,7 @@ static void vidcap_screen_pw_probe(struct device_info **available_devices, int *
 
 static void show_help() {
         auto param = [](const char* name) -> std::ostream& {
-                std::cout << rang::style::bold << "  " <<name << rang::style::reset << " - ";
+                col() << "  " << SBOLD(name) << " - ";
                 return std::cout;
         };
 
