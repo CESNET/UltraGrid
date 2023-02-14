@@ -41,6 +41,8 @@
  * 1. [v210](https://wiki.multimedia.cx/index.php/V210)
  */
 
+#define __STDC_WANT_LIB_EXT1__ 1 // qsort_s
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -52,6 +54,7 @@
 #include <stdint.h>
 
 #include "color.h"
+#include "compat/qsort_s.h"
 #include "host.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
@@ -1241,9 +1244,24 @@ static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char
 // conversion dispatchers
 //
 /**
+ * Conversions from UltraGrid to FFMPEG formats.
+ *
+ * Currently do not add an "upgrade" conversion (UYVY->10b) because also
+ * UltraGrid decoder can be used first and thus conversion v210->UYVY->10b
+ * may be used resulting in a precision loss. If needed, put the upgrade
+ * conversions below the others.
+ */
+struct uv_to_av_conversion {
+        codec_t src;
+        enum AVPixelFormat dst;
+        enum AVColorSpace colorspace;  ///< destination colorspace
+        enum AVColorRange color_range; ///< destination color range
+        pixfmt_callback_t func;        ///< conversion function
+};
+/**
  * @brief returns list of available conversion. Terminated by uv_to_av_conversion::src == VIDEO_CODEC_NONE
  */
-const struct uv_to_av_conversion *get_uv_to_av_conversions() {
+static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
         /**
          * Conversions from UltraGrid to FFMPEG formats.
          *
@@ -1341,6 +1359,142 @@ void get_av_pixfmt_details(codec_t uv_codec, int av_codec, enum AVColorSpace *co
         }
 }
 
+static int get_intermediate_codecs_from_uv_to_av(codec_t in, enum AVPixelFormat av, codec_t fmts[VIDEO_CODEC_COUNT]) {
+        int fmt_set[VIDEO_CODEC_COUNT] = { VIDEO_CODEC_NONE }; // to avoid multiple occurences
+        for (const struct uv_to_av_pixfmt *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed - direct mapping
+                decoder_t decoder = get_decoder_from_to(in, i->uv_codec);
+                if (decoder && i->av_pixfmt == av) {
+                        fmt_set[i->uv_codec] = 1;
+                }
+        }
+        for (const struct uv_to_av_conversion *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; ++c) { // AV conversion needed
+                decoder_t decoder = get_decoder_from_to(in, c->src);
+                if (decoder && c->dst == av) {
+                        fmt_set[c->src] = 1;
+                }
+        }
+
+        int nb_fmts = 0;
+        for (int i = 0; i < VIDEO_CODEC_COUNT; ++i) {
+                if (fmt_set[i]) {
+                        fmts[nb_fmts++] = (codec_t) i;
+                }
+        }
+        return nb_fmts;
+}
+
+#ifdef QSORT_S_COMP_FIRST
+static int compare_uv_pixfmts(void *orig_c, const void *a, const void *b) {
+#else
+static int compare_uv_pixfmts(const void *a, const void *b, void *orig_c) {
+#endif
+        const codec_t *pix_a = (const codec_t *) a;
+        const codec_t *pix_b = (const codec_t *) b;
+        const struct pixfmt_desc *src_desc = (struct pixfmt_desc *) orig_c;
+        struct pixfmt_desc desc_a = get_pixfmt_desc(*pix_a);
+        struct pixfmt_desc desc_b = get_pixfmt_desc(*pix_b);
+
+        return compare_pixdesc(&desc_a, &desc_b, src_desc);
+}
+
+/**
+ * Returns a UltraGrid decoder needed to decode from the UltraGrid codec in
+ * to out with respect to conversions in @ref conversions. Therefore it should
+ * be feasible to convert in to out and then convert out to av (last step may
+ * be omitted if the format is native for both indicated in
+ * ug_to_av_pixfmt_map).
+ */
+decoder_t get_decoder_from_uv_to_uv(codec_t in, enum AVPixelFormat av, codec_t *out) {
+        codec_t intermediate_codecs[VIDEO_CODEC_COUNT];
+        int ic_count = get_intermediate_codecs_from_uv_to_av(in, av, intermediate_codecs);
+        if (ic_count == 0) {
+                return NULL;
+        }
+
+        struct pixfmt_desc src_desc = get_pixfmt_desc(in);
+        qsort_s(intermediate_codecs, ic_count, sizeof intermediate_codecs[0], compare_uv_pixfmts, &src_desc);
+        *out = intermediate_codecs[0];
+        return get_decoder_from_to(in, *out);
+}
+
+pixfmt_callback_t select_pixfmt_callback(enum AVPixelFormat fmt, codec_t src) {
+        // no conversion needed
+        if (get_ug_to_av_pixfmt(src) != AV_PIX_FMT_NONE
+                        && get_ug_to_av_pixfmt(src) == fmt) {
+                return NULL;
+        }
+
+        for (const struct uv_to_av_conversion *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // FFMPEG conversion needed
+                if (c->src == src && c->dst == fmt) {
+                        return c->func;
+                }
+        }
+
+        log_msg(LOG_LEVEL_FATAL, "[lavc] Cannot find conversion to any of encoder supported pixel format.\n");
+        abort();
+}
+
+#ifdef QSORT_S_COMP_FIRST
+static int lavc_compare_convs(void *orig_c, const void *a, const void *b) {
+#else
+static int lavc_compare_convs(const void *a, const void *b, void *orig_c) {
+#endif
+        const enum AVPixelFormat *pix_a = (const enum AVPixelFormat *) a;
+        const enum AVPixelFormat *pix_b = (const enum AVPixelFormat *) b;
+        const struct pixfmt_desc *src_desc = (struct pixfmt_desc *) orig_c;
+        struct pixfmt_desc desc_a = av_pixfmt_get_desc(*pix_a);
+        struct pixfmt_desc desc_b = av_pixfmt_get_desc(*pix_b);
+
+        return compare_pixdesc(&desc_a, &desc_b, src_desc);
+}
+
+/**
+ * Returns list of pix_fmts that UltraGrid can supply to the encoder.
+ * The list is ordered according to input description and requested subsampling.
+ */
+int get_available_pix_fmts(codec_t in_codec,
+                int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat fmts[AV_PIX_FMT_NB])
+{
+        int nb_fmts = 0;
+        // add the format itself if it matches the ultragrid one
+        if (get_ug_to_av_pixfmt(in_codec) != AV_PIX_FMT_NONE) {
+                if (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == in_codec) {
+                        fmts[nb_fmts++] = get_ug_to_av_pixfmt(in_codec);
+                }
+        }
+
+        int sort_start_idx = nb_fmts;
+#define MATCH_SUBS_AND_UVC_IF_REQ(avpixfmt, uvpixfmt) (requested_subsampling == 0 || requested_subsampling == av_pixfmt_get_subsampling(avpixfmt)) && (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == uvpixfmt)
+        int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurences
+        for (const struct uv_to_av_pixfmt *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no UV conversion needed, only AV
+                if (get_decoder_from_to(in_codec, i->uv_codec)) {
+                        if (MATCH_SUBS_AND_UVC_IF_REQ(i->av_pixfmt, i->uv_codec)) {
+                                fmt_set[i->av_pixfmt] = 1;
+                        }
+                }
+        }
+        for (const struct uv_to_av_conversion *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // both UV and AV conv needed
+                if (c->src == in_codec || get_decoder_from_to(in_codec, c->src)) {
+                        if (MATCH_SUBS_AND_UVC_IF_REQ(c->dst, c->src)) {
+                                fmt_set[c->dst] = 1;
+                        }
+                }
+        }
+        for (int i = 0; i < AV_PIX_FMT_NB; ++i) {
+                if (fmt_set[i]) {
+                        fmts[nb_fmts++] = (enum AVPixelFormat) i;
+                }
+        }
+
+        struct pixfmt_desc src_desc = get_pixfmt_desc(in_codec);
+        qsort_s(fmts + sort_start_idx, nb_fmts - sort_start_idx, sizeof fmts[0], lavc_compare_convs, &src_desc);
+
+#ifdef HWACC_VAAPI
+        fmts[nb_fmts++] = AV_PIX_FMT_VAAPI;
+#endif
+
+        return nb_fmts;
+}
 
 #pragma GCC diagnostic pop
 

@@ -39,6 +39,7 @@
 #define LIBAVCODEC_TO_LAVC_VID_CONV_0C22E28C_A3F1_489D_87DC_E56D76E3598B
 
 #include "libavcodec/lavc_common.h"
+#include "video_codec.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,22 +48,10 @@ extern "C" {
 typedef void uv_to_av_convert(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height);
 typedef uv_to_av_convert *pixfmt_callback_t;
 
-/**
- * Conversions from UltraGrid to FFMPEG formats.
- *
- * Currently do not add an "upgrade" conversion (UYVY->10b) because also
- * UltraGrid decoder can be used first and thus conversion v210->UYVY->10b
- * may be used resulting in a precision loss. If needed, put the upgrade
- * conversions below the others.
- */
-struct uv_to_av_conversion {
-        codec_t src;
-        enum AVPixelFormat dst;
-        enum AVColorSpace colorspace;  ///< destination colorspace
-        enum AVColorRange color_range; ///< destination color range
-        pixfmt_callback_t func;        ///< conversion function
-};
-const struct uv_to_av_conversion *get_uv_to_av_conversions(void);
+int get_available_pix_fmts(codec_t in_codec, int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat fmts[AV_PIX_FMT_NB]);
+decoder_t get_decoder_from_uv_to_uv(codec_t in, enum AVPixelFormat av, codec_t *out);
+pixfmt_callback_t select_pixfmt_callback(enum AVPixelFormat fmt, codec_t src);
+
 pixfmt_callback_t get_uv_to_av_conversion(codec_t uv_codec, int av_codec);
 
 /**
