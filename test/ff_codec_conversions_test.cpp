@@ -76,31 +76,20 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
                 assert(vc_copylineRGBAtoR10k != nullptr);
                 vc_copylineRGBAtoR10k(r10k_buf.data(), rgba_buf.data(), 4L * width * height, 0, 8, 16);
 
-                AVFrame frame{};
-                frame.format = avfmt;
-                frame.width = width;
-                frame.height = height;
-
-                /* the image can be allocated by any means and av_image_alloc() is
-                 * just the most convenient way if av_malloc() is to be used */
-                assert(av_image_alloc(frame.data, frame.linesize,
-                                        width, height, (AVPixelFormat) frame.format, 32) >= 0);
-
-                auto from_conv = get_uv_to_av_conversion(R10k, frame.format);
-                auto to_conv = get_av_to_uv_conversion(frame.format, R10k);
+                struct to_lavc_vid_conv *from_conv = to_lavc_vid_conv_init(R10k, width, height, avfmt, 1);
+                auto to_conv = get_av_to_uv_conversion(avfmt, R10k);
                 assert(to_conv.valid && from_conv != nullptr);
 
                 TIMER(t0);
-                from_conv(&frame, r10k_buf.data(), width, height);
+                AVFrame *converted = to_lavc_vid_conv(from_conv, (char *) r10k_buf.data());
                 TIMER(t1);
-                av_to_uv_convert(&to_conv, reinterpret_cast<char*>(r10k_buf.data()), &frame, width, height, vc_get_linesize(width, R10k), nullptr);
+                av_to_uv_convert(&to_conv, reinterpret_cast<char*>(r10k_buf.data()), converted, width, height, vc_get_linesize(width, R10k), nullptr);
                 TIMER(t2);
+                to_lavc_vid_conv_destroy(&from_conv);
 
                 if (getenv("PERF") != nullptr) {
                         cout << "test_yuv444p16le_from_to_r10k: duration - enc " << tv_diff(t1, t0) << ", dec " <<tv_diff(t2, t1) << "\n";
                 }
-
-                av_freep(frame.data);
 
                 vector <unsigned char> rgba_buf_res(width * height * 4);
                 decoder_t vc_copyliner10k = get_decoder_from_to(R10k, RGBA);
@@ -153,31 +142,21 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
                 decoder_t rgb_to_r12l = get_decoder_from_to(RGB, R12L);
                 rgb_to_r12l(r12l_buf.data(), rgb_buf.data(), vc_get_datalen(width, height, R12L), 0, 8, 16);
 
-                AVFrame frame{};
-                frame.format = avfmt;
-                frame.width = width;
-                frame.height = height;
-
-                /* the image can be allocated by any means and av_image_alloc() is
-                 * just the most convenient way if av_malloc() is to be used */
-                assert(av_image_alloc(frame.data, frame.linesize,
-                                        width, height, (AVPixelFormat) frame.format, 32) >= 0);
-
-                auto from_conv = get_uv_to_av_conversion(R12L, frame.format);
-                auto to_conv = get_av_to_uv_conversion(frame.format, R12L);
+                struct to_lavc_vid_conv *from_conv = to_lavc_vid_conv_init(R12L, width, height, avfmt, 1);
+                auto to_conv = get_av_to_uv_conversion(avfmt, R12L);
                 assert(to_conv.valid && from_conv != nullptr);
 
                 TIMER(t0);
-                from_conv(&frame, r12l_buf.data(), width, height);
+                struct AVFrame *converted = to_lavc_vid_conv(from_conv, (char *) r12l_buf.data());
                 TIMER(t1);
-                av_to_uv_convert(&to_conv, reinterpret_cast<char*>(r12l_buf.data()), &frame, width, height, vc_get_linesize(width, R12L), nullptr);
+                av_to_uv_convert(&to_conv, reinterpret_cast<char*>(r12l_buf.data()), converted, width, height, vc_get_linesize(width, R12L), nullptr);
                 TIMER(t2);
+                to_lavc_vid_conv_destroy(&from_conv);
 
                 if (getenv("PERF") != nullptr) {
                         cout << "test_yuv444p16le_from_to_r12l: duration - enc " << tv_diff(t1, t0) << ", dec " <<tv_diff(t2, t1) << "\n";
                 }
 
-                av_freep(frame.data);
 
                 vector <unsigned char> rgb_buf_res(width * height * 3);
                 decoder_t r12l_to_rgb = get_decoder_from_to(R12L, RGB);
@@ -215,36 +194,22 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
 }
 
 static void yuv444p16le_rg48_encode_decode(int width, int height, char *in, char *out) {
-        AVFrame frame{};
-        frame.format = AV_PIX_FMT_YUV444P16LE;
-        frame.width = width;
-        frame.height = height;
+        AVPixelFormat avfmt = AV_PIX_FMT_YUV444P16LE;
 
-        /* the image can be allocated by any means and av_image_alloc() is
-         * just the most convenient way if av_malloc() is to be used */
-        if (int size = av_image_alloc(frame.data, frame.linesize,
-                                width, height, (AVPixelFormat) frame.format, 32); size < 0) {
-                char buf[1024];
-                av_strerror(size, buf, sizeof buf);
-                fprintf(stderr, "av_image_alloc failed: %s\n", buf);
-                abort();
-        }
-
-        auto from_conv = get_uv_to_av_conversion(RG48, frame.format);
-        auto to_conv = get_av_to_uv_conversion(frame.format, RG48);
+        struct to_lavc_vid_conv *from_conv = to_lavc_vid_conv_init(RG48, width, height, avfmt, 1);
+        auto to_conv = get_av_to_uv_conversion(avfmt, RG48);
         assert(to_conv.valid && from_conv != nullptr);
 
         TIMER(t0);
-        from_conv(&frame, reinterpret_cast<unsigned char *>(in), width, height);
+        struct AVFrame *converted = to_lavc_vid_conv(from_conv, in);
         TIMER(t1);
-        av_to_uv_convert(&to_conv, reinterpret_cast<char*>(out), &frame, width, height, vc_get_linesize(width, RG48), nullptr);
+        av_to_uv_convert(&to_conv, reinterpret_cast<char*>(out), converted, width, height, vc_get_linesize(width, RG48), nullptr);
         TIMER(t2);
+        to_lavc_vid_conv_destroy(&from_conv);
 
         if (getenv("PERF") != nullptr) {
                 cout << "test_yuv444p16le_from_to_rg48: duration - enc " << tv_diff(t1, t0) << ", dec " <<tv_diff(t2, t1) << "\n";
         }
-
-        av_freep(frame.data);
 }
 
 /**
@@ -392,18 +357,6 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                         AV_PIX_FMT_P210LE
 #endif
                         }) {
-                AVFrame frame{};
-                frame.format = c;
-                frame.width = width;
-                frame.height = height;
-                if (int size = av_image_alloc(frame.data, frame.linesize,
-                                        width, height, (AVPixelFormat) frame.format, 32); size < 0) {
-                        char buf[1024];
-                        av_strerror(size, buf, sizeof buf);
-                        fprintf(stderr, "av_image_alloc failed: %s\n", buf);
-                        abort();
-                }
-
 #if P210_PRESENT
                 if (c == AV_PIX_FMT_P210LE) {
 #else
@@ -417,13 +370,14 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                         }
                 }
 
-                auto from_conv = get_uv_to_av_conversion(codec, frame.format);
-                auto to_conv = get_av_to_uv_conversion(frame.format, codec);
+                struct to_lavc_vid_conv *from_conv = to_lavc_vid_conv_init(codec, width, height, c, 1);
+                auto to_conv = get_av_to_uv_conversion(c, codec);
                 assert(from_conv != nullptr);
                 assert(to_conv.valid);
 
-                from_conv(&frame, (unsigned char *) in.data(), width, height);
-                av_to_uv_convert(&to_conv, reinterpret_cast<char *>(out.data()), &frame, width, height, vc_get_linesize(width, codec), nullptr);
+                struct AVFrame *converted = to_lavc_vid_conv(from_conv, (char *) in.data());
+                av_to_uv_convert(&to_conv, reinterpret_cast<char *>(out.data()), converted, width, height, vc_get_linesize(width, codec), nullptr);
+                to_lavc_vid_conv_destroy(&from_conv);
 
                 if (getenv("DEBUG_DUMP") != nullptr) {
                         for (int i = 0; i < 128; i += 1) {
@@ -437,7 +391,6 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                 CPPUNIT_ASSERT_MESSAGE("Error: output doesn't match input"s, in == out);
                 out[(width / 2) * height] = 123;
                 CPPUNIT_ASSERT_MESSAGE("Error: output matches input but it shouldn't"s, in != out);
-                av_freep(frame.data);
         }
 }
 

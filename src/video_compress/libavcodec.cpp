@@ -1125,7 +1125,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
 
         time_ns_t t0 = get_time_in_ns();
-        struct AVFrame *frame = to_lavc_vid_conv(s->pixfmt_conversion, tx.get());
+        struct AVFrame *frame = to_lavc_vid_conv(s->pixfmt_conversion, tx->tiles[0].data);
         if (!frame) {
                 return {};
         }

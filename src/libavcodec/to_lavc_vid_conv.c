@@ -277,9 +277,9 @@ static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, const unsigned c
 
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
-                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
                 /*  every odd row */
-                const uint32_t *src2 = (const void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                const uint32_t *src2 = (const uint32_t *)(const void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_y2 = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
@@ -343,7 +343,7 @@ static void v210_to_yuv422p10le(AVFrame * __restrict out_frame, const unsigned c
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         for(int y = 0; y < height; y += 1) {
-                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -382,7 +382,7 @@ static void v210_to_yuv444p10le(AVFrame * __restrict out_frame, const unsigned c
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         for(int y = 0; y < height; y += 1) {
-                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -427,7 +427,7 @@ static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned c
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         for(int y = 0; y < height; y += 1) {
-                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -470,7 +470,7 @@ static void v210_to_xv30(AVFrame * __restrict out_frame, const unsigned char * _
         assert((uintptr_t) out_frame->linesize[0] % 4 == 0);
 
         for(int y = 0; y < height; y += 1) {
-                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint32_t *dst = (uint32_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < (width + 5) / 6; ++x) {
@@ -498,8 +498,8 @@ static void v210_to_y210(AVFrame * __restrict out_frame, const unsigned char * _
         assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
 
         for(int y = 0; y < height; y += 1) {
-                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
-                uint16_t *dst = (void *) (out_frame->data[0] + out_frame->linesize[0] * y);
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
+                uint16_t *dst = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < (width + 5) / 6; ++x) {
                         uint32_t w = *src++;
@@ -531,7 +531,7 @@ static void y416_to_xv30(AVFrame * __restrict out_frame, const unsigned char * _
         assert((uintptr_t) out_frame->linesize[0] % 4 == 0);
 
         for(ptrdiff_t y = 0; y < height; y += 1) {
-                const uint16_t *src = (const void *) (in_data + y * vc_get_linesize(width, Y416));
+                const uint16_t *src = (const uint16_t *)(const void *) (in_data + y * vc_get_linesize(width, Y416));
                 uint32_t *dst = (uint32_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
 
                 OPTIMIZED_FOR (int x = 0; x < width; ++x) {
@@ -555,9 +555,9 @@ static void v210_to_p010le(AVFrame * __restrict out_frame, const unsigned char *
 
         for(int y = 0; y < height; y += 2) {
                 /*  every even row */
-                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
                 /*  every odd row */
-                const uint32_t *src2 = (const void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
+                const uint32_t *src2 = (const uint32_t *)(const void *) (in_data + (y + 1) * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_y2 = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * (y + 1));
                 uint16_t *dst_cbcr = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y / 2);
@@ -619,7 +619,7 @@ static void v210_to_p210le(AVFrame * __restrict out_frame, const unsigned char *
         assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
 
         for(int y = 0; y < height; y++) {
-                const uint32_t *src = (const void *) (in_data + y * vc_get_linesize(width, v210));
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * vc_get_linesize(width, v210));
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cbcr = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
 
@@ -905,7 +905,7 @@ static inline void rg48_to_yuv444pXXle(int depth, AVFrame * __restrict out_frame
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                const uint16_t *src = (const void *) (in_data + y * src_linesize);
+                const uint16_t *src = (const uint16_t *)(const void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < width; x++){
                         comp_type_t r = *src++;
                         comp_type_t g = *src++;
@@ -954,7 +954,7 @@ static inline void y216_to_yuv422pXXle(AVFrame * __restrict out_frame, const uns
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                const uint16_t *src = (const void *) (in_data + y * src_linesize);
+                const uint16_t *src = (const uint16_t *)(const void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < (width + 1) / 2; x++){
                         *dst_y++ = *src++ >> (16U - depth);
                         *dst_cb++ = *src++ >> (16U - depth);
@@ -987,7 +987,7 @@ static void y216_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned c
                 uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
-                const uint16_t *src = (const void *) (in_data + y * src_linesize);
+                const uint16_t *src = (const uint16_t *)(const void *) (in_data + y * src_linesize);
                 OPTIMIZED_FOR(int x = 0; x < (width + 1) / 2; x++){
                         *dst_y++ = *src++;
                         dst_cb[0] = dst_cb[1] = *src++;
@@ -1050,7 +1050,7 @@ static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, const unsigned cha
 {
         int src_linesize = vc_get_linesize(width, R10k);
         for (int y = 0; y < height; ++y) {
-                const uint32_t *src = (const void *) (in_data + y * src_linesize);
+                const uint32_t *src = (const uint32_t *)(const void *) (in_data + y * src_linesize);
                 uint32_t *dst = (uint32_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 for (int x = 0; x < width; ++x) {
                         *dst++ = htonl(*src++) >> 2;
@@ -1230,7 +1230,7 @@ static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char
 
         int src_linesize = vc_get_linesize(width, RG48);
         for (int y = 0; y < height; ++y) {
-                const uint16_t *src = (const void *) (in_data + y * src_linesize);
+                const uint16_t *src = (const uint16_t *)(const void *) (in_data + y * src_linesize);
                 uint16_t *dst_g = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
                 uint16_t *dst_b = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_r = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
@@ -1333,12 +1333,12 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R12L, AV_PIX_FMT_GBRP16LE,    r12l_to_gbrp16le },
                 { RG48, AV_PIX_FMT_GBRP12LE,    rg48_to_gbrp12le },
 #endif
-                { 0, 0, 0 }
+                { VIDEO_CODEC_NONE, AV_PIX_FMT_NONE, 0 }
         };
         return uv_to_av_conversions;
 }
 
-void get_av_pixfmt_details(int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range)
+void get_av_pixfmt_details(enum AVPixelFormat av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range)
 {
         const struct AVPixFmtDescriptor *avd = av_pix_fmt_desc_get(av_codec);
         if (!avd) {
@@ -1410,6 +1410,8 @@ static decoder_t get_decoder_from_uv_to_uv(codec_t in, enum AVPixelFormat av, co
         *out = intermediate_codecs[0];
         return get_decoder_from_to(in, *out);
 }
+
+decoder_t (*testable_get_decoder_from_uv_to_uv)(codec_t in, enum AVPixelFormat av, codec_t *out) = get_decoder_from_uv_to_uv; // external linkage for test
 
 static pixfmt_callback_t select_pixfmt_callback(enum AVPixelFormat fmt, codec_t src) {
         // no conversion needed
@@ -1498,6 +1500,7 @@ struct to_lavc_vid_conv {
         struct AVFrame     *tmp_frame;
         unsigned char      *decoded; ///< intermediate representation for codecs
                                      ///< that are not directly supported
+        codec_t             in_pixfmt;
         codec_t             decoded_codec;
         decoder_t           decoder;
         pixfmt_callback_t   pixfmt_conv_callback;
@@ -1506,9 +1509,10 @@ struct to_lavc_vid_conv {
 
 struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int height, enum AVPixelFormat out_pixfmt, int thread_count) {
         int ret = 0;
-        struct to_lavc_vid_conv *s = calloc(1, sizeof *s);
+        struct to_lavc_vid_conv *s = (struct to_lavc_vid_conv *) calloc(1, sizeof *s);
+        s->in_pixfmt = in_pixfmt;
         s->thread_count = thread_count;
-        s->in_frame_part = calloc(thread_count, sizeof *s->in_frame_part);
+        s->in_frame_part = (struct AVFrame **) calloc(thread_count, sizeof *s->in_frame_part);
         for (int i = 0; i < thread_count; i++) {
                 s->in_frame_part[i] = av_frame_alloc();
         }
@@ -1567,7 +1571,7 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
                 }
         }
 
-        s->decoded = malloc((long) vc_get_linesize(width, s->decoded_codec) * height);
+        s->decoded = (unsigned char *) malloc((long) vc_get_linesize(width, s->decoded_codec) * height);
 
         s->pixfmt_conv_callback = select_pixfmt_callback(out_pixfmt, s->decoded_codec);
 
@@ -1596,7 +1600,7 @@ static bool same_linesizes(codec_t codec, AVFrame *in_frame)
 struct pixfmt_conv_task_data {
         pixfmt_callback_t callback;
         AVFrame *out_frame;
-        unsigned char *in_data;
+        const unsigned char *in_data;
         int width;
         int height;
 };
@@ -1607,7 +1611,7 @@ static void *pixfmt_conv_task(void *arg) {
         return NULL;
 }
 
-struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, struct video_frame *in) {
+struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, char *in_data) {
         int ret = 0;
         unsigned char *decoded = NULL;
         if ((ret = av_frame_make_writable(s->in_frame)) != 0) {
@@ -1617,12 +1621,12 @@ struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, struct video_frame 
 
         time_ns_t t0 = get_time_in_ns();
         if (s->decoder != vc_memcpy) {
-                int src_linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
-                int dst_linesize = vc_get_linesize(in->tiles[0].width, s->decoded_codec);
-                parallel_pix_conv(in->tiles[0].height, (char *) s->decoded, dst_linesize, in->tiles[0].data, src_linesize, s->decoder, s->thread_count);
+                int src_linesize = vc_get_linesize(s->in_frame->width, s->in_pixfmt);
+                int dst_linesize = vc_get_linesize(s->in_frame->width, s->decoded_codec);
+                parallel_pix_conv(s->in_frame->height, (char *) s->decoded, dst_linesize, in_data, src_linesize, s->decoder, s->thread_count);
                 decoded = s->decoded;
         } else {
-                decoded = (unsigned char *) in->tiles[0].data;
+                decoded = (unsigned char *) in_data;
         }
 
         time_ns_t t1 = get_time_in_ns();
@@ -1633,16 +1637,16 @@ struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, struct video_frame 
                         data[i].callback = s->pixfmt_conv_callback;
                         data[i].out_frame = s->in_frame_part[i];
 
-                        size_t height = in->tiles[0].height / s->thread_count & ~1; // height needs to be even
+                        size_t height = s->in_frame->height / s->thread_count & ~1; // height needs to be even
                         if (i < s->thread_count - 1) {
                                 data[i].height = height;
                         } else { // we are last so we need to do the rest
-                                data[i].height = in->tiles[0].height -
+                                data[i].height = s->in_frame->height -
                                         height * (s->thread_count - 1);
                         }
-                        data[i].width = in->tiles[0].width;
+                        data[i].width = s->in_frame->width;
                         data[i].in_data = decoded + i * height *
-                                vc_get_linesize(in->tiles[0].width, s->decoded_codec);
+                                vc_get_linesize(s->in_frame->width, s->decoded_codec);
                 }
                 task_run_parallel(pixfmt_conv_task, s->thread_count, data, sizeof data[0], NULL);
         } else { // no pixel format conversion needed
@@ -1650,7 +1654,7 @@ struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, struct video_frame 
                         assert(get_bits_per_component(s->decoded_codec) == 8);
                         int sub[8];
                         codec_get_planes_subsampling(s->decoded_codec, sub);
-                        unsigned char *in = decoded;
+                        const unsigned char *in = decoded;
                         for (ptrdiff_t i = 0; i < 4; ++i) {
                                 if (sub[2 * i] == 0) {
                                         break;
@@ -1669,7 +1673,7 @@ struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, struct video_frame 
                         frame->height = s->in_frame->height;
                         frame->format = s->in_frame->format;
                         if (codec_is_planar(s->decoded_codec)) {
-                                buf_get_planes(in->tiles[0].width, in->tiles[0].height, s->decoded_codec, (char *) decoded, (char **) frame->data);
+                                buf_get_planes(s->in_frame->width, s->in_frame->height, s->decoded_codec, (char *) decoded, (char **) frame->data);
                         } else {
                                 frame->data[0] = (uint8_t *) decoded;
                         }

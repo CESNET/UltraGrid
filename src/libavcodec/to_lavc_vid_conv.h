@@ -47,7 +47,7 @@ extern "C" {
 
 struct to_lavc_vid_conv;
 struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int height, enum AVPixelFormat out_pixfmt, int thread_count);
-struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *state, struct video_frame *in);
+struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *state, char *in_data);
 void to_lavc_vid_conv_destroy(struct to_lavc_vid_conv **state);
 
 int get_available_pix_fmts(codec_t in_codec, int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat fmts[AV_PIX_FMT_NB]);
@@ -55,7 +55,7 @@ int get_available_pix_fmts(codec_t in_codec, int requested_subsampling, codec_t 
 /**
  * Returns AV format details for given pair UV,AV codec (must be unique then)
  */
-void get_av_pixfmt_details(int av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range);
+void get_av_pixfmt_details(enum AVPixelFormat av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range);
 
 #ifdef __cplusplus
 }
