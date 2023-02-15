@@ -70,8 +70,6 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/text.h" // replace_all
-#include "utils/parallel_conv.h"
-#include "utils/worker.h"
 #include "video.h"
 #include "video_compress.h"
 
@@ -237,24 +235,16 @@ struct state_video_compress_libav {
         }
         ~state_video_compress_libav() {
                 av_packet_free(&pkt);
-                av_frame_free(&tmp_frame);
+                to_lavc_vid_conv_destroy(&pixfmt_conversion);
         }
 
         struct module       module_data;
 
         struct video_desc   saved_desc{};
-
-        AVFrame            *in_frame = nullptr;
+        struct to_lavc_vid_conv *pixfmt_conversion = nullptr;;
         AVPacket           *pkt = av_packet_alloc();
         // for every core - parts of the above
-        vector<AVFrame *>   in_frame_part;
         AVCodecContext     *codec_ctx = nullptr;
-        AVFrame            *tmp_frame = av_frame_alloc();
-
-        unsigned char      *decoded = nullptr; ///< intermediate representation for codecs
-                                     ///< that are not directly supported
-        codec_t             decoded_codec = VIDEO_CODEC_NONE;
-        decoder_t           decoder = nullptr;
 
         codec_t             requested_codec_id = VIDEO_CODEC_NONE;
         long long int       requested_bitrate = 0;
@@ -264,7 +254,6 @@ struct state_video_compress_libav {
         int                 requested_q = -1;
         int                 requested_subsampling = 0; ///< 4440, 4220, 4200 or 0 (no subsampling explicitly requested)
         // contains format that is supplied by UG to the encoder or swscale (if used)
-        AVPixelFormat       selected_pixfmt = AV_PIX_FMT_NONE;
 
         codec_t             out_codec = VIDEO_CODEC_NONE;
 
@@ -281,7 +270,6 @@ struct state_video_compress_libav {
 
 #ifdef HAVE_SWSCALE
         struct SwsContext *sws_ctx = nullptr;
-        AVPixelFormat sws_out_pixfmt = AV_PIX_FMT_NONE;
         AVFrame *sws_frame = nullptr;
 #endif
 
@@ -582,11 +570,6 @@ struct module * libavcodec_compress_init(struct module *parent, const char *opts
         if (ret != 0) {
                 module_done(&s->module_data);
                 return ret > 0 ? static_cast<module*>(INIT_NOERR) : NULL;
-        }
-
-        s->in_frame_part.resize(s->conv_thread_count);
-        for(int i = 0; i < s->conv_thread_count; i++) {
-                s->in_frame_part[i] = av_frame_alloc();
         }
 
         return &s->module_data;
@@ -890,42 +873,6 @@ static bool try_open_codec(struct state_video_compress_libav *s,
         return true;
 }
 
-static bool find_decoder(struct video_desc desc,
-                AVPixelFormat pixfmt,
-                codec_t *decoded_codec,
-                decoder_t *decoder)
-{
-        if (get_ug_to_av_pixfmt(desc.color_spec) != AV_PIX_FMT_NONE
-                        && pixfmt == get_ug_to_av_pixfmt(desc.color_spec)) {
-                *decoded_codec = desc.color_spec;
-                *decoder = vc_memcpy;
-        } else {
-                *decoder = get_decoder_from_uv_to_uv(desc.color_spec, pixfmt, decoded_codec);
-        }
-
-        return *decoder != nullptr;
-}
-
-static bool same_linesizes(codec_t codec, AVFrame *in_frame)
-{
-        if (codec_is_planar(codec)) {
-                assert(get_bits_per_component(codec) == 8);
-                int sub[8];
-                codec_get_planes_subsampling(codec, sub);
-                for (int i = 0; i < 4; ++i) {
-                        if (sub[2 * i] == 0) {
-                                return true;
-                        }
-                        if (in_frame->linesize[i] != (in_frame->width + sub[2 * i] - 1) / sub[2 * i]) {
-                                return false;
-                        }
-                }
-                return true;
-        } else {
-                return vc_get_linesize(in_frame->width, codec) == in_frame->linesize[0];
-        }
-}
-
 const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_codec, bool src_rgb) {
         // Open encoder specified by user if given
         if (!s->backend.empty()) {
@@ -963,7 +910,7 @@ const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_co
         return avcodec_find_encoder(get_ug_to_av_codec(*ug_codec));
 }
 
-static bool configure_swscale(struct state_video_compress_libav *s, struct video_desc desc) {
+static bool configure_swscale(struct state_video_compress_libav *s, struct video_desc desc, enum AVPixelFormat sws_out_pixfmt) {
 #ifndef HAVE_SWSCALE
         UNUSED(s), UNUSED(desc);
         return false;
@@ -971,22 +918,19 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
         //get all AVPixelFormats we can convert to and pick the first
         enum AVPixelFormat pixfmts[AV_PIX_FMT_NB];
         int nb_fmts = get_available_pix_fmts(desc.color_spec, s->requested_subsampling, VIDEO_CODEC_NONE, pixfmts);
-        s->sws_out_pixfmt = s->selected_pixfmt;
-        s->selected_pixfmt = nb_fmts == 0 ? AV_PIX_FMT_UYVY422 : pixfmts[0];
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(s->selected_pixfmt), av_get_pix_fmt_name(s->sws_out_pixfmt));
-        if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
-                //Should not happen as get_available_pix_fmts should only
-                //return formats we can decode to
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to find decoder from %s to %s before using swscale.\n", get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
+        enum AVPixelFormat sws_in_format = nb_fmts == 0 ? AV_PIX_FMT_UYVY422 : pixfmts[0];
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(sws_in_format), av_get_pix_fmt_name(sws_out_pixfmt));
+        if ((s->pixfmt_conversion = to_lavc_vid_conv_init(desc.color_spec, desc.width, desc.height, sws_in_format, s->conv_thread_count)) == nullptr) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get sws input conversion.\n"); // shouldn't happen normally, but user may choose imposible codec
                 return false;
         }
 
         s->sws_ctx = getSwsContext(desc.width,
                         desc.height,
-                        s->selected_pixfmt,
+                        sws_in_format,
                         desc.width,
                         desc.height,
-                        s->sws_out_pixfmt,
+                        sws_out_pixfmt,
                         SWS_POINT);
         if(!s->sws_ctx){
                 log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to init sws context.\n");
@@ -1000,35 +944,33 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
         }
         s->sws_frame->width = s->codec_ctx->width;
         s->sws_frame->height = s->codec_ctx->height;
-        s->sws_frame->format = s->sws_out_pixfmt;
+        s->sws_frame->format = sws_out_pixfmt;
         if (int ret = av_image_alloc(s->sws_frame->data, s->sws_frame->linesize,
                         s->sws_frame->width, s->sws_frame->height,
-                        s->sws_out_pixfmt, 32); ret < 0) {
+                        sws_out_pixfmt, 32); ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer for sws\n");
                 return false;
         }
 
         log_msg(LOG_LEVEL_NOTICE, "[lavc] Using swscale to convert %s to %s.\n",
-                        av_get_pix_fmt_name(s->selected_pixfmt),
-                        av_get_pix_fmt_name(s->sws_out_pixfmt));
+                        av_get_pix_fmt_name(sws_in_format),
+                        av_get_pix_fmt_name(sws_out_pixfmt));
         return true;
 #endif //HAVE_SWSCALE
 }
 
 static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
-        int ret;
         codec_t ug_codec = s->requested_codec_id == VIDEO_CODEC_NONE ? DEFAULT_CODEC : s->requested_codec_id;
+        AVPixelFormat pix_fmt = AV_PIX_FMT_NONE;
         const AVCodec *codec = nullptr;
 #ifdef HAVE_SWSCALE
         sws_freeContext(s->sws_ctx);
         s->sws_ctx = nullptr;
         av_frame_free(&s->sws_frame);
-        s->sws_out_pixfmt = AV_PIX_FMT_NONE;
 #endif //HAVE_SWSCALE
 
         s->params.desc = desc;
-        s->selected_pixfmt = AV_PIX_FMT_NONE;
 
         if ((codec = get_av_codec(s, &ug_codec, codec_is_a_rgb(desc.color_spec))) == nullptr) {
                 return false;
@@ -1043,25 +985,25 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc.color_spec, s->requested_subsampling);
         apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
-        while ((s->selected_pixfmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
-                if(try_open_codec(s, s->selected_pixfmt, desc, ug_codec, codec)){
+        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+                if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
                         break;
                 }
 	}
 
-        if (s->selected_pixfmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
+        if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
                 print_pix_fmts(requested_pix_fmt, codec->pix_fmts);
         }
 
 #ifdef HAVE_SWSCALE
-        if (s->selected_pixfmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
+        if (pix_fmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: " << get_codec_name(desc.color_spec) << ". Trying to convert with swscale instead.\n";
                 for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE; ++pix) {
                         const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
                         if (fmt_desc != nullptr && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
                                 AVPixelFormat curr_pix_fmt = *pix;
                                 if (try_open_codec(s, curr_pix_fmt, desc, ug_codec, codec)) {
-                                        s->selected_pixfmt = curr_pix_fmt;
+                                        pix_fmt = curr_pix_fmt;
                                         break;
                                 }
                         }
@@ -1069,7 +1011,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 #endif
 
-        if (s->selected_pixfmt == AV_PIX_FMT_NONE) {
+        if (pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
                 if (s->requested_subsampling != 0 || get_commandline_param("lavc-use-codec") != NULL) {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Requested parameters not supported. %s\n",
@@ -1082,57 +1024,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Codec %s capabilities: 0x%08X using thread type %d, count %d\n", codec->name,
                         codec->capabilities, s->codec_ctx->thread_type, s->codec_ctx->thread_count);
-        log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(s->selected_pixfmt));
-        if (!pixfmt_has_420_subsampling(s->selected_pixfmt)) {
+        log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
+        if (!pixfmt_has_420_subsampling(pix_fmt)) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Selected pixfmt has not 4:2:0 subsampling, "
                                 "which is usually not supported by hw. decoders\n");
-        }
-
-        if(!find_decoder(desc, s->selected_pixfmt, &s->decoded_codec, &s->decoder)){
-                log_msg(LOG_LEVEL_ERROR, "[lavc] Failed to find a way to convert %s to %s\n",
-                                get_codec_name(desc.color_spec), av_get_pix_fmt_name(s->selected_pixfmt));
-                if (!configure_swscale(s, desc)) {
-                        return false;
-                }
-        }
-
-        s->decoded = (unsigned char *) malloc(vc_get_linesize(desc.width, s->decoded_codec) * desc.height);
-
-        s->in_frame = av_frame_alloc();
-        if (!s->in_frame) {
-                log_msg(LOG_LEVEL_ERROR, "Could not allocate video frame\n");
-                return false;
-        }
-        s->in_frame->pts = -1;
-
-        s->in_frame->format = s->selected_pixfmt;
-        s->in_frame->width = s->codec_ctx->width;
-        s->in_frame->height = s->codec_ctx->height;
-
-        ret = av_frame_get_buffer(s->in_frame, 0);
-        if (ret < 0) {
-                log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer\n");
-                return false;
-        }
-        // conversion needed
-        if (get_ug_to_av_pixfmt(desc.color_spec) == AV_PIX_FMT_NONE
-                        || get_ug_to_av_pixfmt(desc.color_spec) != s->selected_pixfmt) {
-                for(int i = 0; i < s->conv_thread_count; ++i) {
-                        int chunk_size = s->codec_ctx->height / s->conv_thread_count & ~1;
-                        s->in_frame_part[i]->data[0] = s->in_frame->data[0] + s->in_frame->linesize[0] * i *
-                                chunk_size;
-
-                        if (av_pix_fmt_desc_get(s->selected_pixfmt)->log2_chroma_h == 1) { // eg. 4:2:0
-                                chunk_size /= 2;
-                        }
-                        s->in_frame_part[i]->data[1] = s->in_frame->data[1] + s->in_frame->linesize[1] * i *
-                                chunk_size;
-                        s->in_frame_part[i]->data[2] = s->in_frame->data[2] + s->in_frame->linesize[2] * i *
-                                chunk_size;
-                        s->in_frame_part[i]->linesize[0] = s->in_frame->linesize[0];
-                        s->in_frame_part[i]->linesize[1] = s->in_frame->linesize[1];
-                        s->in_frame_part[i]->linesize[2] = s->in_frame->linesize[2];
-                }
         }
 
         s->saved_desc = desc;
@@ -1141,23 +1036,16 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->compressed_desc.tile_count = 1;
         s->mov_avg_frames = s->mov_avg_comp_duration = 0;
 
+        to_lavc_vid_conv_destroy(&s->pixfmt_conversion);
+        if ((s->pixfmt_conversion = to_lavc_vid_conv_init(desc.color_spec, desc.width, desc.height, pix_fmt, s->conv_thread_count)) == nullptr) {
+                if (!configure_swscale(s, desc, pix_fmt)) {
+                        return false;
+                }
+        }
+
         s->out_codec = s->compressed_desc.color_spec;
 
         return true;
-}
-
-struct pixfmt_conv_task_data {
-        pixfmt_callback_t callback;
-        AVFrame *out_frame;
-        unsigned char *in_data;
-        int width;
-        int height;
-};
-
-static void *pixfmt_conv_task(void *arg) {
-        struct pixfmt_conv_task_data *data = (struct pixfmt_conv_task_data *) arg;
-        data->callback(data->out_frame, data->in_data, data->width, data->height);
-        return NULL;
 }
 
 /// print hint to improve performance if not making it
@@ -1194,7 +1082,6 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_n
 static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
-        unsigned char *decoded;
         shared_ptr<video_frame> out{};
         list<shared_ptr<void>> cleanup_callbacks; // at function exit handlers
 
@@ -1236,73 +1123,12 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                         s->compressed_desc.height * 4);
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
-        if (int ret = av_frame_make_writable(s->in_frame)) {
-                print_libav_error(LOG_LEVEL_ERROR, MOD_NAME "Cannot make frame writable", ret);
-                return {};
-        }
-
-        time_ns_t t_start = get_time_in_ns();
-        if (s->decoder != vc_memcpy) {
-                int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);
-                int dst_linesize = vc_get_linesize(tx->tiles[0].width, s->decoded_codec);
-                parallel_pix_conv(tx->tiles[0].height, reinterpret_cast<char *>(s->decoded), dst_linesize, tx->tiles[0].data, src_linesize, s->decoder, s->conv_thread_count);
-                decoded = s->decoded;
-        } else {
-                decoded = (unsigned char *) tx->tiles[0].data;
-        }
 
         time_ns_t t0 = get_time_in_ns();
-        AVFrame *frame = s->in_frame;
-        auto pixfmt_conv_callback = select_pixfmt_callback(s->selected_pixfmt, s->decoded_codec);
-        if (pixfmt_conv_callback != nullptr) {
-                vector<struct pixfmt_conv_task_data> data(s->conv_thread_count);
-                for(int i = 0; i < s->conv_thread_count; ++i) {
-                        data[i].callback = pixfmt_conv_callback;
-                        data[i].out_frame = s->in_frame_part[i];
-
-                        size_t height = tx->tiles[0].height / s->conv_thread_count & ~1; // height needs to be even
-                        if (i < s->conv_thread_count - 1) {
-                                data[i].height = height;
-                        } else { // we are last so we need to do the rest
-                                data[i].height = tx->tiles[0].height -
-                                        height * (s->conv_thread_count - 1);
-                        }
-                        data[i].width = tx->tiles[0].width;
-                        data[i].in_data = decoded + i * height *
-                                vc_get_linesize(tx->tiles[0].width, s->decoded_codec);
-                }
-                task_run_parallel(pixfmt_conv_task, s->conv_thread_count, data.data(), sizeof data[0], NULL);
-        } else { // no pixel format conversion needed
-                if (codec_is_planar(s->decoded_codec) && !same_linesizes(s->decoded_codec, s->in_frame)) {
-                        assert(get_bits_per_component(s->decoded_codec) == 8);
-                        int sub[8];
-                        codec_get_planes_subsampling(s->decoded_codec, sub);
-                        unsigned char *in = decoded;
-                        for (int i = 0; i < 4; ++i) {
-                                if (sub[2 * i] == 0) {
-                                        break;
-                                }
-                                int linesize = (s->in_frame->width + sub[2 * i] - 1) / sub[2 * i];
-                                int lines = (s->in_frame->height + sub[2 * i + 1] - 1) / sub[2 * i + 1];
-                                for (int y = 0; y < lines; ++y) {
-                                        memcpy(s->in_frame->data[i] + y * s->in_frame->linesize[i], in, linesize);
-                                        in += linesize;
-                                }
-                        }
-                } else { // just set pointers to input buffer
-                        frame = s->tmp_frame;
-                        memcpy(frame->linesize, s->in_frame->linesize, sizeof frame->linesize);
-                        frame->width = s->in_frame->width;
-                        frame->height = s->in_frame->height;
-                        frame->format = s->in_frame->format;
-                        if (codec_is_planar(s->decoded_codec)) {
-                                buf_get_planes(tx->tiles[0].width, tx->tiles[0].height, s->decoded_codec, (char *) decoded, (char **) frame->data);
-                        } else {
-                                frame->data[0] = (uint8_t *) decoded;
-                        }
-                }
+        struct AVFrame *frame = to_lavc_vid_conv(s->pixfmt_conversion, tx.get());
+        if (!frame) {
+                return {};
         }
-
         time_ns_t t1 = get_time_in_ns();
 
         debug_file_dump("lavc-avframe", serialize_video_avframe, frame);
@@ -1386,7 +1212,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
         time_ns_t t3 = get_time_in_ns();
         LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: "
-                << (t0 - t_start) / NS_IN_SEC_DBL << "+" << (t1 - t0) / NS_IN_SEC_DBL <<
+                << (t1 - t0) / NS_IN_SEC_DBL <<
                 " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<
                 " s, compression " << (t3 - t2) / (double) NS_IN_SEC << " s\n";
         check_duration(s, t3 - t0);
@@ -1422,16 +1248,12 @@ static void cleanup(struct state_video_compress_libav *s)
 #endif
                 avcodec_free_context(&s->codec_ctx);
         }
-        if(s->in_frame) {
-                av_frame_free(&s->in_frame);
-        }
-        free(s->decoded);
-        s->decoded = NULL;
 
         av_frame_free(&s->hwframe);
 
 #ifdef HAVE_SWSCALE
         sws_freeContext(s->sws_ctx);
+        s->sws_ctx = nullptr;
         av_frame_free(&s->sws_frame);
 #endif //HAVE_SWSCALE
 }
@@ -1442,9 +1264,6 @@ static void libavcodec_compress_done(struct module *mod)
 
         cleanup(s);
 
-        for (auto &f : s->in_frame_part) {
-                av_frame_free(&f);
-        }
         delete s;
 }
 

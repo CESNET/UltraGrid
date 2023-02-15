@@ -4,7 +4,7 @@
  * MODIFIED: Ladan Gharai <ladan@isi.edu>
  *
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2022 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -40,17 +40,16 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
- *
  */
 
 #ifndef TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
 #define TV_H_8332A958_38EB_4FE7_94E6_22C71BECD013
 
 #ifdef __cplusplus
+#include <cstdint>
 #include <ctime>
 #else
+#include <stdint.h>
 #include <time.h>
 #endif
 
@@ -72,6 +71,7 @@ uint32_t get_std_audio_local_mediatime(double samples, int rate);
 uint32_t get_std_video_local_mediatime(void);
 
 typedef long long time_ns_t;
+#define MS_IN_SEC_DBL 1000.0
 #define US_IN_SEC 1000000LL
 #define US_IN_NS 1000LL
 #define US_IN_SEC_DBL ((double) US_IN_SEC)

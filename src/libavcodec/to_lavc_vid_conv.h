@@ -45,12 +45,12 @@
 extern "C" {
 #endif
 
-typedef void uv_to_av_convert(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height);
-typedef uv_to_av_convert *pixfmt_callback_t;
+struct to_lavc_vid_conv;
+struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int height, enum AVPixelFormat out_pixfmt, int thread_count);
+struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *state, struct video_frame *in);
+void to_lavc_vid_conv_destroy(struct to_lavc_vid_conv **state);
 
 int get_available_pix_fmts(codec_t in_codec, int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat fmts[AV_PIX_FMT_NB]);
-decoder_t get_decoder_from_uv_to_uv(codec_t in, enum AVPixelFormat av, codec_t *out);
-pixfmt_callback_t select_pixfmt_callback(enum AVPixelFormat fmt, codec_t src);
 
 /**
  * Returns AV format details for given pair UV,AV codec (must be unique then)
