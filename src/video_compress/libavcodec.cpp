@@ -1019,7 +1019,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 {
         int ret;
         codec_t ug_codec = s->requested_codec_id == VIDEO_CODEC_NONE ? DEFAULT_CODEC : s->requested_codec_id;
-        AVPixelFormat pix_fmt;
         const AVCodec *codec = nullptr;
 #ifdef HAVE_SWSCALE
         sws_freeContext(s->sws_ctx);
@@ -1029,6 +1028,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 #endif //HAVE_SWSCALE
 
         s->params.desc = desc;
+        s->selected_pixfmt = AV_PIX_FMT_NONE;
 
         if ((codec = get_av_codec(s, &ug_codec, codec_is_a_rgb(desc.color_spec))) == nullptr) {
                 return false;
@@ -1043,25 +1043,25 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc.color_spec, s->requested_subsampling);
         apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
-        while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
-                if(try_open_codec(s, pix_fmt, desc, ug_codec, codec)){
+        while ((s->selected_pixfmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
+                if(try_open_codec(s, s->selected_pixfmt, desc, ug_codec, codec)){
                         break;
                 }
 	}
 
-        if (pix_fmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
+        if (s->selected_pixfmt == AV_PIX_FMT_NONE || log_level >= LOG_LEVEL_VERBOSE) {
                 print_pix_fmts(requested_pix_fmt, codec->pix_fmts);
         }
 
 #ifdef HAVE_SWSCALE
-        if (pix_fmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
+        if (s->selected_pixfmt == AV_PIX_FMT_NONE && get_commandline_param("lavc-use-codec") == NULL) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "No direct decoder format for: " << get_codec_name(desc.color_spec) << ". Trying to convert with swscale instead.\n";
                 for (const auto *pix = codec->pix_fmts; *pix != AV_PIX_FMT_NONE; ++pix) {
                         const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*pix);
                         if (fmt_desc != nullptr && (fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL) == 0U) {
                                 AVPixelFormat curr_pix_fmt = *pix;
                                 if (try_open_codec(s, curr_pix_fmt, desc, ug_codec, codec)) {
-                                        pix_fmt = curr_pix_fmt;
+                                        s->selected_pixfmt = curr_pix_fmt;
                                         break;
                                 }
                         }
@@ -1069,7 +1069,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 #endif
 
-        if (pix_fmt == AV_PIX_FMT_NONE) {
+        if (s->selected_pixfmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
                 if (s->requested_subsampling != 0 || get_commandline_param("lavc-use-codec") != NULL) {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Requested parameters not supported. %s\n",
@@ -1082,9 +1082,8 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Codec %s capabilities: 0x%08X using thread type %d, count %d\n", codec->name,
                         codec->capabilities, s->codec_ctx->thread_type, s->codec_ctx->thread_count);
-        log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
-        s->selected_pixfmt = pix_fmt;
-        if (!pixfmt_has_420_subsampling(pix_fmt)) {
+        log_msg(LOG_LEVEL_INFO, "[lavc] Selected pixfmt: %s\n", av_get_pix_fmt_name(s->selected_pixfmt));
+        if (!pixfmt_has_420_subsampling(s->selected_pixfmt)) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Selected pixfmt has not 4:2:0 subsampling, "
                                 "which is usually not supported by hw. decoders\n");
         }
