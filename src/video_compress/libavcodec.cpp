@@ -1106,11 +1106,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
         s->in_frame->pts = -1;
 
-#if LIBAVCODEC_VERSION_MAJOR >= 53
         s->in_frame->format = s->selected_pixfmt;
         s->in_frame->width = s->codec_ctx->width;
         s->in_frame->height = s->codec_ctx->height;
-#endif
 
         ret = av_frame_get_buffer(s->in_frame, 0);
         if (ret < 0) {
@@ -1243,7 +1241,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 print_libav_error(LOG_LEVEL_ERROR, MOD_NAME "Cannot make frame writable", ret);
                 return {};
         }
-        s->in_frame->pts += 1;
 
         time_ns_t t_start = get_time_in_ns();
         if (s->decoder != vc_memcpy) {
@@ -1332,6 +1329,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         time_ns_t t2 = get_time_in_ns();
 
         /* encode the image */
+        frame->pts += 1;
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
         out->tiles[0].data_len = 0;
         if (libav_codec_has_extradata(s->out_codec)) { // we need to store extradata for HuffYUV/FFV1 in the beginning
@@ -1446,7 +1444,7 @@ static void libavcodec_compress_done(struct module *mod)
         cleanup(s);
 
         for (auto &f : s->in_frame_part) {
-                av_free(f);
+                av_frame_free(&f);
         }
         delete s;
 }
