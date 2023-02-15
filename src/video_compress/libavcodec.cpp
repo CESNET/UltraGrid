@@ -1030,7 +1030,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                                 "which is usually not supported by hw. decoders\n");
         }
 
-        s->saved_desc = desc;
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = ug_codec;
         s->compressed_desc.tile_count = 1;
@@ -1044,6 +1043,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         s->out_codec = s->compressed_desc.color_spec;
+        s->saved_desc = desc;
 
         return true;
 }
