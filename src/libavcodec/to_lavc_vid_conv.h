@@ -52,9 +52,7 @@ void to_lavc_vid_conv_destroy(struct to_lavc_vid_conv **state);
 
 int get_available_pix_fmts(codec_t in_codec, int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat fmts[AV_PIX_FMT_NB]);
 
-/**
- * Returns AV format details for given pair UV,AV codec (must be unique then)
- */
+/// @returns colorspace/range details for given av_codec
 void get_av_pixfmt_details(enum AVPixelFormat av_codec, enum AVColorSpace *colorspace, enum AVColorRange *color_range);
 
 #ifdef __cplusplus

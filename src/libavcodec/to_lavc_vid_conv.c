@@ -1244,6 +1244,8 @@ static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char
 }
 #endif
 
+static void to_lavc_memcpy_data(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height) ATTRIBUTE(unused); // defined below
+
 //
 // conversion dispatchers
 //
@@ -1281,11 +1283,13 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { v210, AV_PIX_FMT_YUV444P16LE, v210_to_yuv444p16le },
 #if XV3X_PRESENT
                 { v210, AV_PIX_FMT_XV30,         v210_to_xv30 },
+                { Y216, AV_PIX_FMT_Y212,         to_lavc_memcpy_data },
                 { Y416, AV_PIX_FMT_XV30,         y416_to_xv30 },
                 { v210, AV_PIX_FMT_Y212,         v210_to_y210 },
 #endif
 #if Y210_PRESENT
                 { v210, AV_PIX_FMT_Y210,         v210_to_y210 },
+                { Y216, AV_PIX_FMT_Y210,         to_lavc_memcpy_data },
 #endif
                 { R10k, AV_PIX_FMT_YUV444P10LE, r10k_to_yuv444p10le },
                 { R10k, AV_PIX_FMT_YUV444P12LE, r10k_to_yuv444p12le },
@@ -1447,6 +1451,9 @@ static int lavc_compare_convs(const void *a, const void *b, void *orig_c) {
 /**
  * Returns list of pix_fmts that UltraGrid can supply to the encoder.
  * The list is ordered according to input description and requested subsampling.
+ *
+ * @todo
+ * prevent v210->UYVY->10b chain to be considered a good conversion
  */
 int get_available_pix_fmts(codec_t in_codec,
                 int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat fmts[AV_PIX_FMT_NB])
@@ -1462,7 +1469,7 @@ int get_available_pix_fmts(codec_t in_codec,
         int sort_start_idx = nb_fmts;
 #define MATCH_SUBS_AND_UVC_IF_REQ(avpixfmt, uvpixfmt) (requested_subsampling == 0 || requested_subsampling == av_pixfmt_get_subsampling(avpixfmt)) && (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == uvpixfmt)
         int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurences
-        for (const struct uv_to_av_pixfmt *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no UV conversion needed, only AV
+        for (const struct uv_to_av_pixfmt *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed, only UV pixfmt change
                 if (get_decoder_from_to(in_codec, i->uv_codec)) {
                         if (MATCH_SUBS_AND_UVC_IF_REQ(i->av_pixfmt, i->uv_codec)) {
                                 fmt_set[i->av_pixfmt] = 1;
@@ -1493,67 +1500,82 @@ int get_available_pix_fmts(codec_t in_codec,
 }
 
 struct to_lavc_vid_conv {
-        struct AVFrame     *in_frame;
-        // for every thread - parts of the above
-        struct AVFrame    **in_frame_part;
+        struct AVFrame     *out_frame;
+        struct AVFrame    **out_frame_parts; ///< out_frame slices for parallel conversion
         int                 thread_count;
-        struct AVFrame     *tmp_frame;
-        unsigned char      *decoded; ///< intermediate representation for codecs
-                                     ///< that are not directly supported
+        struct AVFrame     *tmp_frame; ///< dummy input buffer pointers' wrapper
         codec_t             in_pixfmt;
+        unsigned char      *decoded; ///< intermediate buffer if uv pixfmt conversions needed
         codec_t             decoded_codec;
         decoder_t           decoder;
         pixfmt_callback_t   pixfmt_conv_callback;
-
 };
+
+static void to_lavc_memcpy_data(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+{
+        struct to_lavc_vid_conv *s = out_frame->opaque;
+        size_t linesize = vc_get_linesize(width, s->decoded_codec);
+        size_t linelength = vc_get_size(width, s->decoded_codec);
+        for (int comp = 0; comp < AV_NUM_DATA_POINTERS; ++comp) {
+                if (out_frame->data[comp] == NULL) {
+                        break;
+                }
+                for (ptrdiff_t y = 0; y < height; ++y) {
+                        memcpy(out_frame->data[comp] + y * out_frame->linesize[comp], in_data + y * linesize,
+                                        linelength);
+                }
+        }
+}
 
 struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int height, enum AVPixelFormat out_pixfmt, int thread_count) {
         int ret = 0;
         struct to_lavc_vid_conv *s = (struct to_lavc_vid_conv *) calloc(1, sizeof *s);
         s->in_pixfmt = in_pixfmt;
         s->thread_count = thread_count;
-        s->in_frame_part = (struct AVFrame **) calloc(thread_count, sizeof *s->in_frame_part);
+        s->out_frame_parts = (struct AVFrame **) calloc(thread_count, sizeof *s->out_frame_parts);
         for (int i = 0; i < thread_count; i++) {
-                s->in_frame_part[i] = av_frame_alloc();
+                s->out_frame_parts[i] = av_frame_alloc();
         }
-        s->in_frame = av_frame_alloc();
-        if (!s->in_frame) {
+        s->out_frame = av_frame_alloc();
+        if (!s->out_frame) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate video frame\n");
                 to_lavc_vid_conv_destroy(&s);
                 return NULL;
         }
-        s->in_frame->pts = -1;
+        s->tmp_frame = av_frame_alloc();
+        s->out_frame->opaque = s;
+        s->out_frame->pts = -1;
+        s->tmp_frame->pts = -1;
 
-        s->in_frame->format = out_pixfmt;
-        s->in_frame->width = width;
-        s->in_frame->height = height;
+        s->tmp_frame->format = s->out_frame->format = out_pixfmt;
+        s->tmp_frame->width = s->out_frame->width = width;
+        s->tmp_frame->height =s->out_frame->height = height;
 
-        ret = av_frame_get_buffer(s->in_frame, 0);
+        ret = av_frame_get_buffer(s->out_frame, 0);
         if (ret < 0) {
                 log_msg(LOG_LEVEL_ERROR, "Could not allocate raw picture buffer\n");
                 to_lavc_vid_conv_destroy(&s);
                 return NULL;
         }
-        s->tmp_frame = av_frame_alloc();
 
         // conversion needed
         if (get_ug_to_av_pixfmt(in_pixfmt) == AV_PIX_FMT_NONE
                         || get_ug_to_av_pixfmt(in_pixfmt) != out_pixfmt) {
                 for (ptrdiff_t i = 0; i < thread_count; ++i) {
                         int chunk_size = height / s->thread_count & ~1;
-                        s->in_frame_part[i]->data[0] = s->in_frame->data[0] + i * s->in_frame->linesize[0] *
+                        s->out_frame_parts[i]->data[0] = s->out_frame->data[0] + i * s->out_frame->linesize[0] *
                                 chunk_size;
 
                         if (av_pix_fmt_desc_get(out_pixfmt)->log2_chroma_h == 1) { // eg. 4:2:0
                                 chunk_size /= 2;
                         }
-                        s->in_frame_part[i]->data[1] = s->in_frame->data[1] + i * s->in_frame->linesize[1] *
+                        s->out_frame_parts[i]->data[1] = s->out_frame->data[1] + i * s->out_frame->linesize[1] *
                                 chunk_size;
-                        s->in_frame_part[i]->data[2] = s->in_frame->data[2] + i * s->in_frame->linesize[2] *
+                        s->out_frame_parts[i]->data[2] = s->out_frame->data[2] + i * s->out_frame->linesize[2] *
                                 chunk_size;
-                        s->in_frame_part[i]->linesize[0] = s->in_frame->linesize[0];
-                        s->in_frame_part[i]->linesize[1] = s->in_frame->linesize[1];
-                        s->in_frame_part[i]->linesize[2] = s->in_frame->linesize[2];
+                        s->out_frame_parts[i]->linesize[0] = s->out_frame->linesize[0];
+                        s->out_frame_parts[i]->linesize[1] = s->out_frame->linesize[1];
+                        s->out_frame_parts[i]->linesize[2] = s->out_frame->linesize[2];
                 }
         }
 
@@ -1578,23 +1600,24 @@ struct to_lavc_vid_conv *to_lavc_vid_conv_init(codec_t in_pixfmt, int width, int
         return s;
 };
 
-static bool same_linesizes(codec_t codec, AVFrame *in_frame)
+// frame has some linesizes as mapped ultragrid equivalent pixfmt
+static bool same_linesizes(codec_t codec, AVFrame *frame)
 {
-        if (codec_is_planar(codec)) {
-                assert(get_bits_per_component(codec) == 8);
-                int sub[8];
-                codec_get_planes_subsampling(codec, sub);
-                for (ptrdiff_t i = 0; i < 4; ++i) {
-                        if (sub[2 * i] == 0) {
-                                return true;
-                        }
-                        if (in_frame->linesize[i] != (in_frame->width + sub[2 * i] - 1) / sub[2 * i]) {
-                                return false;
-                        }
-                }
-                return true;
+        if (!codec_is_planar(codec)) {
+                return vc_get_linesize(frame->width, codec) == frame->linesize[0];
         }
-        return vc_get_linesize(in_frame->width, codec) == in_frame->linesize[0];
+        assert(get_bits_per_component(codec) == 8);
+        int sub[8];
+        codec_get_planes_subsampling(codec, sub);
+        for (ptrdiff_t i = 0; i < 4; ++i) {
+                if (sub[2 * i] == 0) {
+                        return true;
+                }
+                if (frame->linesize[i] != (frame->width + sub[2 * i] - 1) / sub[2 * i]) {
+                        return false;
+                }
+        }
+        return true;
 }
 
 struct pixfmt_conv_task_data {
@@ -1611,46 +1634,48 @@ static void *pixfmt_conv_task(void *arg) {
         return NULL;
 }
 
+/// @return AVFrame with converted data (if needed); valid until next to_lavc_vid_conv()
+///         call or to_lavc_vid_conv_destroy()
 struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, char *in_data) {
         int ret = 0;
         unsigned char *decoded = NULL;
-        if ((ret = av_frame_make_writable(s->in_frame)) != 0) {
+        if ((ret = av_frame_make_writable(s->out_frame)) != 0) {
                 print_libav_error(LOG_LEVEL_ERROR, MOD_NAME "Cannot make frame writable", ret);
                 return NULL;
         }
 
         time_ns_t t0 = get_time_in_ns();
         if (s->decoder != vc_memcpy) {
-                int src_linesize = vc_get_linesize(s->in_frame->width, s->in_pixfmt);
-                int dst_linesize = vc_get_linesize(s->in_frame->width, s->decoded_codec);
-                parallel_pix_conv(s->in_frame->height, (char *) s->decoded, dst_linesize, in_data, src_linesize, s->decoder, s->thread_count);
+                int src_linesize = vc_get_linesize(s->out_frame->width, s->in_pixfmt);
+                int dst_linesize = vc_get_linesize(s->out_frame->width, s->decoded_codec);
+                parallel_pix_conv(s->out_frame->height, (char *) s->decoded, dst_linesize, in_data, src_linesize, s->decoder, s->thread_count);
                 decoded = s->decoded;
         } else {
                 decoded = (unsigned char *) in_data;
         }
 
         time_ns_t t1 = get_time_in_ns();
-        AVFrame *frame = s->in_frame;
+        AVFrame *frame = s->out_frame;
         if (s->pixfmt_conv_callback != NULL) {
                 struct pixfmt_conv_task_data data[s->thread_count];
                 for(int i = 0; i < s->thread_count; ++i) {
                         data[i].callback = s->pixfmt_conv_callback;
-                        data[i].out_frame = s->in_frame_part[i];
+                        data[i].out_frame = s->out_frame_parts[i];
 
-                        size_t height = s->in_frame->height / s->thread_count & ~1; // height needs to be even
+                        size_t height = s->out_frame->height / s->thread_count & ~1; // height needs to be even
                         if (i < s->thread_count - 1) {
                                 data[i].height = height;
                         } else { // we are last so we need to do the rest
-                                data[i].height = s->in_frame->height -
+                                data[i].height = s->out_frame->height -
                                         height * (s->thread_count - 1);
                         }
-                        data[i].width = s->in_frame->width;
+                        data[i].width = s->out_frame->width;
                         data[i].in_data = decoded + i * height *
-                                vc_get_linesize(s->in_frame->width, s->decoded_codec);
+                                vc_get_linesize(s->out_frame->width, s->decoded_codec);
                 }
                 task_run_parallel(pixfmt_conv_task, s->thread_count, data, sizeof data[0], NULL);
         } else { // no pixel format conversion needed
-                if (codec_is_planar(s->decoded_codec) && !same_linesizes(s->decoded_codec, s->in_frame)) {
+                if (codec_is_planar(s->decoded_codec) && !same_linesizes(s->decoded_codec, s->out_frame)) {
                         assert(get_bits_per_component(s->decoded_codec) == 8);
                         int sub[8];
                         codec_get_planes_subsampling(s->decoded_codec, sub);
@@ -1659,21 +1684,18 @@ struct AVFrame *to_lavc_vid_conv(struct to_lavc_vid_conv *s, char *in_data) {
                                 if (sub[2 * i] == 0) {
                                         break;
                                 }
-                                int linesize = (s->in_frame->width + sub[2 * i] - 1) / sub[2 * i];
-                                int lines = (s->in_frame->height + sub[2 * i + 1] - 1) / sub[2 * i + 1];
+                                int linesize = (s->out_frame->width + sub[2 * i] - 1) / sub[2 * i];
+                                int lines = (s->out_frame->height + sub[2 * i + 1] - 1) / sub[2 * i + 1];
                                 for (ptrdiff_t y = 0; y < lines; ++y) {
-                                        memcpy(s->in_frame->data[i] + y * s->in_frame->linesize[i], in, linesize);
+                                        memcpy(s->out_frame->data[i] + y * s->out_frame->linesize[i], in, linesize);
                                         in += linesize;
                                 }
                         }
                 } else { // just set pointers to input buffer
                         frame = s->tmp_frame;
-                        memcpy(frame->linesize, s->in_frame->linesize, sizeof frame->linesize);
-                        frame->width = s->in_frame->width;
-                        frame->height = s->in_frame->height;
-                        frame->format = s->in_frame->format;
+                        memcpy(frame->linesize, s->out_frame->linesize, sizeof frame->linesize);
                         if (codec_is_planar(s->decoded_codec)) {
-                                buf_get_planes(s->in_frame->width, s->in_frame->height, s->decoded_codec, (char *) decoded, (char **) frame->data);
+                                buf_get_planes(s->out_frame->width, s->out_frame->height, s->decoded_codec, (char *) decoded, (char **) frame->data);
                         } else {
                                 frame->data[0] = (uint8_t *) decoded;
                         }
@@ -1691,10 +1713,10 @@ void to_lavc_vid_conv_destroy(struct to_lavc_vid_conv **s_p) {
                 return;
         }
         for (int i = 0; i < s->thread_count; i++) {
-                av_frame_free(&s->in_frame_part[i]);
+                av_frame_free(&s->out_frame_parts[i]);
         }
-        free(s->in_frame_part);
-        av_frame_free(&s->in_frame);
+        free(s->out_frame_parts);
+        av_frame_free(&s->out_frame);
         av_frame_free(&s->tmp_frame);
         free(s->decoded);
         free(s);
