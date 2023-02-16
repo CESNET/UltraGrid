@@ -3406,6 +3406,8 @@ static decoder_t get_decoder_from_to_internal(codec_t in, codec_t out, bool slow
 
 /**
  * Returns line decoder for specifiedn input and output codec.
+ *
+ * If in == out, vc_memcpy is returned.
  */
 decoder_t get_decoder_from_to(codec_t in, codec_t out) {
         return get_decoder_from_to_internal(in, out, true);
