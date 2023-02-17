@@ -317,17 +317,17 @@ static bool avg_lines(codec_t codec, size_t linesize, char *src1, char *src2, ch
                                 *d++ = (*s1++ + *s2++ + 1) >> 1;
                         }
                 } else {
-                        uint16_t *d16 = (uint16_t *) d;
-                        uint16_t *s16_1 = (uint16_t *) s1;
-                        uint16_t *s16_2 = (uint16_t *) s2;
+                        uint16_t *d16 = (uint16_t *)(void *) d;
+                        uint16_t *s16_1 = (uint16_t *)(void *) s1;
+                        uint16_t *s16_2 = (uint16_t *)(void *) s2;
                         for ( ; x < linesize / 2; ++x) {
                                 *d16++ = (*s16_1++ + *s16_2++ + 1) >> 1;
                         }
                 }
         } else if (codec == v210) {
-                uint32_t *s32_1 = (uint32_t *) s1;
-                uint32_t *s32_2 = (uint32_t *) s2;
-                uint32_t *d32 = (uint32_t *) d;
+                uint32_t *s32_1 = (uint32_t *)(void *) s1;
+                uint32_t *s32_2 = (uint32_t *)(void *) s2;
+                uint32_t *d32 = (uint32_t *)(void *) d;
                 for (size_t x = 0; x < linesize / 16; ++x) {
                         #pragma GCC unroll 4
                         for (int y = 0; y < 4; ++y) {
@@ -340,9 +340,9 @@ static bool avg_lines(codec_t codec, size_t linesize, char *src1, char *src2, ch
                         }
                 }
         } else if (codec == R10k) {
-                uint32_t *s32_1 = (uint32_t *) s1;
-                uint32_t *s32_2 = (uint32_t *) s2;
-                uint32_t *d32 = (uint32_t *) d;
+                uint32_t *s32_1 = (uint32_t *)(void *) s1;
+                uint32_t *s32_2 = (uint32_t *)(void *) s2;
+                uint32_t *d32 = (uint32_t *)(void *) d;
                 for (size_t x = 0; x < linesize / 4; ++x) {
                         #pragma GCC unroll 4
                         for (int y = 0; y < 4; ++y) {
@@ -355,9 +355,9 @@ static bool avg_lines(codec_t codec, size_t linesize, char *src1, char *src2, ch
                         }
                 }
         } else if (codec == R12L) {
-                uint32_t *s32_1 = (uint32_t *) s1;
-                uint32_t *s32_2 = (uint32_t *) s2;
-                uint32_t *d32 = (uint32_t *) d;
+                uint32_t *s32_1 = (uint32_t *)(void *) s1;
+                uint32_t *s32_2 = (uint32_t *)(void *) s2;
+                uint32_t *d32 = (uint32_t *)(void *) d;
                 int shift = 0;
                 uint32_t remain1 = 0;
                 uint32_t remain2 = 0;

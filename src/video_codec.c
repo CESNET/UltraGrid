@@ -3645,10 +3645,10 @@ void uyvy_to_i422(int width, int height, const char *in, char *out)
 
 void y416_to_i444(int width, int height, const char *in, char *out, int depth)
 {
-        const uint16_t *inp = (const uint16_t *) in;
-        uint16_t *out_y = (uint16_t *) out;
-        uint16_t *out_cb = (uint16_t *) out + width * height;
-        uint16_t *out_cr = (uint16_t *) out + 2 * width * height;
+        const uint16_t *inp = (const uint16_t *)(const void *) in;
+        uint16_t *out_y = (uint16_t *)(void *) out;
+        uint16_t *out_cb = (uint16_t *)(void *) out + width * height;
+        uint16_t *out_cr = (uint16_t *)(void *) out + 2 * width * height;
         for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
                         *out_cb++ = *inp++ >> (16 - depth);
@@ -3661,10 +3661,10 @@ void y416_to_i444(int width, int height, const char *in, char *out, int depth)
 
 void i444_16_to_y416(int width, int height, const char *in, char *out, int in_depth)
 {
-        const uint16_t *in_y = (const uint16_t *) in;
-        const uint16_t *in_cb = (const uint16_t *) in + width * height;
-        const uint16_t *in_cr = (const uint16_t *) in + 2 * width * height;
-        uint16_t *outp = (uint16_t *) out;
+        const uint16_t *in_y = (const uint16_t *)(const void *) in;
+        const uint16_t *in_cb = (const uint16_t *)(const void *) in + width * height;
+        const uint16_t *in_cr = (const uint16_t *)(const void *) in + 2 * width * height;
+        uint16_t *outp = (uint16_t *)(void *) out;
         for (int y = 0; y < height; ++y) {
                 for (int x = 0; x < width; ++x) {
                         *outp++ = *in_cb++ << (16 - in_depth);

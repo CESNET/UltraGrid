@@ -252,7 +252,7 @@ static void oneshot_init(int value [[gnu::unused]])
 
         if (!s->use_rgb) {
                 s->program_to_yuv422 = glsl_compile_link(NULL, fp_display_rgba_to_yuv422_legacy);
-                assert(s->program_to_yuv422 != NULL);
+                assert(s->program_to_yuv422 != 0);
                 glUseProgram(s->program_to_yuv422);
                 glUniform1i(glGetUniformLocation(s->program_to_yuv422, "image"), 0);
         }

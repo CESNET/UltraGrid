@@ -288,8 +288,8 @@ static bool testcard_load_from_file_pam(const char *filename, struct video_desc 
         if (desc->color_spec == RGB) {
                 memcpy(in_file_contents.data(), data, info.width * info.height * 3);
         } else {
-                uint16_t *in = (uint16_t *) data;
-                uint16_t *out = (uint16_t *) in_file_contents.data();
+                uint16_t *in = (uint16_t *)(void *) data;
+                uint16_t *out = (uint16_t *)(void *) in_file_contents.data();
                 for (size_t i = 0; i < (size_t) info.width * info.height * 3; ++i) {
                         *out++ = ntohs(*in++) * ((1<<16U) / (info.maxval + 1));
                 }

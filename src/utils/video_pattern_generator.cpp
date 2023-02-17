@@ -473,7 +473,7 @@ class image_pattern_text : public image_pattern {
 
         private:
                 enum generator_depth fill(int width, int height, unsigned char *data) override {
-                        std::fill((uint32_t *) data, (uint32_t *) (data + width * height * 4), bg);
+                        std::fill((uint32_t *)(void *) data, (uint32_t *)(void *) (data + width * height * 4), bg);
                         string line;
                         for (int i = 0; i < width; i += 8 * (text.size() + 1)) {
                                 line += " " + text;
