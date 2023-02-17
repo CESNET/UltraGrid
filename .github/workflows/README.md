@@ -38,7 +38,7 @@ libraries for Linux (as does for macOS and Windows).
 
 Secrets
 -------
-- **ALTOOL\_CREDENTIALS** - Apple developer credentials to be used with altool for macOS build
+- **NOTARYTOOL\_CREDENTIALS** - Apple developer credentials to be used with notarytool for macOS build (username:password:teamid)
   notarization in format "user:password" (app-specific password is strongly recommended)
 - **APPLE\_KEY\_P12\_B64** - base64-encoded signing Apple key in P12 (see [below](#generating-apple-keys-to-sign-the-image))
 - **APPIMAGE\_KEY** - GPG exported (armored) private key to sign AppImage

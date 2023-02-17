@@ -164,7 +164,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SDK_NONFREE_PATH: /private/var/tmp/sdks-nonfree
-      altool_credentials: ${{ secrets.altool_credentials }}
+      notarytool_credentials: ${{ secrets.notarytool_credentials }}
       apple_key_p12_b64: ${{ secrets.apple_key_p12_b64 }}
       SDK_URL: ${{ secrets.SDK_URL }}
 
