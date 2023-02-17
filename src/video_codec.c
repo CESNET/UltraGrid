@@ -1843,79 +1843,81 @@ void vc_copylineUYVYtoRGB_SSE(unsigned char * __restrict dst, const unsigned cha
         vc_copylineUYVYtoRGB(dst, src, dst_len, rshift, gshift, bshift);
 }
 
-/**
- * Converts 8-bit RGB to 12-bit packed RGB in full range (compatible with
- * SMPTE 268M DPX version 1, Annex C, Method C4 packing).
- */
-static void vc_copylineRGBtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
-                int rshift, int gshift, int bshift) {
-        UNUSED(rshift);
-        UNUSED(gshift);
-        UNUSED(bshift);
-
+#if defined __GNUC__
+static inline void vc_copylineRGB_AtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int pix_pad)
+        __attribute__((always_inline));
+#endif
+static inline void vc_copylineRGB_AtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int pix_pad) {
+#define FETCH_DATA \
+                r = *src++; \
+                g = *src++; \
+                b = *src++; \
+                src += pix_pad;
         OPTIMIZED_FOR (int x = 0; x <= dst_len - 36; x += 36) {
-                unsigned char r = *src++;
-                unsigned char g = *src++;
-                unsigned char b = *src++;
+                unsigned r, g, b;
+                FETCH_DATA
                 dst[BYTE_SWAP(0)] = r << 4;
                 dst[BYTE_SWAP(1)] = r >> 4;
                 dst[BYTE_SWAP(2)] = g;
                 dst[BYTE_SWAP(3)] = b << 4;
                 dst[4 + BYTE_SWAP(0)] = b >> 4;
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                FETCH_DATA
                 dst[4 + BYTE_SWAP(1)] = r;
                 dst[4 + BYTE_SWAP(2)] = g << 4;
                 dst[4 + BYTE_SWAP(3)] = g >> 4;
                 dst[8 + BYTE_SWAP(0)] = b;
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                FETCH_DATA
                 dst[8 + BYTE_SWAP(1)] = r << 4;
                 dst[8 + BYTE_SWAP(2)] = r >> 4;
                 dst[8 + BYTE_SWAP(3)] = g;
                 dst[12 + BYTE_SWAP(0)] = b << 4;
                 dst[12 + BYTE_SWAP(1)] = b >> 4;
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                FETCH_DATA
                 dst[12 + BYTE_SWAP(2)] = r;
                 dst[12 + BYTE_SWAP(3)] = g << 4;
                 dst[16 + BYTE_SWAP(0)] = g >> 4;
                 dst[16 + BYTE_SWAP(1)] = b;
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                FETCH_DATA
                 dst[16 + BYTE_SWAP(2)] = r << 4;
                 dst[16 + BYTE_SWAP(3)] = r >> 4;
                 dst[20 + BYTE_SWAP(0)] = g;
                 dst[20 + BYTE_SWAP(1)] = b << 4;
                 dst[20 + BYTE_SWAP(2)] = b >> 4;
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                FETCH_DATA
                 dst[20 + BYTE_SWAP(3)] = r;
                 dst[24 + BYTE_SWAP(0)] = g << 4;
                 dst[24 + BYTE_SWAP(1)] = g >> 4;
                 dst[24 + BYTE_SWAP(2)] = b;
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                FETCH_DATA
                 dst[24 + BYTE_SWAP(3)] = r << 4;
                 dst[28 + BYTE_SWAP(0)] = r >> 4;
                 dst[28 + BYTE_SWAP(1)] = g;
                 dst[28 + BYTE_SWAP(2)] = b << 4;
                 dst[28 + BYTE_SWAP(3)] = b >> 4;
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                FETCH_DATA
                 dst[32 + BYTE_SWAP(0)] = r;
                 dst[32 + BYTE_SWAP(1)] = g << 4;
                 dst[32 + BYTE_SWAP(2)] = g >> 4;
                 dst[32 + BYTE_SWAP(3)] = b;
                 dst += 36;
         }
+#undef FETCH_DATA
+}
+
+/**
+ * Converts 8-bit RGB to 12-bit packed RGB in full range (compatible with
+ * SMPTE 268M DPX version 1, Annex C, Method C4 packing).
+ */
+static void vc_copylineRGBtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
+                int rshift, int gshift, int bshift) {
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        vc_copylineRGB_AtoR12L(dst, src, dst_len, 0);
+}
+
+static void vc_copylineRGBAtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
+                int rshift, int gshift, int bshift) {
+        UNUSED(rshift), UNUSED(gshift), UNUSED(bshift);
+        vc_copylineRGB_AtoR12L(dst, src, dst_len, 1);
 }
 
 static void vc_copylineRGBAtoRG48(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len,
@@ -3339,6 +3341,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineR12LtoRG48,  R12L,  RG48, false },
         { vc_copylineR12LtoR10k,  R12L,  R10k, false },
         { vc_copylineR12LtoY416,  R12L,  Y416, true },
+        { vc_copylineRGBAtoR12L,  RGBA,  R12L, false },
         { vc_copylineRGBtoR12L,   RGB,   R12L, false },
         { vc_copylineRGBAtoRG48,  RGBA,  RG48, false },
         { vc_copylineRGBtoRG48,   RGB,   RG48, false },
