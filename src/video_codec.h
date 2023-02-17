@@ -110,6 +110,7 @@ decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates
 decoder_t        get_fastest_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out);
 struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt);
 int              compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *desc_b, const struct pixfmt_desc *src_desc);
+void             watch_pixfmt_degrade(const char *mod_name, struct pixfmt_desc desc_src, struct pixfmt_desc desc_dst);
 
 int get_pf_block_bytes(codec_t codec) ATTRIBUTE(const);
 int get_pf_block_pixels(codec_t codec) ATTRIBUTE(const);

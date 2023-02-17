@@ -3751,4 +3751,23 @@ int compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *
         return 0;
 }
 
+void watch_pixfmt_degrade(const char *mod_name, struct pixfmt_desc desc_src, struct pixfmt_desc desc_dst)
+{
+        char message[1024];
+        message[0] = '\0';
+        if (desc_dst.depth < desc_src.depth) {
+                snprintf(message, sizeof message, "conversion is reducing bit depth from %d to %d", desc_src.depth, desc_dst.depth);
+        }
+        if (desc_dst.subsampling < desc_src.subsampling) {
+                if (strlen(message) > 0) {
+                        snprintf(message, sizeof message - strlen(message), " and subsampling from %d to %d", desc_src.subsampling, desc_dst.subsampling);
+                } else {
+                        snprintf(message, sizeof message, "conversion is reducing subsampling from %d to %d", desc_src.subsampling, desc_dst.subsampling);
+                }
+        }
+        if (strlen(message) > 0) {
+                log_msg(LOG_LEVEL_WARNING, "%s%s\n", mod_name, message);
+        }
+}
+
 /* vim: set expandtab sw=8: */
