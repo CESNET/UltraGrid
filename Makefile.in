@@ -68,7 +68,6 @@ docdir = @docdir@
 mandir = @mandir@
 man1dir = @mandir@/man1
 srcdir        = @srcdir@
-srcdir_abs    = @srcdir_abs@
 VPATH         = @srcdir@
 
 DOCS 	      = $(srcdir)/CONTRIBUTING.md $(srcdir)/README.md $(wildcard $(srcdir)/doc/*)
