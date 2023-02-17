@@ -1392,7 +1392,8 @@ static int compare_uv_pixfmts(const void *a, const void *b, void *orig_c) {
         struct pixfmt_desc desc_a = get_pixfmt_desc(*pix_a);
         struct pixfmt_desc desc_b = get_pixfmt_desc(*pix_b);
 
-        return compare_pixdesc(&desc_a, &desc_b, src_desc);
+        int ret = compare_pixdesc(&desc_a, &desc_b, src_desc);
+        return ret != 0 ? ret : (int) *pix_b - (int) *pix_a;
 }
 
 /**

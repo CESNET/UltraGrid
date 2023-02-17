@@ -2363,7 +2363,8 @@ static int compare_convs(const void *a, const void *b, void *orig_c) {
         struct pixfmt_desc desc_a = get_pixfmt_desc(conv_a->uv_codec);
         struct pixfmt_desc desc_b = get_pixfmt_desc(conv_b->uv_codec);
 
-        return compare_pixdesc(&desc_a, &desc_b, src_desc);
+        int ret = compare_pixdesc(&desc_a, &desc_b, src_desc);
+        return ret != 0 ? ret : (int) conv_b->uv_codec - (int) conv_a->uv_codec;
 }
 
 static decoder_t get_av_and_uv_conversion(enum AVPixelFormat av_codec, codec_t uv_codec,

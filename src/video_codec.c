@@ -3697,7 +3697,6 @@ struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt)
         ret.depth = codec_info[pixfmt].bits_per_channel;
         ret.subsampling = codec_info[pixfmt].subsampling;
         ret.rgb = codec_info[pixfmt].rgb;
-        ret.id = (unsigned) pixfmt;
         return ret;
 }
 
@@ -3747,7 +3746,7 @@ int compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *
                 }
         }
 
-        return desc_a->id < desc_b->id ? -1 : 1;
+        return 0;
 }
 
 /* vim: set expandtab sw=8: */

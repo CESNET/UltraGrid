@@ -112,7 +112,6 @@ struct pixfmt_desc {
         int depth;
         int subsampling; ///< in 'JabA' format, eg. '4444'
         bool rgb;
-        unsigned id; ///< pixfmt identity - (codec_t) or (AVPixelFormat) + VIDEO_CODEC_COUNT
 };
 
 /**

@@ -287,7 +287,6 @@ struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt) {
         ret.depth = avd->comp[0].depth;
         ret.rgb = avd->flags & AV_PIX_FMT_FLAG_RGB;
         ret.subsampling = av_pixfmt_get_subsampling(pixfmt);
-        ret.id = VIDEO_CODEC_END + (unsigned) pixfmt;
         return ret;
 }
 
