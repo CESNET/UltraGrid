@@ -74,6 +74,7 @@
 #include <memory>
 #include <mutex>
 #include <pthread.h>
+#include <stdexcept>
 #include <string>
 #include <string.h>
 #include <thread>
@@ -743,22 +744,30 @@ struct ug_options {
 };
 
 static bool parse_port(char *optarg, struct ug_options *opt) {
-        if (strchr(optarg, ':') != nullptr) {
-                char *save_ptr = nullptr;
-                opt->video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
-                opt->video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
-                char *tok = nullptr;
-                if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
-                        opt->audio.recv_port = stoi(tok, nullptr, 0);
-                        if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
-                                opt->audio.send_port = stoi(tok, nullptr, 0);
-                        } else {
-                                usage(uv_argv[0]);
-                                return false;
-                        }
+        try {
+                if (strcmp(optarg, "help") == 0) {
+                        color_printf("see\n\n    " TBOLD("%s --fullhelp") "\n\nfor port specification usage\n", uv_argv[0]);
                 }
-        } else {
-                opt->port_base = stoi(optarg, nullptr, 0);
+                if (strchr(optarg, ':') != nullptr) {
+                        char *save_ptr = nullptr;
+                        opt->video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
+                        opt->video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
+                        char *tok = nullptr;
+                        if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                                opt->audio.recv_port = stoi(tok, nullptr, 0);
+                                if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
+                                        opt->audio.send_port = stoi(tok, nullptr, 0);
+                                } else {
+                                        usage(uv_argv[0]);
+                                        return false;
+                                }
+                        }
+                } else {
+                        opt->port_base = stoi(optarg, nullptr, 0);
+                }
+        } catch (invalid_argument &e) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Non-numeric value passed!\n";
+                return false;
         }
         if (opt->audio.recv_port < -1 || opt->audio.send_port < -1 || opt->video_rx_port < -1 || opt->video_tx_port < -1 || opt->port_base < -1 ||
                         opt->audio.recv_port > UINT16_MAX || opt->audio.send_port > UINT16_MAX || opt->video_rx_port > UINT16_MAX || opt->video_tx_port > UINT16_MAX || opt->port_base > UINT16_MAX) {
