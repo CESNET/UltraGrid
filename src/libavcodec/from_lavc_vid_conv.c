@@ -69,6 +69,8 @@
 #include "pmmintrin.h"
 #endif
 
+#define MOD_NAME "[from_lavc_vid_conv] "
+
 #if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
 #define HAVE_12_AND_14_PLANAR_COLORSPACES 1
 #endif
@@ -2419,6 +2421,7 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
                                 conversions->uv_codec == uv_codec) {
                         priv->convert = conversions->convert;
                         ret.valid = true;
+                        watch_pixfmt_degrade(MOD_NAME, av_pixfmt_get_desc(av_codec), get_pixfmt_desc(uv_codec));
                         return ret;
                 }
         }
@@ -2427,13 +2430,16 @@ av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec) {
         codec_t intermediate;
         decoder_t dec = get_av_and_uv_conversion(av_codec, uv_codec,
                 &intermediate, &av_convert);
-        if (dec) {
-                priv->dec = dec;
-                priv->convert = av_convert;
-                priv->src_pixfmt = intermediate;
-                priv->dst_pixfmt = uv_codec;
-                ret.valid = true;
+        if (!dec) {
+                return ret;
         }
+        priv->dec = dec;
+        priv->convert = av_convert;
+        priv->src_pixfmt = intermediate;
+        priv->dst_pixfmt = uv_codec;
+        ret.valid = true;
+        watch_pixfmt_degrade(MOD_NAME, av_pixfmt_get_desc(av_codec), get_pixfmt_desc(intermediate));
+        watch_pixfmt_degrade(MOD_NAME, get_pixfmt_desc(intermediate), get_pixfmt_desc(uv_codec));
 
         return ret;
 }
