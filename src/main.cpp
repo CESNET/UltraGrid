@@ -129,7 +129,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_AUDIO_SCALE (('a' << 8) | 's')
 #define OPT_AUDIO_FILTER (('a' << 8) | 'f')
 #define OPT_CAPABILITIES (('C' << 8) | 'C')
-#define OPT_CAPTURE_FILTER (('O' << 8) | 'F')
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_CUDA_DEVICE (('C' << 8) | 'D')
 #define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
@@ -387,7 +386,7 @@ static void usage(const char *exec_path, bool full = false)
                                 "dual-link)"});
                 print_help_item("-N|--nat-traverse"s, {"try to deploy NAT traversal techniques"s});
                 print_help_item("-p <postprocess> | help", {"postprocess module"});
-                print_help_item("-T/--ttl <num>", {"Use specified TTL for multicast/unicast (0..255, -1 for default)"});
+                print_help_item("-T|--ttl <num>", {"Use specified TTL for multicast/unicast (0..255, -1 for default)"});
         }
         print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
                         "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%%\" or", "\"ldgm:<k>:<m>:<c>\"",
@@ -419,7 +418,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("--encryption <passphrase>", {"key material for encryption"});
                 print_help_item("--playback <directory> | help", {"replays recorded audio and video"});
                 print_help_item("--record[=<directory>]", {"record captured audio and video"});
-                print_help_item("--capture-filter <filter> | help",
+                print_help_item("-F|--capture-filter <filter> | help",
                                 {"capture filter(s), must be given before capture device"});
                 print_help_item("--param <params> | help", {"additional advanced parameters, use help for list"});
                 print_help_item("--pix-fmts", {"list of pixel formats"});
@@ -823,7 +822,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"playback", required_argument, 0, OPT_IMPORT},
                 {"audio-host", required_argument, 0, 'A'},
                 {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
-                {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
+                {"capture-filter", required_argument, 0, 'F'},
                 {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
                 {"verbose", optional_argument, nullptr, 'V'},
@@ -1057,7 +1056,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
-                case OPT_CAPTURE_FILTER:
+                case 'F':
                         vidcap_params_set_capture_filter(opt->vidcap_params_tail, optarg);
                         break;
                 case OPT_ENCRYPTION:
