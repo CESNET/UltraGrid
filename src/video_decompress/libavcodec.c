@@ -119,8 +119,8 @@ static void deconfigure(struct state_libavcodec_decompress *s)
         hwaccel_state_reset(&s->hwaccel);
 
 #ifdef HAVE_SWSCALE
-        s->sws.ctx = NULL;
         sws_freeContext(s->sws.ctx);
+        s->sws.ctx = NULL;
         if (s->sws.frame) {
                 av_freep(s->sws.frame->data);
         }
