@@ -85,7 +85,7 @@ typedef enum {
         DECODER_NO_FRAME = 0, //Frame not decoded yet 
         DECODER_GOT_FRAME,    //Frame decoded and written to destination
         DECODER_GOT_CODEC,    ///< Internal pixel format was determined
-        DECODER_CANT_DECODE   //Decoder can't decode to selected out_codec
+        DECODER_UNSUPP_PIXFMT, ///< Decoder can't decode to selected out_codec
 } decompress_status;
 
 /**
@@ -106,10 +106,6 @@ typedef enum {
  *                           decode_from_to)
  * @note
  * Frame_seq used perhaps only for VP8, H.264 uses Periodic Intra Refresh.
- * @retval    DECODER_GOT_FRAME        if decompressed successfully
- * @retval    DECODER_GOT_CODEC        successfully returned internal codec
- * @retval    DECODER_NO_FRAME         if the frame wasn't decoded yet
- * @retval    DECODER_CANT_DECODE      if decoding to selected out_codec failed
  */
 typedef decompress_status (*decompress_decompress_t)(
                 void *state,

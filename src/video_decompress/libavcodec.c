@@ -919,7 +919,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                                 s->last_frame_seq = frame_seq;
                                                 res = DECODER_GOT_FRAME;
                                         } else {
-                                                res = DECODER_CANT_DECODE;
+                                                res = DECODER_UNSUPP_PIXFMT;
                                         }
                                 } else {
                                         res = DECODER_GOT_FRAME;
@@ -953,7 +953,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         s->internal_codec = *internal_codec;
                         return DECODER_GOT_CODEC;
                 }
-                return DECODER_CANT_DECODE;
+                return DECODER_UNSUPP_PIXFMT;
         }
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)

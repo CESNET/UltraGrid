@@ -676,7 +676,7 @@ static void *decompress_thread(void *args) {
                                         goto skip_frame;
                                 }
                                 if (data[pos].ret != DECODER_GOT_FRAME){
-                                        if (data[pos].ret == DECODER_CANT_DECODE){
+                                        if (data[pos].ret == DECODER_UNSUPP_PIXFMT) {
                                                 if(blacklist_current_out_codec(decoder))
                                                         decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true));
                                         }
