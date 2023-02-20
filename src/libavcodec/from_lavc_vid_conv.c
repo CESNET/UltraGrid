@@ -2341,7 +2341,6 @@ static const struct av_to_uv_conversion *av_to_uv_conversions_end = av_to_uv_con
 static void set_decoder_mapped_to_uv(av_to_uv_convert_t *ret, decoder_t dec,
                 codec_t dst_pixfmt) {
         struct av_to_uv_convert_state_priv *priv = (void *) ret->priv_data;
-        memset(priv, 0, sizeof *priv);
         priv->dec = dec;
         priv->dst_pixfmt = dst_pixfmt;
         ret->valid = true;
@@ -2349,7 +2348,6 @@ static void set_decoder_mapped_to_uv(av_to_uv_convert_t *ret, decoder_t dec,
 
 static void set_decoder_memcpy(av_to_uv_convert_t *ret, codec_t color_spec) {
         struct av_to_uv_convert_state_priv *priv = (void *) ret->priv_data;
-        memset(priv, 0, sizeof *priv);
         priv->dst_pixfmt = color_spec;
         ret->valid = true;
 }
