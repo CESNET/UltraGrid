@@ -839,7 +839,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int got_frame = 0;
-        decompress_status res = DECODER_NO_FRAME;
 
         if (s->desc.color_spec == H264 && !check_first_h264_sps(s, src, src_len)) {
                 return DECODER_NO_FRAME;
@@ -903,26 +902,20 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                                 "(last valid %d, this %u).\n",
                                                 s->last_frame_seq_initialized ?
                                                 s->last_frame_seq : -1, (unsigned) frame_seq);
-                                res = DECODER_NO_FRAME;
+                                got_frame = 0;
                         } else {
 #ifdef HWACC_COMMON_IMPL
                                 if(s->hwaccel.copy){
                                         transfer_frame(&s->hwaccel, s->frame);
                                 }
 #endif
-
                                 if (s->out_codec != VIDEO_CODEC_NONE) {
-                                        bool ret = change_pixfmt(s->frame, dst, s->frame->format, s->out_codec, s->desc.width,
-                                                        s->desc.height, s->pitch, s->rgb_shift, &s->sws);
-                                        if(ret == TRUE) {
-                                                s->last_frame_seq_initialized = true;
-                                                s->last_frame_seq = frame_seq;
-                                                res = DECODER_GOT_FRAME;
-                                        } else {
-                                                res = DECODER_UNSUPP_PIXFMT;
+                                        if (!change_pixfmt(s->frame, dst, s->frame->format, s->out_codec, s->desc.width,
+                                                                s->desc.height, s->pitch, s->rgb_shift, &s->sws)) {
+                                                return DECODER_UNSUPP_PIXFMT;
                                         }
-                                } else {
-                                        res = DECODER_GOT_FRAME;
+                                        s->last_frame_seq_initialized = true;
+                                        s->last_frame_seq = frame_seq;
                                 }
                         }
                         struct timeval t4;
@@ -941,13 +934,13 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
         }
 
-        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE && res == DECODER_GOT_FRAME) {
+        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE && got_frame == 1) {
                 *internal_codec = s->internal_codec;
                 return DECODER_GOT_CODEC;
         }
 
         // codec doesn't call get_format_callback (J2K, 10-bit RGB HEVC)
-        if (s->out_codec == VIDEO_CODEC_NONE && res == DECODER_GOT_FRAME) {
+        if (s->out_codec == VIDEO_CODEC_NONE && got_frame == 1) {
                 log_msg(LOG_LEVEL_VERBOSE, "[lavd] Available output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
                 if (has_conversion(s->codec_ctx->pix_fmt, internal_codec)) {
                         s->internal_codec = *internal_codec;
@@ -957,12 +950,12 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         }
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
-        if (res == DECODER_GOT_FRAME && avcodec_receive_frame(s->codec_ctx, s->frame) != AVERROR(EAGAIN)) {
+        if (got_frame == 1 && avcodec_receive_frame(s->codec_ctx, s->frame) != AVERROR(EAGAIN)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Multiple frames decoded at once!\n");
         }
 #endif
 
-        return res;
+        return got_frame == 0 ? DECODER_NO_FRAME : DECODER_GOT_FRAME;
 }
 
 ADD_TO_PARAM("lavd-accept-corrupted",
