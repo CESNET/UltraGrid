@@ -331,6 +331,7 @@ jobs:
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
       run: |
         C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
+          PATH=/usr/bin:$PATH # TOREMOVE when not needed (see git commit message)
           $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-win64.zip application/zip Windows%20build'
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
