@@ -82,7 +82,6 @@ struct state_libavcodec_decompress {
         int              max_compressed_len;
         codec_t          internal_codec;
         codec_t          out_codec;
-        bool             blacklist_vdpau;
         bool             block_accel[HWACCEL_COUNT];
         long long        consecutive_failed_decodes;
 
@@ -407,7 +406,6 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         s->rgb_shift[G] = gshift;
         s->rgb_shift[B] = bshift;
         s->internal_codec = VIDEO_CODEC_NONE;
-        s->blacklist_vdpau = false;
         for(int i = 0; i < HWACCEL_COUNT; i++){
                 s->block_accel[i] = get_commandline_param("use-hw-accel") == NULL;
         }
@@ -532,7 +530,6 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                 }
                 log_msg(LOG_LEVEL_WARNING, "[lavd] Falling back to software decoding!\n");
                 if (state->out_codec == HW_VDPAU) {
-                        state->blacklist_vdpau = true;
                         return AV_PIX_FMT_NONE;
                 }
         }
@@ -828,9 +825,6 @@ static void handle_lavd_error(struct state_libavcodec_decompress *s, int ret)
                         s->block_accel[s->hwaccel.type] = true;
                         deconfigure(s);
                         configure_with(s, s->desc, NULL, 0);
-                        if(s->out_codec == HW_VDPAU){
-                                s->blacklist_vdpau = true;
-                        }
                 }
         } else if (ret == AVERROR(EAGAIN) && strcmp(s->codec_ctx->codec->name, "hevc_qsv") == 0) {
                 if (s->consecutive_failed_decodes++ == 70) {
@@ -959,12 +953,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         s->internal_codec = *internal_codec;
                         return DECODER_GOT_CODEC;
                 }
-                return DECODER_CANT_DECODE;
-        }
-
-        if (s->blacklist_vdpau) {
-                assert(s->out_codec == HW_VDPAU);
-                s->blacklist_vdpau = false;
                 return DECODER_CANT_DECODE;
         }
 
