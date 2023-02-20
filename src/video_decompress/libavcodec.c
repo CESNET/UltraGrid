@@ -889,26 +889,9 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 #endif
                 gettimeofday(&t1, NULL);
 
-                /*
-                 * Hack: Some libavcodec versions (typically found in Libav)
-                 * do not correctly support JPEG with more than one reset
-                 * segment (GPUJPEG) or more than one slices (compressed with
-                 * libavcodec). It returns error although it is actually able
-                 * to decompress the frame correctly. So we assume that the
-                 * decompression went good even with the reported error.
-                 */
                 if (len < 0) {
-                        if (s->desc.color_spec == JPEG) {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:90:0' on sender).\n");
-                        } else if (s->desc.color_spec == MJPG) {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Perhaps old libavcodec without slices support? (Try '-c libavcodec:codec=MJPEG:threads=no' on sender).\n");
-#if LIBAVCODEC_VERSION_MAJOR <= 54 // Libav with libavcodec 54 will crash otherwise
-                                return DECODER_NO_FRAME;
-#endif
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Error while decoding frame.\n");
-                                return DECODER_NO_FRAME;
-                        }
+                        log_msg(LOG_LEVEL_WARNING, "[lavd] Error while decoding frame.\n");
+                        return DECODER_NO_FRAME;
                 }
 
                 if(got_frame) {
