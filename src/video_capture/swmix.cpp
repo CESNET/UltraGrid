@@ -1021,6 +1021,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 if(!*config_file) {
                         fprintf(stderr, "Params not set and config file %s not found.\n",
                                         config_path);
+                        free(config_path);
                         return false;
                 }
                 free(config_path);
