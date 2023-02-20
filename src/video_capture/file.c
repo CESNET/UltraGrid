@@ -605,7 +605,7 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                                 s->video_desc.color_spec = UYVY; // fallback, swscale will perhaps be used
                         }
 
-                        if ((s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt, s->video_desc.color_spec)).valid) {
+                        if (!(s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt, s->video_desc.color_spec)).valid) {
                                 s->sws_ctx = sws_getContext(s->video_desc.width, s->video_desc.height, s->vid_ctx->pix_fmt,
                                                 s->video_desc.width, s->video_desc.height, get_ug_to_av_pixfmt(s->video_desc.color_spec),
                                                 0, NULL, NULL, NULL);
