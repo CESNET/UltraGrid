@@ -56,7 +56,7 @@ typedef struct av_to_uv_convert_state {
         bool valid;
 } av_to_uv_convert_t;
 
-void av_to_uv_convert(av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
+void av_to_uv_convert(const av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift);
 
 av_to_uv_convert_t get_av_to_uv_conversion(int av_codec, codec_t uv_codec);
 codec_t get_best_ug_codec_to_av(const enum AVPixelFormat *fmt, bool use_hwaccel);

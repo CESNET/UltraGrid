@@ -82,6 +82,10 @@ struct state_libavcodec_decompress {
         int              max_compressed_len;
         codec_t          internal_codec;
         codec_t          out_codec;
+        struct {
+                av_to_uv_convert_t convert;
+                int                convert_in;
+        };
         bool             block_accel[HWACCEL_COUNT];
         long long        consecutive_failed_decodes;
 
@@ -89,12 +93,10 @@ struct state_libavcodec_decompress {
         bool             last_frame_seq_initialized;
 
         struct state_libavcodec_decompress_sws {
-#ifdef HAVE_SWSCALE
                 int width, height;
                 enum AVPixelFormat in_codec, out_codec;
                 struct SwsContext *ctx;
                 AVFrame *frame;
-#endif
         } sws;
 
         struct hw_accel_state hwaccel;
@@ -117,6 +119,8 @@ static void deconfigure(struct state_libavcodec_decompress *s)
         av_packet_free(&s->pkt);
 
         hwaccel_state_reset(&s->hwaccel);
+
+        s->convert_in = AV_PIX_FMT_NONE;
 
 #ifdef HAVE_SWSCALE
         sws_freeContext(s->sws.ctx);
@@ -604,13 +608,8 @@ static bool lavd_sws_convert_reconfigure(struct state_libavcodec_decompress_sws 
         return true;
 }
 
-static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum AVPixelFormat sws_in_codec,
-                enum AVPixelFormat sws_out_codec, int width, int height, AVFrame *in_frame)
+static void lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, AVFrame *in_frame)
 {
-        if (!lavd_sws_convert_reconfigure(sws, sws_in_codec, sws_out_codec, width, height)) {
-                return false;
-        }
-
         sws_scale(sws->ctx,
                         (const uint8_t * const *) in_frame->data,
                         in_frame->linesize,
@@ -618,26 +617,21 @@ static bool lavd_sws_convert(struct state_libavcodec_decompress_sws *sws, enum A
                         in_frame->height,
                         sws->frame->data,
                         sws->frame->linesize);
-        return true;
 }
 
 /// @brief Converts directly to out_buffer (instead to sws->frame). This is used for directly mapped
 /// UltraGrid pixel formats that can be decoded directly to framebuffer.
-static bool lavd_sws_convert_to_buffer(struct state_libavcodec_decompress_sws *sws, enum AVPixelFormat sws_in_codec,
-                enum AVPixelFormat sws_out_codec, int width, int height, AVFrame *in_frame, char *out_buffer)
+static void lavd_sws_convert_to_buffer(struct state_libavcodec_decompress_sws *sws,
+                AVFrame *in_frame, char *out_buffer)
 {
-        if (!lavd_sws_convert_reconfigure(sws, sws_in_codec, sws_out_codec, width, height)) {
-                return false;
-        }
-
         struct AVFrame *out = av_frame_alloc();
-        codec_t ug_out_pixfmt = get_av_to_ug_pixfmt(sws_out_codec);
+        codec_t ug_out_pixfmt = get_av_to_ug_pixfmt(sws->frame->format);
         if (codec_is_planar(ug_out_pixfmt)) {
-                buf_get_planes(width, height, ug_out_pixfmt, out_buffer, (char **) out->data);
-                buf_get_linesizes(width, ug_out_pixfmt, out->linesize);
+                buf_get_planes(sws->frame->width, sws->frame->height, ug_out_pixfmt, out_buffer, (char **) out->data);
+                buf_get_linesizes(sws->frame->width, ug_out_pixfmt, out->linesize);
         } else {
                 out->data[0] = (unsigned char *) out_buffer;
-                out->linesize[0] = vc_get_linesize(width, ug_out_pixfmt);
+                out->linesize[0] = vc_get_linesize(sws->frame->width, ug_out_pixfmt);
         }
 
         sws_scale(sws->ctx,
@@ -648,13 +642,11 @@ static bool lavd_sws_convert_to_buffer(struct state_libavcodec_decompress_sws *s
                         out->data,
                         out->linesize);
         av_frame_free(&out);
-        return true;
-
 }
 #endif
 
 struct convert_task_data {
-        av_to_uv_convert_t *convert;
+        const av_to_uv_convert_t *convert;
         unsigned char *out_data;
         AVFrame *in_frame;
         int width;
@@ -669,7 +661,7 @@ static void *convert_task(void *arg) {
         return NULL;
 }
 
-static void parallel_convert(codec_t out_codec, av_to_uv_convert_t *convert, char *dst, AVFrame *in, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
+static void parallel_convert(codec_t out_codec, const av_to_uv_convert_t *convert, char *dst, AVFrame *in, int width, int height, int pitch, int rgb_shift[static restrict 3]) {
         if (codec_is_const_size(out_codec)) { // VAAPI etc
                 av_to_uv_convert(convert, dst, in, width, height, pitch, rgb_shift);
                 return;
@@ -698,6 +690,41 @@ static void parallel_convert(codec_t out_codec, av_to_uv_convert_t *convert, cha
         task_run_parallel(convert_task, cpu_count, d, sizeof d[0], NULL);
 }
 
+static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s, enum AVPixelFormat av_codec, codec_t out_codec, int width, int height) {
+        if (s->convert_in == av_codec) {
+                return 1;
+        }
+        s->convert = get_av_to_uv_conversion(av_codec, out_codec);
+        if (s->convert.valid) {
+                s->convert_in = av_codec;
+                return 1;
+        }
+#ifdef HAVE_SWSCALE
+        if (get_ug_to_av_pixfmt(out_codec) != AV_PIX_FMT_NONE) { // the UG pixfmt can be used directly as dst for sws
+                if (!lavd_sws_convert_reconfigure(&s->sws, av_codec, get_ug_to_av_pixfmt(out_codec), width, height)) {
+                        return 0;
+                }
+                s->convert_in = av_codec;
+                return 1;
+        }
+
+        // else try to find swscale
+        enum AVPixelFormat sws_out_codec = pick_av_convertible_to_ug(out_codec, &s->convert);
+        if (!sws_out_codec) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel format: %s (id %d)\n",
+                                av_get_pix_fmt_name(av_codec), av_codec);
+                return 0;
+        }
+        if (!lavd_sws_convert_reconfigure(&s->sws, av_codec, sws_out_codec, width, height)) {
+                return 0;
+        }
+        s->convert_in = av_codec;
+        return 1;
+#else
+        return 0;
+#endif
+}
+
 /**
  * Changes pixel format from frame to native
  *
@@ -709,44 +736,25 @@ static void parallel_convert(codec_t out_codec, av_to_uv_convert_t *convert, cha
  * @param  out_codec requested output codec
  * @param  width     frame width
  * @param  height    frame height
- * @retval TRUE      if the transformation was successful
- * @retval FALSE     if transformation failed
- * @see    yuvj422p_to_yuv422
- * @see    yuv420p_to_yuv422
  */
-static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec, codec_t out_codec, int width, int height,
+static void change_pixfmt(AVFrame *frame, unsigned char *dst, const av_to_uv_convert_t *convert,
+                codec_t out_codec, int width, int height,
                 int pitch, int rgb_shift[static restrict 3], struct state_libavcodec_decompress_sws *sws) {
         debug_file_dump("lavd-avframe", serialize_video_avframe, frame);
 
-        av_to_uv_convert_t convert = get_av_to_uv_conversion(av_codec, out_codec);
-        if (convert.valid) {
-                parallel_convert(out_codec, &convert, (char *) dst, frame, width, height, pitch, rgb_shift);
-                return TRUE;
+        if (!sws->ctx) {
+                parallel_convert(out_codec, convert, (char *) dst, frame, width, height, pitch, rgb_shift);
+                return;
         }
 
 #ifdef HAVE_SWSCALE
         if (get_ug_to_av_pixfmt(out_codec) != AV_PIX_FMT_NONE) { // the UG pixfmt can be used directly as dst for sws
-                lavd_sws_convert_to_buffer(sws, av_codec, get_ug_to_av_pixfmt(out_codec), width, height, frame, (char *) dst);
-                return TRUE;
+                lavd_sws_convert_to_buffer(sws, frame, (char *) dst);
+                return;
         }
 
-        // else try to find swscale
-        enum AVPixelFormat sws_out_codec = pick_av_convertible_to_ug(out_codec, &convert);
-        if (!sws_out_codec) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported pixel "
-                                "format: %s (id %d)\n",
-                                av_get_pix_fmt_name(
-                                        av_codec), av_codec);
-                return FALSE;
-        }
-        if(!lavd_sws_convert(sws, av_codec, sws_out_codec, width, height, frame))
-                return FALSE;
-
-        parallel_convert(out_codec, &convert, (char *) dst, sws->frame, width, height, pitch, rgb_shift);
-        return TRUE;
-#else
-        UNUSED(sws);
-        return FALSE;
+        lavd_sws_convert(sws, frame);
+        parallel_convert(out_codec, convert, (char *) dst, sws->frame, width, height, pitch, rgb_shift);
 #endif // HAVE_SWSCALE
 }
 
@@ -910,10 +918,11 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                 }
 #endif
                                 if (s->out_codec != VIDEO_CODEC_NONE) {
-                                        if (!change_pixfmt(s->frame, dst, s->frame->format, s->out_codec, s->desc.width,
-                                                                s->desc.height, s->pitch, s->rgb_shift, &s->sws)) {
+                                        if (!reconfigure_convert_if_needed(s, s->frame->format, s->out_codec, s->desc.width, s->desc.height)) {
                                                 return DECODER_UNSUPP_PIXFMT;
                                         }
+                                        change_pixfmt(s->frame, dst, &s->convert, s->out_codec, s->desc.width,
+                                                                s->desc.height, s->pitch, s->rgb_shift, &s->sws);
                                         s->last_frame_seq_initialized = true;
                                         s->last_frame_seq = frame_seq;
                                 }

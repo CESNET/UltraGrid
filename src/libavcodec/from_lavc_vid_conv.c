@@ -2559,8 +2559,8 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
         return AV_PIX_FMT_NONE;
 }
 
-void av_to_uv_convert(av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift) {
-        struct av_to_uv_convert_state_priv *priv = (void *) state->priv_data;
+void av_to_uv_convert(const av_to_uv_convert_t *state, char * __restrict dst_buffer, AVFrame * __restrict in_frame, int width, int height, int pitch, const int * __restrict rgb_shift) {
+        const struct av_to_uv_convert_state_priv *priv = (const void *) state->priv_data;
         unsigned char *dec_input = in_frame->data[0];
         size_t src_linesize = in_frame->linesize[0];
         unsigned char *tmp = NULL;
