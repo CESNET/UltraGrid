@@ -606,8 +606,16 @@ static int vidcap_file_init(struct vidcap_params *params, void **state) {
                         }
 
                         if (!(s->conv_uv = get_av_to_uv_conversion(s->vid_ctx->pix_fmt, s->video_desc.color_spec)).valid) {
+                                enum AVPixelFormat target_pixfmt = get_ug_to_av_pixfmt(s->video_desc.color_spec);
+
+                                if(target_pixfmt == AV_PIX_FMT_NONE){
+                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find suitable AVPixelFormat for swscale conversion!\n");
+                                        vidcap_file_common_cleanup(s);
+                                        return VIDCAP_INIT_FAIL;
+                                }
+
                                 s->sws_ctx = sws_getContext(s->video_desc.width, s->video_desc.height, s->vid_ctx->pix_fmt,
-                                                s->video_desc.width, s->video_desc.height, get_ug_to_av_pixfmt(s->video_desc.color_spec),
+                                                s->video_desc.width, s->video_desc.height, target_pixfmt,
                                                 0, NULL, NULL, NULL);
                                 if (s->sws_ctx == NULL) {
                                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find neither UltraGrid nor swscale conversion!\n");
