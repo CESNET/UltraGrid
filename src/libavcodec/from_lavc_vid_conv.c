@@ -114,6 +114,8 @@ static void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict fra
 }
 
 static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
+                int width, int height, int pitch, const int * __restrict rgb_shift) ATTRIBUTE(unused);
+static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         UNUSED(rgb_shift);
