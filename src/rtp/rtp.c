@@ -1118,10 +1118,6 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                                 rx_port = port;
                                 break;
                         }
-                        if (ret == -2) {
-                                free(session);
-                                return NULL;
-                        }
                 }
                 if (rx_port == 0) {
                         log_msg(LOG_LEVEL_ERROR, "Unable to find empty RTP port pair!\n");
