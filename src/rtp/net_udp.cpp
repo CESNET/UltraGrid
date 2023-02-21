@@ -1605,11 +1605,11 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
         hints.ai_family = force_ip_version == 4 ? AF_INET : AF_INET6;
         hints.ai_flags = AI_NUMERICSERV | AI_PASSIVE;
         hints.ai_socktype = SOCK_DGRAM;
-        string tx_port_str = to_string(5004);
+        string tx_port_str = to_string(even_port);
         if (int err = getaddrinfo(nullptr, tx_port_str.c_str(), &hints, &res0)) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " getaddrinfo: " <<  gai_strerror(err) << "\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " " << even_port << " getaddrinfo: " <<  gai_strerror(err) << "\n";
                 return -2;
         }
 
@@ -1626,7 +1626,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                                 if (SETSOCKOPT
                                                 (fd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&ipv6only,
                                                  sizeof(ipv6only)) != 0) {
-                                        socket_error("%s - setsockopt IPV6_V6ONLY", static_cast<const char *>(__func__));
+                                        socket_error("%s %d - setsockopt IPV6_V6ONLY", even_port + i, static_cast<const char *>(__func__));
                                         CLOSESOCKET(fd);
                                         freeaddrinfo(res0);
                                         return -2;
@@ -1639,7 +1639,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                 }
 
                 if (fd == INVALID_SOCKET) {
-                        socket_error("%s - unable to initialize socket", static_cast<const char *>(__func__));
+                        socket_error("%s %d - unable to initialize socket", even_port + i, static_cast<const char *>(__func__));
                         freeaddrinfo(res0);
                         return -2;
                 }
@@ -1654,7 +1654,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
                                 ret = -1;
                         } else {
                                 ret = -2;
-                                socket_error("%s - cannot bind", static_cast<const char *>(__func__));
+                                socket_error("%s %d - cannot bind", even_port + i, static_cast<const char *>(__func__));
                         }
                         freeaddrinfo(res0);
                         CLOSESOCKET(fd);
