@@ -2356,11 +2356,7 @@ static void set_decoder_memcpy(av_to_uv_convert_t *ret, codec_t color_spec) {
         ret->valid = true;
 }
 
-#ifdef QSORT_S_COMP_FIRST
-static int compare_convs(void *orig_c, const void *a, const void *b) {
-#else
-static int compare_convs(const void *a, const void *b, void *orig_c) {
-#endif
+static QSORT_S_COMP_DEFINE(compare_convs, a, b, orig_c) {
         const struct av_to_uv_conversion *conv_a = a;
         const struct av_to_uv_conversion *conv_b = b;
         const struct pixfmt_desc *src_desc = orig_c;

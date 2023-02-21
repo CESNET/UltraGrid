@@ -1363,11 +1363,7 @@ static int get_intermediate_codecs_from_uv_to_av(codec_t in, enum AVPixelFormat 
         return nb_fmts;
 }
 
-#ifdef QSORT_S_COMP_FIRST
-static int compare_uv_pixfmts(void *orig_c, const void *a, const void *b) {
-#else
-static int compare_uv_pixfmts(const void *a, const void *b, void *orig_c) {
-#endif
+static QSORT_S_COMP_DEFINE(compare_uv_pixfmts, a, b, orig_c) {
         const codec_t *pix_a = (const codec_t *) a;
         const codec_t *pix_b = (const codec_t *) b;
         const struct pixfmt_desc *src_desc = (struct pixfmt_desc *) orig_c;
@@ -1422,11 +1418,7 @@ struct lavc_compare_convs_data {
         struct pixfmt_desc descs[AV_PIX_FMT_NB];
         int steps[AV_PIX_FMT_NB]; ///< conversion steps - 1 if uv->av or uv->uv; 2 for uv->uv->av conversion
 };
-#ifdef QSORT_S_COMP_FIRST
-static int lavc_compare_convs(void *comp_data_v, const void *a, const void *b) {
-#else
-static int lavc_compare_convs(const void *a, const void *b, void *comp_data_v) {
-#endif
+static QSORT_S_COMP_DEFINE(lavc_compare_convs, a, b, comp_data_v) {
         const enum AVPixelFormat *pix_a = (const enum AVPixelFormat *) a;
         const enum AVPixelFormat *pix_b = (const enum AVPixelFormat *) b;
         const struct lavc_compare_convs_data *comp_data = (struct lavc_compare_convs_data *) comp_data_v;

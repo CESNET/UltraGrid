@@ -62,12 +62,18 @@
 #  define QSORT_S_COMP_FIRST 1 // MS version of qsort_s with comparator as first arg
 # else
 #  ifdef __APPLE__
-#    define QSORT_S_COMP_FIRST 1 // BSD version as well
+#    define QSORT_S_COMP_FIRST 1 // BSD version of qsort_r() as well
 #    define qsort_s(ptr, count, size, comp, context) qsort_r(ptr, count, size, context, comp)
 #  else
 #    define qsort_s qsort_r
 #  endif
 # endif
+#endif
+
+#ifdef QSORT_S_COMP_FIRST
+#define QSORT_S_COMP_DEFINE(name, a, b, context) int name(void *context, const void *a, const void *b)
+#else
+#define QSORT_S_COMP_DEFINE(name, a, b, context) int name(const void *a, const void *b, void *context)
 #endif
 
 #endif // ! defined COMPAT_QSORT_S_H_81DF21DE_370E_4C70_8559_600C1A9B6059
