@@ -2090,11 +2090,13 @@ if { test $screen_cap_req != no && test $screen_cap_req != x11; } && test $FOUND
         CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
 
         ADD_MODULE("vidcap_screen_pipewire", "$SCREEN_CAP_PIPEWIRE_OBJ", "$SCREEN_CAP_PIPEWIRE_LIBS")
+        AC_DEFINE([HAVE_SCREEN_PW], [1], [Build PipeWire screen capture])
         screen_modules=PipeWire
 fi
 
 if { test $screen_cap_req != no && test $screen_cap_req != pipewire; } && test $screen_cap_x11 = yes; then
         ADD_MODULE("vidcap_screen_x11", "src/video_capture/screen_x11.o src/x11_common.o", "$SCREEN_CAP_LIB")
+        AC_DEFINE([HAVE_SCREEN_X11], [1], [Build X11 screen capture])
         screen_modules="${screen_modules:+$screen_modules,}X11"
 else
         screen_cap_x11=no

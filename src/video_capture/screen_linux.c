@@ -63,9 +63,16 @@ vidcap_screen_linux_init(struct vidcap_params *params, void **state)
 
         if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 char desc[] = TRED(TBOLD("screen")) " capture in Linux abstracts X11/PipeWire screen capture and tries to select "
-                        "the right implementation. You can also specify directly " TBOLD("screen_x11") " or " TBOLD("screen_pw") ". "
-                        "Follows help for the module that would have been selected:\n\n";
-                color_printf("%s", indent_paragraph(desc));
+                        "the right implementation. You can also specify directly " TBOLD("screen_x11") " or " TBOLD("screen_pw") ".";
+                color_printf("%s\n\n", indent_paragraph(desc));
+                color_printf("Compiled modules:");
+#ifdef HAVE_SCREEN_X11
+                color_printf(TBOLD(" X11"));
+#endif
+#ifdef HAVE_SCREEN_PW
+                color_printf(TBOLD(" pipewire"));
+#endif
+                printf("\n\nFollows help for the module that would have been selected:\n\n");
         }
 
         struct vidcap_params *params_new = vidcap_params_copy(params);
