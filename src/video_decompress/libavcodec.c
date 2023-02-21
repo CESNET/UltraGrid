@@ -796,13 +796,13 @@ static _Bool check_first_h264_sps(struct state_libavcodec_decompress *s, unsigne
 }
 
 /// print hint to improve performance if not making it
-static void check_duration(struct state_libavcodec_decompress *s, double duration)
+static void check_duration(struct state_libavcodec_decompress *s, double duration_sec)
 {
         const int mov_window = 100;
         if (s->mov_avg_frames >= 10 * mov_window) {
                 return;
         }
-        s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration) / mov_window;
+        s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration_sec) / mov_window;
         s->mov_avg_frames += 1;
         if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->desc.fps) {
                 return;
@@ -866,8 +866,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 
         while (s->pkt->size > 0) {
                 int len;
-                struct timeval t0, t1;
-                gettimeofday(&t0, NULL);
+                time_ns_t t0 = get_time_in_ns();
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
                 len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, s->pkt);
 #else
@@ -888,7 +887,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
                 len = s->pkt->size;
 #endif
-                gettimeofday(&t1, NULL);
+                time_ns_t t1 = get_time_in_ns();
 
                 if (len < 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavd] Error while decoding frame.\n");
@@ -896,8 +895,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
 
                 if(got_frame) {
-                        struct timeval t3;
-                        gettimeofday(&t3, NULL);
+                        time_ns_t t3 = get_time_in_ns();
 
                         s->frame->opaque = callbacks;
                         /* Skip the frame if this is not an I-frame
@@ -927,10 +925,10 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                         s->last_frame_seq = frame_seq;
                                 }
                         }
-                        struct timeval t4;
-                        gettimeofday(&t4, NULL);
-                        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f sec, pixfmt change %f s.\n", av_get_picture_type_char(s->frame->pict_type), tv_diff(t1, t0), tv_diff(t4, t3));
-                        check_duration(s, tv_diff(t4, t0));
+                        time_ns_t t4 = get_time_in_ns();
+                        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f ms, pixfmt change %f ms.\n", av_get_picture_type_char(s->frame->pict_type),
+                                        (t1 - t0) / NS_IN_MS_DBL, (t4 - t3) / NS_IN_MS_DBL);
+                        check_duration(s, (t4 - t0) / NS_IN_SEC_DBL);
                 }
 
                 if (len <= 0) {
