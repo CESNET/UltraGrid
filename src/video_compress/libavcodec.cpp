@@ -253,9 +253,6 @@ struct state_video_compress_libav {
         int                 requested_cqp = -1;
         int                 requested_q = -1;
         int                 requested_subsampling = 0; ///< 4440, 4220, 4200 or 0 (no subsampling explicitly requested)
-        // contains format that is supplied by UG to the encoder or swscale (if used)
-
-        codec_t             out_codec = VIDEO_CODEC_NONE;
 
         struct video_desc compressed_desc{};
 
@@ -1042,7 +1039,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 }
         }
 
-        s->out_codec = s->compressed_desc.color_spec;
         s->saved_desc = desc;
 
         return true;
@@ -1157,7 +1153,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         frame->pts += 1;
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
         out->tiles[0].data_len = 0;
-        if (libav_codec_has_extradata(s->out_codec)) { // we need to store extradata for HuffYUV/FFV1 in the beginning
+        if (libav_codec_has_extradata(s->compressed_desc.color_spec)) { // we need to store extradata for HuffYUV/FFV1 in the beginning
                 out->tiles[0].data_len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
                 *(uint32_t *)(void *) out->tiles[0].data = s->codec_ctx->extradata_size;
                 memcpy(out->tiles[0].data + sizeof(uint32_t), s->codec_ctx->extradata, s->codec_ctx->extradata_size);
