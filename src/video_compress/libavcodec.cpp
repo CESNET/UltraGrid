@@ -807,7 +807,7 @@ void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe
         // 10-bit 4:2:0 YUV (FF macro IS_YUV444 and IS_GBRP should contain the codec - if set 1st
         // one, picture is ok, second produces incorrect colors)
         // Incorrect colors are produced also for qsv_hevc
-        if (strstr(encoder_name, "nvenc") != nullptr || strstr(encoder_name, "hevc_qsv") != nullptr) {
+        if (strstr(encoder_name, "nvenc") != nullptr) {
                 if (formats.size() == 1) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Only one codec remaining, not blacklisting x2rgb10le!\n";
                         return;
