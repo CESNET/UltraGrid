@@ -1418,29 +1418,36 @@ struct lavc_compare_convs_data {
         struct pixfmt_desc descs[AV_PIX_FMT_NB];
         int steps[AV_PIX_FMT_NB]; ///< conversion steps - 1 if uv->av or uv->uv; 2 for uv->uv->av conversion
 };
-static QSORT_S_COMP_DEFINE(lavc_compare_convs, a, b, comp_data_v) {
-        const enum AVPixelFormat *pix_a = (const enum AVPixelFormat *) a;
-        const enum AVPixelFormat *pix_b = (const enum AVPixelFormat *) b;
-        const struct lavc_compare_convs_data *comp_data = (struct lavc_compare_convs_data *) comp_data_v;
-        struct pixfmt_desc desc_a = comp_data->descs[*pix_a];
-        struct pixfmt_desc desc_b = comp_data->descs[*pix_b];
+static inline int lavc_compare_convs_inner(enum AVPixelFormat pix_a, enum AVPixelFormat pix_b, const struct lavc_compare_convs_data *comp_data) {
+        struct pixfmt_desc desc_a = comp_data->descs[pix_a];
+        struct pixfmt_desc desc_b = comp_data->descs[pix_b];
 
         int ret = 0;
         if ((ret = compare_pixdesc(&desc_a, &desc_b, &comp_data->src_desc)) != 0) {
                 return ret;
         }
         // if undistinguishable, it's possible that some resulting pixfmt is closer than another
-        desc_a = av_pixfmt_get_desc(*pix_a);
-        desc_b = av_pixfmt_get_desc(*pix_b);
-        if ((ret = compare_pixdesc(&desc_a, &desc_b, &comp_data->src_desc)) != 0) {
+        struct pixfmt_desc reduced_src_desc = { .depth = MIN(desc_a.depth, comp_data->src_desc.depth), // take minimum
+                .subsampling = MIN(desc_a.subsampling, comp_data->src_desc.subsampling),  //   desc from src & dest to
+                .rgb = comp_data->src_desc.rgb }; //                         reflect eventual intermediate degradation
+        desc_a = av_pixfmt_get_desc(pix_a);
+        desc_b = av_pixfmt_get_desc(pix_b);
+        if ((ret = compare_pixdesc(&desc_a, &desc_b, &reduced_src_desc)) != 0) {
                 return ret;
         }
-        int steps_a = comp_data->steps[*pix_a];
-        int steps_b = comp_data->steps[*pix_b];
+        int steps_a = comp_data->steps[pix_a];
+        int steps_b = comp_data->steps[pix_b];
         if (steps_a != steps_b) {
                 return steps_a - steps_b;
         }
-        return (int) *pix_b - (int) *pix_a;
+        return (int) pix_b - (int) pix_a;
+}
+static QSORT_S_COMP_DEFINE(lavc_compare_convs, a, b, comp_data_v) {
+        enum AVPixelFormat pix_a = *(const enum AVPixelFormat *) a;
+        enum AVPixelFormat pix_b = *(const enum AVPixelFormat *) b;
+        int ret = lavc_compare_convs_inner(pix_a, pix_b, comp_data_v);
+        log_msg(LOG_LEVEL_DEBUG2, MOD_NAME "%s %c %s\n", av_get_pix_fmt_name(pix_a), ret == 0 ? '=' : ret < 0 ? '<' : '>', av_get_pix_fmt_name(pix_b));
+        return ret;
 }
 
 static inline _Bool filter(const struct to_lavc_req_prop *req_prop, codec_t uv_format, enum AVPixelFormat avpixfmt) {
@@ -1486,7 +1493,9 @@ int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
                 if (get_decoder_from_to(in_codec, i->uv_codec)) {
                         if (filter(&req_prop, i->uv_codec, i->av_pixfmt)) {
                                 fmt_set[i->av_pixfmt] = 1;
-                                comp_data.descs[i->av_pixfmt] = av_pixfmt_get_desc(i->av_pixfmt);
+                                struct pixfmt_desc desc = av_pixfmt_get_desc(i->av_pixfmt);
+                                log_msg(LOG_LEVEL_DEBUG2, MOD_NAME "conversion ->%s prop:\t%2d b, subsampling %d, RGB: %d\n", get_codec_name(i->uv_codec), desc.depth, desc.subsampling, desc.rgb);
+                                comp_data.descs[i->av_pixfmt] = desc;
                                 comp_data.steps[i->av_pixfmt] = 1;
                         }
                 }
@@ -1502,7 +1511,7 @@ int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
                                         .subsampling = MIN(desc_av.subsampling, desc_uv.subsampling),
                                         .rgb = desc_av.rgb == desc_uv.rgb ? desc_av.rgb : !desc_src.rgb };
                                 if (compare_pixdesc(&desc, &comp_data.descs[c->dst], &desc_src) < 0) { // override only with better
-                                        log_msg(LOG_LEVEL_DEBUG2, MOD_NAME "conversion %s->%s prop:\t%2d b, subsampling %d\n", get_codec_name(c->src), av_get_pix_fmt_name(c->dst), desc.depth, desc.subsampling);
+                                        log_msg(LOG_LEVEL_DEBUG2, MOD_NAME "conversion %s->%s prop:\t%2d b, subsampling %d, RGB: %d\n", get_codec_name(c->src), av_get_pix_fmt_name(c->dst), desc.depth, desc.subsampling, desc.rgb);
                                         comp_data.descs[c->dst] = desc;
                                         comp_data.steps[c->dst] = get_decoder_from_to(in_codec, c->src) == vc_memcpy ? 1 : 2;
                                 }
