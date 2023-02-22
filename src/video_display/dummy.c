@@ -58,6 +58,7 @@
 #define MOD_NAME "[dummy] "
 
 static const codec_t default_codecs[] = {I420, UYVY, YUYV, v210, R10k, R12L, RGBA, RGB, BGR, RG48};
+static const codec_t codecs_decklink[] = { R12L, R10k, v210, RGBA, UYVY };
 
 struct dummy_display_state {
         struct video_frame *f;
@@ -72,24 +73,35 @@ struct dummy_display_state {
         int dump_to_file_skip_frames;
 };
 
+static _Bool parse_codecs(char *str, codec_t *codecs, size_t *codec_count) {
+        if (strcasecmp(str, "decklink") == 0) {
+                memcpy(codecs, codecs_decklink, sizeof codecs_decklink);
+                *codec_count = sizeof codecs_decklink / sizeof codecs_decklink[0];
+                return 1;
+        }
+        char *sptr = NULL;
+        char *tok = NULL;
+        *codec_count = 0;
+        while ((tok = strtok_r(str, ",", &sptr))) {
+                str = NULL;
+                assert(*codec_count < sizeof ((struct dummy_display_state *) 0)->codecs / sizeof(codec_t));
+                codecs[*codec_count++] = get_codec_from_name(tok);
+                if (codecs[*codec_count - 1] == VIDEO_CODEC_NONE) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", tok);
+                        return 0;
+                }
+        }
+        return 1;
+}
+
 static _Bool dummy_parse_opts(struct dummy_display_state *s, char *fmt) {
         char *item = NULL;
         char *save_ptr = NULL;
         while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
                 fmt = NULL;
                 if (strstr(item, "codec=") != NULL) {
-                        char *sptr = NULL;
-                        char *tok = NULL;
-                        char *str = strchr(item, '=') + 1;
-                        s->codec_count = 0;
-                        while ((tok = strtok_r(str, ",", &sptr))) {
-                                str = NULL;
-                                assert(s->codec_count < sizeof s->codecs / sizeof s->codecs[0]);
-                                s->codecs[s->codec_count++] = get_codec_from_name(tok);
-                                if (s->codecs[s->codec_count - 1] == VIDEO_CODEC_NONE) {
-                                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", tok);
-                                        return 0;
-                                }
+                        if (!parse_codecs(strchr(item, '=') + 1, s->codecs, &s->codec_count)) {
+                                return 0;
                         }
                 } else if (strstr(item, "dump") != NULL) {
                         s->dump_to_file = 1;
@@ -132,13 +144,14 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                                 "Additionally, options " TBOLD("hexdump") " and " TBOLD("dump") " are available for debugging.\n\n";
                 color_printf("%s", indent_paragraph(desc));
                 struct key_val options[] = {
-                        { "codec=<codec>[,<codec2>]", "force the use of a codec instead of default set" },
+                        { "codec=<codec>[,<codec2>] | codec=<setlist>", "force the use of a codec instead of default set; special set list also possible (see below)" },
                         { "rgb_shift=<r>,<g>,<b>", "if using output codec RGBA, use specified shifts instead of default (" TOSTRING(DEFAULT_R_SHIFT) ", " TOSTRING(DEFAULT_G_SHIFT) ", " TOSTRING(DEFAULT_B_SHIFT) ")" },
                         { "dump[:skip=<n>][:oneshot][:raw]", "dump first frame to file dummy.<ext> (optionally skip <n> first frames); 'oneshot' - exit after dumping the picture; 'raw' - dump raw data" },
                         { "hexdump[=<n>]", "dump first n (default " TOSTRING(DEFAULT_DUMP_LEN) ") bytes of every frame in hexadecimal format" },
                         { NULL, NULL }
                 };
                 print_module_usage("-d dummy", options, NULL, 0);
+                color_printf("\nAvailable codec sets:\n\t- " TBOLD("decklink") "\n");
                 return INIT_NOERR;
         }
         struct dummy_display_state s = { .codec_count = sizeof default_codecs / sizeof default_codecs[0] };
