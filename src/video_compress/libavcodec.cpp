@@ -755,7 +755,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                                 LOG(LOG_LEVEL_INFO) << "[lavc] Setting preset to " << preset <<  ".\n";
                         }
                 }
-                if (preset.empty()) {
+                if (codec_params[ug_codec].get_preset && preset.empty()) {
                         LOG(LOG_LEVEL_WARNING) << "[lavc] Warning: Unable to find suitable preset for encoder " << s->codec_ctx->codec->name << ".\n";
                 }
         }
