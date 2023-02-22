@@ -1450,6 +1450,13 @@ static inline _Bool filter(const struct to_lavc_req_prop *req_prop, codec_t uv_f
         if (req_prop->subsampling != 0 && req_prop->subsampling != av_pixfmt_get_subsampling(avpixfmt)) {
                 return 0;
         }
+        const struct AVPixFmtDescriptor *pd = av_pix_fmt_desc_get(avpixfmt);
+        if (req_prop->depth != 0 && req_prop->depth != pd->comp[0].depth) {
+                return 0;
+        }
+        if (req_prop->rgb != -1 && req_prop->rgb != ((pd->flags & AV_PIX_FMT_FLAG_RGB) != 0U ? 1 : 0)) {
+                return 0;
+        }
         return 1;
 }
 

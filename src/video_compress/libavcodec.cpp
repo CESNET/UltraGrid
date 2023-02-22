@@ -252,7 +252,7 @@ struct state_video_compress_libav {
         double              requested_crf = -1;
         int                 requested_cqp = -1;
         int                 requested_q = -1;
-        struct to_lavc_req_prop req_conv_prop{ 0, VIDEO_CODEC_NONE };
+        struct to_lavc_req_prop req_conv_prop{ 0, 0, -1, VIDEO_CODEC_NONE };
 
         struct video_desc compressed_desc{};
 
@@ -350,7 +350,7 @@ static void get_codec_details(AVCodecID id, char *buf, size_t buflen)
 static void usage() {
         printf("Libavcodec encoder usage:\n");
         col() << "\t" SBOLD(SRED("-c libavcodec") << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>][:crf=<crf>|:cqp=<cqp>][q=<q>]\n"
-                        "\t\t[:subsampling=<subsampling>][:gop=<gop>]"
+                        "\t\t[:subsampling=<subsampling>][:depth=<depth>][:rgb|:yuv][:gop=<gop>]"
                         "[:[disable_]intra_refresh][:threads=<threads>][:slices=<slices>][:<lavc_opt>=<val>]*") << "\n";
         col() << "\nwhere\n";
         col() << "\t" << SBOLD("<encoder>") << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
@@ -363,7 +363,9 @@ static void usage() {
         col() << "\t" << SBOLD("<cqp>") << " use constant QP value\n";
         col() << "\t" << SBOLD("<crf>") << " specifies CRF factor (only for libx264/libx265)\n";
         col() << "\t" << SBOLD("<q>") << " quality (qmin, qmax, global_quality) - range usually from 0 (best) to 50-100 (worst)\n";
-        col() << "\t" << SBOLD("<subsampling") << "> may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
+        col() << "\t" << SBOLD("<subsampling>") << " may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
+        col() << "\t" << SBOLD("<depth>") << "enforce specified compression bit depth\n";
+        col() << "\t" << SBOLD("rgb|yuv") << "enforce specified color space compreesion\n";
         col() << "\t" << SBOLD("<threads>") << " can be \"no\", or \"<number>[F][S][n]\" where 'F'/'S' indicate if frame/slice thr. should be used, both can be used (default slice), 'n' means none;\n";
         col() << "\t" <<       "         "  << " use a comma to add also number of conversion threads (eg. \"0S,8\"), default: number of logical cores\n";
         col() << "\t" << SBOLD("<slices>") << " number of slices to use (default: " << DEFAULT_SLICE_COUNT << ")\n";
@@ -449,6 +451,10 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 log_msg(LOG_LEVEL_ERROR, "[lavc] Supported subsampling is 444, 422, or 420.\n");
                                 return -1;
                         }
+                } else if (strstr(item, "depth=") == item) {
+                        s->req_conv_prop.depth = atoi(strchr(item, '=') + 1);
+                } else if (strcasecmp(item, "rgb") == 0 || strcasecmp(item, "yuv") == 0) {
+                        s->req_conv_prop.rgb = strcasecmp(item, "rgb") == 0;
                 } else if (strstr(item, "intra_refresh") != nullptr) {
                         s->params.periodic_intra = strstr(item, "disable_") == item ? 0 : 1;
                 } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
@@ -1007,10 +1013,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
-                if (s->req_conv_prop.subsampling != 0 || get_commandline_param("lavc-use-codec") != NULL) {
+                if (s->req_conv_prop.subsampling != 0 || s->req_conv_prop.depth != 0 || s->req_conv_prop.rgb != -1 || get_commandline_param("lavc-use-codec") != NULL) {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Requested parameters not supported. %s\n",
-                                        s->req_conv_prop.subsampling != 0 ? "Try different subsampling, eg. \"subsampling={420,422,444}\"." :
-                                        "Do not enforce encoder codec or use a supported one.");
+                                        get_commandline_param("lavc-use-codec") != NULL ? "Do not enforce encoder codec or use a supported one." :
+                                        "Do not enforce subsampling/depth/colospace or use a difffereng configuration that is feasible.");
 
                 }
                 return false;

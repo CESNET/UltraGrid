@@ -52,6 +52,8 @@ void to_lavc_vid_conv_destroy(struct to_lavc_vid_conv **state);
 
 struct to_lavc_req_prop {
         int subsampling; ///< 4440, 4220, 4200 or 0 (no subsampling explicitly requested)
+        int depth;
+        int rgb; ///< -1 no request; 0 false; 1 true
         codec_t force_conv_to;  // if non-zero, use only this codec as a target
                                 // of UG conversions (before FFMPEG conversion)
                                 // or (likely) no conversion at all
