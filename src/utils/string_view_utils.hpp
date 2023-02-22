@@ -43,6 +43,7 @@
 #include <type_traits>
 #include <utility>
 #include <stdlib.h>
+#include <ctype.h>
 
 /**
  * @brief Tokenizer for string_view
@@ -70,6 +71,24 @@ inline bool sv_contains(std::string_view haystack, std::string_view needle){
 
 inline bool sv_is_prefix(std::string_view haystack, std::string_view needle){
     return haystack.compare(0, needle.length(), needle) == 0;
+}
+
+inline std::string_view sv_trim_whitespace_front(std::string_view sv){
+    size_t i = 0;
+    while(i < sv.size() && isspace(sv[i])) i++;
+
+    return sv.substr(i);
+}
+
+inline std::string_view sv_trim_whitespace_back(std::string_view sv){
+    size_t i = sv.size();
+    while(i > 0 && isspace(sv[i - 1])) i--;
+
+    return sv.substr(0, i);
+}
+
+inline std::string_view sv_trim_whitespace(std::string_view sv){
+    return sv_trim_whitespace_front(sv_trim_whitespace_back(sv));
 }
 
 /* std::from_chars is c++17, but on major compilers the feature was missing or 
