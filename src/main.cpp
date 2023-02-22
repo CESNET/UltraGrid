@@ -423,7 +423,7 @@ static void usage(const char *exec_path, bool full = false)
                                 {"capture filter(s), must be given before capture device"});
                 print_help_item("--param <params> | help", {"additional advanced parameters, use help for list"});
                 print_help_item("--pix-fmts", {"list of pixel formats"});
-                print_help_item("--conv-policy", {"pixel format conversion policy"});
+                print_help_item("--conv-policy [cds]{3} | help", {"pixel format conversion policy"});
                 print_help_item("--video-codecs", {"list of video codecs"});
         }
         print_help_item("address", {"destination address"});

@@ -252,10 +252,13 @@ int set_pixfmt_conv_policy(const char *optarg) {
         if (strcmp(optarg, "help") == 0) {
                 char desc[] =
                         TBOLD("--conv-policy") " specifies the order in which various pixfmt properties are to be evaluated "
-                        "if some pixel format needs conversion to another suitable pixel format.\n\n"
-                        "Default: \"" TBOLD("dsc") "\" - first is respected bit-depth, then subsampling and finally color space\n\n"
-                        "Permute the above letters to change the default order, eg. \"" TBOLD("cds") "\" to attempt to keep colorspace.\n";
-                 color_printf("%s", indent_paragraph(desc));
+                        "if some pixel format needs conversion to another suitable pixel format.";
+                 color_printf("%s\n\n", indent_paragraph(desc));
+                 color_printf("\t" TBOLD("c") " - color space\n");
+                 color_printf("\t" TBOLD("d") " - bit depth\n");
+                 color_printf("\t" TBOLD("s") " - subsampling\n");
+                 color_printf("\nDefault: \"" TBOLD("dsc") "\" - first is respected bit-depth, then subsampling and finally color space\n\n"
+                        "Permute the above letters to change the default order, eg. \"" TBOLD("cds") "\" to attempt to keep colorspace.\n");
                  return 1;
         }
         if (strlen(optarg) != strlen(pixfmt_conv_pref)) {
