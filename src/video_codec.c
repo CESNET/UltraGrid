@@ -3760,7 +3760,7 @@ void watch_pixfmt_degrade(const char *mod_name, struct pixfmt_desc desc_src, str
         }
         if (desc_dst.subsampling < desc_src.subsampling) {
                 if (strlen(message) > 0) {
-                        snprintf(message, sizeof message - strlen(message), " and subsampling from %d to %d", desc_src.subsampling, desc_dst.subsampling);
+                        snprintf(message + strlen(message), sizeof message - strlen(message), " and subsampling from %d to %d", desc_src.subsampling, desc_dst.subsampling);
                 } else {
                         snprintf(message, sizeof message, "conversion is reducing subsampling from %d to %d", desc_src.subsampling, desc_dst.subsampling);
                 }
