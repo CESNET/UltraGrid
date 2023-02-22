@@ -1443,6 +1443,16 @@ static QSORT_S_COMP_DEFINE(lavc_compare_convs, a, b, comp_data_v) {
         return (int) *pix_b - (int) *pix_a;
 }
 
+static inline _Bool filter(const struct to_lavc_req_prop *req_prop, codec_t uv_format, enum AVPixelFormat avpixfmt) {
+        if (req_prop->force_conv_to != VIDEO_CODEC_NONE && req_prop->force_conv_to != uv_format) {
+                return 0;
+        }
+        if (req_prop->subsampling != 0 && req_prop->subsampling != av_pixfmt_get_subsampling(avpixfmt)) {
+                return 0;
+        }
+        return 1;
+}
+
 /**
  * Returns list of pix_fmts that UltraGrid can supply to the encoder.
  * The list is ordered according to input description and requested subsampling.
@@ -1450,25 +1460,24 @@ static QSORT_S_COMP_DEFINE(lavc_compare_convs, a, b, comp_data_v) {
  * If uv->uv->av conversion is performed, worst parameter in chain is taken
  * (eg. for v210->UYVY->10b the bit depth is 8 even though on both ends are 10).
  */
-int get_available_pix_fmts(codec_t in_codec,
-                int requested_subsampling, codec_t force_conv_to, enum AVPixelFormat fmts[AV_PIX_FMT_NB])
+int get_available_pix_fmts(codec_t in_codec, struct to_lavc_req_prop req_prop,
+                enum AVPixelFormat fmts[AV_PIX_FMT_NB])
 {
         int nb_fmts = 0;
         // add the format itself if it matches the ultragrid one
         enum AVPixelFormat mapped_av_fmt = get_ug_to_av_pixfmt(in_codec);
         if (mapped_av_fmt != AV_PIX_FMT_NONE) {
-                if (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == in_codec) {
+                if (filter(&req_prop, in_codec, mapped_av_fmt)) {
                         fmts[nb_fmts++] = mapped_av_fmt;
                 }
         }
 
         int sort_start_idx = nb_fmts;
-#define MATCH_SUBS_AND_UVC_IF_REQ(avpixfmt, uvpixfmt) (requested_subsampling == 0 || requested_subsampling == av_pixfmt_get_subsampling(avpixfmt)) && (force_conv_to == VIDEO_CODEC_NONE || force_conv_to == uvpixfmt)
         int fmt_set[AV_PIX_FMT_NB] = { 0 }; // to avoid multiple occurences; for every added element, comp_data must be also set
         struct lavc_compare_convs_data comp_data = { 0 };
         for (const struct uv_to_av_pixfmt *i = get_av_to_ug_pixfmts(); i->uv_codec != VIDEO_CODEC_NONE; ++i) { // no AV conversion needed, only UV pixfmt change
                 if (get_decoder_from_to(in_codec, i->uv_codec)) {
-                        if (MATCH_SUBS_AND_UVC_IF_REQ(i->av_pixfmt, i->uv_codec)) {
+                        if (filter(&req_prop, i->uv_codec, i->av_pixfmt)) {
                                 fmt_set[i->av_pixfmt] = 1;
                                 comp_data.descs[i->av_pixfmt] = av_pixfmt_get_desc(i->av_pixfmt);
                                 comp_data.steps[i->av_pixfmt] = 1;
@@ -1477,7 +1486,7 @@ int get_available_pix_fmts(codec_t in_codec,
         }
         for (const struct uv_to_av_conversion *c = get_uv_to_av_conversions(); c->src != VIDEO_CODEC_NONE; c++) { // AV conv needed (with possible UV pixfmt change)
                 if (c->src == in_codec || get_decoder_from_to(in_codec, c->src)) {
-                        if (MATCH_SUBS_AND_UVC_IF_REQ(c->dst, c->src)) {
+                        if (filter(&req_prop, c->src, c->dst)) {
                                 fmt_set[c->dst] = 1;
                                 struct pixfmt_desc desc_src = get_pixfmt_desc(in_codec);
                                 struct pixfmt_desc desc_uv = get_pixfmt_desc(c->src);

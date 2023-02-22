@@ -252,7 +252,7 @@ struct state_video_compress_libav {
         double              requested_crf = -1;
         int                 requested_cqp = -1;
         int                 requested_q = -1;
-        int                 requested_subsampling = 0; ///< 4440, 4220, 4200 or 0 (no subsampling explicitly requested)
+        struct to_lavc_req_prop req_conv_prop{ 0, VIDEO_CODEC_NONE };
 
         struct video_desc compressed_desc{};
 
@@ -439,13 +439,13 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         s->requested_q = stoi(q_str);
                 } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
                         char *subsample_str = item + strlen("subsampling=");
-                        s->requested_subsampling = atoi(subsample_str);
-                        if (s->requested_subsampling < 1000) {
-                                s->requested_subsampling *= 10; // 420->4200
+                        s->req_conv_prop.subsampling = atoi(subsample_str);
+                        if (s->req_conv_prop.subsampling < 1000) {
+                                s->req_conv_prop.subsampling *= 10; // 420->4200
                         }
-                        if (s->requested_subsampling != 4440 &&
-                                        s->requested_subsampling != 4220 &&
-                                        s->requested_subsampling != 4200) {
+                        if (s->req_conv_prop.subsampling != 4440 &&
+                                        s->req_conv_prop.subsampling != 4220 &&
+                                        s->req_conv_prop.subsampling != 4200) {
                                 log_msg(LOG_LEVEL_ERROR, "[lavc] Supported subsampling is 444, 422, or 420.\n");
                                 return -1;
                         }
@@ -775,18 +775,15 @@ ADD_TO_PARAM("lavc-use-codec",
  * requested_subsampling.
  */
 list<enum AVPixelFormat> get_requested_pix_fmts(codec_t in_codec,
-                int requested_subsampling) {
-        codec_t force_conv_to = VIDEO_CODEC_NONE; // if non-zero, use only this codec as a target
-                                                  // of UG conversions (before FFMPEG conversion)
-                                                  // or (likely) no conversion at all
+                struct to_lavc_req_prop req_conv_prop) {
         if (get_commandline_param("lavc-use-codec")) {
                 const char *val = get_commandline_param("lavc-use-codec");
                 enum AVPixelFormat fmt = av_get_pix_fmt(val);
                 if (fmt != AV_PIX_FMT_NONE) {
                         return { fmt };
                 }
-                force_conv_to = get_codec_from_name(val);
-                if (!force_conv_to) {
+                req_conv_prop.force_conv_to = get_codec_from_name(val);
+                if (!req_conv_prop.force_conv_to) {
                         LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Wrong codec string: " << val << ".\n";
                         exit_uv(1);
                         return {};
@@ -794,7 +791,7 @@ list<enum AVPixelFormat> get_requested_pix_fmts(codec_t in_codec,
         }
 
         enum AVPixelFormat pixfmts[AV_PIX_FMT_NB];
-        int nb_fmts = get_available_pix_fmts(in_codec, requested_subsampling, force_conv_to, pixfmts);
+        int nb_fmts = get_available_pix_fmts(in_codec, req_conv_prop, pixfmts);
         return { pixfmts, pixfmts + nb_fmts };
 }
 
@@ -914,7 +911,7 @@ static bool configure_swscale(struct state_video_compress_libav *s, struct video
 #else
         //get all AVPixelFormats we can convert to and pick the first
         enum AVPixelFormat pixfmts[AV_PIX_FMT_NB];
-        int nb_fmts = get_available_pix_fmts(desc.color_spec, s->requested_subsampling, VIDEO_CODEC_NONE, pixfmts);
+        int nb_fmts = get_available_pix_fmts(desc.color_spec, s->req_conv_prop, pixfmts);
         enum AVPixelFormat sws_in_format = nb_fmts == 0 ? AV_PIX_FMT_UYVY422 : pixfmts[0];
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Attempting to use swscale to convert from %s to %s.\n", av_get_pix_fmt_name(sws_in_format), av_get_pix_fmt_name(sws_out_pixfmt));
         if ((s->pixfmt_conversion = to_lavc_vid_conv_init(desc.color_spec, desc.width, desc.height, sws_in_format, s->conv_thread_count)) == nullptr) {
@@ -979,7 +976,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         // It is done in a loop because some pixel formats that are reported
         // by codec can actually fail (typically YUV444 in hevc_nvenc for Maxwell
         // cards).
-        list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc.color_spec, s->requested_subsampling);
+        list<enum AVPixelFormat> requested_pix_fmt = get_requested_pix_fmts(desc.color_spec, s->req_conv_prop);
         apply_blacklist(requested_pix_fmt, codec->name);
         auto requested_pix_fmt_it = requested_pix_fmt.cbegin();
         while ((pix_fmt = get_first_matching_pix_fmt(requested_pix_fmt_it, requested_pix_fmt.cend(), codec->pix_fmts)) != AV_PIX_FMT_NONE) {
@@ -1010,9 +1007,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         if (pix_fmt == AV_PIX_FMT_NONE) {
                 log_msg(LOG_LEVEL_WARNING, "[lavc] Unable to find suitable pixel format for: %s.\n", get_codec_name(desc.color_spec));
-                if (s->requested_subsampling != 0 || get_commandline_param("lavc-use-codec") != NULL) {
+                if (s->req_conv_prop.subsampling != 0 || get_commandline_param("lavc-use-codec") != NULL) {
                         log_msg(LOG_LEVEL_ERROR, "[lavc] Requested parameters not supported. %s\n",
-                                        s->requested_subsampling != 0 ? "Try different subsampling, eg. \"subsampling={420,422,444}\"." :
+                                        s->req_conv_prop.subsampling != 0 ? "Try different subsampling, eg. \"subsampling={420,422,444}\"." :
                                         "Do not enforce encoder codec or use a supported one.");
 
                 }
