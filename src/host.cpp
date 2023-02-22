@@ -340,8 +340,6 @@ static bool parse_opts_set_logging(int argc, char *argv[])
 
 struct init_data *common_preinit(int argc, char *argv[])
 {
-        struct init_data *init;
-
         uv_argc = argc;
         uv_argv = argv;
 
@@ -402,10 +400,12 @@ struct init_data *common_preinit(int argc, char *argv[])
         SetConsoleOutputCP(CP_UTF8); // see also https://stackoverflow.com/questions/1660492/utf-8-output-on-windows-console
 #endif
 
-        init = new init_data{};
+        struct init_data *init = new init_data{};
         if (strstr(argv[0], "run_tests") == nullptr) {
                 open_all("ultragrid_*.so", init->opened_libs); // load modules
         }
+
+        srand48((getpid() * 42) ^ get_time_in_ns());
 
 #ifdef __linux__
         mtrace();
