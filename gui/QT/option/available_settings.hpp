@@ -6,17 +6,27 @@
 #include <vector>
 #include <map>
 
+#define SETTING_TYPE_LIST \
+	X(VIDEO_SRC, "capture") \
+	X(VIDEO_DISPLAY, "display") \
+	X(VIDEO_COMPRESS, "compress") \
+	X(VIDEO_CAPTURE_FILTER, "capture_filter") \
+	X(AUDIO_SRC, "audio_cap") \
+	X(AUDIO_PLAYBACK, "audio_play") \
+	X(AUDIO_COMPRESS, "audio_compress") \
+	X(AUDIO_FILTER, "audio_filter") \
+	X(SETTING_TYPE_UNKNOWN, "unknown")
+
+
+#define X(type, str) type,
 enum SettingType{
-	VIDEO_SRC = 0,
-	VIDEO_DISPLAY,
-	VIDEO_COMPRESS,
-	VIDEO_CAPTURE_FILTER,
-	AUDIO_SRC,
-	AUDIO_PLAYBACK,
-	AUDIO_COMPRESS,
-	SETTING_TYPE_UNKNOWN,
+	SETTING_TYPE_LIST
 	SETTING_TYPE_COUNT
 };
+#undef X
+
+const char *settingTypeToStr(SettingType type);
+SettingType strToSettingType(std::string_view sv);
 
 struct SettingVal{
 	std::string opt;

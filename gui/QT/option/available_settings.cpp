@@ -19,29 +19,41 @@ static bool vectorContains(const std::vector<std::string> &v, const std::string 
 	return false;
 }
 
-struct {
-	SettingType type;
-	std::string_view capStr;
-} modulesQueryInfo[] = {
-	{VIDEO_SRC, "[cap][capture] "},
-	{VIDEO_DISPLAY, "[cap][display] "}, 
-	{VIDEO_COMPRESS, "[cap][compress] "},
-	{VIDEO_CAPTURE_FILTER, "[cap][capture_filter] "},
-	{AUDIO_SRC, "[cap][audio_cap] "},
-	{AUDIO_PLAYBACK, "[cap][audio_play] "},
-	{AUDIO_COMPRESS, "[cap][audio_compress] "},
-};
+const char *settingTypeToStr(SettingType type){
+#define X(type, str) case type: return str;
+	switch(type){
+	SETTING_TYPE_LIST
+	case SETTING_TYPE_COUNT: return "";
+	}
+#undef X
+
+	abort(); //Should be unreachable
+}
+
+SettingType strToSettingType(std::string_view sv){
+#define X(type, str) if(sv == str) return type; else
+	SETTING_TYPE_LIST{
+		return SETTING_TYPE_UNKNOWN;
+	}
+#undef X
+
+	abort(); //Should be unreachable
+}
 
 void AvailableSettings::queryProcessLine(std::string_view line){
-	for(const auto& i : modulesQueryInfo){
-		if(sv_is_prefix(line, i.capStr)){
-			auto mod = line.substr(i.capStr.size());
-			auto cutIdx = mod.find_first_of("\n \r");
-			if(cutIdx != mod.npos)
-				mod.remove_suffix(mod.size() - cutIdx);
-			available[i.type].emplace_back(mod);
+	constexpr std::string_view module_cap_prefix = "[cap][";
+	if(sv_is_prefix(line, module_cap_prefix)){
+		line.remove_prefix(module_cap_prefix.size());
+		if(line.empty())
 			return;
-		}
+
+		auto module_type = tokenize(line, ']');
+		auto module_name = sv_trim_whitespace(tokenize(line, ']'));
+
+		if(!module_type.empty() && !module_name.empty())
+			available[strToSettingType(module_type)].emplace_back(module_name);
+
+		return;
 	}
 
 	constexpr std::string_view devStr = "[capability][device]";
@@ -85,8 +97,8 @@ void AvailableSettings::parseStateVersion(std::string_view line){
 }
 
 void AvailableSettings::queryBegin(){
-	for(const auto& i : modulesQueryInfo){
-		available[i.type].clear();
+	for(auto& i : available){
+		i.clear();
 	}
 	for(auto& i : devices){
 		i.clear();
