@@ -1048,13 +1048,13 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 }
 
 /// print hint to improve performance if not making it
-static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_ns)
+static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_pixfmt_change_ns, time_ns_t dur_total_ns)
 {
         constexpr int mov_window = 100;
         if (s->mov_avg_frames >= 10 * mov_window) {
                 return;
         }
-        double duration = dur_ns / NS_IN_SEC_DBL;
+        double duration = dur_total_ns / NS_IN_SEC_DBL;
         s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration) / mov_window;
         s->mov_avg_frames += 1;
         if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->compressed_desc.fps) {
@@ -1075,6 +1075,14 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_n
         if (!hint.empty()) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Consider adding " << hint << " to increase throughput at the expense of latency.\n";
         }
+
+        bool src_rgb = codec_is_a_rgb(s->saved_desc.color_spec);
+        bool dst_rgb = av_pix_fmt_desc_get(s->codec_ctx->pix_fmt)->flags & AV_PIX_FMT_FLAG_RGB;
+        if (src_rgb != dst_rgb && dur_pixfmt_change_ns / NS_IN_SEC_DBL > s->mov_avg_comp_duration / 4) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Also pixfmt change of last frame took " << dur_pixfmt_change_ns / NS_IN_MS_DBL << " ms.\n"
+                        "Consider adding \"--conv-policy cds\" to prevent color space conversion.\n";
+        }
+
         s->mov_avg_frames = LONG_MAX;
 }
 
@@ -1214,7 +1222,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 << (t1 - t0) / NS_IN_SEC_DBL <<
                 " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<
                 " s, compression " << (t3 - t2) / (double) NS_IN_SEC << " s\n";
-        check_duration(s, t3 - t0);
+        check_duration(s, t1 - t0, t3 - t0);
 
         if (out->tiles[0].data_len == 0) { // videotoolbox returns sometimes frames with pkt->size == 0 but got_output == true
                 return {};

@@ -796,13 +796,13 @@ static _Bool check_first_h264_sps(struct state_libavcodec_decompress *s, unsigne
 }
 
 /// print hint to improve performance if not making it
-static void check_duration(struct state_libavcodec_decompress *s, double duration_sec)
+static void check_duration(struct state_libavcodec_decompress *s, double duration_total_sec, double duration_pixfmt_change_sec)
 {
         const int mov_window = 100;
         if (s->mov_avg_frames >= 10 * mov_window) {
                 return;
         }
-        s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration_sec) / mov_window;
+        s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration_total_sec) / mov_window;
         s->mov_avg_frames += 1;
         if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->desc.fps) {
                 return;
@@ -820,6 +820,11 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
                                 hint);
         }
         s->mov_avg_frames = LONG_MAX;
+
+        if (codec_is_a_rgb(s->out_codec) != codec_is_a_rgb(s->internal_codec) && duration_pixfmt_change_sec > s->mov_avg_comp_duration / 4) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Also pixfmt change of last frame took %f ms.\n"
+                        "Consider adding \"--conv-policy cds\" to prevent color space conversion.\n", duration_pixfmt_change_sec / 1000.0);
+        }
 }
 
 static void handle_lavd_error(struct state_libavcodec_decompress *s, int ret)
@@ -928,7 +933,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         time_ns_t t4 = get_time_in_ns();
                         log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f ms, pixfmt change %f ms.\n", av_get_picture_type_char(s->frame->pict_type),
                                         (t1 - t0) / NS_IN_MS_DBL, (t4 - t3) / NS_IN_MS_DBL);
-                        check_duration(s, (t4 - t0) / NS_IN_SEC_DBL);
+                        check_duration(s, (t4 - t0) / NS_IN_SEC_DBL, (t4 - t3) / NS_IN_MS_DBL);
                 }
 
                 if (len <= 0) {
