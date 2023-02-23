@@ -803,10 +803,10 @@ list<enum AVPixelFormat> get_requested_pix_fmts(codec_t in_codec,
 
 void apply_blacklist([[maybe_unused]] list<enum AVPixelFormat> &formats, [[maybe_unused]] const char *encoder_name) {
 #if X2RGB10LE_PRESENT
-        // blacklist AV_PIX_FMT_X2RGB10LE for NVENC - with current FFmpeg (13d04e3), it produces
-        // 10-bit 4:2:0 YUV (FF macro IS_YUV444 and IS_GBRP should contain the codec - if set 1st
-        // one, picture is ok, second produces incorrect colors)
-        // Incorrect colors are produced also for qsv_hevc
+        // blacklist AV_PIX_FMT_X2RGB10LE for NVENC - with current FFmpeg (13d04e3), it produces 10-bit 4:2:0 YUV (FF
+        // macro IS_YUV444 and IS_GBRP should contain the codec - if set 1st one, picture is ok 444 YUV, second produces
+        // incorrect colors). Anyways, even for the case #1 it is perhaps better to keep it blacklisted to allow
+        // selection of gbrp16, which doesn't convert to YUV.
         if (strstr(encoder_name, "nvenc") != nullptr) {
                 if (formats.size() == 1) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Only one codec remaining, not blacklisting x2rgb10le!\n";
@@ -1663,3 +1663,5 @@ REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDE
 
 } // end of anonymous namespace
 
+
+/* vim: set expandtab sw=8 tw=120: */
