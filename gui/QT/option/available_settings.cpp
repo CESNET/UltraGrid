@@ -264,7 +264,7 @@ bool AvailableSettings::isAvailable(const std::string &name, SettingType type) c
 	return vectorContains(available[type], name);
 }
 
-std::vector<std::string> AvailableSettings::getAvailableSettings(SettingType type) const{
+const std::vector<std::string>& AvailableSettings::getAvailableSettings(SettingType type) const{
 	return available[type];
 }
 

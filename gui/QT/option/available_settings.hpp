@@ -86,7 +86,7 @@ public:
 	void queryEnd();
 
 	bool isAvailable(const std::string &name, SettingType type) const;
-	std::vector<std::string> getAvailableSettings(SettingType type) const;
+	const std::vector<std::string>& getAvailableSettings(SettingType type) const;
 
 	const std::vector<Device>& getDevices(SettingType type) const;
 
