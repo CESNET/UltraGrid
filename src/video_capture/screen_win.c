@@ -94,13 +94,12 @@ static void show_help()
 
 static void vidcap_screen_win_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
-        int card_count = 1;
-        struct device_info *cards = calloc(card_count, sizeof(struct device_info));
+        *count = 1;
+        *deleter = free;
+        struct device_info *cards = calloc(1, sizeof(struct device_info));
         // cards[0].dev can be "" since screen cap. doesn't require parameters
         snprintf(cards[0].name, sizeof cards[0].name, "Screen capture");
-
-		*available_cards = cards;
-		*count = card_count;
+        *available_cards = cards;
 }
 
 static bool set_key(const char *key, int val)
