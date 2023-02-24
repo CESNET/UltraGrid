@@ -57,6 +57,7 @@ const char *hresult_to_str(HRESULT res) {
         }
 
         switch (res) {
+                case RPC_E_CHANGED_MODE: errptr = "A previous call to CoInitializeEx specified different concurrency model for this thread."; break; \
                 case CO_E_NOTINITIALIZED: return "CoInitialize has not been called.";
 		case AUDCLNT_E_ALREADY_INITIALIZED: return "The IAudioClient object is already initialized.";
 		case AUDCLNT_E_WRONG_ENDPOINT_TYPE: return "The AUDCLNT_STREAMFLAGS_LOOPBACK flag is set but the endpoint device is a capture device, not a rendering device.";
