@@ -78,6 +78,7 @@ struct state_decklink {
         int                 output_audio_channel_count;
 
         PlaybackDelegate        *delegate;
+        bool                    com_initialized;
         IDeckLink               *deckLink;
         IDeckLinkOutput         *deckLinkOutput;
         IDeckLinkMutableVideoFrame *deckLinkFrame;
@@ -142,7 +143,8 @@ static void audio_play_decklink_help(const char *driver_name)
         UNUSED(driver_name);
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-        deckLinkIterator = create_decklink_iterator(true);
+        bool com_initialized = false;
+        deckLinkIterator = create_decklink_iterator(&com_initialized, true);
         if (deckLinkIterator == NULL)
         {
                 return;
@@ -173,7 +175,7 @@ static void audio_play_decklink_help(const char *driver_name)
         }
         
         deckLinkIterator->Release();
-        decklink_uninitialize();
+        decklink_uninitialize(&com_initialized);
 
         // If no DeckLink cards were found in the system, inform the user
         if (numDevices == 0)
@@ -243,7 +245,7 @@ static void *audio_play_decklink_init(const char *cfg)
                         "\"-d decklink -r analog\" instead.\n");
 
         // Initialize the DeckLink API
-        deckLinkIterator = create_decklink_iterator(true);
+        deckLinkIterator = create_decklink_iterator(&s->com_initialized, true);
         if (!deckLinkIterator) {
                 goto error;
         }
@@ -451,8 +453,8 @@ static void audio_play_decklink_done(void *state)
         s->deckLinkFrame->Release();
         s->deckLink->Release();
         s->deckLinkOutput->Release();
+        decklink_uninitialize(&s->com_initialized);
         free(s);
-        decklink_uninitialize();
 }
 
 static const struct audio_playback_info aplay_decklink_info = {

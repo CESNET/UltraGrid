@@ -98,9 +98,12 @@ void release_bmd_api_str(BMD_STR string);
 std::string get_str_from_bmd_api_str(BMD_STR string);
 #endif
 
-IDeckLinkIterator *create_decklink_iterator(bool verbose = true, bool coinit = true);
-bool decklink_initialize();
-void decklink_uninitialize();
+///< @param[out] com_initialized - pass a pointer to bool
+IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose = true, bool coinit = true);
+///< param pass a pointer to a bool that will be passed to decklink_uninintialize()
+bool decklink_initialize(bool *com_initialized);
+///< @param com_initialized - pointer passed to decklink_initialize (or create_decklink_iterator)
+void decklink_uninitialize(bool *com_initialized);
 bool blackmagic_api_version_check();
 void print_decklink_version(void);
 
