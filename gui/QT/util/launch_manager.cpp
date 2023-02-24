@@ -32,7 +32,7 @@ void LaunchManager::doLaunch(std::unique_ptr<LaunchContext>&& ctx){
 
 	connect(&currentLaunch->process,
 			QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-			this, &LaunchManager::processFinished);
+			this, &LaunchManager::processFinished, Qt::UniqueConnection);
 
 	currentLaunch->process.start(currentLaunch->executablePath, currentLaunch->args);
 
@@ -54,6 +54,16 @@ void LaunchManager::processFinished(){
 
 	if(queuedLaunch)
 		doLaunch(std::move(queuedLaunch));
+}
+
+std::unique_ptr<LaunchContext> LaunchManager::extractCurrentCtx(){
+	auto ret = std::move(currentLaunch);
+	return ret;
+}
+
+
+void LaunchManager::reLaunch(std::unique_ptr<LaunchContext>&& ctx){
+	queuedLaunch = std::move(ctx);
 }
 
 LaunchContext::Type LaunchManager::getCurrentStatus() const{

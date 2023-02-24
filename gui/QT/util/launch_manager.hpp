@@ -59,6 +59,13 @@ public:
 
 	LaunchContext::Type getCurrentStatus() const;
 
+	/* Functions to allow modifying and relaunching the current LaunchContext
+	 * from the processTerminated signal. At that time LaunchManager::processFinished
+	 * is still pending execution, so the usual launch() cannot be used
+	 */
+	std::unique_ptr<LaunchContext> extractCurrentCtx();
+	void reLaunch(std::unique_ptr<LaunchContext>&& ctx);
+
 private:
 	std::unique_ptr<LaunchContext> currentLaunch;
 	std::unique_ptr<LaunchContext> queuedLaunch;
