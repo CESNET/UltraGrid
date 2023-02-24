@@ -49,20 +49,14 @@
 
 const char *hresult_to_str(HRESULT res) {
         thread_local char unknown[128];
+        const char *errptr = nullptr;
+
+        HRESULT_GET_ERROR_COMMON(res, errptr)
+        if (errptr) {
+                return errptr;
+        }
+
         switch (res) {
-                case S_OK: return "Operation successful";
-                case S_FALSE: return "Operation completed";
-                case E_NOTIMPL: return "Not implemented";
-                case E_NOINTERFACE: return "No such interface supported";
-                case E_POINTER: return "Pointer that is not valid";
-                case E_ABORT: return "Operation aborted";
-                case E_FAIL: return "Unspecified failure";
-                case E_UNEXPECTED: return "Unexpected failure";
-                case E_ACCESSDENIED: return "General access denied error";
-                case E_HANDLE: return "Handle that is not valid";
-                case E_OUTOFMEMORY: return "Failed to allocate necessary memory";
-                case E_INVALIDARG: return "One or more arguments are not valid";
-                case RPC_E_CHANGED_MODE: return "A previous call to CoInitializeEx specified different concurrency model for this thread."
                 case CO_E_NOTINITIALIZED: return "CoInitialize has not been called.";
 		case AUDCLNT_E_ALREADY_INITIALIZED: return "The IAudioClient object is already initialized.";
 		case AUDCLNT_E_WRONG_ENDPOINT_TYPE: return "The AUDCLNT_STREAMFLAGS_LOOPBACK flag is set but the endpoint device is a capture device, not a rendering device.";

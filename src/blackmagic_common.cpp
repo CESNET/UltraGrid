@@ -51,33 +51,24 @@
 #include "debug.h"
 #include "host.h"
 #include "DeckLinkAPIVersion.h"
+#include "utils/hresult.h"
 #include "utils/worker.h"
 
 #define MOD_NAME "[DeckLink] "
 
 using namespace std;
 
-static unordered_map<HRESULT, string> bmd_hresult_to_string_map = {
-        {S_OK, "success"},
-        {S_FALSE, "false"},
-        {E_UNEXPECTED, "unexpected value"},
-        {E_NOTIMPL, "not implemented"},
-        {E_OUTOFMEMORY, "out of memory"},
-        {E_INVALIDARG, "invalid argument"},
-        {E_NOINTERFACE, "interface was not found"},
-        {E_POINTER, "invalid pointer"},
-        {E_HANDLE, "invalid handle"},
-        {E_ABORT, "operation aborted"},
-        {E_FAIL, "failure"},
-        {E_ACCESSDENIED, "access denied"},
-};
-
 string bmd_hresult_to_string(HRESULT res)
 {
+        const char *errptr = nullptr;
+#ifdef _WIN32
+        errptr = hresult_to_str(res);
+#else
+        HRESULT_GET_ERROR_COMMON(res, errptr)
+#endif
         ostringstream oss;
-        auto it = bmd_hresult_to_string_map.find(res);
-        if (it != bmd_hresult_to_string_map.end()) {
-                oss << it->second;
+        if (errptr) {
+                oss << errptr;
         }
         oss << " " << "(0x" << hex << setfill('0') << setw(8) << res << ")";
         return oss.str();
