@@ -61,6 +61,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
+#include "utils/hresult.h"
 #include "utils/misc.h" // unit_evaluate
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
@@ -126,6 +127,7 @@ mainloop_t mainloop;
 void *mainloop_udata;
 
 struct init_data {
+        bool com_initialized = false;
         list <void *> opened_libs;
 };
 
@@ -138,6 +140,11 @@ void common_cleanup(struct init_data *init)
 #if defined BUILD_LIBRARIES
                 for (auto a : init->opened_libs) {
                         dlclose(a);
+                }
+#endif
+#ifdef _WIN32
+                if (init->com_initialized) {
+                        CoUninitialize();
                 }
 #endif
         }
@@ -387,6 +394,7 @@ struct init_data *common_preinit(int argc, char *argv[])
         }
 #endif
 
+        struct init_data init{};
 #ifdef WIN32
         WSADATA wsaData;
         int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -401,11 +409,21 @@ struct init_data *common_preinit(int argc, char *argv[])
         }
 
         SetConsoleOutputCP(CP_UTF8); // see also https://stackoverflow.com/questions/1660492/utf-8-output-on-windows-console
+
+        // Initialize COM on main thread - otherwise Portaudio would initialize it as COINIT_APARTMENTTHREADED but MULTITHREADED
+        // is perhaps better variant (Portaudio would accept that).
+        HRESULT result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+        if (SUCCEEDED(result)) {
+                init.com_initialized = true;
+        } else if (result == RPC_E_CHANGED_MODE) {
+                log_msg(LOG_LEVEL_WARNING, "COM already intiialized in a different mode!\n");
+        } else {
+                log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - %s\n", hresult_to_str(result));
+        }
 #endif
 
-        struct init_data *init = new init_data{};
         if (strstr(argv[0], "run_tests") == nullptr) {
-                open_all("ultragrid_*.so", init->opened_libs); // load modules
+                open_all("ultragrid_*.so", init.opened_libs); // load modules
         }
 
         srand48((getpid() * 42) ^ get_time_in_ns());
@@ -416,7 +434,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 
         load_libgcc();
 
-        return init;
+        return new init_data{init};
 }
 
 using module_info_map = std::map<std::string, const void *>;
