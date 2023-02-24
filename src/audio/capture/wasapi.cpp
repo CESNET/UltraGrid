@@ -130,12 +130,7 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
 }
 
 static string wstring_to_string(wstring const & wstr) {
-        size_t len = wstr.length() * 4 + 1;
-        auto str = (char *) calloc(len, 1);
-        wcstombs(str, wstr.c_str(), len - 1);
-        string out = str;
-        free(str);
-        return out;
+        return string(wstr.begin(), wstr.end());
 }
 
 static string get_name(IMMDevice *pDevice) {

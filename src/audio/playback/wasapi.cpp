@@ -87,12 +87,7 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
 #undef THROW_IF_FAILED
 #define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { ostringstream oss; oss << #cmd << ": " << hresult_to_str(hr); throw ug_runtime_error(oss.str()); } } while(0)
 static string wstring_to_string(wstring const & wstr) {
-        size_t len = wstr.length() * 4 + 1;
-        auto str = (char *) calloc(len, 1);
-        wcstombs(str, wstr.c_str(), len - 1);
-        string out = str;
-        free(str);
-        return out;
+        return string(wstr.begin(), wstr.end());
 }
 
 static string get_name(IMMDevice *pDevice) {
