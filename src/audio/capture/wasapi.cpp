@@ -44,9 +44,9 @@
 #include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "ug_runtime_error.hpp"
 #include "utils/windows.h"
+#include "utils/color_out.h"
 
 #define MOD_NAME "[WASAPI cap.] "
 #define REFTIMES_PER_SEC  10000000
@@ -61,8 +61,6 @@ const static PROPERTYKEY PKEY_Device_FriendlyName = { IDevice_FriendlyName, 14 }
 const GUID KSDATAFORMAT_SUBTYPE_PCM = { STATIC_KSDATAFORMAT_SUBTYPE_PCM };
 const GUID KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = { STATIC_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT };
 
-using rang::fg;
-using rang::style;
 using std::cout;
 using std::ostringstream;
 using std::setfill;
@@ -177,9 +175,9 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
 }
 
 static void show_help() {
-        cout << "Usage:\n" <<
-                style::bold << fg::red << "\t-s wasapi" << fg::reset << "[:<index>|:<ID>]\n" << style::reset <<
-                "\nAvailable devices:\n";
+        col() << "Usage:\n" <<
+                SBOLD(SRED("\t-s wasapi") << "[:<index>|:<ID>]") <<
+                "\n\nAvailable devices:\n";
 
         IMMDeviceEnumerator *enumerator = nullptr;
         IMMDeviceCollection *pEndpoints = nullptr;
@@ -202,7 +200,7 @@ static void show_help() {
                                 THROW_IF_FAILED(pEndpoints->Item(i, &pDevice));
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
                                 string dev_id = wstring_to_string(pwszID);
-                                cout << (dev_id == default_dev_id ? "(*)" : "") << "\t" << style::bold << i << style::reset << ") " << style::bold << get_name(pDevice) << style::reset << " (ID: " << dev_id << ")\n";
+                                col() << (dev_id == default_dev_id ? "(*)" : "") << "\t" << SBOLD(i) << ") " << SBOLD(get_name(pDevice)) << " (ID: " << dev_id << ")\n";
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }

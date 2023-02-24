@@ -46,8 +46,8 @@
 #include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "ug_runtime_error.hpp"
+#include "utils/color_out.h"
 #include "utils/windows.h"
 
 #define DEFAULT_WASAPI_BUFLEN_MS 67
@@ -64,8 +64,6 @@ const static PROPERTYKEY PKEY_Device_FriendlyName = { IDevice_FriendlyName, 14 }
 const static GUID UG_KSDATAFORMAT_SUBTYPE_PCM = { STATIC_KSDATAFORMAT_SUBTYPE_PCM };
 
 
-using rang::fg;
-using rang::style;
 using std::cout;
 using std::ostringstream;
 using std::string;
@@ -168,8 +166,8 @@ static void audio_play_wasapi_help(const char *driver_name)
 }
 
 static void show_help() {
-        cout << "Usage:\n" <<
-                style::bold << fg::red << "\t-r wasapi" << fg::reset << "[:<index>|:<ID>] --param audio-buffer-len=<ms>\n" << style::reset <<
+        col() << "Usage:\n" <<
+                SBOLD(SRED("\t-r wasapi") << "[:<index>|:<ID>] --param audio-buffer-len=<ms>") << "\n" <<
                 "\nAvailable devices:\n";
 
         bool com_initialized = false;
@@ -194,7 +192,7 @@ static void show_help() {
                                 THROW_IF_FAILED(pEndpoints->Item(i, &pDevice));
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
                                 string dev_id = wstring_to_string(pwszID);
-                                cout << (dev_id == default_dev_id ? "(*)" : "") << "\t" << style::bold << i << style::reset << ") " << style::bold << get_name(pDevice) << style::reset << " (ID: " << dev_id << ")\n";
+                                col() << (dev_id == default_dev_id ? "(*)" : "") << "\t" << SBOLD(i) << ") " << SBOLD(get_name(pDevice)) << " (ID: " << dev_id << ")\n";
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
