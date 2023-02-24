@@ -17,6 +17,7 @@
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
+#include "utils/windows.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -75,6 +76,7 @@ static int *yuv_clamp;
 class SampleGrabberCallback;
 
 struct vidcap_dshow_state {
+	bool com_initialized;
 	int deviceNumber;
 	char *deviceName;
 	int modeNumber;
@@ -216,7 +218,7 @@ static bool cleanup(struct vidcap_dshow_state *s) {
 	*/
 
 	// COM library uninitialization
-	CoUninitialize();
+	com_uninitialize(&s->com_initialized);
 
 	if (s->frame != NULL) vf_free(s->frame);
 	if (s->grabBuffer != NULL) free(s->grabBuffer);
@@ -266,10 +268,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 
 	// Initialize COM library
 	// COINIT_APARTMENTTHREADED is used because we do not expect any other thread to work with the object
-	res = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-	if (res != S_OK && res != S_FALSE && res != RPC_E_CHANGED_MODE) {
-		log_msg(LOG_LEVEL_ERROR, MOD_NAME "vidcap_dshow_init: COM library initialization failed.\n");
-		ErrorDescription(res);
+	if (com_initialize(&s->com_initialized, "widcap_dshow_init: ")) {
 		return false;
 	}
 

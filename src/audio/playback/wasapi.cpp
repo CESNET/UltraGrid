@@ -73,6 +73,7 @@ using std::wcout;
 using std::wstring;
 
 struct state_aplay_wasapi {
+        bool com_initialized;
         struct audio_desc desc;
         IMMDevice *pDevice;
         IAudioClient *pAudioClient;
@@ -122,10 +123,10 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
         *available_devices = (struct device_info *) malloc(0);
         *dev_count = 0;
 
-        HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         IMMDeviceEnumerator *enumerator = nullptr;
         IMMDeviceCollection *pEndpoints = nullptr;
-        if (hr != S_OK && hr != S_FALSE) {
+        bool com_initialized = false;
+        if (!com_initialize(&com_initialized, MOD_NAME)) {
                 return;
         }
 
@@ -157,7 +158,7 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
         }
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
-        CoUninitialize();
+        com_uninitialize(&com_initialized);
 }
 
 static void audio_play_wasapi_help(const char *driver_name)
@@ -171,8 +172,8 @@ static void show_help() {
                 style::bold << fg::red << "\t-r wasapi" << fg::reset << "[:<index>|:<ID>] --param audio-buffer-len=<ms>\n" << style::reset <<
                 "\nAvailable devices:\n";
 
-        HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-        if (hr != S_OK && hr != S_FALSE) {
+        bool com_initialized = false;
+        if (!com_initialize(&com_initialized, MOD_NAME)) {
                 return;
         }
         IMMDeviceEnumerator *enumerator = nullptr;
@@ -204,7 +205,7 @@ static void show_help() {
         }
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
-        CoUninitialize();
+        com_uninitialize(&com_initialized);
 }
 
 static void * audio_play_wasapi_init(const char *cfg)
@@ -222,11 +223,11 @@ static void * audio_play_wasapi_init(const char *cfg)
                         mbtowc(deviceID, cfg, (sizeof deviceID / 2) - 1);
                 }
         }
-        HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-        if (hr != S_OK && hr != S_FALSE) {
+        auto s = new state_aplay_wasapi();
+        if (!com_initialize(&s->com_initialized, MOD_NAME)) {
+                delete s;
                 return nullptr;
         }
-        auto s = new state_aplay_wasapi();
         IMMDeviceEnumerator *enumerator = nullptr;
         try {
 
@@ -266,7 +267,7 @@ static void * audio_play_wasapi_init(const char *cfg)
                 }
         } catch (ug_runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
-                CoUninitialize();
+                com_uninitialize(&s->com_initialized);
                 delete s;
                 s = nullptr;
         }

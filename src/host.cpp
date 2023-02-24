@@ -142,11 +142,7 @@ void common_cleanup(struct init_data *init)
                         dlclose(a);
                 }
 #endif
-#ifdef _WIN32
-                if (init->com_initialized) {
-                        CoUninitialize();
-                }
-#endif
+                com_uninitialize(&init->com_initialized);
         }
         delete init;
 
@@ -412,14 +408,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 
         // Initialize COM on main thread - otherwise Portaudio would initialize it as COINIT_APARTMENTTHREADED but MULTITHREADED
         // is perhaps better variant (Portaudio would accept that).
-        HRESULT result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-        if (SUCCEEDED(result)) {
-                init.com_initialized = true;
-        } else if (result == RPC_E_CHANGED_MODE) {
-                log_msg(LOG_LEVEL_WARNING, "COM already intiialized in a different mode!\n");
-        } else {
-                log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - %s\n", hresult_to_str(result));
-        }
+        com_initialize(&init.com_initialized, nullptr);
 #endif
 
         if (strstr(argv[0], "run_tests") == nullptr) {

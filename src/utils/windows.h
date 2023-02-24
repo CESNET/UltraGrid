@@ -65,8 +65,11 @@
 extern "C" {
 #endif
 
-///< param pass a pointer to a bool that will be passed to com_uninintialize()
-bool com_initialize(bool *com_initialized);
+/**
+ * @param[out] com_initialize a pointer to a bool that will be passed to com_uninintialize()
+ * @param[in] err_prefix optional error prefix to be used for eventual error messges (may be NULL)
+ */
+bool com_initialize(bool *com_initialized, const char *err_prefix);
 ///< @param com_initialized - pointer passed to com_initialize (or create_com_iterator)
 void com_uninitialize(bool *com_initialized);
 

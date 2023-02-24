@@ -48,8 +48,11 @@
 #include <objbase.h>
 #include "debug.h"
 
-bool com_initialize(bool *com_initialized)
+bool com_initialize(bool *com_initialized, const char *err_prefix)
 {
+        if (err_prefix == nullptr) {
+                err_prefix = "";
+        }
         *com_initialized = false;
         // Initialize COM on this thread
         HRESULT result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
@@ -58,10 +61,10 @@ bool com_initialize(bool *com_initialized)
                 return true;
         }
         if (result == RPC_E_CHANGED_MODE) {
-                LOG(LOG_LEVEL_WARNING) << "COM already intiialized with a different mode!\n";
+                LOG(LOG_LEVEL_WARNING) << err_prefix << "COM already intiialized with a different mode!\n";
                 return true;
         }
-        LOG(LOG_LEVEL_ERROR) << "Initialize of COM failed - " << hresult_to_str(result) << "\n";
+        LOG(LOG_LEVEL_ERROR) << err_prefix << "Initialize of COM failed - " << hresult_to_str(result) << "\n";
         return false;
 }
 
@@ -105,7 +108,7 @@ const char *hresult_to_str(HRESULT res) {
         }
 }
 #else
-bool com_initialize(bool *com_initialized [[maybe_unused]])
+bool com_initialize(bool *com_initialized [[maybe_unused]], const char *err_prefix [[maybe_unused]])
 {
         return true;
 }

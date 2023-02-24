@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -147,7 +147,7 @@ IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose,
         IDeckLinkIterator *deckLinkIterator = nullptr;
 #ifdef WIN32
         if (coinit) {
-                com_initialize(com_initialized);
+                com_initialize(com_initialized, "[BMD] ");
         }
         HRESULT result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
                         IID_IDeckLinkIterator, (void **) &deckLinkIterator);
@@ -183,7 +183,7 @@ bool blackmagic_api_version_check()
         HRESULT result;
         bool com_initialized = false;
 
-        if (!com_initialize(&com_initialized)) {
+        if (!com_initialize(&com_initialized, "[BMD] ")) {
                 goto cleanup;
         }
 #ifdef WIN32
@@ -230,11 +230,8 @@ void print_decklink_version()
         HRESULT result;
 
 #ifdef WIN32
-        // Initialize COM on this thread
-        result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-        if(FAILED(result)) {
-                fprintf(stderr, "Initialize of COM failed - result = "
-                                "%08lx.\n", result);
+        bool com_initialized = false;
+        if (!com_initialize(&com_initialized, "[BMD] ")) {
                 goto cleanup;
         }
 
@@ -266,7 +263,7 @@ cleanup:
                 APIInformation->Release();
         }
 #ifdef WIN32
-        CoUninitialize();
+        com_uninitialize(&com_initialized);
 #endif
 }
 

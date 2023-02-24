@@ -183,7 +183,7 @@ struct vidcap_decklink_state {
         void set_codec(codec_t c);
 
         vidcap_decklink_state() {
-                if (!com_initialize(&com_initialized)) {
+                if (!com_initialize(&com_initialized, MOD_NAME)) {
                         throw 1;
                 }
         }

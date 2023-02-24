@@ -71,6 +71,7 @@ using std::string;
 using std::wstring;
 
 struct state_acap_wasapi {
+        bool com_initialized;
         struct audio_frame frame;
         IMMDevice *pDevice;
         IAudioClient *pAudioClient;
@@ -91,13 +92,13 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
         *deleter = free;
         *available_devices = (struct device_info *) malloc(0);
         *dev_count = 0;
+        bool com_initialized = false;
 
-        HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-        IMMDeviceEnumerator *enumerator = nullptr;
-        IMMDeviceCollection *pEndpoints = nullptr;
-        if (hr != S_OK && hr != S_FALSE) {
+        if (!com_initialize(&com_initialized, MOD_NAME)) {
                 return;
         }
+        IMMDeviceEnumerator *enumerator = nullptr;
+        IMMDeviceCollection *pEndpoints = nullptr;
 
         try {
                 THROW_IF_FAILED(CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, IID_IMMDeviceEnumerator,
@@ -127,7 +128,7 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
         }
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
-        CoUninitialize();
+        com_uninitialize(&com_initialized);
 }
 
 static string wstring_to_string(wstring const & wstr) {
@@ -180,10 +181,10 @@ static void show_help() {
                 style::bold << fg::red << "\t-s wasapi" << fg::reset << "[:<index>|:<ID>]\n" << style::reset <<
                 "\nAvailable devices:\n";
 
-        HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         IMMDeviceEnumerator *enumerator = nullptr;
         IMMDeviceCollection *pEndpoints = nullptr;
-        if (hr != S_OK && hr != S_FALSE) {
+        bool com_initialized = false;
+        if (!com_initialize(&com_initialized, MOD_NAME)) {
                 return;
         }
 
@@ -212,7 +213,7 @@ static void show_help() {
         }
         SAFE_RELEASE(enumerator);
         SAFE_RELEASE(pEndpoints);
-        CoUninitialize();
+        com_uninitialize(&com_initialized);
 }
 
 static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
@@ -232,11 +233,11 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                         mbtowc(deviceID, cfg, (sizeof deviceID / 2) - 1);
                 }
         }
-        HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-        if (hr != S_OK && hr != S_FALSE) {
+        auto s = new state_acap_wasapi();
+        if (!com_initialize(&s->com_initialized, MOD_NAME)) {
+                delete s;
                 return nullptr;
         }
-        auto s = new state_acap_wasapi();
         IMMDeviceEnumerator *enumerator = nullptr;
         try {
 
