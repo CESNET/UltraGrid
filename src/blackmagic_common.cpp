@@ -142,21 +142,22 @@ std::string get_str_from_bmd_api_str(BMD_STR string)
  * should be followed by decklink_uninitialize() when done with DeckLink (not when releasing
  * IDeckLinkIterator!), typically on application shutdown.
  */
-IDeckLinkIterator *create_decklink_iterator(bool verbose, bool coinit)
+IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose, bool coinit)
 {
         IDeckLinkIterator *deckLinkIterator = nullptr;
 #ifdef WIN32
         if (coinit) {
-                decklink_initialize();
+                decklink_initialize(com_initialized);
         }
         HRESULT result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
                         IID_IDeckLinkIterator, (void **) &deckLinkIterator);
         if (FAILED(result)) {
-                CoUninitialize();
+                decklink_uninitialize(com_initialized);
                 deckLinkIterator = nullptr;
         }
 #else
         UNUSED(coinit);
+        *com_initialized = false;
         deckLinkIterator = CreateDeckLinkIteratorInstance();
 #endif
 
@@ -171,12 +172,18 @@ IDeckLinkIterator *create_decklink_iterator(bool verbose, bool coinit)
 }
 
 /// called automatically by create_decklink_iterator() if second parameter is true (default)
-bool decklink_initialize()
+bool decklink_initialize(bool *com_initialized)
 {
+        *com_initialized = false;
 #ifdef WIN32
         // Initialize COM on this thread
         HRESULT result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if (SUCCEEDED(result)) {
+                *com_initialized = true;
+                return true;
+        }
+        if (result == RPC_E_CHANGED_MODE) {
+                LOG(LOG_LEVEL_WARNING) << "[BMD] COM already intiialized with a different mode!\n";
                 return true;
         }
         log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
@@ -187,8 +194,12 @@ bool decklink_initialize()
 #endif
 }
 
-void decklink_uninitialize()
+void decklink_uninitialize(bool *com_initialized)
 {
+        if (!*com_initialized) {
+                return;
+        }
+        *com_initialized = false;
 #ifdef WIN32
         CoUninitialize();
 #endif

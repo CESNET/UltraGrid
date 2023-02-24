@@ -321,6 +321,7 @@ struct device_state {
 struct state_decklink {
         uint32_t            magic = DECKLINK_MAGIC;
         chrono::high_resolution_clock::time_point t0 = chrono::high_resolution_clock::now();
+        bool                com_initialized = false;
 
         vector<struct device_state> state;
 
@@ -428,7 +429,8 @@ static void show_help(bool full)
 
         col() << "\nDevices:\n";
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-        deckLinkIterator = create_decklink_iterator(true);
+        bool com_initialized = false;
+        deckLinkIterator = create_decklink_iterator(&com_initialized, true);
         if (deckLinkIterator == NULL) {
                 return;
         }
@@ -460,7 +462,7 @@ static void show_help(bool full)
 
         deckLinkIterator->Release();
 
-        decklink_uninitialize();
+        decklink_uninitialize(&com_initialized);
 
         // If no DeckLink cards were found in the system, inform the user
         if (numDevices == 0)
@@ -897,7 +899,8 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         *count = 0;
         *available_cards = nullptr;
 
-        deckLinkIterator = create_decklink_iterator(false);
+        bool com_initialized = false;
+        deckLinkIterator = create_decklink_iterator(&com_initialized, false);
         if (deckLinkIterator == NULL) {
                 return;
         }
@@ -926,7 +929,7 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
         }
 
         deckLinkIterator->Release();
-        decklink_uninitialize();
+        decklink_uninitialize(&com_initialized);
 }
 
 static auto parse_devices(const char *devices_str, vector<string> *cardId) {
@@ -1129,7 +1132,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
 
         // Initialize the DeckLink API
-        deckLinkIterator = create_decklink_iterator(true);
+        deckLinkIterator = create_decklink_iterator(&s->com_initialized, true);
         if (!deckLinkIterator)
         {
                 delete s;
@@ -1380,9 +1383,8 @@ static void display_decklink_done(void *state)
 
         delete s->timecode;
 
+        decklink_uninitialize(&s->com_initialized);
         delete s;
-
-        decklink_uninitialize();
 }
 
 /**

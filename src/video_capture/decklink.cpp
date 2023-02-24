@@ -146,6 +146,7 @@ struct device_state {
 };
 
 struct vidcap_decklink_state {
+        bool                    com_initialized = true;
         vector <struct device_state>     state{vector <struct device_state>(1)};
         int                     devices_cnt = 1;
         string                  mode;
@@ -181,12 +182,12 @@ struct vidcap_decklink_state {
         void set_codec(codec_t c);
 
         vidcap_decklink_state() {
-                if (!decklink_initialize()) {
+                if (!decklink_initialize(&com_initialized)) {
                         throw 1;
                 }
         }
         ~vidcap_decklink_state() {
-                decklink_uninitialize();
+                decklink_uninitialize(&com_initialized);
         }
 };
 
@@ -563,7 +564,8 @@ decklink_help(bool full)
         cout << "\n";
 
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-        IDeckLinkIterator *deckLinkIterator = create_decklink_iterator();
+        bool com_initialized = false;
+        IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(&com_initialized);
         if (deckLinkIterator == NULL) {
 		return 0;
 	}
@@ -596,7 +598,7 @@ decklink_help(bool full)
 	
 	deckLinkIterator->Release();
 
-        decklink_uninitialize();
+        decklink_uninitialize(&com_initialized);
 
 	// If no DeckLink cards were found in the system, inform the user
 	if (numDevices == 0)
@@ -792,7 +794,8 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
         int numDevices = 0;
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-        deckLinkIterator = create_decklink_iterator(false);
+        bool com_initialized = false;
+        deckLinkIterator = create_decklink_iterator(&com_initialized, false);
         if (deckLinkIterator == nullptr) {
                 return;
         }
@@ -889,7 +892,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
         }
 
         deckLinkIterator->Release();
-        decklink_uninitialize();
+        decklink_uninitialize(&com_initialized);
         *available_cards = cards;
 }
 
@@ -1058,8 +1061,9 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         tile = t;
 
         int dnum = 0;
+        bool com_initialized = false;
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-        IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(true, false);
+        IDeckLinkIterator *deckLinkIterator = create_decklink_iterator(&com_initialized, true, false);
         if (deckLinkIterator == NULL) {
                 return false;
         }
