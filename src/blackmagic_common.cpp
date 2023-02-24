@@ -186,8 +186,7 @@ bool decklink_initialize(bool *com_initialized)
                 LOG(LOG_LEVEL_WARNING) << "[BMD] COM already intiialized with a different mode!\n";
                 return true;
         }
-        log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
-                        "%08lx.\n", result);
+        LOG(LOG_LEVEL_ERROR) << "[BMD] Initialize of COM failed - " << bmd_hresult_to_string(result) << "\n";
         return false;
 #else
         return true;
