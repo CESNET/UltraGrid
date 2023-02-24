@@ -80,7 +80,7 @@ gpujpeg_test::test_simple()
         vector<unsigned char> decompressed(in->tiles[0].data_len);
         auto comp_desc = desc;
         comp_desc.color_spec = JPEG;
-        if (bool ret = decompress_init_multi(JPEG, VIDEO_CODEC_NONE, RGB, &m_decompress, 1)) {
+        if (bool ret = decompress_init_multi(JPEG, pixfmt_desc{}, RGB, &m_decompress, 1)) {
                 CPPUNIT_ASSERT_MESSAGE("Decompression init failed", ret);
         }
         auto ret = decompress_reconfigure(m_decompress, comp_desc, 0, 8, 16, vc_get_linesize(desc.width, desc.color_spec), desc.color_spec);

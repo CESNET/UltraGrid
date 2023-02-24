@@ -366,13 +366,8 @@ static void gpujpeg_to_dxt_decompress_done(void *state)
         delete s;
 }
 
-static const struct decode_from_to *gpujpeg_to_dxt_decompress_get_decoders() {
-        static const struct decode_from_to ret[] = {
-		{ JPEG, VIDEO_CODEC_NONE, DXT1, 900 },
-		{ JPEG, VIDEO_CODEC_NONE, DXT5, 900 },
-		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
-        };
-        return ret;
+static int gpujpeg_to_dxt_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
+        return compression == JPEG && (ugc == DXT1 || ugc == DXT5) ? 900 : -1;
 }
 
 static const struct video_decompress_info gpujpeg_to_dxt_info = {
@@ -381,7 +376,7 @@ static const struct video_decompress_info gpujpeg_to_dxt_info = {
         gpujpeg_to_dxt_decompress,
         gpujpeg_to_dxt_decompress_get_property,
         gpujpeg_to_dxt_decompress_done,
-        gpujpeg_to_dxt_decompress_get_decoders,
+        gpujpeg_to_dxt_decompress_get_priority,
 };
 
 REGISTER_MODULE(gpujpeg_to_dxt, &gpujpeg_to_dxt_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);

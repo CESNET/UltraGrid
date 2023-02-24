@@ -359,27 +359,36 @@ static void release_cstream(void * custom_data, size_t custom_data_size, const v
         free(const_cast<void *>(codestream));
 }
 
-static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned char *buffer, size_t len, codec_t *internal_codec) {
-        struct cmpto_j2k_dec_comp_info comp_info;
-        if (cmpto_j2k_dec_cstream_get_comp_info(buffer, len, 0, &comp_info) != CMPTO_OK) {
+static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned char *buffer, size_t len, struct pixfmt_desc *internal_prop) {
+        struct cmpto_j2k_dec_img_info info;
+        struct cmpto_j2k_dec_comp_info comp_info[3];
+        if (cmpto_j2k_dec_cstream_get_img_info(buffer, len, &info) != CMPTO_OK ||
+                        cmpto_j2k_dec_cstream_get_comp_info(buffer, len, 0, &comp_info[0]) != CMPTO_OK) {
+                log_msg(LOG_LEVEL_ERROR, "J2K Failed to get image or first component info.\n");
                 return DECODER_NO_FRAME;
         }
 
-        switch (comp_info.bit_depth) {
-        case 8:
-                *internal_codec = in_codec == J2K ? UYVY : RGB;
-                break;
-        case 10:
-                *internal_codec = in_codec == J2K ? v210 : R10k;
-                break;
-        case 12:
-                *internal_codec = R12L;
-                break;
-        default:
-                assert("J2K - unsupported RGB bit depth" && 0);
+        internal_prop->depth = comp_info[0].bit_depth;
+        internal_prop->rgb = in_codec == J2KR;
+        if (info.comp_count == 3) {
+                if (cmpto_j2k_dec_cstream_get_comp_info(buffer, len, 1, &comp_info[1]) != CMPTO_OK ||
+                                cmpto_j2k_dec_cstream_get_comp_info(buffer, len, 2, &comp_info[2]) != CMPTO_OK) {
+                        log_msg(LOG_LEVEL_ERROR, "J2K Failed to get componentt 1 or 2 info.\n");
+                        return DECODER_NO_FRAME;
+                }
+                if (comp_info[0].sampling_factor_x == 1 && comp_info[0].sampling_factor_y == 1 &&
+                                comp_info[1].sampling_factor_x == comp_info[2].sampling_factor_x &&
+                                comp_info[1].sampling_factor_y == comp_info[2].sampling_factor_y) {
+                        int a = 4 / comp_info[1].sampling_factor_x;
+                        internal_prop->subsampling = 4000 + a * 100;
+                        if (comp_info[1].sampling_factor_y == 1) {
+                                internal_prop->subsampling += a * 10;
+                        }
+                }
         }
 
-        log_msg(LOG_LEVEL_VERBOSE, "J2K color space: %s\n", get_codec_name(*internal_codec));
+        int msg_level = internal_prop->subsampling == 0 ? LOG_LEVEL_WARNING /* bogus? */ : LOG_LEVEL_VERBOSE;
+        log_msg(msg_level, "J2K stream properties: %s\n", get_pixdesc_desc(*internal_prop));
 
         return DECODER_GOT_CODEC;
 }
@@ -390,7 +399,7 @@ static decompress_status j2k_probe_internal_codec(codec_t in_codec, unsigned cha
  * it just returns false.
  */
 static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */, codec_t *internal_codec)
+                unsigned int src_len, int /* frame_seq */, struct video_frame_callbacks * /* callbacks */, struct pixfmt_desc *internal_prop)
 {
         struct state_decompress_j2k *s =
                 (struct state_decompress_j2k *) state;
@@ -399,7 +408,7 @@ static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigne
         void *tmp;
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
-                return j2k_probe_internal_codec(s->desc.color_spec, buffer, src_len, internal_codec);
+                return j2k_probe_internal_codec(s->desc.color_spec, buffer, src_len, internal_prop);
         }
 
         if (s->in_frames >= s->max_in_frames + 1) {
@@ -489,30 +498,31 @@ static void j2k_decompress_done(void *state)
         delete s;
 }
 
-static const struct decode_from_to *j2k_decompress_get_decoders() {
-
-        static const struct decode_from_to ret[] = {
-                { J2K, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
-                { J2KR, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
-                { J2K, UYVY, UYVY, 300 },
-                { J2K, v210, UYVY, 400 },
-                { J2K, v210, v210, 200 }, // prefer decoding to 10-bit
-                { J2KR, RGB, RGB, 300 },
-                { J2KR, RGB, BGR, 300 },
-                { J2KR, RGB, RGBA, 300 },
-                { J2KR, R10k, R10k, 200 },
-                { J2KR, R10k, RGB, 400 },
-                { J2KR, R10k, RGBA, 400 },
-                { J2KR, R12L, R12L, 100 }, // prefer RGB decoding to 12-bit
-                { J2KR, R12L, R10k, 400 },
-                { J2KR, R12L, RGB, 400 },
-                { J2KR, R12L, RGBA, 400 },
-                { J2K, VIDEO_CODEC_NONE, UYVY, 800 }, // fallback
-                { J2KR, VIDEO_CODEC_NONE, RGB, 800 }, // ditto
-                { J2KR, VIDEO_CODEC_NONE, RGBA, 800 }, // ditto
-                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 }
+static int j2k_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
+        if (compression != J2K && compression != J2KR) {
+                return -1;
+        }
+        switch (ugc) {
+                case VIDEO_CODEC_NONE:
+                        return 50; // probe
+                case UYVY:
+                case v210:
+                case RGB:
+                case BGR:
+                case RGBA:
+                case R10k:
+                case R12L:
+                        break;
+                default:
+                        return -1;
         };
-        return ret;
+        if (ugc == VIDEO_CODEC_NONE) {
+                return 50; // probe
+        }
+        if (internal.depth == 0) { // fallback - internal undefined
+                return 800;
+        }
+        return internal.rgb == codec_is_a_rgb(ugc) ? 300 : -1;
 }
 
 static const struct video_decompress_info j2k_decompress_info = {
@@ -521,7 +531,7 @@ static const struct video_decompress_info j2k_decompress_info = {
         j2k_decompress,
         j2k_decompress_get_property,
         j2k_decompress_done,
-        j2k_decompress_get_decoders,
+        j2k_decompress_get_priority,
 };
 
 REGISTER_MODULE(j2k, &j2k_decompress_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);

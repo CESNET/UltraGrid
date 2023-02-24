@@ -162,7 +162,7 @@ typedef void (*change_il_t)(char *dst, char *src, int linesize, int height, void
 
 // prototypes
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
-                struct video_desc desc, codec_t comp_int_fmt);
+                struct video_desc desc, struct pixfmt_desc comp_int_desc);
 static int check_for_mode_change(struct state_video_decoder *decoder, uint32_t *hdr);
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder);
 static void *fec_thread(void *args);
@@ -305,16 +305,16 @@ struct main_msg_reconfigure {
         inline main_msg_reconfigure(struct video_desc d,
                         unique_ptr<frame_msg> &&f,
                         bool force = false,
-                        codec_t cim = VIDEO_CODEC_NONE) :
+                        struct pixfmt_desc pd = {}) :
                 desc(d),
                 last_frame(std::move(f)),
                 force(force),
-                compress_internal_codec(cim) {}
+                compress_internal_prop(pd) {}
 
         struct video_desc desc;
         unique_ptr<frame_msg> last_frame;
         bool force;
-        codec_t compress_internal_codec;
+        struct pixfmt_desc compress_internal_prop;
 };
 }
 
@@ -579,7 +579,7 @@ struct decompress_data {
         int buffer_num;
         decompress_status ret = DECODER_NO_FRAME;
         unsigned char *out;
-        codec_t internal_codec; // set only if probing (ret == DECODER_GOT_CODEC)
+        struct pixfmt_desc internal_prop; // set only if probing (ret == DECODER_GOT_CODEC)
 };
 static void *decompress_worker(void *data)
 {
@@ -594,7 +594,7 @@ static void *decompress_worker(void *data)
                         d->compressed->tiles[d->pos].data_len,
                         d->buffer_num,
                         &decoder->frame->callbacks,
-                        &d->internal_codec);
+                        &d->internal_prop);
         return d;
 }
 
@@ -671,8 +671,8 @@ static void *decompress_thread(void *args) {
                         }
                         for (int pos = 0; pos < tile_count; ++pos) {
                                 if (data[pos].ret == DECODER_GOT_CODEC) {
-                                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Detected internal codec: " << get_codec_name(data[pos].internal_codec) << "\n";
-                                        decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true, data[pos].internal_codec));
+                                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Detected compression properties: " << get_pixdesc_desc(data[pos].internal_prop) << "\n";
+                                        decoder->msg_queue.push(new main_msg_reconfigure(decoder->received_vid_desc, nullptr, true, data[pos].internal_prop));
                                         goto skip_frame;
                                 }
                                 if (data[pos].ret != DECODER_GOT_FRAME){
@@ -972,16 +972,16 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
  * comp_int_fmt, generic should be catch-all allowing decompression of
  * arbitrary compressed stream of received codec).
  */
-static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t comp_int_fmt, vector<codec_t> const &display_codecs)
+static vector<pair<struct pixfmt_desc, codec_t>> video_decoder_order_output_codecs(struct pixfmt_desc comp_int_prop, vector<codec_t> const &display_codecs)
 {
-        vector<pair<codec_t, codec_t>> ret;
+        vector<pair<struct pixfmt_desc, codec_t>> ret;
         set<codec_t> used;
         // first add hw-accelerated codecs
         for (auto codec : display_codecs) {
                 if (codec_is_hw_accelerated(codec)) {
-                        ret.push_back({comp_int_fmt, codec});
-                        if (comp_int_fmt != VIDEO_CODEC_NONE) {
-                                ret.push_back({VIDEO_CODEC_NONE, codec});
+                        ret.emplace_back(comp_int_prop, codec);
+                        if (comp_int_prop.depth != 0) {
+                                ret.emplace_back(pixfmt_desc{}, codec);
                         }
                         used.insert(codec);
                 }
@@ -991,10 +991,10 @@ static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t 
                 if (used.find(codec) != used.end()) {
                         continue;
                 };
-                if (codec == comp_int_fmt) {
-                        ret.push_back({comp_int_fmt, codec});
-                        if (comp_int_fmt != VIDEO_CODEC_NONE) {
-                                ret.push_back({VIDEO_CODEC_NONE, codec});
+                if (pixdesc_equals(get_pixfmt_desc(codec), comp_int_prop)) {
+                        ret.emplace_back(comp_int_prop, codec);
+                        if (comp_int_prop.depth != 0) {
+                                ret.emplace_back(pixfmt_desc{}, codec);
                         }
                         used.insert(codec);
                 }
@@ -1005,27 +1005,26 @@ static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t 
                 if (used.find(codec) != used.end()) {
                         continue;
                 };
-                remaining.push_back(codec);
+                remaining.emplace_back(codec);
         }
-        if (comp_int_fmt != VIDEO_CODEC_NONE) {
-                sort(remaining.begin(), remaining.end(), [comp_int_fmt](const codec_t &a, const codec_t &b) {
-                                struct pixfmt_desc src_desc = get_pixfmt_desc(comp_int_fmt);
+        if (comp_int_prop.depth != 0) {
+                sort(remaining.begin(), remaining.end(), [comp_int_prop](const codec_t &a, const codec_t &b) {
                                 struct pixfmt_desc desc_a = get_pixfmt_desc(a);
                                 struct pixfmt_desc desc_b = get_pixfmt_desc(b);
-                                return compare_pixdesc(&desc_a, &desc_b, &src_desc) < 0;
+                                return compare_pixdesc(&desc_a, &desc_b, &comp_int_prop) < 0;
                         });
         }
         for (auto & c : remaining) {
-                ret.push_back({comp_int_fmt, c});
-                if (comp_int_fmt != VIDEO_CODEC_NONE) {
-                        ret.push_back({VIDEO_CODEC_NONE, c});
+                ret.emplace_back(comp_int_prop, c);
+                if (comp_int_prop.depth != 0) {
+                        ret.emplace_back(pixfmt_desc{}, c);
                 }
         }
 
         if (log_level >= LOG_LEVEL_VERBOSE) {
                 LOG(LOG_LEVEL_VERBOSE) << "Trying codecs in this order:\n";
                 for (auto it = ret.begin(); it != ret.end(); ++it) {
-                        LOG(LOG_LEVEL_VERBOSE) << "\t" << get_codec_name((*it).second) << ", internal: " << get_codec_name((*it).first) << "\n";
+                        LOG(LOG_LEVEL_VERBOSE) << "\t" << get_codec_name((*it).second) << ", internal: " << get_pixdesc_desc((*it).first) << "\n";
                 }
         }
 
@@ -1042,7 +1041,7 @@ static vector<pair<codec_t, codec_t>> video_decoder_order_output_codecs(codec_t 
  * @return                 Output codec, if no decoding function found, -1 is returned.
  */
 static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, struct video_desc desc,
-                                decoder_t *decode_line, codec_t comp_int_fmt)
+                                decoder_t *decode_line, struct pixfmt_desc comp_int_prop)
 {
         codec_t out_codec = VIDEO_CODEC_NONE;
 
@@ -1084,9 +1083,9 @@ after_linedecoder_lookup:
                 decoder->decompress_state.resize(decoder->max_substreams);
 
                 // try to probe video format
-                if (comp_int_fmt == VIDEO_CODEC_NONE && decoder->out_codec != VIDEO_CODEC_END) {
+                if (comp_int_prop.depth == 0 && decoder->out_codec != VIDEO_CODEC_END) {
                         bool supports_autodetection = decompress_init_multi(desc.color_spec,
-                                        VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, decoder->decompress_state.data(),
+                                        pixfmt_desc{}, VIDEO_CODEC_NONE, decoder->decompress_state.data(),
                                         decoder->decompress_state.size());
                         if (supports_autodetection) {
                                 decoder->decoder_type = EXTERNAL_DECODER;
@@ -1094,8 +1093,8 @@ after_linedecoder_lookup:
                         }
                 }
 
-                vector<pair<codec_t, codec_t>> formats_to_try; // (comp_int_fmt || VIDEO_CODEC_NONE), display_fmt
-                formats_to_try = video_decoder_order_output_codecs(comp_int_fmt, decoder->native_codecs);
+                vector<pair<struct pixfmt_desc, codec_t>> formats_to_try; // comp_int_prop (may be empty), display_fmt
+                formats_to_try = video_decoder_order_output_codecs(comp_int_prop, decoder->native_codecs);
 
                 for (auto it = formats_to_try.begin(); it != formats_to_try.end(); ++it) {
                         out_codec = (*it).second;
@@ -1113,7 +1112,7 @@ after_decoder_lookup:
 
         if(decoder->decoder_type == UNSET) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to find decoder for input codec \"%s\"!!!\n", get_codec_name(desc.color_spec));
-                LOG(LOG_LEVEL_INFO) << "Compression internal codec is \"" << get_codec_name(comp_int_fmt) << "\". Native codecs are: " << codec_list_to_str(decoder->native_codecs) << "\n";
+                LOG(LOG_LEVEL_INFO) << "Compression internal codec is \"" << get_pixdesc_desc(comp_int_prop) << "\". Native codecs are: " << codec_list_to_str(decoder->native_codecs) << "\n";
                 return VIDEO_CODEC_NONE;
         }
 
@@ -1175,7 +1174,7 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
  * decoder->display != NULL
  */
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
-                struct video_desc desc, codec_t comp_int_fmt)
+                struct video_desc desc, struct pixfmt_desc comp_int_prop)
 {
         codec_t out_codec;
         decoder_t decode_line;
@@ -1196,7 +1195,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         desc.tile_count = get_video_mode_tiles_x(decoder->video_mode)
                         * get_video_mode_tiles_y(decoder->video_mode);
 
-        out_codec = choose_codec_and_decoder(decoder, desc, &decode_line, comp_int_fmt);
+        out_codec = choose_codec_and_decoder(decoder, desc, &decode_line, comp_int_prop);
         if (out_codec == VIDEO_CODEC_NONE) {
                 LOG(LOG_LEVEL_ERROR) << "Could not find neither line conversion nor decompress from " <<
                         get_codec_name(desc.color_spec) << " to display supported formats (" << codec_list_to_str(decoder->native_codecs) << ").\n";
@@ -1410,7 +1409,7 @@ bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
  */
 static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 struct video_desc network_desc,
-                bool force = false, codec_t comp_int_fmt = VIDEO_CODEC_NONE)
+                bool force = false, struct pixfmt_desc comp_int_desc = {})
 {
         bool desc_changed = !video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT);
         if(!desc_changed && !force)
@@ -1430,7 +1429,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
         decoder->reconfiguration_future = std::async(std::launch::async,
                         [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
 #else
-        int ret = reconfigure_decoder(decoder, decoder->received_vid_desc, comp_int_fmt);
+        int ret = reconfigure_decoder(decoder, decoder->received_vid_desc, comp_int_desc);
         if (!ret) {
                 log_msg(LOG_LEVEL_ERROR, "[video dec.] Reconfiguration failed!!!\n");
                 decoder->frame = NULL;
@@ -1524,7 +1523,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
 
         main_msg_reconfigure *msg_reconf;
         while ((msg_reconf = decoder->msg_queue.pop(true /* nonblock */))) {
-                if (reconfigure_if_needed(decoder, msg_reconf->desc, msg_reconf->force, msg_reconf->compress_internal_codec)) {
+                if (reconfigure_if_needed(decoder, msg_reconf->desc, msg_reconf->force, msg_reconf->compress_internal_prop)) {
 #ifdef RECONFIGURE_IN_FUTURE_THREAD
                         vf_free(frame);
                         return FALSE;

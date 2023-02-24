@@ -173,8 +173,7 @@ static int gpujpeg_decompress_reconfigure(void *state, struct video_desc desc,
         }
 }
 
-static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, codec_t *internal_codec) {
-        *internal_codec = VIDEO_CODEC_NONE;
+static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, size_t len, struct pixfmt_desc *internal_prop) {
 	struct gpujpeg_image_parameters image_params = { 0 };
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 20, 0)
         struct gpujpeg_parameters params = { .verbose = MAX(0, log_level - LOG_LEVEL_INFO) };
@@ -186,21 +185,44 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
                 return DECODER_NO_FRAME;
 	}
 
-        if (image_params.pixel_format == GPUJPEG_444_U8_P012A) {
-                *internal_codec =  RGBA; // may be also in YCbCr internally but we want to decode alpha and thus RGBA is needed
-        } else {
-                switch (image_params.color_space) {
+        internal_prop->depth = 8;
+
+        switch (image_params.color_space) {
+                case GPUJPEG_NONE:
+                        abort();
                 case GPUJPEG_RGB:
-                        *internal_codec = RGB;
+                        internal_prop->rgb = true;
                         break;
                 case GPUJPEG_YUV:
                 case GPUJPEG_YCBCR_BT601:
                 case GPUJPEG_YCBCR_BT601_256LVLS:
                 case GPUJPEG_YCBCR_BT709:
-                default:
-                        *internal_codec = image_params.pixel_format == GPUJPEG_420_U8_P0P1P2 ? I420 : UYVY;
+                        internal_prop->rgb = false;
                         break;
-                }
+        }
+
+        switch (image_params.pixel_format) {
+                case GPUJPEG_PIXFMT_NONE:
+                        abort();
+                case GPUJPEG_U8:
+                        internal_prop->subsampling = 4000;
+                        break;
+                case GPUJPEG_422_U8_P1020:
+                case GPUJPEG_422_U8_P0P1P2:
+                        internal_prop->subsampling = 4220;
+                        break;
+                case GPUJPEG_420_U8_P0P1P2:
+                        internal_prop->subsampling = 4200;
+                        break;
+                case GPUJPEG_444_U8_P012:
+                case GPUJPEG_444_U8_P0P1P2:
+                case GPUJPEG_444_U8_P012Z:
+                        internal_prop->subsampling = 4440;
+                        break;
+                case GPUJPEG_444_U8_P012A:
+                        internal_prop->subsampling = 4444;
+                        break;
+
         }
 
 	log_msg(LOG_LEVEL_VERBOSE, "JPEG color space: %s\n", gpujpeg_color_space_get_name(image_params.color_space));
@@ -208,7 +230,7 @@ static decompress_status gpujpeg_probe_internal_codec(unsigned char *buffer, siz
 }
 
 static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_prop)
 {
         UNUSED(frame_seq);
         UNUSED(callbacks);
@@ -218,7 +240,7 @@ static decompress_status gpujpeg_decompress(void *state, unsigned char *dst, uns
         int linesize;
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
-                return gpujpeg_probe_internal_codec(buffer, src_len, internal_codec);
+                return gpujpeg_probe_internal_codec(buffer, src_len, internal_prop);
         }
 
         linesize = vc_get_linesize(s->desc.width, s->out_codec);
@@ -294,46 +316,35 @@ static void gpujpeg_decompress_done(void *state)
         free(s);
 }
 
-static const struct decode_from_to *gpujpeg_decompress_get_decoders() {
-        static const struct decode_from_to ret[] = {
-		{ JPEG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 }, // for probe
-		{ JPEG, RGB, RGB, 200 },
-		{ JPEG, RGBA, RGBA, 200 },
-                { JPEG, UYVY, UYVY, 200 },
-                { JPEG, I420, I420, 200 },
-		{ JPEG, RGB, RGBA, 300 },
-		{ JPEG, I420, UYVY, 500 },
-		{ JPEG, RGB, UYVY, 700 },
-		{ JPEG, RGBA, UYVY, 700 },
-		{ JPEG, UYVY, RGB, 700 },
-		{ JPEG, UYVY, RGBA, 700 },
-		{ JPEG, VIDEO_CODEC_NONE, RGB, 900 },
-		{ JPEG, VIDEO_CODEC_NONE, UYVY, 900 },
-		{ JPEG, VIDEO_CODEC_NONE, RGBA, 900 },
-#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 13, 0)
-		{ JPEG, VIDEO_CODEC_NONE, I420, 900 },
-#endif
-                // decoding from FFmpeg MJPG has lower priority than libavcodec
-                // decoder because those files doesn't has much independent
-                // segments (1 per MCU row -> 68 for HD) -> lavd may be better
-		{ MJPG, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 90 },
-		{ MJPG, RGB, RGB, 600 },
-		{ MJPG, RGB, RGBA, 600 },
-		{ MJPG, UYVY, UYVY, 600 },
-		{ MJPG, I420, I420, 600 },
-		{ MJPG, I420, UYVY, 700 },
-		{ MJPG, RGB, UYVY, 800 },
-		{ MJPG, UYVY, RGB, 800 },
-		{ MJPG, UYVY, RGBA, 800 },
-		{ MJPG, VIDEO_CODEC_NONE, RGB, 920 },
-		{ MJPG, VIDEO_CODEC_NONE, UYVY, 920 },
-		{ MJPG, VIDEO_CODEC_NONE, RGBA, 920 },
-#if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 13, 0)
-		{ MJPG, VIDEO_CODEC_NONE, I420, 920 },
-#endif
-		{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
-        };
-        return ret;
+static int gpujpeg_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
+        if (compression != JPEG && compression != MJPG) {
+                return -1;
+        }
+        switch (ugc) {
+                case VIDEO_CODEC_NONE:
+                        return compression == JPEG ? 50 : 90; // for probe
+                case I420:
+                case RGB:
+                case RGBA:
+                case UYVY:
+                        break;
+                default:
+                        return -1;
+        }
+        bool out_rgb = codec_is_a_rgb(ugc);
+        if (compression == JPEG) {
+                if (internal.depth == 0) { // unspecified
+                        return 900;
+                }
+                return internal.rgb == out_rgb ? 200 : 500;
+        }
+        // decoding from FFmpeg MJPG has lower priority than libavcodec
+        // decoder because those files doesn't has much independent
+        // segments (1 per MCU row -> 68 for HD) -> lavd may be better
+        if (internal.depth == 0) {
+                return 920;
+        }
+        return internal.rgb == out_rgb ? 600 : 800;
 }
 
 static const struct video_decompress_info gpujpeg_info = {
@@ -342,7 +353,7 @@ static const struct video_decompress_info gpujpeg_info = {
         gpujpeg_decompress,
         gpujpeg_decompress_get_property,
         gpujpeg_decompress_done,
-        gpujpeg_decompress_get_decoders,
+        gpujpeg_decompress_get_priority,
 };
 
 REGISTER_MODULE(gpujpeg, &gpujpeg_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);

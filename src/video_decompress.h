@@ -114,7 +114,7 @@ typedef decompress_status (*decompress_decompress_t)(
                 unsigned int src_len,
                 int frame_seq,
                 struct video_frame_callbacks *callbacks,
-                codec_t *internal_codec);
+                struct pixfmt_desc *internal_prop);
 
 /**
  * @param state decoder state
@@ -131,29 +131,11 @@ typedef  int (*decompress_get_property_t)(void *state, int property, void *val, 
 typedef  void (*decompress_done_t)(void *);
 
 /**
- * Struct of this type defines decompressor for codec to specified output codec.
- *
- * Internal codec indicates interal codec color space, subsampling and channel count
- * that is supported for output codec (eg. RGB for 8-bit RGB, UYVY for 8-bit YCbCr
- * 4:2:2 etc.). If set to VIDEO_CODEC_NONE, decoder should handle all intenal
- * configurations.
- *
- * If codec to is set to VIDEO_CODEC_NONE, decompressor indicates that it can
- * discover codec internal properties as indicated in previous paragraph.
+ * @retval (-1) this module cannot decode specified configuration
+ * @return priority Priority to select this decoder if there are multiple matches for
+ *                  specified compress/pixelformat pair. Range is [0..1000], lower is better.
  */
-struct decode_from_to {
-        codec_t from; ///< input (compressed) codec
-        codec_t internal; ///< represenation inside codec
-        codec_t to;   ///< output pixelformat
-
-        /** Priority to select this decoder if there are multiple matches for
-         * specified compress/pixelformat pair.
-         * Range is [0..1000], lower is better.
-         */
-        int priority;
-};
-
-typedef const struct decode_from_to *(*decompress_get_available_decoders_t)(void);
+typedef int (*decompress_get_priority_t)(codec_t compression, struct pixfmt_desc internal, codec_t ugc);
 
 struct video_decompress_info {
         decompress_init_t init;
@@ -161,11 +143,11 @@ struct video_decompress_info {
         decompress_decompress_t decompress;
         decompress_get_property_t get_property;
         decompress_done_t done;
-        decompress_get_available_decoders_t get_available_decoders;
+        decompress_get_priority_t get_decompress_priority;
 };
 
-bool decompress_init_multi(codec_t from,
-                codec_t internal,
+bool decompress_init_multi(codec_t compression,
+                struct pixfmt_desc internal,
                 codec_t to,
                 struct state_decompress **out,
                 int count);
@@ -190,7 +172,7 @@ decompress_status decompress_frame(struct state_decompress *,
                 unsigned int src_len,
                 int frame_seq,
                 struct video_frame_callbacks *callbacks,
-                codec_t *internal_codec);
+                struct pixfmt_desc *internal_prop);
 
 int decompress_get_property(struct state_decompress *state,
                 int property,

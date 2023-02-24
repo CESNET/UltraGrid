@@ -3770,4 +3770,24 @@ void watch_pixfmt_degrade(const char *mod_name, struct pixfmt_desc desc_src, str
         }
 }
 
+const char *get_pixdesc_desc(struct pixfmt_desc desc)
+{
+        if (desc.depth == 0) {
+                return "(undefined)";
+        }
+        _Thread_local static char buf[128];
+        snprintf(buf, sizeof buf, "%s %d:%d:%d", desc.rgb ? "RGB" : "YCbCr", desc.subsampling / 1000, desc.subsampling % 1000 / 100, desc.subsampling % 100 / 10);
+        if (desc.subsampling % 10 != 0) {
+                snprintf(buf + strlen(buf), sizeof buf - strlen(buf), ":%d", desc.subsampling % 10);
+        }
+        snprintf(buf + strlen(buf), sizeof buf - strlen(buf), " %d bit", desc.depth);
+        return buf;
+}
+
+bool pixdesc_equals(struct pixfmt_desc desc_a, struct pixfmt_desc desc_b) {
+        return desc_a.depth == desc_b.depth &&
+                desc_a.subsampling == desc_b.subsampling &&
+                desc_a.rgb == desc_b.rgb;
+}
+
 /* vim: set expandtab sw=8: */

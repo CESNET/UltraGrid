@@ -108,9 +108,12 @@ codec_t          get_codec_from_file_extension(const char *ext) ATTRIBUTE(const)
 decoder_t        get_decoder_from_to(codec_t in, codec_t out) ATTRIBUTE(const);
 decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow);
 decoder_t        get_fastest_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out);
+
 struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt);
 int              compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *desc_b, const struct pixfmt_desc *src_desc);
+const char      *get_pixdesc_desc(struct pixfmt_desc);
 void             watch_pixfmt_degrade(const char *mod_name, struct pixfmt_desc desc_src, struct pixfmt_desc desc_dst);
+bool             pixdesc_equals(struct pixfmt_desc desc_a, struct pixfmt_desc desc_b);
 
 int get_pf_block_bytes(codec_t codec) ATTRIBUTE(const);
 int get_pf_block_pixels(codec_t codec) ATTRIBUTE(const);

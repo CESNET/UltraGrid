@@ -922,7 +922,7 @@ void getNewLine(const char* buffer, int* i, char* line){
  */
 static int
 init_decompressor(struct video_rtsp_state *sr, struct video_desc desc) {
-    if (decompress_init_multi(H264, VIDEO_CODEC_NONE, UYVY, &sr->sd, 1)) {
+    if (decompress_init_multi(H264, (struct pixfmt_desc) { 0 }, UYVY, &sr->sd, 1)) {
         decompress_reconfigure(sr->sd, desc, 16, 8, 0,
             vc_get_linesize(desc.width, UYVY), UYVY);
     } else

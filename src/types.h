@@ -109,7 +109,7 @@ typedef enum {
 } codec_t;
 
 struct pixfmt_desc {
-        int depth;
+        int depth;       ///< bit depth; 0 means that whole struct is undefined
         int subsampling; ///< in 'JabA' format, eg. '4444'
         bool rgb;
 };

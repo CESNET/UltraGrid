@@ -80,7 +80,7 @@ struct state_libavcodec_decompress {
         int              pitch;
         int              rgb_shift[3];
         int              max_compressed_len;
-        codec_t          internal_codec;
+        struct pixfmt_desc internal_props;
         codec_t          out_codec;
         struct {
                 av_to_uv_convert_t convert;
@@ -409,7 +409,7 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         s->rgb_shift[R] = rshift;
         s->rgb_shift[G] = gshift;
         s->rgb_shift[B] = bshift;
-        s->internal_codec = VIDEO_CODEC_NONE;
+        s->internal_props = (struct pixfmt_desc) { 0 };
         for(int i = 0; i < HWACCEL_COUNT; i++){
                 s->block_accel[i] = get_commandline_param("use-hw-accel") == NULL;
         }
@@ -426,11 +426,6 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         }
 }
 
-static bool has_conversion(enum AVPixelFormat pix_fmt, codec_t *ug_pix_fmt) {
-        enum AVPixelFormat fmt[2] = { pix_fmt };
-        return (*ug_pix_fmt = get_best_ug_codec_to_av(fmt, true)) != VIDEO_CODEC_NONE;
-}
-
 #ifdef HWACC_RPI4
 static int rpi4_hwacc_init(struct AVCodecContext *s,
                 struct hw_accel_state *state,
@@ -442,7 +437,6 @@ static int rpi4_hwacc_init(struct AVCodecContext *s,
         return 0;
 }
 #endif
-
 
 #ifdef HWACC_COMMON_IMPL
 static int hwacc_cuda_init(struct AVCodecContext *s, struct hw_accel_state *state, codec_t out_codec)
@@ -542,8 +536,9 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
         if (state->out_codec == VIDEO_CODEC_NONE) { // probe
                 codec_t c = get_best_ug_codec_to_av(fmt, hwaccel);
                 if (c != VIDEO_CODEC_NONE) {
-                        state->internal_codec = c;
-                        return lavd_get_av_to_ug_codec(fmt, c, hwaccel);
+                        enum AVPixelFormat selected_fmt = lavd_get_av_to_ug_codec(fmt, c, hwaccel);
+                        state->internal_props = av_pixfmt_get_desc(selected_fmt);
+                        return selected_fmt;
                 }
         } else {
                 enum AVPixelFormat f = lavd_get_av_to_ug_codec(fmt, state->out_codec, hwaccel);
@@ -821,7 +816,7 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         }
         s->mov_avg_frames = LONG_MAX;
 
-        if (codec_is_a_rgb(s->out_codec) != codec_is_a_rgb(s->internal_codec) && duration_pixfmt_change_sec > s->mov_avg_comp_duration / 4) {
+        if (codec_is_a_rgb(s->out_codec) != s->internal_props.rgb && duration_pixfmt_change_sec > s->mov_avg_comp_duration / 4) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Also pixfmt change of last frame took %f ms.\n"
                         "Consider adding \"--conv-policy cds\" to prevent color space conversion.\n", duration_pixfmt_change_sec / 1000.0);
         }
@@ -848,7 +843,7 @@ static void handle_lavd_error(struct state_libavcodec_decompress *s, int ret)
 }
 
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
-                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_props)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int got_frame = 0;
@@ -946,19 +941,15 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
         }
 
-        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_codec != VIDEO_CODEC_NONE && got_frame == 1) {
-                *internal_codec = s->internal_codec;
-                return DECODER_GOT_CODEC;
-        }
-
         // codec doesn't call get_format_callback (J2K, 10-bit RGB HEVC)
         if (s->out_codec == VIDEO_CODEC_NONE && got_frame == 1) {
                 log_msg(LOG_LEVEL_VERBOSE, "[lavd] Available output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
-                if (has_conversion(s->codec_ctx->pix_fmt, internal_codec)) {
-                        s->internal_codec = *internal_codec;
-                        return DECODER_GOT_CODEC;
-                }
-                return DECODER_UNSUPP_PIXFMT;
+                s->internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
+        }
+
+        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_props.depth != 0 && got_frame == 1) {
+                *internal_props = s->internal_props;
+                return DECODER_GOT_CODEC;
         }
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
@@ -1017,99 +1008,44 @@ static void libavcodec_decompress_done(void *state)
 
 /**
  * @todo
- * This should be automatically generated taking into account existing conversions.
+ * This should be take into account existing conversions.
  */
-static const struct decode_from_to dec_template[] = {
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 80 }, // for probe
-        { VIDEO_CODEC_NONE, RGB, RGB, 500 },
-        { VIDEO_CODEC_NONE, RGB, RGBA, 500 },
-        { VIDEO_CODEC_NONE, R10k, R10k, 500 },
-        { VIDEO_CODEC_NONE, R10k, RGB, 500 },
-        { VIDEO_CODEC_NONE, R10k, RGBA, 500 },
-        { VIDEO_CODEC_NONE, R12L, R12L, 500 },
-        { VIDEO_CODEC_NONE, R12L, RGB, 500 },
-        { VIDEO_CODEC_NONE, R12L, RGBA, 500 },
-        { VIDEO_CODEC_NONE, RG48, RGB, 500 },
-        { VIDEO_CODEC_NONE, RG48, RGBA, 500 },
-        { VIDEO_CODEC_NONE, RG48, R12L, 500 },
-        { VIDEO_CODEC_NONE, UYVY, RGB, 800 },
-        { VIDEO_CODEC_NONE, UYVY, RGBA, 800 },
-        { VIDEO_CODEC_NONE, UYVY, UYVY, 500 },
-        { VIDEO_CODEC_NONE, v210, RGB, 800 },
-        { VIDEO_CODEC_NONE, v210, RGBA, 800 },
-        { VIDEO_CODEC_NONE, v210, UYVY, 500 },
-        { VIDEO_CODEC_NONE, v210, v210, 500 },
-        { VIDEO_CODEC_NONE, Y416, UYVY, 800 },
-        { VIDEO_CODEC_NONE, Y416, v210, 800 },
-        { VIDEO_CODEC_NONE, Y416, Y416, 500 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, UYVY, 900 }, // provide also generic decoders
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RG48, 950 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGB, 950 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, RGBA, 950 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R10k, 950 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, R12L, 950 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, v210, 950 },
-        { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, Y416, 950 },
-};
-#define SUPP_CODECS_CNT (sizeof decoders / sizeof decoders[0])
-#define DEC_TEMPLATE_CNT (sizeof dec_template / sizeof dec_template[0])
-/// @todo to remove
-ADD_TO_PARAM("lavd-use-10bit",
-                "* lavd-use-10bit\n"
-                "  Do not use, use \"--param decoder-use-codec=v210\" instead.\n");
-ADD_TO_PARAM("lavd-use-codec",
-                "* lavd-use-codec=<codec>\n"
-                "  Do not use, use \"--param decoder-use-codec=<codec>\" instead.\n");
-static const struct decode_from_to *libavcodec_decompress_get_decoders() {
-
-        static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-        static struct decode_from_to ret[SUPP_CODECS_CNT * DEC_TEMPLATE_CNT * 2 + 1 /* terminating zero */ + 10 /* place for additional decoders, see below */];
-
-        pthread_mutex_lock(&lock); // prevent concurent initialization
-        if (ret[0].from != VIDEO_CODEC_NONE) { // already initialized
-                pthread_mutex_unlock(&lock); // prevent concurent initialization
-                return ret;
+static int libavcodec_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
+        if (get_commandline_param("use-hw-accel") &&
+                        (((compression == H264 || compression == H265) && ugc == HW_VDPAU) ||
+                         (compression == H265 && ugc == RPI4_8))) {
+                return 200;
         }
 
-        codec_t force_codec = VIDEO_CODEC_NONE;
-        if (get_commandline_param("lavd-use-10bit") || get_commandline_param("lavd-use-codec")) {
-                log_msg(LOG_LEVEL_WARNING, "DEPRECATED: Do not use \"--param lavd-use-10bit|lavd-use-codec\", "
-                                "use \"--param decoder-use-codec=v210|<codec>\" instead.\n");
-                force_codec = get_commandline_param("lavd-use-10bit") ? v210
-                        : get_codec_from_name(get_commandline_param("lavd-use-codec"));
-        }
-
-        unsigned int ret_idx = 0;
-        for (size_t t = 0; t < DEC_TEMPLATE_CNT; ++t) {
-                for (size_t c = 0; c < SUPP_CODECS_CNT; ++c) {
-                        if (force_codec && force_codec != decoders[c].ug_codec) {
-                                continue;
-                        }
-                        ret[ret_idx++] = (struct decode_from_to){decoders[c].ug_codec,
-                                dec_template[t].internal, dec_template[t].to,
-                                dec_template[t].priority};
-#ifdef HAVE_SWSCALE
-                        // we can convert with swscale in the end
-                        ret[ret_idx++] = (struct decode_from_to){decoders[c].ug_codec,
-                                VIDEO_CODEC_NONE, dec_template[t].to,
-                                950};
-#endif
+        unsigned i = 0;
+        for ( ; i < sizeof decoders / sizeof decoders[0]; ++i) {
+                if (decoders[i].ug_codec == compression) {
+                        break;
                 }
         }
-
-        if (get_commandline_param("use-hw-accel")) {
-                ret[ret_idx++] =
-                        (struct decode_from_to) {H264, VIDEO_CODEC_NONE, HW_VDPAU, 200};
-                ret[ret_idx++] =
-                        (struct decode_from_to) {H265, VIDEO_CODEC_NONE, HW_VDPAU, 200};
-                ret[ret_idx++] =
-                        (struct decode_from_to) {H265, VIDEO_CODEC_NONE, RPI4_8, 200};
+        if (i == sizeof decoders / sizeof decoders[0]) { // lavd doesn't handle this compression
+                return -1;
         }
-        assert(ret_idx < sizeof ret / sizeof ret[0]); // there needs to be at least one zero row
 
-        pthread_mutex_unlock(&lock); // prevent concurent initialization
-
-        return ret;
+        switch (ugc) {
+                case VIDEO_CODEC_NONE:
+                        return 80; // for probe
+                case UYVY:
+                case RG48:
+                case RGB:
+                case RGBA:
+                case R10k:
+                case R12L:
+                case v210:
+                case Y416:
+                        break;
+                default:
+                        return -1;
+        }
+        if (internal.depth == 0) { // unspecified internal format
+                return 900;
+        }
+        return codec_is_a_rgb(ugc) == internal.rgb ? 500 : 800;
 }
 
 static const struct video_decompress_info libavcodec_info = {
@@ -1118,7 +1054,7 @@ static const struct video_decompress_info libavcodec_info = {
         libavcodec_decompress,
         libavcodec_decompress_get_property,
         libavcodec_decompress_done,
-        libavcodec_decompress_get_decoders,
+        libavcodec_decompress_get_priority,
 };
 
 REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);

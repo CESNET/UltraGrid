@@ -67,15 +67,15 @@ ADD_TO_PARAM("decompress", "* decompress=<name>[:<codec>]\n"
                 "   the received compression). Optionally also force codec to decode to."
                 "   See 'uv --list-modules' to see available decompress modules.\n");
 /**
- * @param[in] in_codec input codec
- * @param[in] out_codec output codec
+ * @param[in] compression input compression
+ * @param[in] out_pixfmt output pixel format
  * @param[in] prio_min minimal priority that can be probed
  * @param[in] prio_max maximal priority that can be probed
  * @param[out] magic if decompressor was found here is stored its magic
  * @retval -1       if no found
  * @retval priority best decoder's priority
  */
-static int find_best_decompress(codec_t in_codec, codec_t internal, codec_t out_codec,
+static int find_best_decompress(codec_t compression, struct pixfmt_desc internal_prop, codec_t out_pixfmt,
                 int prio_min, int prio_max, const struct video_decompress_info **vdi, string & name) {
         auto decomps = get_libraries_for_class(LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
 
@@ -85,8 +85,8 @@ static int find_best_decompress(codec_t in_codec, codec_t internal, codec_t out_
         if (commandline_params.find("decompress") != commandline_params.end()) {
                 char *tmp = strdup(commandline_params.at("decompress").c_str());
                 if (strchr(tmp, ':')) {
-                        // if out_codec specified and doesn't match, return
-                        if (out_codec != get_codec_from_name(strchr(tmp, ':') + 1)) {
+                        // if out_pixfmt specified and doesn't match, return
+                        if (out_pixfmt != get_codec_from_name(strchr(tmp, ':') + 1)) {
                                 free(tmp);
                                 return -1;
                         }
@@ -102,20 +102,14 @@ static int find_best_decompress(codec_t in_codec, codec_t internal, codec_t out_
                         continue;
                 }
                 // first pass - find the one with best priority (least)
-                const struct decode_from_to *f = static_cast<const video_decompress_info *>(d.second)->get_available_decoders();
-                while (f->from != VIDEO_CODEC_NONE) {
-                        if(in_codec == f->from && internal == f->internal && out_codec == f->to) {
-                                int priority = f->priority;
-                                if(priority <= prio_max &&
-                                                priority >= prio_min &&
-                                                priority < best_priority) {
-                                        best_priority = priority;
-                                        *vdi = static_cast<const video_decompress_info *>(d.second);
-                                        name = d.first;
-                                }
-                        }
-
-                        f++;
+                int priority = static_cast<const video_decompress_info *>(d.second)->get_decompress_priority(compression, internal_prop, out_pixfmt);
+                if (priority < 0) { // decoder not valid for given properties combination
+                        continue;
+                }
+                if (priority <= prio_max && priority >= prio_min && priority < best_priority) {
+                        best_priority = priority;
+                        *vdi = static_cast<const video_decompress_info *>(d.second);
+                        name = d.first;
                 }
         }
 
@@ -178,7 +172,7 @@ static bool try_initialize_decompress(const video_decompress_info *vdi,
  *
  * If more than one decompress module is available, load the one with highest priority.
  *
- * @param[in] in_codec    source compression
+ * @param[in] compression source compression
  * @param[in] out_codec   requested destination pixelformat
  * @param[out] out        pointer (array) to be filled with state_count instances of decompressor
  * @param[in] count       number of decompress states to be created.
@@ -187,7 +181,7 @@ static bool try_initialize_decompress(const video_decompress_info *vdi,
  * @retval true           if state_count members of state is filled with valid decompressor
  * @retval false          if initialization failed
  */
-bool decompress_init_multi(codec_t in_codec, codec_t internal_codec, codec_t out_codec, struct state_decompress **out, int count)
+bool decompress_init_multi(codec_t compression, struct pixfmt_desc internal_prop, codec_t out_codec, struct state_decompress **out, int count)
 {
         int prio_max = 1000;
         int prio_min = 0;
@@ -196,7 +190,7 @@ bool decompress_init_multi(codec_t in_codec, codec_t internal_codec, codec_t out
 
         while(1) {
                 string name;
-                prio_cur = find_best_decompress(in_codec, internal_codec, out_codec,
+                prio_cur = find_best_decompress(compression, internal_prop, out_codec,
                                 prio_min, prio_max, &vdi, name);
                 // if found, init decoder
                 if(prio_cur != -1) {
@@ -232,7 +226,7 @@ decompress_status decompress_frame(
                 unsigned int compressed_len,
                 int frame_seq,
                 struct video_frame_callbacks *callbacks,
-                codec_t *internal_codec)
+                struct pixfmt_desc *internal_prop)
 {
         assert(s->magic == DECOMPRESS_MAGIC);
 
@@ -242,7 +236,7 @@ decompress_status decompress_frame(
                         compressed_len,
                         frame_seq,
                         callbacks,
-                        internal_codec);
+                        internal_prop);
 }
 
 /** @copydoc decompress_get_property_t */

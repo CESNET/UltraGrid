@@ -264,7 +264,7 @@ static bool prepare(struct state_cineform_decompress *s,
 static decompress_status probe_internal_cineform(struct state_cineform_decompress *s,
                                         unsigned char *src,
                                         unsigned src_len,
-                                        codec_t *internal_codec)
+                                        struct pixfmt_desc *internal_prop)
 {
         CFHD_Error status;
         CFHD_PixelFormat fmt_list[64];
@@ -286,7 +286,7 @@ static decompress_status probe_internal_cineform(struct state_cineform_decompres
         for(int i = 0; i < count; i++){
                 for(const auto &codec : decode_codecs){
                         if(codec.cfhd_pixfmt == fmt_list[i]){
-                                *internal_codec = codec.ug_codec;
+                                *internal_prop = get_pixfmt_desc(codec.ug_codec);
                                 return DECODER_GOT_CODEC;
                         }
                 }
@@ -295,7 +295,7 @@ static decompress_status probe_internal_cineform(struct state_cineform_decompres
         //Unknown internal format. This should never happen since cineform can
         //decode any internal codec to CFHD_PIXEL_FORMAT_YUY2.
         //Here we just select UYVY and hope for the best.
-        *internal_codec = UYVY;
+        *internal_prop = get_pixfmt_desc(UYVY);
         return DECODER_GOT_CODEC;
 }
 
@@ -311,7 +311,7 @@ static void write_fcc(char *out, int pixelformat){
 static decompress_status probe_internal(struct state_cineform_decompress *s,
                                         unsigned char *src,
                                         unsigned src_len,
-                                        codec_t *internal_codec)
+                                        struct pixfmt_desc *internal_prop)
 {
         CFHD_Error status;
 
@@ -343,17 +343,18 @@ static decompress_status probe_internal(struct state_cineform_decompress *s,
                 log_msg(LOG_LEVEL_ERROR, "[cineform] UGPF metadata not found or wrong type, "
                                          "falling back to cineform internal format detection.\n");
         } else {
-                *internal_codec = *static_cast<codec_t *>(data);
-                log_msg(LOG_LEVEL_NOTICE, "[cineform] Codec determined from metadata: %s \n", get_codec_name(*internal_codec));
+                codec_t pf = *static_cast<codec_t *>(data);
+                *internal_prop = get_pixfmt_desc(pf);
+                log_msg(LOG_LEVEL_NOTICE, "[cineform] Codec determined from metadata: %s \n", get_codec_name(pf));
                 return DECODER_GOT_CODEC;
         }
 
-        return probe_internal_cineform(s, src, src_len, internal_codec);
+        return probe_internal_cineform(s, src, src_len, internal_prop);
 }
 
 static decompress_status cineform_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks,
-                codec_t *internal_codec)
+                struct pixfmt_desc *internal_prop)
 {
         UNUSED(frame_seq);
         UNUSED(callbacks);
@@ -363,7 +364,7 @@ static decompress_status cineform_decompress(void *state, unsigned char *dst, un
         CFHD_Error status;
 
         if(s->out_codec == VIDEO_CODEC_NONE){
-                return probe_internal(s, src, src_len, internal_codec);
+                return probe_internal(s, src, src_len, internal_prop);
         }
 
         if(!prepare(s, src, src_len)){
@@ -417,25 +418,24 @@ static int cineform_decompress_get_property(void *state, int property, void *val
         return ret;
 }
 
-static const struct decode_from_to *cineform_decompress_get_decoders() {
-        static constexpr decode_from_to decoders[] = {
-                decode_from_to{ CFHD, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 50 },
-                decode_from_to{ CFHD, UYVY, UYVY, 500 },
-                decode_from_to{ CFHD, RGBA, RGBA, 500 },
-                decode_from_to{ CFHD, R10k, R10k, 500 },
-                decode_from_to{ CFHD, R12L, R12L, 500 },
-                decode_from_to{ CFHD, v210, v210, 500 },
-                decode_from_to{ CFHD, R12L, R10k, 550 },
-                decode_from_to{ CFHD, R10k, RGBA, 600 },
-                decode_from_to{ CFHD, R12L, RGBA, 600 },
-                decode_from_to{ CFHD, v210, UYVY, 600 },
-                decode_from_to{ CFHD, VIDEO_CODEC_NONE, RGB, 700 },
-                decode_from_to{ CFHD, VIDEO_CODEC_NONE, RGBA, 700 },
-                decode_from_to{ CFHD, VIDEO_CODEC_NONE, UYVY, 700 },
-                decode_from_to{ VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
-        };
-
-        return decoders;
+static int cineform_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
+        UNUSED(internal);
+        if (compression != CFHD) {
+                return -1;
+        }
+        switch (ugc) {
+                case VIDEO_CODEC_NONE: // probe
+                        return 50;
+                case UYVY:
+                case RGBA:
+                case R10k:
+                case R12L:
+                case v210:
+                        break;
+                default:
+                        return -1;
+        }
+        return 500;
 }
 
 static const struct video_decompress_info cineform_info = {
@@ -444,7 +444,7 @@ static const struct video_decompress_info cineform_info = {
         cineform_decompress,
         cineform_decompress_get_property,
         cineform_decompress_done,
-        cineform_decompress_get_decoders,
+        cineform_decompress_get_priority,
 };
 
 REGISTER_MODULE(cineform, &cineform_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);

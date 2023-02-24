@@ -143,13 +143,13 @@ static int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
 }
 
 static decompress_status dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, codec_t *internal_codec)
+                unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_prop)
 {
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         UNUSED(src_len);
         UNUSED(frame_seq);
         UNUSED(callbacks);
-        UNUSED(internal_codec);
+        UNUSED(internal_prop);
 
         if (!s->configured) {
                 fprintf(stderr, "DXT decoder not configured!\n");
@@ -230,17 +230,15 @@ static void dxt_glsl_decompress_done(void *state)
         free(s);
 }
 
-static const struct decode_from_to *dxt_glsl_decompress_get_decoders() {
-        static const struct decode_from_to ret[] = {
-                { DXT1, VIDEO_CODEC_NONE, RGBA, 500 },
-                { DXT1_YUV, VIDEO_CODEC_NONE, RGBA, 500 },
-                { DXT5, VIDEO_CODEC_NONE, RGBA, 500 },
-                { DXT1, VIDEO_CODEC_NONE, UYVY, 500 },
-                { DXT1_YUV, VIDEO_CODEC_NONE, UYVY, 500 },
-                { DXT5, VIDEO_CODEC_NONE, UYVY, 500 },
-                { VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, VIDEO_CODEC_NONE, 0 },
-        };
-        return ret;
+static int dxt_glsl_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
+        UNUSED(internal);
+        if (compression != DXT1 && compression != DXT1_YUV && compression != DXT5) {
+                return -1;
+        }
+        if (ugc != RGBA && ugc != UYVY) {
+                return -1;
+        }
+        return 500;
 }
 
 static const struct video_decompress_info dxt_glsl_info = {
@@ -249,7 +247,7 @@ static const struct video_decompress_info dxt_glsl_info = {
         dxt_glsl_decompress,
         dxt_glsl_decompress_get_property,
         dxt_glsl_decompress_done,
-        dxt_glsl_decompress_get_decoders,
+        dxt_glsl_decompress_get_priority,
 };
 
 REGISTER_MODULE(dxt_glsl, &dxt_glsl_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
