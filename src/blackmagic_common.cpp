@@ -210,16 +210,12 @@ bool blackmagic_api_version_check()
         bool ret = false;
         IDeckLinkAPIInformation *APIInformation = NULL;
         HRESULT result;
+        bool com_initialized = false;
 
-#ifdef WIN32
-        // Initialize COM on this thread
-        result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-        if(FAILED(result)) {
-                log_msg(LOG_LEVEL_ERROR, "Initialize of COM failed - result = "
-                                "%08lx.\n", result);
+        if (!decklink_initialize(&com_initialized)) {
                 goto cleanup;
         }
-
+#ifdef WIN32
         result = CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
                 IID_IDeckLinkAPIInformation, (void **) &APIInformation);
         if(FAILED(result)) {
@@ -251,9 +247,7 @@ cleanup:
         if (APIInformation) {
                 APIInformation->Release();
         }
-#ifdef WIN32
-        CoUninitialize();
-#endif
+        decklink_uninitialize(&com_initialized);
 
         return ret;
 }
