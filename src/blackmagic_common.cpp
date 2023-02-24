@@ -51,7 +51,6 @@
 #include "debug.h"
 #include "host.h"
 #include "DeckLinkAPIVersion.h"
-#include "utils/hresult.h"
 #include "utils/windows.h"
 #include "utils/worker.h"
 

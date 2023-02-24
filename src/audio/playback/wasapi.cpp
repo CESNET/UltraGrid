@@ -48,7 +48,7 @@
 #include "lib_common.h"
 #include "rang.hpp"
 #include "ug_runtime_error.hpp"
-#include "utils/hresult.h"
+#include "utils/windows.h"
 
 #define DEFAULT_WASAPI_BUFLEN_MS 67
 #define MOD_NAME "[WASAPI play.] "

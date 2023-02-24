@@ -61,10 +61,10 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
-#include "utils/hresult.h"
 #include "utils/misc.h" // unit_evaluate
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
+#include "utils/windows.h"
 #include "video_capture.h"
 #include "video_compress.h"
 #include "video_display.h"

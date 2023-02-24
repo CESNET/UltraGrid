@@ -42,6 +42,25 @@
 #include <stdbool.h>
 #endif
 
+/// this macro is shared between both utils/windows.cpp, where the error codes defines
+/// system and bmd_hresult_to_string where only the subset below is defined by
+/// LinuxCOM.h compat, so use only values defined in that header.
+#define HRESULT_GET_ERROR_COMMON(res, errptr) \
+        switch (res) { \
+                case S_OK: errptr = "Operation successful"; break; \
+                case S_FALSE: errptr = "Operation completed"; break; \
+                case E_NOTIMPL: errptr = "Not implemented"; break; \
+                case E_NOINTERFACE: errptr = "No such interface supported"; break; \
+                case E_POINTER: errptr = "Pointer that is not valid"; break; \
+                case E_ABORT: errptr = "Operation aborted"; break; \
+                case E_FAIL: errptr = "Unspecified failure"; break; \
+                case E_UNEXPECTED: errptr = "Unexpected failure"; break; \
+                case E_ACCESSDENIED: errptr = "General access denied error"; break; \
+                case E_HANDLE: errptr = "Handle that is not valid"; break; \
+                case E_OUTOFMEMORY: errptr = "Failed to allocate necessary memory"; break; \
+                case E_INVALIDARG: errptr = "One or more arguments are not valid"; break; \
+        }
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -50,6 +69,11 @@ extern "C" {
 bool com_initialize(bool *com_initialized);
 ///< @param com_initialized - pointer passed to com_initialize (or create_com_iterator)
 void com_uninitialize(bool *com_initialized);
+
+#ifdef _WIN32
+#include <winerror.h>
+const char *hresult_to_str(HRESULT res);
+#endif
 
 #ifdef __cplusplus
 }

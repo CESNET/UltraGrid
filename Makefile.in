@@ -165,7 +165,6 @@ COMMON_OBJS     = \
 		src/utils/color_out.o \
 		src/utils/config_file.o \
 		src/utils/fs.o \
-		src/utils/hresult.o \
 		src/utils/jpeg_reader.o \
 		src/utils/list.o \
 		src/utils/misc.o \

@@ -46,7 +46,7 @@
 #include "lib_common.h"
 #include "rang.hpp"
 #include "ug_runtime_error.hpp"
-#include "utils/hresult.h"
+#include "utils/windows.h"
 
 #define MOD_NAME "[WASAPI cap.] "
 #define REFTIMES_PER_SEC  10000000
