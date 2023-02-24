@@ -73,6 +73,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/windows.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -182,12 +183,12 @@ struct vidcap_decklink_state {
         void set_codec(codec_t c);
 
         vidcap_decklink_state() {
-                if (!decklink_initialize(&com_initialized)) {
+                if (!com_initialize(&com_initialized)) {
                         throw 1;
                 }
         }
         ~vidcap_decklink_state() {
-                decklink_uninitialize(&com_initialized);
+                com_uninitialize(&com_initialized);
         }
 };
 

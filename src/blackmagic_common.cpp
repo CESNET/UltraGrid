@@ -52,6 +52,7 @@
 #include "host.h"
 #include "DeckLinkAPIVersion.h"
 #include "utils/hresult.h"
+#include "utils/windows.h"
 #include "utils/worker.h"
 
 #define MOD_NAME "[DeckLink] "
@@ -139,7 +140,7 @@ std::string get_str_from_bmd_api_str(BMD_STR string)
 /**
  * @note
  * Each successful call (returning non-null pointer) of this function with coinit == true
- * should be followed by decklink_uninitialize() when done with DeckLink (not when releasing
+ * should be followed by com_uninitialize() when done with DeckLink (not when releasing
  * IDeckLinkIterator!), typically on application shutdown.
  */
 IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose, bool coinit)
@@ -147,7 +148,7 @@ IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose,
         IDeckLinkIterator *deckLinkIterator = nullptr;
 #ifdef WIN32
         if (coinit) {
-                decklink_initialize(com_initialized);
+                com_initialize(com_initialized);
         }
         HRESULT result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
                         IID_IDeckLinkIterator, (void **) &deckLinkIterator);
@@ -171,37 +172,9 @@ IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose,
         return deckLinkIterator;
 }
 
-/// called automatically by create_decklink_iterator() if second parameter is true (default)
-bool decklink_initialize(bool *com_initialized)
-{
-        *com_initialized = false;
-#ifdef WIN32
-        // Initialize COM on this thread
-        HRESULT result = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-        if (SUCCEEDED(result)) {
-                *com_initialized = true;
-                return true;
-        }
-        if (result == RPC_E_CHANGED_MODE) {
-                LOG(LOG_LEVEL_WARNING) << "[BMD] COM already intiialized with a different mode!\n";
-                return true;
-        }
-        LOG(LOG_LEVEL_ERROR) << "[BMD] Initialize of COM failed - " << bmd_hresult_to_string(result) << "\n";
-        return false;
-#else
-        return true;
-#endif
-}
-
 void decklink_uninitialize(bool *com_initialized)
 {
-        if (!*com_initialized) {
-                return;
-        }
-        *com_initialized = false;
-#ifdef WIN32
-        CoUninitialize();
-#endif
+        com_uninitialize(com_initialized);
 }
 
 bool blackmagic_api_version_check()
@@ -211,7 +184,7 @@ bool blackmagic_api_version_check()
         HRESULT result;
         bool com_initialized = false;
 
-        if (!decklink_initialize(&com_initialized)) {
+        if (!com_initialize(&com_initialized)) {
                 goto cleanup;
         }
 #ifdef WIN32

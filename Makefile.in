@@ -187,6 +187,7 @@ COMMON_OBJS     = \
 		src/utils/video_frame_pool.o \
 		src/utils/video_pattern_generator.o \
 		src/utils/wait_obj.o \
+		src/utils/windows.o \
 		src/utils/worker.o \
 		src/utils/y4m.o \
 		src/video.o \
