@@ -224,7 +224,6 @@ void socket_error(const char *msg, ...)
         array<char, ERRBUF_SIZE> buffer{};
 
 #ifdef WIN32
-        const char *sys_err = NULL;
 #define WSERR(x) {#x,x}
         struct wse {
                 char errname[20];
@@ -256,10 +255,7 @@ void socket_error(const char *msg, ...)
         _vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
         va_end(ap);
 
-        if (ws_errs[i].errno_code == 0) { // let system format the error message
-                sys_err = get_win_error(e);
-        }
-        const char *errname = sys_err ? sys_err : ws_errs[i].errname;
+        const char *errname = ws_errs[i].errno_code == 0 ? get_win_error(e) : ws_errs[i].errname;
         LOG(LOG_LEVEL_ERROR) << "ERROR: " << buffer.data() << ", (" << e << " - " << errname << ")\n";
 #else
         array<char, ERRBUF_SIZE> strerror_buf{"unknown"};
