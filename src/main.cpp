@@ -1121,10 +1121,6 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         break;
                 case 'T':
                         opt->requested_ttl = stoi(optarg);
-                        if (opt->requested_ttl < -1 || opt->requested_ttl >= 255) {
-                                LOG(LOG_LEVEL_ERROR) << "TTL must be in range [0..255] or -1!\n";
-                                return -EXIT_FAIL_USAGE;
-                        }
                         break;
                 case '?':
                 default:
