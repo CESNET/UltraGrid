@@ -134,18 +134,25 @@ void UltragridWindow::launchQuery(){
 
 	struct QueryData : public LaunchContext::ExtraData{
 		QLabel queryMsg = QLabel("Querying UltraGrid capabilities...");
+
+		bool safeMode = false;
+		std::string currentQuery;
+
+		std::vector<std::string> safeModeQueue;
+		std::vector<std::string> safeModeFails;
 	};
 
 	ctx->extraData = std::make_unique<QueryData>();
 	auto extraPtr = static_cast<QueryData *>(ctx->extraData.get());
 
+	ui.statusbar->addWidget(&extraPtr->queryMsg);
+	availableSettings.queryBegin();
+
 	connect(&ctx->process, &QProcess::started, 
 			[=]()
 			{
-				ui.statusbar->addWidget(&extraPtr->queryMsg);
 				ui.startButton->setEnabled(false);
 				ui.startButton->setText("Querying...");
-				availableSettings.queryBegin();
 			});
 
 	connect(ctx.get(), &LaunchContext::processTerminated,
@@ -155,7 +162,54 @@ void UltragridWindow::launchQuery(){
 				ui.startButton->setText("Start");
 
 				if(!requested && (es == QProcess::ExitStatus::CrashExit || ec != 0)){
-					ui.statusbar->showMessage("Capabilities querying failed!");
+					if(!extraPtr->safeMode){
+						extraPtr->safeMode = true;
+						ui.statusbar->showMessage("Capabilities querying in safe mode...");
+						for(int i = 0; i < SettingType::SETTING_TYPE_COUNT; i++){
+							SettingType type = static_cast<SettingType>(i);
+							for(const auto& mod : availableSettings.getAvailableSettings(type)){
+								std::string item = settingTypeToStr(type);
+								item += ":";
+								item += mod;
+								extraPtr->safeModeQueue.push_back(std::move(item));	
+							}
+						}
+						extraPtr->safeModeQueue.emplace_back("noprobe");	
+						availableSettings.queryBegin();
+					} else {
+						extraPtr->safeModeFails.push_back(extraPtr->currentQuery);
+					}
+				}
+
+				if(extraPtr->safeMode && !extraPtr->safeModeQueue.empty()){
+					auto next_ctx = launchMngr.extractCurrentCtx();
+
+					auto modToQuery = extraPtr->safeModeQueue.back();
+					extraPtr->safeModeQueue.pop_back();
+
+					extraPtr->currentQuery = "--capabilities=" + modToQuery;
+
+					next_ctx->args = QStringList()
+						<< QString::fromStdString(extraPtr->currentQuery);
+
+					availableSettings.queryBeginPass();
+					launchMngr.reLaunch(std::move(next_ctx));
+
+					return;
+				}
+
+				if(extraPtr->safeMode && !extraPtr->safeModeFails.empty()){
+					QMessageBox msgBox;
+					std::string msg = "Ultragrid crashed when querying the following modules."
+							" Some options may be missing as a result.\n"; 
+
+					for(const auto& i : extraPtr->safeModeFails){
+						msg += "\n";
+						msg += i;
+					}
+					msgBox.setText(QString::fromStdString(msg));
+					msgBox.setIcon(QMessageBox::Warning);
+					msgBox.exec();
 				}
 
 				availableSettings.queryEnd();
