@@ -256,10 +256,10 @@ void socket_error(const char *msg, ...)
         _vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
         va_end(ap);
 
-        if (i == 0) { // let system format the error message
+        if (ws_errs[i].errno_code == 0) { // let system format the error message
                 sys_err = get_win_error(e);
         }
-        const char *errname = i == 0 ? sys_err : ws_errs[i].errname;
+        const char *errname = sys_err ? sys_err : ws_errs[i].errname;
         LOG(LOG_LEVEL_ERROR) << "ERROR: " << buffer.data() << ", (" << e << " - " << errname << ")\n";
 #else
         array<char, ERRBUF_SIZE> strerror_buf{"unknown"};
