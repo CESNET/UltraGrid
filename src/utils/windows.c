@@ -1,5 +1,5 @@
 /**
- * @file   utils/windows.cpp
+ * @file   utils/windows.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -52,7 +52,7 @@
 bool com_initialize(bool *com_initialized, const char *err_prefix)
 {
 #ifdef _WIN32
-        if (err_prefix == nullptr) {
+        if (err_prefix == NULL) {
                 err_prefix = "";
         }
         *com_initialized = false;
@@ -63,10 +63,10 @@ bool com_initialize(bool *com_initialized, const char *err_prefix)
                 return true;
         }
         if (result == RPC_E_CHANGED_MODE) {
-                LOG(LOG_LEVEL_WARNING) << err_prefix << "COM already intiialized with a different mode!\n";
+                log_msg(LOG_LEVEL_WARNING, "%sCOM already intiialized with a different mode!\n", err_prefix);
                 return true;
         }
-        LOG(LOG_LEVEL_ERROR) << err_prefix << "Initialize of COM failed - " << hresult_to_str(result) << "\n";
+        log_msg(LOG_LEVEL_ERROR, "%sInitialize of COM failed - %s\n", err_prefix, hresult_to_str(result));
         return false;
 #else
         (void) com_initialized, (void) err_prefix;
@@ -89,8 +89,8 @@ void com_uninitialize(bool *com_initialized)
 
 #ifdef _WIN32
 const char *hresult_to_str(HRESULT res) {
-        thread_local static char unknown[128];
-        const char *errptr = nullptr;
+        _Thread_local static char unknown[128];
+        const char *errptr = NULL;
 
         HRESULT_GET_ERROR_COMMON(res, errptr)
         if (errptr) {
@@ -125,7 +125,7 @@ const char *hresult_to_str(HRESULT res) {
  * @note returned error string is typically <NL>-terminated
 */
 const char *get_win_error(DWORD error) {
-        thread_local static char buf[1024] = "(unknown)";
+        _Thread_local static char buf[1024] = "(unknown)";
         if (FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
                                 NULL,                // lpsource
                                 error,                   // message id
@@ -147,7 +147,7 @@ const char *get_win_error(DWORD error) {
  * (command chcp)
  */
 const char *win_wstr_to_str(const wchar_t *wstr) {
-        thread_local static char res[1024];
+        _Thread_local static char res[1024];
         int ret = WideCharToMultiByte(CP_UTF8, 0, wstr, -1 /* NULL-terminated */, res, sizeof res - 1, NULL, NULL);
         if (ret == 0) {
                 if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
