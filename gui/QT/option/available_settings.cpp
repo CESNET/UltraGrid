@@ -96,6 +96,11 @@ void AvailableSettings::parseStateVersion(std::string_view line){
 	}
 }
 
+void AvailableSettings::queryBeginPass(){
+	endMarkerFound = false;
+	parseFunc = &AvailableSettings::parseStateVersion;
+}
+
 void AvailableSettings::queryBegin(){
 	for(auto& i : available){
 		i.clear();
@@ -108,8 +113,7 @@ void AvailableSettings::queryBegin(){
 	videoCompressModules.emplace_back(CompressModule{"", {}, });
 	videoCompressCodecs.emplace_back(Codec{"None", "", {Encoder{"default", ""}}, 0});
 
-	endMarkerFound = false;
-	parseFunc = &AvailableSettings::parseStateVersion;
+	queryBeginPass();
 }
 
 void AvailableSettings::queryEnd(){

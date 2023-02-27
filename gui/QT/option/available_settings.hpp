@@ -82,6 +82,7 @@ struct CompressModule{
 class AvailableSettings{
 public:
 	void queryBegin();
+	void queryBeginPass();
 	void queryLine(std::string_view line);
 	void queryEnd();
 
