@@ -282,7 +282,7 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 		if (dwRetVal == ERROR_NO_DATA)
 			printf("\tNo addresses were found for the requested parameters\n");
 		else {
-                        log_msg(LOG_LEVEL_ERROR, "Error: %s", get_win_error(dwRetVal));
+                        log_msg(LOG_LEVEL_ERROR, "Error: %s\n", get_win_error(dwRetVal));
                         if (pAddresses)
                                 free(pAddresses);
                         return false;

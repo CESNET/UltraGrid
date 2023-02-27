@@ -122,7 +122,7 @@ const char *hresult_to_str(HRESULT res) {
 /**
  * @param error   error code (typically GetLastError())
  *
- * @note returned error string is typically <NL>-terminated
+ * @note returned error string is _not_ <NL>-terminated (stripped from FormatMessage)
 */
 const char *get_win_error(DWORD error) {
         _Thread_local static char buf[1024] = "(unknown)";
@@ -134,10 +134,17 @@ const char *get_win_error(DWORD error) {
                                 sizeof buf, // size of msgbuf, bytes
                                 NULL)               // va_list of arguments
            ) {
+                char *end = buf + strlen(buf) - 1;
+                if (end > buf && *end == '\n') { // skip LF
+                        *end-- = '\0';
+                }
+                if (end > buf && *end == '\r') { // skip CR
+                        *end-- = '\0';
+                }
                 return buf;
         }
 
-        snprintf(buf, sizeof buf, "[Could not find a description for error # %#lx.]\n", error);
+        snprintf(buf, sizeof buf, "[Could not find a description for error # %#lx.]", error);
 
         return buf;
 }
@@ -153,7 +160,7 @@ const char *win_wstr_to_str(const wchar_t *wstr) {
                 if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
                         log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: Insufficient buffer length %zd, please report to %s!\n", sizeof res, PACKAGE_BUGREPORT);
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: %s", get_win_error(GetLastError()));
+                        log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: %s\n", get_win_error(GetLastError()));
                 }
         }
         return res;
