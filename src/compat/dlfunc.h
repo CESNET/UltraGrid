@@ -45,7 +45,7 @@
 #define dlopen(name, flags) LoadLibraryA(name)
 #define dlsym GetProcAddress
 #define dlclose FreeLibrary
-EXTERN_C char *dlerror(void);
+EXTERN_C const char *dlerror(void);
 #else // ! defined _WIN32
 #include <dlfcn.h>
 #define LIB_HANDLE void *

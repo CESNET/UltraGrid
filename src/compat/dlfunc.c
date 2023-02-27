@@ -42,18 +42,11 @@
 #endif // HAVE_CONFIG_H
 
 #include "dlfunc.h"
+#include "utils/windows.h"
 
 #ifdef _WIN32
-char *dlerror() {
-        _Thread_local static char buf[1024] = "(unknown)";
-        FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
-                        NULL,                // lpsource
-                        GetLastError(),                   // message id
-                        MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
-                        buf, // output buffer
-                        sizeof buf, // size of msgbuf, bytes
-                        NULL);               // va_list of arguments
-        return buf;
+const char *dlerror() {
+        return get_win_error(GetLastError());
 }
 #endif
 

@@ -107,6 +107,23 @@ const char *hresult_to_str(HRESULT res) {
                        return unknown;
         }
 }
+
+/**
+ * @param error   error code (typically GetLastError())
+ *
+ * @note returned error string is typically <NL>-terminated
+*/
+const char *get_win_error(DWORD error) {
+        thread_local static char buf[1024] = "(unknown)";
+        FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
+                        NULL,                // lpsource
+                        error,                   // message id
+                        MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
+                        buf, // output buffer
+                        sizeof buf, // size of msgbuf, bytes
+                        NULL);               // va_list of arguments
+        return buf;
+}
 #else
 bool com_initialize(bool *com_initialized [[maybe_unused]], const char *err_prefix [[maybe_unused]])
 {
@@ -117,3 +134,4 @@ void com_uninitialize(bool *com_initialized [[maybe_unused]])
 }
 #endif // defined _WIN32
 
+/* vim: set expandtab sw=8 tw=120: */
