@@ -47,9 +47,11 @@
 #include <audioclient.h>
 #include <objbase.h>
 #include "debug.h"
+#endif // defined _WIN32
 
 bool com_initialize(bool *com_initialized, const char *err_prefix)
 {
+#ifdef _WIN32
         if (err_prefix == nullptr) {
                 err_prefix = "";
         }
@@ -66,17 +68,26 @@ bool com_initialize(bool *com_initialized, const char *err_prefix)
         }
         LOG(LOG_LEVEL_ERROR) << err_prefix << "Initialize of COM failed - " << hresult_to_str(result) << "\n";
         return false;
+#else
+        (void) com_initialized, (void) err_prefix;
+        return true;
+#endif
 }
 
 void com_uninitialize(bool *com_initialized)
 {
+#ifdef _WIN32
         if (!*com_initialized) {
                 return;
         }
         *com_initialized = false;
         CoUninitialize();
+#else
+        (void) com_initialized;
+#endif
 }
 
+#ifdef _WIN32
 const char *hresult_to_str(HRESULT res) {
         thread_local static char unknown[128];
         const char *errptr = nullptr;
@@ -141,15 +152,6 @@ const char *win_wstr_to_str(const wchar_t *wstr) {
         }
         return res;
 }
-#else
-bool com_initialize(bool *com_initialized [[maybe_unused]], const char *err_prefix [[maybe_unused]])
-{
-        return true;
-}
-void com_uninitialize(bool *com_initialized [[maybe_unused]])
-{
-}
-
 #endif // defined _WIN32
 
 /* vim: set expandtab sw=8 tw=120: */
