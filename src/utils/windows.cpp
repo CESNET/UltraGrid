@@ -78,7 +78,7 @@ void com_uninitialize(bool *com_initialized)
 }
 
 const char *hresult_to_str(HRESULT res) {
-        thread_local char unknown[128];
+        thread_local static char unknown[128];
         const char *errptr = nullptr;
 
         HRESULT_GET_ERROR_COMMON(res, errptr)
@@ -124,6 +124,23 @@ const char *get_win_error(DWORD error) {
                         NULL);               // va_list of arguments
         return buf;
 }
+
+/**
+ * requires `SetConsoleOutputCP(CP_UTF8);` (done in common_preinit()) or passing the code page as terminal is set to
+ * (command chcp)
+ */
+const char *win_wstr_to_str(const wchar_t *wstr) {
+        thread_local static char res[1024];
+        int ret = WideCharToMultiByte(CP_UTF8, 0, wstr, -1 /* NULL-terminated */, res, sizeof res - 1, NULL, NULL);
+        if (ret == 0) {
+                if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+                        log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: Insufficient buffer length %zd, please report to %s!\n", sizeof res, PACKAGE_BUGREPORT);
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, "win_wstr_to_str: %s", get_win_error(GetLastError()));
+                }
+        }
+        return res;
+}
 #else
 bool com_initialize(bool *com_initialized [[maybe_unused]], const char *err_prefix [[maybe_unused]])
 {
@@ -132,6 +149,7 @@ bool com_initialize(bool *com_initialized [[maybe_unused]], const char *err_pref
 void com_uninitialize(bool *com_initialized [[maybe_unused]])
 {
 }
+
 #endif // defined _WIN32
 
 /* vim: set expandtab sw=8 tw=120: */

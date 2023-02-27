@@ -42,6 +42,14 @@
 #include <stdbool.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//
+// common (defined also for other platforms for compatibility reasons
+//
+
 /// this macro is shared between both utils/windows.cpp, where the error codes defines
 /// system and bmd_hresult_to_string where only the subset below is defined by
 /// LinuxCOM.h compat, so use only values defined in that header.
@@ -61,10 +69,6 @@
                 case E_INVALIDARG: errptr = "One or more arguments are not valid"; break; \
         }
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * @param[out] com_initialize a pointer to a bool that will be passed to com_uninintialize()
  * @param[in] err_prefix optional error prefix to be used for eventual error messges (may be NULL)
@@ -73,15 +77,19 @@ bool com_initialize(bool *com_initialized, const char *err_prefix);
 ///< @param com_initialized - pointer passed to com_initialize (or create_com_iterator)
 void com_uninitialize(bool *com_initialized);
 
+//
+// Windows only (defined only for Windows)
+//
 #ifdef _WIN32
 #include <winerror.h>
 const char *hresult_to_str(HRESULT res);
 const char *get_win_error(DWORD error);
+const char *win_wstr_to_str(const wchar_t *wstr);
 #endif // defined _WIN32
 
 #ifdef __cplusplus
 }
-#endif
+#endif // __cplusplus
 
 #endif // define UTILS_WINDOWS_H_DA080A19_C6F3_48E1_A570_63665ED95C1F
 

@@ -86,9 +86,6 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
     do { if ((u) != NULL) (u)->Release(); (u) = NULL; } while(0)
 #undef THROW_IF_FAILED
 #define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { ostringstream oss; oss << #cmd << ": " << hresult_to_str(hr); throw ug_runtime_error(oss.str()); } } while(0)
-static string wstring_to_string(wstring const & wstr) {
-        return string(wstr.begin(), wstr.end());
-}
 
 static string get_name(IMMDevice *pDevice) {
         wstring out;
@@ -107,7 +104,7 @@ static string get_name(IMMDevice *pDevice) {
         SAFE_RELEASE(pProps);
         CoTaskMemFree(pwszID);
         PropVariantClear(&varName);
-        return wstring_to_string(out);
+        return win_wstr_to_str(out.c_str());
 }
 
 static void audio_play_wasapi_probe(struct device_info **available_devices, int *dev_count, void (**deleter)(void *))
@@ -186,7 +183,7 @@ static void show_help() {
                         try {
                                 THROW_IF_FAILED(pEndpoints->Item(i, &pDevice));
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
-                                string dev_id = wstring_to_string(pwszID);
+                                string dev_id = win_wstr_to_str(pwszID);
                                 col() << (dev_id == default_dev_id ? "(*)" : "") << "\t" << SBOLD(i) << ") " << SBOLD(get_name(pDevice)) << " (ID: " << dev_id << ")\n";
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
