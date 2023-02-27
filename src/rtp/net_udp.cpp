@@ -57,6 +57,7 @@
 #include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/thread.h"
+#include "utils/windows.h"
 
 #ifdef NEED_ADDRINFO_H
 #include "addrinfo.h"
@@ -221,9 +222,9 @@ void socket_error(const char *msg, ...)
 {
         va_list ap;
         array<char, ERRBUF_SIZE> buffer{};
-        array<char, ERRBUF_SIZE> strerror_buf{"unknown"};
 
 #ifdef WIN32
+        const char *sys_err = NULL;
 #define WSERR(x) {#x,x}
         struct wse {
                 char errname[20];
@@ -256,17 +257,12 @@ void socket_error(const char *msg, ...)
         va_end(ap);
 
         if (i == 0) { // let system format the error message
-                FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
-                                NULL,                // lpsource
-                                e,                   // message id
-                                MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
-                                strerror_buf.data(), // output buffer
-                                strerror_buf.size(), // size of msgbuf, bytes
-                                NULL);               // va_list of arguments
+                sys_err = get_win_error(e);
         }
-        const char *errname = i == 0 ? strerror_buf.data() : ws_errs[i].errname;
+        const char *errname = i == 0 ? sys_err : ws_errs[i].errname;
         LOG(LOG_LEVEL_ERROR) << "ERROR: " << buffer.data() << ", (" << e << " - " << errname << ")\n";
 #else
+        array<char, ERRBUF_SIZE> strerror_buf{"unknown"};
         va_start(ap, msg);
         vsnprintf(buffer.data(), buffer.size(), static_cast<const char *>(msg), ap);
         va_end(ap);

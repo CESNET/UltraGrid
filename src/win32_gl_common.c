@@ -52,6 +52,7 @@
 #include <winuser.h>
 
 #include "debug.h"
+#include "utils/windows.h"
 #include "win32_gl_common.h"
 
 #define VERSION_GET_MAJOR(version) (version >> 8u)
@@ -191,25 +192,8 @@ failed:
 
 static void PrintError(DWORD err)
 {
-    // Retrieve the system error message for the last-error code
-
-    LPVOID lpMsgBuf;
-    DWORD dw = err;
-
-    FormatMessage(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER |
-        FORMAT_MESSAGE_FROM_SYSTEM |
-        FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL,
-        dw,
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPTSTR) &lpMsgBuf,
-        0, NULL );
-
     // Display the error message and exit the process
-    fprintf(stderr, "%ld: %s\n", err, (char *) lpMsgBuf);
-
-    LocalFree(lpMsgBuf);
+    log_msg(LOG_LEVEL_FATAL, "win32_gl_common %ld: %s", err, get_win_error(err));
 }
 
 static BOOL SetGLFormat(HDC hdc)

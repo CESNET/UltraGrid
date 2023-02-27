@@ -50,6 +50,7 @@
 #endif
 
 #include "utils/net.h"
+#include "utils/windows.h"
 
 #include "debug.h"
 
@@ -221,8 +222,6 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 	size_t len_remaining = *len;
 	*len = 0;
 
-	LPVOID lpMsgBuf = NULL;
-
 	PIP_ADAPTER_ADDRESSES pAddresses = NULL;
 	ULONG outBufLen = 0;
 	ULONG Iterations = 0;
@@ -283,17 +282,10 @@ bool get_local_addresses(struct sockaddr_storage *addrs, size_t *len, int ip_ver
 		if (dwRetVal == ERROR_NO_DATA)
 			printf("\tNo addresses were found for the requested parameters\n");
 		else {
-			if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-						FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-						NULL, dwRetVal, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-						// Default language
-						(LPTSTR) & lpMsgBuf, 0, NULL)) {
-                                _tprintf(TEXT("\tError: %s"), (char *) lpMsgBuf);
-				LocalFree(lpMsgBuf);
-				if (pAddresses)
-					free(pAddresses);
-				return false;
-			}
+                        log_msg(LOG_LEVEL_ERROR, "Error: %s", get_win_error(dwRetVal));
+                        if (pAddresses)
+                                free(pAddresses);
+                        return false;
 		}
 	}
 

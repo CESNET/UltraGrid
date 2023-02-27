@@ -126,13 +126,19 @@ const char *hresult_to_str(HRESULT res) {
 */
 const char *get_win_error(DWORD error) {
         thread_local static char buf[1024] = "(unknown)";
-        FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
-                        NULL,                // lpsource
-                        error,                   // message id
-                        MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), //MAKELANGID (LANG_NEUTRAL, SUBLANG_NEUTRAL),    // languageid
-                        buf, // output buffer
-                        sizeof buf, // size of msgbuf, bytes
-                        NULL);               // va_list of arguments
+        if (FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
+                                NULL,                // lpsource
+                                error,                   // message id
+                                MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), //MAKELANGID (LANG_NEUTRAL, SUBLANG_NEUTRAL),    // languageid
+                                buf, // output buffer
+                                sizeof buf, // size of msgbuf, bytes
+                                NULL)               // va_list of arguments
+           ) {
+                return buf;
+        }
+
+        snprintf(buf, sizeof buf, "[Could not find a description for error # %#lx.]\n", error);
+
         return buf;
 }
 
