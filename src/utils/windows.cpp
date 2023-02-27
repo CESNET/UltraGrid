@@ -118,7 +118,7 @@ const char *get_win_error(DWORD error) {
         FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
                         NULL,                // lpsource
                         error,                   // message id
-                        MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
+                        MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), //MAKELANGID (LANG_NEUTRAL, SUBLANG_NEUTRAL),    // languageid
                         buf, // output buffer
                         sizeof buf, // size of msgbuf, bytes
                         NULL);               // va_list of arguments
