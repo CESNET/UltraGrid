@@ -58,7 +58,17 @@
 #define MOD_NAME "[dummy] "
 
 static const codec_t default_codecs[] = {I420, UYVY, YUYV, v210, R10k, R12L, RGBA, RGB, BGR, RG48};
+
 static const codec_t codecs_decklink[] = { R12L, R10k, v210, RGBA, UYVY };
+static const codec_t codecs_gl[] = { UYVY, v210, R10k, RGBA, RGB, RG48, Y416, DXT1, DXT1_YUV, DXT5 };
+const struct codec_profile_t {
+        const char *name;
+        const codec_t *codecs;
+        int codec_count;
+} codec_profiles[] = {
+        { "decklink", codecs_decklink, sizeof codecs_decklink / sizeof(codec_t) },
+        { "gl", codecs_gl, sizeof codecs_gl / sizeof(codec_t) },
+};
 
 struct dummy_display_state {
         struct video_frame *f;
@@ -74,10 +84,12 @@ struct dummy_display_state {
 };
 
 static _Bool parse_codecs(char *str, codec_t *codecs, size_t *codec_count) {
-        if (strcasecmp(str, "decklink") == 0) {
-                memcpy(codecs, codecs_decklink, sizeof codecs_decklink);
-                *codec_count = sizeof codecs_decklink / sizeof codecs_decklink[0];
-                return 1;
+        for (unsigned i = 0; i < sizeof codec_profiles / sizeof codec_profiles[0]; ++i) {
+                if (strcmp(str, codec_profiles[i].name) == 0) {
+                        memcpy(codecs, codec_profiles[i].codecs, sizeof(codec_t) * codec_profiles[i].codec_count);
+                        *codec_count = codec_profiles[i].codec_count;
+                        return 1;
+                }
         }
         char *sptr = NULL;
         char *tok = NULL;
@@ -151,7 +163,10 @@ static void *display_dummy_init(struct module *parent, const char *cfg, unsigned
                         { NULL, NULL }
                 };
                 print_module_usage("-d dummy", options, NULL, 0);
-                color_printf("\nAvailable codec sets:\n\t- " TBOLD("decklink") "\n");
+                color_printf("\nAvailable codec sets:\n");
+                for (unsigned i = 0; i < sizeof codec_profiles / sizeof codec_profiles[0]; ++i) {
+                        color_printf("\t- " TBOLD("%s") "\n", codec_profiles[i].name);
+                }
                 return INIT_NOERR;
         }
         struct dummy_display_state s = { .codec_count = sizeof default_codecs / sizeof default_codecs[0] };
