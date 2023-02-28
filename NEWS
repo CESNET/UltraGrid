@@ -2,6 +2,8 @@ next
 ====
 * added basic nvdec support
 * GUI: Don't block whole interface when querying UG capabilities
+* GUI: Better handling of UG crash during capability query
+* swmix: Optionaly specify a custom config file path
 
 1.8
 ====
