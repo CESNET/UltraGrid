@@ -117,14 +117,6 @@ void AvailableSettings::queryBegin(){
 }
 
 void AvailableSettings::queryEnd(){
-	if(!endMarkerFound){
-		QMessageBox msgBox;
-		msgBox.setText("Capabilities end marker not found in ug output."
-				" Some options may be missing as result.");
-		msgBox.setIcon(QMessageBox::Critical);
-		msgBox.exec();
-	}
-
 	std::sort(videoCompressCodecs.begin(), videoCompressCodecs.end(),
 			[](const Codec& a, const Codec& b){
 				return a.priority < b.priority;
