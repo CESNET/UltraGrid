@@ -7,7 +7,7 @@ UltraGrid - A High Definition Collaboratory
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/2851/badge.svg)](https://scan.coverity.com/projects/2851)
 [![C/C++ CI](../../workflows/C%2FC%2B%2B%20CI/badge.svg)](../../actions)
 
-![UltraGrid Logo](data/ultragrid-logo-text.png)
+![UltraGrid Logo](data/ultragrid-logo-text.svg)
 
    * Copyright (c) 2001-2004 University of Southern California 
    * Copyright (c) 2003-2004 University of Glasgow
