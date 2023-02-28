@@ -164,6 +164,7 @@ static const struct {
                         int width, int height, int pitch);
 } decode_codecs[] = {
         {R12L, CFHD_PIXEL_FORMAT_RG48, rg48_to_r12l},
+        {RG48, CFHD_PIXEL_FORMAT_RG48, nullptr},
         {UYVY, CFHD_PIXEL_FORMAT_2VUY, nullptr},
         {R10k, CFHD_PIXEL_FORMAT_DPX0, nullptr},
         {v210, CFHD_PIXEL_FORMAT_V210, nullptr},
@@ -430,6 +431,7 @@ static int cineform_decompress_get_priority(codec_t compression, struct pixfmt_d
                 case RGBA:
                 case R10k:
                 case R12L:
+                case RG48:
                 case v210:
                         break;
                 default:
