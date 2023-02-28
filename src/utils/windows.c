@@ -123,13 +123,16 @@ const char *hresult_to_str(HRESULT res) {
  * @param error   error code (typically GetLastError())
  *
  * @note returned error string is _not_ <NL>-terminated (stripped from FormatMessage)
+ *
+ * To achieve localized output, use languageid `MAKELANGID (LANG_NEUTRAL, SUBLANG_NEUTRAL)` and
+ * FormatMessageW (with wchar_t), converted to UTF-8 by win_wstr_to_str.
 */
 const char *get_win_error(DWORD error) {
         _Thread_local static char buf[1024] = "(unknown)";
         if (FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
                                 NULL,                // lpsource
                                 error,                   // message id
-                                MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), //MAKELANGID (LANG_NEUTRAL, SUBLANG_NEUTRAL),    // languageid
+                                MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),    // languageid
                                 buf, // output buffer
                                 sizeof buf, // size of msgbuf, bytes
                                 NULL)               // va_list of arguments
