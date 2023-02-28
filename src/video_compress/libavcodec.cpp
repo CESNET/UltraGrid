@@ -359,7 +359,7 @@ static void usage() {
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
         col() << "\t" << SBOLD("<bits_per_pixel>") << " specifies requested bitrate using compressed bits per pixel\n"
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
-        col() << "\t" << SBOLD("<cqp>") << " use codec-specific constant QP value\n";
+        col() << "\t" << SBOLD("<cqp>") << " use codec-specific constant QP value, for some codecs like MJPEG this is the only quality setting option\n";
         col() << "\t" << SBOLD("<crf>") << " specifies CRF factor (only for libx264/libx265)\n";
         col() << "\t" << SBOLD("<subsampling>") << " may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
         col() << "\t" << SBOLD("<depth>") << "enforce specified compression bit depth\n";
@@ -706,6 +706,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 {
         bool is_x264_x265 = strstr(s->codec_ctx->codec->name, "libx26") == s->codec_ctx->codec->name;
         bool is_vaapi = regex_match(s->codec_ctx->codec->name, regex(".*_vaapi"));
+        bool is_mjpeg = strstr(s->codec_ctx->codec->name, "mjpeg") != nullptr;
 
         double avg_bpp; // average bit per pixel
         avg_bpp = s->requested_bpp > 0.0 ? s->requested_bpp :
@@ -719,7 +720,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         s->codec_ctx->strict_std_compliance = -2;
 
         // set quality
-        if (s->requested_cqp >= 0 || (is_vaapi && s->requested_crf == -1.0 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
+        if (s->requested_cqp >= 0 || ((is_vaapi || is_mjpeg) && s->requested_crf == -1.0 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
                 set_cqp(s->codec_ctx, s->requested_cqp >= 0 ? s->requested_cqp : DEFAULT_CQP);
         } else if (s->requested_crf >= 0.0 || (is_x264_x265 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
                 double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
