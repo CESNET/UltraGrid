@@ -1361,7 +1361,9 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param * 
 
 static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* param */)
 {
-        check_av_opt_set<const char *>(codec_ctx->priv_data, "huffman", "default", "Huffman tables");
+        if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
+                check_av_opt_set<const char *>(codec_ctx->priv_data, "huffman", "default", "Huffman tables");
+        }
 }
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
