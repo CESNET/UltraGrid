@@ -251,7 +251,6 @@ struct state_video_compress_libav {
         double              requested_bpp = 0;
         double              requested_crf = -1;
         int                 requested_cqp = -1;
-        int                 requested_q = -1;
         struct to_lavc_req_prop req_conv_prop{ 0, 0, -1, VIDEO_CODEC_NONE };
 
         struct video_desc compressed_desc{};
@@ -349,7 +348,7 @@ static void get_codec_details(AVCodecID id, char *buf, size_t buflen)
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        col() << "\t" SBOLD(SRED("-c libavcodec") << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>|:crf=<crf>|:cqp=<cqp>][q=<q>]\n"
+        col() << "\t" SBOLD(SRED("-c libavcodec") << "[:codec=<codec_name>|:encoder=<encoder>][:bitrate=<bits_per_sec>|:bpp=<bits_per_pixel>|:crf=<crf>|:cqp=<cqp>]\n"
                         "\t\t[:subsampling=<subsampling>][:depth=<depth>][:rgb|:yuv][:gop=<gop>]"
                         "[:[disable_]intra_refresh][:threads=<threads>][:slices=<slices>][:<lavc_opt>=<val>]*") << "\n";
         col() << "\nwhere\n";
@@ -360,9 +359,8 @@ static void usage() {
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
         col() << "\t" << SBOLD("<bits_per_pixel>") << " specifies requested bitrate using compressed bits per pixel\n"
                 << "\t\t\tbitrate = frame width * frame height * bits_per_pixel * fps\n";
-        col() << "\t" << SBOLD("<cqp>") << " use constant QP value\n";
+        col() << "\t" << SBOLD("<cqp>") << " use codec-specific constant QP value\n";
         col() << "\t" << SBOLD("<crf>") << " specifies CRF factor (only for libx264/libx265)\n";
-        col() << "\t" << SBOLD("<q>") << " quality (qmin, qmax, global_quality) - range usually from 0 (best) to 50-100 (worst)\n";
         col() << "\t" << SBOLD("<subsampling>") << " may be one of 444, 422, or 420, default 420 for progresive, 422 for interlaced\n";
         col() << "\t" << SBOLD("<depth>") << "enforce specified compression bit depth\n";
         col() << "\t" << SBOLD("rgb|yuv") << "enforce specified color space compreesion\n";
@@ -433,12 +431,11 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
                         char *crf_str = item + strlen("crf=");
                         s->requested_crf = atof(crf_str);
-                } else if(strncasecmp("cqp=", item, strlen("cqp=")) == 0) {
-                        char *cqp_str = item + strlen("cqp=");
-                        s->requested_cqp = atoi(cqp_str);
-                } else if(strncasecmp("q=", item, strlen("q=")) == 0) {
-                        char *q_str = strchr(item, '=') + 1;
-                        s->requested_q = stoi(q_str);
+                } else if (strstr(item, "cqp=") == item || strstr(item, "q=") == item) {
+                        if (strstr(item, "q=") == item) {
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option \"q=\" is deprecated, use \"cqp=\" instead.\n");
+                        }
+                        s->requested_cqp = atoi(strchr(item, '=') + 1);
                 } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
                         char *subsample_str = item + strlen("subsampling=");
                         s->req_conv_prop.subsampling = atoi(subsample_str);
@@ -691,6 +688,20 @@ static inline bool check_av_opt_set(void *priv_data, const char *key, T val, con
         return ret == 0;
 }
 
+static void set_cqp(struct AVCodecContext *codec_ctx, int cqp) {
+        if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
+                codec_ctx->qmin = codec_ctx->qmax = cqp;
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting mjpeg qmin/qmax to " << cqp <<  "\n";
+        } else if (strcmp(codec_ctx->codec->name, "mjpeg_qsv") == 0) {
+                codec_ctx->global_quality = cqp;
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting mjpeg_qsv global_quality to " << cqp <<  "\n";
+        } else {
+                if (check_av_opt_set<int>(codec_ctx->priv_data, "qp", cqp, "CQP")) {
+                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting CQP to " << cqp <<  "\n";
+                }
+        }
+}
+
 bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pix_fmt, struct video_desc desc, codec_t ug_codec)
 {
         bool is_x264_x265 = strstr(s->codec_ctx->codec->name, "libx26") == s->codec_ctx->codec->name;
@@ -709,10 +720,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         // set quality
         if (s->requested_cqp >= 0 || (is_vaapi && s->requested_crf == -1.0 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
-                int cqp = s->requested_cqp >= 0 ? s->requested_cqp : DEFAULT_CQP;
-                if (check_av_opt_set<int>(s->codec_ctx->priv_data, "qp", cqp, "CQP")) {
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting CQP to " << cqp <<  "\n";
-                }
+                set_cqp(s->codec_ctx, s->requested_cqp >= 0 ? s->requested_cqp : DEFAULT_CQP);
         } else if (s->requested_crf >= 0.0 || (is_x264_x265 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
                 double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
                 if (check_av_opt_set<double>(s->codec_ctx->priv_data, "crf", crf)) {
@@ -722,10 +730,6 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << format_in_si_units(bitrate) << "bps.\n";
-        }
-
-        if (s->requested_q != -1) {
-                s->codec_ctx->global_quality = s->codec_ctx->qmin = s->codec_ctx->qmax = s->requested_q;
         }
 
         /* resolution must be a multiple of two */
