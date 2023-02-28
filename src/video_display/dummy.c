@@ -85,7 +85,7 @@ static _Bool parse_codecs(char *str, codec_t *codecs, size_t *codec_count) {
         while ((tok = strtok_r(str, ",", &sptr))) {
                 str = NULL;
                 assert(*codec_count < sizeof ((struct dummy_display_state *) 0)->codecs / sizeof(codec_t));
-                codecs[*codec_count++] = get_codec_from_name(tok);
+                codecs[(*codec_count)++] = get_codec_from_name(tok);
                 if (codecs[*codec_count - 1] == VIDEO_CODEC_NONE) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong codec spec: %s!\n", tok);
                         return 0;
