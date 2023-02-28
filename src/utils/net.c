@@ -142,14 +142,14 @@ bool is_addr_private(struct sockaddr *sa)
         }
 }
 
-static struct addrinfo *resolve_host(const char *hostname)
+static struct addrinfo *resolve_host(const char *hostname, const char *err_prefix)
 {
         int gai_err = 0;
         struct addrinfo *ai = NULL;
         struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_DGRAM };
 
         if ((gai_err = getaddrinfo(hostname, NULL, &hints, &ai)) != 0) {
-                error_msg("getaddrinfo: %s: %s\n", hostname,
+                error_msg("%sgetaddrinfo: %s: %s\n", err_prefix, hostname,
                                 gai_strerror(gai_err));
                 return NULL;
         }
@@ -158,7 +158,7 @@ static struct addrinfo *resolve_host(const char *hostname)
 
 bool is_host_loopback(const char *hostname)
 {
-        struct addrinfo *ai = resolve_host(hostname);
+        struct addrinfo *ai = resolve_host(hostname, "is_host_loopback: ");
         if (ai == NULL) {
                 return false;
         }
@@ -171,7 +171,7 @@ bool is_host_loopback(const char *hostname)
 
 bool is_host_private(const char *hostname)
 {
-        struct addrinfo *ai = resolve_host(hostname);
+        struct addrinfo *ai = resolve_host(hostname, "is_host_private: ");
         if (ai == NULL) {
                 return false;
         }
