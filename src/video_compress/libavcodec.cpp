@@ -689,6 +689,8 @@ static inline bool check_av_opt_set(void *priv_data, const char *key, T val, con
 }
 
 static void set_cqp(struct AVCodecContext *codec_ctx, int cqp) {
+        codec_ctx->flags |= AV_CODEC_FLAG_QSCALE;
+
         if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
                 codec_ctx->qmin = codec_ctx->qmax = cqp;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting mjpeg qmin/qmax to " << cqp <<  "\n";
