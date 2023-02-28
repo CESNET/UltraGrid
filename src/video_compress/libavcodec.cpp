@@ -683,9 +683,12 @@ static inline bool check_av_opt_set(void *priv_data, const char *key, T val, con
         } else {
                 static_assert(!std::is_same_v<T, T>, "unsupported type");
         }
+        desc = desc ? desc : key;
         if (ret != 0) {
-                string err = string(MOD_NAME) + "Unable to set " + (desc ? desc : key) + " to " + val_str;
+                string err = string(MOD_NAME) + "Unable to set " + desc + " to " + val_str;
                 print_libav_error(LOG_LEVEL_WARNING, err.c_str(), ret);
+        } else {
+                verbose_msg(MOD_NAME "Successfully set %s to %s\n", desc, val_str.c_str());
         }
         return ret == 0;
 }
