@@ -1367,6 +1367,9 @@ static void setparam_jpeg(AVCodecContext *codec_ctx, struct setparam_param * /* 
         if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "huffman", "default", "Huffman tables");
         }
+        if (strcmp(codec_ctx->codec->name, "mjpeg_qsv") == 0) {
+                check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
+        }
 }
 
 static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_unused]] struct setparam_param *param) {
@@ -1439,7 +1442,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         }
 }
 
-static void configure_qsv(AVCodecContext *codec_ctx, struct setparam_param *param)
+static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         check_av_opt_set<const char *>(codec_ctx->priv_data, "scenario", "livestreaming");
         check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
@@ -1565,7 +1568,7 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
                 configure_nvenc(codec_ctx, param);
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
-                configure_qsv(codec_ctx, param);
+                configure_qsv_h264_hevc(codec_ctx, param);
         } else if (strstr(codec_ctx->codec->name, "libsvt") == codec_ctx->codec->name) {
                 configure_svt(codec_ctx, param);
         } else {
