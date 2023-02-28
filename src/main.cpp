@@ -849,7 +849,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"ttl", required_argument, nullptr, 'T'},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "Cd:t:m:r:s:v46c:hM:N::p:f:P:l:A:VST:";
+        const char *optstring = "Cd:t:m:r:s:v46c:hM:N::p:f:P:l:A:VST:F:";
 
         int ch = 0;
         while ((ch =
