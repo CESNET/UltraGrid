@@ -635,7 +635,7 @@ static char *udp_host_addr6(socket_udp * s)
 
                 if ((gai_err = getaddrinfo(hname, NULL, &hints, &ai))) {
                         error_msg(MOD_NAME "udp_host_addr6: getaddrinfo: %s: %s\n", hname,
-                                  gai_strerror(gai_err));
+                                  ug_gai_strerror(gai_err));
                         free(hname);
                         return NULL;
                 }
@@ -819,7 +819,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 
         if ((ret = resolve_address(s, addr, tx_port)) != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Can't resolve IP address for %s: %s\n", addr,
-                                gai_strerror(ret));
+                                ug_gai_strerror(ret));
                 goto error;
         }
         if (iface != NULL) {
@@ -1415,7 +1415,7 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
         if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "resolve_address: getaddrinfo: %s: %s\n", addr, gai_strerror(err));
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "resolve_address: getaddrinfo: %s: %s\n", addr, ug_gai_strerror(err));
                 return err;
         }
         memcpy(&s->sock, res0->ai_addr, res0->ai_addrlen);
@@ -1601,7 +1601,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
         if (int err = getaddrinfo(nullptr, tx_port_str.c_str(), &hints, &res0)) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " " << even_port << " getaddrinfo: " <<  gai_strerror(err) << "\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME << static_cast<const char *>(__func__) << " " << even_port << " getaddrinfo: " <<  ug_gai_strerror(err) << "\n";
                 return -2;
         }
 

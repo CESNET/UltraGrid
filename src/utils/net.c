@@ -150,7 +150,7 @@ static struct addrinfo *resolve_host(const char *hostname, const char *err_prefi
 
         if ((gai_err = getaddrinfo(hostname, NULL, &hints, &ai)) != 0) {
                 error_msg("%sgetaddrinfo: %s: %s\n", err_prefix, hostname,
-                                gai_strerror(gai_err));
+                                ug_gai_strerror(gai_err));
                 return NULL;
         }
         return ai;
@@ -436,5 +436,15 @@ const char *get_sockaddr_str(struct sockaddr *sa)
         sprintf(addr + strlen(addr), ":%u", port);
 
         return addr;
+}
+
+const char *ug_gai_strerror(int errcode)
+{
+#ifdef _WIN32
+        // also `win_wstr_to_str(gai_strerrorW(errcode);` would work; it is localized, but with correct diacritics
+        return get_win_error(WSAGetLastError());
+#else
+        return gai_strerror(errcode);
+#endif // ! defined _WIN32
 }
 
