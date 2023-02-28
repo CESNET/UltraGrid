@@ -100,6 +100,8 @@ using namespace std::string_literals;
 static constexpr const codec_t DEFAULT_CODEC = MJPG;
 static constexpr double DEFAULT_X264_X265_CRF = 22.0;
 static constexpr int DEFAULT_CQP = 21;
+static constexpr int DEFAULT_CQP_MJPEG_QSV = 80;
+static constexpr int DEFAULT_CQP_QSV = 5000;
 static constexpr const int DEFAULT_GOP_SIZE = 20;
 static constexpr int DEFAULT_SLICE_COUNT = 32;
 static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
@@ -688,7 +690,16 @@ static inline bool check_av_opt_set(void *priv_data, const char *key, T val, con
         return ret == 0;
 }
 
-static void set_cqp(struct AVCodecContext *codec_ctx, int cqp) {
+/// @param requested_cqp requested CQP value if >= 0, autoselect if -1
+static void set_cqp(struct AVCodecContext *codec_ctx, int requested_cqp) {
+        int cqp = requested_cqp;
+        if (requested_cqp == -1) {
+                if (strstr(codec_ctx->codec->name, "_qsv") != nullptr) {
+                        cqp = strcmp(codec_ctx->codec->name, "mjpeg_qsv") == 0 ? DEFAULT_CQP_MJPEG_QSV : DEFAULT_CQP_QSV;
+                } else {
+                        cqp = DEFAULT_CQP;
+                }
+        }
         codec_ctx->flags |= AV_CODEC_FLAG_QSCALE;
 
         if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
@@ -723,7 +734,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         // set quality
         if (s->requested_cqp >= 0 || ((is_vaapi || is_mjpeg) && s->requested_crf == -1.0 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
-                set_cqp(s->codec_ctx, s->requested_cqp >= 0 ? s->requested_cqp : DEFAULT_CQP);
+                set_cqp(s->codec_ctx, s->requested_cqp);
         } else if (s->requested_crf >= 0.0 || (is_x264_x265 && s->requested_bitrate == 0 && s->requested_bpp == 0.0)) {
                 double crf = s->requested_crf >= 0.0 ? s->requested_crf : DEFAULT_X264_X265_CRF;
                 if (check_av_opt_set<double>(s->codec_ctx->priv_data, "crf", crf)) {
