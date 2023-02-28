@@ -694,9 +694,9 @@ static void set_cqp(struct AVCodecContext *codec_ctx, int cqp) {
         if (strcmp(codec_ctx->codec->name, "mjpeg") == 0) {
                 codec_ctx->qmin = codec_ctx->qmax = cqp;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting mjpeg qmin/qmax to " << cqp <<  "\n";
-        } else if (strcmp(codec_ctx->codec->name, "mjpeg_qsv") == 0) {
+        } else if (strstr(codec_ctx->codec->name, "_qsv") != nullptr) {
                 codec_ctx->global_quality = cqp;
-                LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting mjpeg_qsv global_quality to " << cqp <<  "\n";
+                LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting QSV global_quality to " << cqp <<  "\n";
         } else {
                 if (check_av_opt_set<int>(codec_ctx->priv_data, "qp", cqp, "CQP")) {
                         LOG(LOG_LEVEL_INFO) << MOD_NAME "Setting CQP to " << cqp <<  "\n";
