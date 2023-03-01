@@ -2,12 +2,12 @@
 .\"     Title: hd-rum-transcode
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 05/26/2021
+.\"      Date: 03/01/2023
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "HD\-RUM\-TRANSCODE" "1" "05/26/2021" "\ \&" "\ \&"
+.TH "HD\-RUM\-TRANSCODE" "1" "03/01/2023" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -42,6 +42,7 @@ where global_opts may be:
         \-\-control\-port <port_number>[:0|:1] \- control port to connect to, optionally client/server (default)
         \-\-blend \- enable blending from original to newly received stream, increases latency
         \-\-conference <width>:<height>[:fps] \- enable combining of multiple inputs, increases latency
+        \-\-conference\-compression <compression> \- compression for conference participants
         \-\-capture\-filter <cfg_string> \- apply video capture filter to incoming video
         \-\-param \- additional parameters
         \-\-help

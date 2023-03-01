@@ -2,12 +2,12 @@
 .\"     Title: uv
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 05/26/2021
+.\"      Date: 03/01/2023
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "UV" "1" "05/26/2021" "\ \&" "\ \&"
+.TH "UV" "1" "03/01/2023" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -224,7 +224,7 @@ uv \- UltraGrid command line interface
 .RS 4
 .\}
 .nf
-\-T/\-\-ttl <num>                  Use specified TTL for multicast/unicast (0\&.\&.255, \-1 for default)
+\-T|\-\-ttl <num>                  Use specified TTL for multicast/unicast (0\&.\&.255, \-1 for default)
 .fi
 .if n \{\
 .RE
@@ -305,6 +305,16 @@ uv \- UltraGrid command line interface
 .RS 4
 .\}
 .nf
+\-\-audio\-filter <filter>[:<config>][#<filter>[:<config>]]\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
 \-\-audio\-codec <codec>[:sample_rate=<sr>][:bitrate=<br>] | help audio codec
 .fi
 .if n \{\
@@ -336,7 +346,17 @@ uv \- UltraGrid command line interface
 .RS 4
 .\}
 .nf
-\-\-cuda\-device <index> | help    use specified CUDA device
+\-\-echo\-cancellation             apply acoustic echo cancellation to audio (experimental)
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-\-cuda\-device <index> | help    use specified GPU
 .fi
 .if n \{\
 .RE
@@ -376,7 +396,7 @@ uv \- UltraGrid command line interface
 .RS 4
 .\}
 .nf
-\-\-capture\-filter <filter> | help capture filter(s), must be given before capture device
+\-F|\-\-capture\-filter <filter> | help capture filter(s), must be given before capture device
 .fi
 .if n \{\
 .RE
@@ -397,6 +417,16 @@ uv \- UltraGrid command line interface
 .\}
 .nf
 \-\-pix\-fmts                      list of pixel formats
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-\-conv\-policy [cds]{3} | help   pixel format conversion policy
 .fi
 .if n \{\
 .RE
