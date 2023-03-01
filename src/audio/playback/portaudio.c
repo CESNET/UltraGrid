@@ -54,6 +54,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -108,17 +109,14 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc);
   */
 static bool portaudio_start_stream(PaStream *stream)
 {
-	PaError error;
+        PaError error = Pa_StartStream(stream);
+        if (error != paNoError) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error starting stream:%s\n", Pa_GetErrorText(error));
+                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+                return false;
+        }
 
-	error = Pa_StartStream(stream);
-	if(error != paNoError)
-	{
-		printf("Error starting stream:%s\n", Pa_GetErrorText(error));
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-		return false;
-	}
-
-	return true;
+        return true;
 }
 
 static void audio_play_portaudio_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
@@ -166,14 +164,13 @@ static void * audio_play_portaudio_init(const char *cfg)
         } else {
                 output_device = -1;
         }
-	PaError error = Pa_Initialize();
-	if (error != paNoError)
-	{
-		printf("error initializing portaudio\n");
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-		return NULL;
-	}
-        
+        PaError error = Pa_Initialize();
+        if (error != paNoError) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initializing portaudio\n");
+                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+                return NULL;
+        }
+
         s = calloc(1, sizeof *s);
         assert(output_device >= -1);
         s->device = output_device;
@@ -318,33 +315,30 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
         }
         s->data = audio_buffer_init(desc.sample_rate, desc.bps, desc.ch_count, audio_buf_len_ms);
         s->desc = desc;
-        
-	printf("(Re)initializing portaudio playback.\n");
 
-	error = Pa_Initialize();
-	if(error != paNoError)
-	{
-		printf("error initializing portaudio\n");
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-		return FALSE;
-	}
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "(Re)initializing portaudio playback.\n");
 
-	printf("Using PortAudio version: %s\n", Pa_GetVersionText());
+        error = Pa_Initialize();
+        if (error != paNoError) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initializing portaudio\n");
+                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+                return FALSE;
+        }
 
-	// default device
-	if(s->device == -1)
-	{
+        log_msg(LOG_LEVEL_INFO, "Using PortAudio version: %s\n", Pa_GetVersionText());
+
+        // default device
+        if (s->device == -1) {
                 log_msg(LOG_LEVEL_NOTICE, "Using default output audio device: %s\n",
                                 portaudio_get_device_info(Pa_GetDefaultOutputDevice()));
-		outputParameters.device = Pa_GetDefaultOutputDevice();
-	} else {
+                outputParameters.device = Pa_GetDefaultOutputDevice();
+        } else {
                 assert(s->device >= 0);
-		printf("\nUsing output audio device:");
-		portaudio_print_device_info(s->device);
-		printf("\n");
-		outputParameters.device = s->device;
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using output audio device: %s\n",
+                                portaudio_get_device_info(s->device));
+                outputParameters.device = s->device;
         }
-                
+
         if(desc.ch_count <= s->max_output_channels)
                 outputParameters.channelCount = desc.ch_count; // output channels
         else
