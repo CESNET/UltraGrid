@@ -73,7 +73,7 @@
 /* default variables for sender */
 #define BUF_MS 100
 
-#define MODULE_NAME "[Portaudio capture] "
+#define MOD_NAME "[Portaudio capture] "
 
 struct state_portaudio_capture {
         struct audio_frame frame;
@@ -99,13 +99,10 @@ static void audio_cap_portaudio_help(const char *driver_name);
 
 static int portaudio_start_stream(PaStream *stream)
 {
-	PaError error;
-
-	error = Pa_StartStream(stream);
-	if(error != paNoError)
-	{
-		printf("Error starting stream:%s\n", Pa_GetErrorText(error));
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+        PaError error = Pa_StartStream(stream);
+        if (error != paNoError) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error starting stream:%s\n", Pa_GetErrorText(error));
+                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
 		return -1;
 	}
 
@@ -167,49 +164,46 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                         if (strncmp(option, "latency=", strlen("latency=")) == 0) {
                                 latency = atof(option + strlen("latency="));
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Unknown option: %s!\n", option);
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unknown option: %s!\n", option);
                         }
                 }
         } else {
                 input_device = -1;
         }
 
-	printf("Initializing portaudio capture.\n");
+        log_msg(LOG_LEVEL_INFO, "Initializing portaudio capture.\n");
 
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->cv, NULL);
 	
 	error = Pa_Initialize();
-	if(error != paNoError)
-	{
-		printf("error initializing portaudio\n");
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+        if (error != paNoError) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initializing portaudio\n");
+                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
                 free(s);
 		return NULL;
 	}
 
-	printf("Using PortAudio version: %s\n", Pa_GetVersionText());
+	log_msg(LOG_LEVEL_INFO, "Using PortAudio version: %s\n", Pa_GetVersionText());
 
 	PaStreamParameters inputParameters;
 
 	// default device
-	if(input_device == -1)
-	{
-                log_msg(LOG_LEVEL_NOTICE, "Using default input audio device: %s\n",
+	if (input_device == -1) {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using default input audio device: %s\n",
                                 portaudio_get_device_info(Pa_GetDefaultInputDevice()));
 		inputParameters.device = Pa_GetDefaultInputDevice();
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultInputDevice());
-	} else if(input_device >= 0) {
-		printf("Using input audio device:");
-		portaudio_print_device_info(input_device);
-		printf("\n");
+        } else if (input_device >= 0) {
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using input audio device: %s\n",
+                                portaudio_get_device_info(input_device));
 		inputParameters.device = input_device;
                 device_info = Pa_GetDeviceInfo(input_device);
 	}
 
         if(device_info == NULL) {
-                fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
-                               MODULE_NAME "Follows list of available Portaudio devices.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio device.\n"
+                               MOD_NAME "Follows list of available Portaudio devices.\n");
                 audio_cap_portaudio_help(NULL);
                 free(s);
                 Pa_Terminate();
@@ -218,7 +212,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 
         inputParameters.channelCount = s->frame.ch_count = audio_capture_channels > 0 ? (int) audio_capture_channels : MAX(device_info->maxInputChannels, DEFAULT_AUDIO_CAPTURE_CHANNELS);
         if (s->frame.ch_count > device_info->maxInputChannels) {
-                fprintf(stderr, MODULE_NAME "Requested %d input channels, device offers only %d.\n",
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested %d input channels, device offers only %d.\n",
                                 s->frame.ch_count,
                                 device_info->maxInputChannels);
                 free(s);
@@ -229,7 +223,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                 s->frame.bps = 4;
         } else {
                 if (audio_capture_bps != 0 && audio_capture_bps != 2) {
-                        log_msg(LOG_LEVEL_WARNING, "[Portaudio] Ignoring unsupported Bps %d!\n",
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Ignoring unsupported Bps %d!\n",
                                         audio_capture_bps);
                 }
                 inputParameters.sampleFormat = paInt16;
@@ -247,10 +241,9 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                         callback,	// callback function; NULL, because we use blocking functions
                         s	// user data - none, because we use blocking functions
                         );
-	if(error != paNoError)
-	{
-		printf("Error opening audio stream\n");
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
+	if (error != paNoError) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error opening audio stream\n");
+                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
 		return NULL;
 	}
 
