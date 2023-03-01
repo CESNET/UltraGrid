@@ -64,6 +64,7 @@
 #include "audio/audio_playback.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
+#include "compat/misc.h" // strdupa
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/audio_buffer.h"
@@ -137,30 +138,57 @@ static void portaudio_close(PaStream * stream) // closes and frees all audio res
         Pa_CloseStream(stream);
 }
 
-/*
- * Playback functions 
- */
+static _Bool parse_fmt(const char *cfg, int *input_device_idx, const char **device_name) {
+        if (isdigit(cfg[0])) {
+                *input_device_idx = atoi(cfg);
+                cfg = strchr(cfg, ':') ? strchr(cfg, ':') + 1 : cfg + strlen(cfg);
+        }
+        char *ccfg = strdupa(cfg);
+        char *item = NULL;
+        char *saveptr = NULL;
+        while ((item = strtok_r(ccfg, ":", &saveptr)) != NULL) {
+                if (strstr(item, "device=") == item) {
+                        const char *dev = strchr(item, '=') + 1;
+                        if (isdigit(dev[0])) {
+                                *input_device_idx = atoi(dev);
+                        } else { // pointer to *input* cfg
+                                *device_name = strchr(strstr(cfg, "device="), '=') + 1;
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
+                        return 0;
+                }
+                ccfg = NULL;
+        }
+        return 1;
+}
+
+static void usage() {
+        printf("PortAudio playback usage:\n");
+        color_printf("\t" TBOLD(TRED("-r portaudio") "[:<index>]") "\n");
+        printf("or\n");
+        color_printf("\t" TBOLD(TRED("-r portaudio") "[:device=<dev>]") "\n\n");
+        printf("options:\n");
+        color_printf("\t" TBOLD("<dev>") "\tdevice name (or a part of it); device index is also accepted here\n");
+        printf("\nAvailable PortAudio playback devices:\n");
+        audio_play_portaudio_help(NULL);
+}
+
 static void * audio_play_portaudio_init(const char *cfg)
 {	
-        struct state_portaudio_playback *s;
-        int output_device = -1;
+        int output_device_idx = -1;
+        const char *output_device_name = NULL;
 
         portaudio_print_version();
         
         if (strcmp(cfg, "help") == 0) {
-                printf("PortAudio playback usage:\n");
-                color_printf(TERM_BOLD TERM_FG_RED "\t-r poraudio" TERM_FG_RESET "[:<index>]\n\n" TERM_RESET);
-                printf("Available PortAudio playback devices:\n");
-                audio_play_portaudio_help(NULL);
+                usage();
                 return &audio_init_state_ok;
         }
-        if (strlen(cfg) > 0) {
-                output_device = atoi(cfg);
-                if (output_device < 0) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong device index: %s\n", cfg);
-                        return NULL;
-                }
+        if (!parse_fmt(cfg, &output_device_idx, &output_device_name)) {
+                return NULL;
         }
+
         PaError error = Pa_Initialize();
         if (error != paNoError) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initializing portaudio\n");
@@ -168,19 +196,22 @@ static void * audio_play_portaudio_init(const char *cfg)
                 return NULL;
         }
 
-        s = calloc(1, sizeof *s);
-        assert(output_device >= -1);
-        s->device = output_device;
+        if (output_device_name != NULL) {
+                output_device_idx = portaudio_select_device_by_name(output_device_name);
+        }
+
+        struct state_portaudio_playback *s = calloc(1, sizeof *s);
+        s->device = output_device_idx;
         s->data = NULL;
-        const	PaDeviceInfo *device_info;
-        if(output_device >= 0) {
-                device_info = Pa_GetDeviceInfo(output_device);
-        } else {
+        const PaDeviceInfo *device_info = NULL;
+        if (output_device_idx >= 0) {
+                device_info = Pa_GetDeviceInfo(output_device_idx);
+        } else if (output_device_idx == -1) {
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
         }
-        if(device_info == NULL) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio device.\n"
-                                MOD_NAME "Follows list of available Portaudio devices.\n");
+        if (device_info == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio index %d.\n"
+                                MOD_NAME "Follows list of available Portaudio devices.\n", output_device_idx);
                 audio_play_portaudio_help(NULL);
                 Pa_Terminate();
                 free(s);
@@ -327,12 +358,12 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
         // default device
         if (s->device == -1) {
                 log_msg(LOG_LEVEL_NOTICE, "Using default output audio device: %s\n",
-                                portaudio_get_device_info(Pa_GetDefaultOutputDevice()));
+                                portaudio_get_device_name(Pa_GetDefaultOutputDevice()));
                 outputParameters.device = Pa_GetDefaultOutputDevice();
         } else {
                 assert(s->device >= 0);
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using output audio device: %s\n",
-                                portaudio_get_device_info(s->device));
+                                portaudio_get_device_name(s->device));
                 outputParameters.device = s->device;
         }
 

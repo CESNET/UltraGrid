@@ -63,6 +63,7 @@
 #include "audio/audio_capture.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
+#include "compat/misc.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -128,41 +129,67 @@ static void portaudio_close(PaStream * stream)	// closes and frees all audio res
 	Pa_Terminate();
 }
 
-/*
- * capture funcitons
- */
+static _Bool parse_fmt(const char *cfg, PaTime *latency, int *input_device_idx, const char **device_name) {
+        if (isdigit(cfg[0])) {
+                *input_device_idx = atoi(cfg);
+                cfg = strchr(cfg, ':') ? strchr(cfg, ':') + 1 : cfg + strlen(cfg);
+        }
+        char *ccfg = strdupa(cfg);
+        char *item = NULL;
+        char *saveptr = NULL;
+        while ((item = strtok_r(ccfg, ":", &saveptr)) != NULL) {
+                if (strstr(item, "latency=") == item) {
+                        *latency = atof(strchr(item, '=') + 1);
+                } else if (strstr(item, "device=") == item) {
+                        const char *dev = strchr(item, '=') + 1;
+                        if (isdigit(dev[0])) {
+                                *input_device_idx = atoi(dev);
+                        } else { // pointer to *input* cfg
+                                *device_name = strchr(strstr(cfg, "device="), '=') + 1;
+                        }
+                } else {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
+                        return 0;
+                }
+                ccfg = NULL;
+        }
+        return 1;
+}
+
+static void usage() {
+        printf("PortAudio capture usage:\n");
+        color_printf("\t" TBOLD(TRED("-s portaudio") "[:<index>[:latency=<l>]]") "\n");
+        printf("or\n");
+        color_printf("\t" TBOLD(TRED("-s portaudio") "[:device=<dev>][:latency=<l>]") "\n\n");
+        printf("options:\n");
+        color_printf("\t" TBOLD(" <l> ") "\tsuggested latency in sec (experimental, use in case of problems)\n");
+        color_printf("\t" TBOLD("<dev>") "\tdevice name (or a part of it); device index is also accepted here\n");
+        printf("\nAvailable PortAudio capture devices:\n");
+
+        audio_cap_portaudio_help(NULL);
+}
+
 static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
         portaudio_print_version();
 
         if (strcmp(cfg, "help") == 0) {
-                printf("Portaudio options:\n");
-                color_printf(TERM_BOLD TERM_FG_RED "\t-s portaudio" TERM_FG_RESET "[:<index>[:latency=<l>]]\n\n" TERM_RESET);
-                color_printf(TERM_BOLD "\t<l>" TERM_RESET "\tsuggested latency in sec (experimental, use in case of problems)\n");
-                printf("\nAvailable PortAudio capture devices:\n");
-
-                audio_cap_portaudio_help(NULL);
+                usage();
                 return &audio_init_state_ok;
         }
 
-        int input_device = -1;
+        int input_device_idx = -1;
+        const char *input_device_name = NULL;
 	PaError error;
         const	PaDeviceInfo *device_info = NULL;
         PaTime latency = -1.0;
+
+        if (!parse_fmt(cfg, &latency, &input_device_idx, &input_device_name)) {
+                return NULL;
+        }
         
         struct state_portaudio_capture *s = calloc(1, sizeof *s);
-        if (strlen(cfg) > 0) {
-                input_device = atoi(cfg);
-                if (strchr(cfg, ':')) {
-                        const char *option = strchr(cfg, ':') + 1;
-                        if (strncmp(option, "latency=", strlen("latency=")) == 0) {
-                                latency = atof(option + strlen("latency="));
-                        } else {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unknown option: %s!\n", option);
-                        }
-                }
-        }
 
         log_msg(LOG_LEVEL_INFO, "Initializing portaudio capture.\n");
 
@@ -182,21 +209,24 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 	PaStreamParameters inputParameters;
 
 	// default device
-	if (input_device == -1) {
+        if (input_device_name != NULL) {
+                input_device_idx = portaudio_select_device_by_name(input_device_name);
+        }
+        if (input_device_idx == -1) {
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using default input audio device: %s\n",
-                                portaudio_get_device_info(Pa_GetDefaultInputDevice()));
+                                portaudio_get_device_name(Pa_GetDefaultInputDevice()));
 		inputParameters.device = Pa_GetDefaultInputDevice();
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultInputDevice());
-        } else if (input_device >= 0) {
+        } else if (input_device_idx >= 0) {
                 log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using input audio device: %s\n",
-                                portaudio_get_device_info(input_device));
-		inputParameters.device = input_device;
-                device_info = Pa_GetDeviceInfo(input_device);
+                                portaudio_get_device_name(input_device_idx));
+		inputParameters.device = input_device_idx;
+                device_info = Pa_GetDeviceInfo(input_device_idx);
 	}
 
         if(device_info == NULL) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio device.\n"
-                               MOD_NAME "Follows list of available Portaudio devices.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio device index %d.\n"
+                               MOD_NAME "Follows list of available Portaudio devices.\n", input_device_idx);
                 audio_cap_portaudio_help(NULL);
                 free(s);
                 Pa_Terminate();

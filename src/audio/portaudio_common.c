@@ -64,25 +64,22 @@ static const char *portaudio_get_api_name(PaDeviceIndex device) {
         return "(unknown API)";
 }
 
-const char *portaudio_get_device_info(PaDeviceIndex device) {
+const char *portaudio_get_device_name(PaDeviceIndex device) {
         if( (device < 0) || (device >= Pa_GetDeviceCount()) )
         {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested info on non-existing device");
                 return NULL;
         }
-        _Thread_local static char buffer[1024];
 
-        const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
-        snprintf(buffer, sizeof buffer, "%s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
-        return buffer;
+        return Pa_GetDeviceInfo(device)->name;
 }
 
-void portaudio_print_device_info(PaDeviceIndex device)
-{
-        const char *dev_info = portaudio_get_device_info(device);
-        if (dev_info != NULL) {
-                printf("%s", dev_info);
-        }
+static const char *portaudio_get_device_details(PaDeviceIndex device) {
+        assert(device >= 0 && device < Pa_GetDeviceCount());
+        const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
+        _Thread_local static char buffer[1024];
+        snprintf(buffer, sizeof buffer, "(output channels: %d; input channels: %d; %s)", device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
+        return buffer;
 }
 
 void portaudio_print_available_devices(enum portaudio_device_direction kind)
@@ -125,8 +122,7 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
                                 (i == Pa_GetDefaultOutputDevice() && kind == PORTAUDIO_OUT))
                         printf("(*) ");
 
-                color_printf("\t" TBOLD ("portaudio:%d") " - ", i);;
-                portaudio_print_device_info(i);
+                color_printf("\t" TBOLD ("portaudio:%d") " - " TBOLD("%s") " %s", i, portaudio_get_device_name(i), portaudio_get_device_details(i));
                 printf("\n");
         }
 
@@ -190,3 +186,20 @@ void portaudio_print_version() {
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Using %s\n", Pa_GetVersionText());
 #endif
 }
+
+/**
+ * Finds a Portaudio device whose name contains substring in argument name
+ * @retval -2  device selection failed
+ * @retval >=0 selected device
+ */
+int portaudio_select_device_by_name(const char *name) {
+        for (int i = 0; i < Pa_GetDeviceCount(); i++) {
+                const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
+                if (strstr(device_info->name, name)) {
+                        return i;
+                }
+        }
+        log_msg(LOG_LEVEL_ERROR, MOD_NAME "No device named \"%s\" was found!\n", name);
+        return -2;
+}
+
