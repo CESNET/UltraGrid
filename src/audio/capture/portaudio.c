@@ -136,7 +136,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
         UNUSED(parent);
         portaudio_print_version();
 
-        if(cfg && strcmp(cfg, "help") == 0) {
+        if (strcmp(cfg, "help") == 0) {
                 printf("Portaudio options:\n");
                 color_printf(TERM_BOLD TERM_FG_RED "\t-s portaudio" TERM_FG_RESET "[:<index>[:latency=<l>]]\n\n" TERM_RESET);
                 color_printf(TERM_BOLD "\t<l>" TERM_RESET "\tsuggested latency in sec (experimental, use in case of problems)\n");
@@ -146,17 +146,12 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                 return &audio_init_state_ok;
         }
 
-        struct state_portaudio_capture *s;
-        int input_device;
+        int input_device = -1;
 	PaError error;
         const	PaDeviceInfo *device_info = NULL;
         PaTime latency = -1.0;
         
-        s = (struct state_portaudio_capture *) malloc(sizeof(struct state_portaudio_capture));
-	/* 
-	 * so far we only work with portaudio
-	 * might get more complicated later..(jack?)
-	 */
+        struct state_portaudio_capture *s = calloc(1, sizeof *s);
         if (strlen(cfg) > 0) {
                 input_device = atoi(cfg);
                 if (strchr(cfg, ':')) {
@@ -167,8 +162,6 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unknown option: %s!\n", option);
                         }
                 }
-        } else {
-                input_device = -1;
         }
 
         log_msg(LOG_LEVEL_INFO, "Initializing portaudio capture.\n");

@@ -143,26 +143,23 @@ static void portaudio_close(PaStream * stream) // closes and frees all audio res
 static void * audio_play_portaudio_init(const char *cfg)
 {	
         struct state_portaudio_playback *s;
-        int output_device;
+        int output_device = -1;
 
         portaudio_print_version();
         
-        if(strlen(cfg) > 0) {
-                if(strcmp(cfg, "help") == 0) {
-                        printf("PortAudio playback usage:\n");
-                        color_printf(TERM_BOLD TERM_FG_RED "\t-r poraudio" TERM_FG_RESET "[:<index>]\n\n" TERM_RESET);
-                        printf("Available PortAudio playback devices:\n");
-                        audio_play_portaudio_help(NULL);
-                        return &audio_init_state_ok;
-                } else {
-                        output_device = atoi(cfg);
-                        if (output_device < 0) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong device index: %s\n", cfg);
-                                return NULL;
-                        }
+        if (strcmp(cfg, "help") == 0) {
+                printf("PortAudio playback usage:\n");
+                color_printf(TERM_BOLD TERM_FG_RED "\t-r poraudio" TERM_FG_RESET "[:<index>]\n\n" TERM_RESET);
+                printf("Available PortAudio playback devices:\n");
+                audio_play_portaudio_help(NULL);
+                return &audio_init_state_ok;
+        }
+        if (strlen(cfg) > 0) {
+                output_device = atoi(cfg);
+                if (output_device < 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong device index: %s\n", cfg);
+                        return NULL;
                 }
-        } else {
-                output_device = -1;
         }
         PaError error = Pa_Initialize();
         if (error != paNoError) {
