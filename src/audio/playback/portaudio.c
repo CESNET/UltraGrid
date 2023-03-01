@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/playback/portaudio.cpp
+ * FILE:    audio/playback/portaudio.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -52,8 +52,6 @@
 #include "config_win32.h"
 #endif
 
-#include <algorithm>
-#include <chrono>
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -69,14 +67,13 @@
 #include "lib_common.h"
 #include "utils/audio_buffer.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
+#include "tv.h"
 
-#define MODULE_NAME "[Portaudio playback] "
+#define MOD_NAME "[Portaudio playback] "
 #define BUFFER_LEN_SEC 1
 
-using namespace std;
-using namespace std::chrono;
-
-#define NO_DATA_STOP_SEC 2
+#define NO_DATA_STOP_NSEC (2 * NS_IN_SEC)
 
 struct state_portaudio_playback {
         struct audio_desc desc;
@@ -87,7 +84,7 @@ struct state_portaudio_playback {
 
         struct audio_buffer *data;
 
-        steady_clock::time_point last_audio_read;
+        time_ns_t last_audio_read;
         bool quiet;
 };
 
@@ -162,7 +159,7 @@ static void * audio_play_portaudio_init(const char *cfg)
                 } else {
                         output_device = atoi(cfg);
                         if (output_device < 0) {
-                                LOG(LOG_LEVEL_ERROR) << MODULE_NAME << "Wrong device index: " << cfg << "\n";
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong device index: %s\n", cfg);
                                 return NULL;
                         }
                 }
@@ -177,7 +174,7 @@ static void * audio_play_portaudio_init(const char *cfg)
 		return NULL;
 	}
         
-        s = new state_portaudio_playback();
+        s = calloc(1, sizeof *s);
         assert(output_device >= -1);
         s->device = output_device;
         s->data = NULL;
@@ -188,11 +185,11 @@ static void * audio_play_portaudio_init(const char *cfg)
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
         }
         if(device_info == NULL) {
-                fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
-                                MODULE_NAME "Follows list of available Portaudio devices.\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio device.\n"
+                                MOD_NAME "Follows list of available Portaudio devices.\n");
                 audio_play_portaudio_help(NULL);
                 Pa_Terminate();
-                delete s;
+                free(s);
                 return NULL;
         }
 	s->max_output_channels = device_info->maxOutputChannels;
@@ -200,9 +197,9 @@ static void * audio_play_portaudio_init(const char *cfg)
 
         s->quiet = true;
         
-        if (!audio_play_portaudio_reconfigure(s, audio_desc{2, 48000, 2, AC_PCM})) {
+        if (!audio_play_portaudio_reconfigure(s, (struct audio_desc){2, 48000, 2, AC_PCM})) {
                 Pa_Terminate();
-                delete s;
+                free(s);
                 return NULL;
         }
 
@@ -211,9 +208,9 @@ static void * audio_play_portaudio_init(const char *cfg)
 
 static void audio_play_portaudio_done(void *state)
 {
-        auto s = (state_portaudio_playback *) state;
+        struct state_portaudio_playback *s = state;
         cleanup(s);
-        delete s;
+        free(s);
 }
 
 static void cleanup(struct state_portaudio_playback * s)
@@ -240,7 +237,7 @@ static void cleanup(struct state_portaudio_playback * s)
 static bool get_supported_format(int device_idx, int ch_count, int *sample_rate, int *bps) {
         int sample_rates[] = { *sample_rate, 48000, 44100, 8000, 16000, 32000, 96000, 24000 };
         PaSampleFormat sample_formats[] = { paInt8, paInt16, paInt24, paInt32 };
-        PaStreamParameters outputParameters{};
+        PaStreamParameters outputParameters = { 0 };
         outputParameters.device = device_idx >= 0 ? device_idx : Pa_GetDefaultOutputDevice();
         outputParameters.channelCount = ch_count;
         outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowInputLatency;
@@ -254,7 +251,7 @@ static bool get_supported_format(int device_idx, int ch_count, int *sample_rate,
                         if (err == paFormatIsSupported) {
                                 *sample_rate = sample_rates[i];
                                 *bps = j + 1;
-                                log_msg(LOG_LEVEL_NOTICE, MODULE_NAME "Using %d channel%s, sample rate: %d, bps: %d\n", ch_count, ch_count > 1 ? "s" : "", *sample_rate, *bps * 8);
+                                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using %d channel%s, sample rate: %d, bps: %d\n", ch_count, ch_count > 1 ? "s" : "", *sample_rate, *bps * 8);
                                 return true;
                         }
                         if (j >= *bps - 1 && j < 3) { // try better sample formats
@@ -272,7 +269,7 @@ static bool get_supported_format(int device_idx, int ch_count, int *sample_rate,
                 }
         }
 
-        log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Unable to find eligible format!\n");
+        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to find eligible format!\n");
         return false;
 }
 
@@ -285,9 +282,9 @@ static bool audio_play_portaudio_ctl(void *state, int request, void *data, size_
                                 (struct state_portaudio_playback *) state;
                         struct audio_desc desc;
                         memcpy(&desc, data, sizeof desc);
-                        desc.ch_count = min(desc.ch_count, s->max_output_channels);
+                        desc.ch_count = MIN(desc.ch_count, s->max_output_channels);
                         desc.codec = AC_PCM;
-                        if (!get_supported_format(((state_portaudio_playback *) state)->device, desc.ch_count, &desc.sample_rate, &desc.bps)) {
+                        if (!get_supported_format(((struct state_portaudio_playback *) state)->device, desc.ch_count, &desc.sample_rate, &desc.bps)) {
                                 return false;
                         }
                         memcpy(data, &desc, sizeof desc);
@@ -415,8 +412,8 @@ static int callback( const void *inputBuffer, void *outputBuffer,
                 if (!s->quiet)
                         log_msg(LOG_LEVEL_INFO, "[Portaudio] Buffer underflow.\n");
                 memset((int8_t *) outputBuffer + bytes_read, 0, req_bytes - bytes_read);
-                if (!s->quiet && duration_cast<seconds>(steady_clock::now() - s->last_audio_read).count() > NO_DATA_STOP_SEC) {
-                        log_msg(LOG_LEVEL_WARNING, "[Portaudio] No data for %d seconds!\n", NO_DATA_STOP_SEC);
+                if (!s->quiet && get_time_in_ns() - s->last_audio_read > NO_DATA_STOP_NSEC) {
+                        log_msg(LOG_LEVEL_WARNING, "[Portaudio] No data for %lld seconds!\n", NO_DATA_STOP_NSEC / NS_IN_SEC);
                         s->quiet = true;
                 }
         } else {
@@ -424,7 +421,7 @@ static int callback( const void *inputBuffer, void *outputBuffer,
                         log_msg(LOG_LEVEL_NOTICE, "[Portaudio] Starting again.\n");
                 }
                 s->quiet = false;
-                s->last_audio_read = steady_clock::now();
+                s->last_audio_read = get_time_in_ns();
         }
 
         return paContinue;
