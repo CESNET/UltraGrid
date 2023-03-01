@@ -1,9 +1,9 @@
 /**
- * @file   audio/portaudio_common.cpp
+ * @file   audio/portaudio_common.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,17 +41,15 @@
 #include "config_win32.h"
 #endif
 
-#include <iostream>
 #include <portaudio.h>
+#include <stdbool.h>
 
 #include "debug.h"
 #include "portaudio_common.h"
-#include "rang.hpp"
 #include "types.h"
+#include "utils/color_out.h"
 
-using std::cout;
-
-#define MODULE_NAME "[PortAudio] "
+#define MOD_NAME "[PortAudio] "
 
 static const char *portaudio_get_api_name(PaDeviceIndex device) {
         for (int i = 0; i < Pa_GetHostApiCount(); ++i) {
@@ -70,7 +68,7 @@ void portaudio_print_device_info(PaDeviceIndex device)
 {
         if( (device < 0) || (device >= Pa_GetDeviceCount()) )
         {
-                printf("Requested info on non-existing device");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested info on non-existing device");
                 return;
         }
 
@@ -105,7 +103,7 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
                 goto error;
         }
 
-        cout << rang::style::bold << "\tportaudio" << rang::style::reset << " - use default Portaudio device (marked with star)\n";
+        color_printf("\t" TBOLD("portaudio") " - use default Portaudio device (marked with star)\n");
 
         for(i = 0; i < numDevices; i++)
         {
@@ -118,7 +116,7 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
                                 (i == Pa_GetDefaultOutputDevice() && kind == PORTAUDIO_OUT))
                         printf("(*) ");
 
-                cout << rang::style::bold << "\tportaudio:" << i << rang::style::reset << " - ";
+                color_printf("\t" TBOLD ("portaudio:%d") " - ", i);;
                 portaudio_print_device_info(i);
                 printf("\n");
         }
@@ -133,8 +131,9 @@ void audio_portaudio_probe(struct device_info **available_devices, int *count, e
         bool initialized = false;
         const char *notice = ""; // we'll always include default device, but with a notice if something wrong
 
-        if (auto error = Pa_Initialize()) {
-                LOG(LOG_LEVEL_ERROR) << "\tPortAudio error: " << Pa_GetErrorText(error) << "\n";
+        PaError error = Pa_Initialize();
+        if ( error != paNoError ) {
+                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText(error));
                 notice = " (init error)";
         } else {
                 initialized = true;
@@ -144,7 +143,7 @@ void audio_portaudio_probe(struct device_info **available_devices, int *count, e
                 notice = " (no device)";
                 numDevices = 0;
         }
-        *available_devices = static_cast<device_info *>(calloc(1 + numDevices, sizeof(struct device_info)));
+        *available_devices = calloc(1 + numDevices, sizeof(struct device_info));
         strcpy((*available_devices)[0].dev, "");
         sprintf((*available_devices)[0].name, "Portaudio default %s%s", dir == PORTAUDIO_IN ? "input" : "output", notice);
         *count = 1;
@@ -168,7 +167,7 @@ void audio_portaudio_probe(struct device_info **available_devices, int *count, e
 void portaudio_print_version() {
         int error = Pa_Initialize();
         if(error != paNoError) {
-                log_msg(LOG_LEVEL_INFO, MODULE_NAME "Cannot get version.\n");
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Cannot get version.\n");
                 return;
         }
 
@@ -176,9 +175,9 @@ void portaudio_print_version() {
         const PaVersionInfo *info = Pa_GetVersionInfo();
 
         if (info && info->versionText) {
-                log_msg(LOG_LEVEL_INFO, MODULE_NAME "Using %s\n", info->versionText);
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Using %s\n", info->versionText);
         }
 #else // compat
-        log_msg(LOG_LEVEL_INFO, MODULE_NAME "Using %s\n", Pa_GetVersionText());
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Using %s\n", Pa_GetVersionText());
 #endif
 }
