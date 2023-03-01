@@ -159,7 +159,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 	 * so far we only work with portaudio
 	 * might get more complicated later..(jack?)
 	 */
-        if (cfg) {
+        if (strlen(cfg) > 0) {
                 input_device = atoi(cfg);
                 if (strchr(cfg, ':')) {
                         const char *option = strchr(cfg, ':') + 1;

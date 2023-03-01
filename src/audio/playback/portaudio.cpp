@@ -151,7 +151,7 @@ static void * audio_play_portaudio_init(const char *cfg)
 
         portaudio_print_version();
         
-        if(cfg) {
+        if(strlen(cfg) > 0) {
                 if(strcmp(cfg, "help") == 0) {
                         printf("PortAudio playback usage:\n");
                         color_printf(TERM_BOLD TERM_FG_RED "\t-r poraudio" TERM_FG_RESET "[:<index>]\n\n" TERM_RESET);
