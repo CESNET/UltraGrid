@@ -334,10 +334,8 @@ static int audio_play_portaudio_reconfigure(void *state, struct audio_desc desc)
 	// default device
 	if(s->device == -1)
 	{
-		printf("\nUsing default output audio device:");
-		fflush(stdout);
-		portaudio_print_device_info(Pa_GetDefaultOutputDevice());
-		printf("\n");
+                log_msg(LOG_LEVEL_NOTICE, "Using default output audio device: %s\n",
+                                portaudio_get_device_info(Pa_GetDefaultOutputDevice()));
 		outputParameters.device = Pa_GetDefaultOutputDevice();
 	} else {
                 assert(s->device >= 0);

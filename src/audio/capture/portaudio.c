@@ -195,9 +195,8 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 	// default device
 	if(input_device == -1)
 	{
-		printf("Using default input audio device");
-		portaudio_print_device_info(Pa_GetDefaultInputDevice());
-		printf("\n");
+                log_msg(LOG_LEVEL_NOTICE, "Using default input audio device: %s\n",
+                                portaudio_get_device_info(Pa_GetDefaultInputDevice()));
 		inputParameters.device = Pa_GetDefaultInputDevice();
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultInputDevice());
 	} else if(input_device >= 0) {

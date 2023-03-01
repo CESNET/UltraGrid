@@ -50,6 +50,7 @@ enum portaudio_device_direction {
 };
 
 void portaudio_print_available_devices(enum portaudio_device_direction);
+const char *portaudio_get_device_info(PaDeviceIndex device);
 void portaudio_print_device_info(PaDeviceIndex device);
 void audio_portaudio_probe(struct device_info **available_devices, int *count, enum portaudio_device_direction);
 void portaudio_print_version(void);

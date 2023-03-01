@@ -64,16 +64,25 @@ static const char *portaudio_get_api_name(PaDeviceIndex device) {
         return "(unknown API)";
 }
 
-void portaudio_print_device_info(PaDeviceIndex device)
-{
+const char *portaudio_get_device_info(PaDeviceIndex device) {
         if( (device < 0) || (device >= Pa_GetDeviceCount()) )
         {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested info on non-existing device");
-                return;
+                return NULL;
         }
+        _Thread_local static char buffer[1024];
 
-        const   PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
-        printf("%s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
+        const PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
+        snprintf(buffer, sizeof buffer, "%s (output channels: %d; input channels: %d; %s)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels, portaudio_get_api_name(device));
+        return buffer;
+}
+
+void portaudio_print_device_info(PaDeviceIndex device)
+{
+        const char *dev_info = portaudio_get_device_info(device);
+        if (dev_info != NULL) {
+                printf("%s", dev_info);
+        }
 }
 
 void portaudio_print_available_devices(enum portaudio_device_direction kind)
