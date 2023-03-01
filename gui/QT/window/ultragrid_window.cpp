@@ -103,8 +103,7 @@ UltragridWindow::UltragridWindow(QWidget *parent): QMainWindow(parent){
 	ui.actionUse_hw_acceleration->setVisible(false);
 #endif
 
-	QString verString(GIT_CURRENT_SHA1);
-	verString += GIT_CURRENT_BRANCH;
+	QString verString(GIT_CURRENT_SHA1 "/" GIT_CURRENT_BRANCH);
 
 	versionLabel.setText(QString("Ver: ") + verString);
 
