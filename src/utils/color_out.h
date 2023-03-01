@@ -50,6 +50,7 @@
 #define TERM_FG_YELLOW  "\033[33m"
 #define TERM_FG_BLUE    "\033[34m"
 #define TERM_FG_MAGENTA "\033[35m"
+#define TERM_FG_BRIGHT_BLACK "\033[90m"
 #define TERM_FG_BRIGHT_GREEN "\033[92m"
 #define TERM_FG_BRIGHT_BLUE "\033[94m"
 #define TERM_FG_DARK_YELLOW "\033[38;5;220m"

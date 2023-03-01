@@ -113,16 +113,22 @@ void portaudio_print_available_devices(enum portaudio_device_direction kind)
 
         for(i = 0; i < numDevices; i++)
         {
+                const char *highlight = TERM_BOLD;
                 const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
-                if (log_level < LOG_LEVEL_VERBOSE && ((device_info->maxInputChannels == 0 && kind == PORTAUDIO_IN) ||
-                                (device_info->maxOutputChannels == 0 && kind == PORTAUDIO_OUT))) {
-                        continue;
+                // filter out (or differently highlight in verbose mode) unusable devices
+                if ((device_info->maxInputChannels == 0 && kind == PORTAUDIO_IN) ||
+                                (device_info->maxOutputChannels == 0 && kind == PORTAUDIO_OUT)) {
+                        if (log_level < LOG_LEVEL_VERBOSE) {
+                                continue;
+                        } else {
+                                highlight = TERM_BOLD TERM_FG_BRIGHT_BLACK;
+                        }
                 }
                 if((i == Pa_GetDefaultInputDevice() && kind == PORTAUDIO_IN) ||
                                 (i == Pa_GetDefaultOutputDevice() && kind == PORTAUDIO_OUT))
                         printf("(*) ");
 
-                color_printf("\t" TBOLD ("portaudio:%d") " - " TBOLD("%s") " %s", i, portaudio_get_device_name(i), portaudio_get_device_details(i));
+                color_printf("\t%sportaudio:%d" TERM_RESET " - %s%s" TERM_RESET " %s", highlight, i, highlight, portaudio_get_device_name(i), portaudio_get_device_details(i));
                 printf("\n");
         }
 
