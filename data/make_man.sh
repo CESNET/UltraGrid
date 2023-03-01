@@ -132,7 +132,7 @@ usage() {
 	printf "\tname of man page - specify 'all' generate all manual pages\n"
 	printf "\n"
 	printf "environment\n"
-	printf "\tUG_PATH - path to executables to generate man from (or must be present in \$PATH)\n"
+	printf "\tUV_PATH - path to executables to generate man from (or must be present in \$PATH)\n"
 }
 
 DRY_RUN=
