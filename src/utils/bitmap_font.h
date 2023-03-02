@@ -1,6 +1,6 @@
 /*
   bitmap_font.h (PNM).
-  for n in `seq 32 126`; do printf "\x$(printf %x $n)"; done |  pbmtext -space 0 -lspace 0 -nomargins -builtin fixed >| tmp.pbm
+  for n in `seq 32 126`; do printf "\\$(printf %o $n)"; done | pbmtext -space 0 -lspace 0 -nomargins -builtin fixed >| tmp.pbm
   convert tmp.pbm bitmap_font.h
 */
 enum {
