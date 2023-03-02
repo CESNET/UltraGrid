@@ -941,13 +941,11 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
         }
 
-        // codec doesn't call get_format_callback (J2K, 10-bit RGB HEVC)
         if (s->out_codec == VIDEO_CODEC_NONE && got_frame == 1) {
-                log_msg(LOG_LEVEL_VERBOSE, "[lavd] Available output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
-                s->internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
-        }
-
-        if (s->out_codec == VIDEO_CODEC_NONE && s->internal_props.depth != 0 && got_frame == 1) {
+                if (s->internal_props.depth == 0) { // codec didn't call get_format_callback (J2K, 10-bit RGB HEVC)
+                        log_msg(LOG_LEVEL_VERBOSE, "[lavd] Available output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
+                        s->internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
+                }
                 *internal_props = s->internal_props;
                 return DECODER_GOT_CODEC;
         }
