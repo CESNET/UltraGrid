@@ -2534,7 +2534,7 @@ enum AVPixelFormat pick_av_convertible_to_ug(codec_t color_spec, av_to_uv_conver
                 }
         }
 #if XV3X_PRESENT
-        if (out_desc.depth > 8 || (dec = get_decoder_from_to(Y416, color_spec))) {
+        if (out_desc.depth > 8 && (dec = get_decoder_from_to(Y416, color_spec))) {
                 set_decoder_mapped_to_uv(av_conv, dec, color_spec);
                 return AV_PIX_FMT_XV36;
         }
