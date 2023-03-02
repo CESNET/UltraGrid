@@ -53,6 +53,7 @@ typedef enum {
         AC_MP3,
         AC_AAC,
         AC_FLAC,
+        AC_COUNT,
 } audio_codec_t;
 
 #ifdef __cplusplus
