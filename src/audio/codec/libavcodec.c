@@ -122,7 +122,21 @@ struct libavcodec_codec_state {
 
         bool                context_initialized;
         audio_codec_direction_t direction;
+
+        unsigned char      *tmp_buffer;
+        size_t              tmp_buffer_size;
 };
+
+///< reallocate tmp_buffer if requested size is greater than currently allocated size
+static void resize_tmp_buffer(unsigned char **tmp_buffer, size_t *cur_size, size_t new_size) {
+        if (new_size <= *cur_size) {
+                return;
+        }
+        unsigned char *new_buf = realloc(*tmp_buffer, new_size);
+        assert(new_buf);
+        *tmp_buffer = new_buf;
+        *cur_size = new_size;
+}
 
 /**
  * @todo
@@ -424,15 +438,13 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                                         s->tmp.data_len += channel->data_len;
                                 } else {
                                         size_t data_len = channel->data_len / channel->bps * 4;
-                                        char *tmp = malloc(data_len);
-                                        change_bps(tmp, 4, channel->data, channel->bps, channel->data_len);
+                                        resize_tmp_buffer(&s->tmp_buffer, &s->tmp_buffer_size, data_len);
+                                        change_bps((char *) s->tmp_buffer, 4, channel->data, channel->bps, channel->data_len);
                                         if (s->tmp.data_len + data_len > TMP_DATA_LEN) {
                                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Auxiliary buffer overflow!\n");
-                                                free(tmp);
                                                 return NULL;
                                         }
-                                        int2float(s->tmp_data + s->tmp.data_len, tmp, data_len);
-                                        free(tmp);
+                                        int2float(s->tmp_data + s->tmp.data_len, (char *) s->tmp_buffer, data_len);
                                         s->tmp.data_len += data_len;
                                 }
                         } else {
@@ -526,11 +538,11 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
 
         int offset = 0;
         // FFMPEG buffer needs to be FF_INPUT_BUFFER_PADDING_SIZE longer than data
-        unsigned char *tmp_buffer = malloc(channel->data_len + AV_INPUT_BUFFER_PADDING_SIZE);
-        memcpy(tmp_buffer, channel->data, channel->data_len);
+        resize_tmp_buffer(&s->tmp_buffer, &s->tmp_buffer_size, channel->data_len + AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(s->tmp_buffer, channel->data, channel->data_len);
 
         AVPacket *pkt = av_packet_alloc();
-        pkt->data = tmp_buffer;
+        pkt->data = s->tmp_buffer;
         pkt->size = channel->data_len;
         s->output_channel.data_len = 0;
         while (pkt->size > 0) {
@@ -559,7 +571,6 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
 
                 if (len <= 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Error while decoding audio\n");
-                        free(tmp_buffer);
                         return NULL;
                 }
                 if (got_frame) {
@@ -611,7 +622,6 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         s->output_channel.bps = av_get_bytes_per_sample(s->codec_ctx->sample_fmt);
         s->output_channel.sample_rate = s->codec_ctx->sample_rate;
 
-        free(tmp_buffer);
         return &s->output_channel;
 }
 
@@ -664,6 +674,7 @@ static void libavcodec_done(void *state)
         av_frame_free(&s->av_frame);
         av_packet_free(&s->pkt);
 
+        free(s->tmp_buffer);
         free(s);
 }
 
