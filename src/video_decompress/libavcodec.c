@@ -80,7 +80,6 @@ struct state_libavcodec_decompress {
         int              pitch;
         int              rgb_shift[3];
         int              max_compressed_len;
-        struct pixfmt_desc internal_props;
         codec_t          out_codec;
         struct {
                 av_to_uv_convert_t convert;
@@ -409,7 +408,6 @@ static int libavcodec_decompress_reconfigure(void *state, struct video_desc desc
         s->rgb_shift[R] = rshift;
         s->rgb_shift[G] = gshift;
         s->rgb_shift[B] = bshift;
-        s->internal_props = (struct pixfmt_desc) { 0 };
         for(int i = 0; i < HWACCEL_COUNT; i++){
                 s->block_accel[i] = get_commandline_param("use-hw-accel") == NULL;
         }
@@ -537,7 +535,6 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
                 codec_t c = get_best_ug_codec_to_av(fmt, hwaccel);
                 if (c != VIDEO_CODEC_NONE) {
                         enum AVPixelFormat selected_fmt = lavd_get_av_to_ug_codec(fmt, c, hwaccel);
-                        state->internal_props = av_pixfmt_get_desc(selected_fmt);
                         return selected_fmt;
                 }
         } else {
@@ -816,7 +813,8 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         }
         s->mov_avg_frames = LONG_MAX;
 
-        if (codec_is_a_rgb(s->out_codec) != s->internal_props.rgb && duration_pixfmt_change_sec > s->mov_avg_comp_duration / 4) {
+        bool in_rgb = av_pix_fmt_desc_get(s->convert_in)->flags & AV_PIX_FMT_FLAG_RGB;
+        if (codec_is_a_rgb(s->out_codec) != in_rgb && duration_pixfmt_change_sec > s->mov_avg_comp_duration / 4) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Also pixfmt change of last frame took %f ms.\n"
                         "Consider adding \"--conv-policy cds\" to prevent color space conversion.\n", duration_pixfmt_change_sec / 1000.0);
         }
@@ -942,11 +940,8 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         }
 
         if (s->out_codec == VIDEO_CODEC_NONE && got_frame == 1) {
-                if (s->internal_props.depth == 0) { // codec didn't call get_format_callback (J2K, 10-bit RGB HEVC)
-                        log_msg(LOG_LEVEL_VERBOSE, "[lavd] Available output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
-                        s->internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
-                }
-                *internal_props = s->internal_props;
+                log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Selected output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
+                *internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
                 return DECODER_GOT_CODEC;
         }
 
