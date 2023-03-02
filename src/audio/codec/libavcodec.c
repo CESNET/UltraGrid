@@ -174,7 +174,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         
         if (!it->id) {
                 if (!silent) {
-                        fprintf(stderr, "[Libavcodec] Cannot find mapping for codec \"%s\"!\n",
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find mapping for codec \"%s\"!\n",
                                         get_name_to_audio_codec(audio_codec));
                 }
                 return NULL;
@@ -202,7 +202,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         }
         if(!s->codec) {
                 if (!silent) {
-                        fprintf(stderr, "Your Libavcodec build doesn't contain codec \"%s\".\n",
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Your Libavcodec build doesn't contain codec \"%s\".\n",
                                 get_name_to_audio_codec(audio_codec));
                 }
                 free(s);
@@ -400,7 +400,7 @@ static bool reinitialize_decoder(struct libavcodec_codec_state *s, struct audio_
 
         /* open it */
         if (avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
-                fprintf(stderr, "Could not open codec\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not open codec\n");
                 return false;
         }
 
@@ -422,7 +422,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         if(channel) {
                 if(!audio_desc_eq(s->saved_desc, audio_desc_from_audio_channel(channel))) {
                         if(!reinitialize_coder(s, audio_desc_from_audio_channel(channel))) {
-                                fprintf(stderr, "Unable to reinitialize audio compress!\n");
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reinitialize audio compress!\n");
                                 return NULL;
                         }
                 }
@@ -531,7 +531,7 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
 
         if(!audio_desc_eq(s->saved_desc, audio_desc_from_audio_channel(channel))) {
                 if(!reinitialize_decoder(s, audio_desc_from_audio_channel(channel))) {
-                        fprintf(stderr, "Unable to reinitialize audio decompress!\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reinitialize audio decompress!\n");
                         return NULL;
                 }
         }
