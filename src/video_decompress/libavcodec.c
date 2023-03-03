@@ -100,7 +100,7 @@ struct state_libavcodec_decompress {
 
         struct hw_accel_state hwaccel;
 
-        _Bool h264_sps_found; ///< to avoid initial error flood, start decoding after SPS was received
+        _Bool sps_vps_found; ///< to avoid initial error flood, start decoding after SPS (H.264) or VPS (HEVC) was received
         double mov_avg_comp_duration;
         long mov_avg_frames;
 };
@@ -760,8 +760,8 @@ static void change_pixfmt(AVFrame *frame, unsigned char *dst, const av_to_uv_con
  * at the beginning of the buffer, but it is not the case of libx264 and
  * hopefully neither other decoders (if so, it needs to be reworked/removed).
  */
-static _Bool check_first_h264_sps(struct state_libavcodec_decompress *s, unsigned char *src, unsigned int src_len) {
-        if (s->h264_sps_found) {
+static _Bool check_first_sps_vps(struct state_libavcodec_decompress *s, unsigned char *src, unsigned int src_len) {
+        if (s->sps_vps_found) {
                 return 1;
         }
         _Thread_local static time_ns_t t0;
@@ -770,20 +770,30 @@ static _Bool check_first_h264_sps(struct state_libavcodec_decompress *s, unsigne
         }
         if (get_time_in_ns() - t0 > 10 * NS_IN_SEC) { // after 10 seconds surrender and let decoder do the job
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "No SPS found, starting decode, anyway. Please report a bug to " PACKAGE_BUGREPORT " if decoding succeeds from now.\n");
-                s->h264_sps_found = 1;
+                s->sps_vps_found = 1;
                 return 1;
         }
         const unsigned char *first_nal = rtpenc_h264_get_next_nal(src, src_len, NULL);
         if (!first_nal) {
                 return 0;
         }
-        int type =  NALU_HDR_GET_TYPE(first_nal[0]);
-        if (type == NAL_SPS) {
-                log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received H.264 SPS NALU, decoding begins...\n");
-                s->h264_sps_found = 1;
-                return 1;
+        if (s->desc.color_spec == H264) {
+                int type = NALU_HDR_GET_TYPE(first_nal[0]);
+                if (type == NAL_SPS) {
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received H.264 SPS NALU, decoding begins.\n");
+                        s->sps_vps_found = 1;
+                        return 1;
+                }
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Waiting for first H.264 SPS NALU...\n");
+        } else {
+                int type = first_nal[0] >> 1;
+                if (type == NAL_HEVC_VPS) {
+                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received HEVC VPS NALU, decoding begins.\n");
+                        s->sps_vps_found = 1;
+                        return 1;
+                }
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Waiting for first HEVC VPS NALU...\n");
         }
-        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Waiting for first H.264 SPS NALU.\n");
         return 0;
 }
 
@@ -870,7 +880,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
         int got_frame = 0;
 
-        if (s->desc.color_spec == H264 && !check_first_h264_sps(s, src, src_len)) {
+        if ((s->desc.color_spec == H264 || s->desc.color_spec == H265) && !check_first_sps_vps(s, src, src_len)) {
                 return DECODER_NO_FRAME;
         }
 

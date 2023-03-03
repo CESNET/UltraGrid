@@ -54,6 +54,8 @@ extern "C" {
 #define NAL_SPS     7
 #define NAL_MAX    23
 
+#define NAL_HEVC_VPS 32
+
 struct video_frame;
 
 struct decode_data_h264 {
