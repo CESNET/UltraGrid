@@ -83,7 +83,7 @@ struct state_libavcodec_decompress {
         codec_t          out_codec;
         struct {
                 av_to_uv_convert_t convert;
-                int                convert_in;
+                enum AVPixelFormat convert_in;
         };
         bool             block_accel[HWACCEL_COUNT];
         long long        consecutive_failed_decodes;
