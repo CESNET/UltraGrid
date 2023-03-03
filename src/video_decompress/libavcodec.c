@@ -778,7 +778,7 @@ static _Bool check_first_h264_sps(struct state_libavcodec_decompress *s, unsigne
                 return 0;
         }
         int type =  NALU_HDR_GET_TYPE(first_nal[0]);
-        if (type == NAL_SPS || type == NAL_SEI) {
+        if (type == NAL_SPS) {
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Received H.264 SPS NALU, decoding begins...\n");
                 s->h264_sps_found = 1;
                 return 1;
