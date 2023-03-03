@@ -65,6 +65,7 @@
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "messaging.h"
 #include "module.h"
+#include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
@@ -264,6 +265,7 @@ struct state_video_compress_libav {
         map<string, string> lavc_opts; ///< user-supplied options from command-line
 
         bool hwenc = false;
+        bool store_orig_format = false;
         AVFrame *hwframe = nullptr;
 
 #ifdef HAVE_SWSCALE
@@ -506,6 +508,10 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                 }
         }
 
+        if (get_commandline_param("keep-pixfmt") != nullptr) {
+                s->store_orig_format = true;
+        }
+
         if (show_help || (get_commandline_param("lavc-use-codec") != nullptr && "help"s == get_commandline_param("lavc-use-codec"))) {
                 return 1;
         }
@@ -556,6 +562,9 @@ static compress_module_info get_libavcodec_module_info(){
         return module_info;
 }
 
+ADD_TO_PARAM("keep-pixfmt",
+                "* keep-pixfmt\n"
+                "  Signalize input pixel format to reciever and try\n");
 struct module * libavcodec_compress_init(struct module *parent, const char *opts)
 {
         ug_set_av_logging();
@@ -1107,6 +1116,38 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
         s->mov_avg_frames = LONG_MAX;
 }
 
+static void write_orig_format(struct video_frame *compressed_frame, codec_t orig_pixfmt) {
+        if (compressed_frame->color_spec != H264 && compressed_frame->color_spec != H265) {
+                log_msg_once(LOG_LEVEL_ERROR, to_fourcc('L', 'W', 'P', 'T'), MOD_NAME
+                                "Currently cannot store input format to different compression stream than H.264/HEVC\n");
+                return;
+        }
+        char *data = compressed_frame->tiles[0].data;
+        unsigned int *data_len = &compressed_frame->tiles[0].data_len;
+        if (compressed_frame->color_spec == H264) {
+                unsigned char sei_nal_prefix[] = { START_CODE_3B, H264_NAL_SEI_PREFIX, sizeof (unsigned char []) { UG_ORIG_FORMAT_ISO_IEC_11578_GUID } + 1, UG_ORIG_FORMAT_ISO_IEC_11578_GUID };
+                memcpy(data + *data_len, sei_nal_prefix, sizeof sei_nal_prefix);
+                *data_len += sizeof sei_nal_prefix;
+        } else {
+                unsigned char sei_nal_prefix[] = { START_CODE_3B, HEVC_NAL_SEI_PREFIX, sizeof (unsigned char []) { UG_ORIG_FORMAT_ISO_IEC_11578_GUID } + 1, UG_ORIG_FORMAT_ISO_IEC_11578_GUID };
+                memcpy(data + *data_len, sei_nal_prefix, sizeof sei_nal_prefix);
+                *data_len += sizeof sei_nal_prefix;
+        }
+
+        struct pixfmt_desc desc = get_pixfmt_desc(orig_pixfmt);
+        unsigned subs_a = (desc.subsampling / 100 % 10);
+        unsigned subs_b = (desc.subsampling / 10 % 10);
+        unsigned subs_v = subs_a - 1; // [4 2 1] -> [3 1 0]
+        unsigned subs_h = !!subs_b; // 1 - vertically subsampled, 0 - not
+        unsigned rgb = desc.rgb;
+        uint8_t format = ((desc.depth - 8) / 2) << 4U | subs_v << 2U | subs_h << 1U | rgb;
+        memcpy(data + *data_len, &format, sizeof format);
+        *data_len += sizeof format;
+        uint8_t eob = 0x80; // ? end of bytestream ? (doesn't work without)
+        memcpy(data + *data_len, &eob, sizeof eob);
+        *data_len += sizeof eob;
+}
+
 static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shared_ptr<video_frame> tx)
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
@@ -1247,6 +1288,10 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         if (out->tiles[0].data_len == 0) { // videotoolbox returns sometimes frames with pkt->size == 0 but got_output == true
                 return {};
+        }
+
+        if (s->store_orig_format) {
+                write_orig_format(out.get(), tx->color_spec);
         }
 
         return out;

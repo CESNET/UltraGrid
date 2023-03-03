@@ -47,6 +47,12 @@
 #ifndef _RTP_ENC_H264_H
 #define _RTP_ENC_H264_H
 
+#define START_CODE_3B 0x00, 0x00, 0x01
+#define H264_NAL_SEI_PREFIX 0x06, 0x05 // SEI, category
+#define HEVC_NAL_SEI_PREFIX 0x4E, 0x01, 0x05 // SEI, category
+/// custom orig format byte syntax - highest 1 bit zero, next 2 bits (depth-8)/2, next 3 bits subsampling (Y-1) from X:Y:Z, next 1 bit - vertical is subsampled, last bit RGB
+#define UG_ORIG_FORMAT_ISO_IEC_11578_GUID 0xDB, 0x69, 0xDA, 0x43, 0x42, 0x11, 0x40, 0xEC, 0xA2, 0xF1, 0x45, 0x96, 0x64, 0xFA, 0x14, 0x63
+
 #ifdef __cplusplus
 extern "C" {
 #endif

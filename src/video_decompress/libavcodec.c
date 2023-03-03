@@ -840,6 +840,30 @@ static void handle_lavd_error(struct state_libavcodec_decompress *s, int ret)
         }
 }
 
+static bool read_forced_pixfmt(codec_t compress, unsigned char *src, unsigned int src_len, struct pixfmt_desc *internal_props) {
+        if (compress == H264) {
+                char expected_prefix[] = { START_CODE_3B, H264_NAL_SEI_PREFIX, sizeof (unsigned char[]) { UG_ORIG_FORMAT_ISO_IEC_11578_GUID } + 1, UG_ORIG_FORMAT_ISO_IEC_11578_GUID };
+                if (src_len < sizeof expected_prefix + 2 || memcmp(src + src_len - sizeof expected_prefix - 2, expected_prefix, sizeof expected_prefix) != 0) {
+                        return false;
+                }
+        } else if (compress == H265) {
+                char expected_prefix[] = { START_CODE_3B, HEVC_NAL_SEI_PREFIX, sizeof (unsigned char []) { UG_ORIG_FORMAT_ISO_IEC_11578_GUID } + 1, UG_ORIG_FORMAT_ISO_IEC_11578_GUID };
+                if (src_len < sizeof expected_prefix + 2 || memcmp(src + src_len - sizeof expected_prefix - 2, expected_prefix, sizeof expected_prefix) != 0) {
+                        return false;
+                }
+        } else {
+                return false;
+        }
+        unsigned format = src[src_len - 2];
+        internal_props->depth = 8 + (format >> 4) * 2;
+        int subs_a = ((format >> 2) & 0x3) + 1;
+        int subs_b = ((format >> 1) & 0x1) * subs_a;
+        internal_props->subsampling = 4000 + subs_a * 100 + subs_b * 10;
+        internal_props->rgb = format & 0x1;
+        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Stream properties read from metadata.\n");
+        return true;
+}
+
 static decompress_status libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_props)
 {
@@ -941,7 +965,9 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
 
         if (s->out_codec == VIDEO_CODEC_NONE && got_frame == 1) {
                 log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Selected output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
-                *internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
+                if (!read_forced_pixfmt(s->desc.color_spec, src, src_len, internal_props)) {
+                        *internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
+                }
                 return DECODER_GOT_CODEC;
         }
 
