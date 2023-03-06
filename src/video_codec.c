@@ -3460,10 +3460,8 @@ static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
 
 /**
  * Returns best decoder for input codec.
- *
- * @param include_slow  whether slow codecs should be considered
  */
-decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out, bool include_slow)
+decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out)
 {
         if (codec_is_in_set(in, out_candidates) && (in != RGBA && in != RGB)) { // vc_copylineRGB[A] may change shift
                 *out = in;
@@ -3474,10 +3472,8 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         const codec_t *it = out_candidates;
         size_t count = 0;
         while (*it != VIDEO_CODEC_NONE) {
-                if (get_decoder_from_to_internal(in, *it, include_slow)) {
-                        if (count == VIDEO_CODEC_END) {
-                                assert(0 && "Too much codecs, some used multiple times!");
-                        }
+                if (get_decoder_from_to_internal(in, *it, true)) {
+                        assert(count < VIDEO_CODEC_END && "Too much codecs, some used multiple times!");
                         candidates[count++] = *it;
                 }
                 it++;

@@ -259,7 +259,7 @@ static bool configure_with(struct state_video_compress_cineform *s, struct video
                 to_convs[i++] = codec.ug_codec;
         }
         s->precompress_desc = desc;
-        s->dec = get_best_decoder_from(desc.color_spec, to_convs, &s->precompress_desc.color_spec, true);
+        s->dec = get_best_decoder_from(desc.color_spec, to_convs, &s->precompress_desc.color_spec);
         LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Using " << get_codec_name(s->precompress_desc.color_spec) << " as intermediate.\n";
 
         CFHD_PixelFormat pix_fmt = CFHD_PIXEL_FORMAT_UNKNOWN;

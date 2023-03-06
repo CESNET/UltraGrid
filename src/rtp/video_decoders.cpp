@@ -1069,7 +1069,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
         {
                 vector<codec_t> native_codecs_copy = decoder->native_codecs;
                 native_codecs_copy.push_back(VIDEO_CODEC_NONE); // this needs to be NULL-terminated
-                *decode_line = get_best_decoder_from(desc.color_spec, native_codecs_copy.data(), &out_codec, true);
+                *decode_line = get_best_decoder_from(desc.color_spec, native_codecs_copy.data(), &out_codec);
                 if (*decode_line) {
                         decoder->decoder_type = LINE_DECODER;
                         goto after_linedecoder_lookup;
