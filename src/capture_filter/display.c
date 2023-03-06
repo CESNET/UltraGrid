@@ -79,7 +79,7 @@ static codec_t select_display_codec(codec_t *display_codecs, codec_t recv_codec)
                 return recv_codec;
         }
         codec_t out = VIDEO_CODEC_NONE;
-        get_fastest_decoder_from(recv_codec, display_codecs, &out);
+        get_best_decoder_from(recv_codec, display_codecs, &out);
         return out;
 }
 

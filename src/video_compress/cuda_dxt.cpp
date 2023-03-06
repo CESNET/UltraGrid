@@ -148,7 +148,7 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         }
 
         codec_t supported_codecs[] = { RGB, UYVY, VIDEO_CODEC_NONE };
-        s->decoder = get_fastest_decoder_from(desc.color_spec, supported_codecs, &s->in_codec);
+        s->decoder = get_best_decoder_from(desc.color_spec, supported_codecs, &s->in_codec);
         if (!s->decoder) {
                 fprintf(stderr, "Unsupported codec: %s\n", get_codec_name(desc.color_spec));
                 return false;

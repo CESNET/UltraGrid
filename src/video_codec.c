@@ -101,8 +101,6 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 #endif
 
-static decoder_t get_decoder_from_to_internal(codec_t in, codec_t out, bool slow);
-
 /**
  * Defines codec metadata
  * @note
@@ -3326,84 +3324,65 @@ struct decoder_item {
         decoder_t decoder;
         codec_t in;
         codec_t out;
-        bool slow;
 };
 
 static const struct decoder_item decoders[] = {
-        { vc_copylineDVS10,       DVS10, UYVY, false },
-        { vc_copylinev210,        v210,  UYVY, false },
-        { vc_copylineYUYV,        YUYV,  UYVY, false },
-        { vc_copylineYUYV,        UYVY,  YUYV, false },
-        { vc_copyliner10k,        R10k,  RGBA, false },
-        { vc_copyliner10ktoRG48,  R10k,  RG48, true },
-        { vc_copyliner10ktoY416,  R10k,  Y416, true },
-        { vc_copylineR12L,        R12L,  RGBA, false },
-        { vc_copylineR12LtoRGB,   R12L,  RGB, false },
-        { vc_copylineR12LtoRG48,  R12L,  RG48, false },
-        { vc_copylineR12LtoR10k,  R12L,  R10k, false },
-        { vc_copylineR12LtoY416,  R12L,  Y416, true },
-        { vc_copylineRGBAtoR12L,  RGBA,  R12L, false },
-        { vc_copylineRGBtoR12L,   RGB,   R12L, false },
-        { vc_copylineRGBAtoRG48,  RGBA,  RG48, false },
-        { vc_copylineRGBtoRG48,   RGB,   RG48, false },
-        { vc_copylineUYVYtoRG48,  UYVY,  RG48, true },
-        { vc_copylineRG48toR12L,  RG48,  R12L, false },
-        { vc_copylineRG48toR10k,  RG48,  R10k, false },
-        { vc_copylineRG48toRGB,   RG48,  RGB, false },
-        { vc_copylineRG48toRGBA,  RG48,  RGBA, false },
-        { vc_copylineRG48toUYVY,  RG48,  UYVY, true },
-        { vc_copylineRG48toV210,  RG48,  v210, true },
-        { vc_copylineRG48toY216,  RG48,  Y216, true },
-        { vc_copylineRG48toY416,  RG48,  Y416, true },
-        { vc_copylineY416toRG48,  Y416,  RG48, true },
-        { vc_copylineRGBA,        RGBA,  RGBA, false },
-        { vc_copylineDVS10toV210, DVS10, v210, false },
-        { vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
-        { vc_copylineRGBtoRGBA,   RGB,   RGBA, false },
-        { vc_copylineRGBtoUYVY,   RGB,   UYVY, true },
-        { vc_copylineUYVYtoRGB,   UYVY,  RGB, true },
-        { vc_copylineUYVYtoRGBA,  UYVY,  RGBA, true },
-        { vc_copylineYUYVtoRGB,   YUYV,  RGB, true },
-        { vc_copylineBGRtoUYVY,   BGR,   UYVY, true },
-        { vc_copylineR10ktoUYVY,  R10k,  UYVY, true },
-        { vc_copylineRGBAtoUYVY,  RGBA,  UYVY, true },
-        { vc_copylineBGRtoRGB,    BGR,   RGB, false },
-        { vc_copylineDPX10toRGBA, DPX10, RGBA, false },
-        { vc_copylineDPX10toRGB,  DPX10, RGB, false },
-        { vc_copylineRGB,         RGB,   RGB, false },
-        { vc_copylineRGBAtoR10k,  RGBA,  R10k, false },
-        { vc_copylineUYVYtoV210,  UYVY,  v210, false },
-        { vc_copylineUYVYtoY216,  UYVY,  Y216, false },
-        { vc_copylineUYVYtoY416,  UYVY,  Y416, false },
-        { vc_copylineY216toUYVY,  Y216,  UYVY, false },
-        { vc_copylineY216toV210,  Y216,  v210, false },
-        { vc_copylineY416toUYVY,  Y416,  UYVY, false },
-        { vc_copylineY416toV210,  Y416,  v210, false },
-        { vc_copylineY416toR12L,  Y416,  R12L, true },
-        { vc_copylineY416toR10k,  Y416,  R10k, true },
-        { vc_copylineY416toRGB,   Y416,  RGB, true },
-        { vc_copylineY416toRGBA,  Y416,  RGBA, true },
-        { vc_copylineV210toY216,  v210,  Y216, false },
-        { vc_copylineV210toY416,  v210,  Y416, false },
+        { vc_copylineDVS10,       DVS10, UYVY },
+        { vc_copylinev210,        v210,  UYVY },
+        { vc_copylineYUYV,        YUYV,  UYVY },
+        { vc_copylineYUYV,        UYVY,  YUYV },
+        { vc_copyliner10k,        R10k,  RGBA },
+        { vc_copyliner10ktoRG48,  R10k,  RG48 },
+        { vc_copyliner10ktoY416,  R10k,  Y416 },
+        { vc_copylineR12L,        R12L,  RGBA },
+        { vc_copylineR12LtoRGB,   R12L,  RGB },
+        { vc_copylineR12LtoRG48,  R12L,  RG48 },
+        { vc_copylineR12LtoR10k,  R12L,  R10k },
+        { vc_copylineR12LtoY416,  R12L,  Y416 },
+        { vc_copylineRGBAtoR12L,  RGBA,  R12L },
+        { vc_copylineRGBtoR12L,   RGB,   R12L },
+        { vc_copylineRGBAtoRG48,  RGBA,  RG48 },
+        { vc_copylineRGBtoRG48,   RGB,   RG48 },
+        { vc_copylineUYVYtoRG48,  UYVY,  RG48 },
+        { vc_copylineRG48toR12L,  RG48,  R12L },
+        { vc_copylineRG48toR10k,  RG48,  R10k },
+        { vc_copylineRG48toRGB,   RG48,  RGB },
+        { vc_copylineRG48toRGBA,  RG48,  RGBA },
+        { vc_copylineRG48toUYVY,  RG48,  UYVY },
+        { vc_copylineRG48toV210,  RG48,  v210 },
+        { vc_copylineRG48toY216,  RG48,  Y216 },
+        { vc_copylineRG48toY416,  RG48,  Y416 },
+        { vc_copylineY416toRG48,  Y416,  RG48 },
+        { vc_copylineRGBA,        RGBA,  RGBA },
+        { vc_copylineDVS10toV210, DVS10, v210 },
+        { vc_copylineRGBAtoRGB,   RGBA,  RGB },
+        { vc_copylineRGBtoRGBA,   RGB,   RGBA },
+        { vc_copylineRGBtoUYVY,   RGB,   UYVY },
+        { vc_copylineUYVYtoRGB,   UYVY,  RGB },
+        { vc_copylineUYVYtoRGBA,  UYVY,  RGBA },
+        { vc_copylineYUYVtoRGB,   YUYV,  RGB },
+        { vc_copylineBGRtoUYVY,   BGR,   UYVY },
+        { vc_copylineR10ktoUYVY,  R10k,  UYVY },
+        { vc_copylineRGBAtoUYVY,  RGBA,  UYVY },
+        { vc_copylineBGRtoRGB,    BGR,   RGB },
+        { vc_copylineDPX10toRGBA, DPX10, RGBA },
+        { vc_copylineDPX10toRGB,  DPX10, RGB },
+        { vc_copylineRGB,         RGB,   RGB },
+        { vc_copylineRGBAtoR10k,  RGBA,  R10k },
+        { vc_copylineUYVYtoV210,  UYVY,  v210 },
+        { vc_copylineUYVYtoY216,  UYVY,  Y216 },
+        { vc_copylineUYVYtoY416,  UYVY,  Y416 },
+        { vc_copylineY216toUYVY,  Y216,  UYVY },
+        { vc_copylineY216toV210,  Y216,  v210 },
+        { vc_copylineY416toUYVY,  Y416,  UYVY },
+        { vc_copylineY416toV210,  Y416,  v210 },
+        { vc_copylineY416toR12L,  Y416,  R12L },
+        { vc_copylineY416toR10k,  Y416,  R10k },
+        { vc_copylineY416toRGB,   Y416,  RGB },
+        { vc_copylineY416toRGBA,  Y416,  RGBA },
+        { vc_copylineV210toY216,  v210,  Y216 },
+        { vc_copylineV210toY416,  v210,  Y416 },
 };
-
-// @param[in] slow  include also slow decoders
-static decoder_t get_decoder_from_to_internal(codec_t in, codec_t out, bool slow)
-{
-        if (in == out &&
-                        (out != RGBA && out != RGB)) { // vc_copylineRGB[A] may change shift
-                return vc_memcpy;
-        }
-
-        for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct decoder_item); ++i) {
-                if (decoders[i].in == in && decoders[i].out == out &&
-                                (decoders[i].slow == false || slow == true)) {
-                        return decoders[i].decoder;
-                }
-        }
-
-        return NULL;
-}
 
 /**
  * Returns line decoder for specifiedn input and output codec.
@@ -3411,7 +3390,18 @@ static decoder_t get_decoder_from_to_internal(codec_t in, codec_t out, bool slow
  * If in == out, vc_memcpy is returned.
  */
 decoder_t get_decoder_from_to(codec_t in, codec_t out) {
-        return get_decoder_from_to_internal(in, out, true);
+        if (in == out &&
+                        (out != RGBA && out != RGB)) { // vc_copylineRGB[A] may change shift
+                return vc_memcpy;
+        }
+
+        for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct decoder_item); ++i) {
+                if (decoders[i].in == in && decoders[i].out == out) {
+                        return decoders[i].decoder;
+                }
+        }
+
+        return NULL;
 }
 
 // less is better
@@ -3444,7 +3434,7 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         const codec_t *it = out_candidates;
         size_t count = 0;
         while (*it != VIDEO_CODEC_NONE) {
-                if (get_decoder_from_to_internal(in, *it, true)) {
+                if (get_decoder_from_to(in, *it)) {
                         assert(count < VIDEO_CODEC_END && "Too much codecs, some used multiple times!");
                         candidates[count++] = *it;
                 }
@@ -3457,48 +3447,6 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         qsort_s(candidates, count, sizeof(codec_t), best_decoder_cmp, &src_desc);
         *out = candidates[0];
         return get_decoder_from_to(in, *out);
-}
-
-/**
- * Returns fastest decoder from input codec
- *
- * @note
- * Currently first decoder_item::slow==false is returned (if any, otherwise first).
- */
-decoder_t get_fastest_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out)
-{
-        decoder_t current_dec = NULL;
-        codec_t current_codec = VIDEO_CODEC_NONE;
-
-        if (codec_is_in_set(in, out_candidates) && (in != RGBA && in != RGB)) { // vc_copylineRGB[A] may change shift
-                *out = in;
-                return vc_memcpy;
-        }
-
-        while (*out_candidates) {
-                unsigned int i = 0;
-                for (; i < sizeof decoders / sizeof decoders[0]; ++i) {
-                        if (decoders[i].in == in && decoders[i].out == *out_candidates) {
-                                break;
-                        }
-                }
-                out_candidates++;
-                if (i == sizeof(decoders)/sizeof(struct decoder_item)) {
-                        continue; // not found
-                }
-                if (decoders[i].slow == false) { // match, found fast convert
-                        *out = decoders[i].out;
-                        return decoders[i].decoder;
-                }
-                if (current_dec == NULL) { // it is slow but store it in case we won't find fast one
-                        current_dec = decoders[i].decoder;
-                        current_codec = decoders[i].out;
-                }
-        }
-
-        log_msg(LOG_LEVEL_VERBOSE, "Using slow decoder from %s!\n", get_codec_name(in));
-        *out = current_codec;
-        return current_dec;
 }
 
 /**

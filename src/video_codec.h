@@ -107,7 +107,6 @@ const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(const);
 codec_t          get_codec_from_file_extension(const char *ext) ATTRIBUTE(const);
 decoder_t        get_decoder_from_to(codec_t in, codec_t out) ATTRIBUTE(const);
 decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out);
-decoder_t        get_fastest_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out);
 
 struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt);
 int              compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *desc_b, const struct pixfmt_desc *src_desc);

@@ -213,7 +213,7 @@ static decoder_t get_decoder(codec_t in_codec, codec_t *out_codec)
 #endif
         };
 
-        return get_fastest_decoder_from(in_codec, candidate_codecs, out_codec);
+        return get_best_decoder_from(in_codec, candidate_codecs, out_codec);
 }
 
 /**
