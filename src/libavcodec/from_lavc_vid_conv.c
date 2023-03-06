@@ -2364,7 +2364,7 @@ static QSORT_S_COMP_DEFINE(compare_convs, a, b, orig_c) {
         struct pixfmt_desc desc_b = get_pixfmt_desc(conv_b->uv_codec);
 
         int ret = compare_pixdesc(&desc_a, &desc_b, src_desc);
-        return ret != 0 ? ret : (int) conv_b->uv_codec - (int) conv_a->uv_codec;
+        return ret != 0 ? ret : (int) conv_a->uv_codec - (int) conv_b->uv_codec;
 }
 
 static decoder_t get_av_and_uv_conversion(enum AVPixelFormat av_codec, codec_t uv_codec,

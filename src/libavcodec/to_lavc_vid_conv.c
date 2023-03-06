@@ -1371,7 +1371,7 @@ static QSORT_S_COMP_DEFINE(compare_uv_pixfmts, a, b, orig_c) {
         struct pixfmt_desc desc_b = get_pixfmt_desc(*pix_b);
 
         int ret = compare_pixdesc(&desc_a, &desc_b, src_desc);
-        return ret != 0 ? ret : (int) *pix_b - (int) *pix_a;
+        return ret != 0 ? ret : (int) *pix_a - (int) *pix_b;
 }
 
 /**
@@ -1440,7 +1440,7 @@ static inline int lavc_compare_convs_inner(enum AVPixelFormat pix_a, enum AVPixe
         if (steps_a != steps_b) {
                 return steps_a - steps_b;
         }
-        return (int) pix_b - (int) pix_a;
+        return (int) pix_a - (int) pix_b;
 }
 static QSORT_S_COMP_DEFINE(lavc_compare_convs, a, b, comp_data_v) {
         enum AVPixelFormat pix_a = *(const enum AVPixelFormat *) a;
