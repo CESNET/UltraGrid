@@ -77,6 +77,7 @@
 #endif // defined HAVE_CONFIG_H
 
 #include <inttypes.h>
+#include <stdatomic.h>
 
 #include "memory.h"
 #include "debug.h"
@@ -211,7 +212,7 @@ typedef struct _source {
         char *sdes_tool;
         char *sdes_note;
         char *sdes_priv;
-        rtcp_sr *sr;
+        rtcp_sr * _Atomic sr;
         uint32_t last_sr_sec;
         uint32_t last_sr_frac;
         time_ns_t last_active;
@@ -1931,7 +1932,7 @@ static void process_rtcp_sr(struct rtp *session, rtcp_t * packet)
 {
         uint32_t ssrc;
         rtp_event event;
-        rtcp_sr *sr;
+        rtcp_sr * _Atomic sr;
         source *s;
 
         ssrc = ntohl(packet->r.sr.sr.ssrc);
@@ -1948,7 +1949,7 @@ static void process_rtcp_sr(struct rtp *session, rtcp_t * packet)
         }
 
         /* Process the SR... */
-        sr = (rtcp_sr *) malloc(sizeof(rtcp_sr));
+        sr = malloc(sizeof(rtcp_sr));
         sr->ssrc = ssrc;
         sr->ntp_sec = ntohl(packet->r.sr.sr.ntp_sec);
         sr->ntp_frac = ntohl(packet->r.sr.sr.ntp_frac);
@@ -1957,17 +1958,15 @@ static void process_rtcp_sr(struct rtp *session, rtcp_t * packet)
         sr->sender_bcount = ntohl(packet->r.sr.sr.sender_bcount);
 
         /* Store the SR for later retrieval... */
-        if (s->sr != NULL) {
-                free(s->sr);
-        }
-        s->sr = sr;
+        sr = atomic_exchange(&s->sr, sr);
+        free(sr);
         ntp64_time(&s->last_sr_sec, &s->last_sr_frac);
 
         /* Call the event handler... */
         if (!filter_event(session, ssrc)) {
                 event.ssrc = ssrc;
                 event.type = RX_SR;
-                event.data = (void *)sr;
+                event.data = (void *)s->sr;
                 session->callback(session, &event);
         }
 
