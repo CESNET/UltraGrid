@@ -50,7 +50,7 @@
  *
  */
 
-#include "compat/qsort_s.h"
+#define __STDC_WANT_LIB_EXT1__ 1
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -65,6 +65,7 @@
 #include <string.h>
 
 #include "color.h"
+#include "compat/qsort_s.h"
 #include "debug.h"
 #include "host.h"
 #include "hwaccel_vdpau.h"
@@ -3414,45 +3415,16 @@ decoder_t get_decoder_from_to(codec_t in, codec_t out) {
 }
 
 // less is better
-#ifdef QSORT_S_COMP_FIRST
-static int best_decoder_cmp(void *orig_c, const void *a, const void *b) {
-#else
-static int best_decoder_cmp(const void *a, const void *b, void *orig_c) {
-#endif
+static QSORT_S_COMP_DEFINE(best_decoder_cmp, a, b, desc_src) {
         codec_t codec_a = *(const codec_t *) a;
         codec_t codec_b = *(const codec_t *) b;
-        codec_t orig_codec = *(codec_t *) orig_c;
+        struct pixfmt_desc *src_desc = desc_src;
+        struct pixfmt_desc desc_a = get_pixfmt_desc(codec_a);
+        struct pixfmt_desc desc_b = get_pixfmt_desc(codec_b);
 
-        if (orig_codec == codec_a || orig_codec == codec_b) { // exact match
-                return orig_codec == codec_a ? -1 : 1;
-        }
-
-        bool slow_a = get_decoder_from_to_internal(orig_codec, codec_a, false) == NULL;
-        bool slow_b = get_decoder_from_to_internal(orig_codec, codec_b, false) == NULL;
-        if (slow_a != slow_b) {
-                return slow_a ? 1 : -1;
-        }
-
-        int bits_a = get_bits_per_component(codec_a);
-        int bits_b = get_bits_per_component(codec_b);
-        if (bits_a != bits_b) {
-                int bits_orig = get_bits_per_component(orig_codec);
-                // either a or b is lower than orig - sort higher bit depth first
-                if (bits_a < bits_orig || bits_b < bits_orig) {
-                        return bits_b - bits_a;
-                }
-                // both are equal or higher - sort lower bit depth first
-                return bits_a - bits_b;
-        }
-
-        int subs_a = get_subsampling(codec_a);
-        int subs_b = get_subsampling(codec_b);
-        if (subs_a != subs_b) {
-                int subs_orig = get_subsampling(orig_codec);
-                if (subs_a < subs_orig || subs_b < subs_orig) {
-                        return subs_b - subs_a; // return better subs
-                }
-                return subs_a - subs_b;
+        int ret = compare_pixdesc(&desc_a, &desc_b, src_desc);
+        if (ret != 0) {
+                return ret;
         }
 
         return (int) codec_a - (int) codec_b;
@@ -3481,7 +3453,8 @@ decoder_t get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec
         if (count == 0) {
                 return NULL;
         }
-        qsort_s(candidates, count, sizeof(codec_t), best_decoder_cmp, &in);
+        struct pixfmt_desc src_desc = get_pixfmt_desc(in);
+        qsort_s(candidates, count, sizeof(codec_t), best_decoder_cmp, &src_desc);
         *out = candidates[0];
         return get_decoder_from_to(in, *out);
 }
