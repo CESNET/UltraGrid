@@ -528,7 +528,7 @@ static void on_process(void *session_ptr) {
 
         screen_cast_session &session = *static_cast<screen_cast_session*>(session_ptr);
         pw_buffer *buffer;
-        int n_buffers_from_pw = 0;
+        [[maybe_unused]] int n_buffers_from_pw = 0;
         while((buffer = pw_stream_dequeue_buffer(session.pw.stream)) != nullptr){    
                 ++n_buffers_from_pw;
 
@@ -600,7 +600,7 @@ static void on_remove_buffer(void *session_ptr, struct pw_buffer *)
 }
 
 static const struct pw_stream_events stream_events = {
-                PW_VERSION_STREAM_EVENTS,
+                .version = PW_VERSION_STREAM_EVENTS,
                 .destroy = nullptr,
                 .state_changed = on_stream_state_changed,
                 .control_info = nullptr,

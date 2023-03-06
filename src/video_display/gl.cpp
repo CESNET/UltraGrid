@@ -1635,7 +1635,7 @@ static void upload_texture(struct state_gl *s, char *data)
         auto process_r10k = [](uint32_t * __restrict out, const uint32_t *__restrict in, long width, long height) {
                 DEBUG_TIMER_START(process_r10k);
                 long line_padding_b = vc_get_linesize(width, R10k) - 4 * width;
-                OPTIMIZED_FOR (long i = 0; i < height; i += 1) {
+                for (long i = 0; i < height; i += 1) {
                         OPTIMIZED_FOR (long j = 0; j < width; j += 1) {
                                 uint32_t x = *in++;
                                 *out++ = /* output is x2b8g8r8 little-endian */
