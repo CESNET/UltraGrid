@@ -152,7 +152,6 @@ struct {
         DEFINE_TEST(libavcodec_test_get_decoder_from_uv_to_uv),
         DEFINE_TEST(misc_test_replace_all),
         DEFINE_TEST(misc_test_video_desc_io_op_symmetry),
-
 };
 
 static bool test_helper(const char *name, bool (*func)()) {
@@ -167,19 +166,20 @@ static bool test_helper(const char *name, bool (*func)()) {
         return ret;
 }
 
-static bool run_unit_tests([[maybe_unused]] string const &test)
+static bool run_unit_tests(string const &test)
 {
-        bool ret = true;
         if (!test.empty()) {
                 for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
                         if (test == tests[i].name) {
                                 return test_helper(tests[i].name, tests[i].test);
                         }
                 }
-        } else {
-                for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
-                        ret = test_helper(tests[i].name, tests[i].test) && ret;
-                }
+                cerr << "No such a test named \"" <<  test << "\"!\n";
+                return false;
+        }
+        bool ret = true;
+        for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
+                ret = test_helper(tests[i].name, tests[i].test) && ret;
         }
         return ret;
 }
