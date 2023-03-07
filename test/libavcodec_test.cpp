@@ -22,9 +22,9 @@ using std::tuple;
 
 extern "C" decoder_t (*testable_get_decoder_from_uv_to_uv)(codec_t in, enum AVPixelFormat av, codec_t *out);
 
-extern "C" bool libavcodec_test_get_decoder_from_uv_to_uv();
+extern "C" int libavcodec_test_get_decoder_from_uv_to_uv();
 
-bool libavcodec_test_get_decoder_from_uv_to_uv()
+int libavcodec_test_get_decoder_from_uv_to_uv()
 {
         using namespace std::string_literals;
 
@@ -45,7 +45,7 @@ bool libavcodec_test_get_decoder_from_uv_to_uv()
                 ASSERT_EQUAL_MESSAGE("Expected UG decoder "s + get<3>(test_case) + " for "s + get_codec_name(get<0>(test_case)) + " to "s
                                 + av_get_pix_fmt_name(get<4>(test_case)), (decoder_t) get<2>(test_case), dec);
         }
-        return true;
+        return 0;
 }
 
 #endif // defined HAVE_LAVC

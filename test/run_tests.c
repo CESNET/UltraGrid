@@ -1,8 +1,11 @@
+/**
+ * @file    run_tests.c
+ * @author  Colin Perkins
+ * @author  Martin Pulec
+ */
 /*
- * FILE:    run_tests.cpp
- * AUTHORS: Colin Perkins
- *
  * Copyright (c) 2004 University of Glasgow
+ * Copyright (c) 2005-2023 CESNET, z. s .p .o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,9 +34,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $Revision: 1.2 $
- * $Date: 2008/01/10 11:07:42 $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -42,13 +42,11 @@
 #include "config_win32.h"
 #endif
 
-#include <iostream>
-#include <string>
+#include <stdbool.h>
 
 #include "debug.h"
 #include "host.h"
 
-extern "C" {
 #include "test_host.h"
 #include "test_aes.h"
 #include "test_bitstream.h"
@@ -60,11 +58,6 @@ extern "C" {
 #include "test_rtp.h"
 #include "test_video_capture.h"
 #include "test_video_display.h"
-}
-
-using std::cerr;
-using std::cout;
-using std::string;
 
 #define TEST_AV_HW 1
 
@@ -78,48 +71,16 @@ uint32_t hd_video_mode;
 
 long packet_rate = 13600;
 
-extern "C" void exit_uv(int status);
+void exit_uv(int status);
 
 void exit_uv(int status)
 {
         exit(status);
 }
 
-static bool run_standard_tests()
-{
-        bool success = true;
-
-        if (test_bitstream() != 0)
-                success = false;
-        if (test_des() != 0)
-                success = false;
-#if 0
-        if (test_aes() != 0)
-                success = false;
-#endif
-        if (test_md5() != 0)
-                success = false;
-        if (test_random() != 0)
-                success = false;
-        if (test_tv() != 0)
-                success = false;
-        if (test_net_udp() != 0)
-                success = getenv("GITHUB_REPOSITORY") != NULL; // ignore failure if run in CI
-        if (test_rtp() != 0)
-                success = false;
-
-#ifdef TEST_AV_HW
-        if (test_video_capture() != 0)
-                success = false;
-        if (test_video_display() != 0)
-                success = false;
-#endif
-
-        return success;
-}
-
-#define DECLARE_TEST(func) extern "C" bool func(void)
-#define DEFINE_TEST(func) { #func, func }
+#define DECLARE_TEST(func) int func(void)
+#define DEFINE_QUIET_TEST(func) { #func, func, true } // original tests that print status by itselves
+#define DEFINE_TEST(func) { #func, func, false }
 
 DECLARE_TEST(codec_conversion_test_testcard_uyvy_to_i420);
 DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r10k);
@@ -137,8 +98,21 @@ DECLARE_TEST(misc_test_video_desc_io_op_symmetry);
 
 struct {
         const char *name;
-        bool (*test)(void);
-} tests[] {
+        int (*test)(void);
+        bool quiet;
+} tests[] = {
+        DEFINE_QUIET_TEST(test_bitstream),
+        DEFINE_QUIET_TEST(test_des),
+        //DEFINE_QUIET_TEST(test_aes),
+        DEFINE_QUIET_TEST(test_md5),
+        DEFINE_QUIET_TEST(test_random),
+        DEFINE_QUIET_TEST(test_tv),
+        DEFINE_QUIET_TEST(test_net_udp),
+        DEFINE_QUIET_TEST(test_rtp),
+#ifdef TEST_AV_HW
+        DEFINE_QUIET_TEST(test_video_capture),
+        DEFINE_QUIET_TEST(test_video_display),
+#endif
         DEFINE_TEST(codec_conversion_test_testcard_uyvy_to_i420),
         DEFINE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r10k),
         DEFINE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r12l),
@@ -154,32 +128,37 @@ struct {
         DEFINE_TEST(misc_test_video_desc_io_op_symmetry),
 };
 
-static bool test_helper(const char *name, bool (*func)()) {
-        bool ret = func();
-        char msg_start[] = "Testing ";
-        size_t len = sizeof msg_start + strlen(name);
-        cerr << msg_start << name << " ";
-        for (int i = len; i < 74; ++i) {
-                cerr << ".";
+static bool test_helper(const char *name, int (*func)(), bool quiet) {
+        int ret = func();
+        if (!quiet) {
+                char msg_start[] = "Testing ";
+                size_t len = sizeof msg_start + strlen(name);
+                fprintf(stderr, "%s%s ", msg_start, name);
+                for (int i = len; i < 74; ++i) {
+                        fprintf(stderr, ".");
+                }
+                fprintf(stderr, " %s\n", ret == 0 ? "Ok" : ret < 0 ? "FAIL" : "--");
         }
-        cerr << " " << (ret ? "Ok" : "FAIL" ) << "\n";
-        return ret;
+        return ret >= 0;
 }
 
-static bool run_unit_tests(string const &test)
+static bool run_tests(const char *test)
 {
-        if (!test.empty()) {
+        if (test) {
                 for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
-                        if (test == tests[i].name) {
-                                return test_helper(tests[i].name, tests[i].test);
+                        if (strcmp(test, tests[i].name) == 0) {
+                                return test_helper(tests[i].name, tests[i].test, tests[i].quiet);
                         }
                 }
-                cerr << "No such a test named \"" <<  test << "\"!\n";
+                fprintf(stderr, "No such a test named \"%s!\"\n", test);
                 return false;
         }
         bool ret = true;
         for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
-                ret = test_helper(tests[i].name, tests[i].test) && ret;
+                if (getenv("GITHUB_REPOSITORY") != NULL && strcmp(tests[i].name, "test_net_udp") == 0) {
+                        continue; // skip this test in CI
+                }
+                ret = test_helper(tests[i].name, tests[i].test, tests[i].quiet) && ret;
         }
         return ret;
 }
@@ -187,39 +166,29 @@ static bool run_unit_tests(string const &test)
 int main(int argc, char **argv)
 {
         if (argc > 1 && (strcmp("-h", argv[1]) == 0 || strcmp("--help", argv[1]) == 0)) {
-                cout << "Usage:\n\t" << argv[0] << " [ unit | standard | all | <test_name> | -h | --help ]\n";
-                cout << "where\n\t<test_name> - run only unit test of given name\n";
-                cout << "\nAvailable unit tests:\n";
+                printf("Usage:\n\t%s [ all | <test_name> | -h | --help ]\n", argv[0]);
+                printf("where\n\t<test_name> - run only test of given name\n");
+                printf("\nAvailable tests:\n");
                 for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
-                        cout << " - " << tests[i].name << "\n";
+                        printf(" - %s\n", tests[i].name);
                 }
                 return 0;
         }
 
-        struct init_data *init = nullptr;
-        if ((init = common_preinit(argc, argv)) == nullptr) {
+        struct init_data *init = NULL;
+        if ((init = common_preinit(argc, argv)) == NULL) {
                 return 2;
         }
 
-        bool run_standard = true;
-        bool run_unit = true;
-        string run_unit_test_name{};
+        const char *test_name = NULL;;
         if (argc == 2) {
-                run_standard = run_unit = false;
-                if (strcmp("unit", argv[1]) == 0) {
-                        run_unit = true;
-                } else if (strcmp("standard", argv[1]) == 0) {
-                        run_standard = true;
-                } else if (strcmp("all", argv[1]) == 0) {
-                        run_standard = run_unit = true;
+                if (strcmp("all", argv[1]) == 0) {
                 } else {
-                        run_unit_test_name = argv[1];
-                        run_unit = true;
+                        test_name = argv[1];
                 }
         }
 
-        bool success = (run_standard ? run_standard_tests() : true);
-        success = (run_unit ? run_unit_tests(run_unit_test_name) : true) && success;
+        bool success = run_tests(test_name);
 
         common_cleanup(init);
 

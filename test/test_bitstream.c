@@ -56,7 +56,7 @@ int test_bitstream(void)
         buffer = malloc(BUFSIZE);
         if (buffer == NULL) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
         buflen = BUFSIZE;
 
@@ -70,23 +70,23 @@ int test_bitstream(void)
         if (buffer[0] != 0xfa) {
                 printf("FAIL\n");
                 printf("  buffer[0] = 0x%02x\n", buffer[0]);
-                return 1;
+                return -1;
         }
         if (buffer[1] != 0xa8) {
                 printf("FAIL\n");
                 printf("  buffer[1] = 0x%02x\n", buffer[1]);
-                return 1;
+                return -1;
         }
         if (buffer[2] != 0x80) {
                 printf("FAIL\n");
                 printf("  buffer[2] = 0x%02x\n", buffer[2]);
-                return 1;
+                return -1;
         }
         bs_put(bs, 0x01, 7);
         if (buffer[2] != 0x81) {
                 printf("FAIL\n");
                 printf("  buffer[2] = 0x%02x\n", buffer[2]);
-                return 1;
+                return -1;
         }
 
         bs_destroy(&bs);

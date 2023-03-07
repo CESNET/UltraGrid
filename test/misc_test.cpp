@@ -14,8 +14,8 @@
 #include "video_frame.h"
 
 extern "C" {
-        bool misc_test_replace_all();
-        bool misc_test_video_desc_io_op_symmetry();
+        int misc_test_replace_all();
+        int misc_test_video_desc_io_op_symmetry();
 }
 
 using namespace std;
@@ -23,7 +23,7 @@ using namespace std;
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wstring-concatenation"
 #endif
-bool misc_test_replace_all()
+int misc_test_replace_all()
 {
         char test[][20] =         { DELDEL DELDEL DELDEL, DELDEL DELDEL,               "XYZX" DELDEL, "XXXyX" };
         const char *repl_from[] = { DELDEL              , DELDEL,                      "X",           "X" };
@@ -33,10 +33,10 @@ bool misc_test_replace_all()
                 replace_all(test[i], repl_from[i], repl_to[i]);
                 ASSERT(strcmp(test[i], res[i]) == 0);
         }
-        return true;
+        return 0;
 }
 
-bool misc_test_video_desc_io_op_symmetry()
+int misc_test_video_desc_io_op_symmetry()
 {
         const std::list<video_desc> test_desc = {
                 {1920, 1080, DXT5, 60, PROGRESSIVE, 4},
@@ -56,5 +56,5 @@ bool misc_test_video_desc_io_op_symmetry()
                 ASSERT_MESSAGE(err_elem, video_desc_eq(tmp, i));
                 ASSERT_EQUAL_MESSAGE(err_elem, tmp, i);
         }
-        return true;
+        return 0;
 }

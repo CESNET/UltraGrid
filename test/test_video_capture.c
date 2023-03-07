@@ -55,7 +55,7 @@ int test_video_capture(void)
         if (initialize_video_capture(NULL, params, &state) != VIDCAP_INIT_OK) {
                 printf("FAIL\n");
                 printf("    Cannot initialize NULL capture\n");
-                return 1;
+                return -1;
         }
         printf("Ok\n");
         vidcap_params_free_struct(params);

@@ -87,7 +87,7 @@ int test_md5(void)
         MD5Final(digest, &context);
         if (strncmp((char *) digest, (char *) o1, 16) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
 
         MD5Init(&context);
@@ -95,7 +95,7 @@ int test_md5(void)
         MD5Final(digest, &context);
         if (strncmp((char *) digest, (char *) o2, 16) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
 
         MD5Init(&context);
@@ -103,7 +103,7 @@ int test_md5(void)
         MD5Final(digest, &context);
         if (strncmp((char *) digest, (char *) o3, 16) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
 
         MD5Init(&context);
@@ -111,7 +111,7 @@ int test_md5(void)
         MD5Final(digest, &context);
         if (strncmp((char *) digest, (char *) o4, 16) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
 
         MD5Init(&context);
@@ -119,7 +119,7 @@ int test_md5(void)
         MD5Final(digest, &context);
         if (strncmp((char *) digest, (char *) o5, 16) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
 
         MD5Init(&context);
@@ -127,7 +127,7 @@ int test_md5(void)
         MD5Final(digest, &context);
         if (strncmp((char *) digest, (char *) o6, 16) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
 
         MD5Init(&context);
@@ -135,7 +135,7 @@ int test_md5(void)
         MD5Final(digest, &context);
         if (strncmp((char *) digest, (char *) o7, 16) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
         printf("Ok\n");
         return 0;

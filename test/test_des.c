@@ -221,13 +221,13 @@ int test_des(void)
         qfDES_CBC_e(cbc_key, cbc_buffer, 32, cbc_iv_buf);
         if (memcmp(cbc_buffer, cbc_ok, 32) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
         memcpy(cbc_iv_buf, cbc_iv, 8);
         qfDES_CBC_d(cbc_key, cbc_buffer, 32, cbc_iv_buf);
         if (memcmp(cbc_buffer, cbc_data, 32) != 0) {
                 printf("FAIL\n");
-                return 1;
+                return -1;
         }
         printf("Ok\n");
         return 0;

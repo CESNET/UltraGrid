@@ -57,21 +57,21 @@ int test_tv(void)
         if ((t1.tv_sec != 1) && (t1.tv_usec != 800000)) {
                 printf("FAIL\n");
                 printf("  tv_add() part A\n");
-                return 1;
+                return -1;
         }
         /*   1B) Wraparound of tv_usec during the addition             */
         tv_add(&t1, 0.5);
         if ((t1.tv_sec != 2) && (t1.tv_usec != 300000)) {
                 printf("FAIL\n");
                 printf("  tv_add() part B\n");
-                return 1;
+                return -1;
         }
         /*   1C) Wraparound when the offset is greater than one second */
         tv_add(&t1, 4.2);
         if ((t1.tv_sec != 6) && (t1.tv_usec != 500000)) {
                 printf("FAIL\n");
                 printf("  tv_add() part C\n");
-                return 1;
+                return -1;
         }
 
         /* Test 2: check that tv_gt() works...                         */
@@ -83,7 +83,7 @@ int test_tv(void)
         if (tv_gt(t2, t1) || !tv_gt(t1, t2)) {
                 printf("FAIL\n");
                 printf("  tv_gt() part A\n");
-                return 1;
+                return -1;
         }
 
         /*   2B) See if it works when tv_sec values are the same       */
@@ -94,7 +94,7 @@ int test_tv(void)
         if (tv_gt(t2, t1) || !tv_gt(t1, t2)) {
                 printf("FAIL\n");
                 printf("  tv_gt() part B\n");
-                return 1;
+                return -1;
         }
 
         /* Test 3: check that tv_diff() works...                       */
@@ -107,7 +107,7 @@ int test_tv(void)
         if ((d <= 157.629369 - e) || (d >= 157.629369 + e)) {
                 printf("FAIL\n");
                 printf("  tv_diff: %f != 157.629369\n", d);
-                return 1;
+                return -1;
         }
         /*   3B) when prev_time is newer than curr_time?  Not what we  */
         /*       expect to work, but may as well make sure it gives a  */
@@ -116,7 +116,7 @@ int test_tv(void)
         if ((d <= -157.629369 - e) || (d >= -157.629369 + e)) {
                 printf("FAIL\n");
                 printf("  tv_diff: %f != -157.629369\n", d);
-                return 1;
+                return -1;
         }
 
         /* Test 4: check that tv_diff_usec() works...                  */
@@ -128,7 +128,7 @@ int test_tv(void)
         if (tv_diff_usec(t2, t1) != 157629369) {
                 printf("FAIL\n");
                 printf("  tv_diff_usec: A\n");
-                return 1;
+                return -1;
         }
         /*   4B) see what happens if the tv_sec values are the same    */
         t1.tv_sec = 1065356371;
@@ -138,7 +138,7 @@ int test_tv(void)
         if (tv_diff_usec(t2, t1) != 629369) {
                 printf("FAIL\n");
                 printf("  tv_diff_usec: B\n");
-                return 1;
+                return -1;
         }
         /*   4C) close values on a second boundary                     */
         t1.tv_sec = 1065356371;
@@ -148,7 +148,7 @@ int test_tv(void)
         if (tv_diff_usec(t2, t1) != 1) {
                 printf("FAIL\n");
                 printf("  tv_diff_usec: B\n");
-                return 1;
+                return -1;
         }
 
         /* Test 5: check that get_local_mediatime() works...           */
@@ -158,13 +158,13 @@ int test_tv(void)
         if (m2 - m1 < 22500) {
                 printf("FAIL\n");
                 printf("  get_local_mediatime() runs fast\n");
-                return 1;
+                return -1;
         }
         m3 = get_local_mediatime();
         if (m3 < m2) {
                 printf("FAIL\n");
                 printf("  get_local_mediatime() time runs backwards\n");
-                return 1;
+                return -1;
         }
 
         printf("Ok\n");

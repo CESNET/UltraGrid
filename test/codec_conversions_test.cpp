@@ -21,9 +21,9 @@ using std::string;
 using std::to_string;
 using std::ostringstream;
 
-extern "C" bool codec_conversion_test_testcard_uyvy_to_i420(void);
+extern "C" int codec_conversion_test_testcard_uyvy_to_i420(void);
 
-bool codec_conversion_test_testcard_uyvy_to_i420(void)
+int codec_conversion_test_testcard_uyvy_to_i420(void)
 {
         list<pair<size_t,size_t>> sizes = { {1, 2}, {2, 1}, { 16, 1}, {16, 16}, {127, 255} };
         for (auto &i : sizes) {
@@ -74,6 +74,6 @@ bool codec_conversion_test_testcard_uyvy_to_i420(void)
                 }
                 free(i420_buf);
         }
-        return true;
+        return 0;
 }
 

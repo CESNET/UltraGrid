@@ -4,10 +4,9 @@
 #include "config_win32.h"
 #endif
 
-extern "C" bool gpujpeg_test_simple();
+extern "C" int gpujpeg_test_simple();
 
 #if defined HAVE_GPUJPEG
-
 #include <algorithm>
 #include <iostream>
 #include <memory>
@@ -66,12 +65,12 @@ static void gpujpeg_test_setup()
         atexit(gpujpeg_test_teardown);
 }
 
-bool gpujpeg_test_simple()
+int gpujpeg_test_simple()
 {
         using namespace std::string_literals;
         pthread_once(&set_up, gpujpeg_test_setup);
         if (no_gpu) {
-                return true;
+                return 1;
         }
 
         struct video_desc desc{1920, 1080, RGB, 1, PROGRESSIVE, 1};
@@ -103,11 +102,11 @@ bool gpujpeg_test_simple()
         int max_diff = 0;
         for_each(decompressed.begin(), decompressed.end(), [&](unsigned char &x) {max_diff = max(abs(x - (unsigned char) in->tiles[0].data[i++]), max_diff);});
         ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 1);
-        return true;
+        return 0;
 }
 #else
-bool gpujpeg_test_simple()
+int gpujpeg_test_simple()
 {
-        return true;
+        return 1;
 }
 #endif // defined HAVE_GPUJPEG

@@ -19,13 +19,12 @@ using std::string;
 using std::to_string;
 
 extern "C" {
-        bool get_framerate_test();
-        bool get_framerate_test_2997();
-        bool get_framerate_test_3000();
-        bool get_framerate_test_free();
+        int get_framerate_test_2997();
+        int get_framerate_test_3000();
+        int get_framerate_test_free();
 }
 
-bool get_framerate_test_2997()
+int get_framerate_test_2997()
 {
         // approx
         ASSERT_EQUAL(30000, get_framerate_n(29.97));
@@ -40,10 +39,10 @@ bool get_framerate_test_2997()
         ASSERT_EQUAL(30000, get_framerate_n(30000.0/1001 + EPS));
         ASSERT_EQUAL(1001, get_framerate_d(30000.0/1001 - EPS));
         ASSERT_EQUAL(1001, get_framerate_d(30000.0/1001 - EPS));
-        return true;
+        return 0;
 }
 
-bool get_framerate_test_3000()
+int get_framerate_test_3000()
 {
         ASSERT_EQUAL(30000, get_framerate_n(30));
         ASSERT_EQUAL(1000, get_framerate_d(30));
@@ -52,10 +51,10 @@ bool get_framerate_test_3000()
         ASSERT_EQUAL(1000, get_framerate_d(30 + EPS));
         ASSERT_EQUAL(30000, get_framerate_n(30 - EPS));
         ASSERT_EQUAL(1000, get_framerate_d(30 - EPS));
-        return true;
+        return 0;
 }
 
-bool get_framerate_test_free()
+int get_framerate_test_free()
 {
         for (int i = 10; i < 480; ++i) {
                 // base 1000
@@ -83,6 +82,6 @@ bool get_framerate_test_free()
                 ASSERT_EQUAL_MESSAGE(num_str, (int) round(num * 1000), get_framerate_n(num));
                 ASSERT_EQUAL_MESSAGE(num_str, 1000, get_framerate_d(num));
         }
-        return true;
+        return 0;
 }
 

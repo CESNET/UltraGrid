@@ -87,7 +87,7 @@ int test_net_udp(void)
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                return 1;
+                return -1;
         }
         randomize(buf1, BUFSIZE);
         randomize(buf2, BUFSIZE);
@@ -140,14 +140,14 @@ int test_net_udp(void)
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                return 1;
+                return -1;
         }
 
         s2 = udp_init(hname, 5005, 5004, 1, 0, false);
         if (s2 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                return 1;
+                return -1;
         }
 
         randomize(buf1, BUFSIZE);
@@ -202,7 +202,7 @@ int test_net_udp(void)
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                return 1;
+                return -1;
         }
         randomize(buf1, BUFSIZE);
         randomize(buf2, BUFSIZE);
@@ -254,7 +254,7 @@ int test_net_udp(void)
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                return 1;
+                return -1;
         }
         for (i = 1; i < BUFSIZE; i++) {
                 randomize(buf1, i);
@@ -310,7 +310,7 @@ int test_net_udp(void)
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                return 1;
+                return -1;
         }
         randomize(buf1, BUFSIZE);
         randomize(buf2, BUFSIZE);
@@ -367,7 +367,7 @@ int test_net_udp(void)
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                return 1;
+                return -1;
         }
         randomize(buf1, BUFSIZE);
         randomize(buf2, BUFSIZE);
@@ -433,7 +433,7 @@ int test_net_udp(void)
         s1 = udp_init("224.2.0.1", 5004, 5004, 1, 0, false);
         if (s1 == NULL) {
                 printf("fail (parent): cannot initialize socket\n");
-                return 1;
+                return -1;
         }
         rc = fork();
         if (rc == -1) {

@@ -52,7 +52,7 @@ int test_video_display(void)
         if (initialize_video_display(NULL, "none", "", 0, NULL, &d) != 0) {
                 printf("FAIL\n");
                 printf("    Cannot intiialize dummy device\n");
-                return 1;
+                return -1;
         }
         printf("Ok\n");
         display_done(d);
