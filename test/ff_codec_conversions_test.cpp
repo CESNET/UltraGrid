@@ -4,17 +4,16 @@
 #include "config_win32.h"
 #endif
 
-#if defined HAVE_CPPUNIT && defined HAVE_LAVC
+#if defined HAVE_LAVC
 
 #include <algorithm>
 #include <array>
-#include <cppunit/config/SourcePrefix.h>
+#include <fstream>
 #include <iostream>
 #include <random>
 #include <string>
 #include <vector>
 
-#include "ff_codec_conversions_test.h"
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "tv.h"
@@ -25,6 +24,7 @@ using namespace std::string_literals;
 
 using std::array;
 using std::copy;
+using std::cerr;
 using std::cout;
 using std::default_random_engine;
 using std::uniform_int_distribution;
@@ -37,31 +37,24 @@ using std::vector;
 constexpr int MIN_12B = 16;
 constexpr int MAX_12B = 4079;
 
-
-// Registers the fixture into the 'registry'
-CPPUNIT_TEST_SUITE_REGISTRATION( ff_codec_conversions_test );
-
-ff_codec_conversions_test::ff_codec_conversions_test()
-{
+extern "C" {
+        bool ff_codec_conversions_test_yuv444pXXle_from_to_r10k();
+        bool ff_codec_conversions_test_yuv444pXXle_from_to_r12l();
+        bool ff_codec_conversions_test_yuv444p16le_from_to_rg48();
+        bool ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range();
+        bool ff_codec_conversions_test_pX10_from_to_v210();
 }
 
-ff_codec_conversions_test::~ff_codec_conversions_test()
-{
+#define ASSERT_MESSAGE(msg, expr) if (!(expr)) { \
+        cerr << "Assertion " << #expr << " failed: " << (msg) << "\n"; \
+        return false; \
 }
 
-void
-ff_codec_conversions_test::setUp()
-{
-}
-
-void
-ff_codec_conversions_test::tearDown()
-{
-}
+#define CHECK(expr) if (!(expr)) { return false; }
 
 #define TIMER(t) struct timeval t{}; gettimeofday(&(t), nullptr)
-void
-ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
+bool
+ff_codec_conversions_test_yuv444pXXle_from_to_r10k()
 {
         using namespace std::string_literals;
 
@@ -110,26 +103,28 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r10k()
                         fclose(out);
                 }
 
-                CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 1);
+                ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 1);
+                return true;
         };
 
         for (auto f : { AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUV444P16LE }) {
                 int i = 0;
                 for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = (i++ / 4) % 0x100; });
-                test_pattern(f);
+                CHECK(test_pattern(f));
 
                 array<unsigned char, 4> pattern{ 0xFFU, 0, 0, 0xFFU };
                 for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = pattern[i++ % 4]; });
-                test_pattern(f);
+                CHECK(test_pattern(f));
 
                 default_random_engine rand_gen;
                 for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = rand_gen() % 0x100; });
-                test_pattern(f);
+                CHECK(test_pattern(f));
         }
+        return true;
 }
 
-void
-ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
+bool
+ff_codec_conversions_test_yuv444pXXle_from_to_r12l()
 {
         using namespace std::string_literals;
 
@@ -175,22 +170,24 @@ ff_codec_conversions_test::test_yuv444pXXle_from_to_r12l()
                         fclose(out);
                 }
 
-                CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 1);
+                ASSERT_MESSAGE("Maximal allowed difference 1, found "s + to_string(max_diff), max_diff <= 1);
+                return true;
         };
 
         for (auto f : { AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUV444P16LE }) {
                 int i = 0;
                 array<unsigned char, 3> pattern{ 0xFFU, 0, 0 };
                 for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = pattern[i++ % 3]; });
-                test_pattern(f);
+                CHECK(test_pattern(f));
 
                 for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = (i++ / 3) % 0x100; });
-                test_pattern(f);
+                CHECK(test_pattern(f));
 
                 default_random_engine rand_gen;
                 for_each(rgb_buf.begin(), rgb_buf.end(), [&](unsigned char & c) { c = rand_gen() % 0x100; });
-                test_pattern(f);
+                CHECK(test_pattern(f));
         }
+        return true;
 }
 
 static void yuv444p16le_rg48_encode_decode(int width, int height, char *in, char *out) {
@@ -217,7 +214,7 @@ static void yuv444p16le_rg48_encode_decode(int width, int height, char *in, char
  * also the output - so comparing the output values against clamped input value. Also
  * using lower delta to accept because of the claming.
  */
-void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48_out_of_range()
+bool ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range()
 {
         using namespace std::string_literals;
 
@@ -259,7 +256,7 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48_out_of_range()
                         }
                         max_diff = max<int>(max_diff, abs(diff));
                         out >>= 4;
-                        CPPUNIT_ASSERT_MESSAGE("Value "s + to_string(out) + " out of range "s + to_string(MIN_12B) + "-"s + to_string(MAX_12B), out >= MIN_12B && out <= MAX_12B);
+                        ASSERT_MESSAGE("Value "s + to_string(out) + " out of range "s + to_string(MIN_12B) + "-"s + to_string(MAX_12B), out >= MIN_12B && out <= MAX_12B);
                 }
         }
 
@@ -270,14 +267,15 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48_out_of_range()
                 out.write(reinterpret_cast<char *>(rg48_buf_res.data()), rg48_buf_res.size() * sizeof(decltype(rg48_buf_res)::value_type));
         }
 
-        CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference "s + to_string (MAX_DIFF) + "/65535, found "s + to_string(max_diff), max_diff <= MAX_DIFF);
+        ASSERT_MESSAGE("Maximal allowed difference "s + to_string (MAX_DIFF) + "/65535, found "s + to_string(max_diff), max_diff <= MAX_DIFF);
+        return true;
 }
 
 /**
  * Tests RG48<->YUV444P16LE conversions with 12-bit RGB input values
  * (full-range with the SDI small headroom)
  */
-void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
+bool ff_codec_conversions_test_yuv444p16le_from_to_rg48()
 {
         constexpr int MAX_DIFF = 16; /// @todo look at the conversions to yield better precision
 
@@ -322,7 +320,7 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
                         }
                         max_diff = max<int>(max_diff, abs(diff));
                         out >>= 4;
-                        CPPUNIT_ASSERT_MESSAGE("Value "s + to_string(out) + " out of range "s + to_string(MIN_12B) + "-"s + to_string(MAX_12B), out >= MIN_12B && out <= MAX_12B);
+                        ASSERT_MESSAGE("Value "s + to_string(out) + " out of range "s + to_string(MIN_12B) + "-"s + to_string(MAX_12B), out >= MIN_12B && out <= MAX_12B);
                 }
         }
 
@@ -333,7 +331,8 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
                 out.write(reinterpret_cast<char *>(rg48_buf_res.data()), rg48_buf_res.size() * sizeof(decltype(rg48_buf_res)::value_type));
         }
 
-        CPPUNIT_ASSERT_MESSAGE("Maximal allowed difference "s + to_string (MAX_DIFF) + "/65535, found "s + to_string(max_diff), max_diff <= MAX_DIFF);
+        ASSERT_MESSAGE("Maximal allowed difference "s + to_string (MAX_DIFF) + "/65535, found "s + to_string(max_diff), max_diff <= MAX_DIFF);
+        return true;
 }
 
 /**
@@ -341,7 +340,7 @@ void ff_codec_conversions_test::test_yuv444p16le_from_to_rg48()
  * @todo
  * Write more reasonable comparison to check P010LE with different neigboring lines.
  */
-void ff_codec_conversions_test::test_pX10_from_to_v210()
+bool ff_codec_conversions_test_pX10_from_to_v210()
 {
         constexpr codec_t codec = v210;
         constexpr long width = 1920;
@@ -388,10 +387,11 @@ void ff_codec_conversions_test::test_pX10_from_to_v210()
                         }
                 }
 
-                CPPUNIT_ASSERT_MESSAGE("Error: output doesn't match input"s, in == out);
+                ASSERT_MESSAGE("Error: output doesn't match input"s, in == out);
                 out[(width / 2) * height] = 123;
-                CPPUNIT_ASSERT_MESSAGE("Error: output matches input but it shouldn't"s, in != out);
+                ASSERT_MESSAGE("Error: output matches input but it shouldn't"s, in != out);
         }
+        return true;
 }
 
-#endif // defined HAVE_CPPUNIT && HAVE_LAVC
+#endif // HAVE_LAVC

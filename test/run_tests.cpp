@@ -138,12 +138,22 @@ class MyCustomProgressTestListener : public CppUnit::TextTestProgressListener {
 #define DEFINE_TEST(func) { #func, func }
 
 DECLARE_TEST(codec_conversion_test_testcard_uyvy_to_i420);
+DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r10k);
+DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r12l);
+DECLARE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48);
+DECLARE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range);
+DECLARE_TEST(ff_codec_conversions_test_pX10_from_to_v210);
 
 struct {
         const char *name;
         bool (*test)(void);
 } tests[] {
         DEFINE_TEST(codec_conversion_test_testcard_uyvy_to_i420),
+        DEFINE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r10k),
+        DEFINE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r12l),
+        DEFINE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48),
+        DEFINE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range),
+        DEFINE_TEST(ff_codec_conversions_test_pX10_from_to_v210),
 };
 
 static bool test_helper(const char *name, bool (*func)()) {
