@@ -510,7 +510,7 @@ static void *capture_thread(void *arg)
 }
 
 static bool parse_bitrate(char *optarg, long long int *bitrate) {
-        map<const char *, long long int> bitrate_spec_map = {
+        map<string, long long int> bitrate_spec_map = {
                 { "auto", RATE_AUTO },
                 { "dynamic", RATE_DYNAMIC },
                 { "unlimited", RATE_UNLIMITED },
