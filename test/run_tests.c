@@ -166,8 +166,10 @@ static bool run_tests(const char *test)
 int main(int argc, char **argv)
 {
         if (argc > 1 && (strcmp("-h", argv[1]) == 0 || strcmp("--help", argv[1]) == 0)) {
-                printf("Usage:\n\t%s [ all | <test_name> | -h | --help ]\n", argv[0]);
-                printf("where\n\t<test_name> - run only test of given name\n");
+                printf("Usage:\n\t%s [-V] [ all | <test_name> | -h | --help ]\n", argv[0]);
+                printf("\nwhere\n"
+                       "\t  -V[V[V]]  - verbose (use UG log level verbose/debug/debug2, default fatal)\n"
+                       "\t<test_name> - run only test of given name\n");
                 printf("\nAvailable tests:\n");
                 for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
                         printf(" - %s\n", tests[i].name);
@@ -175,16 +177,24 @@ int main(int argc, char **argv)
                 return 0;
         }
 
+        log_level = LOG_LEVEL_FATAL;
         struct init_data *init = NULL;
         if ((init = common_preinit(argc, argv)) == NULL) {
                 return 2;
         }
 
+        argc -= 1;
+        argv += 1;
+        if (argc >= 1 && strncmp(argv[0], "-V", 2) == 0) { // handled in common_preinit
+                argc -= 1;
+                argv += 1;
+        }
+
         const char *test_name = NULL;;
-        if (argc == 2) {
-                if (strcmp("all", argv[1]) == 0) {
+        if (argc == 1) {
+                if (strcmp("all", argv[0]) == 0) {
                 } else {
-                        test_name = argv[1];
+                        test_name = argv[0];
                 }
         }
 
