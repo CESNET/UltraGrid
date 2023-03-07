@@ -1,0 +1,26 @@
+1c1
+< From 1317fc51792caa70ae8f08224367bc6bf2e3857e Mon Sep 17 00:00:00 2001
+---
+> From dad61681541cdbae43c25c4c618906657da2a8fa Mon Sep 17 00:00:00 2001
+20c20
+< index 932805ccf3..45306434fb 100755
+---
+> index b6616f00b6..7879849d59 100755
+47c47
+< @@ -6715,6 +6718,7 @@ enabled libvpx            && {
+---
+> @@ -6721,6 +6724,7 @@ enabled libvpx            && {
+56c56
+< index 389253f5d0..1573ae4c34 100644
+---
+> index 6c797b8e14..8bb7c4b79a 100644
+61,62c61,62
+<  OBJS-$(CONFIG_LIBVPX_VP9_DECODER)         += libvpxdec.o libvpx.o
+<  OBJS-$(CONFIG_LIBVPX_VP9_ENCODER)         += libvpxenc.o libvpx.o
+---
+>  OBJS-$(CONFIG_LIBVPX_VP9_DECODER)         += libvpxdec.o
+>  OBJS-$(CONFIG_LIBVPX_VP9_ENCODER)         += libvpxenc.o
+786c786
+< 2.39.1
+---
+> 2.39.2
