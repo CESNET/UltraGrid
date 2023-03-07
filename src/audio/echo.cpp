@@ -67,10 +67,6 @@ using time_point = steady_clock::time_point;
 using duration = steady_clock::duration;
 
 namespace {
-        struct Ring_buf_deleter{
-                void operator()(ring_buffer_t* ring) { ring_buffer_destroy(ring); }
-        };
-
         struct Echo_state_deleter{
                 void operator()(SpeexEchoState* echo) { speex_echo_state_destroy(echo); }
         };
@@ -83,8 +79,8 @@ namespace {
 struct echo_cancellation {
         std::unique_ptr<SpeexEchoState, Echo_state_deleter> echo_state;
 
-        std::unique_ptr<ring_buffer_t, Ring_buf_deleter> near_end_ringbuf;
-        std::unique_ptr<ring_buffer_t, Ring_buf_deleter> far_end_ringbuf;
+        ring_buffer_uniq near_end_ringbuf;
+        ring_buffer_uniq far_end_ringbuf;
 
         std::unique_ptr<spx_int16_t[]> frame_data;
         struct audio_frame frame;

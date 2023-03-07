@@ -143,6 +143,12 @@ extern struct audio_buffer_api ring_buffer_fns;
 
 #ifdef __cplusplus
 }
-#endif
+
+#include <memory>
+
+struct ring_buf_deleter{ void operator()(ring_buffer_t* ring) { ring_buffer_destroy(ring); } };
+using ring_buffer_uniq = std::unique_ptr<ring_buffer, ring_buf_deleter>;
+
+#endif //__cplusplus
 
 #endif /* __RING_BUFFER_H */
