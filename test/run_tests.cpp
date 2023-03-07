@@ -42,13 +42,6 @@
 #include "config_win32.h"
 #endif
 
-#ifdef HAVE_CPPUNIT
-#include <cppunit/CompilerOutputter.h>
-#include <cppunit/extensions/TestFactoryRegistry.h>
-#include <cppunit/ui/text/TestRunner.h>
-#include <cppunit/TestResult.h>
-#include <cppunit/TextTestProgressListener.h>
-#endif
 #include <iostream>
 #include <string>
 
@@ -125,15 +118,6 @@ static bool run_standard_tests()
         return success;
 }
 
-#ifdef HAVE_CPPUNIT
-class MyCustomProgressTestListener : public CppUnit::TextTestProgressListener {
- public:
-     virtual void startTest(CppUnit::Test *test) {
-         cerr << "starting test " << test->getName() << "\n";
-     }
-};
-#endif
-
 #define DECLARE_TEST(func) extern "C" bool func(void)
 #define DEFINE_TEST(func) { #func, func }
 
@@ -186,7 +170,6 @@ static bool test_helper(const char *name, bool (*func)()) {
 static bool run_unit_tests([[maybe_unused]] string const &test)
 {
         bool ret = true;
-        std::clog << "Running CppUnit tests:\n";
         if (!test.empty()) {
                 for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
                         if (test == tests[i].name) {
@@ -198,38 +181,8 @@ static bool run_unit_tests([[maybe_unused]] string const &test)
                         ret = test_helper(tests[i].name, tests[i].test) && ret;
                 }
         }
-#ifdef HAVE_CPPUNIT
-        // Get the top level suite from the registry
-        CPPUNIT_NS::Test *suite = CPPUNIT_NS::TestFactoryRegistry::getRegistry().makeTest();
-
-        // Adds the test to the list of test to run
-        CPPUNIT_NS::TextUi::TestRunner runner;
-        runner.addTest( suite );
-        MyCustomProgressTestListener progress;
-        runner.eventManager().addListener(&progress);
-
-        // Change the default outputter to a compiler error format outputter
-        runner.setOutputter( new CPPUNIT_NS::CompilerOutputter( &runner.result(),
-                                CPPUNIT_NS::stdCErr() ) );
-        // Run the test. Runs all tests if test==""s.
-        ret = ret && runner.run(test);
-#else
-        std::clog << "CppUnit was not found, skipping CppUnit tests!\n";
-#endif
         return ret;
 }
-
-#ifdef HAVE_CPPUNIT
-static void print_test(CPPUNIT_NS::Test *test, int indention) {
-        for (int i = 0; i < test->getChildTestCount(); ++i) {
-                for (int j = 0; j < indention; ++j) {
-                        cout << " ";
-                }
-                cout << "- " << test->getChildTestAt(i)->getName() << "\n";
-                print_test(test->getChildTestAt(i), indention + 3);
-        }
-}
-#endif
 
 int main(int argc, char **argv)
 {
@@ -240,10 +193,6 @@ int main(int argc, char **argv)
                 for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
                         cout << " - " << tests[i].name << "\n";
                 }
-#ifdef HAVE_CPPUNIT
-                CPPUNIT_NS::Test *suite = CPPUNIT_NS::TestFactoryRegistry::getRegistry().makeTest();
-                print_test(suite, 0);
-#endif
                 return 0;
         }
 

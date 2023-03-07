@@ -14,7 +14,6 @@ sed -n '/^deb /s/^deb /deb-src /p' /etc/apt/sources.list | sudo tee /etc/apt/sou
 sudo apt update
 sudo apt install appstream # appstreamcli for mkappimage AppStream validation
 sudo apt install fonts-dejavu-core
-sudo apt install libcppunit-dev
 sudo apt --no-install-recommends install nvidia-cuda-toolkit
 sudo apt install libglew-dev libglfw3-dev
 sudo apt install libglm-dev
