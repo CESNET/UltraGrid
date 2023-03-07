@@ -143,6 +143,13 @@ DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r12l);
 DECLARE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48);
 DECLARE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range);
 DECLARE_TEST(ff_codec_conversions_test_pX10_from_to_v210);
+DECLARE_TEST(get_framerate_test_2997);
+DECLARE_TEST(get_framerate_test_3000);
+DECLARE_TEST(get_framerate_test_free);
+DECLARE_TEST(gpujpeg_test_simple);
+DECLARE_TEST(libavcodec_test_get_decoder_from_uv_to_uv);
+DECLARE_TEST(misc_test_replace_all);
+DECLARE_TEST(misc_test_video_desc_io_op_symmetry);
 
 struct {
         const char *name;
@@ -154,6 +161,14 @@ struct {
         DEFINE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48),
         DEFINE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range),
         DEFINE_TEST(ff_codec_conversions_test_pX10_from_to_v210),
+        DEFINE_TEST(get_framerate_test_2997),
+        DEFINE_TEST(get_framerate_test_3000),
+        DEFINE_TEST(get_framerate_test_free),
+        DEFINE_TEST(gpujpeg_test_simple),
+        DEFINE_TEST(libavcodec_test_get_decoder_from_uv_to_uv),
+        DEFINE_TEST(misc_test_replace_all),
+        DEFINE_TEST(misc_test_video_desc_io_op_symmetry),
+
 };
 
 static bool test_helper(const char *name, bool (*func)()) {

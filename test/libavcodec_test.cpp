@@ -4,14 +4,14 @@
 #include "config_win32.h"
 #endif
 
-#if defined HAVE_CPPUNIT && defined HAVE_LAVC
+#if defined HAVE_LAVC
 
 #include <list>
 #include <string>
 #include <tuple>
 
 #include "libavcodec/lavc_common.h"
-#include "libavcodec_test.hpp"
+#include "unit_common.h"
 #include "video_codec.h"
 
 using std::get;
@@ -22,20 +22,9 @@ using std::tuple;
 
 extern "C" decoder_t (*testable_get_decoder_from_uv_to_uv)(codec_t in, enum AVPixelFormat av, codec_t *out);
 
-// Registers the fixture into the 'registry'
-CPPUNIT_TEST_SUITE_REGISTRATION(libavcodec_test);
+extern "C" bool libavcodec_test_get_decoder_from_uv_to_uv();
 
-void
-libavcodec_test::setUp()
-{
-}
-
-void
-libavcodec_test::tearDown()
-{
-}
-
-void libavcodec_test::test_get_decoder_from_uv_to_uv()
+bool libavcodec_test_get_decoder_from_uv_to_uv()
 {
         using namespace std::string_literals;
 
@@ -51,11 +40,12 @@ void libavcodec_test::test_get_decoder_from_uv_to_uv()
         for (auto & test_case : expected_decoders) {
                 codec_t out = VIDEO_CODEC_NONE;
                 decoder_t dec = testable_get_decoder_from_uv_to_uv(get<0>(test_case), get<4>(test_case), &out);
-                CPPUNIT_ASSERT_EQUAL_MESSAGE("Expected intermediate "s + get_codec_name(get<1>(test_case)) + " for UG decoder for "s
+                ASSERT_EQUAL_MESSAGE("Expected intermediate "s + get_codec_name(get<1>(test_case)) + " for UG decoder for "s
                                 + get_codec_name(get<0>(test_case)) + " to "s + av_get_pix_fmt_name(get<4>(test_case)), get<1>(test_case), out);
-                CPPUNIT_ASSERT_EQUAL_MESSAGE("Expected UG decoder "s + get<3>(test_case) + " for "s + get_codec_name(get<0>(test_case)) + " to "s
+                ASSERT_EQUAL_MESSAGE("Expected UG decoder "s + get<3>(test_case) + " for "s + get_codec_name(get<0>(test_case)) + " to "s
                                 + av_get_pix_fmt_name(get<4>(test_case)), (decoder_t) get<2>(test_case), dec);
         }
+        return true;
 }
 
-#endif // defined HAVE_CPPUNIT && HAVE_LAVC
+#endif // defined HAVE_LAVC

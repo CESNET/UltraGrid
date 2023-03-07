@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 
+#include "unit_common.h"
 #include "video_codec.h"
 #include "video_capture/testcard_common.h"
 
@@ -19,11 +20,6 @@ using std::pair;
 using std::string;
 using std::to_string;
 using std::ostringstream;
-
-#define ASSERT_EQUAL_MESSAGE(msg, expected, actual) if ((expected) != (actual)) { \
-        cerr << "Assertion failed - expected " << (expected) << ", actual : " << (actual) << ": " << (msg) << "\n"; \
-        return false; \
-}
 
 extern "C" bool codec_conversion_test_testcard_uyvy_to_i420(void);
 

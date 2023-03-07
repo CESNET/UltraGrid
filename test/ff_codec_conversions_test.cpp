@@ -17,6 +17,7 @@
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "tv.h"
+#include "unit_common.h"
 #include "video_capture/testcard_common.h"
 #include "video_codec.h"
 
@@ -43,11 +44,6 @@ extern "C" {
         bool ff_codec_conversions_test_yuv444p16le_from_to_rg48();
         bool ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range();
         bool ff_codec_conversions_test_pX10_from_to_v210();
-}
-
-#define ASSERT_MESSAGE(msg, expr) if (!(expr)) { \
-        cerr << "Assertion " << #expr << " failed: " << (msg) << "\n"; \
-        return false; \
 }
 
 #define CHECK(expr) if (!(expr)) { return false; }
