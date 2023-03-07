@@ -1,0 +1,42 @@
+1c1
+< From 1317fc51792caa70ae8f08224367bc6bf2e3857e Mon Sep 17 00:00:00 2001
+---
+> From aa8950db7b1de7b90920c70192e37047fe9e26d1 Mon Sep 17 00:00:00 2001
+20c20
+< index 932805ccf3..45306434fb 100755
+---
+> index dca1d44315..3fcd1f844e 100755
+31c31
+< @@ -1846,6 +1847,7 @@ EXTERNAL_LIBRARY_LIST="
+---
+> @@ -1847,6 +1848,7 @@ EXTERNAL_LIBRARY_LIST="
+39c39
+< @@ -3387,6 +3389,7 @@ libvpx_vp8_decoder_deps="libvpx"
+---
+> @@ -3389,6 +3391,7 @@ libvpx_vp8_decoder_deps="libvpx"
+47c47
+< @@ -6715,6 +6718,7 @@ enabled libvpx            && {
+---
+> @@ -6725,6 +6728,7 @@ enabled libvpx            && {
+56c56
+< index 389253f5d0..1573ae4c34 100644
+---
+> index 786c827176..f0d2cc4773 100644
+61,62c61,62
+<  OBJS-$(CONFIG_LIBVPX_VP9_DECODER)         += libvpxdec.o libvpx.o
+<  OBJS-$(CONFIG_LIBVPX_VP9_ENCODER)         += libvpxenc.o libvpx.o
+---
+>  OBJS-$(CONFIG_LIBVPX_VP9_DECODER)         += libvpxdec.o
+>  OBJS-$(CONFIG_LIBVPX_VP9_ENCODER)         += libvpxenc.o
+68c68
+< index e593ad19af..a5396c0477 100644
+---
+> index 633f0dea3f..502f25dcfe 100644
+74c74
+<  extern FFCodec ff_libvpx_vp9_decoder;
+---
+>  extern const FFCodec ff_libvpx_vp9_decoder;
+786c786
+< 2.39.1
+---
+> 2.40.0
