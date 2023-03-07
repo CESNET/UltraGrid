@@ -4,47 +4,30 @@
 #include "config_win32.h"
 #endif
 
-#ifdef HAVE_CPPUNIT
-
-#include <cppunit/config/SourcePrefix.h>
+#include <iostream>
 #include <list>
 #include <sstream>
 #include <string>
 #include <utility>
 
-#include "codec_conversions_test.h"
 #include "video_codec.h"
 #include "video_capture/testcard_common.h"
 
+using std::cerr;
 using std::list;
 using std::pair;
 using std::string;
 using std::to_string;
 using std::ostringstream;
 
-// Registers the fixture into the 'registry'
-CPPUNIT_TEST_SUITE_REGISTRATION( codec_conversions_test );
-
-codec_conversions_test::codec_conversions_test()
-{
+#define ASSERT_EQUAL_MESSAGE(msg, expected, actual) if ((expected) != (actual)) { \
+        cerr << "Assertion failed - expected " << (expected) << ", actual : " << (actual) << ": " << (msg) << "\n"; \
+        return false; \
 }
 
-codec_conversions_test::~codec_conversions_test()
-{
-}
+extern "C" bool codec_conversion_test_testcard_uyvy_to_i420(void);
 
-void
-codec_conversions_test::setUp()
-{
-}
-
-void
-codec_conversions_test::tearDown()
-{
-}
-
-void
-codec_conversions_test::test_testcard_uyvy_to_i420()
+bool codec_conversion_test_testcard_uyvy_to_i420(void)
 {
         list<pair<size_t,size_t>> sizes = { {1, 2}, {2, 1}, { 16, 1}, {16, 16}, {127, 255} };
         for (auto &i : sizes) {
@@ -67,8 +50,8 @@ codec_conversions_test::test_testcard_uyvy_to_i420()
                                 ostringstream oss;
                                 unsigned char expected = uyvy_pattern[((2 * j + 1) % 4)];
                                 unsigned char actual = *y_ptr++;
-                                oss << size_x << "X" << size_y << ": [" << i << ", " << j << "] expected " << expected << ", actual: " << actual << "\n";
-                                CPPUNIT_ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
+                                oss << size_x << "X" << size_y << ": [" << i << ", " << j << "]";
+                                ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
                         }
                 }
                 // U
@@ -78,8 +61,8 @@ codec_conversions_test::test_testcard_uyvy_to_i420()
                                 ostringstream oss;
                                 unsigned char expected = 'u';
                                 unsigned char actual = *u_ptr++;
-                                oss << "[" << i << ", " << j << "] expected " << expected << ", actual: " << actual << "\n";
-                                CPPUNIT_ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
+                                oss << "[" << i << ", " << j << "]";
+                                ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
                         }
                 }
                 // V
@@ -89,12 +72,12 @@ codec_conversions_test::test_testcard_uyvy_to_i420()
                                 ostringstream oss;
                                 unsigned char expected = 'v';
                                 unsigned char actual = *v_ptr++;
-                                oss << "[" << i << ", " << j << "] expected " << expected << ", actual: " << actual << "\n";
-                                CPPUNIT_ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
+                                oss << "[" << i << ", " << j << "]";
+                                ASSERT_EQUAL_MESSAGE(oss.str(), expected, actual);
                         }
                 }
                 free(i420_buf);
         }
+        return true;
 }
 
-#endif // defined HAVE_CPPUNIT

@@ -134,10 +134,46 @@ class MyCustomProgressTestListener : public CppUnit::TextTestProgressListener {
 };
 #endif
 
+#define DECLARE_TEST(func) extern "C" bool func(void)
+#define DEFINE_TEST(func) { #func, func }
+
+DECLARE_TEST(codec_conversion_test_testcard_uyvy_to_i420);
+
+struct {
+        const char *name;
+        bool (*test)(void);
+} tests[] {
+        DEFINE_TEST(codec_conversion_test_testcard_uyvy_to_i420),
+};
+
+static bool test_helper(const char *name, bool (*func)()) {
+        bool ret = func();
+        char msg_start[] = "Testing ";
+        size_t len = sizeof msg_start + strlen(name);
+        cerr << msg_start << name << " ";
+        for (int i = len; i < 74; ++i) {
+                cerr << ".";
+        }
+        cerr << " " << (ret ? "Ok" : "FAIL" ) << "\n";
+        return ret;
+}
+
 static bool run_unit_tests([[maybe_unused]] string const &test)
 {
-#ifdef HAVE_CPPUNIT
+        bool ret = true;
         std::clog << "Running CppUnit tests:\n";
+        if (!test.empty()) {
+                for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
+                        if (test == tests[i].name) {
+                                return test_helper(tests[i].name, tests[i].test);
+                        }
+                }
+        } else {
+                for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
+                        ret = test_helper(tests[i].name, tests[i].test) && ret;
+                }
+        }
+#ifdef HAVE_CPPUNIT
         // Get the top level suite from the registry
         CPPUNIT_NS::Test *suite = CPPUNIT_NS::TestFactoryRegistry::getRegistry().makeTest();
 
@@ -151,10 +187,11 @@ static bool run_unit_tests([[maybe_unused]] string const &test)
         runner.setOutputter( new CPPUNIT_NS::CompilerOutputter( &runner.result(),
                                 CPPUNIT_NS::stdCErr() ) );
         // Run the test. Runs all tests if test==""s.
-        return runner.run(test);
-#endif
+        ret = ret && runner.run(test);
+#else
         std::clog << "CppUnit was not found, skipping CppUnit tests!\n";
-        return true;
+#endif
+        return ret;
 }
 
 #ifdef HAVE_CPPUNIT
@@ -174,8 +211,11 @@ int main(int argc, char **argv)
         if (argc > 1 && (strcmp("-h", argv[1]) == 0 || strcmp("--help", argv[1]) == 0)) {
                 cout << "Usage:\n\t" << argv[0] << " [ unit | standard | all | <test_name> | -h | --help ]\n";
                 cout << "where\n\t<test_name> - run only unit test of given name\n";
-#ifdef HAVE_CPPUNIT
                 cout << "\nAvailable unit tests:\n";
+                for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
+                        cout << " - " << tests[i].name << "\n";
+                }
+#ifdef HAVE_CPPUNIT
                 CPPUNIT_NS::Test *suite = CPPUNIT_NS::TestFactoryRegistry::getRegistry().makeTest();
                 print_test(suite, 0);
 #endif
