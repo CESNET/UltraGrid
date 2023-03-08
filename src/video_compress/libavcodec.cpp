@@ -91,10 +91,6 @@ extern "C"{
 
 #define MOD_NAME "[lavc] "
 
-#ifndef AV_CODEC_CAP_OTHER_THREADS // compat - OTHER_THREADS is AUTO_THREADS in older FF
-#define AV_CODEC_CAP_OTHER_THREADS AV_CODEC_CAP_AUTO_THREADS
-#endif
-
 using namespace std;
 using namespace std::string_literals;
 
