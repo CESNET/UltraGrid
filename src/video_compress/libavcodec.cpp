@@ -736,6 +736,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
         avg_bpp = s->requested_bpp > 0.0 ? s->requested_bpp :
                 codec_params[ug_codec].avg_bpp;
 
+        bool set_bitrate = false;
         int_fast64_t bitrate = s->requested_bitrate > 0 ? s->requested_bitrate :
                 desc.width * desc.height * avg_bpp * desc.fps;
 
@@ -752,6 +753,9 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                         log_msg(LOG_LEVEL_INFO, "[lavc] Setting CRF to %.2f.\n", crf);
                 }
         } else {
+                set_bitrate = true;
+        }
+        if (set_bitrate || s->requested_bitrate > 0) {
                 s->codec_ctx->bit_rate = bitrate;
                 s->codec_ctx->bit_rate_tolerance = bitrate / desc.fps * 6;
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting bitrate to " << format_in_si_units(bitrate) << "bps.\n";
@@ -1510,18 +1514,21 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                 param->blacklist_opts.insert("rc");
         }
         if (strcmp(rc, "help") == 0) {
-                col() << "\n\nSupported RC for QSV in UG are: " << SBOLD("cbr") << ", " << SBOLD("cqp")  << ", " << SBOLD("icq") << " and " << SBOLD("vbr") << "\n";
-                col() << "Others can be added on request.\n\n\n";
+                col() << "\n\n" << SBOLD("See codec-specific usage for available RCs.") << "\n\n\n";
                 exit_uv(0);
         } else if (strcasecmp(rc, "cbr") == 0) {
                 codec_ctx->rc_max_rate = codec_ctx->bit_rate;
                 // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
         } else if (strcasecmp(rc, "cqp") == 0) {
                 codec_ctx->flags |= AV_CODEC_FLAG_QSCALE;
-        } else if (strcasecmp(rc, "icq") == 0) {
+        } else if (strcasecmp(rc, "icq") == 0 || strcasecmp(rc, "qvbr") == 0) {
                 codec_ctx->global_quality = codec_ctx->global_quality <= 0 ? DEFAULT_CQP_QSV : codec_ctx->global_quality;
                 codec_ctx->flags &= ~AV_CODEC_FLAG_QSCALE;
-        } else if (strcasecmp(rc, "vbr") == 0) {
+                if (strcasecmp(rc, "qvbr") == 0) {
+                        assert(codec_ctx->bit_rate > 0);
+                        codec_ctx->rc_max_rate = 2 * codec_ctx->bit_rate; // when not multiplied by 2, QVBR isn't trigerred
+                }
+        } else if (strcasecmp(rc, "vbr") == 0) { // no options needed
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown/unsupported RC %s. Please report to %s if you need some mode added.\n",
                                 rc, PACKAGE_BUGREPORT);
@@ -1681,7 +1688,7 @@ void show_encoder_help(string const &name) {
                 col() << "(options for " << SBOLD(name.substr(3) << "-params") << " should be actually separated by '\\:', not ':' as indicated above)\n";
         }
         if (name == "hevc_qsv" || name == "h264_qsv") {
-                col() << "\n\t- " << SBOLD("rc") << " - [UltraGrid specific] rate control mode: " << SBOLD("cbr") << ", " << SBOLD("cqp") << ", " << SBOLD("icq") << " or " << SBOLD("vbr") << "\n";
+                col() << "\n\t- " << SBOLD("rc") << " - [UltraGrid specific] rate control mode: " << SBOLD("cbr") << ", " << SBOLD("cqp") << ", " << SBOLD("icq") << ", " << SBOLD("qvbr") << " or " << SBOLD("vbr") << "\n";
         }
 }
 
