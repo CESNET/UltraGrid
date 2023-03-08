@@ -1675,6 +1675,9 @@ void show_encoder_help(string const &name) {
         if (name == "libx264" || name == "libx265") {
                 col() << "(options for " << SBOLD(name.substr(3) << "-params") << " should be actually separated by '\\:', not ':' as indicated above)\n";
         }
+        if (name == "hevc_qsv" || name == "h264_qsv") {
+                col() << "\n\t- " << SBOLD("rc") << " - [UltraGrid specific] rate control mode: " << SBOLD("cbr") << " or " << SBOLD("vbr") << "\n";
+        }
 }
 
 /// @retval DEFER_PRESET_SETTING - preset will be set individually later (NVENC)
