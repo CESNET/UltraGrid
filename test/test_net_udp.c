@@ -367,7 +367,7 @@ int test_net_udp(void)
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                return -1;
+                goto abort_multicast_ipv6;
         }
         randomize(buf1, BUFSIZE);
         randomize(buf2, BUFSIZE);
@@ -409,7 +409,9 @@ int test_net_udp(void)
         hname = udp_host_addr(s1);      /* we need this for the unicast test... */
         printf("Ok\n");
  abort_multicast_ipv6:
-        udp_exit(s1);
+        if (s1 != NULL) {
+                udp_exit(s1);
+        }
 #else
         printf
             ("Testing UDP/IP networking (IPv6 loopback) ................................ --\n");

@@ -155,9 +155,6 @@ static bool run_tests(const char *test)
         }
         bool ret = true;
         for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
-                if (getenv("GITHUB_REPOSITORY") != NULL && strcmp(tests[i].name, "test_net_udp") == 0) {
-                        continue; // skip this test in CI
-                }
                 ret = test_helper(tests[i].name, tests[i].test, tests[i].quiet) && ret;
         }
         return ret;
