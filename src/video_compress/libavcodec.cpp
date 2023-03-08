@@ -1510,7 +1510,7 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                 param->blacklist_opts.insert("rc");
         }
         if (strcmp(rc, "help") == 0) {
-                col() << "\n\nSupported RC for QSV in UG are: " << SBOLD("cbr") << ", " << SBOLD("cqp") << " and " << SBOLD("vbr") << "\n";
+                col() << "\n\nSupported RC for QSV in UG are: " << SBOLD("cbr") << ", " << SBOLD("cqp")  << ", " << SBOLD("icq") << " and " << SBOLD("vbr") << "\n";
                 col() << "Others can be added on request.\n\n\n";
                 exit_uv(0);
         } else if (strcasecmp(rc, "cbr") == 0) {
@@ -1518,6 +1518,9 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                 // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
         } else if (strcasecmp(rc, "cqp") == 0) {
                 codec_ctx->flags |= AV_CODEC_FLAG_QSCALE;
+        } else if (strcasecmp(rc, "icq") == 0) {
+                codec_ctx->global_quality = codec_ctx->global_quality <= 0 ? DEFAULT_CQP_QSV : codec_ctx->global_quality;
+                codec_ctx->flags &= ~AV_CODEC_FLAG_QSCALE;
         } else if (strcasecmp(rc, "vbr") == 0) {
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown/unsupported RC %s. Please report to %s if you need some mode added.\n",
@@ -1678,7 +1681,7 @@ void show_encoder_help(string const &name) {
                 col() << "(options for " << SBOLD(name.substr(3) << "-params") << " should be actually separated by '\\:', not ':' as indicated above)\n";
         }
         if (name == "hevc_qsv" || name == "h264_qsv") {
-                col() << "\n\t- " << SBOLD("rc") << " - [UltraGrid specific] rate control mode: " << SBOLD("cbr") << ", " << SBOLD("cqp") << " or " << SBOLD("vbr") << "\n";
+                col() << "\n\t- " << SBOLD("rc") << " - [UltraGrid specific] rate control mode: " << SBOLD("cbr") << ", " << SBOLD("cqp") << ", " << SBOLD("icq") << " or " << SBOLD("vbr") << "\n";
         }
 }
 
