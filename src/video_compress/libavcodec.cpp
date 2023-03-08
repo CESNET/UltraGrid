@@ -1522,7 +1522,7 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
         } else if (strcasecmp(rc, "cqp") == 0) {
                 codec_ctx->flags |= AV_CODEC_FLAG_QSCALE;
         } else if (strcasecmp(rc, "icq") == 0 || strcasecmp(rc, "qvbr") == 0) {
-                codec_ctx->global_quality = codec_ctx->global_quality <= 0 ? DEFAULT_CQP_QSV : codec_ctx->global_quality;
+                codec_ctx->global_quality = codec_ctx->global_quality <= 0 ? DEFAULT_CQP : codec_ctx->global_quality;
                 codec_ctx->flags &= ~AV_CODEC_FLAG_QSCALE;
                 if (strcasecmp(rc, "qvbr") == 0) {
                         assert(codec_ctx->bit_rate > 0);
