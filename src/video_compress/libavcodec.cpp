@@ -127,6 +127,7 @@ constexpr const char *DEFAULT_NVENC_RC = "cbr";
 constexpr const char *DEFAULT_NVENC_TUNE = "ull";
 constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
 
+static constexpr const char *DEFAULT_QSV_RC = "cbr";
 static constexpr const char *DEFAULT_QSV_PRESET = "medium";
 
 typedef struct {
@@ -1496,11 +1497,31 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                 check_av_opt_set<const char *>(codec_ctx->priv_data, "int_ref_type", "vertical");
                 check_av_opt_set<int>(codec_ctx->priv_data, "int_ref_cycle_size", 20);
         }
-        codec_ctx->rc_max_rate = codec_ctx->bit_rate;
-        // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
 
         if (param->desc.interlacing == INTERLACED_MERGED && get_commandline_param("lavc-h264-no-interlaced-dct") == NULL) {
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
+        }
+
+        // rate control
+        const char *rc = DEFAULT_QSV_RC;
+        if (auto it = param->lavc_opts.find("rc"); it != param->lavc_opts.end()) {
+                rc = it->second.c_str();
+        }
+        if (strcmp(rc, "help") == 0) {
+                col() << "\n\nSupported RC for QSV in UG are: " << SBOLD("cbr") << " and " << SBOLD("vbr") << "\n";
+                col() << "Others can be added on request.\n\n\n";
+                exit_uv(0);
+        } else if (strcasecmp(rc, "cbr") == 0) {
+                codec_ctx->rc_max_rate = codec_ctx->bit_rate;
+                // no look-ahead and rc_max_rate == bit_rate result in use of CBR for QSV
+        } else if (strcasecmp(rc, "vbr") == 0) {
+        } else {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown/unsupported RC %s. Please report to %s if you need some mode added.\n",
+                                rc, PACKAGE_BUGREPORT);
+                exit_uv(1);
+        }
+        if (param->lavc_opts.find("rc") != param->lavc_opts.end()) {
+                param->lavc_opts.erase("rc");
         }
 }
 
