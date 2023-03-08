@@ -112,13 +112,14 @@ static constexpr string_view DONT_SET_PRESET = "dont_set_preset";
 namespace {
 
 struct setparam_param {
-        setparam_param(map<string, string> &lo) : lavc_opts(lo) {}
+        setparam_param(map<string, string> &lo, set<string> &bo) : lavc_opts(lo), blacklist_opts(bo) {}
         struct video_desc desc {};
         bool have_preset = false;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
         string thread_mode;
         int slices = -1;
         map<string, string> &lavc_opts; ///< user-supplied options from command-line
+        set<string>         &blacklist_opts; ///< options that should be blacklisted
 };
 
 constexpr const char *DEFAULT_AMF_USAGE = "lowlatency";
@@ -259,11 +260,12 @@ struct state_video_compress_libav {
 
         struct video_desc compressed_desc{};
 
-        struct setparam_param params{lavc_opts};
+        struct setparam_param params{lavc_opts, blacklist_opts};
         string              backend;
         int                 requested_gop = DEFAULT_GOP_SIZE;
 
         map<string, string> lavc_opts; ///< user-supplied options from command-line
+        set<string>         blacklist_opts; ///< options that has been processed by setparam handlers and should not be passed to codec
 
         bool hwenc = false;
         bool store_orig_format = false;
@@ -793,6 +795,9 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         // set user supplied parameters
         for (auto const &item : s->lavc_opts) {
+                if (s->blacklist_opts.count(item.first) == 1) {
+                        continue;
+                }
                 if(av_opt_set(s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str(), 0) != 0) {
                         log_msg(LOG_LEVEL_WARNING, "[lavc] Error: Unable to set '%s' to '%s'. Check command-line options.\n", item.first.c_str(), item.second.c_str());
                         return false;
@@ -1464,7 +1469,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         string x265_params;
         if (param->lavc_opts.find("x265-params") != param->lavc_opts.end()) {
                 x265_params = param->lavc_opts.at("x265-params");
-                param->lavc_opts.erase("x265-params");
+                param->blacklist_opts.insert("x265-params");
         }
         auto x265_params_append = [&](const string &key, const string &val) {
                 if (x265_params.find(key) == string::npos) {
@@ -1506,6 +1511,7 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
         const char *rc = DEFAULT_QSV_RC;
         if (auto it = param->lavc_opts.find("rc"); it != param->lavc_opts.end()) {
                 rc = it->second.c_str();
+                param->blacklist_opts.insert("rc");
         }
         if (strcmp(rc, "help") == 0) {
                 col() << "\n\nSupported RC for QSV in UG are: " << SBOLD("cbr") << " and " << SBOLD("vbr") << "\n";
@@ -1519,9 +1525,6 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown/unsupported RC %s. Please report to %s if you need some mode added.\n",
                                 rc, PACKAGE_BUGREPORT);
                 exit_uv(1);
-        }
-        if (param->lavc_opts.find("rc") != param->lavc_opts.end()) {
-                param->lavc_opts.erase("rc");
         }
 }
 
