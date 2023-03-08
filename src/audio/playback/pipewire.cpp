@@ -42,61 +42,82 @@
 
 #include <memory>
 
-#include <spa/param/audio/format-utils.h>
-#include <pipewire/pipewire.h>
-
 #include "audio/audio_playback.h"
 #include "audio/types.h"
+#include "audio/pipewire_common.hpp"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/ring_buffer.h"
 #include "utils/string_view_utils.hpp"
 
-struct pipewire_thread_loop_deleter { void operator()(pw_thread_loop *l) { pw_thread_loop_destroy(l); } };
-using pw_thread_loop_uniq = std::unique_ptr<pw_thread_loop, pipewire_thread_loop_deleter>;
-
-struct pipewire_stream_deleter { void operator()(pw_stream *s) { pw_stream_destroy(s); } };
-using pw_stream_uniq = std::unique_ptr<pw_stream, pipewire_stream_deleter>;
-
-class pipewire_thread_loop_lock_guard{
-public:
-        pipewire_thread_loop_lock_guard(pw_thread_loop *loop) : l(loop) {
-                pw_thread_loop_lock(l);
-        }
-        ~pipewire_thread_loop_lock_guard(){
-                pw_thread_loop_unlock(l);
-        }
-        pipewire_thread_loop_lock_guard(pipewire_thread_loop_lock_guard&) = delete;
-        pipewire_thread_loop_lock_guard& operator=(pipewire_thread_loop_lock_guard&) = delete;
-
-private:
-        pw_thread_loop *l;
-};
-
-struct pipewire_init_guard{
-        pipewire_init_guard(){
-                pw_init(nullptr, nullptr);
-        }
-        ~pipewire_init_guard(){
-                pw_deinit();
-        }
-        pipewire_init_guard(pipewire_init_guard&) = delete;
-        pipewire_init_guard& operator=(pipewire_init_guard&) = delete;
-};
-
 struct state_pipewire_play{
-        pipewire_init_guard init_guard;
+        pipewire_state_common pw;
+
+        pw_stream_uniq stream;
+        spa_hook_uniq stream_listener;
+
+        std::string target;
 
         audio_desc desc;
-
-        pw_thread_loop_uniq pipewire_loop;
-
         ring_buffer_uniq ring_buf;
-        pw_stream_uniq stream;
-
-        double accumulator = 0;
 };
+
+static void on_registry_event_global(void *data, uint32_t id,
+                uint32_t permissions, const char *type, uint32_t version,
+                const struct spa_dict *props)
+{
+        std::string_view type_sv(type);
+        if(type_sv != "PipeWire:Interface:Node")
+                return;
+
+        bool is_sink = false;
+        std::string_view name;
+        std::string_view desc;
+        for(int i = 0; i < props->n_items; i++){
+                std::string_view key(props->items[i].key);
+                std::string_view val(props->items[i].value);
+
+                std::cout << "\t" << key << "\t\t\t\t" << val << "\n";
+                if(key == "node.description")
+                        desc = val;
+                if(key == "node.nick")
+                        name = val;
+                if(key == "media.class" && val == "Audio/Sink"){
+                        is_sink = true;
+                        break;
+                }
+        }
+
+        if(is_sink){
+                std::cout << "Sink " << id << " " << name << ": " << desc << "\n";
+        }
+
+}
+
+static void print_devices(){
+        pipewire_state_common s;
+        initialize_pw_common(s);
+
+        pw_registry_uniq registry(pw_core_get_registry(s.pipewire_core.get(), PW_VERSION_REGISTRY, 0));
+
+        const static pw_registry_events registry_events = {
+                PW_VERSION_REGISTRY_EVENTS,
+                .global = on_registry_event_global
+        };
+
+        spa_hook_uniq registry_listener;
+        pw_registry_add_listener(registry.get(), &registry_listener.get(), &registry_events, nullptr);
+
+        pipewire_thread_loop_lock_guard lock(s.pipewire_loop.get());
+
+        s.pw_pending_seq = pw_core_sync(s.pipewire_core.get(), PW_ID_CORE, s.pw_pending_seq);
+        int wait_seq = s.pw_pending_seq;
+
+        do{
+                pw_thread_loop_wait(s.pipewire_loop.get());
+        } while(s.pw_last_seq < wait_seq);
+}
 
 static void audio_play_pw_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
@@ -109,6 +130,7 @@ static void audio_play_pw_probe(struct device_info **available_devices, int *cou
 
 static void audio_play_pw_help(){
         color_printf("Pipewire audio output.\n");
+        print_devices();
 }
 
 /* This function can only use realtime-safe calls (no locking, allocating, etc.)
@@ -141,17 +163,31 @@ static void on_process(void *userdata) noexcept{
 static void * audio_play_pw_init(const char *cfg){
         std::string_view cfg_sv(cfg);
 
-        if(cfg_sv == "help"){
+        std::string_view key = tokenize(cfg_sv, '=', '\"');
+        std::string_view val = tokenize(cfg_sv, '=', '\"');
+
+        std::string_view target_device;
+
+        if(key == "help"){
                 audio_play_pw_help();
-                return &audio_init_state_ok;
+                return INIT_NOERR;
+        } else if(key == "target"){
+                target_device = val;
         }
 
-        auto state = std::make_unique<state_pipewire_play>();
+        auto s = std::make_unique<state_pipewire_play>();
 
-        state->pipewire_loop.reset(pw_thread_loop_new("Playback", nullptr));
-        pw_thread_loop_start(state->pipewire_loop.get());
 
-        return state.release();
+        fprintf(stdout, "Compiled with libpipewire %s\n"
+                        "Linked with libpipewire %s\n",
+                        pw_get_headers_version(),
+                        pw_get_library_version());
+
+        s->target = std::string(target_device);
+
+        initialize_pw_common(s->pw);
+
+        return s.release();
 }
 
 static void audio_play_pw_put_frame(void *state, const struct audio_frame *frame){
@@ -229,6 +265,7 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
                         PW_KEY_APP_NAME, "UltraGrid",
                         PW_KEY_APP_ICON_NAME, "ultragrid",
                         PW_KEY_NODE_NAME, "ug play",
+                        PW_KEY_NODE_TARGET, s->target.c_str(), //TODO: deprecated in newer
                         nullptr);
 
         pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
@@ -250,14 +287,18 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
         /*
          * Pipewire thread loop lock
          */
-        pipewire_thread_loop_lock_guard lock(s->pipewire_loop.get());
+        pipewire_thread_loop_lock_guard lock(s->pw.pipewire_loop.get());
 
-        s->stream.reset(pw_stream_new_simple(
-                                pw_thread_loop_get_loop(s->pipewire_loop.get()),
+        s->stream.reset(pw_stream_new(
+                                s->pw.pipewire_core.get(),
                                 "UltraGrid playback",
-                                props,
-                                &stream_events,
-                                s));
+                                props));
+
+        pw_stream_add_listener(
+                        s->stream.get(),
+                        &s->stream_listener.get(),
+                        &stream_events,
+                        s);
 
         int buf_len_ms = 50;
         int ring_size = desc.bps * desc.ch_count * (desc.sample_rate * buf_len_ms / 1000);
@@ -278,7 +319,7 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
 static void audio_play_pw_done(void *state){
         auto s = static_cast<state_pipewire_play *>(state);
 
-        pw_thread_loop_stop(s->pipewire_loop.get());
+        pw_thread_loop_stop(s->pw.pipewire_loop.get());
         delete s;
 }
 
