@@ -168,8 +168,8 @@ int main(int argc, char **argv)
         if (argc > 1 && (strcmp("-h", argv[1]) == 0 || strcmp("--help", argv[1]) == 0)) {
                 printf("Usage:\n\t%s [-V] [ all | <test_name> | -h | --help ]\n", argv[0]);
                 printf("\nwhere\n"
-                       "\t  -V[V[V]]  - verbose (use UG log level verbose/debug/debug2, default fatal)\n"
-                       "\t<test_name> - run only test of given name\n");
+                       "\t-V[V[V]] | --verbose - verbose (use UG log level verbose/debug/debug2, default fatal)\n"
+                       "\t     <test_name>     - run only test of given name\n");
                 printf("\nAvailable tests:\n");
                 for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
                         printf(" - %s\n", tests[i].name);
@@ -185,7 +185,7 @@ int main(int argc, char **argv)
 
         argc -= 1;
         argv += 1;
-        if (argc >= 1 && strncmp(argv[0], "-V", 2) == 0) { // handled in common_preinit
+        if (argc >= 1 && (strstr(argv[0], "-V") == argv[0] || strstr(argv[0], "--verbose") == argv[0])) { // handled in common_preinit
                 argc -= 1;
                 argv += 1;
         }
