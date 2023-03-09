@@ -114,6 +114,12 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
                 return NULL;
         }
 
+        const char *display = getenv("DISPLAY");
+        if (display == NULL || strlen(display) == 0) {
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Disabling keyboard control.\n");
+                set_commandline_param("disable-keyboard-control", "");
+        }
+
         s->f = get_splashscreen();
 
         pthread_mutex_init(&s->lock, NULL);
