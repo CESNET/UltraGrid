@@ -107,6 +107,30 @@ static struct video_frame *display_caca_getf(void *state)
         return s->f;
 }
 
+static void handle_events(struct state_caca *s)
+{
+        caca_event_t e;
+        int ret = 0;
+        while ((ret = caca_get_event(s->display, CACA_EVENT_ANY, &e, 0)) > 0) {
+                switch (e.type) {
+                        case CACA_EVENT_KEY_PRESS:
+                                if (e.data.key.ch == 'q' || e.data.key.ch == CACA_KEY_CTRL_C) {
+                                        exit_uv(0);
+                                }
+                                break;
+                        case CACA_EVENT_RESIZE:
+                                s->screen_w = e.data.resize.w;
+                                s->screen_h = e.data.resize.h;
+                                break;
+                        case CACA_EVENT_QUIT:
+                                exit_uv(0);
+                                break;
+                        default:
+                                verbose_msg(MOD_NAME "Unhandled caca event %d\n", e.type);
+                }
+        }
+}
+
 static int display_caca_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
         if (frame == NULL || timeout_ns == PUTF_DISCARD) {
@@ -114,6 +138,7 @@ static int display_caca_putf(void *state, struct video_frame *frame, long long t
         }
 
         struct state_caca *s = state;
+        handle_events(s);
 
         caca_dither_bitmap(s->canvas, 0, 0, s->screen_w, s->screen_h, s->dither, frame->tiles[0].data);
         caca_refresh_display(s->display);
