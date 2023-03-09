@@ -43,16 +43,17 @@ github_workspace_cp=$(cygpath "$GITHUB_WORKSPACE")
 PACMAN_INSTALL='pacman -Sy --needed --noconfirm --disable-download-timeout'
 # Install MSYS2 packages
 MINGW_PACKAGE_PREFIX=mingw-w64-clang-x86_64
-$PACMAN_INSTALL automake autoconf git make pkgconf ${MINGW_PACKAGE_PREFIX}-toolchain unzip zip
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-ffmpeg
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-libsoxr ${MINGW_PACKAGE_PREFIX}-speexdsp
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-glew ${MINGW_PACKAGE_PREFIX}-libcaca ${MINGW_PACKAGE_PREFIX}-SDL2 ${MINGW_PACKAGE_PREFIX}-SDL2_mixer ${MINGW_PACKAGE_PREFIX}-SDL2_ttf ${MINGW_PACKAGE_PREFIX}-glfw
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-glm
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-curl # RTSP capture
+m=$MINGW_PACKAGE_PREFIX
+$PACMAN_INSTALL automake autoconf git make pkgconf $m-toolchain unzip zip
+$PACMAN_INSTALL $m-ffmpeg
+$PACMAN_INSTALL $m-libsoxr $m-speexdsp
+$PACMAN_INSTALL $m-glew $m-libcaca $m-SDL2 $m-SDL2_mixer $m-SDL2_ttf $m-glfw
+$PACMAN_INSTALL $m-glm
+$PACMAN_INSTALL $m-portaudio # in case of problems build PA with --with-winapi=wmme,directx,wasapi
+$PACMAN_INSTALL $m-curl # RTSP capture
 pacman -Scc --noconfirm # make some free space
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-qt6-base ${MINGW_PACKAGE_PREFIX}-qt6-tools
-$PACMAN_INSTALL ${MINGW_PACKAGE_PREFIX}-imagemagick ${MINGW_PACKAGE_PREFIX}-opencv
+$PACMAN_INSTALL $m-qt6-base $m-qt6-tools
+$PACMAN_INSTALL $m-imagemagick $m-opencv
 $PACMAN_INSTALL p7zip
 $PACMAN_INSTALL libtool # PCP
 pacman -Scc --noconfirm
