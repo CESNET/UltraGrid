@@ -68,6 +68,7 @@ struct key_val {
         const char *val;
 };
 void print_module_usage(const char *module_name, const struct key_val *options, const struct key_val *options_full, bool print_full_help);
+struct video_frame *get_splashscreen();
 
 #ifdef __cplusplus
 }

@@ -44,9 +44,11 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/misc.h"
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"
+#include "video_display/splashscreen.h"
 
 #define MOD_NAME "[caca] "
 
@@ -112,6 +114,9 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
                 display_caca_done(s);
                 return NULL;
         }
+
+        s->f = get_splashscreen();
+
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->frame_ready_cv, NULL);
         pthread_cond_init(&s->frame_consumed_cv, NULL);
@@ -126,7 +131,7 @@ static struct video_frame *display_caca_getf(void *state)
         return vf_alloc_desc_data(s->desc);
 }
 
-static void handle_events(struct state_caca *s)
+static void handle_events(struct state_caca *s, struct video_frame *last_frame)
 {
         caca_event_t e;
         int ret = 0;
@@ -141,6 +146,10 @@ static void handle_events(struct state_caca *s)
                                 s->screen_w = e.data.resize.w;
                                 s->screen_h = e.data.resize.h;
                                 verbose_msg(MOD_NAME "Resized to %dx%d\n", s->screen_w, s->screen_h);
+                                if (last_frame) {
+                                        caca_dither_bitmap(s->canvas, 0, 0, s->screen_w, s->screen_h, s->dither, last_frame->tiles[0].data);
+                                        caca_refresh_display(s->display);
+                                }
                                 break;
                         case CACA_EVENT_QUIT:
                                 exit_uv(0);
@@ -153,9 +162,9 @@ static void handle_events(struct state_caca *s)
 
 static _Bool reconfigure(struct state_caca *s, struct video_desc desc) {
         enum {
-                RMASK = 0xff0000,
+                RMASK = 0x0000ff,
                 GMASK = 0x00ff00,
-                BMASK = 0x0000ff,
+                BMASK = 0xff0000,
                 AMASK = 0x000000,
         };
         caca_free_dither(s->dither);
@@ -178,6 +187,7 @@ static void *worker(void *arg)
 {
         struct video_desc display_desc = { 0 };
         struct state_caca *s = arg;
+        struct video_frame *last_frame = NULL;
         while (1) {
                 struct video_frame *f = NULL;
                 time_ns_t tout = get_time_in_ns() + 200 * NS_IN_MS;
@@ -185,7 +195,7 @@ static void *worker(void *arg)
                 pthread_mutex_lock(&s->lock);
                 while (!s->f && !s->should_exit) {
                         pthread_cond_timedwait(&s->frame_ready_cv, &s->lock, &timeout);
-                        handle_events(s);
+                        handle_events(s, last_frame);
                 }
                 f = s->f;
                 s->f = NULL;
@@ -202,12 +212,14 @@ static void *worker(void *arg)
                         display_desc = video_desc_from_frame(f);
                 }
 
-                handle_events(s);
+                handle_events(s, last_frame);
                 caca_dither_bitmap(s->canvas, 0, 0, s->screen_w, s->screen_h, s->dither, f->tiles[0].data);
                 caca_refresh_display(s->display);
-                handle_events(s);
-                vf_free(f);
+                handle_events(s, last_frame);
+                vf_free(last_frame);
+                last_frame = f;
         }
+        vf_free(last_frame);
         return NULL;
 }
 
