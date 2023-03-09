@@ -139,13 +139,14 @@ static int check_av_opt_set(void *state, const char *key, const char *val) {
         return ret;
 }
 
-ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F][S][n]\n"
+ADD_TO_PARAM("lavd-thread-count", "* lavd-thread-count=<thread_count>[F][S][n][d]\n"
                 "  Use <thread_count> decoding threads (0 is usually auto).\n"
-                "  Flag 'F' enables frame parallelism (disabled by default), 'S' slice based, can be both (default slice), 'n' for none\n");
+                "  Flag 'F' enables frame parallelism (disabled by default), 'S' slice based, can be both (default slice), 'n' for none; 'd' - disable low delay\n");
 static void set_codec_context_params(struct state_libavcodec_decompress *s)
 {
-        int thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
+        int thread_count = 0; ///< decoder may use <cpu_count> frame threads with AV_CODEC_CAP_OTHER_THREADS (latency)
         int req_thread_type = 0;
+        bool req_low_delay = true;
         const char *thread_count_opt = get_commandline_param("lavd-thread-count");
         if (thread_count_opt != NULL) {
                 char *endptr = NULL;
@@ -158,6 +159,7 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
                                         case 'F': req_thread_type |= FF_THREAD_FRAME; break;
                                         case 'S': req_thread_type |= FF_THREAD_SLICE; break;
                                         case 'n': req_thread_type = -1; break;
+                                        case 'd': req_low_delay = false; break;
                                 }
                                 endptr++;
                         }
@@ -188,6 +190,7 @@ static void set_codec_context_params(struct state_libavcodec_decompress *s)
                 }
         }
 
+        s->codec_ctx->flags |= req_low_delay ? AV_CODEC_FLAG_LOW_DELAY : 0;
         s->codec_ctx->flags2 |= AV_CODEC_FLAG2_FAST;
         // set by decoder
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
@@ -818,7 +821,8 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
                 hint = "\"--param lavd-thread-count=<n>\" option with small <n> or 0 (nr of logical cores)";
         }
         if (hint) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Consider adding %s to increase throughput at the expense of latency.\n",
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Consider adding %s to increase throughput at the expense of latency.\n"
+                                "You may also try to disable low delay decode using 'd' flag.\n",
                                 hint);
         }
         s->mov_avg_frames = LONG_MAX;
