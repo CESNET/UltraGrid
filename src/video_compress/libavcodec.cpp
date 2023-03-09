@@ -1526,7 +1526,7 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                 codec_ctx->flags &= ~AV_CODEC_FLAG_QSCALE;
                 if (strcasecmp(rc, "qvbr") == 0) {
                         assert(codec_ctx->bit_rate > 0);
-                        codec_ctx->rc_max_rate = 2 * codec_ctx->bit_rate; // when not multiplied by 2, QVBR isn't trigerred
+                        codec_ctx->rc_max_rate = 23 * codec_ctx->bit_rate / 20; // 115%; if rc_max_rate == bit_rate, FF would set CBR
                 }
         } else if (strcasecmp(rc, "vbr") == 0) { // no options needed
         } else {
