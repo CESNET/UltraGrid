@@ -124,7 +124,7 @@ constexpr const char *DEFAULT_NVENC_RC = "cbr";
 constexpr const char *DEFAULT_NVENC_TUNE = "ull";
 constexpr const char *FALLBACK_NVENC_PRESET = "llhq";
 
-static constexpr const char *DEFAULT_QSV_RC = "cbr";
+static constexpr const char *DEFAULT_QSV_RC = "vbr";
 static constexpr const char *DEFAULT_QSV_PRESET = "medium";
 
 typedef struct {
