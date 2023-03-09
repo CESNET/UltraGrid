@@ -112,6 +112,7 @@ extern "C" {
 
 struct audio_frame;
 struct module;
+struct video_frame;
 
 struct multi_sources_supp_info {
         bool val;
@@ -209,6 +210,8 @@ int                      display_ctl_property(struct display *d, int property, v
 void                     display_put_audio_frame(struct display *d, const struct audio_frame *frame);
 int                      display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
 /** @} */ // end of display_audio
+
+struct video_frame      *get_splashscreen(void);
 
 #ifdef __cplusplus
 }

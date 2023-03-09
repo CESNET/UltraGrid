@@ -44,7 +44,6 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
-#include "utils/misc.h"
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"

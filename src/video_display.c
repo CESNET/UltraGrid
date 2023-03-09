@@ -70,6 +70,7 @@
 #include "utils/color_out.h"
 #include "video.h"
 #include "video_display.h"
+#include "video_display/splashscreen.h"
 #include "vo_postprocess.h"
 
 #define DISPLAY_MAGIC 0x01ba7ef1
@@ -592,3 +593,33 @@ int display_reconfigure_audio(struct display *d, int quant_samples, int channels
         return d->funcs->reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
 
+struct video_frame *get_splashscreen()
+{
+        struct video_desc desc;
+
+        desc.width = 512;
+        desc.height = 512;
+        desc.color_spec = RGBA;
+        desc.interlacing = PROGRESSIVE;
+        desc.fps = 1;
+        desc.tile_count = 1;
+
+        struct video_frame *frame = vf_alloc_desc_data(desc);
+
+        const char *data = splash_data;
+        memset(frame->tiles[0].data, 0, frame->tiles[0].data_len);
+        for (unsigned int y = 0; y < splash_height; ++y) {
+                char *line = frame->tiles[0].data;
+                line += vc_get_linesize(frame->tiles[0].width,
+                                frame->color_spec) *
+                        (((frame->tiles[0].height - splash_height) / 2) + y);
+                line += vc_get_linesize(
+                                (frame->tiles[0].width - splash_width)/2,
+                                frame->color_spec);
+                for (unsigned int x = 0; x < splash_width; ++x) {
+                        HEADER_PIXEL(data,line);
+                        line += 4;
+                }
+        }
+        return frame;
+}
