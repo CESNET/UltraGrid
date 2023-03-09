@@ -62,8 +62,8 @@ usage_aux() {
         printf "\tULTRAGRID_AUTOUPDATE:    1 - try to autoupdate; 0 - disable update advice\n"
         printf "\tULTRAGRID_BUNDLED_LIBVA: 1 - use bundled libva; 0 - use system libva (if available), default %d\n" $use_bundled_libva_default
         printf "\tULTRAGRID_USE_FIREJAIL:  run the UltraGrid executable with firejail. If\n"
-        printf "\t                         the variable contains printf a profile path\n"
-        printf "\t                         (ends with '.profile'), it will be used.\n"
+        printf "\t                         the variable contains a profile path (ends with\n"
+        printf "\t                         '.profile'), it will be used.\n"
         printf "\n"
 }
 
