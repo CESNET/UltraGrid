@@ -117,6 +117,17 @@ static void funcname(void)\
 }\
 struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
 
+#define REGISTER_MODULE_FUNC_FUNCNAME(name, func, lclass, abi, funcname, hidden) static void funcname(void)  __attribute__((constructor));\
+\
+static void funcname(void)\
+{\
+        const void *info = func();\
+        if (info) {\
+                register_library(#name, info, lclass, abi, hidden);\
+        }\
+}\
+struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
+
 /**
  * @brief  Registers module to global modules' registry
  * @param name   name of the module to be used to load the module (Note that
@@ -131,6 +142,12 @@ struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
  * be defined multiple times under the same name.
  */
 #define REGISTER_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL, 0)
+
+/**
+ * same as REGISTER_MODULE, but a function is called to get the info structure
+ * on run-time allowing to run arbitrary code to do some setup
+ */
+#define REGISTER_MODULE_WITH_FUNC(name, func, lclass, abi) REGISTER_MODULE_FUNC_FUNCNAME(name, func, lclass, abi, UNIQUE_LABEL, 0)
 
 /**
  * Similar to @ref REGISTER_MODULE but do not show the module under help

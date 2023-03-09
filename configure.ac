@@ -1350,6 +1350,27 @@ then
         INC="$INC $GLM_INC"
         xrgl_disp=yes
 fi
+#
+# ------------------------------------------------------------------------------
+# caca
+# ------------------------------------------------------------------------------
+caca=no
+AC_ARG_ENABLE(caca,
+              AS_HELP_STRING([--disable-caca], [disable caca display (default is auto)]),
+              [caca_req=$enableval],
+              [caca_req=$build_default]
+              )
+
+if test $caca_req != no; then
+        PKG_CHECK_MODULES([CACA], [caca], [caca_found=yes], [caca_found=no])
+        if test "$caca_found" = no && test "$caca_req" = yes; then
+                AC_MSG_ERROR([caca requested but libcaca was not found!])
+        fi
+        if test "$caca_found" = yes; then
+                ADD_MODULE("display_caca", "src/video_display/caca.o", "$CACA_LIBS")
+                caca=yes
+        fi
+fi
 
 # -------------------------------------------------------------------------------------------------
 # OpenCV version detection
@@ -3629,6 +3650,7 @@ RESULT=`add_column "$RESULT" "AJA" $aja $?`
 RESULT=`add_column "$RESULT" "AV Foundation" $avfoundation $?`
 RESULT=`add_column "$RESULT" "BitFlow" $bitflow $?`
 RESULT=`add_column "$RESULT" "Bluefish444" $bluefish444 $?`
+RESULT=`add_column "$RESULT" "caca" $caca $?`
 RESULT=`add_column "$RESULT" "DeckLink" $decklink $?`
 RESULT=`add_column "$RESULT" "DELTACAST" $deltacast $?`
 RESULT=`add_column "$RESULT" "DirectShow" $dshow $?`
