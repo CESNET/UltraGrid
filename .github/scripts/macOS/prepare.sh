@@ -20,7 +20,7 @@ brew install autoconf automake libtool pkg-config
 brew install libsoxr speexdsp
 brew install ffmpeg portaudio sdl2 sdl2_mixer sdl2_ttf
 brew install molten-vk vulkan-headers
-brew install imagemagick jack libnatpmp opencv wolfssl
+brew install imagemagick libcaca libnatpmp jack opencv wolfssl
 brew install ossp-uuid # for cineform
 brew install qt@5
 brew install glm
