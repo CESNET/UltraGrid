@@ -76,6 +76,7 @@ typedef long long time_ns_t;
 #define US_IN_SEC 1000000LL
 #define US_IN_NS 1000LL
 #define US_IN_SEC_DBL ((double) US_IN_SEC)
+#define NS_IN_MS 1000000LL
 #define NS_IN_MS_DBL 1E6
 #define NS_IN_SEC 1000000000LL
 #define NS_IN_SEC_DBL ((double) NS_IN_SEC)

@@ -44,6 +44,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "tv.h"
 #include "video.h"
 #include "video_display.h"
 
@@ -56,8 +57,17 @@ struct state_caca {
         int screen_w;
         int screen_h;
 
+        struct video_desc desc;
         struct video_frame *f;
+
+        _Bool should_exit;
+        pthread_t thread_id;
+        pthread_mutex_t lock;
+        pthread_cond_t frame_ready_cv;
+        pthread_cond_t frame_consumed_cv;
 };
+
+static void *worker(void *arg);
 
 static void display_caca_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
@@ -70,10 +80,14 @@ static void display_caca_probe(struct device_info **available_cards, int *count,
 static void display_caca_done(void *state)
 {
         struct state_caca *s = state;
+        pthread_join(s->thread_id, NULL);
         caca_free_dither(s->dither);
         caca_free_display(s->display);
         caca_free_canvas(s->canvas);
         vf_free(s->f);
+        pthread_mutex_destroy(&s->lock);
+        pthread_cond_destroy(&s->frame_ready_cv);
+        pthread_cond_destroy(&s->frame_consumed_cv);
         free(s);
 }
 
@@ -98,13 +112,18 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
                 display_caca_done(s);
                 return NULL;
         }
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->frame_ready_cv, NULL);
+        pthread_cond_init(&s->frame_consumed_cv, NULL);
+
+        pthread_create(&s->thread_id, NULL, worker, s);
         return s;
 }
 
 static struct video_frame *display_caca_getf(void *state)
 {
         struct state_caca *s = state;
-        return s->f;
+        return vf_alloc_desc_data(s->desc);
 }
 
 static void handle_events(struct state_caca *s)
@@ -121,27 +140,98 @@ static void handle_events(struct state_caca *s)
                         case CACA_EVENT_RESIZE:
                                 s->screen_w = e.data.resize.w;
                                 s->screen_h = e.data.resize.h;
+                                verbose_msg(MOD_NAME "Resized to %dx%d\n", s->screen_w, s->screen_h);
                                 break;
                         case CACA_EVENT_QUIT:
                                 exit_uv(0);
                                 break;
                         default:
-                                verbose_msg(MOD_NAME "Unhandled caca event %d\n", e.type);
+                                break;
                 }
         }
 }
 
+static _Bool reconfigure(struct state_caca *s, struct video_desc desc) {
+        enum {
+                RMASK = 0xff0000,
+                GMASK = 0x00ff00,
+                BMASK = 0x0000ff,
+                AMASK = 0x000000,
+        };
+        caca_free_dither(s->dither);
+        s->dither = caca_create_dither(8 * get_bpp(desc.color_spec),
+                        desc.width, desc.height,
+                        get_bpp(desc.color_spec) * desc.width,
+                        RMASK, GMASK, BMASK, AMASK);
+        if (!s->dither) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create dither\n");
+                exit_uv(1);
+                return 0;
+        }
+        s->screen_w = caca_get_canvas_width(s->canvas);
+        s->screen_h = caca_get_canvas_height(s->canvas);
+
+        return 1;
+}
+
+static void *worker(void *arg)
+{
+        struct video_desc display_desc = { 0 };
+        struct state_caca *s = arg;
+        while (1) {
+                struct video_frame *f = NULL;
+                time_ns_t tout = get_time_in_ns() + 200 * NS_IN_MS;
+                struct timespec timeout = { .tv_sec = tout / NS_IN_SEC, .tv_nsec = tout % NS_IN_SEC };
+                pthread_mutex_lock(&s->lock);
+                while (!s->f && !s->should_exit) {
+                        pthread_cond_timedwait(&s->frame_ready_cv, &s->lock, &timeout);
+                        handle_events(s);
+                }
+                f = s->f;
+                s->f = NULL;
+                pthread_mutex_unlock(&s->lock);
+                pthread_cond_signal(&s->frame_consumed_cv);
+                if (s->should_exit) {
+                        break;
+                }
+                if (!video_desc_eq(display_desc, video_desc_from_frame(f))) {
+                        if (!reconfigure(s, video_desc_from_frame(f))) {
+                                vf_free(f);
+                                continue;
+                        }
+                        display_desc = video_desc_from_frame(f);
+                }
+
+                handle_events(s);
+                caca_dither_bitmap(s->canvas, 0, 0, s->screen_w, s->screen_h, s->dither, f->tiles[0].data);
+                caca_refresh_display(s->display);
+                handle_events(s);
+                vf_free(f);
+        }
+        return NULL;
+}
+
 static int display_caca_putf(void *state, struct video_frame *frame, long long timeout_ns)
 {
-        if (frame == NULL || timeout_ns == PUTF_DISCARD) {
+        if (timeout_ns == PUTF_DISCARD) {
+                vf_free(frame);
                 return 0;
         }
 
         struct state_caca *s = state;
-        handle_events(s);
 
-        caca_dither_bitmap(s->canvas, 0, 0, s->screen_w, s->screen_h, s->dither, frame->tiles[0].data);
-        caca_refresh_display(s->display);
+        pthread_mutex_lock(&s->lock);
+        while (s->f) {
+                pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
+        }
+        if (frame) {
+                s->f = frame;
+        } else {
+                s->should_exit = 1;
+        }
+        pthread_mutex_unlock(&s->lock);
+        pthread_cond_signal(&s->frame_ready_cv);
+
         return 0;
 }
 
@@ -161,26 +251,7 @@ static int display_caca_get_property(void *state, int property, void *val, size_
 static int display_caca_reconfigure(void *state, struct video_desc desc)
 {
         struct state_caca *s = state;
-        vf_free(s->f);
-        s->f = vf_alloc_desc_data(desc);
-        enum {
-                RMASK = 0xff0000,
-                GMASK = 0x00ff00,
-                BMASK = 0x0000ff,
-                AMASK = 0x000000,
-        };
-        caca_free_dither(s->dither);
-        s->dither = caca_create_dither(8 * get_bpp(desc.color_spec),
-                        desc.width, desc.height,
-                        get_bpp(desc.color_spec) * desc.width,
-                        RMASK, GMASK, BMASK, AMASK);
-        if (!s->dither) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create dither\n");
-                return FALSE;
-        }
-        s->screen_w = caca_get_canvas_width(s->canvas);
-        s->screen_h = caca_get_canvas_height(s->canvas);
-
+        s->desc = desc;
         return TRUE;
 }
 
