@@ -168,12 +168,12 @@ struct tile * vf_get_tile(struct video_frame *buf, int pos)
         return &buf->tiles[pos];
 }
 
-int video_desc_eq(struct video_desc a, struct video_desc b)
+bool video_desc_eq(struct video_desc a, struct video_desc b)
 {
         return video_desc_eq_excl_param(a, b, 0);
 }
 
-int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params)
+bool video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params)
 {
         return ((excluded_params & PARAM_WIDTH) || a.width == b.width) &&
                 ((excluded_params & PARAM_HEIGHT) || a.height == b.height) &&

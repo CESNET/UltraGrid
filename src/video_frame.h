@@ -48,6 +48,10 @@
 #ifndef video_frame_h_
 #define video_frame_h_
 
+#ifndef __cplusplus
+#include <stdbool.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -140,19 +144,15 @@ struct video_frame * vf_get_copy(struct video_frame *frame);
  * This is equivalent to
  * @ref video_desc_eq_excl_param
  * when no parameter is excluded.
- * @retval 0 if different
- * @retval !=0 structs are the same
  */
-int video_desc_eq(struct video_desc, struct video_desc);
+bool video_desc_eq(struct video_desc, struct video_desc);
 /**
  * @brief Compares two video descriptions
  * @see video_desc_eq
  * @param excluded_params
  * bitwise OR of @ref video_eq_param
- * @retval 0 if different
- * @retval !=0 structs are the same
  */
-int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params);
+bool video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params);
 /**
  * @brief Returns struct video_desc from video frame
  */
