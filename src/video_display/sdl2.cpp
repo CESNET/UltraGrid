@@ -61,7 +61,7 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "rang.hpp"
+#include "utils/color_out.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
 #include "video.h"
@@ -77,6 +77,7 @@
 #include <SDL.h>
 #endif
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <condition_variable>
@@ -92,8 +93,6 @@
 #define MAX_BUFFER_SIZE   1
 #define MOD_NAME "[SDL] "
 
-using rang::fg;
-using rang::style;
 using namespace std;
 using namespace std::chrono;
 using namespace std::chrono_literals;
@@ -356,7 +355,7 @@ static void sdl2_print_displays() {
                 if (dname == nullptr) {
                         dname = SDL_GetError();
                 }
-                cout << style::bold << i << style::reset << " - " << dname;
+                col() << SBOLD(i) << " - " << dname;
         }
         cout << "\n";
 }
@@ -365,33 +364,33 @@ static void show_help(void)
 {
         SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
         printf("SDL options:\n");
-        cout << style::bold << fg::red << "\t-d sdl" << fg::reset << "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>|:keep-aspect]*|:help]\n" << style::reset;
+        col() << SBOLD(SRED("\t-d sdl") << "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>|:keep-aspect]*|:help]") << "\n";
         printf("\twhere:\n");
-        cout << style::bold <<"\t\td[force]" << style::reset << " - deinterlace (force even for progresive video)\n";
-        cout << style::bold <<"\t\t      fs" << style::reset << " - fullscreen\n";
-        cout << style::bold <<"\t\t  <didx>" << style::reset << " - display index, available indices: ";
+        col() << SBOLD("\t\td[force]") << " - deinterlace (force even for progresive video)\n";
+        col() << SBOLD("\t\t      fs") << " - fullscreen\n";
+        col() << SBOLD("\t\t  <didx>") << " - display index, available indices: ";
         sdl2_print_displays();
-        cout << style::bold <<"\t\t   <drv>" << style::reset << " - one of following: ";
+        col() << SBOLD("\t\t   <drv>") << " - one of following: ";
         for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
-                cout << (i == 0 ? "" : ", ") << style::bold << SDL_GetVideoDriver(i) << style::reset;
+                col() << (i == 0 ? "" : ", ") << SBOLD(SDL_GetVideoDriver(i));
         }
-        cout << style::bold <<"\n";
-        cout << style::bold <<"\t     keep-aspect" << style::reset << " - keep window aspect ratio respecive to the video\n";
-        cout << style::bold <<"\t         novsync" << style::reset << " - disable sync on VBlank\n";
-        cout << style::bold <<"\t      nodecorate" << style::reset << " - disable window border\n";
-        cout << style::bold <<"\tfixed_size[=WxH]" << style::reset << " - use fixed sized window\n";
-        cout << style::bold <<"\t    window_flags" << style::reset << " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n";
-        cout << style::bold <<"\t\t  <ridx>" << style::reset << " - renderer index: ";
+        col() << "\n";
+        col() << SBOLD("\t     keep-aspect") << " - keep window aspect ratio respecive to the video\n";
+        col() << SBOLD("\t         novsync") << " - disable sync on VBlank\n";
+        col() << SBOLD("\t      nodecorate") << " - disable window border\n";
+        col() << SBOLD("\tfixed_size[=WxH]") << " - use fixed sized window\n";
+        col() << SBOLD("\t    window_flags") << " - flags to be passed to SDL_CreateWindow (use prefix 0x for hex)\n";
+        col() << SBOLD("\t\t  <ridx>") << " - renderer index: ";
         for (int i = 0; i < SDL_GetNumRenderDrivers(); ++i) {
                 SDL_RendererInfo renderer_info;
                 if (SDL_GetRenderDriverInfo(i, &renderer_info) == 0) {
-                        cout << (i == 0 ? "" : ", ") << style::bold << i << style::reset << " - " << style::bold << renderer_info.name << style::reset;
+                        col() << (i == 0 ? "" : ", ") << SBOLD(i) << " - " << SBOLD(renderer_info.name);
                 }
         }
         printf("\n");
         cout << "\n\tKeyboard shortcuts:\n";
         for (auto const &i : display_sdl2_keybindings) {
-                cout << style::bold << "\t\t'" << i.first << style::reset << "'\t - " << i.second << "\n";
+                col() << SBOLD("\t\t'" << i.first) << "'\t - " << i.second << "\n";
         }
         SDL_Quit();
 }
