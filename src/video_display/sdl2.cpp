@@ -42,11 +42,6 @@
  * Missing from SDL1:
  * * audio (would be perhaps better as an audio playback device)
  * * autorelease_pool (macOS) - perhaps not needed
- * @todo
- * * frames are copied, better would be to preallocate textures and set
- *   video_frame::tiles::data to SDL_LockTexture() pixels. This, however,
- *   needs decoder to use either pitch (toggling fullscreen or resize) or
- *   forcing decoder to reconfigure pitch.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -89,24 +84,27 @@
 
 #define SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x327058e5
 #define MAGIC_SDL2   0x3cc234a1
-#define MAX_BUFFER_SIZE   1
+#define BUFFER_COUNT   2
 #define MOD_NAME "[SDL] "
 
 using namespace std;
-using namespace std::chrono;
-using namespace std::chrono_literals;
 
 static void show_help(void);
+static void display_frame(struct state_sdl2 *s, struct video_frame *frame);
+static struct video_frame *display_sdl2_getf(void *state);
 static void display_sdl2_new_message(struct module *);
-static int display_sdl2_putf(void *state, struct video_frame *frame, long long timeout_ns);
 static int display_sdl2_reconfigure(void *state, struct video_desc desc);
 static int display_sdl2_reconfigure_real(void *state, struct video_desc desc);
+static void loadSplashscreen(struct state_sdl2 *s);
 
 struct state_sdl2 {
         struct module           mod;
 
+        int                     texture_pitch;
+
         Uint32                  sdl_user_new_frame_event;
         Uint32                  sdl_user_new_message_event;
+        Uint32                  sdl_user_reconfigure_event;
 
         int                     display_idx{0};
         int                     x{SDL_WINDOWPOS_UNDEFINED},
@@ -114,7 +112,6 @@ struct state_sdl2 {
         int                     renderer_idx{-1};
         SDL_Window             *window{nullptr};
         SDL_Renderer           *renderer{nullptr};
-        SDL_Texture            *texture{nullptr};
 
         bool                    fs{false};
         enum class deint { off, on, force } deinterlace = deint::off;
@@ -126,9 +123,10 @@ struct state_sdl2 {
 
         mutex                   lock;
         condition_variable      frame_consumed_cv;
-        int                     buffered_frames_count{0};
 
-        struct video_desc       current_desc{};
+        condition_variable      reconfigured_cv;
+        int                     reconfiguration_status;
+
         struct video_desc       current_display_desc{};
         struct video_frame     *last_frame{nullptr};
 
@@ -141,9 +139,10 @@ struct state_sdl2 {
                 mod.cls = MODULE_CLASS_DATA;
                 module_register(&mod, parent);
 
-                sdl_user_new_frame_event = SDL_RegisterEvents(2);
+                sdl_user_new_frame_event = SDL_RegisterEvents(3);
                 assert(sdl_user_new_frame_event != (Uint32) -1);
                 sdl_user_new_message_event = sdl_user_new_frame_event + 1;
+                sdl_user_reconfigure_event = sdl_user_new_frame_event + 2;
         }
         ~state_sdl2() {
                 module_done(&mod);
@@ -164,50 +163,39 @@ static constexpr array display_sdl2_keybindings{
         pair{'q', "quit"}
 };
 
+#define SDL_CHECK(cmd) do { int ret = cmd; if (ret != 0) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", #cmd, SDL_GetError());} } while(0)
+
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
         if (!frame) {
                 return;
         }
-        if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
-                if (!display_sdl2_reconfigure_real(s, video_desc_from_frame(frame))) {
-                        exit_uv(1);
-                        goto free_frame;
-                }
-        }
 
-        if (s->deinterlace == state_sdl2::deint::off || (s->deinterlace == state_sdl2::deint::on && frame->interlacing != INTERLACED_MERGED)) {
-                int pitch;
-                if (codec_is_planar(frame->color_spec)) {
-                        pitch = frame->tiles[0].width;
-                } else {
-                        pitch = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
-                }
-                SDL_UpdateTexture(s->texture, NULL, frame->tiles[0].data, pitch);
-        } else {
-                unsigned char *pixels;
-                int pitch;
-                SDL_LockTexture(s->texture, NULL, (void **) &pixels, &pitch);
-                if (!vc_deinterlace_ex(frame->color_spec, (unsigned char *) frame->tiles[0].data, vc_get_linesize(frame->tiles[0].width, frame->color_spec), pixels, pitch, frame->tiles[0].height)) {
+        SDL_Texture *texture = (SDL_Texture *) frame->callbacks.dispose_udata;
+        if (s->deinterlace == state_sdl2::deint::force || (s->deinterlace == state_sdl2::deint::on && frame->interlacing == INTERLACED_MERGED)) {
+                size_t pitch = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
+                if (!vc_deinterlace_ex(frame->color_spec, (unsigned char *) frame->tiles[0].data, pitch, (unsigned char *) frame->tiles[0].data, pitch, frame->tiles[0].height)) {
                          log_msg_once(LOG_LEVEL_ERROR, SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(frame->color_spec));
                 }
-                SDL_UnlockTexture(s->texture);
         }
 
         SDL_RenderClear(s->renderer);
-        SDL_RenderCopy(s->renderer, s->texture, NULL, NULL);
+        SDL_UnlockTexture(texture);
+        SDL_CHECK(SDL_RenderCopy(s->renderer, texture, NULL, NULL));
         SDL_RenderPresent(s->renderer);
 
-free_frame:
+        int pitch = 0;
+        SDL_CHECK(SDL_LockTexture(texture, NULL, (void **) &frame->tiles[0].data, &pitch));
+        assert(pitch == s->texture_pitch);
+
         if (frame == s->last_frame) {
                 return; // we are only redrawing on window resize
         }
 
-        if (s->last_frame) {
-                s->lock.lock();
-                s->free_frame_queue.push(s->last_frame);
-                s->lock.unlock();
-        }
+        std::unique_lock<std::mutex> lk(s->lock);
+        s->free_frame_queue.push(frame);
+        lk.unlock();
+        s->frame_consumed_cv.notify_one();
         s->last_frame = frame;
 }
 
@@ -277,16 +265,21 @@ static void display_sdl2_run(void *arg)
         struct state_sdl2 *s = (struct state_sdl2 *) arg;
         bool should_exit_sdl = false;
 
+        loadSplashscreen(s);
+
         while (!should_exit_sdl) {
                 SDL_Event sdl_event;
                 if (!SDL_WaitEvent(&sdl_event)) {
                         continue;
                 }
-                if (sdl_event.type == s->sdl_user_new_frame_event) {
-                        std::unique_lock<std::mutex> lk(s->lock);
-                        s->buffered_frames_count -= 1;
+                if (sdl_event.type == s->sdl_user_reconfigure_event) {
+                        unique_lock<mutex> lk(s->lock);
+                        struct video_desc desc = *(struct video_desc *) sdl_event.user.data1;
+                        s->reconfiguration_status = display_sdl2_reconfigure_real(s, desc);
                         lk.unlock();
-                        s->frame_consumed_cv.notify_one();
+                        s->reconfigured_cv.notify_one();
+
+                } else if (sdl_event.type == s->sdl_user_new_frame_event) {
                         if (sdl_event.user.data1 != NULL) {
                                 display_frame(s, (struct video_frame *) sdl_event.user.data1);
                         } else { // poison pill received
@@ -403,8 +396,17 @@ static int display_sdl2_reconfigure(void *state, struct video_desc desc)
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Receiving interlaced video but deinterlacing is off - suggesting toggling it on (press 'd' or pass cmdline option)\n";
         }
 
-        s->current_desc = desc;
-        return 1;
+        unique_lock<mutex> lk(s->lock);
+
+        SDL_Event event;
+        event.type = s->sdl_user_reconfigure_event;
+        event.user.data1 = &desc;
+        SDL_PushEvent(&event);
+
+        s->reconfiguration_status = -1;
+        s->reconfigured_cv.wait(lk, [s]{return s->reconfiguration_status >= 0;});
+
+        return s->reconfiguration_status;
 }
 
 struct ug_to_sdl_pf { codec_t first; uint32_t second; };
@@ -451,15 +453,30 @@ static auto get_supported_pfs() {
         return codecs;
 }
 
-static bool create_texture(struct state_sdl2 *s, struct video_desc desc) {
-        if (s->texture) {
-                SDL_DestroyTexture(s->texture);
+static void cleanup_frames(struct state_sdl2 *s) {
+        s->last_frame = nullptr;
+        while (s->free_frame_queue.size() > 0) {
+                struct video_frame *buffer = s->free_frame_queue.front();
+                s->free_frame_queue.pop();
+                SDL_Texture *texture = (SDL_Texture *) buffer->callbacks.dispose_udata;
+                SDL_DestroyTexture(texture);
+                vf_free(buffer);
         }
+}
 
-        s->texture = SDL_CreateTexture(s->renderer, get_ug_to_sdl_format(desc.color_spec), SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
-        if (!s->texture) {
-                log_msg(LOG_LEVEL_ERROR, "[SDL] Unable to create texture: %s\n", SDL_GetError());
-                return false;
+static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
+        cleanup_frames(s);
+
+        for (int i = 0; i < BUFFER_COUNT; ++i) {
+                SDL_Texture *texture = SDL_CreateTexture(s->renderer, get_ug_to_sdl_format(desc.color_spec), SDL_TEXTUREACCESS_STREAMING, desc.width, desc.height);
+                if (!texture) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to create texture: %s\n", SDL_GetError());
+                        return false;
+                }
+                struct video_frame *f = vf_alloc_desc(desc);
+                f->callbacks.dispose_udata = (void *) texture;
+                SDL_LockTexture(texture, NULL, (void **) &f->tiles[0].data, &s->texture_pitch);
+                s->free_frame_queue.push(f);
         }
 
         return true;
@@ -474,7 +491,7 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
 
         if (s->fixed_size && s->window) {
                 SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
-                return create_texture(s, desc);
+                return recreate_textures(s, desc);
         }
 
         if (s->window) {
@@ -514,7 +531,7 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
         SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
 
-        if (!create_texture(s, desc)) {
+        if (!recreate_textures(s, desc)) {
                 return FALSE;
         }
 
@@ -525,8 +542,11 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
 
 static void loadSplashscreen(struct state_sdl2 *s) {
         struct video_frame *frame = get_splashscreen();
-        display_sdl2_reconfigure(s, video_desc_from_frame(frame));
-        display_sdl2_putf(s, frame, PUTF_BLOCKING);
+        display_sdl2_reconfigure_real(s, video_desc_from_frame(frame));
+        struct video_frame *splash = display_sdl2_getf(s);
+        memcpy(splash->tiles[0].data, frame->tiles[0].data, frame->tiles[0].data_len);
+        vf_free(frame);
+        display_frame(s, splash); // don't be tempted to use _putf() - it will use event queue and there may arise a race-condition with recv thread
 }
 
 static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned int flags)
@@ -617,7 +637,6 @@ static void *display_sdl2_init(struct module *parent, const char *fmt, unsigned 
         SDL_ShowCursor(SDL_DISABLE);
         SDL_DisableScreenSaver();
 
-        loadSplashscreen(s);
         for (auto const &i : display_sdl2_keybindings) {
                 if (i.first == 'q') { // don't report 'q' to avoid accidental close - user can use Ctrl-c there
                         continue;
@@ -636,17 +655,7 @@ static void display_sdl2_done(void *state)
 
         assert(s->mod.priv_magic == MAGIC_SDL2);
 
-        vf_free(s->last_frame);
-
-        while (s->free_frame_queue.size() > 0) {
-                struct video_frame *buffer = s->free_frame_queue.front();
-                s->free_frame_queue.pop();
-                vf_free(buffer);
-        }
-
-        if (s->texture) {
-                SDL_DestroyTexture(s->texture);
-        }
+        cleanup_frames(s);
 
         if (s->renderer) {
                 SDL_DestroyRenderer(s->renderer);
@@ -670,19 +679,12 @@ static struct video_frame *display_sdl2_getf(void *state)
         struct state_sdl2 *s = (struct state_sdl2 *)state;
         assert(s->mod.priv_magic == MAGIC_SDL2);
 
-        lock_guard<mutex> lock(s->lock);
+        unique_lock<mutex> lk(s->lock);
+        s->frame_consumed_cv.wait(lk, [s]{return s->free_frame_queue.size() > 0;});
+        struct video_frame *buffer = s->free_frame_queue.front();
+        s->free_frame_queue.pop();
 
-        while (s->free_frame_queue.size() > 0) {
-                struct video_frame *buffer = s->free_frame_queue.front();
-                s->free_frame_queue.pop();
-                if (video_desc_eq(video_desc_from_frame(buffer), s->current_desc)) {
-                        return buffer;
-                } else {
-                        vf_free(buffer);
-                }
-        }
-
-        return vf_alloc_desc_data(s->current_desc);
+        return buffer;
 }
 
 static int display_sdl2_putf(void *state, struct video_frame *frame, long long timeout_ns)
@@ -700,17 +702,16 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, long long t
 
         if (frame != NULL && timeout_ns > 0) {
                 if (timeout_ns == PUTF_BLOCKING) {
-                        s->frame_consumed_cv.wait(lk, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
+                        s->frame_consumed_cv.wait(lk, [s]{return s->free_frame_queue.size() > 0;});
                 } else {
-                        s->frame_consumed_cv.wait_for(lk, timeout_ns * 1ns, [s]{return s->buffered_frames_count < MAX_BUFFER_SIZE;});
+                        s->frame_consumed_cv.wait_for(lk, timeout_ns * 1ns, [s]{return s->free_frame_queue.size() > 0;});
                 }
         }
-        if (frame != NULL && s->buffered_frames_count >= MAX_BUFFER_SIZE) {
+        if (frame != NULL && s->free_frame_queue.size() == 0) {
                 s->free_frame_queue.push(frame);
                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "1 frame(s) dropped!\n";
                 return 1;
         }
-        s->buffered_frames_count += 1;
         lk.unlock();
         SDL_Event event;
         event.type = s->sdl_user_new_frame_event;
@@ -722,7 +723,7 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, long long t
 
 static int display_sdl2_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(state);
+        struct state_sdl2 *s = (struct state_sdl2 *) state;
         auto codecs = get_supported_pfs();
         size_t codecs_len = codecs.size() * sizeof(codec_t);
 
@@ -734,6 +735,10 @@ static int display_sdl2_get_property(void *state, int property, void *val, size_
                         } else {
                                 return FALSE;
                         }
+                        break;
+                case DISPLAY_PROPERTY_BUF_PITCH:
+                        *(int *) val = codec_is_planar(s->current_display_desc.color_spec) ? PITCH_DEFAULT : s->texture_pitch;
+                        *len = sizeof(int);
                         break;
                 default:
                         return FALSE;

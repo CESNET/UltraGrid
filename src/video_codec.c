@@ -706,7 +706,7 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
 
 /**
  * Extended version of vc_deinterlace(). The former version was in-place only.
- * This allows to output to different buffer.
+ * This allows to output to a different buffer while it can still be used in-place.
  *
  * @returns false on unsupported codecs
  */

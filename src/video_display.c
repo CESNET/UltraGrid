@@ -593,6 +593,9 @@ int display_reconfigure_audio(struct display *d, int quant_samples, int channels
         return d->funcs->reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
 
+/**
+ * @returns default UG splashscreen, caller is obliged to call vf_free() on the result
+ */
 struct video_frame *get_splashscreen()
 {
         struct video_desc desc;
