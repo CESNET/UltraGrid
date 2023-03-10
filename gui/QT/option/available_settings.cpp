@@ -139,14 +139,8 @@ static void maybeWriteString (const QJsonObject& obj,
 		}
 }
 
-void AvailableSettings::queryVideoCompress(std::string_view line){
-	QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromRawData(line.data(), line.size()));
-	if(!doc.isObject())
-		return;
-
-	CompressModule compMod;
-	QJsonObject obj = doc.object();
-	maybeWriteString(obj, "name", compMod.name);
+std::vector<CapabOpt> parseCapabOpts(const QJsonObject& obj){
+	std::vector<CapabOpt> opts;
 
 	if(obj.contains("options") && obj["options"].isArray()){
 		for(const QJsonValue &val : obj["options"].toArray()){
@@ -161,9 +155,24 @@ void AvailableSettings::queryVideoCompress(std::string_view line){
 				capabOpt.booleanOpt = optJson["is_boolean"].toString() == "t";
 			}
 
-			compMod.opts.emplace_back(std::move(capabOpt));
+			opts.emplace_back(std::move(capabOpt));
 		}
 	}
+
+	return opts;
+}
+
+void AvailableSettings::queryVideoCompress(std::string_view line){
+	QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromRawData(line.data(), line.size()));
+	if(!doc.isObject())
+		return;
+
+	CompressModule compMod;
+	QJsonObject obj = doc.object();
+	maybeWriteString(obj, "name", compMod.name);
+
+
+	compMod.opts = parseCapabOpts(obj);
 
 	if(obj.contains("codecs") && obj["codecs"].isArray()){
 		for(const QJsonValue &val : obj["codecs"].toArray()){
@@ -248,6 +257,8 @@ void AvailableSettings::queryDevice(std::string_view line){
 			}
 		}
 	}
+
+	dev.opts = parseCapabOpts(obj);
 
 	SettingType settingType = SETTING_TYPE_UNKNOWN;
 	if(obj.contains("purpose") && obj["purpose"].isString()){

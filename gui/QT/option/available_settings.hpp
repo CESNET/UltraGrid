@@ -60,6 +60,7 @@ struct Device{
 	std::map<std::string, std::string> extra;
 
 	std::vector<DeviceMode> modes;
+	std::vector<CapabOpt> opts;
 };
 
 struct Encoder{
