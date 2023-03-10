@@ -455,6 +455,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 }
         }
 
+        if (!s->still_image && codec_is_planar(desc.color_spec)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(desc.color_spec));
+                s->still_image = true;
+        }
+
         s->frame = vf_alloc_desc(desc);
 
         s->generator = video_pattern_generator_create(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec,
@@ -465,11 +470,6 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
         if (in_file_contents.size() > 0) {
                 video_pattern_generator_fill_data(s->generator, in_file_contents.data());
-        }
-
-        if (!s->still_image && codec_is_planar(s->frame->color_spec)) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Planar pixel format '%s', using still picture.\n", get_codec_name(s->frame->color_spec));
-                s->still_image = true;
         }
 
         s->last_frame_time = std::chrono::steady_clock::now();
