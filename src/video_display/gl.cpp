@@ -82,7 +82,6 @@
 #include "utils/ref_count.hpp"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/splashscreen.h"
 #include "tv.h"
 
 #define MAGIC_GL         0x1331018e
@@ -1391,8 +1390,10 @@ static bool display_gl_init_opengl(struct state_gl *s)
         set_mac_color_space();
         glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
         glfwWindowHint(GLFW_DOUBLEBUFFER, s->vsync == SINGLE_BUF ? GLFW_FALSE : GLFW_TRUE);
-        int width = splash_width;
-        int height = splash_height;
+        struct video_frame *splash = get_splashscreen();
+        int width = splash->tiles[0].width;
+        int height = splash->tiles[0].height;
+        vf_free(splash);
         GLFWmonitor *mon = s->fs ? s->monitor : nullptr;
         if (s->fixed_size && s->fixed_w && s->fixed_h) {
                 width = s->fixed_w;

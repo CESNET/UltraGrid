@@ -70,9 +70,6 @@ extern "C" void NSApplicationLoad();
 #include <mutex>
 #include <queue>
 
-/* splashscreen (xsedmik) */
-#include "video_display/splashscreen.h"
-
 #define MAGIC_SDL   0x155734ae
 #define FOURCC_UYVY 0x59565955
 #define FOURCC_YUYV 0x32595559
@@ -152,41 +149,9 @@ static void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
 static void compute_dst_rect(struct state_sdl *s, int vid_w, int vid_h, int window_w, int window_h, codec_t codec);
 static bool update_size(struct state_sdl *s, int win_w, int win_h);
                 
-/** 
- * Load splashscreen
- * Function loads graphic data from header file "splashscreen.h", where are
- * stored splashscreen data in RGB format.
- */
 static void loadSplashscreen(struct state_sdl *s) {
-        struct video_desc desc;
-
-        desc.width = 512;
-        desc.height = 512;
-        desc.color_spec = RGBA;
-        desc.interlacing = PROGRESSIVE;
-        desc.fps = 1;
-        desc.tile_count = 1;
-
-        display_sdl_reconfigure(s, desc);
-
-        struct video_frame *frame = vf_alloc_desc_data(desc);
-
-        const char *data = splash_data;
-        memset(frame->tiles[0].data, 0, frame->tiles[0].data_len);
-        for (unsigned int y = 0; y < splash_height; ++y) {
-                char *line = frame->tiles[0].data;
-                line += vc_get_linesize(frame->tiles[0].width,
-                                frame->color_spec) *
-                        (((frame->tiles[0].height - splash_height) / 2) + y);
-                line += vc_get_linesize(
-                                (frame->tiles[0].width - splash_width)/2,
-                                frame->color_spec);
-                for (unsigned int x = 0; x < splash_width; ++x) {
-                        HEADER_PIXEL(data,line);
-                        line += 4;
-                }
-        }
-
+        struct video_frame *frame = get_splashscreen();
+        display_sdl_reconfigure(s, video_desc_from_frame(frame));
         display_sdl_putf(s, frame, PUTF_BLOCKING);
 }
 

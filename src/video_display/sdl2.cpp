@@ -63,7 +63,6 @@
 #include "module.h"
 #include "utils/color_out.h"
 #include "video_display.h"
-#include "video_display/splashscreen.h"
 #include "video.h"
 
 /// @todo remove the defines when no longer needed
@@ -524,41 +523,9 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         return TRUE;
 }
 
-/**
- * Load splashscreen
- * Function loads graphic data from header file "splashscreen.h", where are
- * stored splashscreen data in RGB format.
- */
 static void loadSplashscreen(struct state_sdl2 *s) {
-        struct video_desc desc;
-
-        desc.width = 512;
-        desc.height = 512;
-        desc.color_spec = RGBA;
-        desc.interlacing = PROGRESSIVE;
-        desc.fps = 1;
-        desc.tile_count = 1;
-
-        display_sdl2_reconfigure(s, desc);
-
-        struct video_frame *frame = vf_alloc_desc_data(desc);
-
-        const char *data = splash_data;
-        memset(frame->tiles[0].data, 0, frame->tiles[0].data_len);
-        for (unsigned int y = 0; y < splash_height; ++y) {
-                char *line = frame->tiles[0].data;
-                line += vc_get_linesize(frame->tiles[0].width,
-                                frame->color_spec) *
-                        (((frame->tiles[0].height - splash_height) / 2) + y);
-                line += vc_get_linesize(
-                                (frame->tiles[0].width - splash_width)/2,
-                                frame->color_spec);
-                for (unsigned int x = 0; x < splash_width; ++x) {
-                        HEADER_PIXEL(data,line);
-                        line += 4;
-                }
-        }
-
+        struct video_frame *frame = get_splashscreen();
+        display_sdl2_reconfigure(s, video_desc_from_frame(frame));
         display_sdl2_putf(s, frame, PUTF_BLOCKING);
 }
 

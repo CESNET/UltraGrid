@@ -47,7 +47,6 @@
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"
-#include "video_display/splashscreen.h"
 
 #define MOD_NAME "[caca] "
 
