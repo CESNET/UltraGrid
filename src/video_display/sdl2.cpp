@@ -172,6 +172,7 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
         }
         if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
                 if (!display_sdl2_reconfigure_real(s, video_desc_from_frame(frame))) {
+                        exit_uv(1);
                         goto free_frame;
                 }
         }
@@ -472,8 +473,6 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         log_msg(LOG_LEVEL_NOTICE, "[SDL] Reconfigure to size %dx%d\n", desc.width,
                         desc.height);
 
-        s->current_display_desc = desc;
-
         if (s->fixed_size && s->window) {
                 SDL_RenderSetLogicalSize(s->renderer, desc.width, desc.height);
                 return create_texture(s, desc);
@@ -519,6 +518,8 @@ static int display_sdl2_reconfigure_real(void *state, struct video_desc desc)
         if (!create_texture(s, desc)) {
                 return FALSE;
         }
+
+        s->current_display_desc = desc;
 
         return TRUE;
 }
