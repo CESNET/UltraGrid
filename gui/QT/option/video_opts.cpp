@@ -92,6 +92,7 @@ std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings){
 		SettingItem item;
 		item.name = i.name;
 		item.opts.push_back({optStr, i.type});
+		item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
 		auto embedAudioIt = i.extra.find("embeddedAudioAvailable");
 		bool enableAudio = embedAudioIt != i.extra.end()
 			&& embedAudioIt->second == "t";

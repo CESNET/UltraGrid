@@ -38,16 +38,6 @@ struct DeviceMode{
 	std::vector<SettingVal> opts;
 };
 
-struct Device{
-	std::string name;
-	std::string type;
-	std::string deviceOpt;
-
-	std::map<std::string, std::string> extra;
-
-	std::vector<DeviceMode> modes;
-};
-
 struct CapabOpt{
 	std::string displayName; //Name displayed to user
 	std::string displayDesc; //Description displayed to user
@@ -60,6 +50,16 @@ struct CapabOpt{
 	std::string optStr; //Option string to pass to ug (e.g. ":bitrate=")
 
 	bool booleanOpt; //If true, GUI shows a checkbox instead of text edit
+};
+
+struct Device{
+	std::string name;
+	std::string type; //UltraGrid module name (e.g. v4l2)
+	std::string deviceOpt; //Specific device (e.g. ":device=/dev/video0")
+
+	std::map<std::string, std::string> extra;
+
+	std::vector<DeviceMode> modes;
 };
 
 struct Encoder{
