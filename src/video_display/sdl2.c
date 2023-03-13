@@ -442,10 +442,13 @@ static void cleanup_frames(struct state_sdl2 *s) {
         s->last_frame = NULL;
         struct video_frame *buffer = NULL;
         while ((buffer = simple_linked_list_pop(s->free_frame_queue)) != NULL) {
-                SDL_Texture *texture = (SDL_Texture *) buffer->callbacks.dispose_udata;
-                SDL_DestroyTexture(texture);
                 vf_free(buffer);
         }
+}
+
+static void vf_sdl_texture_data_deleter(struct video_frame *buf) {
+        SDL_Texture *texture = (SDL_Texture *) buf->callbacks.dispose_udata;
+        SDL_DestroyTexture(texture);
 }
 
 static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
@@ -460,6 +463,7 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
                 struct video_frame *f = vf_alloc_desc(desc);
                 f->callbacks.dispose_udata = (void *) texture;
                 SDL_LockTexture(texture, NULL, (void **) &f->tiles[0].data, &s->texture_pitch);
+                f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
         }
 
