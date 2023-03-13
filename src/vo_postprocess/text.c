@@ -1,9 +1,9 @@
 /**
- * @file   vo_postprocess/text.cpp
+ * @file   vo_postprocess/text.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,14 +47,15 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
 #ifdef WAND7
 #include <MagickWand/MagickWand.h>
 #else
-#pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wignored-qualifiers"
 #include <wand/magick_wand.h>
-#pragma GCC diagnostic pop
 #endif
+#pragma GCC diagnostic pop
 
 #include "capture_filter.h"
 #include "debug.h"
