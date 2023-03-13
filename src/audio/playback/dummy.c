@@ -1,5 +1,5 @@
 /**
- * @file   audio/playback/dummy.cpp
+ * @file   audio/playback/dummy.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -43,6 +43,7 @@
 
 #include "audio/audio_playback.h"
 #include "audio/types.h"
+#include "debug.h"
 #include "lib_common.h"
 
 static int state;
@@ -54,26 +55,31 @@ static void audio_play_dummy_probe(struct device_info **available_devices, int *
         *count = 0;
 }
 
-static void audio_play_dummy_help(const char *)
+static void audio_play_dummy_help(const char *driver)
 {
+        UNUSED(driver);
         printf("\tdummy: dummy audio playback\n");
 }
 
-static void * audio_play_dummy_init(const char *)
+static void * audio_play_dummy_init(const char *cfg)
 {
+        UNUSED(cfg);
         return &state;
 }
 
-static void audio_play_dummy_put_frame(void *, const struct audio_frame *)
+static void audio_play_dummy_put_frame(void *state, const struct audio_frame *f)
 {
+        UNUSED(state), UNUSED(f);
 }
 
-static void audio_play_dummy_done(void *)
+static void audio_play_dummy_done(void *state)
 {
+        UNUSED(state);
 }
 
-static bool audio_play_dummy_ctl(void *state [[gnu::unused]], int request, void *data [[gnu::unused]], size_t *len [[gnu::unused]])
+static bool audio_play_dummy_ctl(void *state, int request, void *data, size_t *len)
 {
+        UNUSED(state), UNUSED(data), UNUSED(len);
         switch (request) {
         case AUDIO_PLAYBACK_CTL_QUERY_FORMAT:
                 return true; // we accept any format
@@ -82,8 +88,9 @@ static bool audio_play_dummy_ctl(void *state [[gnu::unused]], int request, void 
         }
 }
 
-static int audio_play_dummy_reconfigure(void *, struct audio_desc)
+static int audio_play_dummy_reconfigure(void *state, struct audio_desc desc)
 {
+        UNUSED(state), UNUSED(desc);
         return TRUE;
 }
 
