@@ -948,7 +948,7 @@ const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_co
 
 static bool configure_swscale(struct state_video_compress_libav *s, struct video_desc desc, enum AVPixelFormat sws_out_pixfmt) {
 #ifndef HAVE_SWSCALE
-        UNUSED(s), UNUSED(desc);
+        UNUSED(s), UNUSED(desc), UNUSED(sws_out_pixfmt);
         return false;
 #else
         //get all AVPixelFormats we can convert to and pick the first

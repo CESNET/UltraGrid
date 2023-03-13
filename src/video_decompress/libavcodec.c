@@ -716,6 +716,7 @@ static _Bool reconfigure_convert_if_needed(struct state_libavcodec_decompress *s
         s->convert_in = av_codec;
         return 1;
 #else
+        UNUSED(width), UNUSED(height);
         return 0;
 #endif
 }
