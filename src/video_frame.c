@@ -102,6 +102,20 @@ struct video_frame * vf_alloc_desc(struct video_desc desc)
         return buf;
 }
 
+static void vf_aligned_data_deleter(struct video_frame *buf)
+{
+        for (unsigned int i = 0u; i < buf->tile_count; ++i) {
+                aligned_free(buf->tiles[i].data);
+        }
+}
+
+/**
+ * @brief allocates struct video_frame including data pointers in RAM
+ * @note
+ * Try to use hugepages in Linux, which may improve performance. See:
+ * - https://kernel.org/doc/html//v5.15/admin-guide/mm/transhuge.html
+ * - https://rigtorp.se/hugepages/
+ */
 struct video_frame * vf_alloc_desc_data(struct video_desc desc)
 {
         struct video_frame *buf;
@@ -119,11 +133,14 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc)
                                         desc.color_spec) *
                                 desc.height;
                 }
-                buf->tiles[i].data = (char *) malloc(buf->tiles[i].data_len + MAX_PADDING);
+                buf->tiles[i].data = (char *) aligned_malloc(buf->tiles[i].data_len + MAX_PADDING, 1U<<21U /* 2 MiB */);
                 assert(buf->tiles[i].data != NULL);
+#ifdef __linux__
+                madvise(buf->tiles[0].data, buf->tiles[0].data_len, MADV_HUGEPAGE);
+#endif
         }
 
-        buf->callbacks.data_deleter = vf_data_deleter;
+        buf->callbacks.data_deleter = vf_aligned_data_deleter;
         buf->callbacks.recycle = NULL;
 
         return buf;
