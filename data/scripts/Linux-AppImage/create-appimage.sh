@@ -30,13 +30,16 @@ cp "$srcdir/tools/convert" $APPPREFIX/bin
 # @todo copy only needed ones
 # @todo use https://github.com/probonopd/linuxdeployqt
 PLUGIN_LIBS=
+QT_VER=
 if [ -f $APPPREFIX/bin/uv-qt ]; then
-        QT_DIR=$(dirname "$(ldd $APPPREFIX/bin/uv-qt | grep Qt.Gui | grep -v 'not found' | awk '{ print $3 }')")
+        QT_LDD_DEP=$(ldd $APPPREFIX/bin/uv-qt | grep Qt.Gui | grep -v 'not found')
+        QT_DIR=$(dirname "$(echo $QT_LDD_DEP | awk '{ print $3 }')")
+        QT_VER=$(echo $QT_LDD_DEP | awk '{ print $1  }' | sed 's/.*Qt\([0-9]\)Gui.*/\1/g')
 else
         QT_DIR=
 fi
 if [ -n "$QT_DIR" ]; then
-        QT_PLUGIN_PREFIX=$(find "$QT_DIR" -maxdepth 1 -type d -name 'qt?' | tail -n 1)
+        QT_PLUGIN_PREFIX=$QT_DIR/qt$QT_VER
         SRC_PLUGIN_DIR=$QT_PLUGIN_PREFIX/plugins
         DST_PLUGIN_DIR=$APPPREFIX/lib/$(basename "$QT_PLUGIN_PREFIX")/plugins
         mkdir -p "$DST_PLUGIN_DIR"
