@@ -165,7 +165,7 @@ static void audio_play_portaudio_help(void) {
         printf("options:\n");
         color_printf("\t" TBOLD("<dev>") "\tdevice name (or a part of it); device index is also accepted here\n");
         printf("\nAvailable PortAudio playback devices:\n");
-        portaudio_print_available_devices(PORTAUDIO_OUT);
+        portaudio_print_help(PORTAUDIO_OUT);
 }
 
 static void * audio_play_portaudio_init(const char *cfg)

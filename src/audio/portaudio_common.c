@@ -82,7 +82,7 @@ static const char *portaudio_get_device_details(PaDeviceIndex device) {
         return buffer;
 }
 
-void portaudio_print_available_devices(enum portaudio_device_direction kind)
+void portaudio_print_help(enum portaudio_device_direction kind)
 {
         int numDevices;
         int i;

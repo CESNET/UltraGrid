@@ -96,7 +96,6 @@ static int         callback( const void *inputBuffer, void *outputBuffer,
                 const PaStreamCallbackTimeInfo* timeInfo,
                 PaStreamCallbackFlags statusFlags,
                 void *userData );
-static void audio_cap_portaudio_help(const char *driver_name);
 
 static int portaudio_start_stream(PaStream *stream)
 {
@@ -116,10 +115,9 @@ static void audio_cap_portaudio_probe(struct device_info **available_devices, in
         audio_portaudio_probe(available_devices, count, PORTAUDIO_IN);
 }
 
-static void audio_cap_portaudio_help(const char *driver_name)
+static void audio_cap_portaudio_help()
 {
-        UNUSED(driver_name);
-        portaudio_print_available_devices(PORTAUDIO_IN);
+        portaudio_print_help(PORTAUDIO_IN);
 }
 
 static void portaudio_close(PaStream * stream)	// closes and frees all audio resources
@@ -166,7 +164,7 @@ static void usage() {
         color_printf("\t" TBOLD("<dev>") "\tdevice name (or a part of it); device index is also accepted here\n");
         printf("\nAvailable PortAudio capture devices:\n");
 
-        audio_cap_portaudio_help(NULL);
+        audio_cap_portaudio_help();
 }
 
 static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
