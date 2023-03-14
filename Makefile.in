@@ -529,7 +529,7 @@ $(GUI_TARGET): gui/QT/Makefile
 # -------------------------------------------------------------------------------------------------
 $(TEST_TARGET): $(TEST_OBJS) @TEST_OBJS@
 	$(MKDIR_P) $(dir $@)
-	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ @CPPUNIT_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ -o $@
 ifeq ($(SYSTEM),Windows)
 	if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 endif

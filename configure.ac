@@ -3491,26 +3491,6 @@ then
         AC_MSG_ERROR([SDL_mixer deps not found!]);
 fi
 
-# ---------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------
-AC_ARG_ENABLE(cppunit, AS_HELP_STRING([--disable-cppunit], [disable cppunit tests (default is auto)]),
-	[cppunit_req=$enableval], [cppunit_req=$build_default])
-
-PKG_CHECK_MODULES([CPPUNIT], [cppunit], [cppunit=yes], [cppunit=no])
-if test "$cppunit" = yes; then
-        AC_DEFINE([HAVE_CPPUNIT], [1], [Build with CppUnit tests])
-        cppunit=yes
-else
-        CPPUNIT_LIBS=
-        cppunit=no
-fi
-AC_SUBST(CPPUNIT_LIBS)
-
-if test $cppunit_req = yes -a $cppunit = no; then
-        AC_MSG_ERROR([cppunit not found]);
-fi
-
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
@@ -3575,7 +3555,6 @@ RESULT="Target: $target\n"
 
 # features
 RESULT=`start_section "$RESULT" "Features"`
-RESULT=`add_column "$RESULT" "CppUnit tests" $cppunit $?`
 RESULT=`add_column "$RESULT" "Crypto$crypto_impl" $crypto $?`
 RESULT=`add_column "$RESULT" "CUDA support$HOST_CC_REPORT" $FOUND_CUDA $?`
 RESULT=`add_column "$RESULT" "Debug output" $debug_output $?`
