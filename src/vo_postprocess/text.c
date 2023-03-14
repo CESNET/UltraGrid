@@ -65,7 +65,8 @@
 #include "vo_postprocess.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
-#include "utils/text.h" // replace_all
+#include "utils/string.h" // replace_all
+#include "utils/text.h"
 
 struct state_text {
         struct video_frame *in;

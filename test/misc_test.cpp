@@ -8,7 +8,7 @@
 #include <sstream>
 
 #include "types.h"
-#include "utils/text.h"
+#include "utils/string.h"
 #include "unit_common.h"
 #include "video.h"
 #include "video_frame.h"

@@ -1,5 +1,5 @@
 /**
- * @file   utils/text.h
+ * @file   utils/string.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,25 +35,25 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_TEXT_H_AFEA0012_0A4B_4DC5_95FC_4B070B9D79CD
-#define UTILS_TEXT_H_AFEA0012_0A4B_4DC5_95FC_4B070B9D79CD
+#ifndef UTILS_STRING_H_09AB88E2_E93F_443B_BF01_EA8F6D90B643
+#define UTILS_STRING_H_09AB88E2_E93F_443B_BF01_EA8F6D90B643
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-unsigned char *base64_decode(const char *in, unsigned int *length);
-char *indent_paragraph(char *text);
-int urlencode_html5_eval(int c);
-int urlencode_rfc3986_eval(int c);
-size_t urlencode(char *out, size_t max_len, const char *in, int (*eval_pass)(int c), bool space_plus_replace);
-size_t urldecode(char *out, size_t max_len, const char *in);
-
-bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool solid);
+// functions documented at definition
+#define DELDEL "\177\177"
+#define ESCAPED_COLON "\\:"
+bool ends_with(const char *haystick, const char *needle);
+void replace_all(char *in, const char *from, const char *to);
+bool is_prefix_of(const char *haystack, const char *needle);
+/// same as strpbrk but finds in a reverse order (last occurence returned)
+char *strrpbrk(char *s, const char *accept);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // defined UTILS_TEXT_H_AFEA0012_0A4B_4DC5_95FC_4B070B9D79CD
+#endif // defined UTILS_STRING_H_09AB88E2_E93F_443B_BF01_EA8F6D90B643
 

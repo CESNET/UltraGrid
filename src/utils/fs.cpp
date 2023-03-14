@@ -47,7 +47,7 @@
 #include <cstring>
 
 #include "utils/fs.h"
-#include "utils/text.h"
+#include "utils/string.h"
 
 /**
  * Returns temporary path ending with path delimiter ('/' or '\' in Windows)

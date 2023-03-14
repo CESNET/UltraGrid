@@ -61,7 +61,7 @@
 #include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/misc.h"
-#include "utils/text.h" // is_prefix_of
+#include "utils/string.h" // is_prefix_of
 #include "video.h"
 #include "video_display.h"
 #include "video_display/decklink_drift_fix.hpp"

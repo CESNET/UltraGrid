@@ -70,7 +70,7 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
-#include "utils/text.h" // replace_all
+#include "utils/string.h" // replace_all
 #include "video.h"
 #include "video_compress.h"
 

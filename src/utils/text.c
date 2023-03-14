@@ -48,42 +48,8 @@
 #include "utils/color_out.h" // prune_ansi_sequences_inplace_cstr
 #include "utils/fs.h"
 #include "utils/pam.h"
+#include "utils/string.h"
 #include "utils/text.h"
-
-/**
- * @brief Replaces all occurencies of 'from' to 'to' in string 'in'
- *
- * Typical use case is to process escaped colon in arguments:
- * ~~~~~~~~~~~~~~~{.c}
- * // replace all '\:' with 2xDEL
- * replace_all(fmt, ESCAPED_COLON, DELDEL);
- * while ((item = strtok())) {
- *         char *item_dup = strdup(item);
- *         replace_all(item_dup, DELDEL, ":");
- *         free(item_dup);
- * }
- * ~~~~~~~~~~~~~~~
- *
- * @note
- * Replacing pattern must not be longer than the replaced one (because then
- * we need to extend the string)
- */
-void replace_all(char *in, const char *from, const char *to) {
-        assert(strlen(from) >= strlen(to) && "Longer dst pattern than src!");
-        assert(strlen(from) > 0 && "From pattern should be non-empty!");
-        char *tmp = in;
-        while ((tmp = strstr(tmp, from)) != NULL) {
-                memcpy(tmp, to, strlen(to));
-                if (strlen(to) < strlen(from)) { // move the rest
-                        size_t len = strlen(tmp + strlen(from));
-                        char *src = tmp + strlen(from);
-                        char *dst = tmp + strlen(to);
-                        memmove(dst, src, len);
-                        dst[len] = '\0';
-                }
-                tmp += strlen(to);
-        }
-}
 
 int urlencode_html5_eval(int c)
 {
@@ -193,13 +159,6 @@ size_t urldecode(char *out, size_t max_len, const char *in)
 }
 
 /**
- * Checks if needle is prefix in haystack, case _insensitive_.
- */
-bool is_prefix_of(const char *haystack, const char *needle) {
-        return strncasecmp(haystack, needle, strlen(needle)) == 0;
-}
-
-/**
  * C-adapted version of https://stackoverflow.com/a/34571089
  *
  * As the output is a generic binary string, it is not NULL-terminated.
@@ -275,20 +234,6 @@ char *indent_paragraph(char *text) {
                 pos += len_raw + 1;
         }
         return text;
-}
-
-char *strrpbrk(char *s, const char *accept) {
-        char *end = s + strlen(s) - 1;
-        while (end >= s) {
-                const char *accept_it = accept;
-                while (*accept_it != '\0') {
-                        if (*accept_it++ == *end) {
-                                return end;
-                        }
-                }
-                end--;
-        }
-        return NULL;
 }
 
 // since the data are already in memory, it would be also possible to use
@@ -372,12 +317,5 @@ bool draw_line(char *buf, int pitch, const char *text, uint32_t color, bool soli
         }
 
         return true;
-}
-
-bool ends_with(const char *haystick, const char *needle) {
-        if (strlen(haystick) < strlen(needle)) {
-                return false;
-        }
-        return strcmp(haystick + strlen(haystick) - strlen(needle), needle) == 0;
 }
 

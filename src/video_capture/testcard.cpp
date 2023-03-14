@@ -68,7 +68,7 @@
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/ring_buffer.h"
-#include "utils/text.h"
+#include "utils/string.h"
 #include "utils/vf_split.h"
 #include "utils/pam.h"
 #include "utils/y4m.h"

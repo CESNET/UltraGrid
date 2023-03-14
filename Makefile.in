@@ -177,6 +177,7 @@ COMMON_OBJS     = \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
 		src/utils/sdp.o \
+		src/utils/string.o \
 		src/utils/string_view_utils.o \
 		src/utils/synchronized_queue.o \
 		src/utils/text.o \
