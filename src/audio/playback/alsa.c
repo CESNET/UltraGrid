@@ -680,7 +680,7 @@ static void audio_play_alsa_help(void) {
         printf("\n");
 
         printf("Available ALSA playback devices:\n");
-        audio_alsa_help();
+        audio_alsa_list_devices();
 }
 
 static bool is_default_pulse(void)

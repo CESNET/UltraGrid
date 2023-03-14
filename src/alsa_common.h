@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -111,7 +111,7 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
         snd_device_name_free_hint(hints);
 }
 
-static inline void audio_alsa_help(void)
+static inline void audio_alsa_list_devices(void)
 {
         struct device_info *available_devices;
         int count;
