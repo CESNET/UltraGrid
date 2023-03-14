@@ -63,7 +63,11 @@ static void audio_play_dummy_help(const char *driver)
 
 static void * audio_play_dummy_init(const char *cfg)
 {
-        UNUSED(cfg);
+        if (strlen(cfg) > 0) {
+                audio_play_dummy_help(NULL);
+                return strcmp(cfg, "help") == 0 ? &audio_init_state_ok : NULL;
+        }
+
         return &state;
 }
 
