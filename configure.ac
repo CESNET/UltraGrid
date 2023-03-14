@@ -2046,19 +2046,10 @@ screen_cap_pw=no
 if { test $screen_cap_req != no && test $screen_cap_req != x11; } && test $FOUND_SCREEN_SCREEN_PW_DEPS = yes; then
         screen_cap=yes
         screen_cap_pw=yes
-        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs libpipewire-0.3)"
-        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs glib-2.0)"
-        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gobject-2.0)"
-        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gio-2.0)"
-        SCREEN_CAP_PIPEWIRE_LIBS="$SCREEN_CAP_PIPEWIRE_LIBS $SCREEN_CAP_PIPEWIRE_LIBS $($PKG_CONFIG --libs gio-unix-2.0)"
+        SCREEN_CAP_PIPEWIRE_LIBS="$($PKG_CONFIG --libs libpipewire-0.3) $($PKG_CONFIG --libs glib-2.0) $($PKG_CONFIG --libs gobject-2.0) $($PKG_CONFIG --libs gio-2.0) $($PKG_CONFIG --libs gio-unix-2.0)"
 
         # include pipewire headers as system headers to supress warnings in the headers (instead of -Ipath use -isystem path)
-        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I libpipewire-0.3 | sed 's/\(^\| \)-I\//\1-isystem \//g')"
-        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I glib-2.0)"
-        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gobject-2.0)"
-        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-2.0)"
-        SCREEN_CAP_PIPEWIRE_INC="$SCREEN_CAP_PIPEWIRE_INC $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
-
+        SCREEN_CAP_PIPEWIRE_INC="$($PKG_CONFIG --cflags-only-I libpipewire-0.3 | sed 's/\(^\| \)-I\//\1-isystem \//g') $($PKG_CONFIG --cflags-only-I glib-2.0) $($PKG_CONFIG --cflags-only-I gobject-2.0) $($PKG_CONFIG --cflags-only-I gio-2.0) $($PKG_CONFIG --cflags-only-I gio-unix-2.0)"
         SCREEN_CAP_PIPEWIRE_OBJ="src/video_capture/screen_pw.o"
 
         INC="$INC $INCSCREEN_CAP_PIPEWIRE_INC"
