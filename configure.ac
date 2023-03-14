@@ -2336,7 +2336,7 @@ AC_ARG_ENABLE(gpujpeg,
 
 
 SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
-PKG_CONFIG_PATH="ext-deps/gpujpeg/install/share/pkgconfig:$PKG_CONFIG_PATH"
+export PKG_CONFIG_PATH="ext-deps/gpujpeg/install/share/pkgconfig:$PKG_CONFIG_PATH"
 PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [libgpujpeg], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
 PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.12.0], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
 PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
