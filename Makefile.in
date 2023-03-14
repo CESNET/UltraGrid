@@ -118,7 +118,6 @@ COMMON_OBJS     = \
 		src/audio/utils.o \
 		src/audio/wav_reader.o \
 		src/audio/wav_writer.o \
-		@JACK_TRANS_OBJ@ \
 		src/audio/audio_filter.o \
 		src/audio/filter_chain.o \
 		src/audio/filter/delay.o \

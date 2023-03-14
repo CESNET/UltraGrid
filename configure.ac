@@ -589,41 +589,43 @@ AC_ARG_WITH(dvs,
 	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
         )
 
-SAVED_CFLAGS=$CFLAGS
-SAVED_CPPFLAGS=$CPPFLAGS
-CFLAGS="$CFLAGS -I${DVS_HDR_PATH}"
-CPPFLAGS="$CPPFLAGS -I${DVS_HDR_PATH}"
-AC_CHECK_HEADER(dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
-CFLAGS=$SAVED_CFLAGS
-CPPFLAGS=$SAVED_CPPFLAGS
+if test "$dvs_req" != no; then
+        SAVED_CFLAGS=$CFLAGS
+        SAVED_CPPFLAGS=$CPPFLAGS
+        CFLAGS="$CFLAGS -I${DVS_HDR_PATH}"
+        CPPFLAGS="$CPPFLAGS -I${DVS_HDR_PATH}"
+        AC_CHECK_HEADER(dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
+        CFLAGS=$SAVED_CFLAGS
+        CPPFLAGS=$SAVED_CPPFLAGS
 
-SAVED_LIBS=$LIBS
-if test $system = MacOSX
-then
-	LIBS="$LIBS -framework IOKit"
-fi
-AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, -L${DVS_LIB})
-LIBS=$SAVED_LIBS
-
-if test $dvs_req != no -a $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
-then
-	DVS_INC=-I${DVS_HDR_PATH}
-	DVS_LIB="-L${DVS_LIB} -ldvsoem"
-        if test $system = Linux; then
-                DVS_LIB="$DVS_LIB -ldl"
+        SAVED_LIBS=$LIBS
+        if test $system = MacOSX
+        then
+                LIBS="$LIBS -framework IOKit"
         fi
-	DVS_CAP_OBJ="src/video_capture/dvs.o"
-	DVS_DISP_OBJ="src/video_display/dvs.o"
-        AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
-        DVS_LIB="$DVS_LIB"
-	if test $system = MacOSX
-	then
-		DVS_LIB="$DVS_LIB -framework IOKit"
-	fi
-        ADD_MODULE("vidcap_dvs", "$DVS_CAP_OBJ", "$DVS_LIB")
-        ADD_MODULE("display_dvs", "$DVS_DISP_OBJ", "$DVS_LIB")
-	INC="$INC $DVS_INC"
-        dvs=yes
+        AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, -L${DVS_LIB})
+        LIBS=$SAVED_LIBS
+
+        if test $FOUND_DVS_H = yes && test $FOUND_DVS_L = yes
+        then
+                DVS_INC=-I${DVS_HDR_PATH}
+                DVS_LIB="-L${DVS_LIB} -ldvsoem"
+                if test $system = Linux; then
+                        DVS_LIB="$DVS_LIB -ldl"
+                fi
+                DVS_CAP_OBJ="src/video_capture/dvs.o"
+                DVS_DISP_OBJ="src/video_display/dvs.o"
+                AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
+                DVS_LIB="$DVS_LIB"
+                if test $system = MacOSX
+                then
+                        DVS_LIB="$DVS_LIB -framework IOKit"
+                fi
+                ADD_MODULE("vidcap_dvs", "$DVS_CAP_OBJ", "$DVS_LIB")
+                ADD_MODULE("display_dvs", "$DVS_DISP_OBJ", "$DVS_LIB")
+                INC="$INC $DVS_INC"
+                dvs=yes
+        fi
 fi
 
 if test $dvs_req = yes -a $dvs = no; then
@@ -646,76 +648,74 @@ AC_ARG_ENABLE(decklink,
 	[decklink_req=$enableval])
 DECKLINK_INC=$srcdir/ext-deps/DeckLink
 
-case "$system" in
-	MacOSX)
-                DECKLINK_INC=$DECKLINK_INC/Mac
-                OLD_LIBS=$LIBS
-                LIBS="$LIBS -framework CoreFoundation"
-                AC_LANG_PUSH(C++)
-		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "$DECKLINK_INC/DeckLinkAPI.h"
-                                   ]],
-		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
-                LIBS=$OLD_LIBS
-                if test $FOUND_DECKLINK = yes; then
-                        DECKLINK_LIB="$DECKLINK_LIB -framework CoreFoundation"
-                fi
-                AC_LANG_POP(C++)
-                ;;
-	Windows)
-                DECKLINK_INC=$DECKLINK_INC/Windows
-                SAVED_LIBS=$LIBS
-                LIBS="$LIBS -lole32"
-                AC_LANG_PUSH(C++)
-		AC_MSG_CHECKING([DeckLink usability])
-		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include "$DECKLINK_INC/DeckLinkAPI_h.h"
-#include "$DECKLINK_INC/DeckLinkAPIVersion.h"
-#include <objbase.h>
-                                   ]],
-		[[IDeckLinkIterator *deckLinkIter; CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void **) deckLinkIter);]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
-                LIBS=$SAVED_LIBS
-                if test $FOUND_DECKLINK = yes; then
-                        DECKLINK_LIB="$DECKLINK_LIB -lole32"
-                fi
-		AC_MSG_RESULT([$FOUND_DECKLINK])
-                AC_LANG_POP(C++)
-                ;;
-        *)
-                DECKLINK_INC=$DECKLINK_INC/Linux
+if test $decklink_req != no; then
+        case "$system" in
+                MacOSX)
+                        DECKLINK_INC=$DECKLINK_INC/Mac
+                        OLD_LIBS=$LIBS
+                        LIBS="$LIBS -framework CoreFoundation"
+                        AC_LANG_PUSH(C++)
+                        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "$DECKLINK_INC/DeckLinkAPI.h"
+                                           ]],
+                                           [[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
+                        LIBS=$OLD_LIBS
+                        if test $FOUND_DECKLINK = yes; then
+                                DECKLINK_LIB="$DECKLINK_LIB -framework CoreFoundation"
+                        fi
+                        AC_LANG_POP(C++)
+                        ;;
+                Windows)
+                        DECKLINK_INC=$DECKLINK_INC/Windows
+                        SAVED_LIBS=$LIBS
+                        LIBS="$LIBS -lole32"
+                        AC_LANG_PUSH(C++)
+                        AC_MSG_CHECKING([DeckLink usability])
+                        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+                                           #include "$DECKLINK_INC/DeckLinkAPI_h.h"
+                                           #include "$DECKLINK_INC/DeckLinkAPIVersion.h"
+                                           #include <objbase.h>
+                                           ]],
+                                           [[IDeckLinkIterator *deckLinkIter; CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void **) deckLinkIter);]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
+                        LIBS=$SAVED_LIBS
+                        if test $FOUND_DECKLINK = yes; then
+                                DECKLINK_LIB="$DECKLINK_LIB -lole32"
+                        fi
+                        AC_MSG_RESULT([$FOUND_DECKLINK])
+                        AC_LANG_POP(C++)
+                        ;;
+                *)
+                        DECKLINK_INC=$DECKLINK_INC/Linux
 
-                AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
-                AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK_SRC=yes, FOUND_DECKLINK_SRC=no)
-                AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK_L=yes, FOUND_DECKLINK_L=no)
-                #if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes; then
-                if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes; then
-                        FOUND_DECKLINK=yes
-                        DECKLINK_LIB="$DECKLINK_LIB -ldl"
+                        AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
+                        AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK_SRC=yes, FOUND_DECKLINK_SRC=no)
+                        AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK_L=yes, FOUND_DECKLINK_L=no)
+                        #if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes; then
+                        if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes; then
+                                FOUND_DECKLINK=yes
+                                DECKLINK_LIB="$DECKLINK_LIB -ldl"
+                        else
+                                FOUND_DECKLINK=no
+                        fi
+                        ;;
+        esac
+        if test "$FOUND_DECKLINK" = yes; then
+                DECKLINK_PATH=${DECKLINK_INC}
+                DECKLINK_INC=-I${DECKLINK_INC}
+                DECKLINK_CAP_OBJ="src/blackmagic_common.o src/video_capture/decklink.o"
+                DECKLINK_DISP_OBJ="src/blackmagic_common.o src/video_display/decklink.o"
+                DECKLINK_SOUND_PLAY_OBJ="src/blackmagic_common.o src/audio/playback/decklink.o"
+                if test $system = "Windows"; then
+                        OBJS="$OBJS src/video_capture/DeckLinkAPI_i.o"
                 else
-                        FOUND_DECKLINK=no
+                        OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
                 fi
-                ;;
-esac
-
-if test $decklink_req != no -a $FOUND_DECKLINK = yes
-then
-    DECKLINK_PATH=${DECKLINK_INC}
-    DECKLINK_INC=-I${DECKLINK_INC}
-    DECKLINK_CAP_OBJ="src/blackmagic_common.o src/video_capture/decklink.o"
-    DECKLINK_DISP_OBJ="src/blackmagic_common.o src/video_display/decklink.o"
-    DECKLINK_SOUND_PLAY_OBJ="src/blackmagic_common.o src/audio/playback/decklink.o"
-    if test $system = "Windows"; then
-        OBJS="$OBJS src/video_capture/DeckLinkAPI_i.o"
-    else
-        OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
-    fi
-    AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
-    ADD_MODULE("vidcap_decklink", "$DECKLINK_CAP_OBJ", "$DECKLINK_LIB")
-    ADD_MODULE("display_decklink", "$DECKLINK_DISP_OBJ", "$DECKLINK_LIB")
-    ADD_MODULE("aplay_decklink", "$DECKLINK_SOUND_PLAY_OBJ", "$DECKLINK_LIB")
-    decklink=yes
-    INC="$INC $DECKLINK_INC"
-else
-    DECKLINK_PATH=
+                AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
+                ADD_MODULE("vidcap_decklink", "$DECKLINK_CAP_OBJ", "$DECKLINK_LIB")
+                ADD_MODULE("display_decklink", "$DECKLINK_DISP_OBJ", "$DECKLINK_LIB")
+                ADD_MODULE("aplay_decklink", "$DECKLINK_SOUND_PLAY_OBJ", "$DECKLINK_LIB")
+                decklink=yes
+                INC="$INC $DECKLINK_INC"
+        fi
 fi
 
 if test $decklink_req = yes -a $decklink = no; then
@@ -769,33 +769,34 @@ else
         BLUEFISH444_LIB_NAME=BlueVelvetC
 fi
 
-AC_LANG_PUSH(C++)
+if test "$bluefish444_req" != no; then
+        BLUE_L=no
+        BLUE_H=no
 
-BLUE_L=no
-BLUE_H=no
+        AC_LANG_PUSH(C++)
+        CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
+        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
+        LIBS="$LIBS $BLUEFISH444_LIB"
+        AC_CHECK_HEADERS([BlueVelvetC.h], [BLUE_H=yes], [BLUE_H=no])
+        AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
 
-CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
-CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC"
-LIBS="$LIBS $BLUEFISH444_LIB"
-AC_CHECK_HEADERS([BlueVelvetC.h], [BLUE_H=yes], [BLUE_H=no])
-AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes], [BLUE_L=no])
+        if test $BLUE_H = yes -a $BLUE_L = yes
+        then
+                BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUEFISH444_LIB_NAME"
+                BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
+                BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
+                AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
+                ADD_MODULE("vidcap_bluefish444", "$BLUEFISH444_CAP_OBJ", "$BLUEFISH444_LIB")
+                ADD_MODULE("display_bluefish444", "$BLUEFISH444_DISP_OBJ", "$BLUEFISH444_LIB")
+                INC="$INC $BLUEFISH444_INC"
+                bluefish444=yes
+        fi
+        AC_LANG_POP(C++)
 
-if test $BLUE_H = yes -a $BLUE_L = yes -a $bluefish444_req != no
-then
-        BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUEFISH444_LIB_NAME"
-        BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
-        BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
-        AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
-        ADD_MODULE("vidcap_bluefish444", "$BLUEFISH444_CAP_OBJ", "$BLUEFISH444_LIB")
-        ADD_MODULE("display_bluefish444", "$BLUEFISH444_DISP_OBJ", "$BLUEFISH444_LIB")
-	INC="$INC $BLUEFISH444_INC"
-        bluefish444=yes
+        LIBS=$SAVED_LIBS
+        CXXFLAGS=$SAVED_CXXFLAGS
+        CPPFLAGS=$SAVED_CPPFLAGS_SAVE
 fi
-AC_LANG_POP(C++)
-
-LIBS=$SAVED_LIBS
-CXXFLAGS=$SAVED_CXXFLAGS
-CPPFLAGS=$SAVED_CPPFLAGS_SAVE
 
 if test $bluefish444_req = yes -a $bluefish444 = no; then
         AC_MSG_ERROR([Bluefish444 not found]);
@@ -830,62 +831,59 @@ AC_ARG_WITH(aja,
             [AJA_PATH=$withval
              ])
 
-# In lines below, there is a compatibility check for NTV2 12.x (Linux only).
-# For macOS, only NTV2 13 is checked/supported.
-if test $system = Linux
-then
-        if test -n "$AJA_PATH"
-        then
-                # NTV2 SDK 12.x
-                AC_CHECK_FILES(${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
-                # NTV2 SDK 13.x
-                if test "$FOUND_LIBAJA" = no; then
-                        AC_CHECK_FILES(${AJA_PATH}/lib/libajantv2.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
+if test "$aja_req" != no; then
+        # In lines below, there is a compatibility check for NTV2 12.x (Linux only).
+        # For macOS, only NTV2 13 is checked/supported.
+        if test $system = Linux; then
+                if test -n "$AJA_PATH"
+                then
+                        # NTV2 SDK 12.x
+                        AC_CHECK_FILES(${AJA_PATH}/lib/libaja.a ${AJA_PATH}/lib/libajastuff.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
+                        # NTV2 SDK 13.x
+                        if test "$FOUND_LIBAJA" = no; then
+                                AC_CHECK_FILES(${AJA_PATH}/lib/libajantv2.a, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
+                        fi
+                fi
+        elif test $system = Windows; then
+                AC_CHECK_LIB(aja, display_aja_probe, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
+        else # MacOSX
+                AC_CHECK_LIB(ajantv2, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
+                if test "$FOUND_LIBAJA" = yes; then
+                        AC_CHECK_FILE(${AJA_PATH}/ajalibraries/ajantv2/includes/ajatypes.h, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
                 fi
         fi
-elif test $system = Windows
-then
-        AC_CHECK_LIB(aja, display_aja_probe, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
-else # MacOSX
-        AC_CHECK_LIB(ajantv2, main, [FOUND_LIBAJA=yes], [FOUND_LIBAJA=no])
+
         if test "$FOUND_LIBAJA" = yes; then
-                AC_CHECK_FILE(${AJA_PATH}/ajalibraries/ajantv2/includes/ajatypes.h, FOUND_LIBAJA=yes, FOUND_LIBAJA=no)
-        fi
-fi
-
-if test "$aja_req" != no -a "$FOUND_LIBAJA" = yes
-then
-        if test $system = Windows; then
-                aja=yes
-        else # check version at least 16 (only mac+Lin, Windows would require a different check)
-                AJA_VER=`sed -n 's/@%:@define AJA_NTV2_SDK_VERSION_MAJOR@<:@@<:@:space:@:>@@:>@*\(@<:@0-9@:>@*\).*/\1/p' <$AJA_PATH/ajalibraries/ajantv2/includes/ntv2enums.h`
-                if test $AJA_VER -ge 16; then
+                if test $system = Windows; then
                         aja=yes
+                else # check version at least 16 (only mac+Lin, Windows would require a different check)
+                        AJA_VER=`sed -n 's/@%:@define AJA_NTV2_SDK_VERSION_MAJOR@<:@@<:@:space:@:>@@:>@*\(@<:@0-9@:>@*\).*/\1/p' <$AJA_PATH/ajalibraries/ajantv2/includes/ntv2enums.h`
+                        if test $AJA_VER -ge 16; then
+                                aja=yes
+                        fi
                 fi
         fi
-fi
 
-if test $aja = yes -a $system = Windows; then
-        ADD_MODULE("aja", "src/aja_win32_stub.o", "-laja")
-elif test $aja = yes # Linux and macOS
-then
-        AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/includes -I${AJA_PATH}/ajalibraries/ajantv2/src/mac -I${AJA_PATH}/ajaapps/crossplatform/demoapps -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajaapps/crossplatform/demoapps/ntv2capture"
-        if test $system = Linux
-        then
-                AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
-                AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/src/lin"
-                AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
-        else # mac
-                AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
-                AJA_LIB="-lajantv2 -framework IOKit"
+        if test $aja = yes -a $system = Windows; then
+                ADD_MODULE("aja", "src/aja_win32_stub.o", "-laja")
+        elif test $aja = yes; then # Linux and macOS
+                AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/includes -I${AJA_PATH}/ajalibraries/ajantv2/src/mac -I${AJA_PATH}/ajaapps/crossplatform/demoapps -I${AJA_PATH}/ajalibraries -I${AJA_PATH}/ajaapps/crossplatform/demoapps/ntv2capture"
+                if test $system = Linux; then
+                        AJA_CXXFLAGS="-DAJALinux -DAJA_LINUX"
+                        AJA_INC="$AJA_INC -I${AJA_PATH}/ajalibraries/ajantv2/src/lin"
+                        AJA_LIB="${AJA_PATH}/lib/libajantv2.a"
+                else # mac
+                        AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
+                        AJA_LIB="-lajantv2 -framework IOKit"
+                fi
+                AJA_CAP_OBJ="src/video_capture/aja.o"
+                AJA_DISP_OBJ="src/video_display/aja.o"
+                AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
+
+                ADD_MODULE("aja", "src/aja_common.o $AJA_CAP_OBJ $AJA_DISP_OBJ", "$AJA_LIB")
+                INC="$INC $AJA_INC"
+                CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
         fi
-        AJA_CAP_OBJ="src/video_capture/aja.o"
-        AJA_DISP_OBJ="src/video_display/aja.o"
-        AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
-
-        ADD_MODULE("aja", "src/aja_common.o $AJA_CAP_OBJ $AJA_DISP_OBJ", "$AJA_LIB")
-        INC="$INC $AJA_INC"
-        CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
 fi
 
 if test $aja_req = yes -a $aja = no; then
@@ -906,15 +904,17 @@ AC_ARG_ENABLE(holepunch,
 [libjuice_req=$enableval],
 [libjuice_req=$build_default])
 
-AC_CHECK_LIB(juice, juice_create, FOUND_LIBJUICE=yes, FOUND_LIBJUICE=no)
-LIBJUICE_LIB="-ljuice"
+if test "$libjuice_req" != no; then
+        AC_CHECK_LIB(juice, juice_create, FOUND_LIBJUICE=yes, FOUND_LIBJUICE=no)
+        LIBJUICE_LIB="-ljuice"
 
-if test "$libjuice_req" != no -a "$FOUND_LIBJUICE" = yes
-then
-        libjuice=yes
-        ADD_MODULE("holepunch", "src/utils/udp_holepunch.o", "$LIBJUICE_LIB")
-        INC="$INC $LIBJUICE_INC"
-        COMMON_FLAGS="$COMMON_FLAGS -DHAVE_LIBJUICE"
+        if test "$FOUND_LIBJUICE" = yes
+        then
+                libjuice=yes
+                ADD_MODULE("holepunch", "src/utils/udp_holepunch.o", "$LIBJUICE_LIB")
+                INC="$INC $LIBJUICE_INC"
+                COMMON_FLAGS="$COMMON_FLAGS -DHAVE_LIBJUICE"
+        fi
 fi
 
 if test $libjuice_req = yes -a $libjuice = no; then
@@ -945,98 +945,93 @@ AC_ARG_WITH(deltacast,
             [DELTACAST_PATH=$withval
              ])
 
-if test $system = Linux -o $system = Windows
-then
-        AC_LANG_PUSH(C++)
+if test "$deltacast_req" != no; then
+        if test "$system" = Linux || test "$system" = Windows; then
+                AC_LANG_PUSH(C++)
 
-        if test -n "$DELTACAST_PATH"
-        then
-                CXXFLAGS_SAVE=$CXXFLAGS
-                CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/Include"
-                CPPFLAGS_SAVE=$CPPFLAGS
-                CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/Include"
+                if test -n "$DELTACAST_PATH"; then
+                        CXXFLAGS_SAVE=$CXXFLAGS
+                        CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/Include"
+                        CPPFLAGS_SAVE=$CPPFLAGS
+                        CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/Include"
+                fi
+
+                if test $system = Windows; then
+                        EXTRA_HEADERS="#include <windows.h>"
+                else
+                        EXTRA_HEADERS=
+                fi
+
+                AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
+                                 [], [],
+                                 [[$EXTRA_HEADERS
+                                  #ifdef HAVE_VIDEOMASTERHD_CORE_H
+                                  # include <VideoMasterHD_Core.h>
+                                  #endif
+                                  #ifdef HAVE_VIDEOMASTERHD_SDI_H
+                                  # include <VideoMasterHD_Sdi.h>
+                                  #endif
+                                  ]])
+
+                SAVED_LIBS=$LIBS
+                DELTACAST_LIB="-lvideomasterhd_audio -lvideomasterhd"
+                if test -n "$DELTACAST_PATH"; then
+                        if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux; then
+                                DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x64"
+                        else
+                                DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x86"
+                        fi
+                fi
+                LIBS="$LIBS $DELTACAST_LIB"
+                AC_MSG_CHECKING([DELTACAST library presence])
+                AC_LINK_IFELSE([AC_LANG_PROGRAM([[$EXTRA_HEADERS
+                                # include <VideoMasterHD_Core.h>
+                                # include <VideoMasterHD_Sdi.h>
+                                # include <VideoMasterHD_Sdi_Audio.h>
+                                ]],
+                                [[
+                                 VHD_OpenBoardHandle(0, (void **) 0, (void *) 0, 0);
+                                 VHD_SlotExtractAudio(0, 0);
+                                 VHD_LockSlotHandle(0, 0);
+                                 ]])],FOUND_VHD_L=yes,FOUND_VHD_L=no)
+                #AC_CHECK_LIB(videomasterhd_audio, VHD_GetNbSamples, [], [], [-lvideomasterhd])
+                LIBS=$SAVED_LIBS
+                if test -n "$DELTACAST_PATH"; then
+                        CXXFLAGS=$CXXFLAGS_SAVE
+                        CPPFLAGS=$CPPFLAGS_SAVE
+                fi
+                AC_MSG_RESULT([$FOUND_VHD_L])
+
+                AC_LANG_POP(C++)
+
+                if test "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
+                        -a "$FOUND_VHD_L" = yes; then
+                                        deltacast_found=yes
+                fi
+        else # OS X
+                MY_CHECK_FRAMEWORK([VideoMasterHD])
+                MY_CHECK_FRAMEWORK([VideoMasterHD_Audio])
+                AC_CHECK_HEADERS([VideoMasterHD/VideoMasterHD_Core.h])
+                if test "$ac_cv_header_VideoMasterHD_VideoMasterHD_Core_h" = yes -a $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
+                        deltacast_found=yes
+                        DELTACAST_LIB="$FRAMEWORK_VIDEOMASTERHD $FRAMEWORK_VIDEOMASTERHD_AUDIO"
+                        BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/VideoMasterHD_Audio.framework Frameworks/VideoMasterHD.framework"
+                fi
         fi
-
-	if test $system = Windows; then
-		EXTRA_HEADERS="#include <windows.h>"
-	else
-		EXTRA_HEADERS=
-	fi
-
-        AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
-                         [], [],
-                         [[$EXTRA_HEADERS
-			#ifdef HAVE_VIDEOMASTERHD_CORE_H
-                          # include <VideoMasterHD_Core.h>
-                          #endif
-                          #ifdef HAVE_VIDEOMASTERHD_SDI_H
-                          # include <VideoMasterHD_Sdi.h>
-                          #endif
-                          ]])
-
-        SAVED_LIBS=$LIBS
-        DELTACAST_LIB="-lvideomasterhd_audio -lvideomasterhd"
-        if test -n "$DELTACAST_PATH"; then
-		if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
-		then
-			DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x64"
-		else
-			DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x86"
-		fi
-	fi
-        LIBS="$LIBS $DELTACAST_LIB"
-		
-        AC_MSG_CHECKING([DELTACAST library presence])
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[$EXTRA_HEADERS
-			  # include <VideoMasterHD_Core.h>
-                          # include <VideoMasterHD_Sdi.h>
-                          # include <VideoMasterHD_Sdi_Audio.h>
-                           ]],
-                           [[
-			    VHD_OpenBoardHandle(0, (void **) 0, (void *) 0, 0);
-			    VHD_SlotExtractAudio(0, 0);
-                            VHD_LockSlotHandle(0, 0);
-                            ]])],FOUND_VHD_L=yes,FOUND_VHD_L=no)
-        #AC_CHECK_LIB(videomasterhd_audio, VHD_GetNbSamples, [], [], [-lvideomasterhd])
-        LIBS=$SAVED_LIBS
-        if test -n "$DELTACAST_PATH"
-        then
-                CXXFLAGS=$CXXFLAGS_SAVE
-                CPPFLAGS=$CPPFLAGS_SAVE
+        if test "$deltacast_found" = yes; then
+                if test -n "$DELTACAST_PATH"; then
+                        DELTACAST_INC="-I$DELTACAST_PATH/Include"
+                fi
+                DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
+                DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
+                AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
+                ADD_MODULE("vidcap_deltacast", "$DELTACAST_CAP_OBJ", "$DELTACAST_LIB")
+                ADD_MODULE("display_deltacast", "$DELTACAST_DISP_OBJ", "$DELTACAST_LIB")
+                INC="$INC $DELTACAST_INC"
+                deltacast=yes
         fi
-        AC_MSG_RESULT([$FOUND_VHD_L])
-
-        AC_LANG_POP(C++)
-
-        if test "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
-                -a "$FOUND_VHD_L" = yes; then
-		deltacast_found=yes
-	fi
-else # OS X
-	MY_CHECK_FRAMEWORK([VideoMasterHD])
-	MY_CHECK_FRAMEWORK([VideoMasterHD_Audio])
-        AC_CHECK_HEADERS([VideoMasterHD/VideoMasterHD_Core.h])
-	if test "$ac_cv_header_VideoMasterHD_VideoMasterHD_Core_h" = yes -a $my_cv_framework_VideoMasterHD = yes -a $my_cv_framework_VideoMasterHD = yes; then
-		deltacast_found=yes
-		DELTACAST_LIB="$FRAMEWORK_VIDEOMASTERHD $FRAMEWORK_VIDEOMASTERHD_AUDIO"
-                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/VideoMasterHD_Audio.framework Frameworks/VideoMasterHD.framework"
-	fi
 fi
 
-if test $deltacast_req != no -a $deltacast_found = yes
-then
-	if test -n "$DELTACAST_PATH"
-	then
-		DELTACAST_INC="-I$DELTACAST_PATH/Include"
-	fi
-	DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
-	DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
-	AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
-	ADD_MODULE("vidcap_deltacast", "$DELTACAST_CAP_OBJ", "$DELTACAST_LIB")
-        ADD_MODULE("display_deltacast", "$DELTACAST_DISP_OBJ", "$DELTACAST_LIB")
-	INC="$INC $DELTACAST_INC"
-	deltacast=yes
-fi
 
 if test $deltacast_req = yes -a $deltacast = no; then
         AC_MSG_ERROR([Deltacast not found]);
@@ -1194,32 +1189,33 @@ fi
 vulkan=no
 
 AC_ARG_ENABLE(vulkan,
-[  --disable-vulkan            disable sdl2_vulkan display (default is auto]
+[  --disable-vulkan            disable sdl2_vulkan display (default is auto)]
 [                          Requires:  sdl2 vulkan],
     [vulkan_req=$enableval],
     [vulkan_req=$build_default]
     )
 
-SAVED_LIBS=$LIBS
-VULKAN_LIBS="-L/opt/homebrew/lib -lMoltenVK"
-LIBS="$LIBS $VULKAN_LIBS"
-AC_CHECK_FUNCS(vkCreateImage, [found_vulkan=yes], [found_vulkan=no])
-LIBS=$SAVED_LIBS
-if test "$found_vulkan" = no; then
-        VULKAN_LIBS=
-        PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
-fi
-AC_CHECK_HEADERS([vulkan/vulkan.h], [], [found_vulkan=no])
+if test "$vulkan_req" != no; then
+        SAVED_LIBS=$LIBS
+        VULKAN_LIBS="-L/opt/homebrew/lib -lMoltenVK" # mac MoltenVK
+        LIBS="$LIBS $VULKAN_LIBS"
+        AC_CHECK_FUNCS(vkCreateImage, [found_vulkan=yes], [found_vulkan=no])
+        LIBS=$SAVED_LIBS
+        if test "$found_vulkan" = no; then
+                VULKAN_LIBS=
+                PKG_CHECK_MODULES([VULKAN], [vulkan >= 1.1.101], [found_vulkan=yes], [found_vulkan=no])
+        fi
+        AC_CHECK_HEADERS([vulkan/vulkan.h], [], [found_vulkan=no])
 
-if test $vulkan_req != no -a $sdl = yes -a $sdl_version = 2 -a $found_vulkan = yes
-then
-	VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o"
-        AC_DEFINE([HAVE_VULKAN], [1],  [Build with vulkan support])
-        VULKAN_LIBS="$VULKAN_LIBS $SDL_LIBS"
-        ADD_MODULE("display_vulkan_sdl2", "$VULKAN_OBJ", "$VULKAN_LIBS")
-	VULKAN=vulkanEnabled
-	AC_SUBST(VULKAN)
-	vulkan=yes
+        if test $sdl = yes && test $sdl_version = 2 && test $found_vulkan = yes; then
+                VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o"
+                AC_DEFINE([HAVE_VULKAN], [1],  [Build with vulkan support])
+                VULKAN_LIBS="$VULKAN_LIBS $SDL_LIBS"
+                ADD_MODULE("display_vulkan_sdl2", "$VULKAN_OBJ", "$VULKAN_LIBS")
+                VULKAN=vulkanEnabled
+                AC_SUBST(VULKAN)
+                vulkan=yes
+        fi
 fi
 
 if test "$vulkan_req" = yes && test "$vulkan" = no; then
@@ -1251,7 +1247,7 @@ fi
 # ------------------------------------------------------------------------------
 panogl_disp=no
 AC_ARG_ENABLE(panogl_disp,
-[  --disable-panogl_disp            disable gl panorama display (default is auto]
+[  --disable-panogl_disp            disable gl panorama display (default is auto)]
 [                          Requires:  sdl2 gl],
     [panogl_disp_req=$enableval],
     [panogl_disp_req=$build_default]
@@ -1282,33 +1278,29 @@ fi
 # ------------------------------------------------------------------------------
 xrgl_disp=no
 AC_ARG_ENABLE(xrgl_disp,
-[  --disable-xrgl_disp            disable OpenXR VR display (default is auto]
+[  --disable-xrgl_disp            disable OpenXR VR display (default is auto)]
 [                          Requires:  sdl2 gl openxr],
     [xrgl_disp_req=$enableval],
     [xrgl_disp_req=$build_default]
     )
 
-define(xrgl_deps, [openxr])
-
-PKG_CHECK_MODULES([XRGLDISP], [xrgl_deps], [FOUND_XRGL_DEPS=yes], [FOUND_XRGL_DEPS=no])
-
-if test $sdl = no -o $sdl_version != 2 -o $glm = no; then
-        FOUND_XRGL_DEPS=no
+FOUND_XRGL_DEPS=no
+if test $xrgl_disp_req != no && test "$sdl_version" = 2 && test "$glm" != no; then
+        PKG_CHECK_MODULES([XRGLDISP], [openxr], [FOUND_XRGL_DEPS=yes], [FOUND_XRGL_DEPS=no])
+        if test "$FOUND_XRGL_DEPS" = yes; then
+                XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
+                AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
+                XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIBS"
+                ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
+                INC="$INC $GLM_INC"
+                xrgl_disp=yes
+        fi
 fi
 
 if test $xrgl_disp_req = yes -a $FOUND_XRGL_DEPS = no; then
         AC_MSG_ERROR([XRGL deps not found]);
 fi
 
-if test $xrgl_disp_req != no -a $FOUND_XRGL_DEPS = yes
-then
-        XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
-        AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
-        XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIBS"
-        ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
-        INC="$INC $GLM_INC"
-        xrgl_disp=yes
-fi
 #
 # ------------------------------------------------------------------------------
 # caca
@@ -1341,50 +1333,52 @@ AC_ARG_ENABLE(opencv,
               [opencv_req=$build_default])
 found_opencv=no
 opencv=no
-PKG_CHECK_MODULES([OPENCV_4], [opencv4], [
-                   found_opencv=yes
-                   OPENCV_LIBS=$OPENCV_4_LIBS
-                   OPENCV_CFLAGS=$OPENCV_4_CFLAGS
-                   ], [found_opencv=no])
-if test "$found_opencv" = no; then
-        PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
-                           found_opencv=yes
-                           OPENCV_LIBS=$OPENCV_3_LIBS
-                           OPENCV_CFLAGS=$OPENCV_3_CFLAGS
-                           ], [found_opencv=no])
-fi
-if test "$found_opencv" = no; then
-        PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
-                           found_opencv=2
-                           OPENCV_LIBS=$OPENCV_2_LIBS
-                           OPENCV_CFLAGS=$OPENCV_2_CFLAGS
-                           ], [found_opencv=no])
-fi
-if test "$found_opencv" = yes && test "$opencv_req" != no; then
-        OPENCV_LIBS=$(remove_all_libs_but_opencv_core $OPENCV_LIBS)
-        opencv="yes"
-fi
 
-if test "$found_opencv" = no && test "$opencv_req" != no; then
-        AC_CHECK_LIB(opencv_core, cvCreateMat)
-        AC_LANG_PUSH(C++)
-        AC_CHECK_HEADERS([opencv2/core/mat.hpp])
-        # if hdrs not in default path, try also /usr/include/opencv4 (we don't have CFLAGS from .pc; eg. U20.04)
-        if test "$ac_cv_header_opencv2_core_mat_hpp" = no; then
-                OPENCV_CFLAGS=-I/usr/include/opencv4
-                SAVED_CPPFLAGS=$CPPFLAGS
-                SAVED_CXXFLAGS=$CXXFLAGS
-                CPPFLAGS="$CPPFLAGS $OPENCV_CFLAGS"
-                CXXFLAGS="$CXXFLAGS $OPENCV_CFLAGS"
-                unset ac_cv_header_opencv2_core_mat_hpp # prevent AC from using cached result
-                AC_CHECK_HEADERS([opencv2/core/mat.hpp])
-                CPPFLAGS=$SAVED_CPPFLAGS
-                CXXFLAGS=$SAVED_CXXFLAGS
+if test "$opencv_req" != no; then
+        PKG_CHECK_MODULES([OPENCV_4], [opencv4], [
+                           found_opencv=yes
+                           OPENCV_LIBS=$OPENCV_4_LIBS
+                           OPENCV_CFLAGS=$OPENCV_4_CFLAGS
+                           ], [found_opencv=no])
+        if test "$found_opencv" = no; then
+                PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
+                                   found_opencv=yes
+                                   OPENCV_LIBS=$OPENCV_3_LIBS
+                                   OPENCV_CFLAGS=$OPENCV_3_CFLAGS
+                                   ], [found_opencv=no])
         fi
-        AC_LANG_POP(C++)
-        if test "$ac_cv_lib_opencv_core_cvCreateMat" = yes && test "$ac_cv_header_opencv2_core_mat_hpp" = yes; then
-                OPENCV_LIBS=-lopencv_core
+        if test "$found_opencv" = no; then
+                PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
+                                   found_opencv=2
+                                   OPENCV_LIBS=$OPENCV_2_LIBS
+                                   OPENCV_CFLAGS=$OPENCV_2_CFLAGS
+                                   ], [found_opencv=no])
+        fi
+        if test "$found_opencv" = yes; then
+                OPENCV_LIBS=$(remove_all_libs_but_opencv_core $OPENCV_LIBS)
                 opencv=yes
+        fi
+        if test "$found_opencv" = no; then
+                AC_CHECK_LIB(opencv_core, cvCreateMat)
+                AC_LANG_PUSH(C++)
+                AC_CHECK_HEADERS([opencv2/core/mat.hpp])
+                # if hdrs not in default path, try also /usr/include/opencv4 (we don't have CFLAGS from .pc; eg. U20.04)
+                if test "$ac_cv_header_opencv2_core_mat_hpp" = no; then
+                        OPENCV_CFLAGS=-I/usr/include/opencv4
+                        SAVED_CPPFLAGS=$CPPFLAGS
+                        SAVED_CXXFLAGS=$CXXFLAGS
+                        CPPFLAGS="$CPPFLAGS $OPENCV_CFLAGS"
+                        CXXFLAGS="$CXXFLAGS $OPENCV_CFLAGS"
+                        unset ac_cv_header_opencv2_core_mat_hpp # prevent AC from using cached result
+                        AC_CHECK_HEADERS([opencv2/core/mat.hpp])
+                        CPPFLAGS=$SAVED_CPPFLAGS
+                        CXXFLAGS=$SAVED_CXXFLAGS
+                fi
+                AC_LANG_POP(C++)
+                if test "$ac_cv_lib_opencv_core_cvCreateMat" = yes && test "$ac_cv_header_opencv2_core_mat_hpp" = yes; then
+                        OPENCV_LIBS=-lopencv_core
+                        opencv=yes
+                fi
         fi
 fi
 
@@ -1418,20 +1412,20 @@ AC_ARG_ENABLE(rtsp,
     [rtsp_req=$build_default]
     )
 
-PKG_CHECK_MODULES([RTSP], [rtsp_deps], FOUND_RTSP_DEPS=yes, FOUND_RTSP_DEPS=no)
-
-if test $rtsp_req != no -a $FOUND_RTSP_DEPS = yes
-then
-        AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl])
-        SAVED_CFLAGS=$CFLAGS
-        CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
-        SAVED_CXXFLAGS=$CXXFLAGS
-        CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
-        RTSP_INC=
-        RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
-        ADD_MODULE("vidcap_rtsp", "$RTSP_OBJ", "$RTSP_LIBS")
-	INC="$INC $RTSP_INC"
-        rtsp=yes
+if test "$rtsp_req" != no; then
+        PKG_CHECK_MODULES([RTSP], [rtsp_deps], FOUND_RTSP_DEPS=yes, FOUND_RTSP_DEPS=no)
+        if test $FOUND_RTSP_DEPS = yes; then
+                AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl])
+                SAVED_CFLAGS=$CFLAGS
+                CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
+                SAVED_CXXFLAGS=$CXXFLAGS
+                CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
+                RTSP_INC=
+                RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
+                ADD_MODULE("vidcap_rtsp", "$RTSP_OBJ", "$RTSP_LIBS")
+                INC="$INC $RTSP_INC"
+                rtsp=yes
+        fi
 fi
 
 if test $rtsp_req = yes -a $rtsp = no; then
@@ -1461,32 +1455,33 @@ AC_ARG_WITH(live555,
             [livemedia_prefix=$withval
             ])
 
-AC_LANG_PUSH(C++)
-RTSP_SERVER_FLAGS="-I$livemedia_prefix/include/groupsock -I$livemedia_prefix/include/liveMedia -I$livemedia_prefix/include/BasicUsageEnvironment -I$livemedia_prefix/include/UsageEnvironment"
-SAVED_CPPFLAGS=$CPPFLAGS
-CPPFLAGS="$CPPFLAGS $RTSP_SERVER_FLAGS"
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-                   #include <liveMedia.hh>
-                   #include <liveMedia_version.hh>
-                   ]], [[
-                        #if LIVEMEDIA_LIBRARY_VERSION_INT > 1438905600
-                        #error "Unsuppored live555 version (too new)"
-                        #endif
-                        ]]
-                   )], FOUND_LIVE_H=yes, [echo "liveMedia (live555 library) headers not found or wrong version (< 2015 needed)"; FOUND_LIVE_H=no])
-CPPFLAGS=$SAVED_CPPFLAGS
-AC_LANG_POP(C++)
-
-if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes
-then
-        AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
-        CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
-        CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
-        RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
-        RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
-        ADD_MODULE("video_rxtx_h264", "$RTSP_SERVER_OBJ", "$RTSP_SERVER_LIBS")
-        rtsp_server=yes
-        livemedia=yes
+if test $rtsp_server_req != no; then
+        AC_LANG_PUSH(C++)
+        RTSP_SERVER_FLAGS="-I$livemedia_prefix/include/groupsock -I$livemedia_prefix/include/liveMedia -I$livemedia_prefix/include/BasicUsageEnvironment -I$livemedia_prefix/include/UsageEnvironment"
+        SAVED_CPPFLAGS=$CPPFLAGS
+        CPPFLAGS="$CPPFLAGS $RTSP_SERVER_FLAGS"
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+                           #include <liveMedia.hh>
+                           #include <liveMedia_version.hh>
+                           ]], [[
+                                #if LIVEMEDIA_LIBRARY_VERSION_INT > 1438905600
+                                #error "Unsuppored live555 version (too new)"
+                                #endif
+                                ]]
+                           )], FOUND_LIVE_H=yes, [echo "liveMedia (live555 library) headers not found or wrong version (< 2015 needed)"; FOUND_LIVE_H=no])
+        CPPFLAGS=$SAVED_CPPFLAGS
+        AC_LANG_POP(C++)
+        if test $FOUND_LIVE_H = yes
+        then
+                AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
+                CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
+                CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
+                RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
+                RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
+                ADD_MODULE("video_rxtx_h264", "$RTSP_SERVER_OBJ", "$RTSP_SERVER_LIBS")
+                rtsp_server=yes
+                livemedia=yes
+        fi
 fi
 
 if test $rtsp_server_req = yes -a $rtsp_server = no; then
@@ -1503,12 +1498,13 @@ AC_ARG_ENABLE(sdp-http,
     )
 sdp_http=no
 
-AC_CHECK_HEADERS([EmbeddableWebServer.h])
-
-if test $sdp_http_req != no && test $ac_cv_header_EmbeddableWebServer_h = yes
-then
-        AC_DEFINE([SDP_HTTP], 1, [Add support for SDP over HTTP])
-        sdp_http=yes
+if test $sdp_http_req != no; then
+        AC_CHECK_HEADERS([EmbeddableWebServer.h])
+        if test $ac_cv_header_EmbeddableWebServer_h = yes
+        then
+                AC_DEFINE([SDP_HTTP], 1, [Add support for SDP over HTTP])
+                sdp_http=yes
+        fi
 fi
 
 if test $sdp_http_req = yes -a $sdp_http = no; then
@@ -1558,23 +1554,25 @@ AC_ARG_ENABLE(blank,
     [blank_req=$build_default]
     )
 
-PKG_CHECK_MODULES([BLANK], [blank_dep], FOUND_BLANK_DEP=yes, FOUND_BLANK_DEP=no)
+if test $blank_req != no; then
+        PKG_CHECK_MODULES([BLANK], [blank_dep], FOUND_BLANK_DEP=yes, FOUND_BLANK_DEP=no)
 
-if test $FOUND_BLANK_DEP = no; then
-        AC_CHECK_HEADERS([libswscale/swscale.h], AC_CHECK_LIB(swscale, sws_scale, FOUND_BLANK_DEP=yes))
-        if test $FOUND_BLANK_DEP = yes; then
-                BLANK_LIBS='-lswscale'
+        if test $FOUND_BLANK_DEP = no; then
+                AC_CHECK_HEADERS([libswscale/swscale.h], AC_CHECK_LIB(swscale, sws_scale, FOUND_BLANK_DEP=yes))
+                if test $FOUND_BLANK_DEP = yes; then
+                        BLANK_LIBS='-lswscale'
+                fi
         fi
-fi
 
-if test $blank_req != no -a $FOUND_BLANK_DEP = yes
-then
-        CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
-        CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
-        BLANK_OBJ="src/capture_filter/blank.o"
-        BLANK_OBJ="$BLANK_OBJ src/libavcodec/lavc_common.o" # get_ug_to_av_pixfmt()
-        ADD_MODULE("vcapfilter_blank", "$BLANK_OBJ", "$BLANK_LIBS")
-        blank=yes
+        if test $blank_req != no -a $FOUND_BLANK_DEP = yes
+        then
+                CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
+                CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
+                BLANK_OBJ="src/capture_filter/blank.o"
+                BLANK_OBJ="$BLANK_OBJ src/libavcodec/lavc_common.o" # get_ug_to_av_pixfmt()
+                ADD_MODULE("vcapfilter_blank", "$BLANK_OBJ", "$BLANK_LIBS")
+                blank=yes
+        fi
 fi
 
 if test $blank_req = yes -a $blank = no; then
@@ -1640,7 +1638,6 @@ if { test $testcard2_req = yes && test $testcard2 = no ;} \
         AC_MSG_ERROR([Testcard2 dependencies not found])
 fi
 
-
 # -------------------------------------------------------------------------------------------------
 # libavcodec hw-accelerated decoding support
 # -------------------------------------------------------------------------------------------------
@@ -1674,42 +1671,44 @@ AC_ARG_ENABLE(lavc-hw-accel-rpi4,
     [lavc_hwacc_rpi4_req=$build_default]
 )
 
-
-PKG_CHECK_MODULES([LAVC_HWACC_COMMON], [lavc_hwacc_common_dep], [FOUND_HWACC_COMMON_DEP=yes], [FOUND_HWACC_COMMON_DEP=no])
-PKG_CHECK_MODULES([LAVC_HWACC_VDPAU], [lavc_hwacc_vdpau_dep], [FOUND_HWACC_VDPAU_DEP=yes], [FOUND_HWACC_VDPAU_DEP=no])
-PKG_CHECK_MODULES([LAVC_HWACC_VAAPI], [lavc_hwacc_vaapi_dep], [FOUND_HWACC_VAAPI_DEP=yes], [FOUND_HWACC_VAAPI_DEP=no])
-
-SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
-PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/vc/lib/pkgconfig/"
-export PKG_CONFIG_PATH
-
-PKG_CHECK_MODULES([MMAL], [mmal], [ FOUND_HWACC_RPI4_DEP=yes ], [ FOUND_HWACC_RPI4_DEP=no ])
-PKG_CHECK_MODULES([BCM_HOST], [bcm_host], [ ], [ FOUND_HWACC_RPI4_DEP=no ])
-
-PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
-export PKG_CONFIG_PATH
-
-AC_CHECK_HEADER([libavcodec/rpi_zc.h], [  ], [FOUND_HWACC_RPI4_DEP=no], [#include <libavcodec/avcodec.h>])
-
-
-LAVC_HWACC_FLAGS=
+LAVC_HWACC_FLAGS=-DHWACC_COMMON_IMPL
 LAVC_HWACC_LIBS=
 HW_ACC_OBJ="src/hwaccel_libav_common.o"
 
-if test $lavc_hwacc_vdpau_req != no -a $FOUND_HWACC_VDPAU_DEP = yes
-then
-        lavc_hwacc_vdpau=yes
-        lavc_hwacc_common=yes
+if test $lavc_hwacc_vdpau_req != no; then
+        PKG_CHECK_MODULES([LAVC_HWACC_VDPAU], [lavc_hwacc_vdpau_dep], [FOUND_HWACC_VDPAU_DEP=yes], [FOUND_HWACC_VDPAU_DEP=no])
+        if test $FOUND_HWACC_VDPAU_DEP = yes; then
+                LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} ${LAVC_HWACC_VDPAU_CFLAGS}"
+                LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VDPAU_LIBS}"
+                HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vdpau.o"
+                lavc_hwacc_vdpau=yes
+                lavc_hwacc_common=yes
+        fi
 fi
-if test $lavc_hwacc_vaapi_req != no -a $FOUND_HWACC_VAAPI_DEP = yes
-then
-        lavc_hwacc_vaapi=yes
-        lavc_hwacc_common=yes
+if test $lavc_hwacc_vaapi_req != no; then
+        PKG_CHECK_MODULES([LAVC_HWACC_VAAPI], [lavc_hwacc_vaapi_dep], [FOUND_HWACC_VAAPI_DEP=yes], [FOUND_HWACC_VAAPI_DEP=no])
+        if test $FOUND_HWACC_VAAPI_DEP = yes; then
+                LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VAAPI ${LAVC_HWACC_VAAPI_CFLAGS}"
+                LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VAAPI_LIBS}"
+                HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
+                lavc_hwacc_vaapi=yes
+                lavc_hwacc_common=yes
+        fi
 fi
-if test $lavc_hwacc_rpi4_req != no -a $FOUND_HWACC_RPI4_DEP = yes
-then
-        lavc_hwacc_rpi4=yes
-        lavc_hwacc_common=yes
+if test $lavc_hwacc_rpi4_req = yes; then
+        SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
+        export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/vc/lib/pkgconfig/"
+        PKG_CHECK_MODULES([MMAL], [mmal], [ FOUND_HWACC_RPI4_DEP=yes ], [ FOUND_HWACC_RPI4_DEP=no ])
+        PKG_CHECK_MODULES([BCM_HOST], [bcm_host], [ ], [ FOUND_HWACC_RPI4_DEP=no ])
+        PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
+        AC_CHECK_HEADER([libavcodec/rpi_zc.h], [  ], [FOUND_HWACC_RPI4_DEP=no], [#include <libavcodec/avcodec.h>])
+        if test "$FOUND_HWACC_RPI4_DEP" = yes; then
+                LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_RPI4 ${MMAL_CFLAGS} ${BCM_HOST_CFLAGS}"
+                LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${MMAL_LIBS} ${BCM_HOST_LIBS}"
+                ADD_MODULE("rpi4_hw_accel", "src/video_display/rpi4_out.o", "${MMAL_LIBS} ${BCM_HOST_LIBS}")
+                lavc_hwacc_rpi4=yes
+                lavc_hwacc_common=yes
+        fi
 fi
 if test $system = MacOSX; then
         lavc_hwacc_common=yes
@@ -1717,31 +1716,8 @@ fi
 
 if test $lavc_hwacc_common = yes
 then
-        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_COMMON_IMPL"
+        COMMON_FLAGS="$COMMON_FLAGS $LAVC_HWACC_FLAGS"
 fi
-
-if test $lavc_hwacc_vdpau = yes
-then
-        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} ${LAVC_HWACC_VDPAU_CFLAGS}"
-        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VDPAU_LIBS}"
-        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vdpau.o"
-fi
-
-if test $lavc_hwacc_vaapi = yes
-then
-        LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_VAAPI ${LAVC_HWACC_VAAPI_CFLAGS}"
-        LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${LAVC_HWACC_VAAPI_LIBS}"
-        HW_ACC_OBJ="${HW_ACC_OBJ} src/hwaccel_vaapi.o"
-fi
-
-if test $lavc_hwacc_rpi4 = yes
-then
-	LAVC_HWACC_FLAGS="${LAVC_HWACC_FLAGS} -DHWACC_RPI4 ${MMAL_CFLAGS} ${BCM_HOST_CFLAGS}"
-	LAVC_HWACC_LIBS="${LAVC_HWACC_LIBS} ${MMAL_LIBS} ${BCM_HOST_LIBS}"
-	ADD_MODULE("rpi4_hw_accel", "src/video_display/rpi4_out.o", "${MMAL_LIBS} ${BCM_HOST_LIBS}")
-fi
-
-COMMON_FLAGS="$COMMON_FLAGS $LAVC_HWACC_FLAGS"
 
 if test $lavc_hwacc_vdpau_req = yes -a $lavc_hwacc_vdpau = no; then
 	AC_MSG_ERROR([Could not find hwacc vdpau dependencies!]);
@@ -1766,28 +1742,27 @@ AC_ARG_ENABLE(libswscale,
 [libswscale_req=$build_default]
 )
 
-if test $system = Windows; then
-AC_CHECK_HEADERS([libswscale/swscale.h])
-AC_CHECK_LIB(swscale, sws_getContext)
-if test $ac_cv_header_libswscale_swscale_h = yes -a \
-        $ac_cv_lib_swscale_sws_getContext = yes
-then
-        found_libswscale=yes
-        LIBSWSCALE_LIBS="-lswscale"
-else
-        found_libswscale=no
-fi
-else # Linux, OS X
-PKG_CHECK_MODULES([LIBSWSCALE], [libswscale], [found_libswscale=yes], [found_libswscale=no])
-fi
+if test "$libswscale_req" != no; then
+        if test $system = Windows; then
+                AC_CHECK_HEADERS([libswscale/swscale.h])
+                AC_CHECK_LIB(swscale, sws_getContext)
+                if test $ac_cv_header_libswscale_swscale_h = yes -a \
+                                $ac_cv_lib_swscale_sws_getContext = yes; then
+                        found_libswscale=yes
+                        LIBSWSCALE_LIBS="-lswscale"
+                else
+                        found_libswscale=no
+                fi
+        else # Linux, OS X
+                PKG_CHECK_MODULES([LIBSWSCALE], [libswscale], [found_libswscale=yes], [found_libswscale=no])
+        fi
 
-if test $libswscale_req != no -a $found_libswscale = yes
-then
-        AC_DEFINE([HAVE_SWSCALE], [1], [Build with Swscale support])
-
-        COMMON_FLAGS="$COMMON_FLAGS $LIBSWSCALE_CFLAGS"
-        libswscale=yes
-        #LIBSWSCALE_LIBS="$LIBSWSCALE_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
+        if test $found_libswscale = yes; then
+                AC_DEFINE([HAVE_SWSCALE], [1], [Build with Swscale support])
+                COMMON_FLAGS="$COMMON_FLAGS $LIBSWSCALE_CFLAGS"
+                libswscale=yes
+                #LIBSWSCALE_LIBS="$LIBSWSCALE_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
+        fi
 fi
 
 if test $libswscale_req = yes -a $libswscale = no; then
@@ -1806,23 +1781,25 @@ AC_ARG_ENABLE(libavcodec,
 [libavcodec_req=$build_default]
 )
 
-PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
-PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
+if test "$libavcodec_req" != no; then
+        PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
+        PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
 
-if test $found_libavcodec = no -o $found_libavutil = no; then
-        AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
-        AC_CHECK_LIB(avcodec, avcodec_open2)
-        AC_CHECK_LIB(avutil, av_free)
-        if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
+        if test "$found_libavcodec" = no || test "$found_libavutil" = no; then
+                AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
+                AC_CHECK_LIB(avcodec, avcodec_open2)
+                AC_CHECK_LIB(avutil, av_free)
+                if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
                         $ac_cv_header_libavutil_imgutils_h = yes -a \
                         $ac_cv_header_libavutil_opt_h = yes -a \
                         $ac_cv_lib_avcodec_avcodec_open2 = yes -a \
                         $ac_cv_lib_avutil_av_free = yes; then
-                found_libavcodec=yes
-                found_libavutil=yes
-                libavcodec_ge_55=yes # TODO
-                LIBAVCODEC_LIBS="-lavcodec"
-                LIBAVUTIL_LIBS="-lavutil"
+                                        found_libavcodec=yes
+                                        found_libavutil=yes
+                                        libavcodec_ge_55=yes # TODO
+                                        LIBAVCODEC_LIBS="-lavcodec"
+                                        LIBAVUTIL_LIBS="-lavutil"
+                fi
         fi
 fi
 
@@ -1866,30 +1843,28 @@ AC_ARG_ENABLE(file,
 [file_req=$build_default]
 )
 
-PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavformat=yes], [found_libavformat=no])
-if test "$found_libavformat" != yes; then
-        SAVED_LIBS=$LIBS
-        AC_CHECK_HEADERS([libavformat/avformat.h])
-        AC_CHECK_LIB(avformat, avformat_open_input)
-        LIBS=$SAVED_LIBS
+if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; then
+        PKG_CHECK_MODULES([LIBAVFORMAT], [libavformat], [found_libavformat=yes], [found_libavformat=no])
+        if test "$found_libavformat" != yes; then
+                SAVED_LIBS=$LIBS
+                AC_CHECK_HEADERS([libavformat/avformat.h])
+                AC_CHECK_LIB(avformat, avformat_open_input)
+                LIBS=$SAVED_LIBS
 
-        if test $ac_cv_header_libavformat_avformat_h = yes -a \
-                $ac_cv_lib_avformat_avformat_open_input = yes
-        then
-                found_libavformat=yes
-                LIBAVFORMAT_LIBS="-lavformat"
-        else
-                found_libavformat=no
+                if test $ac_cv_header_libavformat_avformat_h = yes -a \
+                                $ac_cv_lib_avformat_avformat_open_input = yes; then
+                        found_libavformat=yes
+                        LIBAVFORMAT_LIBS="-lavformat"
+                else
+                        found_libavformat=no
+                fi
         fi
-fi
-
-if test $file_req != no -a $libavcodec = yes -a $libswscale = yes -a $found_libavformat = yes
-then
-        AC_DEFINE([HAVE_FILE], [1], [Build with file input support])
-
-        COMMON_FLAGS="$COMMON_FLAGS $LIBAVFORMAT_CFLAGS"
-        file=yes
-        ADD_MODULE("vidcap_file", "src/libavcodec/lavc_common.o src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
+        if test $found_libavformat = yes; then
+                AC_DEFINE([HAVE_FILE], [1], [Build with file input support])
+                COMMON_FLAGS="$COMMON_FLAGS $LIBAVFORMAT_CFLAGS"
+                file=yes
+                ADD_MODULE("vidcap_file", "src/libavcodec/lavc_common.o src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
+        fi
 fi
 
 if test $file_req = yes -a $file = no; then
@@ -1900,8 +1875,6 @@ fi
 # -------------------------------------------------------------------------------------------------
 # OpenGL display
 # -------------------------------------------------------------------------------------------------
-GL_INC=
-GL_OBJ=$GL_COMMON_OBJ
 GL_LIB=$OPENGL_LIB
 gl_display=no
 
@@ -1912,23 +1885,18 @@ AC_ARG_ENABLE(gl-display,
     [gl_display_req=$build_default]
     )
 
-GL_OBJ="$GL_OBJ src/video_display/gl.o"
-
-PKG_CHECK_MODULES([GLFW], [glfw3], [ FOUND_GLFW=yes ], [ FOUND_GLFW=no ])
-
-if test "$OPENGL" = yes -a "$FOUND_GLFW" = yes -a $gl_display_req != no
+if test "$OPENGL" = yes && test "$gl_display_req" != no
 then
-        GL_LIB="$GLFW_LIBS $OPENGL_LIB"
-        gl_display=yes
-        AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
-
-        if test $lavc_hwacc_vdpau = yes -a $libavcodec = yes
-        then
-                HW_ACC_OBJ="${HW_ACC_OBJ} src/video_display/gl_vdpau.o"
+        PKG_CHECK_MODULES([GLFW], [glfw3], [ FOUND_GLFW=yes ], [ FOUND_GLFW=no ])
+        if test "$FOUND_GLFW"; then
+                GL_LIB="$GLFW_LIBS $OPENGL_LIB"
+                gl_display=yes
+                if test $lavc_hwacc_vdpau = yes -a $libavcodec = yes; then
+                        HW_ACC_OBJ="${HW_ACC_OBJ} src/video_display/gl_vdpau.o"
+                fi
+                COMMON_FLAGS="$COMMON_FLAGS $GLFW_CFLAGS"
+                ADD_MODULE("display_gl", "$GL_COMMON_OBJ $HW_ACC_OBJ src/video_display/gl.o", "$GL_LIB $LAVC_HWACC_LIBS")
         fi
-
-        INC="$INC $GLFW_INC"
-        ADD_MODULE("display_gl", "$GL_OBJ $HW_ACC_OBJ", "$GL_LIB $LAVC_HWACC_LIBS")
 fi
 
 if test $gl_display_req = yes -a $gl_display = no; then
@@ -2009,41 +1977,43 @@ case "$system" in
         Windows)
                 screen_cap=$dshow
         ;;
-	*)
-                # Linux
-                SAVED_LIBS=$LIBS
-                AC_CHECK_HEADER(X11/Xlib.h)
-                AC_CHECK_HEADER(X11/Xutil.h)
-                AC_CHECK_LIB(X11, XGetImage)
-                #PKG_CHECK_MODULES([XFIXES], [xfixes], 
-                #                  [AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])],
-                #                  [HAVE_XFIXES=no]
-                #                  )
-                AC_CHECK_LIB(Xfixes, XFixesGetCursorImage)
-                AC_CHECK_HEADER(X11/extensions/Xfixes.h)
-                LIBS=$SAVED_LIBS
-
-		if test $screen_cap_req != no -a $ac_cv_lib_X11_XGetImage = yes -a \
-                         $ac_cv_header_X11_Xlib_h = yes -a $ac_cv_header_X11_Xutil_h = yes
-		then
-                        screen_cap=yes
-                        screen_cap_x11=yes
-                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11"
-                        if test $ac_cv_lib_Xfixes_XFixesGetCursorImage = yes -a \
-                                $ac_cv_header_X11_extensions_Xfixes_h = yes
-                        then
-                                AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])
-                                SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lXfixes"
-                        fi
-		fi
-	;;
 esac
 
-# PipeWire
-PKG_CHECK_MODULES([SCREEN_PW_DEPS], [libpipewire-0.3  glib-2.0 gobject-2.0 gio-unix-2.0 ], [FOUND_SCREEN_SCREEN_PW_DEPS=yes], [FOUND_SCREEN_SCREEN_PW_DEPS=no])
-screen_cap_pw=no
+# X11
+screen_cap_x11=no
+if test "$system" = Linux && test $screen_cap_req != no && test $screen_cap_req != pipewire; then
+        SAVED_LIBS=$LIBS
+        AC_CHECK_HEADER(X11/Xlib.h)
+        AC_CHECK_HEADER(X11/Xutil.h)
+        AC_CHECK_LIB(X11, XGetImage)
+        #PKG_CHECK_MODULES([XFIXES], [xfixes], [AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])], [HAVE_XFIXES=no])
+        AC_CHECK_LIB(Xfixes, XFixesGetCursorImage)
+        AC_CHECK_HEADER(X11/extensions/Xfixes.h)
+        LIBS=$SAVED_LIBS
 
-if { test $screen_cap_req != no && test $screen_cap_req != x11; } && test $FOUND_SCREEN_SCREEN_PW_DEPS = yes; then
+        if test $screen_cap_req != no -a $ac_cv_lib_X11_XGetImage = yes -a \
+                        $ac_cv_header_X11_Xlib_h = yes -a $ac_cv_header_X11_Xutil_h = yes; then
+                screen_cap=yes
+                screen_cap_x11=yes
+                SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11"
+                if test $ac_cv_lib_Xfixes_XFixesGetCursorImage = yes -a \
+                                $ac_cv_header_X11_extensions_Xfixes_h = yes; then
+                        AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])
+                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lXfixes"
+                fi
+                ADD_MODULE("vidcap_screen_x11", "src/video_capture/screen_x11.o src/x11_common.o", "$SCREEN_CAP_LIB")
+                screen_modules="${screen_modules:+$screen_modules,}X11"
+        fi
+fi
+
+# PipeWire
+found_screen_screen_pw_deps=no
+screen_cap_pw=no
+if test $screen_cap_req != no && test $screen_cap_req != x11; then
+        PKG_CHECK_MODULES([SCREEN_PW_DEPS], [libpipewire-0.3  glib-2.0 gobject-2.0 gio-unix-2.0 ], [found_screen_screen_pw_deps=yes], [found_screen_screen_pw_deps=no])
+fi
+
+if test $found_screen_screen_pw_deps = yes; then
         screen_cap=yes
         screen_cap_pw=yes
         SCREEN_CAP_PIPEWIRE_LIBS="$($PKG_CONFIG --libs libpipewire-0.3) $($PKG_CONFIG --libs glib-2.0) $($PKG_CONFIG --libs gobject-2.0) $($PKG_CONFIG --libs gio-2.0) $($PKG_CONFIG --libs gio-unix-2.0)"
@@ -2056,16 +2026,7 @@ if { test $screen_cap_req != no && test $screen_cap_req != x11; } && test $FOUND
         CXXFLAGS="$CXXFLAGS $SCREEN_CAP_PIPEWIRE_INC"
 
         ADD_MODULE("vidcap_screen_pipewire", "$SCREEN_CAP_PIPEWIRE_OBJ", "$SCREEN_CAP_PIPEWIRE_LIBS")
-        AC_DEFINE([HAVE_SCREEN_PW], [1], [Build PipeWire screen capture])
-        screen_modules=PipeWire
-fi
-
-if { test $screen_cap_req != no && test $screen_cap_req != pipewire; } && test $screen_cap_x11 = yes; then
-        ADD_MODULE("vidcap_screen_x11", "src/video_capture/screen_x11.o src/x11_common.o", "$SCREEN_CAP_LIB")
-        AC_DEFINE([HAVE_SCREEN_X11], [1], [Build X11 screen capture])
-        screen_modules="${screen_modules:+$screen_modules,}X11"
-else
-        screen_cap_x11=no
+        screen_modules="${screen_modules:+$screen_modules,}pipewire"
 fi
 
 if test $screen_cap_req != no && test $screen_cap = yes
@@ -2200,9 +2161,11 @@ if test -n "$CUDA_PATH"; then
         CUDA_PATH_SEP="$CUDA_PATH/bin$PATH_SEPARATOR"
 fi
 
-# nvcc is intentional here
-AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH_SEP$PATH]dnl
-        [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
+if test $cuda_req != no; then
+        # nvcc is intentional here
+        AC_PATH_PROG(NVCC, nvcc, [], [$CUDA_PATH_SEP$PATH]dnl
+                [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
+fi
 
 if test -n "$NVCC" -a $cross_compile = no -a $cuda_req != no
 then
@@ -2320,20 +2283,24 @@ AC_ARG_ENABLE(gpujpeg,
 	[gpujpeg_req=$enableval],
         [gpujpeg_req=$build_default])
 
+if test "$gpujpeg_req" != no; then
+        SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
+        export PKG_CONFIG_PATH="ext-deps/gpujpeg/install/share/pkgconfig:$PKG_CONFIG_PATH"
+        PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [libgpujpeg], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
+        PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.12.0], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
+        PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
 
-SAVED_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
-export PKG_CONFIG_PATH="ext-deps/gpujpeg/install/share/pkgconfig:$PKG_CONFIG_PATH"
-PKG_CHECK_MODULES([LIBGPUJPEG_ANY], [libgpujpeg], [ found_gpujpeg_any=yes ], [ found_gpujpeg_any=no ])
-PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.12.0], [ found_gpujpeg=yes ], [ found_gpujpeg=no ])
-PKG_CONFIG_PATH=$SAVED_PKG_CONFIG_PATH
-
-if test "$found_gpujpeg_any" = yes -a "$found_gpujpeg" = no; then
-        UG_MSG_WARN([Old GPUJPEG version found, please upgrade])
+        if test "$found_gpujpeg_any" = yes -a "$found_gpujpeg" = no; then
+                UG_MSG_WARN([Old GPUJPEG version found, please upgrade])
+        fi
+else
+        found_gpujpeg=no
+        found_gpujpeg_any=no
 fi
 
 # try to find without pkg-config (but only if old version was not detected - to avoid side-loading
 # that version without pkg-config version check)
-if test "$found_gpujpeg_any" != yes -a "$found_gpujpeg" != yes
+if test "$gpujpeg_req" != no && test "$found_gpujpeg_any" != yes && test "$found_gpujpeg" != yes
 then
         GPUJPEG_LIB="$GPUJPEG_LIB -lgpujpeg"
         SAVED_LIBS=$LIBS
@@ -2350,9 +2317,7 @@ then
         fi
 fi
 
-if test "$gpujpeg_req" != no -a \
-        "$found_gpujpeg" = yes
-then
+if test "$gpujpeg_req" != no && test "$found_gpujpeg" = yes; then
         gpujpeg=yes
 
         GPUJPEG_INC="$GPUJPEG_INC $LIBGPUJPEG_CFLAGS"
@@ -2465,44 +2430,42 @@ AC_ARG_ENABLE(gpustitch,
 [                          Requires: CUDA gpustitch],
 	[gpustitch_req=$enableval])
 
-PKG_CHECK_MODULES([LIBGPUSTITCH], [libgpustitch >= 0.0.1 ], [found_gpustitch=yes], [found_gpustitch=no])
+if test "$gpustitch_req" != no && test "$FOUND_CUDA" = yes; then
+        PKG_CHECK_MODULES([LIBGPUSTITCH], [libgpustitch >= 0.0.1 ], [found_gpustitch=yes], [found_gpustitch=no])
 
-AC_LANG_PUSH([C++])
-SAVED_LIBS=$LIBS
-SAVED_CPPFLAGS=$CPPFLAGS
-LIBS="$LIBS -lgpustitch"
-CPPFLAGS="$CPPFLAGS $LIBGPUSTITCH_CFLAGS"
-AC_CHECK_HEADER([libgpustitch/stitcher.hpp])
-LIBS=$SAVED_LIBS
-CPPFLAGS=$SAVED_CPPFLAGS
-AC_LANG_POP([C++])
+        AC_LANG_PUSH([C++])
+        SAVED_LIBS=$LIBS
+        SAVED_CPPFLAGS=$CPPFLAGS
+        LIBS="$LIBS -lgpustitch"
+        CPPFLAGS="$CPPFLAGS $LIBGPUSTITCH_CFLAGS"
+        AC_CHECK_HEADER([libgpustitch/stitcher.hpp])
+        LIBS=$SAVED_LIBS
+        CPPFLAGS=$SAVED_CPPFLAGS
+        AC_LANG_POP([C++])
 
-if test "$ac_cv_header_libgpustitch_stitcher_hpp" != yes
-then
-	found_gpustitch=no
-else
-	if test "$found_gpustitch" != yes
-	then
-		GPUSTITCH_LIB="$GPUSTITCH_LIB -lgpustitch"
-		found_gpustitch=yes
-	fi
-fi
+        if test "$ac_cv_header_libgpustitch_stitcher_hpp" != yes
+        then
+                found_gpustitch=no
+        else
+                if test "$found_gpustitch" != yes
+                then
+                        GPUSTITCH_LIB="$GPUSTITCH_LIB -lgpustitch"
+                        found_gpustitch=yes
+                fi
+        fi
 
-if test "$gpustitch_req" != no -a \
-        "$found_gpustitch" = yes -a \
-        "$FOUND_CUDA" = yes
+        if test "$found_gpustitch" = yes; then
+                gpustitch=yes
 
-then
-        gpustitch=yes
+                GPUSTITCH_INC="$GPUSTITCH_INC $LIBGPUSTITCH_CFLAGS"
+                GPUSTITCH_LIB="$GPUSTITCH_LIB $LIBGPUSTITCH_LIBS"
+                GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.$CU_OBJ_SUFFIX $CUDA_COMMON_OBJ"
+                AC_DEFINE([HAVE_GPUSTITCH], [1], [Build with GPUSTITCH support])
+                ADD_MODULE("vidcap_gpustitch", "$GPUSTITCH_OBJ", "$GPUSTITCH_LIB")
 
-        GPUSTITCH_INC="$GPUSTITCH_INC $LIBGPUSTITCH_CFLAGS"
-        GPUSTITCH_LIB="$GPUSTITCH_LIB $LIBGPUSTITCH_LIBS"
-        GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.$CU_OBJ_SUFFIX $CUDA_COMMON_OBJ"
-        AC_DEFINE([HAVE_GPUSTITCH], [1], [Build with GPUSTITCH support])
-        ADD_MODULE("vidcap_gpustitch", "$GPUSTITCH_OBJ", "$GPUSTITCH_LIB")
-
-        INC="$INC $GPUSTITCH_INC"
-        CUDA_MESSAGE
+                INC="$INC $GPUSTITCH_INC"
+                CUDA_MESSAGE
+        fi
 fi
 
 if test $gpustitch_req = yes -a $gpustitch = no; then
@@ -2518,10 +2481,10 @@ SAGE_LIB=
 sage=no
 
 AC_ARG_ENABLE(sage,
-[  --disable-sage          disable SAGE (default is auto)]
+[  --disable-sage          disable SAGE (default is disable)]
 [                          Requires: SAGE],
 	[sage_req=$enableval],
-        [sage_req=$build_default])
+        [sage_req=no])
 
 AC_ARG_ENABLE(sage-native-dxt5ycocg,
       AS_HELP_STRING([--enable-sage-native-dxt5ycocg], [Assume that SAGE supports native DXT5 YCoCg (default is disable)]),
@@ -2538,34 +2501,35 @@ then
 fi
 
 # if directory not set manually, use default installation location
-if test -z "$SAGE_DIRECTORY"
-then
+if test -z "$SAGE_DIRECTORY"; then
         SAGE_DIRECTORY=/usr/local/sage
 fi
 
-SAGE_INC=$SAGE_DIRECTORY/include
-SAGE_LIB=$SAGE_DIRECTORY/lib64
+if test $sage_req != no; then
+        SAGE_INC=$SAGE_DIRECTORY/include
+        SAGE_LIB=$SAGE_DIRECTORY/lib64
 
-AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
-# if library not found in lib64/ try lib/
-if test $FOUND_SAGE_L = no
-then
-        SAGE_LIB=$SAGE_DIRECTORY/lib
         AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
-fi
+        # if library not found in lib64/ try lib/
+        if test $FOUND_SAGE_L = no
+        then
+                SAGE_LIB=$SAGE_DIRECTORY/lib
+                AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
+        fi
 
-AC_CHECK_HEADERS(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
+        AC_CHECK_HEADERS(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 
-if test $sage_req != no -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
-then
-    SAGE_INC=-I${SAGE_INC}
-    SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
-    SAGE_OBJ="src/video_display/sage.o"
-    AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
-    CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
-    ADD_MODULE("display_sage", "$SAGE_OBJ", "$SAGE_LIB")
-    INC="$INC $SAGE_INC"
-    sage=yes
+        if test $FOUND_SAGE_L = yes && test $FOUND_SAGE_H = yes
+        then
+            SAGE_INC=-I${SAGE_INC}
+            SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
+            SAGE_OBJ="src/video_display/sage.o"
+            AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
+            CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
+            ADD_MODULE("display_sage", "$SAGE_OBJ", "$SAGE_LIB")
+            INC="$INC $SAGE_INC"
+            sage=yes
+        fi
 fi
 
 if test $sage_req = yes -a $sage = no; then
@@ -2586,27 +2550,24 @@ AC_ARG_ENABLE(portaudio,
 
 SAVED_LIBS=$LIBS
 
-AC_CHECK_HEADER(portaudio.h)
-AC_CHECK_LIB(portaudio, Pa_GetDeviceCount) # present in v19
-LIBS=$SAVED_LIBS
+if test $portaudio_req != no; then
+        AC_CHECK_HEADER(portaudio.h)
+        AC_CHECK_LIB(portaudio, Pa_GetDeviceCount) # present in v19
+        LIBS=$SAVED_LIBS
 
-if test $ac_cv_lib_portaudio_Pa_GetDeviceCount = yes -a $ac_cv_header_portaudio_h = yes -a $portaudio_req != no
-then
-        PORTAUDIO_LIB='-lportaudio'
-        portaudio=yes
-fi
-
-
-if test $portaudio = yes
-then
-        AC_CHECK_LIB(portaudio, Pa_GetVersionInfo,
-                     AC_DEFINE([HAVE_PA_GETVERSIONINFO], [1], [Portaudio
-                                has Pa_GetVersionInfo]))
-        PORTAUDIO_CAP_OBJ="src/audio/portaudio_common.o src/audio/capture/portaudio.o"
-        PORTAUDIO_PLAY_OBJ="src/audio/portaudio_common.o src/audio/playback/portaudio.o"
-        AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
-        ADD_MODULE("acap_portaudio", "$PORTAUDIO_CAP_OBJ", "$PORTAUDIO_LIB")
-        ADD_MODULE("aplay_portaudio", "$PORTAUDIO_PLAY_OBJ", "$PORTAUDIO_LIB")
+        if test $ac_cv_lib_portaudio_Pa_GetDeviceCount = yes && test $ac_cv_header_portaudio_h = yes
+        then
+                PORTAUDIO_LIB='-lportaudio'
+                AC_CHECK_LIB(portaudio, Pa_GetVersionInfo,
+                             AC_DEFINE([HAVE_PA_GETVERSIONINFO], [1], [Portaudio
+                                        has Pa_GetVersionInfo]))
+                PORTAUDIO_CAP_OBJ="src/audio/portaudio_common.o src/audio/capture/portaudio.o"
+                PORTAUDIO_PLAY_OBJ="src/audio/portaudio_common.o src/audio/playback/portaudio.o"
+                AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
+                ADD_MODULE("acap_portaudio", "$PORTAUDIO_CAP_OBJ", "$PORTAUDIO_LIB")
+                ADD_MODULE("aplay_portaudio", "$PORTAUDIO_PLAY_OBJ", "$PORTAUDIO_LIB")
+                portaudio=yes
+        fi
 fi
 
 if test $portaudio_req = yes -a $portaudio = no; then
@@ -2622,15 +2583,19 @@ AC_ARG_ENABLE(speexdsp,
               AS_HELP_STRING([--disable-speexdsp], [disable SpeexDSP (default is auto)]),
               [speexdsp_req=$enableval],
               [speexdsp_req=$build_default])
-PKG_CHECK_MODULES([LIBSPEEXDSP], [speexdsp], [found_speexdsp=yes], [found_speexdsp=no])
 
-if test "$found_speexdsp" = yes -a "$speexdsp_req" != no; then
-        OBJS="$OBJS src/audio/echo.o"
-        LIBS="$LIBS $LIBSPEEXDSP_LIBS"
-        COMMON_FLAGS="$COMMON_FLAGS${SPEEXDSP_COMMON_FLAGS:+${COMMON_FLAGS:+ }}$SPEEXDSP_COMMON_FLAGS"
-        AC_DEFINE([HAVE_SPEEXDSP], [1], [Build with SpeexDSP support])
-        speexdsp=yes
-elif test "$speexdsp_req" = yes; then
+if test "$speexdsp_req" != no; then
+        PKG_CHECK_MODULES([LIBSPEEXDSP], [speexdsp], [found_speexdsp=yes], [found_speexdsp=no])
+
+        if test "$found_speexdsp" = yes; then
+                OBJS="$OBJS src/audio/echo.o"
+                LIBS="$LIBS $LIBSPEEXDSP_LIBS"
+                COMMON_FLAGS="$COMMON_FLAGS${SPEEXDSP_COMMON_FLAGS:+${COMMON_FLAGS:+ }}$SPEEXDSP_COMMON_FLAGS"
+                AC_DEFINE([HAVE_SPEEXDSP], [1], [Build with SpeexDSP support])
+                speexdsp=yes
+        fi
+fi
+if test "$speexdsp_req" = yes && test "$speexdsp" = no; then
         AC_MSG_ERROR([SpeexDSP not found]);
 fi
 
@@ -2643,14 +2608,17 @@ AC_ARG_ENABLE(soxr,
               AS_HELP_STRING([--disable-soxr], [disable Soxr (default is auto)]),
               [soxr_req=$enableval],
               [soxr_req=$build_default])
-PKG_CHECK_MODULES([LIBSOXR], [soxr], [found_soxr=yes], [found_soxr=no])
 
-if test "$found_soxr" = yes -a "$soxr_req" != no; then
-        LIBS="$LIBS $LIBSOXR_LIBS"
-        COMMON_FLAGS="$COMMON_FLAGS${LIBSOXR_CFLAGS:+${COMMON_FLAGS:+ }}$LIBSOXR_CFLAGS"
-        AC_DEFINE([HAVE_SOXR], [1], [Build with Soxr support])
-        soxr=yes
-elif test "$soxr_req" = yes; then
+if test "$soxr_req" != no; then
+        PKG_CHECK_MODULES([LIBSOXR], [soxr], [found_soxr=yes], [found_soxr=no])
+        if test "$found_soxr" = yes; then
+                LIBS="$LIBS $LIBSOXR_LIBS"
+                COMMON_FLAGS="$COMMON_FLAGS${LIBSOXR_CFLAGS:+${COMMON_FLAGS:+ }}$LIBSOXR_CFLAGS"
+                AC_DEFINE([HAVE_SOXR], [1], [Build with Soxr support])
+                soxr=yes
+        fi
+fi
+if test "$soxr_req" = yes && test "$soxr" = no; then
         AC_MSG_ERROR([Soxr not found]);
 fi
 
@@ -2672,7 +2640,7 @@ AC_ARG_WITH(zfec,
         [ZFEC_PREFIX=$srcdir/ext-deps/zfec/zfec]
 )
 found_zfec=no
-if test $cross_compile = no; then
+if test $cross_compile = no && test "$zfec_req" != no; then
         AC_CHECK_FILES([$ZFEC_PREFIX/fec.c $ZFEC_PREFIX/fec.h], [found_zfec=yes])
         if test $found_zfec = no; then
                 ZFEC_PREFIX=/usr/lib/python3/dist-packages/zfec
@@ -2714,23 +2682,24 @@ AC_ARG_ENABLE(jack-transport,
 	[jack_trans_req=$enableval],
         [jack_trans_req=$build_default])
 
-
-AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
-
-if test $jack_trans_req != no -a $FOUND_JACK_H = yes
-then
-    JACK_TRANS_OBJ="src/audio/jack.o"
-    AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
-    jack_trans=yes
-fi
-AC_SUBST(JACK_TRANS_OBJ)
-
 # sound system
 AC_ARG_ENABLE(jack,
 [  --disable-jack          disable JACK (default is auto)]
 [                          Requires: jack],
 	[jack_req=$enableval],
         [jack_req=$build_default])
+
+FOUND_JACK_H=no
+if test $jack_trans_req != no || test $jack_req != no; then
+        AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
+fi
+
+if test $jack_trans_req != no -a $FOUND_JACK_H = yes
+then
+        OBJS="$OBJS src/audio/jack.o"
+        AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
+        jack_trans=yes
+fi
 
 if test $jack_req != no -a $FOUND_JACK_H = yes
 then
@@ -2750,26 +2719,27 @@ fi
 #
 # ALSA
 #
+alsa=no
 AC_ARG_ENABLE(alsa,
-[  --disable-alsa          disable ALSA (default is auto)]
+[  --disable-alsa          disable ALSA (default is auto on Linux)]
 [                          Requires: alsa],
 	[alsa_req=$enableval],
         [alsa_req=$build_default])
-AC_CHECK_HEADER(alsa/asoundlib.h)
-SAVED_LIBS=$LIBS
-AC_CHECK_LIB(asound, snd_pcm_open)
-LIBS=$SAVED_LIBS
-if test "$alsa_req" != no -a "$ac_cv_header_alsa_asoundlib_h" = yes -a "$ac_cv_lib_asound_snd_pcm_open" = yes
-then
-        alsa=yes
-        AC_DEFINE([HAVE_ALSA], [1], [Build with ALSA support])
-        ALSA_CAP_OBJ="src/audio/capture/alsa.o"
-        ALSA_PLAY_OBJ="src/audio/playback/alsa.o"
-        ALSA_LIB="-lasound"
-        ADD_MODULE("acap_alsa", "$ALSA_CAP_OBJ", "$ALSA_LIB")
-        ADD_MODULE("aplay_alsa", "$ALSA_PLAY_OBJ", "$ALSA_LIB")
-else
-        alsa=no
+
+if test "$alsa_req" = yes || { test "$alsa_req" != no && test "$system" = Linux ; }; then
+        AC_CHECK_HEADER(alsa/asoundlib.h)
+        SAVED_LIBS=$LIBS
+        AC_CHECK_LIB(asound, snd_pcm_open)
+        LIBS=$SAVED_LIBS
+        if test "$ac_cv_header_alsa_asoundlib_h" = yes && test "$ac_cv_lib_asound_snd_pcm_open" = yes; then
+                alsa=yes
+                AC_DEFINE([HAVE_ALSA], [1], [Build with ALSA support])
+                ALSA_CAP_OBJ="src/audio/capture/alsa.o"
+                ALSA_PLAY_OBJ="src/audio/playback/alsa.o"
+                ALSA_LIB="-lasound"
+                ADD_MODULE("acap_alsa", "$ALSA_CAP_OBJ", "$ALSA_LIB")
+                ADD_MODULE("aplay_alsa", "$ALSA_PLAY_OBJ", "$ALSA_LIB")
+        fi
 fi
 
 if test $alsa_req = yes -a $alsa = no; then
@@ -2783,25 +2753,24 @@ COREAUDIO_OBJ=
 coreaudio=no
 
 AC_ARG_ENABLE(coreaudio,
-      AS_HELP_STRING([--disable-coreaudio], [disable CoreAudio support(default is auto)]),
+      AS_HELP_STRING([--disable-coreaudio], [disable CoreAudio support(default is auto on macOS)]),
     [coreaudio_req=$enableval],
     [coreaudio_req=$build_default]
     )
 
-case $host_os in
-	*darwin*)
-		AC_CHECK_HEADERS([AudioUnit/AudioUnit.h], [FOUND_AUDIOUNIT_H=yes], [echo "AudioUnit headers not found."])
 
-		if test $coreaudio_req != no -a $FOUND_AUDIOUNIT_H = yes
-		then
-			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit -framework AVFoundation"
-			COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
-                        coreaudio=yes
-                        AC_DEFINE([HAVE_COREAUDIO], [1], [Build with CoreAudio support])
-                        ADD_MODULE("", "$COREAUDIO_OBJ", "$COREAUDIO_LIB")
-		fi
-    ;;
-esac
+if test $system = MacOSX && test $coreaudio_req != no; then
+        AC_CHECK_HEADERS([AudioUnit/AudioUnit.h], [FOUND_AUDIOUNIT_H=yes], [echo "AudioUnit headers not found."])
+
+        if test $FOUND_AUDIOUNIT_H = yes
+        then
+                COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit -framework AVFoundation"
+                COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
+                coreaudio=yes
+                AC_DEFINE([HAVE_COREAUDIO], [1], [Build with CoreAudio support])
+                ADD_MODULE("", "$COREAUDIO_OBJ", "$COREAUDIO_LIB")
+        fi
+fi
 
 if test $coreaudio_req = yes -a $coreaudio = no; then
         AC_MSG_ERROR([Core Audio not found]);
@@ -2852,20 +2821,20 @@ AC_ARG_ENABLE(text,
     [text_req=$build_default]
     )
 
-PKG_CHECK_MODULES([TEXT], [text_dep], FOUND_TEXT_DEPS=yes, FOUND_TEXT_DEPS=no)
-
-if test $text_req != no -a "$FOUND_TEXT_DEPS" = yes
-then
-        text=yes
-        COMMON_FLAGS="$COMMON_FLAGS $TEXT_CFLAGS"
-        TEXT_LIB="$TEXT_LIBS"
-        TEXT_OBJ="$TEXT_OBJ src/vo_postprocess/text.o"
-        CFLAGS="$CFLAGS $MAGICKWAND_CFLAGS"
-        ADD_MODULE("vo_pp_text", "$TEXT_OBJ", "$TEXT_LIB")
-        AC_DEFINE([HAVE_TEXT], [1], [Build text postprocessor])
-        PKG_CHECK_MODULES([WAND7], [MagickWand > 7], [FOUND_WAND7=yes], [FOUND_WAND7=NO])
-        if test "$FOUND_WAND7" = yes; then
-                AC_DEFINE([WAND7], [1], [MagickWand is v7 or later])
+if test $text_req != no; then
+        PKG_CHECK_MODULES([TEXT], [text_dep], FOUND_TEXT_DEPS=yes, FOUND_TEXT_DEPS=no)
+        if test "$FOUND_TEXT_DEPS" = yes; then
+                text=yes
+                COMMON_FLAGS="$COMMON_FLAGS $TEXT_CFLAGS"
+                TEXT_LIB="$TEXT_LIBS"
+                TEXT_OBJ="$TEXT_OBJ src/vo_postprocess/text.o"
+                CFLAGS="$CFLAGS $MAGICKWAND_CFLAGS"
+                ADD_MODULE("vo_pp_text", "$TEXT_OBJ", "$TEXT_LIB")
+                AC_DEFINE([HAVE_TEXT], [1], [Build text postprocessor])
+                PKG_CHECK_MODULES([WAND7], [MagickWand > 7], [FOUND_WAND7=yes], [FOUND_WAND7=NO])
+                if test "$FOUND_WAND7" = yes; then
+                        AC_DEFINE([WAND7], [1], [MagickWand is v7 or later])
+                fi
         fi
 fi
 
@@ -2900,60 +2869,60 @@ AC_ARG_ENABLE(static-qt,
     [static_qt=no]
     )
 
-# Check for Qt libraries
-SAVED_PKG_CONFIG=$PKG_CONFIG
-if test $static_qt = yes; then
-        PKG_CONFIG='pkg-config --static'
-fi
-PKG_CHECK_MODULES(QT, [qt5_gui_dep], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
-PKG_CONFIG=$SAVED_PKG_CONFIG
-
-# TODO: fix Qt 6 lookup (and precedence?)
-AC_PATH_PROGS_FEATURE_CHECK([QTCHOOSER], [qtchooser],
-        [AS_IF([$ac_path_QTCHOOSER --run-tool=qmake --qt=5 | grep QMake  > /dev/null],
-                [QMAKE="$ac_path_QTCHOOSER --run-tool=qmake --qt=5"])])
-
-#AC_MSG_NOTICE("Qmake: $QMAKE")
-if test "x$QMAKE" = "x"; then
-        AC_PATH_PROGS(QMAKE, [qmake6 qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
-fi
-
-if test "$QMAKE" -a "$QMAKE" != ":"
-then
-        QMAKE_VERSION=`$QMAKE -v | sed -n 's/.*Qt version \(@<:@^ @:>@*\).*/\1/p'`
-fi
-
-# Qt deps not found with pkg-config but qmake found (eg. in Qt 6)
-if test $FOUND_QT_DEP = no && test -n "$QMAKE_VERSION" && expr "$QMAKE_VERSION" \>= 6 >/dev/null
-then
-        touch qt.pro
-        MAKEFILE=Make.qt
-        $QMAKE qt.pro -o $MAKEFILE
-        if test -f Make.qt.Release; then
-                MAKEFILE=Make.qt.Release
+if test "$qt_req" != no; then
+        # Check for Qt libraries
+        SAVED_PKG_CONFIG=$PKG_CONFIG
+        if test $static_qt = yes; then
+                PKG_CONFIG='pkg-config --static'
         fi
-        printf 'print-libs:\n\t@echo $(LIBS)\n\n' >> $MAKEFILE
-        printf 'print-cxxflags:\n\t@echo $(INCPATH) $(CXXFLAGS)\n\n' >> $MAKEFILE
-        QT_CFLAGS=$(make -f $MAKEFILE print-cxxflags)
-        QT_LIBS=$(make -f $MAKEFILE print-libs)
-        rm qt.pro Make.qt*
-        FOUND_QT_DEP=yes
-fi
+        PKG_CHECK_MODULES(QT, [qt5_gui_dep], [FOUND_QT_DEP=yes], [FOUND_QT_DEP=no])
+        PKG_CONFIG=$SAVED_PKG_CONFIG
 
-if test $qt_req != no -a $FOUND_QT_DEP = yes
-then
-	#AC_MSG_NOTICE("Qmake: $QMAKE")
-        GUI_TARGET=gui/QT/uv-qt$APPEXT
-        GUI_EXE=$GUI_TARGET
-        if test $system = MacOSX; then
-                GUI_EXE=$GUI_TARGET/Contents/MacOS/uv-qt
+        # TODO: fix Qt 6 lookup (and precedence?)
+        AC_PATH_PROGS_FEATURE_CHECK([QTCHOOSER], [qtchooser],
+                [AS_IF([$ac_path_QTCHOOSER --run-tool=qmake --qt=5 | grep QMake  > /dev/null],
+                        [QMAKE="$ac_path_QTCHOOSER --run-tool=qmake --qt=5"])])
+
+        #AC_MSG_NOTICE("Qmake: $QMAKE")
+        if test "x$QMAKE" = "x"; then
+                AC_PATH_PROGS(QMAKE, [qmake6 qmake-qt5 qmake], [:], [/usr/lib/qt5/bin:$PATH])
         fi
 
-	if test ":" = "$QMAKE"; then
-		qt_gui=no
-	else
-		qt_gui=yes
-	fi
+        if test "$QMAKE" -a "$QMAKE" != ":"
+        then
+                QMAKE_VERSION=`$QMAKE -v | sed -n 's/.*Qt version \(@<:@^ @:>@*\).*/\1/p'`
+        fi
+
+        # Qt deps not found with pkg-config but qmake found (eg. in Qt 6)
+        if test $FOUND_QT_DEP = no && test -n "$QMAKE_VERSION" && expr "$QMAKE_VERSION" \>= 6 >/dev/null
+        then
+                touch qt.pro
+                MAKEFILE=Make.qt
+                $QMAKE qt.pro -o $MAKEFILE
+                if test -f Make.qt.Release; then
+                        MAKEFILE=Make.qt.Release
+                fi
+                printf 'print-libs:\n\t@echo $(LIBS)\n\n' >> $MAKEFILE
+                printf 'print-cxxflags:\n\t@echo $(INCPATH) $(CXXFLAGS)\n\n' >> $MAKEFILE
+                QT_CFLAGS=$(make -f $MAKEFILE print-cxxflags)
+                QT_LIBS=$(make -f $MAKEFILE print-libs)
+                rm qt.pro Make.qt*
+                FOUND_QT_DEP=yes
+        fi
+
+        if test $FOUND_QT_DEP = yes; then
+                GUI_TARGET=gui/QT/uv-qt$APPEXT
+                GUI_EXE=$GUI_TARGET
+                if test $system = MacOSX; then
+                        GUI_EXE=$GUI_TARGET/Contents/MacOS/uv-qt
+                fi
+
+                if test ":" = "$QMAKE"; then
+                        qt_gui=no
+                else
+                        qt_gui=yes
+                fi
+        fi
 fi
 
 AC_SUBST(GUI_EXE)
@@ -3153,21 +3122,22 @@ fi
 # -------------------------------------------------------------------------------------------------
 syphon=no
 AC_ARG_ENABLE(syphon,
-[  --enable-syphon         enables Syphon support (default is auto)]
+[  --enable-syphon         enables Syphon support (default is auto on macOS)]
 [                          Requires: Syphon],
     [syphon_req=$enableval],
     [syphon_req=$build_default]
     )
 
-MY_CHECK_FRAMEWORK([Syphon])
-
-if test $syphon_req != no -a $my_cv_framework_Syphon = yes -a $host_cpu = x86_64
-then
-        AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
-        LIBS="$LIBS -framework Syphon"
-        OBJS="$OBJS src/syphon_server.o src/video_capture/syphon.o"
-        BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/Syphon.framework"
-        syphon=yes
+if test "$syphon_req" != no && test "$system" = MacOSX; then
+        MY_CHECK_FRAMEWORK([Syphon])
+        if test $my_cv_framework_Syphon = yes -a $host_cpu = x86_64
+        then
+                AC_DEFINE([HAVE_SYPHON], [1], [Build with Syphon support])
+                LIBS="$LIBS -framework Syphon"
+                OBJS="$OBJS src/syphon_server.o src/video_capture/syphon.o"
+                BIN_DEPS="${BIN_DEPS:+$BIN_DEPS }Frameworks/Syphon.framework"
+                syphon=yes
+        fi
 fi
 
 if test $syphon_req = yes -a $syphon = no; then
@@ -3187,7 +3157,7 @@ AC_ARG_ENABLE(spout,
     )
 
 FOUND_SPOUT=no
-if test $system = Windows
+if test $system = Windows && test "$spout_req" != no
 then
         AC_LANG_PUSH([C++])
         SAVED_LIBS="$LIBS"
@@ -3273,16 +3243,18 @@ AC_ARG_ENABLE(cmpto-j2k,
     [cmpto_j2k_req=$build_default]
     )
 
-AC_CHECK_HEADER(cmpto_j2k_enc.h, FOUND_CMPTO_J2K_ENC_H=yes, FOUND_CMPTO_J2K_ENC_H=no)
-AC_CHECK_HEADER(cmpto_j2k_dec.h, FOUND_CMPTO_J2K_DEC_H=yes, FOUND_CMPTO_J2K_DEC_H=no)
-AC_CHECK_LIB(cmpto_j2k_enc, cmpto_j2k_enc_ctx_cfg_create, FOUND_CMPTO_J2K_ENC_L=yes, FOUND_CMPTO_J2K_ENC_L=no)
-AC_CHECK_LIB(cmpto_j2k_dec, cmpto_j2k_dec_ctx_cfg_create, FOUND_CMPTO_J2K_DEC_L=yes, FOUND_CMPTO_J2K_DEC_L=no)
+if test $cmpto_j2k_req != no; then
+        AC_CHECK_HEADER(cmpto_j2k_enc.h, FOUND_CMPTO_J2K_ENC_H=yes, FOUND_CMPTO_J2K_ENC_H=no)
+        AC_CHECK_HEADER(cmpto_j2k_dec.h, FOUND_CMPTO_J2K_DEC_H=yes, FOUND_CMPTO_J2K_DEC_H=no)
+        AC_CHECK_LIB(cmpto_j2k_enc, cmpto_j2k_enc_ctx_cfg_create, FOUND_CMPTO_J2K_ENC_L=yes, FOUND_CMPTO_J2K_ENC_L=no)
+        AC_CHECK_LIB(cmpto_j2k_dec, cmpto_j2k_dec_ctx_cfg_create, FOUND_CMPTO_J2K_DEC_L=yes, FOUND_CMPTO_J2K_DEC_L=no)
 
-if test $cmpto_j2k_req != no -a "$FOUND_CMPTO_J2K_ENC_H" = yes -a "$FOUND_CMPTO_J2K_DEC_H" = yes -a "$FOUND_CMPTO_J2K_ENC_L" = yes -a "$FOUND_CMPTO_J2K_DEC_L" = yes
-then
-        ADD_MODULE("vcompress_cmpto_j2k", "src/video_compress/cmpto_j2k.o", "-lcmpto_j2k_enc")
-        ADD_MODULE("vdecompress_cmpto_j2k", "src/video_decompress/cmpto_j2k.o", "-lcmpto_j2k_dec")
-        cmpto_j2k=yes
+        if test "$FOUND_CMPTO_J2K_ENC_H" = yes && test "$FOUND_CMPTO_J2K_DEC_H" = yes && test "$FOUND_CMPTO_J2K_ENC_L" = yes && test "$FOUND_CMPTO_J2K_DEC_L" = yes
+        then
+                ADD_MODULE("vcompress_cmpto_j2k", "src/video_compress/cmpto_j2k.o", "-lcmpto_j2k_enc")
+                ADD_MODULE("vdecompress_cmpto_j2k", "src/video_decompress/cmpto_j2k.o", "-lcmpto_j2k_dec")
+                cmpto_j2k=yes
+        fi
 fi
 
 if test $cmpto_j2k_req = yes -a $cmpto_j2k = no; then
@@ -3299,7 +3271,6 @@ AC_ARG_ENABLE(ndi,
     [ndi_req=$build_default]
     )
 
-AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
 
 NDI_VER=
 if expr $ndi_req : '@<:@0-9@:>@' >/dev/null; then
@@ -3307,18 +3278,22 @@ if expr $ndi_req : '@<:@0-9@:>@' >/dev/null; then
         ndi_req=yes
 fi
 
-# if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
-if test $ndi_req != no && ( test "$FOUND_NDI_H" = yes || ( test -n "$NDI_SDK_DIR" && test $system = Windows ) )
-then
-        if test -n "$NDI_SDK_DIR" && test $system = Windows; then
-                COMMON_FLAGS="$COMMON_FLAGS -I\"$NDI_SDK_DIR/Include\""
+if test $ndi_req != no; then
+        AC_CHECK_HEADER(Processing.NDI.Lib.h, FOUND_NDI_H=yes, FOUND_NDI_H=no)
+
+        # if NDI_SDK_DIR is defined in Windows, ignore autoconf tests
+        if test "$FOUND_NDI_H" = yes || ( test -n "$NDI_SDK_DIR" && test $system = Windows )
+        then
+                if test -n "$NDI_SDK_DIR" && test $system = Windows; then
+                        COMMON_FLAGS="$COMMON_FLAGS -I\"$NDI_SDK_DIR/Include\""
+                fi
+                if test -n "$NDI_VER"; then
+                        AC_DEFINE_UNQUOTED([USE_NDI_VERSION], [$NDI_VER], [NDI version to use])
+                fi
+                ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "")
+                ADD_MODULE("display_ndi", "src/video_display/ndi.o", "")
+                ndi=yes
         fi
-        if test -n "$NDI_VER"; then
-                AC_DEFINE_UNQUOTED([USE_NDI_VERSION], [$NDI_VER], [NDI version to use])
-        fi
-        ADD_MODULE("vidcap_ndi", "src/video_capture/ndi.o", "")
-        ADD_MODULE("display_ndi", "src/video_display/ndi.o", "")
-        ndi=yes
 fi
 
 if test $ndi_req = yes -a $ndi = no; then
@@ -3347,19 +3322,21 @@ AC_ARG_WITH(cineform,
             [CINEFORM_PATH=$withval
              ])
 
-PKG_CHECK_MODULES([CINEFORM], [libcineformsdk], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
-if test "$FOUND_CINEFORM" = no; then # libcineform fork
-        PKG_CHECK_MODULES([CINEFORM], [libcineform], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+if test "$cineform_req" != no; then
+        PKG_CHECK_MODULES([CINEFORM], [libcineformsdk], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+        if test "$FOUND_CINEFORM" = no; then # libcineform fork
+                PKG_CHECK_MODULES([CINEFORM], [libcineform], [FOUND_CINEFORM=yes], [FOUND_CINEFORM=no])
+        fi
 fi
 
-if test "$FOUND_CINEFORM" = no
+if test "$cineform_req" != no && test "$FOUND_CINEFORM" = no
 then
         AC_LANG_PUSH([C++])
         AC_CHECK_LIB(CFHDCodec, CFHD_OpenDecoder, [FOUND_CINEFORM=yes; CINEFORM_LIBS=-lCFHDCodec], FOUND_CINEFORM=no)
         AC_LANG_POP([C++])
 fi
 
-if test "$FOUND_CINEFORM" = no
+if test "$cineform_req" != no &&  test "$FOUND_CINEFORM" = no
 then
         if test $system = Windows
         then
@@ -3409,15 +3386,18 @@ AC_ARG_ENABLE(natpmp,
               [natpmp_req=$enableval],
               [natpmp_req=$build_default]
               )
-AC_CHECK_HEADER(natpmp.h, FOUND_NATPMP_H=yes, FOUND_NATPMP_H=no)
-AC_CHECK_LIB(natpmp, initnatpmp,  FOUND_NATPMP_L=yes, FOUND_NATPMP_L=no)
-if test "$FOUND_NATPMP_H" = yes -a "$FOUND_NATPMP_L" -a $natpmp_req != no; then
-        LIBS="-lnatpmp $LIBS"
-        AC_DEFINE([HAVE_NATPMP], [1], [Build with NAT-PMP support])
-        if test $system = Windows; then
-                COMMON_FLAGS="$COMMON_FLAGS -DNATPMP_STATICLIB"
+
+if test "$natpmp_req" != no; then
+        AC_CHECK_HEADER(natpmp.h, FOUND_NATPMP_H=yes, FOUND_NATPMP_H=no)
+        AC_CHECK_LIB(natpmp, initnatpmp,  FOUND_NATPMP_L=yes, FOUND_NATPMP_L=no)
+        if test "$FOUND_NATPMP_H" = yes && test "$FOUND_NATPMP_L" = yes; then
+                LIBS="-lnatpmp $LIBS"
+                AC_DEFINE([HAVE_NATPMP], [1], [Build with NAT-PMP support])
+                if test $system = Windows; then
+                        COMMON_FLAGS="$COMMON_FLAGS -DNATPMP_STATICLIB"
+                fi
+                natpmp=yes
         fi
-        natpmp=yes
 fi
 
 if test $natpmp_req = yes -a $natpmp = no; then
@@ -3434,11 +3414,14 @@ AC_ARG_ENABLE(pcp,
               [pcp_req=$enableval],
               [pcp_req=$build_default]
               )
-PKG_CHECK_MODULES([PCP], [libpcp-client], [FOUND_PCP=yes], [FOUND_PCP=no])
-if test "$FOUND_PCP" = yes -a $pcp_req != no; then
-        LIBS="$PCP_LIBS $LIBS"
-        AC_DEFINE([HAVE_PCP], [1], [Build with PCP support])
-        pcp=yes
+
+if test "$pcp_req" != no; then
+        PKG_CHECK_MODULES([PCP], [libpcp-client], [FOUND_PCP=yes], [FOUND_PCP=no])
+        if test "$FOUND_PCP" = yes; then
+                LIBS="$PCP_LIBS $LIBS"
+                AC_DEFINE([HAVE_PCP], [1], [Build with PCP support])
+                pcp=yes
+        fi
 fi
 
 if test $pcp_req = yes -a $pcp = no; then
@@ -3456,20 +3439,16 @@ AC_ARG_ENABLE(sdl_mixer,
 found_sdl_mixer=no
 sdl_mixer=no
 
-if test $sdl = yes
+if test $sdl = yes && test $sdl_mixer_req != no
 then
         PKG_CHECK_MODULES([SDL_MIXER], [SDL${sdl_ver_suffix}_mixer], [found_sdl_mixer=yes], [found_sdl_mixer=no])
         if test "$found_sdl_mixer" = yes; then
                 SDL_MIXER_LIBS=$(remove_mwindows "$SDL_MIXER_LIBS")
                 SDL_MIXER_CFLAGS=$($PKG_CONFIG --cflags-only-I SDL${sdl_ver_suffix}_mixer)
+                ADD_MODULE("acap_sdl_mixer", "src/audio/capture/sdl_mixer.o", "$SDL_MIXER_LIBS")
+                INC="$INC${SDL_MIXER_CFLAGS+ $SDL_MIXER_CFLAGS}"
+                sdl_mixer=yes
         fi
-fi
-
-if test $found_sdl_mixer = yes && test $sdl_mixer_req != no
-then
-        ADD_MODULE("acap_sdl_mixer", "src/audio/capture/sdl_mixer.o", "$SDL_MIXER_LIBS")
-        INC="$INC${SDL_MIXER_CFLAGS+ $SDL_MIXER_CFLAGS}"
-        sdl_mixer=yes
 fi
 
 if test $sdl_mixer_req = yes && test $sdl_mixer = no
