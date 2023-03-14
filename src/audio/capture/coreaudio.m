@@ -168,9 +168,8 @@ static void audio_cap_ca_probe(struct device_info **available_devices, int *coun
         audio_ca_probe(available_devices, count, -1);
 }
 
-static void audio_cap_ca_help(const char *driver_name)
+static void audio_cap_ca_help()
 {
-        UNUSED(driver_name);
         struct device_info *available_devices;
         int count;
         void (*deleter)(void *) = NULL;
@@ -207,8 +206,8 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         UNUSED(parent);
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available Core Audio capture devices:\n");
-                audio_cap_ca_help(NULL);
-                return &audio_init_state_ok;
+                audio_cap_ca_help();
+                return INIT_NOERR;
         }
         OSErr ret = noErr;
 #ifndef __MAC_10_9

@@ -179,7 +179,7 @@ static void * audio_cap_jack_init(struct module *parent, const char *cfg)
                         audio_cap_jack_help(client_name);
                         free(dup);
                         free(s);
-                        return &audio_init_state_ok;
+                        return INIT_NOERR;
                 } else if (strstr(item, "first_channel=") == item) {
                         char *endptr;
                         char *val = item + strlen("first_channel=");

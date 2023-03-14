@@ -155,7 +155,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
         free(ccfg);
         if (ret != 0) {
                 free(s);
-                return ret < 0 ? NULL : &audio_init_state_ok;
+                return ret < 0 ? NULL : INIT_NOERR;
         }
 
         s->audio.bps = audio_capture_bps ? audio_capture_bps : DEFAULT_SDL_MIXER_BPS;

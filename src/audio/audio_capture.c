@@ -86,7 +86,7 @@ int audio_capture_init(struct module *parent, const char *driver, const char *cf
                 goto error;
         }
 
-        if(s->state == &audio_init_state_ok) {
+        if(s->state == INIT_NOERR) {
                 free(s);
                 return 1;
         }

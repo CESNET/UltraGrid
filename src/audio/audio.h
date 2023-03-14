@@ -90,8 +90,6 @@ int audio_init(struct state_audio **state, struct module *parent,
 extern "C" {
 #endif
 
-extern int audio_init_state_ok;
-
 void audio_start(struct state_audio *s);
 void audio_done(struct state_audio *s);
 void audio_join(struct state_audio *s);

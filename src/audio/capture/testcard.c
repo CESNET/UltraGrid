@@ -250,7 +250,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                         { NULL, NULL }
                 };
                 print_module_usage("-s testcard", options, NULL, false);
-                return &audio_init_state_ok;
+                return INIT_NOERR;
         }
 
         struct state_audio_capture_testcard *s = calloc(1, sizeof *s);

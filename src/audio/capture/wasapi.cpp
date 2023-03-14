@@ -214,7 +214,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
         if (cfg && strlen(cfg) > 0) {
                 if (strcmp(cfg, "help") == 0) {
                         show_help();
-                        return &audio_init_state_ok;
+                        return INIT_NOERR;
                 }
                 if (isdigit(cfg[0])) {
                         index = atoi(cfg);

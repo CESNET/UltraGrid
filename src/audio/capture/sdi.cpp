@@ -123,7 +123,7 @@ static void * audio_cap_sdi_init(struct module *parent, const char *cfg)
                 audio_cap_sdi_help("analog");
                 printf("\t\twhere <index> is index of vidcap device "
                                 "to be taken audio from.\n");
-                return &audio_init_state_ok;
+                return INIT_NOERR;
         }
         
         return new state_sdi_capture();

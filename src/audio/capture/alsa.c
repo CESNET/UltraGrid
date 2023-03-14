@@ -115,7 +115,7 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         UNUSED(parent);
         if(cfg && strcmp(cfg, "help") == 0) {
                 audio_cap_alsa_help();
-                return &audio_init_state_ok;
+                return INIT_NOERR;
         }
         struct state_alsa_capture *s;
         int rc;

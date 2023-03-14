@@ -55,8 +55,6 @@ struct audio_capture_info {
 struct state_audio_capture;
 struct audio_frame;
 
-extern int audio_init_state_ok;
-
 void                        audio_capture_init_devices(void);
 void                        audio_capture_print_help(bool);
 

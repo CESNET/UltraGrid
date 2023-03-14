@@ -174,7 +174,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 
         if (strcmp(cfg, "help") == 0) {
                 usage();
-                return &audio_init_state_ok;
+                return INIT_NOERR;
         }
 
         int input_device_idx = -1;

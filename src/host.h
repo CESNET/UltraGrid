@@ -67,7 +67,7 @@
 #define EXIT_FAIL_AUDIO        11
 /**This variable represents a pseudostate and may be returned when initialization
  * of module was successful but no state was created (eg. when driver had displayed help). */
-#define INIT_NOERR          ((void*)1)
+#define INIT_NOERR          ((void*)1) // NOLINT (cppcoreguidelines-pro-type-cstyle-cast)
 #define OPT_PARAM (('O' << 8) | 'P')
 
 #define BUG_MSG "Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
