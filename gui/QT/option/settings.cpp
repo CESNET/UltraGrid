@@ -458,6 +458,16 @@ void Settings::populateVideoDeviceSettings(AvailableSettings *availSettings){
 	}
 	for(const auto& dev : availSettings->getDevices(VIDEO_DISPLAY)){
 		addDevOpt(this, dev, "video.display");
+
+		for(const auto& devOpt : dev.opts){
+			addOption(dev.deviceOpt + "." + devOpt.key,
+					devOpt.booleanOpt ? Option::BoolOpt : Option::StringOpt,
+					devOpt.optStr,
+					"",
+					false,
+					"video.display." + dev.type + ".device",
+					dev.deviceOpt);
+		}
 	}
 }
 
