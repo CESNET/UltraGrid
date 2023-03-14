@@ -1151,79 +1151,38 @@ fi
 # SDL1/2 Stuff
 # ------------------------------------------------------------------------------
 sdl=no
-sdl_version=1
+sdl_version=
+sdl_version_str=
+sdl_ver_suffix=
 AC_ARG_ENABLE(sdl,
-              AS_HELP_STRING([--enable-sdl], [enable SDL (any version; default is auto)]),
+              AS_HELP_STRING([--enable-sdl[=1|2]], [enable SDL (optionally with version; default is auto), ]
+              [requires: sdl >= 1.2.14 | sdl2]),
               [sdl_req=$enableval],
               [sdl_req=$build_default]
               )
 
-AC_ARG_ENABLE(sdl1,
-[  --enable-sdl1           enable SDL1 (default is auto)]
-[                          Requires: sdl >= 1.2.14 ],
-    [sdl1_req=$enableval],
-    [sdl1_req=$build_default]
-    )
-
-AC_ARG_ENABLE(sdl2,
-[  --enable-sdl2           enable SDL2 (disabled if SDL1 is enabled, auto otherwise)]
-[                          Requires: sdl2 ],
-    [sdl2_req=$enableval],
-    [sdl2_req=$build_default]
-    )
-
-if test $sdl1_req = yes -a $sdl2_req = yes; then
-        AC_MSG_ERROR([Only one version of SDL (either 1 or 2) can be selected]);
+if test "$sdl_req" != no; then
+        if test "$sdl_req" != 1; then
+                PKG_CHECK_MODULES([SDL], [sdl2], [sdl_version=2])
+        fi
+        if test -z "$sdl_version" && test "$sdl_req" != 2; then
+                PKG_CHECK_MODULES([SDL], [sdl], [sdl_version=1])
+        fi
+        if test -n "$sdl_version"; then
+                if test "$sdl_version" = 1; then
+                        SDL_LIBS="$SDL1_LIBS -lX11" # X11 for x11_common.o
+                else
+                        AC_DEFINE([HAVE_SDL2], [1],  [Build with SDL2 support])
+                        sdl_ver_suffix=2
+                fi
+                SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
+                INC="$INC $($PKG_CONFIG --cflags-only-I sdl${sdl_ver_suffix})"
+                ADD_MODULE("display_sdl", "$SDL_OBJ", "$SDL_LIBS")
+                SDL_LIBS=$(remove_mwindows "$SDL_LIBS")
+                sdl_version_str=" (ver. $sdl_version)"
+                sdl=yes
+        fi
 fi
-
-# if either of SDL versions was required, disable the other
-if test $sdl1_req = yes; then
-        sdl2_req=no
-fi
-if test $sdl2_req = yes; then
-        sdl1_req=no
-fi
-
-PKG_CHECK_MODULES([SDL1], [sdl], [found_sdl1=yes], [found_sdl1=no])
-PKG_CHECK_MODULES([SDL2], [sdl2], [found_sdl2=yes], [found_sdl2=no])
-if test $sdl1_req = yes -a $found_sdl1 = no; then
-        AC_MSG_ERROR([SDL1 not found]);
-fi
-if test $sdl2_req = yes -a $found_sdl2 = no; then
-        AC_MSG_ERROR([SDL2 not found]);
-fi
-
-# prefer SDL2
-if test $sdl2_req != no -a $found_sdl2 = yes
-then
-        SDL2_OBJ="src/video_display/sdl2.o"
-        AC_DEFINE([HAVE_SDL2], [1],  [Build with SDL2 support])
-        # on Win override libs from pkg-config because those contain
-        # "-mwindows" which causes output to be scratched by cmd.exe
-        # (but not MSYS2!)
-        SDL2_LIBS=$(remove_mwindows "$SDL2_LIBS")
-        ADD_MODULE("display_sdl2", "$SDL2_OBJ", "$SDL2_LIBS")
-        SDL_LIB=$SDL2_LIBS
-        INC="$INC $($PKG_CONFIG --cflags-only-I sdl2)"
-        sdl_version=2
-        sdl=yes
-elif test $sdl1_req != no -a $found_sdl1 = yes
-then
-        SDL1_OBJ="src/video_display/sdl.o src/x11_common.o"
-        AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
-        ADD_MODULE("display_sdl", "$SDL1_OBJ", "$SDL1_LIBS")
-        SDL_LIB="$SDL1_LIBS -lX11" # X11 for x11_common.o
-        INC="$INC $($PKG_CONFIG --cflags-only-I sdl)"
-        sdl_version=1
-        sdl=yes
-fi
-
-sdl_ver_suffix=
-if test "$sdl_version" = 2
-then
-        sdl_ver_suffix=2
-fi
-
 
 if test $sdl_req = yes -a $sdl = no; then
         AC_MSG_ERROR([SDL requested but found any version]);
@@ -1256,7 +1215,7 @@ if test $vulkan_req != no -a $sdl = yes -a $sdl_version = 2 -a $found_vulkan = y
 then
 	VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o"
         AC_DEFINE([HAVE_VULKAN], [1],  [Build with vulkan support])
-        VULKAN_LIBS="$VULKAN_LIBS $SDL_LIB"
+        VULKAN_LIBS="$VULKAN_LIBS $SDL_LIBS"
         ADD_MODULE("display_vulkan_sdl2", "$VULKAN_OBJ", "$VULKAN_LIBS")
 	VULKAN=vulkanEnabled
 	AC_SUBST(VULKAN)
@@ -1312,7 +1271,7 @@ if test $panogl_disp_req != no -a $sdl = yes -a $sdl_version = 2 -a $glm = yes
 then
         PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
         AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
-        PANOGL_LIBS=$SDL_LIB
+        PANOGL_LIBS=$SDL_LIBS
         ADD_MODULE("display_panogl", "$PANOGL_OBJ", "$PANOGL_LIBS")
         INC="$INC $GLM_INC"
         panogl_disp=yes
@@ -1345,7 +1304,7 @@ if test $xrgl_disp_req != no -a $FOUND_XRGL_DEPS = yes
 then
         XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
         AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
-        XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIB"
+        XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIBS"
         ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
         INC="$INC $GLM_INC"
         xrgl_disp=yes
@@ -3664,7 +3623,7 @@ RESULT=`add_column "$RESULT" "Panorama Gl Display" $panogl_disp $?`
 RESULT=`add_column "$RESULT" "RTSP capture client" $rtsp $?`
 RESULT=`add_column "$RESULT" "SAGE" $sage $?`
 RESULT=`add_column "$RESULT" "Screen capture$screen_modules" $screen_cap $?`
-RESULT=`add_column "$RESULT" "SDL (ver. $sdl_version)" $sdl $?`
+RESULT=`add_column "$RESULT" "SDL$sdl_version_str" $sdl $?`
 RESULT=`add_column "$RESULT" "SW video mix" $swmix $?`
 RESULT=`add_column "$RESULT" "V4L2" $v4l2 $?`
 RESULT=`add_column "$RESULT" "VULKAN_SDL2" $vulkan $?`
