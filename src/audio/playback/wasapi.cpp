@@ -151,13 +151,7 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
         com_uninitialize(&com_initialized);
 }
 
-static void audio_play_wasapi_help(const char *driver_name)
-{
-        UNUSED(driver_name);
-        show_help();
-}
-
-static void show_help() {
+static void audio_play_wasapi_help() {
         col() << "Usage:\n" <<
                 SBOLD(SRED("\t-r wasapi") << "[:<index>|:<ID>] --param audio-buffer-len=<ms>") << "\n" <<
                 "\nAvailable devices:\n";
@@ -204,8 +198,8 @@ static void * audio_play_wasapi_init(const char *cfg)
         int index = -1;
         if (cfg && strlen(cfg) > 0) {
                 if (strcmp(cfg, "help") == 0) {
-                        show_help();
-                        return &audio_init_state_ok;
+                        audio_play_wasapi_help();
+                        return INIT_NOERR;
                 }
                 if (isdigit(cfg[0])) {
                         index = atoi(cfg);
@@ -387,7 +381,6 @@ static void audio_play_wasapi_put_frame(void *state, const struct audio_frame *b
 
 static const struct audio_playback_info aplay_wasapi_info = {
         audio_play_wasapi_probe,
-        audio_play_wasapi_help,
         audio_play_wasapi_init,
         audio_play_wasapi_put_frame,
         audio_play_wasapi_ctl,

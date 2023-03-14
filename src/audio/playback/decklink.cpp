@@ -125,7 +125,7 @@ static void audio_play_decklink_probe(struct device_info **available_devices, in
         *count = 1;
 }
 
-static void audio_play_decklink_help(const char *driver_name)
+static void audio_play_decklink_help()
 {
         IDeckLinkIterator*              deckLinkIterator;
         IDeckLink*                      deckLink;
@@ -140,8 +140,6 @@ static void audio_play_decklink_help(const char *driver_name)
         cout << style::bold << "audioConsumerLevels\n" << style::reset;
         printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
         printf("\tIf set false the selected analog input gain levels are used.\n");
-
-        UNUSED(driver_name);
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         bool com_initialized = false;
@@ -210,9 +208,9 @@ static void *audio_play_decklink_init(const char *cfg)
                 cardIdx = 0;
                 fprintf(stderr, "Card number unset, using first found (see -r decklink:help)!\n");
         } else if (strcmp(cfg, "help") == 0) {
-                audio_play_decklink_help(NULL);
+                audio_play_decklink_help();
                 free(s);
-                return NULL;
+                return INIT_NOERR;
         } else  {
                 char *tmp = strdup(cfg);
                 char *item, *save_ptr;
@@ -460,7 +458,6 @@ static void audio_play_decklink_done(void *state)
 
 static const struct audio_playback_info aplay_decklink_info = {
         audio_play_decklink_probe,
-        audio_play_decklink_help,
         audio_play_decklink_init,
         audio_play_decklink_put_frame,
         audio_play_decklink_ctl,

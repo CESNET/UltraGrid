@@ -55,17 +55,16 @@ static void audio_play_dummy_probe(struct device_info **available_devices, int *
         *count = 0;
 }
 
-static void audio_play_dummy_help(const char *driver)
+static void audio_play_dummy_help(void)
 {
-        UNUSED(driver);
         printf("\tdummy: dummy audio playback\n");
 }
 
 static void * audio_play_dummy_init(const char *cfg)
 {
         if (strlen(cfg) > 0) {
-                audio_play_dummy_help(NULL);
-                return strcmp(cfg, "help") == 0 ? &audio_init_state_ok : NULL;
+                audio_play_dummy_help();
+                return strcmp(cfg, "help") == 0 ? INIT_NOERR : NULL;
         }
 
         return &state;
@@ -100,7 +99,6 @@ static int audio_play_dummy_reconfigure(void *state, struct audio_desc desc)
 
 static const struct audio_playback_info aplay_dummy_info = {
         audio_play_dummy_probe,
-        audio_play_dummy_help,
         audio_play_dummy_init,
         audio_play_dummy_put_frame,
         audio_play_dummy_ctl,

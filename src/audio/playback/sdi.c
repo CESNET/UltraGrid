@@ -105,7 +105,7 @@ static void * audio_play_sdi_init(const char *cfg)
                 audio_play_sdi_help("embedded");
                 audio_play_sdi_help("AESEBU");
                 audio_play_sdi_help("analog");
-                return &audio_init_state_ok;
+                return INIT_NOERR;
         }
         struct state_sdi_playback *s = malloc(sizeof(struct state_sdi_playback));
         s->put_callback = NULL;
@@ -180,7 +180,6 @@ static void audio_play_sdi_done(void *s)
 
 static const struct audio_playback_info aplay_sdi_info_embedded = {
         audio_play_sdi_probe_embedded,
-        audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
         audio_play_sdi_ctl,
@@ -190,7 +189,6 @@ static const struct audio_playback_info aplay_sdi_info_embedded = {
 
 static const struct audio_playback_info aplay_sdi_info_aesebu = {
         audio_play_sdi_probe_aesebu,
-        audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
         audio_play_sdi_ctl,
@@ -200,7 +198,6 @@ static const struct audio_playback_info aplay_sdi_info_aesebu = {
 
 static const struct audio_playback_info aplay_sdi_info_analog = {
         audio_play_sdi_probe_analog,
-        audio_play_sdi_help,
         audio_play_sdi_init,
         audio_play_sdi_put_frame,
         audio_play_sdi_ctl,

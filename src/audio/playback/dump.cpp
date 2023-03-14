@@ -63,7 +63,7 @@ struct audio_dump_state{
         unsigned file_name_num;
 };
 
-static void usage() {
+static void audio_play_dump_help() {
         printf("dump usage:\n"
                         "\t-r dump[:<path>]\n"
                         "where\n"
@@ -76,9 +76,9 @@ static void * audio_play_dump_init(const char *cfg){
 
         if (cfg != nullptr) {
                 if (strcmp(cfg, "help") == 0) {
-                        usage();
+                        audio_play_dump_help();
                         delete s;
-                        return nullptr;
+                        return INIT_NOERR;
                 }
                 s->filename = cfg;
         } else {
@@ -99,11 +99,6 @@ static void audio_play_dump_probe(struct device_info **available_devices, int *c
         *deleter = free;
         *available_devices = NULL;
         *count = 0;
-}
-
-static void audio_play_dump_help(const char *)
-{
-        printf("\tdump: dump audio\n");
 }
 
 static bool query_fmt(void *data, size_t *len){
@@ -155,7 +150,6 @@ static int audio_play_dump_reconfigure(void *state, struct audio_desc new_desc)
 
 static const struct audio_playback_info aplay_dump_info = {
         audio_play_dump_probe,
-        audio_play_dump_help,
         audio_play_dump_init,
         audio_play_dump_put_frame,
         audio_play_dump_ctl,

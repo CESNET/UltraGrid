@@ -345,9 +345,12 @@ static void audio_play_ca_probe(struct device_info **available_devices, int *cou
         audio_ca_probe(available_devices, count, 1);
 }
 
-static void audio_play_ca_help(const char *driver_name)
+static void audio_play_ca_help()
 {
-        UNUSED(driver_name);
+        cout << "Core Audio playback usage:\n";
+        cout << style::bold << fg::red << "\t-r coreaudio" << fg::reset <<
+                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]\n\n" << style::reset;
+        printf("Available CoreAudio devices:\n");
         struct device_info *available_devices;
         int count;
         void (*deleter)(void *);
@@ -417,13 +420,9 @@ static void * audio_play_ca_init(const char *cfg)
 
         if(cfg != NULL) {
                 if(strcmp(cfg, "help") == 0) {
-                        cout << "Core Audio playback usage:\n";
-                        cout << style::bold << fg::red << "\t-r coreaudio" << fg::reset <<
-                                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]\n\n" << style::reset;
-                        printf("Available CoreAudio devices:\n");
-                        audio_play_ca_help(NULL);
+                        audio_play_ca_help();
                         delete s;
-                        return &audio_init_state_ok;
+                        return INIT_NOERR;
                 } else {
                         device = atoi(cfg);
                 }
@@ -483,7 +482,6 @@ static void audio_play_ca_done(void *state)
 
 static const struct audio_playback_info aplay_coreaudio_info = {
         audio_play_ca_probe,
-        audio_play_ca_help,
         audio_play_ca_init,
         audio_play_ca_put_frame,
         audio_play_ca_ctl,

@@ -90,7 +90,7 @@ int audio_playback_init(const char *device, const char *cfg, struct state_audio_
                 goto error;
         }
 
-        if(s->state == &audio_init_state_ok) {
+        if (s->state == INIT_NOERR) {
                 free(s);
                 return 1;
         }

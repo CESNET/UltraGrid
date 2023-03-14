@@ -44,9 +44,7 @@ struct audio_frame;
 extern "C" {
 #endif
 
-extern int audio_init_state_ok;
-
-#define AUDIO_PLAYBACK_ABI_VERSION 7
+#define AUDIO_PLAYBACK_ABI_VERSION 8
 
 /** @anchor audio_playback_ctl_reqs
  * @name Audio playback control requests
@@ -79,7 +77,6 @@ extern int audio_init_state_ok;
 
 struct audio_playback_info {
         device_probe_func probe;
-        void (*help)(const char *driver_name);
         void *(*init)(const char *cfg); ///< @param cfg is not NULL
         void (*write)(void *state, const struct audio_frame *frame);
         /** Returns device supported format that matches best with propsed audio desc */

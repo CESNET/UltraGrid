@@ -55,11 +55,6 @@ struct state_audio_playback_none
         uint32_t magic;
 };
 
-static void audio_play_none_help(const char *driver_name)
-{
-        UNUSED(driver_name);
-}
-
 static void audio_play_none_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
         *deleter = free;
@@ -117,7 +112,6 @@ static int audio_play_none_reconfigure(void *state, struct audio_desc desc)
 
 static const struct audio_playback_info aplay_none_info = {
         audio_play_none_probe,
-        audio_play_none_help,
         audio_play_none_init,
         audio_play_none_put_frame,
         audio_play_none_ctl,

@@ -126,12 +126,6 @@ static void audio_play_portaudio_probe(struct device_info **available_devices, i
         audio_portaudio_probe(available_devices, count, PORTAUDIO_OUT);
 }
 
-static void audio_play_portaudio_help(const char *driver_name)
-{
-        UNUSED(driver_name);
-        portaudio_print_available_devices(PORTAUDIO_OUT);
-}
-
 static void portaudio_close(PaStream * stream) // closes and frees all audio resources
 {
 	Pa_StopStream(stream);	// may not be necessary
@@ -163,7 +157,7 @@ static _Bool parse_fmt(const char *cfg, int *input_device_idx, const char **devi
         return 1;
 }
 
-static void usage() {
+static void audio_play_portaudio_help(void) {
         printf("PortAudio playback usage:\n");
         color_printf("\t" TBOLD(TRED("-r portaudio") "[:<index>]") "\n");
         printf("or\n");
@@ -171,7 +165,7 @@ static void usage() {
         printf("options:\n");
         color_printf("\t" TBOLD("<dev>") "\tdevice name (or a part of it); device index is also accepted here\n");
         printf("\nAvailable PortAudio playback devices:\n");
-        audio_play_portaudio_help(NULL);
+        portaudio_print_available_devices(PORTAUDIO_OUT);
 }
 
 static void * audio_play_portaudio_init(const char *cfg)
@@ -182,8 +176,8 @@ static void * audio_play_portaudio_init(const char *cfg)
         portaudio_print_version();
         
         if (strcmp(cfg, "help") == 0) {
-                usage();
-                return &audio_init_state_ok;
+                audio_play_portaudio_help();
+                return INIT_NOERR;
         }
         if (!parse_fmt(cfg, &output_device_idx, &output_device_name)) {
                 return NULL;
@@ -212,7 +206,7 @@ static void * audio_play_portaudio_init(const char *cfg)
         if (device_info == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio index %d.\n"
                                 MOD_NAME "Follows list of available Portaudio devices.\n", output_device_idx);
-                audio_play_portaudio_help(NULL);
+                audio_play_portaudio_help();
                 Pa_Terminate();
                 free(s);
                 return NULL;
@@ -476,7 +470,6 @@ static void audio_play_portaudio_put_frame(void *state, const struct audio_frame
 
 static const struct audio_playback_info aplay_portaudio_info = {
         audio_play_portaudio_probe,
-        audio_play_portaudio_help,
         audio_play_portaudio_init,
         audio_play_portaudio_put_frame,
         audio_play_portaudio_ctl,

@@ -667,9 +667,19 @@ static void audio_play_alsa_probe(struct device_info **available_devices, int *c
         strcpy((*available_devices)[0].name, "Default Linux audio output");
 }
 
-static void audio_play_alsa_help(const char *driver_name)
-{
-        UNUSED(driver_name);
+static void audio_play_alsa_help(void) {
+        printf("Usage\n");
+        color_printf(TERM_BOLD TERM_FG_RED "\t-r alsa" TERM_FG_RESET "[:<device>] --param alsa-playback-api={thread|async|sync}[,alsa-playback-buffer=[<us>-]<us>][,audio-buffer-len=<ablen>]\n" TERM_RESET);
+        color_printf("where\n");
+        color_printf(TERM_BOLD "\talsa-playback-api={thread|async|sync}\n" TERM_RESET);
+        color_printf("\t\tuse selected API ('thread' is default)\n");
+        color_printf(TERM_BOLD "\talsa-playback-buffer=[<us>-]<us>\n" TERM_RESET);
+        color_printf("\t\tset buffer max and optionally max (thread and async API only)\n");
+        color_printf(TERM_BOLD "\taudio-buffer-len=<ablen>\n" TERM_RESET);
+        color_printf("\t\tlength of UG internal ALSA buffer (in milliseconds)\n");
+        printf("\n");
+
+        printf("Available ALSA playback devices:\n");
         audio_alsa_help();
 }
 
@@ -830,21 +840,9 @@ static void * audio_play_alsa_init(const char *cfg)
 
         if(cfg && strlen(cfg) > 0) {
                 if(strcmp(cfg, "help") == 0) {
-                        printf("Usage\n");
-                        color_printf(TERM_BOLD TERM_FG_RED "\t-r alsa" TERM_FG_RESET "[:<device>] --param alsa-playback-api={thread|async|sync}[,alsa-playback-buffer=[<us>-]<us>][,audio-buffer-len=<ablen>]\n" TERM_RESET);
-                        color_printf("where\n");
-                        color_printf(TERM_BOLD "\talsa-playback-api={thread|async|sync}\n" TERM_RESET);
-                        color_printf("\t\tuse selected API ('thread' is default)\n");
-                        color_printf(TERM_BOLD "\talsa-playback-buffer=[<us>-]<us>\n" TERM_RESET);
-                        color_printf("\t\tset buffer max and optionally max (thread and async API only)\n");
-                        color_printf(TERM_BOLD "\taudio-buffer-len=<ablen>\n" TERM_RESET);
-                        color_printf("\t\tlength of UG internal ALSA buffer (in milliseconds)\n");
-                        printf("\n");
-
-                        printf("Available ALSA playback devices:\n");
-                        audio_play_alsa_help(NULL);
+                        audio_play_alsa_help();
                         free(s);
-                        return &audio_init_state_ok;
+                        return INIT_NOERR;
                 }
                 name = cfg;
         } else {
@@ -1062,7 +1060,6 @@ static void audio_play_alsa_done(void *state)
 
 static const struct audio_playback_info aplay_alsa_info = {
         audio_play_alsa_probe,
-        audio_play_alsa_help,
         audio_play_alsa_init,
         audio_play_alsa_put_frame,
         audio_play_alsa_ctl,

@@ -189,7 +189,7 @@ static void * audio_play_jack_init(const char *cfg)
                         audio_play_jack_help(client_name);
                         free(s);
                         free(dup);
-                        return &audio_init_state_ok;
+                        return INIT_NOERR;
                 } else if (strstr(item, "first_channel=") == item) {
                         char *endptr;
                         char *val = item + strlen("first_channel=");
@@ -408,7 +408,6 @@ static void audio_play_jack_done(void *state)
 
 static const struct audio_playback_info aplay_jack_info = {
         audio_play_jack_probe,
-        audio_play_jack_help,
         audio_play_jack_init,
         audio_play_jack_put_frame,
         audio_play_jack_ctl,

@@ -368,11 +368,7 @@ void state_audio_mixer::worker()
         }
 }
 
-static void audio_play_mixer_help(const char *driver_name [[gnu::unused]])
-{
-}
-
-static void usage()
+static void audio_play_mixer_help()
 {
         printf("Usage:\n"
                "\t%s -r mixer[:codec=<codec>][:algo={linear|logarithmic}]\n"
@@ -407,8 +403,8 @@ static void audio_play_mixer_probe(struct device_info **available_devices, int *
 static void * audio_play_mixer_init(const char *cfg)
 {
         if (cfg && strcmp(cfg, "help") == 0) {
-                usage();
-                return nullptr;
+                audio_play_mixer_help();
+                return INIT_NOERR;
         }
         try {
                 return new state_audio_mixer{cfg};
@@ -484,7 +480,6 @@ static int audio_play_mixer_reconfigure(void *state [[gnu::unused]], struct audi
 
 static const struct audio_playback_info aplay_mixer_info = {
         audio_play_mixer_probe,
-        audio_play_mixer_help,
         audio_play_mixer_init,
         audio_play_mixer_put_frame,
         audio_play_mixer_ctl,
