@@ -119,6 +119,7 @@ void SettingsUi::refreshAll(){
 		i->refresh();
 	}
 	buildSettingsCodecList();
+	buildSettingsDisplayList();
 }
 
 void SettingsUi::refreshAllCallback(Option&, bool, void *opaque){
@@ -172,8 +173,12 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new CheckboxUi(ui->advModeCheck, settings, "advanced"));
 
 	buildSettingsCodecList();
+	buildSettingsDisplayList();
 	connect(settingsWin->codecList, &QListWidget::currentItemChanged,
 			this, &SettingsUi::settingsCodecSelected);
+
+	connect(settingsWin->displayListView, &QListWidget::currentItemChanged,
+			this, &SettingsUi::settingsDisplaySelected);
 }
 
 void SettingsUi::buildSettingsCodecList(){
@@ -189,6 +194,25 @@ void SettingsUi::buildSettingsCodecList(){
 		QListWidgetItem *item = new QListWidgetItem(list);
 		item->setText(QString::fromStdString(codec.name));
 		item->setData(Qt::UserRole, QVariant::fromValue(codec));
+
+		list->addItem(item);
+	}
+}
+
+Q_DECLARE_METATYPE(Device);
+
+void SettingsUi::buildSettingsDisplayList(){
+	if(!settingsWin)
+		return;
+
+	QListWidget *list = settingsWin->displayListView;
+	list->clear();
+
+	for(const auto& dev : availableSettings->getDevices(VIDEO_DISPLAY)){
+		QListWidgetItem *item = new QListWidgetItem(list);
+
+		item->setText(QString::fromStdString(dev.name));
+		item->setData(Qt::UserRole, QVariant::fromValue(dev));
 
 		list->addItem(item);
 	}
@@ -220,6 +244,17 @@ void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *)
 	buildCodecOptControls(modName, codecIt->val);
 }
 
+void SettingsUi::settingsDisplaySelected(QListWidgetItem *curr, QListWidgetItem *){
+	if(!curr){
+		codecControls.clear();
+		return;
+	}
+
+	const auto &dev = curr->data(Qt::UserRole).value<Device>();
+
+	buildDisplayOptControls(dev);
+}
+
 void SettingsUi::buildCodecOptControls(const std::string& mod, const std::string& codec){
 	ControlForm form;
 
@@ -242,6 +277,16 @@ void SettingsUi::buildCodecOptControls(const std::string& mod, const std::string
 
 	codecControls = std::move(form.uiControls);
 	settingsWin->codecOptScroll->setWidget(form.uiContainer.release());
+}
+
+void SettingsUi::buildDisplayOptControls(const Device& dev){
+	ControlForm form;
+
+	std::string optPrefix = "video.display." + dev.type + ".device." + dev.deviceOpt + ".";
+	fillFormOptions(form, optPrefix, dev.opts);
+
+	displayControls = std::move(form.uiControls);
+	settingsWin->displayOptScroll->setWidget(form.uiContainer.release());
 }
 
 void SettingsUi::fillFormOptions(ControlForm& form,

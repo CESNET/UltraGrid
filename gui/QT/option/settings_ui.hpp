@@ -49,6 +49,7 @@ private:
 
 	std::vector<std::unique_ptr<WidgetUi>> uiControls;
 	std::vector<std::unique_ptr<WidgetUi>> codecControls;
+	std::vector<std::unique_ptr<WidgetUi>> displayControls;
 
 	static void refreshAllCallback(Option&, bool, void *);
 
@@ -67,6 +68,10 @@ private slots:
 	void buildSettingsCodecList();
 	void settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *prev);
 	void buildCodecOptControls(const std::string& mod, const std::string& codec);
+
+	void buildSettingsDisplayList();
+	void settingsDisplaySelected(QListWidgetItem *curr, QListWidgetItem *prev);
+	void buildDisplayOptControls(const Device& dev);
 
 signals:
 	void changed();
