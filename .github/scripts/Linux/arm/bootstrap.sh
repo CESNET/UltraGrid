@@ -28,10 +28,14 @@ if grep -q Raspbian /etc/os-release; then # https://bugs.launchpad.net/ubuntu/+s
         apt -y update
 fi
 
+apt -y install cmake=3.13.4-1 cmake-data=3.13.4-1 # 3.16 in the above added repository is broken with chrooted qemu-user-static
+
 apt -y install build-essential git pkg-config autoconf automake libtool
-apt -y install libcurl4-openssl-dev libsoxr-dev libssl-dev
+apt -y install libcurl4-openssl-dev libsoxr-dev libspeexdsp-dev libssl-dev
 apt -y install libasound2-dev portaudio19-dev libjack-dev
 apt -y install libglew-dev libglfw3-dev libglm-dev
+
+/.github/scripts/install-common-deps.sh
 
 # FFmpeg
 if [ "$ARCH" = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch

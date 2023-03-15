@@ -7,13 +7,17 @@ case "$(uname -s)" in
                 ;;
 
         *)
-                sudo="sudo"
+                if [ "$(id -u)" -ne 0 ]; then
+                        sudo="sudo"
+                fi
                 ;;
 esac
 
 if ! command -v nproc >/dev/null; then
         nproc() { sysctl -n hw.logicalcpu; } # mac
 fi
+
+is_arm() { expr "$(dpkg --print-architecture)" : arm >/dev/null; }
 
 # for Win only download here, compilation is handled differently
 download_install_cineform() {(
@@ -62,7 +66,9 @@ install_zfec() {(
         ${sudo:+"$sudo" }mv zfec/zfec /usr/local/src
 )}
 
-download_install_cineform
+if ! is_arm; then
+        download_install_cineform
+fi
 install_ews
 install_juice
 install_pcp

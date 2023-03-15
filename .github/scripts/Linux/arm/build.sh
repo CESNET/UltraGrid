@@ -10,12 +10,12 @@ export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH:+":$PKG_CONFIG
 ARCH=$(dpkg --print-architecture)
 APPNAME=UltraGrid-latest-${ARCH}.AppImage
 
-set -- --enable-plugins --enable-openssl --enable-soxr                                                  # general
+set -- --enable-plugins --enable-openssl --enable-soxr --enable-speexdsp                                # general
 set -- "$@" --enable-alsa --enable-jack --enable-jack-transport                                         # audio
 set -- "$@" --enable-decklink --enable-file --enable-rtsp --enable-screen=x11 --enable-swmix --enable-v4l2 # vcap
 set -- "$@" --enable-gl-display --enable-panogl_disp --enable-sdl                                       # display
 set -- "$@" --enable-libavcodec --enable-rtdxt --enable-libswscale --enable-uyvy                        # compression
-set -- "$@" --enable-blank --enable-scale --enable-testcard-extras                                      # extras (pp. etc)
+set -- "$@" --enable-blank --enable-holepunch --enable-pcp --enable-scale --enable-sdp-http --enable-testcard-extras --enable-zfec # extras (pp. etc)
 if [ "$ARCH" = armhf ]; then # Raspbian
         set -- "$@" --enable-lavc-hw-accel-rpi4
 fi
