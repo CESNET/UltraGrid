@@ -67,7 +67,7 @@ private slots:
 
 	void buildSettingsCodecList();
 	void settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *prev);
-	void buildCodecOptControls(const std::string& mod, const std::string& codec);
+	void buildCodecOptControls(const Codec& codec);
 
 	void buildSettingsDisplayList();
 	void settingsDisplaySelected(QListWidgetItem *curr, QListWidgetItem *prev);

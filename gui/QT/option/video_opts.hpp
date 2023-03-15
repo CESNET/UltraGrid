@@ -22,9 +22,7 @@ std::vector<SettingItem> getVideoSrc(AvailableSettings *availSettings);
 std::vector<SettingItem> getVideoDisplay(AvailableSettings *availSettings);
 std::vector<SettingItem> getVideoModes(AvailableSettings *availSettings);
 std::vector<SettingItem> getVideoCompress(AvailableSettings *availSettings);
-
-std::vector<SettingItem> getCodecEncoders(AvailableSettings *availSettings,
-		const std::string& mod, const std::string& codec);
+std::vector<SettingItem> getCodecEncoders(const Codec& codec);
 
 void videoCompressBitrateCallback(Option &opt, bool suboption, void *opaque);
 

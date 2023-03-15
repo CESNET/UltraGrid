@@ -181,6 +181,8 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 			this, &SettingsUi::settingsDisplaySelected);
 }
 
+Q_DECLARE_METATYPE(Codec);
+
 void SettingsUi::buildSettingsCodecList(){
 	if(!settingsWin)
 		return;
@@ -188,9 +190,7 @@ void SettingsUi::buildSettingsCodecList(){
 	QListWidget *list = settingsWin->codecList;
 	list->clear();
 
-	auto codecs = getVideoCompress(availableSettings);
-
-	for(const auto& codec : codecs){
+	for(const auto& codec : availableSettings->getVideoCompressCodecs()){
 		QListWidgetItem *item = new QListWidgetItem(list);
 		item->setText(QString::fromStdString(codec.name));
 		item->setData(Qt::UserRole, QVariant::fromValue(codec));
@@ -224,24 +224,9 @@ void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *)
 		return;
 	}
 
-	const SettingItem &settingItem = curr->data(Qt::UserRole).value<SettingItem>();
+	const auto &codec = curr->data(Qt::UserRole).value<Codec>();
 
-	auto modIt = std::find_if(settingItem.opts.begin(), settingItem.opts.end(),
-			[](const SettingValue& si){ return si.opt == "video.compress"; });
-
-	if(modIt == settingItem.opts.end())
-		return;
-
-	const std::string& modName = modIt->val;
-
-	auto codecIt = std::find_if(settingItem.opts.begin(), settingItem.opts.end(),
-			[modName](const SettingValue& si){
-				return si.opt == "video.compress." + modName + ".codec"; });
-
-	if(codecIt == settingItem.opts.end())
-		return;
-
-	buildCodecOptControls(modName, codecIt->val);
+	buildCodecOptControls(codec);
 }
 
 void SettingsUi::settingsDisplaySelected(QListWidgetItem *curr, QListWidgetItem *){
@@ -255,7 +240,7 @@ void SettingsUi::settingsDisplaySelected(QListWidgetItem *curr, QListWidgetItem 
 	buildDisplayOptControls(dev);
 }
 
-void SettingsUi::buildCodecOptControls(const std::string& mod, const std::string& codec){
+void SettingsUi::buildCodecOptControls(const Codec& codec){
 	ControlForm form;
 
 	QComboBox *encoderCombo = new QComboBox();
@@ -263,15 +248,15 @@ void SettingsUi::buildCodecOptControls(const std::string& mod, const std::string
 
 	WidgetUi *encoderComboUi = new ComboBoxUi(encoderCombo,
 			settings,
-			"video.compress." + mod + ".codec." + codec + ".encoder",
-			std::bind(getCodecEncoders, availableSettings,  mod, codec));
+			"video.compress." + codec.module_name + ".codec." + codec.name + ".encoder",
+			std::bind(getCodecEncoders, codec));
 
 	form.uiControls.emplace_back(encoderComboUi);
 	connect(encoderComboUi, &WidgetUi::changed, this, &SettingsUi::changed);
 
 	for(const auto& compMod : availableSettings->getVideoCompressModules()){
-		if(compMod.name == mod){
-			fillFormOptions(form, "video.compress." + mod + ".", compMod.opts);
+		if(compMod.name == codec.module_name){
+			fillFormOptions(form, "video.compress." + compMod.name + ".", compMod.opts);
 		}
 	}
 
