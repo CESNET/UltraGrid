@@ -3,6 +3,8 @@
 
 #include <QObject>
 #include <QString>
+#include <QFormLayout>
+#include <QWidget>
 #include <memory>
 
 #include "available_settings.hpp"
@@ -18,6 +20,16 @@
 #include "radioButton_ui.hpp"
 #include "audio_opts.hpp"
 #include "video_opts.hpp"
+
+struct ControlForm{
+	ControlForm() : uiContainer(new QWidget()) {
+		formLayout = new QFormLayout(uiContainer.get());
+		uiContainer->setLayout(formLayout);
+	}
+	std::vector<std::unique_ptr<WidgetUi>> uiControls;
+	std::unique_ptr<QWidget> uiContainer;
+	QFormLayout *formLayout = nullptr; //owned by uiContainer
+};
 
 class SettingsUi : public QObject{
 	Q_OBJECT
@@ -44,6 +56,10 @@ private:
 
 	void addControl(WidgetUi *widget);
 
+	void fillFormOptions(ControlForm& form,
+			std::string_view keyPrefix,
+			const std::vector<CapabOpt>& opts);
+
 private slots:
 
 	void test();
@@ -51,7 +67,6 @@ private slots:
 	void buildSettingsCodecList();
 	void settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *prev);
 	void buildCodecOptControls(const std::string& mod, const std::string& codec);
-	
 
 signals:
 	void changed();

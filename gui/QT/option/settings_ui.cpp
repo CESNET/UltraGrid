@@ -3,7 +3,6 @@
 #include <QMetaType>
 #include <QLabel>
 #include <QLineEdit>
-#include <QFormLayout>
 #include <QCheckBox>
 #include <functional>
 #include "settings_ui.hpp"
@@ -19,8 +18,6 @@ void SettingsUi::addControl(WidgetUi *widget){
 
 	connect(widget, &WidgetUi::changed, this, &SettingsUi::changed);
 }
-
-
 
 void SettingsUi::initMainWin(Ui::UltragridWindow *ui){
 	mainWin = ui;
@@ -231,58 +228,59 @@ void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *)
 }
 
 void SettingsUi::buildCodecOptControls(const std::string& mod, const std::string& codec){
-	codecControls.clear();
-
-	QWidget *container = new QWidget();
-	QFormLayout *formLayout = new QFormLayout(container);
+	ControlForm form;
 
 	QComboBox *encoderCombo = new QComboBox();
-	formLayout->addRow("Encoder", encoderCombo);
+	form.formLayout->addRow("Encoder", encoderCombo);
 
 	WidgetUi *encoderComboUi = new ComboBoxUi(encoderCombo,
 			settings,
 			"video.compress." + mod + ".codec." + codec + ".encoder",
 			std::bind(getCodecEncoders, availableSettings,  mod, codec));
 
-	codecControls.emplace_back(encoderComboUi);
+	form.uiControls.emplace_back(encoderComboUi);
 	connect(encoderComboUi, &WidgetUi::changed, this, &SettingsUi::changed);
 
 	for(const auto& compMod : availableSettings->getVideoCompressModules()){
 		if(compMod.name == mod){
-			for(const auto& modOpt : compMod.opts){
-				QLabel *label = new QLabel(QString::fromStdString(modOpt.displayName));
-				QWidget *field = nullptr;
-				WidgetUi *widgetUi = nullptr;
-				std::string optKey = "video.compress." + mod + "." + modOpt.key;
-				if(modOpt.booleanOpt){
-					QCheckBox *checkBox = new QCheckBox();
-					field = checkBox;
-
-					widgetUi = new CheckboxUi(checkBox,
-							settings,
-							optKey);
-				} else {
-					QLineEdit *lineEdit = new QLineEdit();
-					field = lineEdit;
-
-					widgetUi = new LineEditUi(lineEdit,
-							settings,
-							optKey);
-				}
-				label->setToolTip(QString::fromStdString(modOpt.displayDesc));
-				field->setToolTip(QString::fromStdString(modOpt.displayDesc));
-
-				formLayout->addRow(label, field);
-
-				codecControls.emplace_back(widgetUi);
-				connect(widgetUi, &WidgetUi::changed, this, &SettingsUi::changed);
-			}
+			fillFormOptions(form, "video.compress." + mod + ".", compMod.opts);
 		}
 	}
 
-	container->setLayout(formLayout);
+	codecControls = std::move(form.uiControls);
+	settingsWin->codecOptScroll->setWidget(form.uiContainer.release());
+}
 
-	delete settingsWin->scrollContents;
-	settingsWin->scrollContents = container;
-	settingsWin->codecOptScroll->setWidget(container);
+void SettingsUi::fillFormOptions(ControlForm& form,
+		std::string_view keyPrefix,
+		const std::vector<CapabOpt>& opts)
+{
+	for(const auto& modOpt : opts){
+		QLabel *label = new QLabel(QString::fromStdString(modOpt.displayName));
+		QWidget *field = nullptr;
+		WidgetUi *widgetUi = nullptr;
+		std::string optKey = std::string(keyPrefix) + modOpt.key;
+		if(modOpt.booleanOpt){
+			QCheckBox *checkBox = new QCheckBox();
+			field = checkBox;
+
+			widgetUi = new CheckboxUi(checkBox,
+					settings,
+					optKey);
+		} else {
+			QLineEdit *lineEdit = new QLineEdit();
+			field = lineEdit;
+
+			widgetUi = new LineEditUi(lineEdit,
+					settings,
+					optKey);
+		}
+		label->setToolTip(QString::fromStdString(modOpt.displayDesc));
+		field->setToolTip(QString::fromStdString(modOpt.displayDesc));
+
+		form.formLayout->addRow(label, field);
+
+		form.uiControls.emplace_back(widgetUi);
+		connect(widgetUi, &WidgetUi::changed, this, &SettingsUi::changed);
+	}
 }
