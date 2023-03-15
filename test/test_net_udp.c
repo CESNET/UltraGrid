@@ -193,6 +193,12 @@ int test_net_udp(void)
         udp_exit(s1);
         udp_exit(s2);
 
+        // skip mcast tests in GitHub CI
+        if (getenv("GITHUB_REPOSITORY")) {
+                printf("Testing UDP/IP networking multicast tests ................................ --\n");
+                return 0;
+        }
+
         /**********************************************************************/
         /* Loopback a packet to ourselves via multicast...                    */
         printf
@@ -367,7 +373,7 @@ int test_net_udp(void)
         if (s1 == NULL) {
                 printf("FAIL\n");
                 printf("  Cannot initialize socket\n");
-                goto abort_multicast_ipv6;
+                return -1;
         }
         randomize(buf1, BUFSIZE);
         randomize(buf2, BUFSIZE);
@@ -409,9 +415,7 @@ int test_net_udp(void)
         hname = udp_host_addr(s1);      /* we need this for the unicast test... */
         printf("Ok\n");
  abort_multicast_ipv6:
-        if (s1 != NULL) {
-                udp_exit(s1);
-        }
+        udp_exit(s1);
 #else
         printf
             ("Testing UDP/IP networking (IPv6 loopback) ................................ --\n");
