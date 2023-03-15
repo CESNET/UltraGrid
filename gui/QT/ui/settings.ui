@@ -411,88 +411,28 @@
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <property name="currentRow">
-          <number>0</number>
-         </property>
-         <item>
-          <property name="text">
-           <string>Gl</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>SDL</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item>
-        <widget class="QStackedWidget" name="displayStack">
+        <widget class="QScrollArea" name="displayOptScroll">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>3</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <property name="currentIndex">
-          <number>0</number>
+         <property name="widgetResizable">
+          <bool>true</bool>
          </property>
-         <widget class="QWidget" name="glPage">
-          <layout class="QFormLayout" name="formLayout_2">
-           <item row="0" column="0">
-            <widget class="QCheckBox" name="glDeinterlace">
-             <property name="text">
-              <string>Deinterlace</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QCheckBox" name="glFullscreen">
-             <property name="text">
-              <string>Fullscreen</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QCheckBox" name="glNoDecorate">
-             <property name="text">
-              <string>Disable window decorations</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QCheckBox" name="glCursor">
-             <property name="text">
-              <string>Show cursor</string>
-             </property>
-            </widget>
-           </item>
-           <item row="4" column="0">
-            <widget class="QCheckBox" name="glNoVsync">
-             <property name="text">
-              <string>Disable vsync</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="sdl_page">
-          <layout class="QFormLayout" name="formLayout_3">
-           <item row="0" column="0">
-            <widget class="QCheckBox" name="sdlDeinterlace">
-             <property name="text">
-              <string>Deinterlace</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QCheckBox" name="sdlFullscreen">
-             <property name="text">
-              <string>Fullscreen</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
+         <widget class="QWidget" name="scrollAreaWidgetContents_2">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>323</width>
+            <height>363</height>
+           </rect>
+          </property>
          </widget>
         </widget>
        </item>
@@ -688,22 +628,6 @@
     <hint type="destinationlabel">
      <x>247</x>
      <y>220</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>displayListView</sender>
-   <signal>currentRowChanged(int)</signal>
-   <receiver>displayStack</receiver>
-   <slot>setCurrentIndex(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>69</x>
-     <y>168</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>272</x>
-     <y>168</y>
     </hint>
    </hints>
   </connection>

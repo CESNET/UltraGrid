@@ -162,13 +162,6 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new RadioButtonUi(ui->fecMultRadio, "mult", settings, "network.fec.type"));
 	addControl(new RadioButtonUi(ui->fecLdgmRadio, "ldgm", settings, "network.fec.type"));
 	addControl(new RadioButtonUi(ui->fecRsRadio, "rs", settings, "network.fec.type"));
-	addControl(new CheckboxUi(ui->glCursor, settings, "video.display.gl.cursor"));
-	addControl(new CheckboxUi(ui->glDeinterlace, settings, "video.display.gl.deinterlace"));
-	addControl(new CheckboxUi(ui->glFullscreen, settings, "video.display.gl.fullscreen"));
-	addControl(new CheckboxUi(ui->glNoDecorate, settings, "video.display.gl.nodecorate"));
-	addControl(new CheckboxUi(ui->glNoVsync, settings, "video.display.gl.novsync"));
-	addControl(new CheckboxUi(ui->sdlDeinterlace, settings, "video.display.sdl.deinterlace"));
-	addControl(new CheckboxUi(ui->sdlFullscreen, settings, "video.display.sdl.fullscreen"));
 	addControl(new RadioButtonUi(ui->ldgmSimpCpuRadio, "CPU", settings, "network.fec.ldgm.device"));
 	addControl(new RadioButtonUi(ui->ldgmSimpGpuRadio, "GPU", settings, "network.fec.ldgm.device"));
 	addControl(new RadioButtonUi(ui->ldgmCpuRadio, "CPU", settings, "network.fec.ldgm.device"));
