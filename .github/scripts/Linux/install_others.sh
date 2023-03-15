@@ -39,8 +39,7 @@ install_live555() {(
 )}
 
 # Install NDI
-install_ndi() {
-(
+install_ndi() {(
         cd /var/tmp
         [ -f Install_NDI_SDK_Linux.tar.gz ] || return 0
         tar -xzf Install_NDI_SDK_Linux.tar.gz
@@ -49,10 +48,7 @@ install_ndi() {
         yes | PAGER="cat" $installer
         sudo cp -r NDI\ SDK\ for\ Linux/include/* /usr/local/include
         sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < 'NDI SDK for Linux/Version.txt' | sudo tee /usr/local/include/ndi_version.h
-        sudo cp -r NDI\ SDK\ for\ Linux/lib/x86_64-linux-gnu/* /usr/local/lib
-        sudo ldconfig
-)
-}
+)}
 
 # TODO: needed only for U18.04, remove after upgrading to U20.04
 install_vulkan() {(
