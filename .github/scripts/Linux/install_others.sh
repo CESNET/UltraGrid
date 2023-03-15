@@ -70,10 +70,26 @@ install_vulkan() {(
         sudo make install
 )}
 
-install_aja
-install_gpujpeg
-install_live555
-install_ndi
-install_vulkan
-install_ximea
+show_help=
+if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
+        show_help=1
+fi
+
+if [ $# -eq 0 ] || [ $show_help ]; then
+        set -- aja gpujpeg live555 ndi vulkan ximea
+fi
+
+if [ $show_help ]; then
+        set +x
+        printf "Usage:\n"
+        printf "\t%s [<features>] | [ -h | --help | help ]\n" "$0"
+        printf "\nInstall all aditional dependencies (without arguments) or install one explicitly.\n"
+        printf "\nAvailable ones: %s%s%s\n" $(tput bold) "$*" $(tput sgr0)
+        return 0
+fi
+
+while [ $# -gt 0 ]; do
+        install_"$1"
+        shift
+done
 
