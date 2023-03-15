@@ -21,8 +21,7 @@ raspbian_build_sdl2() {
 apt -y install curl
 echo -k > ~/.curlrc
 
-if grep -q Raspbian /etc/os-release; then # https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1670905 workaround
-        sed -i s-http://deb.debian.org/debian-http://mirrordirector.raspbian.org/raspbian/- /etc/apt/sources.list
+if grep -q Raspbian /etc/os-release; then
         curl http://archive.raspberrypi.org/debian/raspberrypi.gpg.key | apt-key add -
         echo 'deb http://archive.raspberrypi.org/debian buster main' >> /etc/apt/sources.list
         apt -y update
