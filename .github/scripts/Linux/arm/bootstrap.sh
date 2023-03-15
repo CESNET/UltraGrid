@@ -29,7 +29,9 @@ if grep -q Raspbian /etc/os-release; then # https://bugs.launchpad.net/ubuntu/+s
 fi
 
 apt -y install build-essential git pkg-config autoconf automake libtool
-apt -y install portaudio19-dev libglew-dev libcurl4-openssl-dev libglfw3-dev libssl-dev libjack-dev libasound2-dev libglm-dev
+apt -y install libcurl4-openssl-dev libsoxr-dev libssl-dev
+apt -y install libasound2-dev portaudio19-dev libjack-dev
+apt -y install libglew-dev libglfw3-dev libglm-dev
 
 # FFmpeg
 if [ "$ARCH" = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
