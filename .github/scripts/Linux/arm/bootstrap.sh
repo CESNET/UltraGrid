@@ -35,6 +35,7 @@ apt -y install libasound2-dev portaudio19-dev libjack-dev
 apt -y install libglew-dev libglfw3-dev libglm-dev
 
 /.github/scripts/install-common-deps.sh
+/.github/scripts/Linux/install_others.sh ndi
 
 # FFmpeg
 if [ "$ARCH" = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch

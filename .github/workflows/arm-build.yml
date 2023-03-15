@@ -30,7 +30,22 @@ jobs:
     - name: Prepare
       run: |
         sudo apt update
-        sudo apt install binfmt-support qemu qemu-user-static
+        sudo apt install binfmt-support curl qemu qemu-user-static
+
+    - name: Fetch SDKs ETags
+      id: etags
+      run: |
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
+    - name: Cache NDI
+      id: cache-ndi
+      uses: actions/cache@v3
+      with:
+        path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
+        key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
+    - name: Download NDI
+      if: steps.cache-ndi.outputs.cache-hit != 'true'
+      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
+
     - name: Cache Environment
       id: cache-bootstrap
       uses: actions/cache@v3
@@ -42,7 +57,8 @@ jobs:
       run: |
         sudo apt install debootstrap debian-archive-keyring
         sudo rm -rf ~/chroot
-        sudo mkdir ~/chroot
+        sudo mkdir -p ~/chroot/var/tmp
+        sudo mv /var/tmp/*NDI* ~/chroot/var/tmp
         wget http://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -q
         sudo qemu-debootstrap --keyring=${{ matrix.keyring }} --arch ${{ matrix.arch }} buster ~/chroot ${{ matrix.repo }}
         sudo cp -r $GITHUB_WORKSPACE/.github ~/chroot
