@@ -27,6 +27,17 @@ install_gpujpeg() {(
         sudo ldconfig
 )}
 
+# Install live555
+install_live555() {(
+        git clone https://github.com/xanview/live555/
+        cd live555
+        git checkout 35c375
+        ./genMakefiles linux-64bit
+        make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
+        sudo make install
+        cd ..
+)}
+
 # Install NDI
 install_ndi() {
 (
@@ -59,17 +70,9 @@ install_vulkan() {(
         sudo make install
 )}
 
-# Install live555
-git clone https://github.com/xanview/live555/
-cd live555
-git checkout 35c375
-./genMakefiles linux-64bit
-make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
-sudo make install
-cd ..
-
 install_aja
 install_gpujpeg
+install_live555
 install_ndi
 install_vulkan
 install_ximea
