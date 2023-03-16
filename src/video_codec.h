@@ -53,41 +53,16 @@
 #include <stdbool.h>
 #endif // !defined __cplusplus
 
+#include "pixfmt_conv.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define DEFAULT_R_SHIFT  0
-#define DEFAULT_G_SHIFT  8
-#define DEFAULT_B_SHIFT 16
-#define DEFAULT_RGB_SHIFT_INIT { DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT }
 #define MAX_BPS 8 /* for Y416 */  ///< maximal (average) number of pixels per know pixel formats (up-round if needed)
 #define MAX_PADDING 64 ///< maximal padding in bytes that may be needed to align to pixfmt block size for Y416->R12L:
                        ///< 64 = vc_linesize(8 /*maximal block pix count (R12L)*/, Y416 /*codec with maximal lenght of 1st arg-sized block*/)
 #define PIX_BLOCK_LCM 24 ///< least common multiple of all pixfmt block sizes in pixels (codec_info_t::block_size/codec_info_t::bpp). "contributors:" 8 R12L, 6 v210
-
-/**
- * @brief Defines type for pixelformat conversions
- *
- * dst and src must not overlap.
- *
- * src should have allocated MAX_PADDING bytes more to accomodate some pixel
- * block conversions requirements (Already done by vf_alloc_desc_data() and by
- * RTP stack.)
- *
- * @param[out] dst     destination buffer
- * @param[in]  src     source buffer
- * @param[in]  dst_len expected number of bytes to be written
- * @param[in]  rshift  offset of red field inside a word (in bits)
- * @param[in]  gshift  offset of green field inside a word (in bits)
- * @param[in]  bshift  offset of blue field inside a word (in bits)
- *
- * @note
- * {r,g,b}shift are usually applicable only for output RGBA. If decoder
- * doesn't output RGBA, values are ignored.
- */
-typedef void decoder_func_t(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift);
-typedef decoder_func_t *decoder_t;
 
 /// Prints list of suppored codecs for video module
 void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs_ge12);
@@ -105,8 +80,6 @@ codec_t          get_codec_from_fcc(uint32_t fourcc) ATTRIBUTE(const);
 codec_t          get_codec_from_name(const char *name) ATTRIBUTE(const);
 const char      *get_codec_file_extension(codec_t codec) ATTRIBUTE(const);
 codec_t          get_codec_from_file_extension(const char *ext) ATTRIBUTE(const);
-decoder_t        get_decoder_from_to(codec_t in, codec_t out) ATTRIBUTE(const);
-decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out);
 
 struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt);
 int              compare_pixdesc(const struct pixfmt_desc *desc_a, const struct pixfmt_desc *desc_b, const struct pixfmt_desc *src_desc);
@@ -129,16 +102,6 @@ bool codec_is_planar(codec_t codec) ATTRIBUTE(const);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 bool vc_deinterlace_ex(codec_t codec, unsigned char *src, size_t src_linesize, unsigned char *dst, size_t dst_pitch, size_t lines);
-
-decoder_func_t vc_copylineRGBA;
-decoder_func_t vc_copylineToRGBA_inplace;
-decoder_func_t vc_copylineABGRtoRGB;
-decoder_func_t vc_copylineRGBtoRGBA;
-decoder_func_t vc_copylineRGBtoUYVY_SSE;
-decoder_func_t vc_copylineRGBtoGrayscale_SSE;
-decoder_func_t vc_copylineUYVYtoRGB_SSE;
-decoder_func_t vc_copylineUYVYtoGrayscale;
-decoder_func_t vc_memcpy;
 
 bool clear_video_buffer(unsigned char *data, size_t linesize, size_t pitch, size_t height, codec_t color_spec);
 

@@ -21,7 +21,7 @@ astat_lib: astat.a
 astat.a: astat.o src/compat/platform_pipe.o
 	ar rcs astat.a $^
 
-convert: src/video_codec.o src/compat/platform_time.o convert.o src/debug.o src/utils/color_out.o src/utils/misc.o
+convert: src/pixfmt_conv.o src/video_codec.o src/compat/platform_time.o convert.o src/debug.o src/utils/color_out.o src/utils/misc.o
 	$(CXX) $^ -o convert
 
 decklink_temperature: decklink_temperature.cpp ext-deps/DeckLink/Linux/DeckLinkAPIDispatch.o
