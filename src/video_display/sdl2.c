@@ -789,6 +789,11 @@ static void display_sdl2_probe(struct device_info **available_cards, int *count,
         *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
         strcpy((*available_cards)[0].dev, "");
         strcpy((*available_cards)[0].name, "SDL2 SW display");
+        dev_add_option(&(*available_cards)[0], "Deinterlace", "Deinterlace", "deinterlace", ":d", true);
+        dev_add_option(&(*available_cards)[0], "Fullscreen", "Launch as fullscreen", "fullscreen", ":fs", true);
+        dev_add_option(&(*available_cards)[0], "No decorate", "Disable window decorations", "nodecorate", ":nodecorate", true);
+        dev_add_option(&(*available_cards)[0], "Disable vsync", "Disable vsync", "novsync", ":novsync", true);
+
         (*available_cards)[0].repeatable = true;
 }
 
