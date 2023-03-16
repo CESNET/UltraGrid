@@ -40,6 +40,8 @@
 
 #ifdef __cplusplus
 #include <cstring>
+#else
+#include <stdalign.h>
 #endif
 
 #include "types.h"
@@ -70,7 +72,7 @@ struct message {
          * Individual message types may have defined custom data deleters.
          * Please note that the deleter must not delete the struct itself.
          */
-        void (*data_deleter)(struct message *);
+        alignas(8) void (*data_deleter)(struct message *);
 
         // following members are used internally and should not be touched anyhow
         // except from messaging.cpp

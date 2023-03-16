@@ -73,6 +73,10 @@
 #include "messaging.h"
 #include "utils/macros.h"
 
+#ifndef __cplusplus
+#include <stdalign.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -110,7 +114,7 @@ typedef void (*notify_t)(struct module *);
  * by user. The others should be considered private.
  */
 struct module {
-        uint32_t magic;
+        alignas(8) uint32_t magic;
         uint32_t priv_magic; ///< optional magic number that can a module set
         pthread_mutex_t lock;
         enum module_class cls;
