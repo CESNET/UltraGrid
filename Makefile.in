@@ -156,7 +156,6 @@ COMMON_OBJS     = \
 		src/lib_common.o \
 		src/module.o \
 		src/pixfmt_conv.o \
-		src/rtsp/rtsp_utils.o \
 		src/ug_runtime_error.o \
 		tools/ipc_frame_ug.o \
 		tools/ipc_frame_unix.o \

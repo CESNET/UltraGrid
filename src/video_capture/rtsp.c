@@ -68,7 +68,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
 #include "rtsp/rtsp_utils.h"
-#include "utils/macros.h" // base64_decode
+#include "utils/macros.h"
 #include "utils/text.h" // base64_decode
 #include "video_decompress.h"
 

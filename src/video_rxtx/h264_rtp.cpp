@@ -7,7 +7,7 @@
  */
 /*
  * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -110,6 +110,45 @@ h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
         c_stop_server(m_rtsp_server);
         free(m_rtsp_server);
 #endif
+}
+
+static void rtps_server_usage(){
+        printf("\n[RTSP SERVER] usage:\n");
+        printf("\t--rtsp-server[=port:number]\n");
+        printf("\t\tdefault rtsp server port number: 8554\n\n");
+}
+
+static int get_rtsp_server_port(const char *cconfig){
+        int port;
+        char *tok;
+        char *save_ptr = NULL;
+        char *config = strdup(cconfig);
+        assert(config != NULL);
+        tok = strtok_r(config, ":", &save_ptr);
+        if (tok && strcmp(tok,"port") == 0){
+                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
+                        port = atoi(tok);
+                        if (!(port >= 0 && port <= 65535)) {
+                                printf("\n[RTSP SERVER] ERROR - please, enter a valid port number.\n");
+                                rtps_server_usage();
+                                free(config);
+                                return -1;
+                        } else {
+                                free(config);
+                                return port;
+                        }
+                } else {
+                        printf("\n[RTSP SERVER] ERROR - please, enter a port number.\n");
+                        rtps_server_usage();
+                        free(config);
+                        return -1;
+                }
+        } else {
+                printf("\n[RTSP SERVER] ERROR - please, check usage.\n");
+                rtps_server_usage();
+                free(config);
+                return -1;
+        }
 }
 
 static video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &params)
