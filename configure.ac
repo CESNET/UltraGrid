@@ -635,17 +635,14 @@ fi
 # -------------------------------------------------------------------------------------------------
 # Blackmagic stuff
 
-DECKLINK_OBJ=
-DECKLINK_INC=
-DECKLINK_LIB=
-DECKLINK_PATH=
 decklink=no
-decklink_req=$build_default
 
 AC_ARG_ENABLE(decklink,
 [  --disable-decklink      disable DeckLink (default is auto)]
 [                          Requires: DesktopVideo],
-	[decklink_req=$enableval])
+	[decklink_req=$enableval],
+	[decklink_req=$build_default]
+)
 DECKLINK_INC=$srcdir/ext-deps/DeckLink
 
 if test $decklink_req != no; then
@@ -660,7 +657,7 @@ if test $decklink_req != no; then
                                            [[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                         LIBS=$OLD_LIBS
                         if test $FOUND_DECKLINK = yes; then
-                                DECKLINK_LIB="$DECKLINK_LIB -framework CoreFoundation"
+                                DECKLINK_LIB="-framework CoreFoundation"
                         fi
                         AC_LANG_POP(C++)
                         ;;
@@ -678,7 +675,7 @@ if test $decklink_req != no; then
                                            [[IDeckLinkIterator *deckLinkIter; CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void **) deckLinkIter);]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                         LIBS=$SAVED_LIBS
                         if test $FOUND_DECKLINK = yes; then
-                                DECKLINK_LIB="$DECKLINK_LIB -lole32"
+                                DECKLINK_LIB="-lole32"
                         fi
                         AC_MSG_RESULT([$FOUND_DECKLINK])
                         AC_LANG_POP(C++)
@@ -692,7 +689,7 @@ if test $decklink_req != no; then
                         #if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes; then
                         if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes; then
                                 FOUND_DECKLINK=yes
-                                DECKLINK_LIB="$DECKLINK_LIB -ldl"
+                                DECKLINK_LIB="-ldl"
                         else
                                 FOUND_DECKLINK=no
                         fi
@@ -700,6 +697,7 @@ if test $decklink_req != no; then
         esac
         if test "$FOUND_DECKLINK" = yes; then
                 DECKLINK_PATH=${DECKLINK_INC}
+                AC_SUBST(DECKLINK_PATH)
                 DECKLINK_INC=-I${DECKLINK_INC}
                 DECKLINK_CAP_OBJ="src/blackmagic_common.o src/video_capture/decklink.o"
                 DECKLINK_DISP_OBJ="src/blackmagic_common.o src/video_display/decklink.o"
@@ -718,18 +716,13 @@ if test $decklink_req != no; then
         fi
 fi
 
-if test $decklink_req = yes -a $decklink = no; then
+if test $decklink_req = yes && test $decklink = no; then
         AC_MSG_ERROR([DeckLink not found.])
 fi
-
-AC_SUBST(DECKLINK_PATH)
 
 # -------------------------------------------------------------------------------------------------
 # Bluefish444 stuff
 # -------------------------------------------------------------------------------------------------
-BLUEFISH444_PATH=
-BLUEFISH444_CAP_OBJ=
-BLUEFISH444_DISP_OBJ=
 BLUEFISH444_INC=
 BLUEFISH444_LIB=
 bluefish444=no
@@ -783,11 +776,9 @@ if test "$bluefish444_req" != no; then
         if test $BLUE_H = yes -a $BLUE_L = yes
         then
                 BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUEFISH444_LIB_NAME"
-                BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
-                BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
                 AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
-                ADD_MODULE("vidcap_bluefish444", "$BLUEFISH444_CAP_OBJ", "$BLUEFISH444_LIB")
-                ADD_MODULE("display_bluefish444", "$BLUEFISH444_DISP_OBJ", "$BLUEFISH444_LIB")
+                ADD_MODULE("vidcap_bluefish444", "src/video_capture/bluefish444.o", "$BLUEFISH444_LIB")
+                ADD_MODULE("display_bluefish444", "src/video_display/bluefish444.o", "$BLUEFISH444_LIB")
                 INC="$INC $BLUEFISH444_INC"
                 bluefish444=yes
         fi
@@ -805,10 +796,6 @@ fi
 # -------------------------------------------------------------------------------------------------
 # AJA stuff
 # -------------------------------------------------------------------------------------------------
-AJA_CXXFLAGS=
-AJA_INC=
-AJA_LIB=
-AJA_CAP_OBJ=
 AJA_PATH=
 aja=no
 
@@ -876,26 +863,21 @@ if test "$aja_req" != no; then
                         AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
                         AJA_LIB="-lajantv2 -framework IOKit"
                 fi
-                AJA_CAP_OBJ="src/video_capture/aja.o"
-                AJA_DISP_OBJ="src/video_display/aja.o"
                 AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
 
-                ADD_MODULE("aja", "src/aja_common.o $AJA_CAP_OBJ $AJA_DISP_OBJ", "$AJA_LIB")
+                ADD_MODULE("aja", "src/aja_common.o src/video_capture/aja.o src/video_display/aja.o", "$AJA_LIB")
                 INC="$INC $AJA_INC"
                 CXXFLAGS="$CXXFLAGS $AJA_CXXFLAGS"
         fi
 fi
 
-if test $aja_req = yes -a $aja = no; then
+if test $aja_req = yes && test $aja = no; then
         AC_MSG_ERROR([AJA not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # holepunch stuff
 
-LIBJUICE_PATH=
-LIBJUICE_INC=
-LIBJUICE_LIB=
 libjuice=no
 
 AC_ARG_ENABLE(holepunch,
@@ -912,23 +894,17 @@ if test "$libjuice_req" != no; then
         then
                 libjuice=yes
                 ADD_MODULE("holepunch", "src/utils/udp_holepunch.o", "$LIBJUICE_LIB")
-                INC="$INC $LIBJUICE_INC"
                 COMMON_FLAGS="$COMMON_FLAGS -DHAVE_LIBJUICE"
         fi
 fi
 
-if test $libjuice_req = yes -a $libjuice = no; then
+if test $libjuice_req = yes && test $libjuice = no; then
         AC_MSG_ERROR([LIBJUICE not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
 
-DELTACAST_PATH=
-DELTACAST_CAP_OBJ=
-DELTACAST_DISP_OBJ=
-DELTACAST_INC=
-DELTACAST_LIB=
 deltacast=no
 deltacast_found=no
 
@@ -1020,20 +996,17 @@ if test "$deltacast_req" != no; then
         fi
         if test "$deltacast_found" = yes; then
                 if test -n "$DELTACAST_PATH"; then
-                        DELTACAST_INC="-I$DELTACAST_PATH/Include"
+                        INC="$INC -I$DELTACAST_PATH/Include"
                 fi
-                DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
-                DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
                 AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
-                ADD_MODULE("vidcap_deltacast", "$DELTACAST_CAP_OBJ", "$DELTACAST_LIB")
-                ADD_MODULE("display_deltacast", "$DELTACAST_DISP_OBJ", "$DELTACAST_LIB")
-                INC="$INC $DELTACAST_INC"
+                ADD_MODULE("vidcap_deltacast", "src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o", "$DELTACAST_LIB")
+                ADD_MODULE("display_deltacast", "src/video_display/deltacast.o", "$DELTACAST_LIB")
                 deltacast=yes
         fi
 fi
 
 
-if test $deltacast_req = yes -a $deltacast = no; then
+if test $deltacast_req = yes && test $deltacast = no; then
         AC_MSG_ERROR([Deltacast not found]);
 fi
 
@@ -1119,7 +1092,7 @@ if test $ximea = yes; then
         ADD_MODULE("vidcap_ximea", "src/video_capture/ximea.o", "$XIMEA_LIBS")
 fi
 
-if test $ximea_req = yes -a $ximea = no; then
+if test $ximea_req = yes && test $ximea = no; then
         AC_MSG_ERROR([XIMEA SDK not found]);
 fi
 
@@ -1179,7 +1152,7 @@ if test "$sdl_req" != no; then
         fi
 fi
 
-if test $sdl_req = yes -a $sdl = no; then
+if test $sdl_req = yes && test $sdl = no; then
         AC_MSG_ERROR([SDL requested but found any version]);
 fi
 
@@ -1263,7 +1236,7 @@ if test $panogl_disp_req = yes; then
         fi
 fi
 
-if test $panogl_disp_req != no -a $sdl = yes -a $sdl_version = 2 -a $glm = yes
+if test $panogl_disp_req != no && test $sdl = yes && test $sdl_version = 2 && test $glm = yes
 then
         PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
         AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
@@ -1297,7 +1270,7 @@ if test $xrgl_disp_req != no && test "$sdl_version" = 2 && test "$glm" != no; th
         fi
 fi
 
-if test $xrgl_disp_req = yes -a $FOUND_XRGL_DEPS = no; then
+if test $xrgl_disp_req = yes && test $FOUND_XRGL_DEPS = no; then
         AC_MSG_ERROR([XRGL deps not found]);
 fi
 
@@ -1402,9 +1375,6 @@ fi
 # -------------------------------------------------------------------------------------------------
 # RTSP capture stuff
 # -------------------------------------------------------------------------------------------------
-RTSP_INC=
-RTSP_LIBS=
-RTSP_OBJ=
 rtsp=no
 
 define(rtsp_deps, [libcurl])
@@ -1424,15 +1394,13 @@ if test "$rtsp_req" != no; then
                 CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
                 SAVED_CXXFLAGS=$CXXFLAGS
                 CXXFLAGS="$CXXFLAGS ${RTSP_CFLAGS}"
-                RTSP_INC=
                 RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
                 ADD_MODULE("vidcap_rtsp", "$RTSP_OBJ", "$RTSP_LIBS")
-                INC="$INC $RTSP_INC"
                 rtsp=yes
         fi
 fi
 
-if test $rtsp_req = yes -a $rtsp = no; then
+if test $rtsp_req = yes && test $rtsp = no; then
         AC_MSG_ERROR([rtsp not found, check curl dependencies...]);
 fi
 
@@ -1441,8 +1409,6 @@ fi
 # RTSP server stuff
 # TODO: create pkg-config search path for liblivemedia-dev (create live555.pc file)
 # -------------------------------------------------------------------------------------------------
-RTSP_SERVER_INC=
-RTSP_SERVER_OBJ=
 rtsp_server=no
 livemedia=no
 livemedia_prefix=/usr
@@ -1488,7 +1454,7 @@ if test $rtsp_server_req != no; then
         fi
 fi
 
-if test $rtsp_server_req = yes -a $rtsp_server = no; then
+if test $rtsp_server_req = yes && test $rtsp_server = no; then
         AC_MSG_ERROR([rtsp server not found, check live555 -livemedia lib- dependencies...]);
 fi
 
@@ -1511,15 +1477,13 @@ if test $sdp_http_req != no; then
         fi
 fi
 
-if test $sdp_http_req = yes -a $sdp_http = no; then
+if test $sdp_http_req = yes && test $sdp_http = no; then
         AC_MSG_ERROR([SDP/HTTP dependency EmbeddableWebServer.h not found!]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # Resize stuff
 # -------------------------------------------------------------------------------------------------
-RESIZE_LIBS=
-RESIZE_OBJ=
 resize=no
 
 AC_ARG_ENABLE(resize,
@@ -1545,8 +1509,6 @@ fi
 # -------------------------------------------------------------------------------------------------
 # Blank stuff
 # -------------------------------------------------------------------------------------------------
-BLANK_LIBS=
-BLANK_OBJ=
 blank=no
 
 define(blank_dep, libswscale)
@@ -1572,8 +1534,7 @@ if test $blank_req != no; then
         then
                 CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
                 CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
-                BLANK_OBJ="src/capture_filter/blank.o"
-                BLANK_OBJ="$BLANK_OBJ src/libavcodec/lavc_common.o" # get_ug_to_av_pixfmt()
+                BLANK_OBJ="src/capture_filter/blank.o src/libavcodec/lavc_common.o" # get_ug_to_av_pixfmt()
                 ADD_MODULE("vcapfilter_blank", "$BLANK_OBJ", "$BLANK_LIBS")
                 blank=yes
         fi
@@ -1761,7 +1722,7 @@ if test "$libswscale_req" != no; then
         fi
 fi
 
-if test $libswscale_req = yes -a $libswscale = no; then
+if test $libswscale_req = yes && test $libswscale = no; then
         AC_MSG_ERROR([Libswscale not found]);
 fi
 
@@ -1824,7 +1785,7 @@ else
         HW_ACC_OBJ=
 fi
 
-if test $libavcodec_req = yes -a $libavcodec = no; then
+if test $libavcodec_req = yes && test $libavcodec = no; then
         AC_MSG_ERROR([Libavcodec not found]);
 fi
 
@@ -1863,7 +1824,7 @@ if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; the
         fi
 fi
 
-if test $file_req = yes -a $file = no; then
+if test $file_req = yes && test $file = no; then
         AC_MSG_ERROR([File input dependencies not found]);
 fi
 
@@ -1895,16 +1856,13 @@ then
         fi
 fi
 
-if test $gl_display_req = yes -a $gl_display = no; then
+if test $gl_display_req = yes && test $gl_display = no; then
         AC_MSG_ERROR([OpenGL not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # SW Mix Stuff
 # -------------------------------------------------------------------------------------------------
-SWMIX_INC=
-SWMIX_LIB=
-SWMIX_OBJ=
 swmix=no
 
 AC_ARG_ENABLE(swmix,
@@ -1923,7 +1881,7 @@ then
         AC_DEFINE([HAVE_SWMIX], [1], [Build SW mix capture])
 fi
 
-if test $swmix_req = yes -a $swmix = no; then
+if test $swmix_req = yes && test $swmix = no; then
         AC_MSG_ERROR([SW mix was not found (OpenGL libraries missing)]);
 fi
 
@@ -1944,7 +1902,7 @@ if test $system = Windows -a $dshow_req != no; then
         dshow=yes
 fi
 
-if test $dshow_req = yes -a $dshow = no; then
+if test $dshow_req = yes && test $dshow = no; then
         AC_MSG_ERROR([DirectShow not found]);
 fi
 
@@ -2087,7 +2045,7 @@ then
         LIB_GENERATED_HEADERS="$RTDXT_COMMON_HEADERS"
 fi
 
-if test $rtdxt_req = yes -a $rtdxt = no; then
+if test $rtdxt_req = yes && test $rtdxt = no; then
         AC_MSG_ERROR([RTDXT not found]);
 fi
 
@@ -2118,7 +2076,7 @@ then
         ADD_MODULE("vcompress_uyvy", "$UYVY_COMPRESS_OBJ", "$OPENGL_LIB")
 fi
 
-if test $uyvy_req = yes -a $uyvy = no; then
+if test $uyvy_req = yes && test $uyvy = no; then
         AC_MSG_ERROR([UYVY not found]);
 fi
 
@@ -2256,20 +2214,12 @@ else
 	HOST_CC_REPORT=""
 fi
 
-AC_SUBST(FOUND_CUDA)
-AC_SUBST(CUDA_PATH)
-AC_SUBST(CUDA_LIB)
 AC_SUBST(CUDA_INC)
 AC_SUBST(CUDA_COMPILER)
 AC_SUBST(CUDA_COMPUTE_ARGS)
 
 # -------------------------------------------------------------------------------------------------
 # GPUJPEG
-GPUJPEG_OBJ=
-GPUJPEG_COMPRESS_OBJ=
-GPUJPEG_DECOMPRESS_OBJ=
-GPUJPEG_INC=
-GPUJPEG_LIB=
 
 gpujpeg=no
 
@@ -2327,16 +2277,13 @@ if test "$gpujpeg_req" != no && test "$found_gpujpeg" = yes; then
 	INC="$INC $GPUJPEG_INC"
 fi
 
-if test $gpujpeg_req = yes -a $gpujpeg = no; then
+if test $gpujpeg_req = yes && test $gpujpeg = no; then
         AC_MSG_ERROR([GPUJPEG not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # CUDA DXT
 # -------------------------------------------------------------------------------------------------
-CUDA_DXT_OBJ=
-CUDA_DXT_INC=
-CUDA_DXT_LIB=
 
 cuda_dxt=no
 
@@ -2369,14 +2316,13 @@ then
         DEFINE_CUDA
         DEFINE_CUDA_DXT
         CUDA_DXT_LIB="$CUDA_COMMON_LIB $CUDA_DXT_COMMON_LIB $CUDA_LIB"
-        CUDA_DXT_INC=$CUDA_INC
         CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o $CUDA_DXT_COMMON_OBJ $CUDA_COMMON_OBJ"
         AC_DEFINE([HAVE_CUDA_DXT], [1], [Build with CUDA DXT support])
         ADD_MODULE("vcompress_cuda_dxt", $CUDA_DXT_OBJ, "$CUDA_DXT_LIB")
         CUDA_MESSAGE
 fi
 
-if test $cuda_dxt_req = yes -a $cuda_dxt = no; then
+if test $cuda_dxt_req = yes && test $cuda_dxt = no; then
         AC_MSG_ERROR([CUDA DXT not found]);
 fi
 
@@ -2405,8 +2351,7 @@ then
 fi
 
 
-if test $gpujpeg_to_dxt = no -a $gpujpeg_to_dxt_req = yes
-then
+if test $gpujpeg_to_dxt = no && test $gpujpeg_to_dxt_req = yes; then
         AC_MSG_ERROR([GPUJPEG DXT transcoder not found])
 fi
 
@@ -2414,17 +2359,14 @@ fi
 # gpustitch stuff
 # -------------------------------------------------------------------------------------------------
 
-GPUSTITCH_OBJ=
-GPUSTITCH_INC=
-GPUSTITCH_LIB=
-GPUSTITCH_PATH=
 gpustitch=no
-gpustitch_req=auto
 
 AC_ARG_ENABLE(gpustitch,
 [  --disable-gpustitch      disable gpustitch (default is auto)]
 [                          Requires: CUDA gpustitch],
-	[gpustitch_req=$enableval])
+	[gpustitch_req=$enableval],
+	[gpustitch_req=$build_default]
+)
 
 if test "$gpustitch_req" != no && test "$FOUND_CUDA" = yes; then
         PKG_CHECK_MODULES([LIBGPUSTITCH], [libgpustitch >= 0.0.1 ], [found_gpustitch=yes], [found_gpustitch=no])
@@ -2442,38 +2384,28 @@ if test "$gpustitch_req" != no && test "$FOUND_CUDA" = yes; then
         if test "$ac_cv_header_libgpustitch_stitcher_hpp" != yes
         then
                 found_gpustitch=no
-        else
-                if test "$found_gpustitch" != yes
-                then
-                        GPUSTITCH_LIB="$GPUSTITCH_LIB -lgpustitch"
-                        found_gpustitch=yes
-                fi
         fi
 
         if test "$found_gpustitch" = yes; then
                 gpustitch=yes
 
-                GPUSTITCH_INC="$GPUSTITCH_INC $LIBGPUSTITCH_CFLAGS"
-                GPUSTITCH_LIB="$GPUSTITCH_LIB $LIBGPUSTITCH_LIBS"
+                GPUSTITCH_LIB="-lgpustitch $LIBGPUSTITCH_LIBS"
                 GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.$CU_OBJ_SUFFIX $CUDA_COMMON_OBJ"
                 AC_DEFINE([HAVE_GPUSTITCH], [1], [Build with GPUSTITCH support])
                 ADD_MODULE("vidcap_gpustitch", "$GPUSTITCH_OBJ", "$GPUSTITCH_LIB")
 
-                INC="$INC $GPUSTITCH_INC"
+                INC="$INC $LIBGPUSTITCH_CFLAGS"
                 CUDA_MESSAGE
         fi
 fi
 
-if test $gpustitch_req = yes -a $gpustitch = no; then
+if test $gpustitch_req = yes && test $gpustitch = no; then
         AC_MSG_ERROR([GPUSTITCH not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # SAGE stuff
 
-SAGE_OBJ=
-SAGE_INC=
-SAGE_LIB=
 sage=no
 
 AC_ARG_ENABLE(sage,
@@ -2528,7 +2460,7 @@ if test $sage_req != no; then
         fi
 fi
 
-if test $sage_req = yes -a $sage = no; then
+if test $sage_req = yes && test $sage = no; then
         AC_MSG_ERROR([SAGE not found]);
 fi
 
@@ -2566,7 +2498,7 @@ if test $portaudio_req != no; then
         fi
 fi
 
-if test $portaudio_req = yes -a $portaudio = no; then
+if test $portaudio_req = yes && test $portaudio = no; then
         AC_MSG_ERROR([PortAudio not found]);
 fi
 
@@ -2738,14 +2670,13 @@ if test "$alsa_req" = yes || { test "$alsa_req" != no && test "$system" = Linux 
         fi
 fi
 
-if test $alsa_req = yes -a $alsa = no; then
+if test $alsa_req = yes && test $alsa = no; then
         AC_MSG_ERROR([ALSA not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # CoreAudio Stuff
-COREAUDIO_LIB=
-COREAUDIO_OBJ=
+
 coreaudio=no
 
 AC_ARG_ENABLE(coreaudio,
@@ -2768,16 +2699,14 @@ if test $system = MacOSX && test $coreaudio_req != no; then
         fi
 fi
 
-if test $coreaudio_req = yes -a $coreaudio = no; then
+if test $coreaudio_req = yes && test $coreaudio = no; then
         AC_MSG_ERROR([Core Audio not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # Scale Stuff
 # -------------------------------------------------------------------------------------------------
-SCALE_INC=
-SCALE_LIB=
-SCALE_OBJ=
+
 scale=no
 
 AC_ARG_ENABLE(scale,
@@ -2796,16 +2725,14 @@ then
         AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
 fi
 
-if test $scale_req = yes -a $scale = no; then
+if test $scale_req = yes && test $scale = no; then
         AC_MSG_ERROR([Scale not found]);
 fi
 
 # -------------------------------------------------------------------------------------------------
 # Text Stuff
 # -------------------------------------------------------------------------------------------------
-TEXT_INC=
-TEXT_LIB=
-TEXT_OBJ=
+
 text=no
 
 define(text_dep, MagickWand)
@@ -2834,7 +2761,7 @@ if test $text_req != no; then
         fi
 fi
 
-if test $text_req = yes -a $text = no; then
+if test $text_req = yes && test $text = no; then
         AC_MSG_ERROR([text not found]);
 fi
 
@@ -2926,7 +2853,7 @@ AC_SUBST(GUI_TARGET)
 AC_SUBST(QMAKE)
 AC_SUBST(QT_CFLAGS)
 
-if test $qt_req = yes -a $qt_gui = no; then
+if test $qt_req = yes && test $qt_gui = no; then
 		AC_MSG_ERROR([Qt libraries are required.])
 fi
 
@@ -2958,7 +2885,7 @@ then
         v4l2=yes
 fi
 
-if test $v4l2_req = yes -a $v4l2 = no; then
+if test $v4l2_req = yes && test $v4l2 = no; then
         AC_MSG_ERROR([V4L2 not found]);
 fi
 
@@ -2978,7 +2905,7 @@ if test $system = Windows -a $wasapi_req != no; then
         wasapi=yes
 fi
 
-if test $wasapi_req = yes -a $wasapi = no; then
+if test $wasapi_req = yes && test $wasapi = no; then
         AC_MSG_ERROR([WASAPI not found]);
 fi
 
@@ -3109,7 +3036,7 @@ else
         ldgm_gpu=no
 fi
 
-if test $ldgm_gpu_req = yes -a $ldgm_gpu = no; then
+if test $ldgm_gpu_req = yes && test $ldgm_gpu = no; then
         AC_MSG_ERROR([LDGM accelerated GPU cannot be enabled (CUDA not found?)]);
 fi
 
@@ -3136,7 +3063,7 @@ if test "$syphon_req" != no && test "$system" = MacOSX; then
         fi
 fi
 
-if test $syphon_req = yes -a $syphon = no; then
+if test $syphon_req = yes && test $syphon = no; then
         AC_MSG_ERROR([Syphon framework cannot be found!]);
 fi
 
@@ -3173,7 +3100,7 @@ then
         spout=yes
 fi
 
-if test $spout_req = yes -a $spout = no; then
+if test $spout_req = yes && test $spout = no; then
         AC_MSG_ERROR([Could not found Spout dependencies!]);
 fi
 
@@ -3206,7 +3133,7 @@ then
         video_mix=yes
 fi
 
-if test $video_mix_req = yes -a $video_mix = no; then
+if test $video_mix_req = yes && test $video_mix = no; then
         AC_MSG_ERROR([Could not found OpenCV needed for video mixer!]);
 fi
 
@@ -3253,7 +3180,7 @@ if test $cmpto_j2k_req != no; then
         fi
 fi
 
-if test $cmpto_j2k_req = yes -a $cmpto_j2k = no; then
+if test $cmpto_j2k_req = yes && test $cmpto_j2k = no; then
         AC_MSG_ERROR([Comprimato J2K not found!]);
 fi
 
@@ -3292,7 +3219,7 @@ if test $ndi_req != no; then
         fi
 fi
 
-if test $ndi_req = yes -a $ndi = no; then
+if test $ndi_req = yes && test $ndi = no; then
         AC_MSG_ERROR([NDI not found!]);
 fi
 
@@ -3368,7 +3295,7 @@ then
         ADD_MODULE("vdecompress_cineform", "$CINEFORM_DECOMPRESS_OBJ", "$CINEFORM_LIBS")
 fi
 
-if test $cineform_req = yes -a $cineform = no; then
+if test $cineform_req = yes && test $cineform = no; then
         AC_MSG_ERROR([CINEFORM not found]);
 fi
 
@@ -3396,7 +3323,7 @@ if test "$natpmp_req" != no; then
         fi
 fi
 
-if test $natpmp_req = yes -a $natpmp = no; then
+if test $natpmp_req = yes && test $natpmp = no; then
         AC_MSG_ERROR([NAT-PMP not found]);
 fi
 
@@ -3420,7 +3347,7 @@ if test "$pcp_req" != no; then
         fi
 fi
 
-if test $pcp_req = yes -a $pcp = no; then
+if test $pcp_req = yes && test $pcp = no; then
         AC_MSG_ERROR([PCP not found]);
 fi
 
