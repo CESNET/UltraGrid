@@ -739,11 +739,11 @@ struct Conf_participant{
         struct timeval last_recv;
 };
 
-static bool sockaddr_equal(struct sockaddr *a, struct sockaddr *b){
-        if(a->sa_family != b->sa_family)
+static bool sockaddr_equal(struct sockaddr_storage *a, struct sockaddr_storage *b){
+        if(a->ss_family != b->ss_family)
                 return false;
 
-        switch(a->sa_family){
+        switch(a->ss_family){
         case AF_INET:{
                 auto a_in = reinterpret_cast<struct sockaddr_in *>(a);
                 auto b_in = reinterpret_cast<struct sockaddr_in *>(b);
@@ -925,7 +925,7 @@ int main(int argc, char **argv)
             if(params.out_conf.mode == CONFERENCE){
                     bool seen = false;
                     for(auto it = participants.begin(); it != participants.end();){
-                            if(addrlen > 0 && sockaddr_equal((sockaddr *) &it->addr, (sockaddr *) &sin)){
+                            if(addrlen > 0 && sockaddr_equal(&it->addr, &sin)){
                                     it->last_recv = t;
                                     seen = true;
                             }
