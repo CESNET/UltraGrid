@@ -7,7 +7,7 @@
  */
 /*
  * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,20 +51,18 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h" // PCMA/PCMU packet types
 #include "rtp/rtpenc_h264.h"
 #include "transmit.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
+#include "utils/color_out.h"
 #include "utils/sdp.h"
 #include "video.h"
 #include "video_rxtx.h"
 #include "video_rxtx/h264_sdp.hpp"
 
-using rang::fg;
-using rang::style;
 using std::array;
 using std::cout;
 using std::exception;
@@ -77,9 +75,9 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
         auto opts = params.at("opts").str;
         if (strcmp(opts, "help") == 0) {
                 cout << "Usage:\n";
-                cout << style::bold << "\tuv " << fg::red << "--protocol sdp" << fg::reset << "[:autorun][:file=<name>|no][:port=<http_port>]\n" << style::reset;
+                col() << "\t" << SBOLD("uv " << SRED("--protocol sdp") << "[:autorun][:file=<name>|no][:port=<http_port>]") << "\n";
                 cout << "where:\n";
-                cout << style::bold << "\tautorun" << style::reset << " - automatically send to the address that requested the SDP over HTTP without giving an address (use with caution!)\n";
+                col() << "\t" << SBOLD("autorun") << " - automatically send to the address that requested the SDP over HTTP without giving an address (use with caution!)\n";
                 throw 0;
         }
 
