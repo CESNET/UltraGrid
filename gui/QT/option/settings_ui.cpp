@@ -209,6 +209,9 @@ void SettingsUi::buildSettingsDisplayList(){
 	list->clear();
 
 	for(const auto& dev : availableSettings->getDevices(VIDEO_DISPLAY)){
+		if(dev.opts.empty())
+			continue;
+
 		QListWidgetItem *item = new QListWidgetItem(list);
 
 		item->setText(QString::fromStdString(dev.name));
