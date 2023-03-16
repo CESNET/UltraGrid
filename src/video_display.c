@@ -626,3 +626,16 @@ struct video_frame *get_splashscreen()
         }
         return frame;
 }
+
+void dev_add_option(struct device_info *dev, const char *name, const char *desc, const char *key, const char *opt_str, bool is_boolean){
+
+    int idx = 0;
+    while(*dev->options[idx].key)
+        idx++;
+
+    strcpy(dev->options[idx].display_name, name);
+    strcpy(dev->options[idx].display_desc, desc);
+    strcpy(dev->options[idx].key, key);
+    strcpy(dev->options[idx].opt_str, opt_str);
+    dev->options[idx].is_boolean = is_boolean;
+}

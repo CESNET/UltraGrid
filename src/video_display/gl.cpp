@@ -1917,18 +1917,6 @@ static int display_gl_reconfigure_audio(void *state, int quant_samples, int chan
         return FALSE;
 }
 
-static void add_option(struct device_info *dev, const char *name, const char *desc, const char *key, const char *opt_str, bool is_boolean){
-    int idx = 0;
-    while(*dev->options[idx].key)
-        idx++;
-
-    strcpy(dev->options[idx].display_name, name);
-    strcpy(dev->options[idx].display_desc, desc);
-    strcpy(dev->options[idx].key, key);
-    strcpy(dev->options[idx].opt_str, opt_str);
-    dev->options[idx].is_boolean = is_boolean;
-}
-
 static const struct video_display_info display_gl_info = {
         [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
                 UNUSED(deleter);
@@ -1937,12 +1925,12 @@ static const struct video_display_info display_gl_info = {
                 strcpy((*available_cards)[0].dev, "");
                 strcpy((*available_cards)[0].name, "OpenGL SW display");
 
-                add_option(&(*available_cards)[0], "Deinterlace", "Deinterlace", "deinterlace", ":d", true);
-                add_option(&(*available_cards)[0], "Fullscreen", "Launch as fullscreen", "fullscreen", ":fs", true);
-                add_option(&(*available_cards)[0], "No decorate", "Disable window decorations", "nodecorate", ":nodecorate", true);
-                add_option(&(*available_cards)[0], "Show cursor", "Show visible cursor", "cursor", ":cursor", true);
-                add_option(&(*available_cards)[0], "Disable vsync", "Disable vsync", "novsync", ":novsync", true);
-                add_option(&(*available_cards)[0], "Aspect", "Requested video aspect <w>/<h>", "aspect", ":aspect=", false);
+                dev_add_option(&(*available_cards)[0], "Deinterlace", "Deinterlace", "deinterlace", ":d", true);
+                dev_add_option(&(*available_cards)[0], "Fullscreen", "Launch as fullscreen", "fullscreen", ":fs", true);
+                dev_add_option(&(*available_cards)[0], "No decorate", "Disable window decorations", "nodecorate", ":nodecorate", true);
+                dev_add_option(&(*available_cards)[0], "Show cursor", "Show visible cursor", "cursor", ":cursor", true);
+                dev_add_option(&(*available_cards)[0], "Disable vsync", "Disable vsync", "novsync", ":novsync", true);
+                dev_add_option(&(*available_cards)[0], "Aspect", "Requested video aspect <w>/<h>", "aspect", ":aspect=", false);
 
                 (*available_cards)[0].repeatable = true;
         },
