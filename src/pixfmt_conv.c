@@ -64,7 +64,7 @@
 #include "compat/qsort_s.h"
 #include "debug.h"
 #include "pixfmt_conv.h"
-#include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR, MIN/MAX
+#include "utils/macros.h" // to_fourcc, OPTIMEZED_FOR, CLAMP
 #include "video_codec.h"
 
 #ifdef __SSSE3__
@@ -876,10 +876,10 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
                 u = u / 2 + (1<<23);\
                 v = v / 2 + (1<<23);\
 \
-                *d++ = (MIN(MAX(y2, 0), (1<<24)-1) >> 16) << 24 |\
-                        (MIN(MAX(v, 0), (1<<24)-1) >> 16) << 16 |\
-                        (MIN(MAX(y1, 0), (1<<24)-1) >> 16) << 8 |\
-                        (MIN(MAX(u, 0), (1<<24)-1) >> 16);\
+                *d++ = (CLAMP(y2, 0, (1<<24)-1) >> 16) << 24 |\
+                        (CLAMP(v, 0, (1<<24)-1) >> 16) << 16 |\
+                        (CLAMP(y1, 0, (1<<24)-1) >> 16) << 8 |\
+                        (CLAMP(u, 0, (1<<24)-1) >> 16);\
         }\
 }
 
@@ -893,6 +893,7 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
  * Uses Rec. 709 with standard SDI ceiling and floor
  *
  * @todo make it faster if needed
+ * @param rgb16   true if output is 16-bit RGB, otherwise false
  */
 #define copylineYUVtoRGB(dst, src, dst_len, y1_off, y2_off, u_off, v_off, rgb16) {\
         OPTIMIZED_FOR (int x = 0; x <= (dst_len) - 6 * (1 + (rgb16)); x += 6 * (1 + (rgb16))) {\
@@ -900,19 +901,26 @@ void vc_copylineRGBtoRGBA(unsigned char * __restrict dst, const unsigned char * 
                 register int y2 = (src)[y2_off];\
                 register int u = (src)[u_off];\
                 register int v = (src)[v_off];\
+                int val;\
                 src += 4;\
                 if (rgb16) *(dst)++ = 0;\
-                *(dst)++ = MIN(MAX(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);\
+                val = 1.164 * (y1 - 16) + 1.793 * (v - 128);\
+                *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                *(dst)++ = MIN(MAX(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
+                val = 1.164 * (y1 - 16) - 0.534 * (v - 128) - 0.213 * (u - 128);\
+                *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                *(dst)++ = MIN(MAX(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);\
+                val = 1.164 * (y1 - 16) + 2.115 * (u - 128);\
+                *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                *(dst)++ = MIN(MAX(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);\
+                val = 1.164 * (y2 - 16) + 1.793 * (v - 128);\
+                *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                *(dst)++ = MIN(MAX(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);\
+                val = 1.164 * (y2 - 16) - 0.534 * (v - 128) - 0.213 * (u - 128);\
+                *(dst)++ = CLAMP(val, 0, 255);\
                 if (rgb16) *(dst)++ = 0;\
-                *(dst)++ = MIN(MAX(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);\
+                val = 1.164 * (y2 - 16) + 2.115 * (u - 128);\
+                *(dst)++ = CLAMP(val, 0, 255);\
         }\
 }
 
@@ -968,13 +976,19 @@ static void vc_copylineUYVYtoRGBA(unsigned char * __restrict dst, const unsigned
                 y1 = *src++;
                 v = *src++;
                 y2 = *src++;
-                uint8_t r = MIN(MAX(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);
-                uint8_t g = MIN(MAX(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
-                uint8_t b = MIN(MAX(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);
+                int r = 1.164 * (y1 - 16) + 1.793 * (v - 128);
+                int g = 1.164 * (y1 - 16) - 0.534 * (v - 128) - 0.213 * (u - 128);
+                int b = 1.164 * (y1 - 16) + 2.115 * (u - 128);
+                r = CLAMP(r, 0, 255);
+                g = CLAMP(g, 0, 255);
+                b = CLAMP(b, 0, 255);
                 *dst32++ = alpha_mask | r << rshift | g << gshift | b << bshift;
-                r = MIN(MAX(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);
-                g = MIN(MAX(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
-                b = MIN(MAX(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);
+                r = 1.164 * (y2 - 16) + 1.793 * (v - 128);
+                g = 1.164 * (y2 - 16) - 0.534 * (v - 128) - 0.213 * (u - 128);
+                b = 1.164 * (y2 - 16) + 2.115 * (u - 128);
+                r = CLAMP(r, 0, 255);
+                g = CLAMP(g, 0, 255);
+                b = CLAMP(b, 0, 255);
                 *dst32++ = alpha_mask | r << rshift | g << gshift | b << bshift;
         }
 }
@@ -1938,8 +1952,8 @@ void vc_copylineRGBtoGrayscale_SSE(unsigned char * __restrict dst, const unsigne
                 bi = *(src++);
                 y2 = 11993 * ri + 40239 * gi + 4063 * bi + (1<<20);
 
-                *d++ = (MIN(MAX(y2, 0), (1<<24)-1) >> 16) << 8 |
-                       (MIN(MAX(y1, 0), (1<<24)-1) >> 16);
+                *d++ = (CLAMP(y2, 0, (1<<24)-1) >> 16) << 8 |
+                       (CLAMP(y1, 0, (1<<24)-1) >> 16);
         }
 }
 
