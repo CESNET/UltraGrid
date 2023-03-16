@@ -5,10 +5,10 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 install_ximea() {
-        wget --no-verbose https://www.ximea.com/downloads/recent/XIMEA_Linux_SP.tgz
+        curl -LO https://www.ximea.com/downloads/recent/XIMEA_Linux_SP.tgz
         tar xzf XIMEA_Linux_SP.tgz
         cd package
-        sudo ./install
+        sudo ./install -noudev
 }
 
 # Install AJA

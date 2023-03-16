@@ -29,13 +29,15 @@ fi
 
 apt -y install cmake=3.13.4-1 cmake-data=3.13.4-1 # 3.16 in the above added repository is broken with chrooted qemu-user-static
 
-apt -y install build-essential git pkg-config autoconf automake libtool
+apt -y install autoconf automake build-essential git pkg-config libtool sudo
 apt -y install libcurl4-openssl-dev libsoxr-dev libspeexdsp-dev libssl-dev
 apt -y install libasound2-dev portaudio19-dev libjack-dev
 apt -y install libglew-dev libglfw3-dev libglm-dev
+apt -y install libnatpmp-dev
 
 /.github/scripts/install-common-deps.sh
 /.github/scripts/Linux/install_others.sh ndi
+/.github/scripts/Linux/install_others.sh ximea
 
 # FFmpeg
 if [ "$ARCH" = armhf ]; then # Raspbian - build own FFmpeg with OMX camera patch
