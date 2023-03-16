@@ -15,7 +15,7 @@ set -- "$@" --enable-alsa --enable-jack --enable-jack-transport                 
 set -- "$@" --enable-decklink --enable-file --enable-ndi --enable-rtsp --enable-screen=x11 --enable-swmix --enable-v4l2 --enable-ximea # vcap
 set -- "$@" --enable-gl-display --enable-panogl_disp --enable-sdl                                       # display
 set -- "$@" --enable-libavcodec --enable-rtdxt --enable-libswscale --enable-uyvy                        # compression
-set -- "$@" --enable-blank --enable-holepunch --enable-natpmp --enable-pcp --enable-scale --enable-sdp-http --enable-testcard-extras --enable-zfec # extras (pp. etc)
+set -- "$@" --enable-blank --enable-holepunch --enable-natpmp --enable-pcp --enable-resize --enable-scale --enable-sdp-http --enable-testcard-extras --enable-video-mixer --enable-zfec # extras (pp. etc)
 if [ "$ARCH" = armhf ]; then # Raspbian
         set -- "$@" --enable-lavc-hw-accel-rpi4
 fi
