@@ -13,7 +13,6 @@ install_ximea() {
 
 # Install AJA
 install_aja() {(
-        cd /var/tmp
         git clone --depth 1 https://github.com/aja-video/ntv2
         cd ntv2/ajalibraries/ajantv2/build
         make -j "$(nproc)"
@@ -39,12 +38,10 @@ install_live555() {(
         ./genMakefiles linux-64bit
         make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DXLOCALE_NOT_USED"
         sudo make install
-        cd ..
 )}
 
 # Install NDI
 install_ndi() {(
-        cd /var/tmp
         tar -xzf Install_NDI_SDK_Linux.tar.gz
         # shellcheck disable=SC2125
         installer=./Install*NDI*sh
@@ -86,6 +83,8 @@ if [ $show_help ]; then
         printf "\nAvailable ones: %s%s%s\n" $(tput bold) "$*" $(tput sgr0)
         return 0
 fi
+
+cd /var/tmp
 
 while [ $# -gt 0 ]; do
         install_"$1"
