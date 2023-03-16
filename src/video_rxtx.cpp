@@ -209,13 +209,15 @@ exit:
 video_rxtx *video_rxtx::create(string const & proto, std::map<std::string, param_u> const &params)
 {
         auto vri = static_cast<const video_rxtx_info *>(load_library(proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
-        if (vri) {
-                auto ret = vri->create(params);
-                ret->start();
-                return ret;
-        } else {
+        if (!vri) {
                 return nullptr;
         }
+        auto ret = vri->create(params);
+        if (!ret) {
+                return nullptr;
+        }
+        ret->start();
+        return ret;
 }
 
 void video_rxtx::list(bool full)
