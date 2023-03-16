@@ -1,5 +1,9 @@
 #!/bin/sh -eux
 
+if [ "$(id -u)" -eq 0 ]; then
+        alias sudo=
+fi
+
 install_ximea() {
         wget --no-verbose https://www.ximea.com/downloads/recent/XIMEA_Linux_SP.tgz
         tar xzf XIMEA_Linux_SP.tgz
