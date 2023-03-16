@@ -198,6 +198,7 @@ COMMON_OBJS     = \
 		src/video_capture/import.o \
 		src/video_capture/null.o \
 		src/video_capture/switcher.o \
+		src/video_capture/testcard.o \
 		src/video_capture/testcard_common.o \
 		src/video_capture/ug_input.o \
 		src/video_compress.o \

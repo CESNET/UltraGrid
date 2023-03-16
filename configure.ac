@@ -1590,11 +1590,6 @@ AC_ARG_ENABLE(testcard-extras,
     [testcard_extras_req=$build_default]
     )
 
-TESTCARD_OBJ="src/video_capture/testcard.o"
-TESTCARD_LIB=
-TESTCARD2_OBJ=
-TESTCARD2_LIB=
-
 testcard2_req=auto
 testcard_sdl_ttf_req=auto
 
@@ -1614,9 +1609,6 @@ fi
 if expr $testcard_extras_req : '.*ttf' >/dev/null; then
         testcard_sdl_ttf_req=yes
 fi
-
-TESTCARD_OBJ="src/video_capture/testcard.o"
-ADD_MODULE("vidcap_testcard", "$TESTCARD_OBJ", "$TESTCARD_LIB")
 
 if test $testcard2_req != no
 then
