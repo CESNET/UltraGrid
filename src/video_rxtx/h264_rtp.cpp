@@ -52,12 +52,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "compat/misc.h"
 #include "host.h"
 #include "lib_common.h"
 #include "transmit.h"
 #include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/rtpenc_h264.h"
+#include "utils/color_out.h"
 #include "video_rxtx.h"
 #include "video_rxtx/h264_rtp.h"
 #include "video.h"
@@ -114,41 +116,31 @@ h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 
 static void rtps_server_usage(){
         printf("\n[RTSP SERVER] usage:\n");
-        printf("\t--rtsp-server[=port:number]\n");
+        color_printf("\t" TBOLD("--video-protocol rtsp[=port:number]") "\n");
         printf("\t\tdefault rtsp server port number: 8554\n\n");
 }
 
-static int get_rtsp_server_port(const char *cconfig){
-        int port;
-        char *tok;
+static int get_rtsp_server_port(const char *cconfig) {
         char *save_ptr = NULL;
-        char *config = strdup(cconfig);
-        assert(config != NULL);
-        tok = strtok_r(config, ":", &save_ptr);
-        if (tok && strcmp(tok,"port") == 0){
-                if ((tok = strtok_r(NULL, ":", &save_ptr))) {
-                        port = atoi(tok);
-                        if (!(port >= 0 && port <= 65535)) {
-                                printf("\n[RTSP SERVER] ERROR - please, enter a valid port number.\n");
-                                rtps_server_usage();
-                                free(config);
-                                return -1;
-                        } else {
-                                free(config);
-                                return port;
-                        }
-                } else {
-                        printf("\n[RTSP SERVER] ERROR - please, enter a port number.\n");
-                        rtps_server_usage();
-                        free(config);
-                        return -1;
-                }
-        } else {
-                printf("\n[RTSP SERVER] ERROR - please, check usage.\n");
+        char *config = strdupa(cconfig);
+        char *tok = strtok_r(config, ":", &save_ptr);
+        if (!tok || strcmp(tok,"port") != 0) {
+                log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, check usage.\n");
                 rtps_server_usage();
-                free(config);
                 return -1;
         }
+        if (!(tok = strtok_r(NULL, ":", &save_ptr))) {
+                log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, enter a port number.\n");
+                rtps_server_usage();
+                return -1;
+        }
+        int port = atoi(tok);
+        if (port < 0 || port > 65535) {
+                log_msg(LOG_LEVEL_ERROR, "\n[RTSP SERVER] ERROR - please, enter a valid port number.\n");
+                rtps_server_usage();
+                return -1;
+        }
+        return port;
 }
 
 static video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &params)

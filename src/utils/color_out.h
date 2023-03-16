@@ -92,6 +92,7 @@ char *prune_ansi_sequences_inplace_cstr(char *cstr);
 
 #ifdef __cplusplus
 #include <iostream>
+#include <sstream>
 #include <string>
 
 std::string prune_ansi_sequences_str(const char *in);
