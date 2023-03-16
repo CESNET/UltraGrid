@@ -41,7 +41,6 @@ install_live555() {(
 # Install NDI
 install_ndi() {(
         cd /var/tmp
-        [ -f Install_NDI_SDK_Linux.tar.gz ] || return 0
         tar -xzf Install_NDI_SDK_Linux.tar.gz
         # shellcheck disable=SC2125
         installer=./Install*NDI*sh
