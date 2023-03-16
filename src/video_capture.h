@@ -99,7 +99,7 @@
 #include "types.h"
 #include "video_capture_params.h"
 
-#define VIDEO_CAPTURE_ABI_VERSION 11
+#define VIDEO_CAPTURE_ABI_VERSION 12
 
 #ifdef __cplusplus
 extern "C" {

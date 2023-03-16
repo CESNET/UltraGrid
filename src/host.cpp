@@ -52,6 +52,7 @@
 
 #include "audio/audio_capture.h"
 #include "audio/audio_playback.h"
+#include "audio/audio_filter.h"
 #include "audio/codec.h"
 #include "audio/audio_filter.h"
 #include "audio/utils.h"
@@ -446,8 +447,26 @@ static void print_device(std::string purpose, std::string mod, const device_info
                 std::cout << "{\"name\":" << std::quoted(device.modes[j].name) << ", "
                         "\"opts\":" << device.modes[j].id << "}";
         }
+        std::cout << "]";
 
-        std::cout << "]}\n";
+        std::cout << ", \"options\": [";
+        for(unsigned int j = 0; j < std::size(device.options); j++) {
+                if (device.options[j].key[0] == '\0') { // last item
+                        break;
+                }
+                if (j > 0) {
+                        printf(", ");
+                }
+                cout << "{"
+                    "\"display_name\":" << std::quoted(device.options[j].display_name) << ", "
+                    "\"display_desc\":" << std::quoted(device.options[j].display_desc) << ", "
+                    "\"key\":" << std::quoted(device.options[j].key) << ", "
+                    "\"opt_str\":" << std::quoted(device.options[j].opt_str) << ", "
+                    "\"is_boolean\":\"" << (device.options[j].is_boolean ? "t" : "f") << "\"}";
+        }
+        std::cout << "]";
+
+        std::cout << "}\n";
 }
 
 template<typename T>

@@ -114,6 +114,7 @@ struct pixfmt_desc {
         bool rgb;
 };
 
+
 /**
  * @enum interlacing_t
  * Specifies interlacing mode of the frame
@@ -321,6 +322,20 @@ enum tx_media_type {
         TX_MEDIA_VIDEO
 };
 
+struct device_option{
+        char display_name[512]; //Name displayed to user
+        char display_desc[512]; //Description displayed to user
+
+        /* internal name of option, options that are used in the same way should
+         * have the same key (e.g. both bitrate for libavcodec and quality for jpeg
+         * should have the same key). This allows using different labels displayed
+         * to user */
+        char key[512];
+        char opt_str[512]; //Option string to pass to ug (e.g. ":bitrate=")
+
+        bool is_boolean; //If true, GUI shows a checkbox instead of text edit
+};
+
 struct device_info {
         char dev[1024];  ///< device options to be passed to UltraGrid to initialize
                          ///<  (eg.r ":device=0" for DeckLink). May be empty ("").
@@ -336,6 +351,8 @@ struct device_info {
                                  ///< Must not be empty (!)
                 char name[1024]; ///< human readable name of the mode
         } modes[512];
+
+        struct device_option options[64];
 };
 
 typedef void (*device_probe_func)(struct device_info **available_cards, int *count, void (**deleter)(void *));

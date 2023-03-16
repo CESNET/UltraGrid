@@ -44,7 +44,7 @@ struct audio_frame;
 extern "C" {
 #endif
 
-#define AUDIO_PLAYBACK_ABI_VERSION 8
+#define AUDIO_PLAYBACK_ABI_VERSION 9
 
 /** @anchor audio_playback_ctl_reqs
  * @name Audio playback control requests
