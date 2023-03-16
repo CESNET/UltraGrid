@@ -33,7 +33,7 @@ apt -y install autoconf automake build-essential git pkg-config libtool sudo
 apt -y install libcurl4-openssl-dev libsoxr-dev libspeexdsp-dev libssl-dev
 apt -y install libasound2-dev portaudio19-dev libjack-dev
 apt -y install libglew-dev libglfw3-dev libglm-dev
-apt -y install libmagickwand-6.q16-dev libnatpmp-dev libopencv-core-dev libopencv-imgproc-dev
+apt -y install libcaca-dev libmagickwand-6.q16-dev libnatpmp-dev libopencv-core-dev libopencv-imgproc-dev
 
 /.github/scripts/install-common-deps.sh
 /.github/scripts/Linux/install_others.sh ndi
