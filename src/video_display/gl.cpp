@@ -795,8 +795,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         log_msg(LOG_LEVEL_INFO, "Setting GL size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
-        if (!s->hide_window)
-                glfwShowWindow(s->window);
 
         s->current_program = 0;
 
@@ -1404,6 +1402,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 height = mode->height;
                 glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
         }
+        glfwWindowHint(GLFW_VISIBLE, s->hide_window ? GLFW_FALSE : GLFW_TRUE);
         display_gl_set_user_window_hints();
         if ((s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), nullptr, nullptr)) == nullptr) {
                 return false;
@@ -1413,8 +1412,6 @@ static bool display_gl_init_opengl(struct state_gl *s)
         }
         glfw_print_video_mode(s);
         glfwSetWindowUserPointer(s->window, s);
-        if (s->hide_window)
-                glfwHideWindow(s->window);
         set_gamma(s);
         glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == state_gl::SC_TRUE ?  GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
         glfwMakeContextCurrent(s->window);
