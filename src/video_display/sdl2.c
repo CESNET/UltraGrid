@@ -728,9 +728,10 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, long long t
                         if (timeout_ns == PUTF_BLOCKING) {
                                 rc = pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
                         } else {
-                                time_ns_t tout = get_time_in_ns() + timeout_ns;
-                                struct timespec abstime = { .tv_sec = tout / NS_IN_SEC, .tv_nsec = tout % NS_IN_SEC };
-                                rc = pthread_cond_timedwait(&s->frame_consumed_cv, &s->lock, &abstime);
+                                struct timespec ts;
+                                timespec_get(&ts, TIME_UTC);
+                                ts_add_nsec(&ts, timeout_ns);
+                                rc = pthread_cond_timedwait(&s->frame_consumed_cv, &s->lock, &ts);
                         }
                 }
         }

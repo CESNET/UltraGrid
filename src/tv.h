@@ -62,6 +62,9 @@ extern "C" {
 #endif
 
 uint32_t get_local_mediatime(void);
+
+void     ts_add_nsec(struct timespec *ts, long long offset);
+
 double   tv_diff(struct timeval curr_time, struct timeval prev_time);
 uint32_t tv_diff_usec(struct timeval curr_time, struct timeval prev_time);
 void     tv_add(struct timeval *ts, double offset_secs);
@@ -93,6 +96,14 @@ static inline time_ns_t get_time_in_ns() {
         return tv.tv_sec * NS_IN_SEC + tv.tv_usec * NS_IN_US;
 #endif
 }
+
+// old macOS compat
+#if !defined HAVE_TIMESPEC_GET
+#ifndef TIME_UTC
+#define TIME_UTC 1
+#endif
+int timespec_get(struct timespec *ts, int base);
+#endif
 
 #ifdef __cplusplus
 }

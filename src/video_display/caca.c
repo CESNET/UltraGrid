@@ -194,11 +194,12 @@ static void *worker(void *arg)
         struct video_frame *last_frame = NULL;
         while (1) {
                 struct video_frame *f = NULL;
-                time_ns_t tout = get_time_in_ns() + 200 * NS_IN_MS;
-                struct timespec timeout = { .tv_sec = tout / NS_IN_SEC, .tv_nsec = tout % NS_IN_SEC };
+                struct timespec ts;
+                timespec_get(&ts, TIME_UTC);
+                ts_add_nsec(&ts, 200 * NS_IN_MS); // 200 ms
                 pthread_mutex_lock(&s->lock);
                 while (!s->f && !s->should_exit) {
-                        pthread_cond_timedwait(&s->frame_ready_cv, &s->lock, &timeout);
+                        pthread_cond_timedwait(&s->frame_ready_cv, &s->lock, &ts);
                         handle_events(s, last_frame);
                 }
                 f = s->f;

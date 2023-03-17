@@ -69,6 +69,24 @@ uint32_t get_local_mediatime(void)
         return (tv_diff(curr_time, start_time) * 90000) + random_offset;
 }
 
+void ts_add_nsec(struct timespec *ts, long long offset)
+{
+        long long new_nsec = ts->tv_nsec + offset;
+
+        if (new_nsec < NS_IN_SEC) {
+                ts->tv_nsec = new_nsec;
+                return;
+        }
+        if (new_nsec < 2 * NS_IN_SEC) {
+                ts->tv_sec++;
+                ts->tv_nsec = new_nsec - NS_IN_SEC;
+                return;
+        }
+        lldiv_t d = lldiv(new_nsec, NS_IN_SEC);
+        ts->tv_sec += d.quot;
+        ts->tv_nsec = d.rem;
+}
+
 double tv_diff(struct timeval curr_time, struct timeval prev_time)
 {
         /* Return (curr_time - prev_time) in seconds */
@@ -206,3 +224,15 @@ uint32_t get_std_video_local_mediatime(void)
 
         return ((double)standard_time.vtime.tv_sec + (((double)standard_time.vtime.tv_usec) / 1000000.0)) * vrate;
 }
+
+#if !defined HAVE_TIMESPEC_GET
+int timespec_get(struct timespec *ts, int base)
+{
+        struct timeval tv = { 0, 0 };
+        gettimeofday(&tv, NULL);
+        ts->tv_sec = tv.tv_sec;
+        ts->tv_nsec = tv.tv_usec * 1000L;
+        return base; // returning base means success
+
+}
+#endif
