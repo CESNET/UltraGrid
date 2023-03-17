@@ -225,7 +225,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
         if(device_info == NULL) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Couldn't obtain requested portaudio device index %d.\n"
                                MOD_NAME "Follows list of available Portaudio devices.\n", input_device_idx);
-                audio_cap_portaudio_help(NULL);
+                audio_cap_portaudio_help();
                 free(s);
                 Pa_Terminate();
                 return NULL;
