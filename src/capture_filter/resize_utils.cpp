@@ -105,7 +105,7 @@ static Mat ug_to_rgb_mat(codec_t codec, int width, int height, char *indata) {
     return rgb;
 }
 
-int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor){
+int resize_frame_factor(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor){
     Mat rgb, out(height * scale_factor, width * scale_factor, CV_8UC3, outdata);
 
     if (indata == NULL || outdata == NULL) {

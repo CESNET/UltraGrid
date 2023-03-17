@@ -47,7 +47,15 @@
 
 #include "types.h"
 
-int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int resize_frame_factor(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, double scale_factor);
 int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int width, unsigned int height, unsigned int target_width, unsigned int target_height);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif// RESIZE_UTILS_H_

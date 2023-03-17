@@ -1,9 +1,9 @@
 /**
- * @file   capture_filter/grayscale.cpp
+ * @file   capture_filter/grayscale.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,13 +57,14 @@ struct state_grayscale {
         char *vo_pp_out_buffer; ///< buffer to write to if we use vo_pp wrapper (otherwise unused)
 };
 
-static int init(struct module *, const char *cfg, void **state)
+static int init(struct module *parent, const char *cfg, void **state)
 {
+        UNUSED(parent);
         if (strlen(cfg) > 0) {
-                col() << TRED(TBOLD("grayscale")) << " converts image to grayscale, takes no arguments\n";
+                color_printf(TRED(TBOLD("grayscale")) " converts image to grayscale, takes no arguments\n");
                 return strcmp(cfg, "help") == 0 ? 1 : -1;
         }
-        *state = static_cast<state_grayscale *>(calloc(1, sizeof(state_grayscale)));
+        *state = calloc(1, sizeof(struct state_grayscale));
         return 0;
 }
 
@@ -74,7 +75,7 @@ static void done(void *state)
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
-        auto *s = static_cast<state_grayscale *>(state);
+        struct state_grayscale *s = state;
 
         if (in->color_spec != UYVY) {
                 log_msg(LOG_LEVEL_WARNING, "Cannot create grayscale from other codec than UYVY!\n");
@@ -84,7 +85,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if (s->vo_pp_out_buffer) {
                 out->tiles[0].data = s->vo_pp_out_buffer;
         } else {
-                out->tiles[0].data = static_cast<char *>(malloc(out->tiles[0].data_len));
+                out->tiles[0].data = (char *) malloc(out->tiles[0].data_len);
                 out->callbacks.data_deleter = vf_data_deleter;
         }
         out->callbacks.dispose = vf_free;
@@ -105,7 +106,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
 static void vo_pp_set_out_buffer(void *state, char *buffer)
 {
-        auto *s = static_cast<struct state_grayscale *>(state);
+        struct state_grayscale *s = state;
         s->vo_pp_out_buffer = buffer;
 }
 

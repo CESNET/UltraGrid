@@ -1,9 +1,9 @@
 /**
- * @file   capture_filter/blank.cpp
+ * @file   capture_filter/blank.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,9 +50,7 @@
 #include "video.h"
 #include "video_codec.h"
 
-extern "C" {
 #include <libswscale/swscale.h>
-}
 
 #define FACTOR 6
 
@@ -150,7 +148,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 return 1;
         }
 
-        struct state_blank *s = new state_blank();
+        struct state_blank *s = calloc(1, sizeof *s);
         assert(s);
 
         if (cfg) {
@@ -158,7 +156,7 @@ static int init(struct module *parent, const char *cfg, void **state)
                 bool ret = parse(s, tmp);
                 free(tmp);
                 if (!ret) {
-                        delete s;
+                        free(s);
                         return -1;
                 }
         }
@@ -173,12 +171,12 @@ static int init(struct module *parent, const char *cfg, void **state)
 
 static void done(void *state)
 {
-        auto s = (struct state_blank *) state;
+        struct state_blank *s = state;
         module_done(&s->mod);
 
         sws_freeContext(s->ctx_downscale);
         sws_freeContext(s->ctx_upscale);
-        delete s;
+        free(s);
 }
 
 static struct response * process_message(struct state_blank *s, struct msg_universal *msg)
@@ -197,7 +195,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         assert(in->tile_count == 1);
 
-        auto s = (struct state_blank *) state;
+        struct state_blank *s = state;
         codec_t codec = in->color_spec;
         int bpp = get_bpp(codec);
         enum AVPixelFormat av_pixfmt = AV_PIX_FMT_NONE;
@@ -286,9 +284,9 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                         memset(tmp, 0, tmp_len);
                 }
         } else {
-                sws_scale(s->ctx_downscale, (uint8_t **) &orig, &orig_stride, 0, height, &tmp, &tmp_stride);
+                sws_scale(s->ctx_downscale, (const uint8_t * const *) &orig, &orig_stride, 0, height, &tmp, &tmp_stride);
         }
-        sws_scale(s->ctx_upscale, &tmp, &tmp_stride, 0, height / FACTOR, (uint8_t **) &orig, &orig_stride);
+        sws_scale(s->ctx_upscale, (const uint8_t * const *) &tmp, &tmp_stride, 0, height / FACTOR, (uint8_t **) &orig, &orig_stride);
 
         free(tmp);
 

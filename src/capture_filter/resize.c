@@ -51,22 +51,13 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
-#include "capture_filter/resize_utils.h"
-
-#include "lib_common.h"
-
 #include "capture_filter.h"
-
+#include "capture_filter/resize_utils.h"
 #include "debug.h"
-
+#include "lib_common.h"
 #include "video.h"
 #include "video_codec.h"
 #include "vo_postprocess/capture_filter_wrapper.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 
 struct module;
 
@@ -112,9 +103,10 @@ static void usage() {
                     "\tresize:720x576i - scales input to PAL (overrides interlacing setting)\n");
 }
 
-static int init(struct module * /* parent */, const char *cfg, void **state)
+static int init(struct module * parent, const char *cfg, void **state)
 {
-    struct resize_param param{};
+    UNUSED(parent);
+    struct resize_param param = { 0 };
 
     if (strlen(cfg) == 0) {
         log_msg(LOG_LEVEL_ERROR, "[RESIZE ERROR] No configuration!\n");
@@ -128,7 +120,7 @@ static int init(struct module * /* parent */, const char *cfg, void **state)
     }
     char *endptr;
     if (strchr(cfg, 'x')) {
-        param.mode = resize_param::resize_mode::USE_DIMENSIONS;
+        param.mode = USE_DIMENSIONS;
         param.target_width = strtol(cfg, &endptr, 10);
         errno = 0;
         param.target_height = strtol(strchr(cfg, 'x') + 1, &endptr, 10);
@@ -138,7 +130,7 @@ static int init(struct module * /* parent */, const char *cfg, void **state)
             return -1;
         }
     } else {
-        param.mode = resize_param::resize_mode::USE_FRACTION;
+        param.mode = USE_FRACTION;
         param.num = strtol(cfg, &endptr, 10);
         if(strchr(cfg, '/')) {
             param.denom = strtol(strchr(cfg, '/') + 1, &endptr, 10);
@@ -164,14 +156,14 @@ static int init(struct module * /* parent */, const char *cfg, void **state)
 
     // check validity of options
     switch (param.mode) {
-    case resize_param::resize_mode::USE_FRACTION:
+    case USE_FRACTION:
         if (param.num <= 0 || param.denom <= 0) {
             log_msg(LOG_LEVEL_ERROR, "\n[RESIZE ERROR] resize factors must be greater than zero!\n");
             usage();
             return -1;
         }
         break;
-    case resize_param::resize_mode::USE_DIMENSIONS:
+    case USE_DIMENSIONS:
         if (param.target_width <= 0 || param.target_height <= 0) {
             log_msg(LOG_LEVEL_ERROR, "\n[RESIZE ERROR] Targed widht and height must be greater than zero!\n");
             usage();
@@ -183,7 +175,7 @@ static int init(struct module * /* parent */, const char *cfg, void **state)
         return -1;
     }
 
-    struct state_resize *s = (state_resize*) calloc(1, sizeof(struct state_resize));
+    struct state_resize *s = calloc(1, sizeof(struct state_resize));
     s->param = param;
 
     *state = s;
@@ -197,12 +189,12 @@ static void done(void *state)
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
-    struct state_resize *s = (state_resize*) state;
+    struct state_resize *s = state;
 
     if (!video_desc_eq(video_desc_from_frame(in), s->saved_desc)) {
     	struct video_desc desc = video_desc_from_frame(in);
         s->saved_desc = desc;
-        if (s->param.mode == resize_param::resize_mode::USE_DIMENSIONS) {
+        if (s->param.mode == USE_DIMENSIONS) {
             desc.width = s->param.target_width;
             desc.height = s->param.target_height;
         } else {
@@ -229,10 +221,10 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
     for (unsigned int i = 0; i < frame->tile_count; i++) {
         int res;
-        if (s->param.mode == resize_param::resize_mode::USE_DIMENSIONS) {
+        if (s->param.mode == USE_DIMENSIONS) {
             res = resize_frame(in->tiles[i].data, in->color_spec, frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, s->param.target_width, s->param.target_height);
         } else {
-            res = resize_frame(in->tiles[i].data, in->color_spec, frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, (double)s->param.num/s->param.denom);
+            res = resize_frame_factor(in->tiles[i].data, in->color_spec, frame->tiles[i].data, in->tiles[i].width, in->tiles[i].height, (double)s->param.num/s->param.denom);
         }
 
         if(res!=0){
@@ -252,7 +244,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
 static void vo_pp_set_out_buffer(void *state, char *buffer)
 {
-        auto *s = (struct state_resize *) state;
+        struct state_resize *s = state;
         s->vo_pp_out_buffer = buffer;
 }
 
@@ -261,10 +253,6 @@ static struct capture_filter_info capture_filter_resize = {
     done,
     filter,
 };
-
-#ifdef __cplusplus
-}
-#endif
 
 REGISTER_MODULE(resize, &capture_filter_resize, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 ADD_VO_PP_CAPTURE_FILTER_WRAPPER(resize, init, filter, done, vo_pp_set_out_buffer)
