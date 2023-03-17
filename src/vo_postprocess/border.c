@@ -1,9 +1,9 @@
 /**
- * @file   vo_postprocess/border.cpp
+ * @file   vo_postprocess/border.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016 CESNET, z. s. p. o.
+ * Copyright (c) 2016-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,26 +49,30 @@
 #include "vo_postprocess.h"
 
 struct state_border {
-        struct video_desc saved_desc = {};
-        uint8_t color[4] = { 0xff, 0xff, 0x00, 0xff }; ///< border color in RGBA
-        unsigned int width = 10;                       ///< border width in pixels (must be even)
-        unsigned int height = 10;                      ///< border height in pixels (must be even)
-        struct video_frame *in = nullptr;
+        struct video_desc saved_desc;
+        uint8_t color[4];             ///< border color in RGBA
+        unsigned int width;           ///< border width in pixels (must be even)
+        unsigned int height;          ///< border height in pixels (must be even)
+        struct video_frame *in;
 };
 
-static bool border_get_property(void * /* state */, int /* property */, void * /* val */, size_t * /* len */)
+static bool border_get_property(void *state, int property, void *val, size_t *len)
 {
+        UNUSED(state), UNUSED(property), UNUSED(val), UNUSED(len);
         return false;
 }
 
 static void * border_init(const char *config) {
-        struct state_border *s = new state_border();
+        struct state_border *s = calloc(1, sizeof *s);
+        memcpy(s->color, (uint8_t []){ 0xff, 0xff, 0x00, 0xff }, sizeof s->color);
+        s->width = 10;
+        s->height = 10;
 
         if (strcmp(config, "help") == 0) {
                 printf("border video postprocess takes optional parameters: color to be the border drawn with and border width. Example:\n");
                 printf("\t-p border[:color=rrggbb][:width=<x>][:height=<y>]\n");
                 printf("\n");
-                delete s;
+                free(s);
                 return NULL;
         }
         char *tmp = strdup(config);
@@ -95,7 +99,7 @@ static void * border_init(const char *config) {
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, "Wrong color format!\"");
                                 free(tmp);
-                                delete s;
+                                free(s);
                                 return NULL;
                         }
                 } else if (strncasecmp(item, "width=", strlen("width=")) == 0) {
@@ -107,7 +111,7 @@ static void * border_init(const char *config) {
                 } else {
                         log_msg(LOG_LEVEL_ERROR, "Wrong config!\"");
                         free(tmp);
-                        delete s;
+                        free(s);
                         return NULL;
                 }
 
@@ -144,8 +148,8 @@ static bool border_postprocess(void *state, struct video_frame *in, struct video
         memcpy(out->tiles[0].data + s->height * req_pitch, in->tiles[0].data + s->height * req_pitch, in->tiles[0].data_len - 2 * s->height * req_pitch);
 
         if (in->color_spec == UYVY) {
-                uint32_t rgba[2]{};
-                uint32_t uyvy{};
+                uint32_t rgba[2] = {0, 0};
+                uint32_t uyvy = 0;
                 memcpy(&rgba[0], s->color, 4);
                 memcpy(&rgba[1], s->color, 4);
                 decoder_t vc_copylineRGBAtoUYVY = get_decoder_from_to(RGBA, UYVY);
@@ -206,7 +210,7 @@ static void border_done(void *state)
 
         vf_free(s->in);
 
-        delete s;
+        free(s);
 }
 
 static void border_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
