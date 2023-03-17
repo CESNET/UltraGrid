@@ -3,7 +3,7 @@
  * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022 CESNET z.s.p.o.
+ * Copyright (c) 2022-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,9 @@
 #include "compat/misc.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "utils/color_out.h"
 #include "utils/list.h"
+#include "utils/text.h"
 #include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
@@ -142,10 +144,15 @@ static void *worker(void *arg) {
 
 static int init(struct module *parent, const char *cfg, void **state)
 {
-        if (strcmp(cfg, "help") == 0) {
-                printf("Previews captured frame with specified dispay.\n"
-                                "Usage:\n"
-                                "\t--capture-filter display:<display_cfg>\n");
+        char warn[] = MOD_NAME "Capture filter \"display\" is experimental and may not "
+                "always work as expected, especially if the same SW display "
+                "type (eg. GL) is given as both preview display and a regular one.";
+        log_msg(LOG_LEVEL_WARNING, "%s\n", indent_paragraph(warn));
+
+        if (strlen(cfg) == 0 || strcmp(cfg, "help") == 0) {
+                color_printf("Previews captured frame with specified dispay.\n"
+                          "Usage:\n"
+                          "\t" TBOLD("--capture-filter display:<display_cfg>") "\n");
                 return 1;
         }
 
