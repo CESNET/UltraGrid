@@ -1131,10 +1131,10 @@ AC_ARG_ENABLE(sdl,
 
 if test "$sdl_req" != no; then
         if test "$sdl_req" != 1; then
-                PKG_CHECK_MODULES([SDL], [sdl2], [sdl_version=2])
+                PKG_CHECK_MODULES([SDL], [sdl2], [sdl_version=2], [ ])
         fi
         if test -z "$sdl_version" && test "$sdl_req" != 2; then
-                PKG_CHECK_MODULES([SDL], [sdl], [sdl_version=1])
+                PKG_CHECK_MODULES([SDL], [sdl], [sdl_version=1], [ ])
         fi
         if test -n "$sdl_version"; then
                 if test "$sdl_version" = 1; then
