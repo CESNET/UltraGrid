@@ -161,12 +161,12 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
                 fhandle = glCreateShader(GL_FRAGMENT_SHADER);
                 glShaderSource(fhandle, 1, &fprogram, NULL);
                 glCompileShader(fhandle);
+                glGetShaderiv(fhandle, GL_COMPILE_STATUS, &status);
                 /* Print compile log */
                 glGetShaderInfoLog(fhandle, sizeof log, NULL, log);
-                if (strlen(log) > 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Fragment compile log: %s\n", log);
+                if (status == GL_FALSE || (strlen(log) > 0 && log_level >= LOG_LEVEL_VERBOSE)) {
+                        log_msg(status == GL_FALSE ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, "Fragment compile log: %s\n", log);
                 }
-                glGetShaderiv(fhandle, GL_COMPILE_STATUS, &status);
                 if (status != GL_TRUE) {
                         glDeleteShader(fhandle);
                         return 0;
@@ -177,12 +177,12 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
                 vhandle = glCreateShader(GL_VERTEX_SHADER);
                 glShaderSource(vhandle, 1, &vprogram, NULL);
                 glCompileShader(vhandle);
+                glGetShaderiv(vhandle, GL_COMPILE_STATUS, &status);
                 /* Print compile log */
                 glGetShaderInfoLog(vhandle, sizeof log, NULL, log);
-                if (strlen(log) > 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Vertex compile log: %s\n", log);
+                if (status == GL_FALSE || (strlen(log) > 0 && log_level >= LOG_LEVEL_VERBOSE)) {
+                        log_msg(status == GL_FALSE ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, "Vertex compile log: %s\n", log);
                 }
-                glGetShaderiv(vhandle, GL_COMPILE_STATUS, &status);
                 if (status != GL_TRUE) {
                         glDeleteShader(fhandle);
                         glDeleteShader(vhandle);
@@ -205,11 +205,11 @@ GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
         glDeleteShader(vhandle);
         glDeleteShader(fhandle);
 
-        glGetProgramInfoLog(phandle, sizeof log, NULL, (GLchar*) log);
-        if (strlen(log) > 0) {
-                log_msg(LOG_LEVEL_ERROR, "Link Log: %s\n", log);
-        }
         glGetProgramiv(phandle, GL_LINK_STATUS, &status);
+        glGetProgramInfoLog(phandle, sizeof log, NULL, (GLchar*) log);
+        if (status == GL_FALSE || (strlen(log) > 0 && log_level >= LOG_LEVEL_VERBOSE)) {
+                log_msg(status == GL_FALSE ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE, "Link log: %s\n", log);
+        }
         if (status != GL_TRUE) {
                 glDeleteProgram(phandle);
                 return 0;
