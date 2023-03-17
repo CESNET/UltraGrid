@@ -723,9 +723,9 @@ static const u32 rcon[] = {
         0x1B000000, 0x36000000, /* for 128-bit blocks, Rijndael never uses more than 10 rcon values */
 };
 
-#define SWAP(x) (_lrotl(x, 8) & 0x00ff00ff | _lrotr(x, 8) & 0xff00ff00)
 
 #ifdef _MSC_VER
+#define SWAP(x) (_lrotl(x, 8) & 0x00ff00ff | _lrotr(x, 8) & 0xff00ff00)
 #define GETU32(p) SWAP(*((u32 *)(p)))
 #define PUTU32(ct, st) { *((u32 *)(ct)) = SWAP((st)); }
 #else
