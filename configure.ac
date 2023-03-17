@@ -1145,8 +1145,8 @@ if test "$sdl_req" != no; then
                 fi
                 SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
                 INC="$INC $($PKG_CONFIG --cflags-only-I sdl${sdl_ver_suffix})"
-                ADD_MODULE("display_sdl", "$SDL_OBJ", "$SDL_LIBS")
                 SDL_LIBS=$(remove_mwindows "$SDL_LIBS")
+                ADD_MODULE("display_sdl", "$SDL_OBJ", "$SDL_LIBS")
                 sdl_version_str=" (ver. $sdl_version)"
                 sdl=yes
         fi
