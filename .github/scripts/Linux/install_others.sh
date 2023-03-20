@@ -83,7 +83,7 @@ if [ $show_help ]; then
         printf "Usage:\n"
         printf "\t%s [<features>] | [ -h | --help | help ]\n" "$0"
         printf "\nInstall all aditional dependencies (without arguments) or install one explicitly.\n"
-        printf "\nAvailable ones: %s%s%s\n" $(tput bold) "$*" $(tput sgr0)
+        printf "\nAvailable ones: %s%s%s\n" "$(tput bold)" "$*" "$(tput sgr0)"
         return 0
 fi
 
