@@ -1,4 +1,9 @@
-#!/bin/sh
+# shellcheck shell=sh
+#
+# Exports common environment variables to next steps via $GITHU_ENV variable.
+# Note that exporting the variable is not necessarily needed but it ensures that
+# the vars are visible also later in current step (the script needs to be sourced,
+# not run).
 
 if expr "$GITHUB_REF" : 'refs/tags/'; then
   TAG=${GITHUB_REF#refs/tags/}
@@ -9,7 +14,7 @@ else
   TAG=$VERSION
 fi
 
-if [ -z ${CHANNEL-""} ]; then
+if [ -z "${CHANNEL-}" ]; then
         CHANNEL=$VERSION
 fi
 
