@@ -36,7 +36,7 @@ install_svt() {
 
 # The NVENC API implies respective driver version (see libavcodec/nvenc.c) - 455.28 (Linux) / 456.71 (Windows) for v11.0
 install_nv_codec_headers() {
-        git clone --depth 1 -b sdk/11.0 https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
+        git clone --depth 1 -b sdk/11.0 https://github.com/FFmpeg/nv-codec-headers
         ( cd nv-codec-headers && make && sudo make install || exit 1 )
 }
 
