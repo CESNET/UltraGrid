@@ -29,9 +29,9 @@ install_svt() {
         ( git clone --depth 1 https://gitlab.com/AOMediaCodec/SVT-AV1.git && cd SVT-AV1 && cd Build && cmake .. -G"Unix Makefiles" -DCMAKE_BUILD_TYPE=Release && cmake --build . --parallel && sudo cmake --install . || exit 1 )
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git && cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release && cmake --build . --parallel && sudo cmake --install . || exit 1 )
         # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
-        git apply -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
+        git am -3 SVT-HEVC/ffmpeg_plugin/master-*.patch
         patch SVT-VP9/ffmpeg_plugin/master-*.patch < "$GITHUB_WORKSPACE/.github/scripts/Linux/tmp/0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch.patch"
-        git apply -3 SVT-VP9/ffmpeg_plugin/master-*.patch
+        git am -3 SVT-VP9/ffmpeg_plugin/master-*.patch
 }
 
 # The NVENC API implies respective driver version (see libavcodec/nvenc.c) - 455.28 (Linux) / 456.71 (Windows) for v11.0
@@ -59,7 +59,7 @@ install_nv_codec_headers
 install_onevpl
 install_svt
 # apply patches
-find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git apply
+find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git am -3
 ./configure --disable-static --enable-shared --enable-gpl --enable-libx264 --enable-libx265 --enable-libopus --enable-nonfree --enable-nvenc --enable-libaom --enable-libvpx --enable-libspeex --enable-libmp3lame \
         --enable-libdav1d \
         --enable-libde265 \
