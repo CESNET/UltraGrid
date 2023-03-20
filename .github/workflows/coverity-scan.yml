@@ -65,7 +65,7 @@ jobs:
 
     - name: configure
       if: ${{ env.coverity_token }}
-      run: ./autogen.sh --enable-qt --enable-plugins --with-live555=/usr/local
+      run: ./autogen.sh $FEATURES
     - name: Build with cov-build
       if: ${{ env.coverity_token }}
       run: |
