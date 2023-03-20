@@ -38,11 +38,31 @@ jobs:
       run: |
         tar xaf ~/coverity_tool.tgz
         mv cov-analysis* /tmp/cov-analysis
+
     - uses: actions/checkout@v3
       if: ${{ env.coverity_token }}
-    - name: bootstrap
+
+    - name: Fetch SDKs ETags
       if: ${{ env.coverity_token }}
-      run: .github/scripts/Linux/prepare.sh
+      id: etags
+      run: |
+        echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz)" >> $GITHUB_OUTPUT
+    - name: Cache NDI
+      if: ${{ env.coverity_token }}
+      id: cache-ndi
+      uses: actions/cache@v3
+      with:
+        path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
+        key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
+    - name: Download NDI
+      if: ${{ env.coverity_token }} && steps.cache-ndi.outputs.cache-hit != 'true'
+      run: curl -L https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz
+
+    - name: bootstrap
+      run: |
+           . .github/scripts/environment.sh
+           .github/scripts/Linux/prepare.sh
+
     - name: configure
       if: ${{ env.coverity_token }}
       run: ./autogen.sh --enable-qt --enable-plugins --with-live555=/usr/local
