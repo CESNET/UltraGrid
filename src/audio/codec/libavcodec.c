@@ -651,7 +651,7 @@ static void cleanup_common(struct libavcodec_codec_state *s)
                                 av_packet_unref(pkt);
                         } while (ret >= 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN));
                         av_packet_free(&pkt);
-                        if (ret >= 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
+                        if (ret < 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
                                                 ret);
                         }
