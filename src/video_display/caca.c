@@ -143,10 +143,10 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
                 display_caca_done(s);
                 return NULL;
         }
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "Using display driver: %s\n", caca_get_display_driver(s->display));
+        driver = caca_get_display_driver(s->display);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Using display driver: %s\n", driver);
 
-        const char *display = getenv("DISPLAY");
-        if (display == NULL || strlen(display) == 0) {
+        if (strcmp(driver, "x11") != 0 && strcmp(driver, "null") != 0) {
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Disabling keyboard control.\n");
                 set_commandline_param("disable-keyboard-control", "");
         }
