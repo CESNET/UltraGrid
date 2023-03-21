@@ -60,6 +60,7 @@ struct state_caca {
         struct video_desc desc;
         struct video_frame *f;
 
+        _Bool started;
         _Bool should_exit;
         pthread_t thread_id;
         pthread_mutex_t lock;
@@ -80,10 +81,18 @@ static void display_caca_probe(struct device_info **available_cards, int *count,
 static void display_caca_done(void *state)
 {
         struct state_caca *s = state;
-        pthread_join(s->thread_id, NULL);
-        caca_free_dither(s->dither);
-        caca_free_display(s->display);
-        caca_free_canvas(s->canvas);
+        if (s->started) {
+                pthread_join(s->thread_id, NULL);
+        }
+        if (s->dither) {
+                caca_free_dither(s->dither);
+        }
+        if (s->display) {
+                caca_free_display(s->display);
+        }
+        if (s->canvas) {
+                caca_free_canvas(s->canvas);
+        }
         vf_free(s->f);
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->frame_ready_cv);
@@ -100,6 +109,11 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
                 return strcmp(fmt, "help") == 0 ? INIT_NOERR : NULL;
         }
         struct state_caca *s = calloc(1, sizeof *s);
+
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->frame_ready_cv, NULL);
+        pthread_cond_init(&s->frame_consumed_cv, NULL);
+
         s->canvas = caca_create_canvas(0, 0);
         if (!s->canvas) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create canvas\n");
@@ -121,11 +135,9 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
 
         s->f = get_splashscreen();
 
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->frame_ready_cv, NULL);
-        pthread_cond_init(&s->frame_consumed_cv, NULL);
-
         pthread_create(&s->thread_id, NULL, worker, s);
+        s->started = 1;
+
         return s;
 }
 
