@@ -5,7 +5,7 @@
 # the vars are visible also later in current step (the script needs to be sourced,
 # not run).
 
-if expr "$GITHUB_REF" : 'refs/tags/'; then
+if expr "$GITHUB_REF" : 'refs/tags/' >/dev/null; then
   TAG=${GITHUB_REF#refs/tags/}
   VERSION=${TAG#v}
   CHANNEL=release
@@ -35,8 +35,8 @@ case "$RUNNER_OS" in
                 FEATURES="$FEATURES $CUDA_FEATURES --enable-dshow --enable-screen --enable-spout --enable-wasapi"
                 ;;
         *)
-                echo "Unexpected runner OS: $RUNNER_OS" >&2
-                exit 1
+                echo "Unexpected runner OS: ${RUNNER_OS:-(undefined)}" >&2
+                return 1
                 ;;
 esac
 printf '%b' "FEATURES=$FEATURES\n" >> "$GITHUB_ENV"
