@@ -100,13 +100,30 @@ static void display_caca_done(void *state)
         free(s);
 }
 
+static void usage() {
+        color_printf("Display " TBOLD("caca") " syntax:\n");
+        color_printf("\t" TBOLD(TRED("caca") "[:driver=<drv>]") "\n");
+        color_printf("\nAvailable drivers:\n");
+        const char * const * drivers = caca_get_display_driver_list();
+        while (*drivers) {
+                const char *driver = *drivers++;
+                const char *desc = *drivers++;
+                color_printf("\t- " TBOLD("%s") " - %s\n", driver, desc ? desc : "(no description");
+        }
+}
+
 static void *display_caca_init(struct module *parent, const char *fmt, unsigned int flags)
 {
         UNUSED(flags);
         UNUSED(parent);
+        const char *driver = NULL;
         if (strlen(fmt) > 0) {
-                color_printf("Display " TBOLD("caca") " expects no parameters.\n");
-                return strcmp(fmt, "help") == 0 ? INIT_NOERR : NULL;
+                if (strstr(fmt, "driver=") == fmt) {
+                        driver = strchr(fmt, '=') + 1;
+                } else {
+                        usage();
+                        return strcmp(fmt, "help") == 0 ? INIT_NOERR : NULL;
+                }
         }
         struct state_caca *s = calloc(1, sizeof *s);
 
@@ -120,12 +137,13 @@ static void *display_caca_init(struct module *parent, const char *fmt, unsigned 
                 display_caca_done(s);
                 return NULL;
         }
-        s->display = caca_create_display(s->canvas);
+        s->display = caca_create_display_with_driver(s->canvas, driver);
         if (!s->display) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create display\n");
                 display_caca_done(s);
                 return NULL;
         }
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Using display driver: %s\n", caca_get_display_driver(s->display));
 
         const char *display = getenv("DISPLAY");
         if (display == NULL || strlen(display) == 0) {
