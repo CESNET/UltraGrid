@@ -64,7 +64,7 @@ static bool border_get_property(void *state, int property, void *val, size_t *le
 
 static void * border_init(const char *config) {
         struct state_border *s = calloc(1, sizeof *s);
-        memcpy(s->color, (uint8_t []){ 0xff, 0xff, 0x00, 0xff }, sizeof s->color);
+        memcpy(s->color, ((uint8_t []){ 0xff, 0xff, 0x00, 0xff }), sizeof s->color);
         s->width = 10;
         s->height = 10;
 
