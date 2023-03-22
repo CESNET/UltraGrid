@@ -633,9 +633,9 @@ void dev_add_option(struct device_info *dev, const char *name, const char *desc,
     while(*dev->options[idx].key)
         idx++;
 
-    strncpy(dev->options[idx].display_name, name, sizeof(dev->options[idx].display_name));
-    strncpy(dev->options[idx].display_desc, desc, sizeof(dev->options[idx].display_desc));
-    strncpy(dev->options[idx].key, key, sizeof(dev->options[idx].key));
-    strncpy(dev->options[idx].opt_str, opt_str, sizeof(dev->options[idx].opt_str));
+    strncpy(dev->options[idx].display_name, name, sizeof(dev->options[idx].display_name) - 1);
+    strncpy(dev->options[idx].display_desc, desc, sizeof(dev->options[idx].display_desc) - 1);
+    strncpy(dev->options[idx].key, key, sizeof(dev->options[idx].key) - 1);
+    strncpy(dev->options[idx].opt_str, opt_str, sizeof(dev->options[idx].opt_str) - 1);
     dev->options[idx].is_boolean = is_boolean;
 }
