@@ -273,8 +273,7 @@ jobs:
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
-      run: Invoke-WebRequest https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe -OutFile C:\ndi.exe
-      shell: pwsh -command ". '{0}'"
+      run: curl 'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe' -o 'C:\ndi.exe'
     - name: Cache XIMEA
       id: cache-macos-ximea
       uses: actions/cache@v3
@@ -283,8 +282,7 @@ jobs:
         key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
-      run: Invoke-WebRequest https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe -OutFile C:\XIMEA_API_Installer.exe
-      shell: pwsh -command ". '{0}'"
+      run: curl 'https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe' -o 'C:\XIMEA_API_Installer.exe'
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
       shell: pwsh -command ". '{0}'"
