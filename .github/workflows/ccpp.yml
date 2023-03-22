@@ -245,6 +245,9 @@ jobs:
     name: run Windows
     needs: prepare
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: C:\shells\msys2bash.cmd {0}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MSYS2_PATH_TYPE: inherit
@@ -257,12 +260,11 @@ jobs:
       run: |
         echo "ndi=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe)" >> $GITHUB_OUTPUT
         echo "ximea=$($GITHUB_WORKSPACE/.github/scripts/get-etags.sh https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe)" >> $GITHUB_OUTPUT
-      shell: bash
     - name: Set environment
       run: .github/scripts/environment.sh
-      shell: bash
     - name: Find MSVC
       run: .github/scripts/Windows/find_msvc.ps1
+      shell: pwsh -command ". '{0}'"
     - name: Cache NDI
       id: cache-ndi
       uses: actions/cache@v3
@@ -272,6 +274,7 @@ jobs:
     - name: Download NDI
       if: steps.cache-ndi.outputs.cache-hit != 'true'
       run: Invoke-WebRequest https://downloads.ndi.tv/SDK/NDI_SDK/NDI%205%20SDK.exe -OutFile C:\ndi.exe
+      shell: pwsh -command ". '{0}'"
     - name: Cache XIMEA
       id: cache-macos-ximea
       uses: actions/cache@v3
@@ -281,8 +284,10 @@ jobs:
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit != 'true'
       run: Invoke-WebRequest https://www.ximea.com/support/attachments/download/37/XIMEA_API_Installer.exe -OutFile C:\XIMEA_API_Installer.exe
+      shell: pwsh -command ". '{0}'"
     - name: bootsrap
       run: .github/scripts/Windows/prepare.ps1
+      shell: pwsh -command ". '{0}'"
     - name: Cache JACK
       id: cache-jack
       uses: actions/cache@v3
@@ -292,8 +297,9 @@ jobs:
     - name: Install JACK
       if: steps.cache-jack.outputs.cache-hit != 'true'
       run: .github/scripts/Windows/install_jack.ps1
+      shell: pwsh -command ". '{0}'"
     - name: bootsrap MSYS2
-      run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh'
+      run: $GITHUB_WORKSPACE/.github/scripts/Windows/prepare_msys.sh
     - name: Cache live555
       id: cache-live555
       uses: actions/cache@v3
@@ -302,35 +308,33 @@ jobs:
         key: cache-live555-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/build_live555.sh') }}
     - name: Build live555
       if: steps.cache-live555.outputs.cache-hit != 'true'
-      run: C:\msys64\usr\bin\bash -cel '$GITHUB_WORKSPACE/.github/scripts/Windows/build_live555.sh'
+      run: $GITHUB_WORKSPACE/.github/scripts/Windows/build_live555.sh
     - name: Install live555
-      run: C:\msys64\usr\bin\bash -cel 'make -C /c/live555 install'
+      run: make -C /c/live555 install
     - name: configure
-      run: C:\msys64\usr\bin\bash -cel './autogen.sh --prefix=/ --bindir=/ --docdir=/doc $FEATURES || { RC=$?; cat config.log; exit $RC; }'
+      run: ./autogen.sh --prefix=/ --bindir=/ --docdir=/doc $FEATURES || { RC=$?; cat config.log; exit $RC; }
     - name: make
-      run: C:\msys64\usr\bin\bash -cel "make -j4"
+      run: make -j4
     - name: make check
-      run: C:\msys64\usr\bin\bash -cel "make check"
+      run: make check
     - name: make bundle
       run: |
-        C:\msys64\usr\bin\bash -cel '
           cp gui/QT/uv-qt.exe bin
           rm bin/run_tests.exe
           export DESTDIR=build/UltraGrid-$VERSION-win64
           make install
-          for exe in $DESTDIR/*exe; do data/scripts/get_dll_depends.sh \"$exe\" | while read n; do cp \"$n\" $DESTDIR; done; done
-          if $(command -v windeployqt-qt6 >/dev/null); then windeployqt-qt6 $DESTDIR/uv-qt.exe; else windeployqt $DESTDIR/uv-qt.exe; fi
-          cp data/update.ps1 $DESTDIR'
+          for exe in "$DESTDIR"/*exe; do data/scripts/get_dll_depends.sh "$exe" | while read -r n; do cp "$n" "$DESTDIR"; done; done
+          if command -v windeployqt-qt6 >/dev/null; then windeployqt-qt6 "$DESTDIR/uv-qt.exe"; else windeployqt "$DESTDIR/uv-qt.exe"; fi
+          cp data/update.ps1 "$DESTDIR"
     - name: make dist-check
-      run: C:\msys64\usr\bin\bash -cel 'PATH=
-        /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe REFLECTOR_TARGET=build/UltraGrid-$VERSION-win64/hd-rum-transcode.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe'
+      run: PATH= /usr/bin/make distcheck TARGET=build/UltraGrid-$VERSION-win64/uv.exe REFLECTOR_TARGET=build/UltraGrid-$VERSION-win64/hd-rum-transcode.exe GUI_EXE=build/UltraGrid-$VERSION-win64/uv-qt.exe
     - name: Upload Release Asset
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
       run: |
-        C:\msys64\usr\bin\bash -cel 'cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
-          PATH=/usr/bin:$PATH # TOREMOVE when not needed (see git commit message)
-          $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-win64.zip application/zip Windows%20build'
+        cd build; zip -9 -r UltraGrid-$VERSION-win64.zip UltraGrid-$VERSION-win64
+        PATH=/usr/bin:$PATH # TOREMOVE when not needed (see git commit message)
+        $GITHUB_WORKSPACE/.github/scripts/replace-asset.sh $TAG UltraGrid-$VERSION-win64.zip application/zip Windows%20build
     - name: Upload Build
       if: steps.upload-release.conclusion == 'skipped'
       uses: actions/upload-artifact@v3
