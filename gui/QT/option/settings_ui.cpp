@@ -234,7 +234,7 @@ void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *)
 
 void SettingsUi::settingsDisplaySelected(QListWidgetItem *curr, QListWidgetItem *){
 	if(!curr){
-		codecControls.clear();
+		displayControls.clear();
 		return;
 	}
 
