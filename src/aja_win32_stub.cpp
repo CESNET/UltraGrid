@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * This is a stub file importing actual dll. It sets some variables that
- * would be otherwise referenced directly (should_exit, audio_capture_channels).
+ * would be otherwise referenced directly (audio_capture_channels).
  */
 /*
  * Copyright (c) 2017-2023 CESNET z.s.p.o.
@@ -47,12 +47,10 @@ __declspec(dllimport) int vidcap_aja_init(struct vidcap_params *params, void **s
 __declspec(dllimport) void vidcap_aja_done(void *state);
 __declspec(dllimport) struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio);
 __declspec(dllimport) void vidcap_aja_probe(struct device_info **available_cards, int *count, void (**deleter)(void *));
-__declspec(dllimport) volatile bool *aja_should_exit;
 __declspec(dllimport) unsigned int *aja_audio_capture_channels;
 }
 
 static int vidcap_aja_init_proxy(struct vidcap_params *params, void **state) {
-        aja_should_exit = &should_exit;
         aja_audio_capture_channels = &audio_capture_channels;
         return vidcap_aja_init(params, state);
 }

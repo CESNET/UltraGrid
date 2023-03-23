@@ -110,11 +110,9 @@ namespace aja = ultragrid::aja;
 
 #ifdef _MSC_VER
 extern "C" __declspec(dllexport) unsigned int *aja_audio_capture_channels = NULL;
-extern "C" __declspec(dllexport) volatile bool *aja_should_exit = NULL;
 volatile int log_level = 5;
 #else
 unsigned int *aja_audio_capture_channels = &audio_capture_channels;
-volatile bool *aja_should_exit = &should_exit;
 #endif
 
 #ifdef _MSC_VER
@@ -190,6 +188,7 @@ class vidcap_state_aja {
                 uint32_t               mAudioInLastAddress{};          ///< @brief My record of the location of the last audio sample captured
                 bool                   mClearRouting{false};
                 bool                   mInputIsRGB;                    ///< @brief SDI Input is in RGB otherwise YCbCr
+                bool                   mGlobalQuit{false};
 
                 AJAStatus SetupHDMI();
                 AJAStatus SetupVideo();
@@ -787,7 +786,7 @@ AJAStatus vidcap_state_aja::Run()
 void vidcap_state_aja::Quit()
 {
         //      Set the global 'quit' flag, and wait for the threads to go inactive...
-        //mGlobalQuit = true;
+        mGlobalQuit = true;
 
         mProducerThread.join();
 
@@ -843,7 +842,7 @@ void vidcap_state_aja::CaptureFrames (void)
         currentInFrame  ^= 1;
         CHECK(mDevice.SetInputFrame   (mInputChannel,  currentInFrame));
 
-        while (!*aja_should_exit) {
+        while (!mGlobalQuit) {
                 uint32_t *pHostAudioBuffer = NULL;
                 //      Wait until the input has completed capturing a frame...
                 CHECK(mDevice.WaitForInputFieldID (fieldID, mInputChannel));
@@ -928,7 +927,7 @@ void vidcap_state_aja::CaptureFrames (void)
 
 struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 {
-        if (*aja_should_exit) {
+        if (mGlobalQuit) {
                 return NULL;
         }
 
