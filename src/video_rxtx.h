@@ -92,6 +92,7 @@ public:
         static video_rxtx *create(std::string const & name, std::map<std::string, param_u> const &);
         static void list(bool full);
         std::string m_port_id;
+        bool m_should_exit = false;
 protected:
         video_rxtx(std::map<std::string, param_u> const &);
         int check_sender_messages();

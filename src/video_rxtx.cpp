@@ -122,7 +122,13 @@ video_rxtx::~video_rxtx() {
         module_done(&m_sender_mod);
 }
 
+static void should_exit_video_rxtx(void *state) {
+        video_rxtx *s = (video_rxtx *) state;
+        s->m_should_exit = true;
+}
+
 void video_rxtx::start() {
+        register_should_exit_callback(m_parent, should_exit_video_rxtx, this);
         if (pthread_create
                         (&m_thread_id, NULL, video_rxtx::sender_thread,
                          (void *) this) != 0) {

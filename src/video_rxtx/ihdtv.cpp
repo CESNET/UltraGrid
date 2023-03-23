@@ -87,7 +87,7 @@ void *ihdtv_video_rxtx::receiver_loop()
 
         struct video_frame *frame_buffer = NULL;
 
-        while (!should_exit) {
+        while (!m_should_exit) {
                 frame_buffer = display_get_frame(m_display_device);
                 if (ihdtv_receive
                     (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
