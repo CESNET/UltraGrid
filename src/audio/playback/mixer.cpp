@@ -273,6 +273,7 @@ struct state_audio_mixer final {
         ~state_audio_mixer() {
                 thread_id.join();
         }
+        bool should_exit = false;
         state_audio_mixer(state_audio_mixer const&)            = delete;
         state_audio_mixer& operator=(state_audio_mixer const&) = delete;
         void worker();
@@ -432,6 +433,7 @@ static void audio_play_mixer_put_frame(void *state, const struct audio_frame *fr
 static void audio_play_mixer_done(void *state)
 {
         struct state_audio_mixer *s = (struct state_audio_mixer *) state;
+        s->should_exit = true;
 
         delete s;
 }
