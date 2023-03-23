@@ -306,7 +306,7 @@ __device__ static UINT EmitEndPointsYCoCgDXT5(float & mincol_r, float & mincol_g
     // distribute back
     mincol_r = mincol.r;
     mincol_g = mincol.g;
-    maxcol_r = maxcol_r;
+    maxcol_r = maxcol.r;
     maxcol_g = maxcol.g;
 
     return outp.r | (outp.g << 16u);
