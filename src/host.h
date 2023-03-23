@@ -83,8 +83,6 @@ struct vidcap_params;
 extern int uv_argc;
 extern char **uv_argv;
 
-extern volatile bool should_exit;
-
 void handle_error(int status);
 void exit_uv(int status);
 

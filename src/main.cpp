@@ -226,6 +226,8 @@ struct state_uv {
 
         video_rxtx *state_video_rxtx;
 
+        bool should_exit_capture = false;
+
 private:
         mutex lock;
         fd_t should_exit_pipe[2];
@@ -332,7 +334,7 @@ static void hang_signal_handler(int sig)
 
 void exit_uv(int status) {
         exit_status = status;
-        should_exit = true;
+        uv_state->should_exit_capture = true;
         uv_state->broadcast_should_exit();
 }
 
@@ -465,7 +467,7 @@ static void *capture_thread(void *arg)
                 print_fps_prefix[strlen(print_fps_prefix) - 1] = '\0';
         }
 
-        while (!should_exit) {
+        while (!uv->should_exit_capture) {
                 /* Capture and transmit video... */
                 struct audio_frame *audio = nullptr;
                 struct video_frame *tx_frame = vidcap_grab(uv->capture_device, &audio);
