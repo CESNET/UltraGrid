@@ -56,6 +56,7 @@ struct Device{
 	std::string name;
 	std::string type; //UltraGrid module name (e.g. v4l2)
 	std::string deviceOpt; //Specific device (e.g. ":device=/dev/video0")
+	SettingType settingType = SETTING_TYPE_UNKNOWN;
 
 	std::map<std::string, std::string> extra;
 

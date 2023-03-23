@@ -264,6 +264,7 @@ void AvailableSettings::queryDevice(std::string_view line){
 	if(obj.contains("purpose") && obj["purpose"].isString()){
 		settingType = settingTypeMap[obj["purpose"].toString().toStdString()];
 	}
+	dev.settingType = settingType;
 	devices[settingType].push_back(std::move(dev));
 }
 
