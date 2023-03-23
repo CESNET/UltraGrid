@@ -133,6 +133,8 @@ struct state_audio {
                 delete fec_state;
         }
 
+        bool should_exit = false;
+
         module_raii mod;
         struct state_audio_capture *audio_capture_device = nullptr;
         struct state_audio_playback *audio_playback_device = nullptr;
@@ -460,12 +462,14 @@ void audio_start(struct state_audio *s) {
 }
 
 void audio_join(struct state_audio *s) {
-        if(s) {
-                if(s->audio_receiver_thread_started)
-                        pthread_join(s->audio_receiver_thread_id, NULL);
-                if(s->audio_sender_thread_started)
-                        pthread_join(s->audio_sender_thread_id, NULL);
+        if (!s) {
+                return;
         }
+        s->should_exit = true;
+        if(s->audio_receiver_thread_started)
+                pthread_join(s->audio_receiver_thread_id, NULL);
+        if(s->audio_sender_thread_started)
+                pthread_join(s->audio_sender_thread_id, NULL);
 }
         
 void audio_done(struct state_audio *s)
@@ -662,7 +666,7 @@ static void *audio_receiver_thread(void *arg)
         }
 
         printf("Audio receiving started.\n");
-        while (!should_exit) {
+        while (!s->should_exit) {
                 struct message *msg;
                 while((msg= check_message(s->audio_receiver_module.get()))) {
                         struct response *r = audio_receiver_process_message(s, (struct msg_receiver *) msg);
@@ -1005,7 +1009,7 @@ static void *audio_sender_thread(void *arg)
 
         printf("Audio sending started.\n");
 
-        while (!should_exit) {
+        while (!s->should_exit) {
                 struct message *msg;
                 while((msg = check_message(s->audio_sender_module.get()))) {
                         struct response *r = audio_sender_process_message(s, (struct msg_sender *) msg);
