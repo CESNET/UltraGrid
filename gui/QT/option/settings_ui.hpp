@@ -6,6 +6,7 @@
 #include <QFormLayout>
 #include <QWidget>
 #include <memory>
+#include <map>
 
 #include "available_settings.hpp"
 #include "ui_ultragrid_window.h"
@@ -31,6 +32,15 @@ struct ControlForm{
 	QFormLayout *formLayout = nullptr; //owned by uiContainer
 };
 
+struct DeviceOptTab{
+	std::unique_ptr<QWidget> page;
+	QListWidget *listWidget = nullptr;
+	QScrollArea *scrollArea = nullptr;
+
+	std::vector<std::unique_ptr<WidgetUi>> uiControls;
+	std::string keyPrefix;
+};
+
 class SettingsUi : public QObject{
 	Q_OBJECT
 
@@ -51,11 +61,17 @@ private:
 	std::vector<std::unique_ptr<WidgetUi>> codecControls;
 	std::vector<std::unique_ptr<WidgetUi>> displayControls;
 
+	std::map<SettingType, DeviceOptTab> deviceTabs;
+
 	static void refreshAllCallback(Option&, bool, void *);
 
 	void addCallbacks();
 
 	void addControl(WidgetUi *widget);
+
+	void addDeviceTabs();
+	void buildSettingsDeviceList(QListWidget *list, SettingType type);
+	void buildDeviceOptControls(const Device& dev, DeviceOptTab& tab);
 
 	void fillFormOptions(ControlForm& form,
 			std::string_view keyPrefix,
@@ -69,9 +85,7 @@ private slots:
 	void settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *prev);
 	void buildCodecOptControls(const Codec& codec);
 
-	void buildSettingsDisplayList();
-	void settingsDisplaySelected(QListWidgetItem *curr, QListWidgetItem *prev);
-	void buildDisplayOptControls(const Device& dev);
+	void settingsDeviceSelected(QListWidgetItem *curr, QListWidgetItem *prev);
 
 signals:
 	void changed();

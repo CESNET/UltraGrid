@@ -119,7 +119,7 @@ void SettingsUi::refreshAll(){
 		i->refresh();
 	}
 	buildSettingsCodecList();
-	buildSettingsDisplayList();
+	addDeviceTabs();
 }
 
 void SettingsUi::refreshAllCallback(Option&, bool, void *opaque){
@@ -172,13 +172,54 @@ void SettingsUi::initSettingsWin(Ui::Settings *ui){
 	addControl(new LineEditUi(ui->encryptionLineEdit, settings, "encryption"));
 	addControl(new CheckboxUi(ui->advModeCheck, settings, "advanced"));
 
+	addDeviceTabs();
+
 	buildSettingsCodecList();
-	buildSettingsDisplayList();
 	connect(settingsWin->codecList, &QListWidget::currentItemChanged,
 			this, &SettingsUi::settingsCodecSelected);
+}
 
-	connect(settingsWin->displayListView, &QListWidget::currentItemChanged,
-			this, &SettingsUi::settingsDisplaySelected);
+void SettingsUi::addDeviceTabs(){
+	struct{
+		const char *label;
+		SettingType type;
+		const char *keyPrefix;
+	} tabs[] = {
+		{"Audio playback", AUDIO_PLAYBACK, "audio.playback"},
+		{"Audio capture", AUDIO_SRC, "audio.source"},
+		{"Display", VIDEO_DISPLAY, "video.display"},
+		{"Capture", VIDEO_SRC, "video.source"},
+	};
+
+	deviceTabs.clear();
+
+	for(const auto& i : tabs){
+		DeviceOptTab tab;
+		tab.keyPrefix = i.keyPrefix;
+		tab.page = std::make_unique<QWidget>();
+		auto layout = new QHBoxLayout();
+		tab.page->setLayout(layout);
+
+		tab.listWidget = new QListWidget();
+		layout->addWidget(tab.listWidget, 1);
+		tab.scrollArea = new QScrollArea();
+		layout->addWidget(tab.scrollArea, 3);
+
+		tab.listWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+		tab.scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+		buildSettingsDeviceList(tab.listWidget, i.type);
+
+		if(tab.listWidget->count() == 0){
+			continue;
+		}
+
+		connect(tab.listWidget, &QListWidget::currentItemChanged,
+				this, &SettingsUi::settingsDeviceSelected);
+
+		settingsWin->tabWidget->insertTab(0, tab.page.get(), i.label);
+		deviceTabs.emplace(i.type, std::move(tab));
+	}
 }
 
 Q_DECLARE_METATYPE(Codec);
@@ -201,14 +242,13 @@ void SettingsUi::buildSettingsCodecList(){
 
 Q_DECLARE_METATYPE(Device);
 
-void SettingsUi::buildSettingsDisplayList(){
+void SettingsUi::buildSettingsDeviceList(QListWidget *list, SettingType type){
 	if(!settingsWin)
 		return;
 
-	QListWidget *list = settingsWin->displayListView;
 	list->clear();
 
-	for(const auto& dev : availableSettings->getDevices(VIDEO_DISPLAY)){
+	for(const auto& dev : availableSettings->getDevices(type)){
 		if(dev.opts.empty())
 			continue;
 
@@ -232,15 +272,14 @@ void SettingsUi::settingsCodecSelected(QListWidgetItem *curr, QListWidgetItem *)
 	buildCodecOptControls(codec);
 }
 
-void SettingsUi::settingsDisplaySelected(QListWidgetItem *curr, QListWidgetItem *){
+void SettingsUi::settingsDeviceSelected(QListWidgetItem *curr, QListWidgetItem *){
 	if(!curr){
-		displayControls.clear();
 		return;
 	}
 
 	const auto &dev = curr->data(Qt::UserRole).value<Device>();
 
-	buildDisplayOptControls(dev);
+	buildDeviceOptControls(dev, deviceTabs.at(dev.settingType));
 }
 
 void SettingsUi::buildCodecOptControls(const Codec& codec){
@@ -267,14 +306,14 @@ void SettingsUi::buildCodecOptControls(const Codec& codec){
 	settingsWin->codecOptScroll->setWidget(form.uiContainer.release());
 }
 
-void SettingsUi::buildDisplayOptControls(const Device& dev){
+void SettingsUi::buildDeviceOptControls(const Device& dev, DeviceOptTab& tab){
 	ControlForm form;
 
-	std::string optPrefix = "video.display." + dev.type + ".device." + dev.deviceOpt + ".";
+	std::string optPrefix = tab.keyPrefix + "." + dev.type + ".device." + dev.deviceOpt + ".";
 	fillFormOptions(form, optPrefix, dev.opts);
 
-	displayControls = std::move(form.uiControls);
-	settingsWin->displayOptScroll->setWidget(form.uiContainer.release());
+	tab.uiControls = std::move(form.uiControls);
+	tab.scrollArea->setWidget(form.uiContainer.release());
 }
 
 void SettingsUi::fillFormOptions(ControlForm& form,
