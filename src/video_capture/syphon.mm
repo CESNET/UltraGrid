@@ -136,6 +136,7 @@ static const char fp_display_rgba_to_yuv422_legacy[] =
  * Class state_vidcap_syphon must be value-initialized
  */
 struct state_vidcap_syphon {
+        struct module *parent;
         struct video_desc saved_desc;
         SyphonClient *client;
         int window = -1;
@@ -224,7 +225,7 @@ static void oneshot_init(int value [[gnu::unused]])
         // left (without that, glutCheckLoop would block infinitely).
         glutTimerFunc(100, oneshot_init, 0);
 
-        if (should_exit || s->should_exit_main_loop) {
+        if (s->should_exit_main_loop) {
                 return;
         }
 
@@ -330,6 +331,11 @@ static void noop()
 {
 }
 
+static void should_exit_syphon(void *state) {
+        struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
+        s->should_exit_main_loop = true;
+}
+
 static void syphon_mainloop(void *state)
 {
         state_global = (struct state_vidcap_syphon *) state;
@@ -343,7 +349,7 @@ static void syphon_mainloop(void *state)
         glutDisplayFunc(noop);
         glutTimerFunc(100, oneshot_init, 0);
 
-        while (!should_exit && !s->should_exit_main_loop) {
+        while (!s->should_exit_main_loop) {
                 glutCheckLoop();
                 if (s->client && [s->client isValid] == NO) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
@@ -390,6 +396,7 @@ static void usage(bool full)
 static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 {
         state_vidcap_syphon *s = new state_vidcap_syphon();
+        s->parent = vidcap_params_get_parent(params);
 
         char *opts = strdup(vidcap_params_get_fmt(params));
         char *item, *save_ptr;
@@ -427,6 +434,7 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
                 return ret;
         }
 
+        register_should_exit_callback(s->parent, should_exit_syphon, s);
         register_mainloop(syphon_mainloop, s);
 
         *state = s;
