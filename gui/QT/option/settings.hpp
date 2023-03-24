@@ -119,8 +119,7 @@ public:
 
 private:
 	void populateVideoCompressSettings(AvailableSettings *availSettings);
-	void populateVideoDeviceSettings(AvailableSettings *availSettings);
-	void populateAudioDeviceSettings(AvailableSettings *availSettings);
+	void populateDeviceSettings(AvailableSettings *availSettings);
 
 	std::map<std::string, std::unique_ptr<Option>> options;
 

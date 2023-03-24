@@ -445,21 +445,30 @@ static void addDevOpt(Settings* settings, const Device& dev, const char *parent)
 				dev.type);
 }
 
-void Settings::populateVideoDeviceSettings(AvailableSettings *availSettings){
-	for(const auto& dev : availSettings->getDevices(VIDEO_SRC)){
-		addDevOpt(this, dev, "video.source");
-	}
-	for(const auto& dev : availSettings->getDevices(VIDEO_DISPLAY)){
-		addDevOpt(this, dev, "video.display");
+void Settings::populateDeviceSettings(AvailableSettings *availSettings){
+	struct{
+		SettingType type;
+		const char *optPrefix;
+	} devTypes[] = {
+		{VIDEO_SRC, "video.source"},
+		{VIDEO_DISPLAY, "video.display"},
+		{AUDIO_SRC, "audio.source"},
+		{AUDIO_PLAYBACK, "audio.playback"},
+	};
 
-		for(const auto& devOpt : dev.opts){
-			addOption(dev.deviceOpt + "." + devOpt.key,
-					devOpt.booleanOpt ? Option::BoolOpt : Option::StringOpt,
-					devOpt.optStr,
-					"",
-					false,
-					"video.display." + dev.type + ".device",
-					dev.deviceOpt);
+	for(const auto& devType : devTypes){
+		for(const auto& dev : availSettings->getDevices(devType.type)){
+			addDevOpt(this, dev, devType.optPrefix);
+
+			for(const auto& devOpt : dev.opts){
+				addOption(dev.deviceOpt + "." + devOpt.key,
+						devOpt.booleanOpt ? Option::BoolOpt : Option::StringOpt,
+						devOpt.optStr,
+						"",
+						false,
+						std::string(devType.optPrefix) + "." + dev.type + ".device",
+						dev.deviceOpt);
+			}
 		}
 	}
 }
@@ -502,19 +511,9 @@ void Settings::populateVideoCompressSettings(AvailableSettings *availSettings){
 	}
 }
 
-void Settings::populateAudioDeviceSettings(AvailableSettings *availSettings){
-	for(const auto& dev : availSettings->getDevices(AUDIO_SRC)){
-		addDevOpt(this, dev, "audio.source");
-	}
-	for(const auto& dev : availSettings->getDevices(AUDIO_PLAYBACK)){
-		addDevOpt(this, dev, "audio.playback");
-	}
-}
-
 void Settings::populateSettingsFromCapabilities(AvailableSettings *availSettings){
-	populateVideoDeviceSettings(availSettings);
+	populateDeviceSettings(availSettings);
 	populateVideoCompressSettings(availSettings);
-	populateAudioDeviceSettings(availSettings);
 }
 
 
