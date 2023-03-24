@@ -624,6 +624,8 @@ static void vidcap_testcard_probe(device_info **available_devices, int *count, v
                         }
                 }
         }
+        dev_add_option(&card, "Still", "Send still image", "still", ":still", true);
+        dev_add_option(&card, "Pattern", "Pattern to use", "pattern", ":pattern=", false);
 }
 
 static const struct video_capture_info vidcap_testcard_info = {
