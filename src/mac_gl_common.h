@@ -47,7 +47,6 @@ int get_mac_kernel_version_major(void);
 void *mac_gl_init(mac_opengl_version_t);
 void mac_gl_free(void *);
 void mac_gl_make_current(void *);
-void macGlutInit(int *argcp, char **argv);
 
 #ifdef __cplusplus
 }

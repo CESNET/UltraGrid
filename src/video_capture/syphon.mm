@@ -34,12 +34,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/**
- * @todo
- * get rid of GLUT (currently it is needed because we need to operate from within
- * mainloop for which is GLUT useful, better solution would be to deploy native
- * Apple mainloop)
- */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -49,7 +43,6 @@
 
 #include <condition_variable>
 #include <chrono>
-#include <GLUT/glut.h>
 #include <iostream>
 #include <mutex>
 #include <OpenGL/gl.h>
@@ -63,7 +56,6 @@
 #include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
-#include "mac_gl_common.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "video.h"
@@ -138,8 +130,9 @@ static const char fp_display_rgba_to_yuv422_legacy[] =
 struct state_vidcap_syphon {
         struct module *parent;
         struct video_desc saved_desc;
+
+        struct gl_context gl_context{};
         SyphonClient *client;
-        int window = -1;
         mutex lock;
         condition_variable frame_ready_cv;
         queue<video_frame *> q;
@@ -179,8 +172,6 @@ struct state_vidcap_syphon {
 static void probe_devices_callback(state_vidcap_syphon *s);
 static void vidcap_syphon_done(void *state);
 
-static struct state_vidcap_syphon *state_global;
-
 static void reconfigure(state_vidcap_syphon *s, struct video_desc desc) {
         glBindTexture(GL_TEXTURE_2D, s->tex_id);
         if (s->use_rgb) {
@@ -216,16 +207,26 @@ static string get_syphon_description(SyphonClient *client) {
                         [[dict objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String];
 }
 
-static void oneshot_init(int value [[gnu::unused]])
+static void oneshot_init(CFRunLoopTimerRef timer, void *context);
+
+static void schedule_next_event(state_vidcap_syphon *s) {
+        CFAbsoluteTime fireTime = CFAbsoluteTimeGetCurrent() + 0.1; // 100 ms
+        CFRunLoopTimerContext timerCtxt = { .info = s };
+        CFRunLoopAddTimer(CFRunLoopGetCurrent(), CFRunLoopTimerCreate(NULL, fireTime, 1.0, 0, 0, oneshot_init, &timerCtxt), kCFRunLoopCommonModes);
+}
+
+static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 {
-        state_vidcap_syphon *s = state_global;
+        UNUSED(timer);
+        state_vidcap_syphon *s = (state_vidcap_syphon *) context;
 
         // Although initialization happens only once, it is important that
         // timer is periodically triggered because only then is glutCheckLoop()
         // left (without that, glutCheckLoop would block infinitely).
-        glutTimerFunc(100, oneshot_init, 0);
+        schedule_next_event(s);
 
         if (s->should_exit_main_loop) {
+                [[NSApplication sharedApplication] terminate : nil];
                 return;
         }
 
@@ -241,9 +242,17 @@ static void oneshot_init(int value [[gnu::unused]])
                 return;
         }
 
+        if (s->client && [s->client isValid] == NO) {
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
+                [s->client release];
+                s->client = nil;
+        }
+
         // if we are already initialized, exit
         if (s->client)
                 return;
+
+        gl_context_make_current(&s->gl_context);
 
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -281,6 +290,8 @@ static void oneshot_init(int value [[gnu::unused]])
                 SyphonImage *img = [client newFrameImage];
                 unsigned int width = [img textureSize].width;
                 unsigned int height = [img textureSize].height;
+
+                gl_context_make_current(&s->gl_context);
 
                 struct video_desc d{width, height, s->use_rgb ? RGB : UYVY, s->override_fps ? s->override_fps : FPS, PROGRESSIVE, 1};
                 if (!video_desc_eq(s->saved_desc, d)) {
@@ -327,10 +338,6 @@ static void oneshot_init(int value [[gnu::unused]])
         }
 }
 
-static void noop()
-{
-}
-
 static void should_exit_syphon(void *state) {
         struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
         s->should_exit_main_loop = true;
@@ -338,25 +345,8 @@ static void should_exit_syphon(void *state) {
 
 static void syphon_mainloop(void *state)
 {
-        state_global = (struct state_vidcap_syphon *) state;
-        struct state_vidcap_syphon *s = state_global;
-
-        macGlutInit(&uv_argc, uv_argv);
-        glutInitDisplayMode(GLUT_RGB);
-        s->window = glutCreateWindow("dummy Syphon client window");
-        glutHideWindow();
-
-        glutDisplayFunc(noop);
-        glutTimerFunc(100, oneshot_init, 0);
-
-        while (!s->should_exit_main_loop) {
-                glutCheckLoop();
-                if (s->client && [s->client isValid] == NO) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
-                        [s->client release];
-                        s->client = nil;
-                }
-        }
+        UNUSED(state);
+        [[NSApplication sharedApplication] run];
 }
 
 /**
@@ -397,6 +387,9 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 {
         state_vidcap_syphon *s = new state_vidcap_syphon();
         s->parent = vidcap_params_get_parent(params);
+
+        init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY);
+        schedule_next_event(s);
 
         char *opts = strdup(vidcap_params_get_fmt(params));
         char *item, *save_ptr;
@@ -446,10 +439,6 @@ static void vidcap_syphon_done(void *state)
 {
         state_vidcap_syphon *s = (state_vidcap_syphon *) state;
 
-        if (s->window != -1) {
-                glutDestroyWindow(s->window);
-        }
-
         if (s->tex_id != 0) {
                 glDeleteTextures(1, &s->tex_id);
         }
@@ -461,6 +450,8 @@ static void vidcap_syphon_done(void *state)
         if (s->program_to_yuv422) {
                 glDeleteProgram(s->program_to_yuv422);
         }
+
+        destroy_gl_context(&s->gl_context);
 
         delete s;
 }
@@ -502,6 +493,8 @@ static void vidcap_syphon_probe(struct device_info **available_devices, int *cou
 
         state_vidcap_syphon *s = new state_vidcap_syphon();
         s->probe_devices = true;
+        init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY);
+        schedule_next_event(s);
         syphon_mainloop(s);
         *count = s->probed_devices_count;
         *available_devices = s->probed_devices;

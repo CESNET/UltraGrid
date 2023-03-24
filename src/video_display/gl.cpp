@@ -1062,6 +1062,7 @@ static void gl_process_frames(struct state_gl *s)
         if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
                 gl_reconfigure_screen(s, video_desc_from_frame(frame));
         }
+        glBindTexture(GL_TEXTURE_2D, s->texture_display);
 
         gl_render(s, frame->tiles[0].data);
         if (s->deinterlace == state_gl::deint::force || (s->deinterlace == state_gl::deint::on && s->current_display_desc.interlacing == INTERLACED_MERGED)) {
