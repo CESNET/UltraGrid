@@ -79,7 +79,6 @@ struct state_aplay_wasapi {
         UINT32 bufferSize;
 };
 
-static void show_help();
 string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enumerator); // defined in WASAPI capture
 
 #define SAFE_RELEASE(u) \

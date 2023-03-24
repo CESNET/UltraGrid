@@ -441,6 +441,7 @@ const char *get_sockaddr_str(struct sockaddr *sa)
 const char *ug_gai_strerror(int errcode)
 {
 #ifdef _WIN32
+        UNUSED(errcode);
         // also `win_wstr_to_str(gai_strerrorW(errcode);` would work; it is localized, but with correct diacritics
         return get_win_error(WSAGetLastError());
 #else
