@@ -3,7 +3,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2021 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,7 @@
 #include <condition_variable>
 #include <stdexcept>
 #include <type_traits>
+#include <thread>
 #include <chrono>
 #include <charconv>
 
@@ -166,6 +167,8 @@ private:
         mmal_component_unique renderer_component;
         mmal_pool_unique pool;
         av_zc_env_unique zero_copy_env;
+
+        std::thread thread_id;
 };
 
 void Rpi4_video_out::resize(int width, int height){
@@ -345,6 +348,8 @@ void Rpi4_video_out::display(AVFrame *f){
 
 } //anonymous namespace
 
+static void display_rpi4_run(void *state);
+
 struct rpi4_display_state{
         struct video_desc current_desc;
 
@@ -427,11 +432,13 @@ static void *display_rpi4_init(struct module *parent, const char *cfg, unsigned 
                         width, height,
                         s->fullscreen, 2);
 
+        s->thread_id = std::thread(display_rpi4_run, s.get());
         return s.release();
 }
 
 static void display_rpi4_done(void *state) {
         auto *s = static_cast<rpi4_display_state *>(state);
+        s->thread_id.join();
 
         delete s;
 }
@@ -643,7 +650,7 @@ static void display_rpi4_probe(struct device_info **available_cards, int *count,
 static const struct video_display_info display_rpi4_info = {
         display_rpi4_probe,
         display_rpi4_init,
-        display_rpi4_run,
+        NULL, // _run
         display_rpi4_done,
         display_rpi4_getf,
         display_rpi4_putf,

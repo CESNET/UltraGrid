@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -107,6 +107,8 @@ struct state_sage {
         volatile bool           should_exit;
         bool                    is_tx;
         bool                    deinterlace;
+
+        pthread_t               thread_id;
 };
 
 /** Prototyping */
@@ -293,6 +295,7 @@ static void *display_sage_init(struct module *parent, const char *fmt, unsigned 
 
         debug_msg("Window initialized %p\n", s);
 
+        pthread_create(&s->thread_id, NULL, display_sage_run, s);
         return (void *)s;
 }
 
@@ -302,6 +305,7 @@ static void display_sage_done(void *state)
 
         assert(s->magic == MAGIC_SAGE);
 
+        pthread_join(s->thread_id, NULL);
         sem_destroy(&s->semaphore);
         pthread_cond_destroy(&s->buffer_writable_cond);
         pthread_mutex_destroy(&s->buffer_writable_lock);
@@ -559,7 +563,7 @@ static void display_sage_probe(struct device_info **available_cards, int *count,
 static const struct video_display_info display_sage_info = {
         display_sage_probe,
         display_sage_init,
-        display_sage_run,
+        NULL, // _run
         display_sage_done,
         display_sage_getf,
         display_sage_putf,

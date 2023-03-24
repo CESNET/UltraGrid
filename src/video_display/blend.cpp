@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <thread>
 #include <unordered_map>
 
 using namespace std;
@@ -67,6 +68,8 @@ static constexpr chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
+static void display_blend_run(void *state);
+
 struct state_blend_common {
         ~state_blend_common() {
                 display_done(real_display);
@@ -76,6 +79,7 @@ struct state_blend_common {
                                 vf_free(frame);
                         }
                 }
+                thread_id.join();
         }
         struct display *real_display;
         struct video_desc display_desc;
@@ -94,6 +98,7 @@ struct state_blend_common {
         condition_variable cv;
 
         struct module *parent;
+        thread thread_id;
 };
 
 struct state_blend {
@@ -151,6 +156,7 @@ static void *display_blend_init(struct module *parent, const char *fmt, unsigned
         display_run_new_thread(s->common->real_display);
 
         s->common->parent = parent;
+        s->common->thread_id = thread(display_blend_run, s);
 
         return s;
 }
@@ -410,7 +416,7 @@ static void display_blend_probe(struct device_info **available_cards, int *count
 static const struct video_display_info display_blend_info = {
         display_blend_probe,
         display_blend_init,
-        display_blend_run,
+        NULL, // _run
         display_blend_done,
         display_blend_getf,
         display_blend_putf,

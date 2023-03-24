@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2015 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -199,11 +199,6 @@ static int display_pipe_putf(void *state, struct video_frame *frame, long long f
         return TRUE;
 }
 
-static void display_pipe_run(void *state)
-{
-        UNUSED(state);
-}
-
 static int display_pipe_get_property(void *state, int property, void *val, size_t *len)
 {
         auto *s = static_cast<struct state_pipe *>(state);
@@ -296,7 +291,7 @@ static void display_pipe_probe(struct device_info **available_cards, int *count,
 static const struct video_display_info display_pipe_info = {
         display_pipe_probe,
         display_pipe_init,
-        display_pipe_run,
+        NULL, // _run
         display_pipe_done,
         display_pipe_getf,
         display_pipe_putf,

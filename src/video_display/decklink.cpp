@@ -9,7 +9,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1338,11 +1338,6 @@ error:
         return NULL;
 }
 
-static void display_decklink_run(void *state)
-{
-        UNUSED(state);
-}
-
 #define RELEASE_IF_NOT_NULL(x) if (x != nullptr) x->Release();
 static void display_decklink_done(void *state)
 {
@@ -2026,7 +2021,7 @@ bail:
 static const struct video_display_info display_decklink_info = {
         display_decklink_probe,
         display_decklink_init,
-        display_decklink_run,
+        NULL, // _run
         display_decklink_done,
         display_decklink_getf,
         display_decklink_putf,

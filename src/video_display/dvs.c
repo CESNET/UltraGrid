@@ -327,6 +327,7 @@ volatile int worker_waiting;
         int                     frames;
         struct timeval          t, t0;
 
+        pthread_t thread_id;
         bool should_exit;
 };
 
@@ -383,7 +384,7 @@ static void show_help(void)
         printf("\n");
 }
 
-static void display_dvs_run(void *arg)
+static void *display_dvs_run(void *arg)
 {
         struct state_hdsp *s = (struct state_hdsp *)arg;
         int res;
@@ -442,6 +443,7 @@ static void display_dvs_run(void *arg)
                     s->frames = 0;
                 }  
         }
+        return NULL;
 }
 
 static struct video_frame *
@@ -798,6 +800,8 @@ static void *display_dvs_init(struct module *parent, const char *cfg, unsigned i
         }*/
         
         free(name);
+
+        pthread_create(&s->thread_id, NULL, display_aggregate_run, s);
         return (void *)s;
 
 error:
@@ -812,6 +816,7 @@ static void display_dvs_done(void *state)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
 
+        pthread_join(s->thread_id, NULL);
         sv_fifo_free(s->sv, s->fifo);
         sv_close(s->sv);
         vf_free(s->frame);
@@ -972,7 +977,7 @@ unlock:
 static const struct video_display_info display_dvs_info = {
         display_dvs_probe,
         display_dvs_init,
-        display_dvs_run,
+        NULL, // _run
         display_dvs_done,
         display_dvs_getf,
         display_dvs_putf,

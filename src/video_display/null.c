@@ -78,11 +78,6 @@ static void *display_null_init(struct module *parent, const char *fmt, unsigned 
         return s;
 }
 
-static void display_null_run(void *arg)
-{
-        UNUSED(arg);
-}
-
 static void display_null_done(void *state)
 {
         struct state_null *s = (struct state_null *)state;
@@ -145,7 +140,7 @@ static int display_null_reconfigure_audio(void *state, int quant_samples, int ch
 static const struct video_display_info display_null_info = {
         display_null_probe,
         display_null_init,
-        display_null_run,
+        NULL, // _run
         display_null_done,
         display_null_getf,
         display_null_putf,

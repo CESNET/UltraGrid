@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -822,10 +822,6 @@ LINK_SPEC void display_aja_probe(struct device_info **available_cards, int *coun
         }
 }
 
-LINK_SPEC void display_aja_run(void * /* arg */)
-{
-}
-
 /**
  * format is a quad-link format
  */
@@ -1101,7 +1097,7 @@ LINK_SPEC int display_aja_reconfigure_audio(void *state, int quant_samples, int 
 static const struct video_display_info display_aja_info = {
         display_aja_probe,
         display_aja_init,
-        display_aja_run,
+        NULL, // _run
         display_aja_done,
         display_aja_getf,
         display_aja_putf,

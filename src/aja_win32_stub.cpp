@@ -68,7 +68,6 @@ REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTUR
 extern "C" {
 __declspec(dllimport) int display_aja_get_property(void *state, int property, void *val, size_t *len);
 __declspec(dllimport) void display_aja_probe(struct device_info **available_cards, int *count, void (**deleter)(void *));
-__declspec(dllimport) void display_aja_run(void * /* arg */);
 __declspec(dllimport) int display_aja_reconfigure(void *state, struct video_desc desc);
 __declspec(dllimport) void *display_aja_init(struct module * /* parent */, const char *fmt, unsigned int flags);
 __declspec(dllimport) void display_aja_done(void *state);
@@ -82,7 +81,7 @@ __declspec(dllimport) int display_aja_reconfigure_audio(void *state, int quant_s
 static const struct video_display_info display_aja_info = {
         display_aja_probe,
         display_aja_init,
-        display_aja_run,
+        NULL, // _run
         display_aja_done,
         display_aja_getf,
         display_aja_putf,

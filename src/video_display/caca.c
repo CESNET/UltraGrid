@@ -306,7 +306,7 @@ static const void *display_caca_info_get() {
         static _Thread_local struct video_display_info display_caca_info = {
                 display_caca_probe,
                 display_caca_init,
-                NULL,
+                NULL, // _run
                 display_caca_done,
                 display_caca_getf,
                 display_caca_putf,

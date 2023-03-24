@@ -50,6 +50,7 @@
 #include <queue>
 #include <cmath>
 #include <iostream>
+#include <thread>
 
 #include "host.h"
 #include "video.h"
@@ -75,6 +76,8 @@
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
+static void display_unix_sock_run(void *state);
+
 namespace{
 struct frame_deleter { void operator()(video_frame *f){ vf_free(f); } };
 using unique_frame = std::unique_ptr<video_frame, frame_deleter>;
@@ -98,6 +101,7 @@ struct state_unix_sock {
         bool ignore_putf_blocking = false;
 
         struct module *parent;
+        std::thread thread_id;
 };
 
 static void show_help(){
@@ -166,6 +170,7 @@ static void *display_unix_sock_init(struct module *parent,
                 return nullptr;
         }
 
+        s->thread_id = std::thread(display_unix_sock_run, s.get());
         return s.release();
 }
 
@@ -218,6 +223,7 @@ static void display_unix_sock_run(void *state)
 static void display_unix_sock_done(void *state)
 {
         auto s = static_cast<state_unix_sock *>(state);
+        s->thread_id.join();
 
         delete s;
 }
@@ -341,7 +347,7 @@ static void *display_unix_sock_init_no_preview(struct module *parent, const char
 static const struct video_display_info display_unix_sock_info = {
         display_unix_sock_probe,
         display_unix_sock_init_no_preview,
-        display_unix_sock_run,
+        NULL, // _run
         display_unix_sock_done,
         display_unix_sock_getf,
         display_unix_sock_putf,
@@ -356,7 +362,7 @@ static const struct video_display_info display_unix_sock_info = {
 static const struct video_display_info display_preview_info = {
         display_unix_sock_probe,
         display_unix_sock_init_preview,
-        display_unix_sock_run,
+        NULL, // _run
         display_unix_sock_done,
         display_unix_sock_getf,
         display_unix_sock_putf,

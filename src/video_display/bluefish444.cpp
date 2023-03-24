@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -925,11 +925,6 @@ display_bluefish444_reconfigure(void *state, struct video_desc desc)
         return ret;
 }
 
-static void display_bluefish444_run(void *state)
-{
-        UNUSED(state);
-}
-
 static void display_bluefish444_done(void *state)
 {
         display_bluefish444_state *s =
@@ -1032,7 +1027,7 @@ static void display_bluefish444_put_audio_frame(void *state, const struct audio_
 static const struct video_display_info display_bluefish444_info = {
         display_bluefish444_probe,
         display_bluefish444_init,
-        display_bluefish444_run,
+        NULL, // _run
         display_bluefish444_done,
         display_bluefish444_getf,
         display_bluefish444_putf,
