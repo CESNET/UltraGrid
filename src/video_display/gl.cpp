@@ -1043,6 +1043,9 @@ static void gl_process_frames(struct state_gl *s)
                         pop_frame(s, lk);
                         return;
                 }
+
+                glfwMakeContextCurrent(s->window);
+
                 if (s->paused) {
                         vf_recycle(frame);
                         s->free_frame_queue.push(frame);
