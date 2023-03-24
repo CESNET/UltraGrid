@@ -355,6 +355,9 @@ struct device_info {
         struct device_option options[64];
 };
 
+//Impl in video_display.c
+void dev_add_option(struct device_info *dev, const char *name, const char *desc, const char *key, const char *opt_str, bool is_boolean);
+
 typedef void (*device_probe_func)(struct device_info **available_cards, int *count, void (**deleter)(void *));
 
 struct vidcap_params;

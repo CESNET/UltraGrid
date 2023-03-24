@@ -213,8 +213,6 @@ int                      display_reconfigure_audio(struct display *d, int quant_
 
 struct video_frame      *get_splashscreen(void);
 
-void dev_add_option(struct device_info *dev, const char *name, const char *desc, const char *key, const char *opt_str, bool is_boolean);
-
 #ifdef __cplusplus
 }
 #endif // __cplusplus
