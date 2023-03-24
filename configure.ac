@@ -2153,7 +2153,7 @@ then
                 CUDA_LIB_PATH="$CUDA_PATH/lib"
         fi
 
-        if test $system = Windows -a $nvcc_major -ge 9;
+        if test $system = Windows -a $nvcc_major -ge 8;
         then
                 if test $WORD_LEN = 64; then
                         CUDA_LIB_PATH="$CUDA_LIB_PATH/x64"
