@@ -189,18 +189,12 @@ void display_done(struct display *d)
         free(d);
 }
 
-ADD_TO_PARAM("override-mainloop-req", "* override-mainloop-req\n"
-                "  Override display requirement for mainloop.\n");
-
 /**
  * Returns true if display has a run routine that needs to be run in a main thread
  */
 bool display_needs_mainloop(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        if (get_commandline_param("override-mainloop-req") != NULL) {
-                return true;
-        }
         if (d->funcs->needs_mainloop == DISPLAY_NEEDS_MAINLOOP) {
                 return true;
         }
