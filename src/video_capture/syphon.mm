@@ -151,7 +151,7 @@ struct state_vidcap_syphon {
 
         int show_help;     ///< only show help and exit - 1 - standard; 2 - full
         bool probe_devices; ///< devices probed
-        bool should_exit_main_loop = false; ///< events (probe/help) processed
+        bool mainloop_started = false; ///< mainloop is started
 
         int probed_devices_count; ///< used only if state_vidcap_syphon::probe_devices is true
         struct device_info *probed_devices; ///< used only if state_vidcap_syphon::probe_devices is true
@@ -220,25 +220,18 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
         UNUSED(timer);
         state_vidcap_syphon *s = (state_vidcap_syphon *) context;
 
-        // Although initialization happens only once, it is important that
-        // timer is periodically triggered because only then is glutCheckLoop()
-        // left (without that, glutCheckLoop would block infinitely).
+        // keepalive - we need to check client availability
         schedule_next_event(s);
-
-        if (s->should_exit_main_loop) {
-                [[NSApplication sharedApplication] terminate : nil];
-                return;
-        }
 
         if (s->show_help != 0) {
                 usage(s->show_help == 2);
-                s->should_exit_main_loop = true;
+                [[NSApplication sharedApplication] terminate : nil];
                 return;
         }
 
         if (s->probe_devices) {
                 probe_devices_callback(s);
-                s->should_exit_main_loop = true;
+                [[NSApplication sharedApplication] terminate : nil];
                 return;
         }
 
@@ -340,12 +333,15 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 
 static void should_exit_syphon(void *state) {
         struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
-        s->should_exit_main_loop = true;
+        if (s->mainloop_started) {
+                [[NSApplication sharedApplication] terminate : nil];
+        }
 }
 
 static void syphon_mainloop(void *state)
 {
-        UNUSED(state);
+        struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
+        s->mainloop_started = true;
         [[NSApplication sharedApplication] run];
 }
 
