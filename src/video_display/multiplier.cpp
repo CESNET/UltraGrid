@@ -208,7 +208,7 @@ static void display_multiplier_run(void *state)
 
         s->worker_thread = thread(display_multiplier_worker, state);
 
-        display_run_this_thread(s->displays[0].get());
+        display_run_mainloop(s->displays[0].get());
 
         s->worker_thread.join();
         for (size_t i = 1; i < s->displays.size(); i++) {
@@ -300,12 +300,6 @@ static int display_multiplier_reconfigure_audio(void *state, int quant_samples, 
         return display_reconfigure_audio(s->common->displays.at(0).get(), quant_samples, channels, sample_rate);
 }
 
-static auto display_multiplier_needs_mainloop(void *state)
-{
-        auto s = static_cast<struct state_multiplier *>(state)->common;
-        return !s->displays.empty() && display_needs_mainloop(s->displays[0].get());
-}
-
 static void display_multiplier_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
         UNUSED(deleter);
         *available_cards = nullptr;
@@ -323,7 +317,6 @@ static const struct video_display_info display_multiplier_info = {
         display_multiplier_get_property,
         display_multiplier_put_audio_frame,
         display_multiplier_reconfigure_audio,
-        display_multiplier_needs_mainloop,
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 

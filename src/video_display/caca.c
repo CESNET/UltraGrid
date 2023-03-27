@@ -314,7 +314,6 @@ static const void *display_caca_info_get() {
                 display_caca_get_property,
                 NULL,
                 NULL,
-                DISPLAY_DOESNT_NEED_MAINLOOP,
                 DISPLAY_NO_GENERIC_FPS_INDICATOR,
         };
         const char *display = getenv("DISPLAY");

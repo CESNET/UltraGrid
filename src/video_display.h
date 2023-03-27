@@ -59,7 +59,7 @@
  * Thread #1 (main thread)
  * @code{.c}
  * d = ininitalize_video_display(...);
- * display_run_this_thread(d);
+ * display_run_mainloop(d);
  * display_done(d);
  *
  * Thread #2
@@ -142,18 +142,14 @@ enum display_prop_vid_mode {
 };
 /// @}
 
-#define VIDEO_DISPLAY_ABI_VERSION 17
-
-typedef bool (*display_needs_mainloop_t)(void *);
-#define DISPLAY_DOESNT_NEED_MAINLOOP ((display_needs_mainloop_t) 0x00)
-#define DISPLAY_NEEDS_MAINLOOP ((display_needs_mainloop_t) 0x01)
+#define VIDEO_DISPLAY_ABI_VERSION 18
 
 #define DISPLAY_NO_GENERIC_FPS_INDICATOR ((const char *) 0x00)
 
 struct video_display_info {
         device_probe_func         probe;
         void                   *(*init) (struct module *parent, const char *fmt, unsigned int flags);
-        void                    (*run) (void *state);                                               ///< may be NULL
+        void                    (*run) (void *state);                                               ///< callback to display main event loop; may be NULL
         void                    (*done) (void *state);
         struct video_frame     *(*getf) (void *state);
         /// @param timeout_ns display is supposed immplement the PUTF_* macros, numerical timeout is seldom used (but double-framerate postprocess can use that)
@@ -163,7 +159,6 @@ struct video_display_info {
         void                    (*put_audio_frame) (void *state, const struct audio_frame *frame);  ///< may be NULL
         int                     (*reconfigure_audio) (void *state, int quant_samples, int channels, ///< may be NULL
                         int sample_rate);
-        display_needs_mainloop_t needs_mainloop;
         const char             *generic_fps_indicator_prefix; ///< NO_GENERIC_FPS_INDICATOR or pointer to preferred module name
 };
 
@@ -179,7 +174,7 @@ int                      initialize_video_display(struct module *parent,
                 /* not_null */ const char *requested_display, /* not_null */ const char *fmt,
                 unsigned int flags, const char *postprocess, /* not_null */ struct display **out);
 bool                     display_needs_mainloop(struct display *d);
-void                     display_run_this_thread(struct display *d);
+void                     display_run_mainloop(struct display *d);
 void                     display_run_new_thread(struct display *d);
 void                     display_join(struct display *d);
 void 	                 display_done(struct display *d);

@@ -635,7 +635,7 @@ static void display_conference_run(void *state)
 
         std::thread worker = std::thread(display_conference_worker, s);
 
-        display_run_this_thread(s->real_display.get());
+        display_run_mainloop(s->real_display.get());
 
         worker.join();
 }
@@ -731,12 +731,6 @@ static int display_conference_putf(void *state, struct video_frame *frame, long 
         return 0;
 }
 
-static auto display_conference_needs_mainloop(void *state)
-{
-        auto s = static_cast<struct state_conference *>(state)->common;
-        return display_needs_mainloop(s->real_display.get());
-}
-
 static void display_conference_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
         UNUSED(deleter);
         *available_cards = nullptr;
@@ -754,7 +748,6 @@ static const struct video_display_info display_conference_info = {
         display_conference_get_property,
         display_conference_put_audio_frame,
         display_conference_reconfigure_audio,
-        display_conference_needs_mainloop,
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 

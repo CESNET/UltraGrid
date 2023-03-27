@@ -1944,7 +1944,6 @@ static const struct video_display_info display_gl_info = {
         display_gl_get_property,
         display_gl_put_audio_frame,
         display_gl_reconfigure_audio,
-        DISPLAY_NEEDS_MAINLOOP, // many GLFW functions must be called from main thread (notably glfwPollEvents())
         MOD_NAME,
 };
 

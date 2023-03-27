@@ -299,7 +299,6 @@ static const struct video_display_info display_pipe_info = {
         display_pipe_get_property,
         display_pipe_put_audio_frame,
         display_pipe_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 

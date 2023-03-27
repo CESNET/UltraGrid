@@ -1658,17 +1658,7 @@ int main(int argc, char *argv[])
                 control_start(control);
                 kc.start();
 
-                if(mainloop) {
-                        if (display_needs_mainloop(uv.display_device)) {
-                                throw string("Cannot run display when "
-                                                "another mainloop registered!\n");
-                        }
-                        display_run_new_thread(uv.display_device);
-                        mainloop(mainloop_udata);
-                        display_join(uv.display_device);
-                } else {
-                        display_run_this_thread(uv.display_device);
-                }
+                display_run_mainloop(uv.display_device);
 
         } catch (ug_no_error const &e) {
                 exit_uv(0);

@@ -355,7 +355,6 @@ static const struct video_display_info display_unix_sock_info = {
         display_unix_sock_get_property,
         display_unix_sock_put_audio_frame,
         display_unix_sock_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         MOD_NAME,
 };
 
@@ -370,7 +369,6 @@ static const struct video_display_info display_preview_info = {
         display_unix_sock_get_property,
         display_unix_sock_put_audio_frame,
         display_unix_sock_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         "[unix sock preview] ",
 };
 

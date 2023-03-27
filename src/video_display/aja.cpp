@@ -1105,7 +1105,6 @@ static const struct video_display_info display_aja_info = {
         display_aja_get_property,
         display_aja_put_audio_frame,
         display_aja_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 

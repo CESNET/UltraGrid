@@ -2029,7 +2029,6 @@ static const struct video_display_info display_decklink_info = {
         display_decklink_get_property,
         display_decklink_put_audio_frame,
         display_decklink_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         MOD_NAME,
 };
 

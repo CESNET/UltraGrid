@@ -102,6 +102,7 @@ extern unsigned int cuda_devices_count;
 #define MODE_RECEIVER (1U<<1U)
 
 typedef void (*mainloop_t)(void *);
+/// mainloop to be run if display mainloop isn't run
 extern mainloop_t mainloop;
 extern void *mainloop_udata;
 

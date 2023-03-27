@@ -189,7 +189,6 @@ static const struct video_display_info display_dump_info = {
         display_dump_get_property,
         NULL, // _put_audio_frame
         NULL, // _reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         MOD_NAME,
 };
 

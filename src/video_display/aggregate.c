@@ -390,7 +390,6 @@ static const struct video_display_info display_aggregate_info = {
         display_aggregate_get_property,
         display_aggregate_put_audio_frame,
         display_aggregate_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 

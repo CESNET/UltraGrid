@@ -658,7 +658,6 @@ static const struct video_display_info display_rpi4_info = {
         display_rpi4_get_property,
         display_rpi4_put_audio_frame,
         display_rpi4_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         "[RPi display] ",
 };
 

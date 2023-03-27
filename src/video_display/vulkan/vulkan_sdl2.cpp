@@ -1001,8 +1001,7 @@ const video_display_info display_vulkan_info = {
         display_vulkan_get_property,
         display_vulkan_put_audio_frame,
         display_vulkan_reconfigure_audio,
-        DISPLAY_NEEDS_MAINLOOP,
-        nullptr,
+        DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 
 } // namespace

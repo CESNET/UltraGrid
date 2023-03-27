@@ -195,13 +195,7 @@ void display_done(struct display *d)
 bool display_needs_mainloop(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        if (d->funcs->needs_mainloop == DISPLAY_NEEDS_MAINLOOP) {
-                return true;
-        }
-        if (d->funcs->needs_mainloop == DISPLAY_DOESNT_NEED_MAINLOOP) {
-                return false;
-        }
-        return d->funcs->needs_mainloop(d->state);
+        return d->funcs->run != NULL;
 }
 
 #define CHECK(cmd) do { \
@@ -225,29 +219,25 @@ static void *display_run_helper(void *args)
 /**
  * @brief Display mainloop function.
  *
- * This function runs the display in the thread it is called from
- * and blocks until the display stops.
+ * It is intended for GUI displays (GL/SDL), which run main event loop and need
+ * to be run from main thread of the program (macOS).
  *
- * It is mainly intended for GUI displays (GL/SDL), which usually need
- * to be run from main thread of the * program (OS X).
- *
- * The function blocks while the display runs.
  * The display can be terminated by passing a poisoned pill (frame == NULL)
  * using the display_put_frame() call.
  *
  * @param d display to be run
  */
-void display_run_this_thread(struct display *d)
+void display_run_mainloop(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
         if (d->funcs->run) {
                 d->funcs->run(d->state);
+        } else if (mainloop) {
+                mainloop(mainloop_udata);
         }
 }
 
 /**
- * @brief Display mainloop function.
- *
  * This function runs the display in a new thread and does not block.
  *
  * It should not be used for GUI displays (GL/SDL), which usually need

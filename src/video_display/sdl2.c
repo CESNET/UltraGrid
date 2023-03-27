@@ -809,7 +809,6 @@ static const struct video_display_info display_sdl2_info = {
         display_sdl2_get_property,
         NULL,
         NULL,
-        DISPLAY_NEEDS_MAINLOOP,
         MOD_NAME,
 };
 

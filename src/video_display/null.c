@@ -148,7 +148,6 @@ static const struct video_display_info display_null_info = {
         display_null_get_property,
         display_null_put_audio_frame,
         display_null_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 

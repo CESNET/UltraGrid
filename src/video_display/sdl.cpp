@@ -785,11 +785,6 @@ static const struct video_display_info display_sdl_info = {
         display_sdl_get_property,
         display_sdl_put_audio_frame,
         display_sdl_reconfigure_audio,
-#ifdef __APPLE__
-        DISPLAY_NEEDS_MAINLOOP,
-#else
-        DISPLAY_DOESNT_NEED_MAINLOOP,
-#endif
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 

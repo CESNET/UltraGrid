@@ -559,7 +559,6 @@ static const struct video_display_info display_deltacast_info = {
         display_deltacast_get_property,
         display_deltacast_put_audio_frame,
         display_deltacast_reconfigure_audio,
-        DISPLAY_DOESNT_NEED_MAINLOOP,
         DISPLAY_NO_GENERIC_FPS_INDICATOR,
 };
 

@@ -827,6 +827,11 @@ void print_video_codecs(void) {
         cout << "\nLegend:\n" << " I - interframe codec\n";
 }
 
+/**
+ * Registers mainloop that will be run if display-owned mainloop isn't run.
+ * Currently this is only used by Syphon, that either connects to display event
+ * loop and if there isn't any, it runs its own.
+ */
 bool register_mainloop(mainloop_t m, void *u)
 {
         if (mainloop) {
