@@ -196,6 +196,20 @@ static string get_syphon_description(SyphonClient *client) {
                         [[dict objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String];
 }
 
+static void stop_application(void) {
+        [[NSApplication sharedApplication] stop : nil];
+        NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
+                location:NSMakePoint(0, 0)
+                modifierFlags:0
+                timestamp:0
+                windowNumber:0
+                context:nil
+                subtype:0
+                data1:0
+                data2:0];
+        [[NSApplication sharedApplication] postEvent:event atStart:YES];
+}
+
 static void oneshot_init(CFRunLoopTimerRef timer, void *context);
 
 static void schedule_next_event(state_vidcap_syphon *s) {
@@ -211,13 +225,13 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 
         if (s->show_help != 0) {
                 usage(s->show_help == 2);
-                [[NSApplication sharedApplication] terminate : nil];
+                stop_application();
                 return;
         }
 
         if (s->probe_devices) {
                 probe_devices_callback(s);
-                [[NSApplication sharedApplication] terminate : nil];
+                stop_application();
                 return;
         }
 
@@ -311,7 +325,7 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 static void should_exit_syphon(void *state) {
         struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
         if (s->mainloop_started) {
-                [[NSApplication sharedApplication] terminate : nil];
+                stop_application();
         }
 }
 
