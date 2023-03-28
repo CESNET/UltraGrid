@@ -128,8 +128,9 @@ static const char fp_display_rgba_to_yuv422_legacy[] =
  * Class state_vidcap_syphon must be value-initialized
  */
 struct state_vidcap_syphon {
-        struct module *parent;
         struct video_desc saved_desc;
+
+        CFRunLoopTimerRef timer;
 
         struct gl_context gl_context{};
         SyphonClient *client;
@@ -160,6 +161,7 @@ struct state_vidcap_syphon {
                 [appName release];
                 [serverName release];
                 [client release];
+                CFRelease(timer);
 
                 while (q.size() > 0) {
                         video_frame *f = q.front();
@@ -211,17 +213,14 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context);
 
 static void schedule_next_event(state_vidcap_syphon *s) {
         CFAbsoluteTime fireTime = CFAbsoluteTimeGetCurrent() + 0.1; // 100 ms
-        CFRunLoopTimerContext timerCtxt = { .info = s };
-        CFRunLoopAddTimer(CFRunLoopGetCurrent(), CFRunLoopTimerCreate(NULL, fireTime, 1.0, 0, 0, oneshot_init, &timerCtxt), kCFRunLoopCommonModes);
+        CFRunLoopTimerSetNextFireDate(s->timer, fireTime);
+        CFRunLoopAddTimer(CFRunLoopGetCurrent(), s->timer, kCFRunLoopCommonModes);
 }
 
 static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 {
-        UNUSED(timer);
+        CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopCommonModes);
         state_vidcap_syphon *s = (state_vidcap_syphon *) context;
-
-        // keepalive - we need to check client availability
-        schedule_next_event(s);
 
         if (s->show_help != 0) {
                 usage(s->show_help == 2);
@@ -235,6 +234,9 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
                 return;
         }
 
+        // keepalive - we need to check client availability
+        schedule_next_event(s);
+
         if (s->client && [s->client isValid] == NO) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
                 [s->client release];
@@ -244,6 +246,17 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
         // if we are already initialized, exit
         if (s->client)
                 return;
+
+        NSArray *descriptions;
+        if (s->appName || s->serverName) {
+                descriptions = [[SyphonServerDirectory sharedDirectory] serversMatchingName:s->serverName appName:s->appName];
+        } else {
+                descriptions = [[SyphonServerDirectory sharedDirectory] servers];
+        }
+        if ([descriptions count] == 0) {
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "No server(s) found!\n";
+                return;
+        }
 
         gl_context_make_current(&s->gl_context);
 
@@ -258,18 +271,6 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
                 assert(s->program_to_yuv422 != 0);
                 glUseProgram(s->program_to_yuv422);
                 glUniform1i(glGetUniformLocation(s->program_to_yuv422, "image"), 0);
-        }
-
-        NSArray *descriptions;
-        if (s->appName || s->serverName) {
-                descriptions = [[SyphonServerDirectory sharedDirectory] serversMatchingName:s->serverName appName:s->appName];
-        } else {
-                descriptions = [[SyphonServerDirectory sharedDirectory] servers];
-        }
-
-        if ([descriptions count] == 0) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "No server(s) found!\n";
-                return;
         }
 
         if (!s->override_fps) {
@@ -379,13 +380,20 @@ static void usage(bool full)
         cout << "\n";
 }
 
-static int vidcap_syphon_init(struct vidcap_params *params, void **state)
+static struct state_vidcap_syphon *vidcap_syphon_init_common()
 {
-        state_vidcap_syphon *s = new state_vidcap_syphon();
-        s->parent = vidcap_params_get_parent(params);
+        struct state_vidcap_syphon *s = new state_vidcap_syphon();
 
         init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY);
+        CFRunLoopTimerContext timerCtxt = { .info = s };
+        s->timer = CFRunLoopTimerCreate(NULL, 0, 1.0, 0, 0, oneshot_init, &timerCtxt);
         schedule_next_event(s);
+        return s;
+}
+
+static int vidcap_syphon_init(struct vidcap_params *params, void **state)
+{
+        state_vidcap_syphon *s = vidcap_syphon_init_common();
 
         char *opts = strdup(vidcap_params_get_fmt(params));
         char *item, *save_ptr;
@@ -423,7 +431,7 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
                 return ret;
         }
 
-        register_should_exit_callback(s->parent, should_exit_syphon, s);
+        register_should_exit_callback(vidcap_params_get_parent(params), should_exit_syphon, s);
         register_mainloop(syphon_mainloop, s);
 
         *state = s;
@@ -434,6 +442,10 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 static void vidcap_syphon_done(void *state)
 {
         state_vidcap_syphon *s = (state_vidcap_syphon *) state;
+
+        if (s->timer) {
+                CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), s->timer, kCFRunLoopCommonModes);
+        }
 
         if (s->tex_id != 0) {
                 glDeleteTextures(1, &s->tex_id);
@@ -487,10 +499,8 @@ static void vidcap_syphon_probe(struct device_info **available_devices, int *cou
 {
         *deleter = free;
 
-        state_vidcap_syphon *s = new state_vidcap_syphon();
+        state_vidcap_syphon *s = vidcap_syphon_init_common();
         s->probe_devices = true;
-        init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY);
-        schedule_next_event(s);
         syphon_mainloop(s);
         *count = s->probed_devices_count;
         *available_devices = s->probed_devices;
