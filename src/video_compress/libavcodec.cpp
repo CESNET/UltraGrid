@@ -1194,8 +1194,8 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         pkt->size = 0;
         out->callbacks.dispose_udata = pkt;
 #else
-        out->tiles[0].data = (char *) malloc(s->compressed_desc.width *
-                        s->compressed_desc.height * 4);
+        const size_t max_len = MAX((size_t) s->compressed_desc.width * s->compressed_desc.height * 4, 4096);
+        out->tiles[0].data = (char *) malloc(max_len);
 #endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
 
@@ -1244,7 +1244,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
         int ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
         while (ret == 0) {
-                assert(s->pkt->size + out->tiles[0].data_len <= s->compressed_desc.width * s->compressed_desc.height * 4 - out->tiles[0].data_len);
+                assert(s->pkt->size + out->tiles[0].data_len <= max_len - out->tiles[0].data_len);
                 memcpy((uint8_t *) out->tiles[0].data + out->tiles[0].data_len,
                                 s->pkt->data, s->pkt->size);
                 out->tiles[0].data_len += s->pkt->size;
