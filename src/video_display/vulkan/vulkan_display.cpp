@@ -453,7 +453,7 @@ void VulkanDisplay::reconfigure(const TransferImageImpl& transfer_image){
         auto image_description = transfer_image.get_image_description();
         auto& image_format_info = image_description.format_info();
 
-        if (image_description.format != current_image_description.format) {
+        if (image_description != current_image_description) {
                 vulkan_log_msg(LogLevel::info, "Recreating render_pipeline");
                 context.get_queue().waitIdle();
                 device.resetDescriptorPool(descriptor_pool);
