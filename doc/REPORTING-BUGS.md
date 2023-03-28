@@ -13,19 +13,22 @@ There are couple of ways to report a problem:
 
 Please try to follow these _rules_ when reporting a bug if possible:
 
-1. test the issue with latest version of UltraGrid (either release or
-   continuous channel)
+1. test the issue with [latest version](https://github.com/CESNET/UltraGrid/releases)
+   of UltraGrid (either release or continuous channel), preferably using our
+   official binary builds
 2. if relevant, attach information about your environment (SW/HW)
 3. report a _minimal working example_ of the problem -- this mainly means
-   removing excess parameters from UltraGrid command-line
+   removing irrelevant parameters from UltraGrid command-line. Explicit
+   parameters' specification like video mode or similar properties is however
+   encouraged.
 4. if the problem is specific to some device, try to use either _testcard_ to
    generate the signal that isn't displayed correctly or _GL_/_SDL_ display to
-   display the broken signal, eg.:
+   display the broken signal, possible reported use-cases:
 
        uv -t testcard:codec=RGB -d ndi # problems with NDI display
        uv -t decklink[:args] -d gl     # problems with DeckLink capture (omit `-d gl` if the problem is not visual but eg. a crash)
        uv -t testcard -c libavcodec:encoder=libx264 -d gl # problems with compression
-       uv -t decklink[:args] -d decklink[:args]  # WRONG: not sure what the signal actually is and if probiem is in capture or display
+       uv -t decklink[:args] -d decklink[:args]  # not optimal: not sure what the signal actually is and if probiem is in capture or display
 
 If you suspect that the issue may not be always replicable, you can use a
 script
