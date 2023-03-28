@@ -156,19 +156,6 @@ struct state_vidcap_syphon {
 
         int probed_devices_count; ///< used only if state_vidcap_syphon::probe_devices is true
         struct device_info *probed_devices; ///< used only if state_vidcap_syphon::probe_devices is true
-
-        ~state_vidcap_syphon() {
-                [appName release];
-                [serverName release];
-                [client release];
-                CFRelease(timer);
-
-                while (q.size() > 0) {
-                        video_frame *f = q.front();
-                        q.pop();
-                        vf_free(f);
-                }
-        }
 };
 
 static void probe_devices_callback(state_vidcap_syphon *s);
@@ -234,7 +221,9 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
                 return;
         }
 
-        // keepalive - we need to check client availability
+        // keepalive - we need to check if s->client is still valid, otherwise
+        // no more events arrive and we won't be able to reconfigure to
+        // eventual restarted sender
         schedule_next_event(s);
 
         if (s->client && [s->client isValid] == NO) {
@@ -259,19 +248,6 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
         }
 
         gl_context_make_current(&s->gl_context);
-
-        glEnable(GL_TEXTURE_2D);
-        glEnable(GL_TEXTURE_RECTANGLE_ARB);
-
-        glGenFramebuffersEXT(1, &s->fbo_id);
-        glGenTextures(1, &s->tex_id);
-
-        if (!s->use_rgb) {
-                s->program_to_yuv422 = glsl_compile_link(NULL, fp_display_rgba_to_yuv422_legacy);
-                assert(s->program_to_yuv422 != 0);
-                glUseProgram(s->program_to_yuv422);
-                glUniform1i(glGetUniformLocation(s->program_to_yuv422, "image"), 0);
-        }
 
         if (!s->override_fps) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "FPS set to " << FPS << ". Use override_fps to override if you know FPS of the server.\n";
@@ -380,26 +356,18 @@ static void usage(bool full)
         cout << "\n";
 }
 
-static struct state_vidcap_syphon *vidcap_syphon_init_common()
+static int vidcap_syphon_init_common(char *opts, struct state_vidcap_syphon **out)
 {
         struct state_vidcap_syphon *s = new state_vidcap_syphon();
-
         init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY);
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_TEXTURE_RECTANGLE_ARB);
         CFRunLoopTimerContext timerCtxt = { .info = s };
         s->timer = CFRunLoopTimerCreate(NULL, 0, 1.0, 0, 0, oneshot_init, &timerCtxt);
         schedule_next_event(s);
-        return s;
-}
 
-static int vidcap_syphon_init(struct vidcap_params *params, void **state)
-{
-        state_vidcap_syphon *s = vidcap_syphon_init_common();
-
-        char *opts = strdup(vidcap_params_get_fmt(params));
         char *item, *save_ptr;
-        int ret = VIDCAP_INIT_OK;
-
-        item = strtok_r(opts, ":", &save_ptr);
+        item = opts == NULL ? NULL : strtok_r(opts, ":", &save_ptr);
         while (item) {
                 if (strcmp(item, "help") == 0 || strcmp(item, "fullhelp") == 0) {
                         s->show_help = strcmp(item, "help") == 0 ? 1 : 2;
@@ -418,16 +386,34 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
                         s->use_rgb = true;
                 } else {
                         LOG(LOG_LEVEL_ERROR) << "Syphon: Unknown argument - " << item << "\n";
-                        ret = VIDCAP_INIT_FAIL;
-                        break;
+                        vidcap_syphon_done(s);
+                        return VIDCAP_INIT_FAIL;
                 }
                 item = strtok_r(NULL, ":", &save_ptr);
         }
 
+        glGenFramebuffersEXT(1, &s->fbo_id);
+        glGenTextures(1, &s->tex_id);
+
+        if (!s->use_rgb) {
+                s->program_to_yuv422 = glsl_compile_link(NULL, fp_display_rgba_to_yuv422_legacy);
+                assert(s->program_to_yuv422 != 0);
+                glUseProgram(s->program_to_yuv422);
+                glUniform1i(glGetUniformLocation(s->program_to_yuv422, "image"), 0);
+        }
+
+        *out = s;
+        return VIDCAP_INIT_OK;
+}
+
+static int vidcap_syphon_init(struct vidcap_params *params, void **state)
+{
+        char *opts = strdup(vidcap_params_get_fmt(params));
+        state_vidcap_syphon *s = NULL;
+        int ret = vidcap_syphon_init_common(opts, &s);
         free(opts);
 
         if (ret != VIDCAP_INIT_OK) {
-                delete s;
                 return ret;
         }
 
@@ -460,6 +446,17 @@ static void vidcap_syphon_done(void *state)
         }
 
         destroy_gl_context(&s->gl_context);
+
+        [s->appName release];
+        [s->serverName release];
+        [s->client release];
+        CFRelease(s->timer);
+
+        while (s->q.size() > 0) {
+                video_frame *f = s->q.front();
+                s->q.pop();
+                vf_free(f);
+        }
 
         delete s;
 }
@@ -498,8 +495,13 @@ static void probe_devices_callback(state_vidcap_syphon *s)
 static void vidcap_syphon_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
         *deleter = free;
+        *count = 0;
+        *available_devices = NULL;
 
-        state_vidcap_syphon *s = vidcap_syphon_init_common();
+        state_vidcap_syphon *s = NULL;
+        if (vidcap_syphon_init_common(NULL, &s) != VIDCAP_INIT_OK) {
+                return;
+        }
         s->probe_devices = true;
         syphon_mainloop(s);
         *count = s->probed_devices_count;
