@@ -49,7 +49,6 @@
 #include <sys/sysctl.h>
 #include <string.h>
 #include <stdlib.h>
-#include <GLUT/glut.h>
 
 #ifndef __MAC_10_11
 #warning "You are compling on pre-10.7 Mac OS X version. Core OpenGL 3.2 profile won't work"
@@ -59,8 +58,6 @@
 #define MAC_GL_MAGIC 0xa23f4f28u
 
 struct state_mac_gl;
-
-static void macGlutInit(int *argcp, char **argv);
 
 int get_mac_kernel_version_major()
 {
@@ -132,7 +129,6 @@ void *mac_gl_init(mac_opengl_version_t ogl_version)
         s = (struct state_mac_gl *) malloc(sizeof(struct state_mac_gl));
         s->magic = MAC_GL_MAGIC;
 
-        macGlutInit(&uv_argc, uv_argv);
         NSApplicationLoad();
 
         NSApp = [NSApplication sharedApplication];
@@ -202,11 +198,4 @@ void mac_gl_make_current(void * state)
         [window setContentSize:NSMakeSize(100, 100)];
 }
 @end
-
-static void macGlutInit(int *argcp, char **argv)
-{
-        if (NSApp == nil) {
-                glutInit(argcp, argv);
-        }
-}
 

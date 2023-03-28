@@ -516,7 +516,7 @@ fi
 if test "$system" = MacOSX
 then
         OPENGL=yes
-        OPENGL_LIB="-framework Cocoa -framework GLUT -framework OpenGL"
+        OPENGL_LIB="-framework Cocoa -framework OpenGL"
         COMMON_FLAGS="$COMMON_FLAGS -DGL_SILENCE_DEPRECATION"
         GL_COMMON_OBJ="$GL_COMMON_OBJ src/mac_gl_common.o"
 fi
