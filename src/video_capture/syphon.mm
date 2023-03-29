@@ -34,6 +34,15 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/**
+ * @file
+ * Syphon module needs GUI main event loop to be run. However, in macOS, only
+ * one event loop can be run (in main thread). If SW display is run at the same
+ * time, it uses that, so is needed to handle 2 modes of operandi:
+ *
+ * 1. SW display is run - in this case we run its event loop
+ * 2. no other main event loop is run, in which case UG runs ours registered
+ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -152,7 +161,8 @@ struct state_vidcap_syphon {
 
         int show_help;     ///< only show help and exit - 1 - standard; 2 - full
         bool probe_devices; ///< devices probed
-        bool mainloop_started = false; ///< mainloop is started
+        bool mainloop_started = false; ///< our mainloop is started (if display is GL/SDL, it won't be started)
+        bool should_exit_triggered = false; ///< should_exit callback called just before starting mainloop
 
         int probed_devices_count; ///< used only if state_vidcap_syphon::probe_devices is true
         struct device_info *probed_devices; ///< used only if state_vidcap_syphon::probe_devices is true
@@ -324,6 +334,8 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 
 static void should_exit_syphon(void *state) {
         struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
+        unique_lock<mutex> lk(s->lock);
+        s->should_exit_triggered = true;
         if (s->mainloop_started) {
                 stop_application();
         }
@@ -332,8 +344,12 @@ static void should_exit_syphon(void *state) {
 static void syphon_mainloop(void *state)
 {
         struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
-        s->mainloop_started = true;
-        [[NSApplication sharedApplication] run];
+        unique_lock<mutex> lk(s->lock);
+        if (!s->should_exit_triggered) {
+                s->mainloop_started = true;
+                lk.unlock();
+                [[NSApplication sharedApplication] run];
+        }
 }
 
 /**
