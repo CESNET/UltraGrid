@@ -303,14 +303,18 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, long long playout_de
         return tmp;
 }
 
+enum {
+        NUMBER_WORD_BYTES = sizeof(unsigned long long),
+        NUMBER_WORD_BITS = NUMBER_WORD_BYTES * CHAR_BIT
+};
+
 static void compute_longest_gap(int *longest_gap, unsigned long long int packets)
 {
-#       define NUMBER_OF_BITS (sizeof packets * CHAR_BIT)
-        if (*longest_gap == NUMBER_OF_BITS) {
+        if (*longest_gap == NUMBER_WORD_BITS) {
                 return;
         }
         if (packets == 0) {
-                *longest_gap = NUMBER_OF_BITS;
+                *longest_gap = NUMBER_WORDS_BITS;
                 return;
         }
         if (packets == ULLONG_MAX) {
@@ -328,8 +332,6 @@ static void compute_longest_gap(int *longest_gap, unsigned long long int packets
 static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt)
 {
         // collect statistics
-#       define NUMBER_WORD_BYTES sizeof(unsigned long long)
-#       define NUMBER_WORD_BITS (NUMBER_WORD_BYTES * CHAR_BIT)
         if (playout_buf->last_report_seq == -1) { // init
                 playout_buf->last_seq = pkt->seq - 1;
                 playout_buf->last_report_seq = pkt->seq / playout_buf->stats_interval * playout_buf->stats_interval;
