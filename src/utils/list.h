@@ -46,6 +46,7 @@ struct simple_linked_list;
 struct simple_linked_list *simple_linked_list_init(void);
 void simple_linked_list_destroy(struct simple_linked_list *);
 void simple_linked_list_append(struct simple_linked_list *, void *data);
+bool simple_linked_list_append_if_less(struct simple_linked_list *, void *data, int max_size);
 void *simple_linked_list_pop(struct simple_linked_list *);
 int simple_linked_list_size(struct simple_linked_list *);
 void *simple_linked_list_first(struct simple_linked_list *); ///< returns first element of list, UB if empty

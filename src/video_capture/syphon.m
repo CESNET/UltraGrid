@@ -50,32 +50,21 @@
 #include "config_win32.h"
 #endif
 
-#include <condition_variable>
-#include <chrono>
-#include <iostream>
-#include <mutex>
 #include <OpenGL/gl.h>
 #include <OpenGL/OpenGL.h> // CGL
 #include <OpenGL/glext.h>
-#include <queue>
-#include <string>
 #include <Syphon/Syphon.h>
 
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
 #include "lib_common.h"
+#include "tv.h"
 #include "utils/color_out.h"
+#include "utils/list.h"
 #include "utils/misc.h"
 #include "video.h"
 #include "video_capture.h"
-
-using std::condition_variable;
-using std::cout;
-using std::mutex;
-using std::queue;
-using std::string;
-using std::unique_lock;
 
 #define FPS 60.0
 #define MOD_NAME "[Syphon capture] "
@@ -141,12 +130,12 @@ struct state_vidcap_syphon {
 
         CFRunLoopTimerRef timer;
 
-        struct gl_context gl_context{};
+        struct gl_context gl_context;
         SyphonClient *client;
-        mutex lock;
-        condition_variable frame_ready_cv;
-        queue<video_frame *> q;
-        size_t max_queue_size = DEFAULT_MAX_QUEUE_SIZE;
+        pthread_mutex_t lock;
+        pthread_cond_t frame_ready_cv;
+        struct simple_linked_list *q;
+        size_t max_queue_size;
 
         GLuint fbo_id;
         GLuint tex_id;
@@ -161,17 +150,17 @@ struct state_vidcap_syphon {
 
         int show_help;     ///< only show help and exit - 1 - standard; 2 - full
         bool probe_devices; ///< devices probed
-        bool mainloop_started = false; ///< our mainloop is started (if display is GL/SDL, it won't be started)
-        bool should_exit_triggered = false; ///< should_exit callback called just before starting mainloop
+        bool mainloop_started; ///< our mainloop is started (if display is GL/SDL, it won't be started)
+        bool should_exit_triggered; ///< should_exit callback called just before starting mainloop
 
         int probed_devices_count; ///< used only if state_vidcap_syphon::probe_devices is true
         struct device_info *probed_devices; ///< used only if state_vidcap_syphon::probe_devices is true
 };
 
-static void probe_devices_callback(state_vidcap_syphon *s);
+static void probe_devices_callback(struct state_vidcap_syphon *s);
 static void vidcap_syphon_done(void *state);
 
-static void reconfigure(state_vidcap_syphon *s, struct video_desc desc) {
+static void reconfigure(struct state_vidcap_syphon *s, struct video_desc desc) {
         glBindTexture(GL_TEXTURE_2D, s->tex_id);
         if (s->use_rgb) {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, desc.width, desc.height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -200,10 +189,13 @@ static void reconfigure(state_vidcap_syphon *s, struct video_desc desc) {
 
 }
 
-static string get_syphon_description(SyphonClient *client) {
+static const char *get_syphon_description(SyphonClient *client) {
+        static char ret[1024];
         NSDictionary *dict = [client serverDescription];
-        return string("app: ") + [[dict objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] + " name: " +
-                        [[dict objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String];
+        snprintf(ret, sizeof ret, "app: %s name: %s",
+                [[dict objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String],
+                [[dict objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String]);
+        return ret;
 }
 
 static void stop_application(void) {
@@ -222,7 +214,7 @@ static void stop_application(void) {
 
 static void oneshot_init(CFRunLoopTimerRef timer, void *context);
 
-static void schedule_next_event(state_vidcap_syphon *s) {
+static void schedule_next_event(struct state_vidcap_syphon *s) {
         CFAbsoluteTime fireTime = CFAbsoluteTimeGetCurrent() + 0.1; // 100 ms
         CFRunLoopTimerSetNextFireDate(s->timer, fireTime);
         CFRunLoopAddTimer(CFRunLoopGetCurrent(), s->timer, kCFRunLoopCommonModes);
@@ -231,7 +223,7 @@ static void schedule_next_event(state_vidcap_syphon *s) {
 static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 {
         CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopCommonModes);
-        state_vidcap_syphon *s = (state_vidcap_syphon *) context;
+        struct state_vidcap_syphon *s = context;
 
         if (s->show_help != 0) {
                 usage(s->show_help == 2);
@@ -251,7 +243,7 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
         schedule_next_event(s);
 
         if (s->client && [s->client isValid] == NO) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Server " << get_syphon_description(s->client) << " is no longer valid, releasing.\n";
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Server %s is no longer valid, releasing.\n", get_syphon_description(s->client));
                 [s->client release];
                 s->client = nil;
         }
@@ -267,14 +259,14 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
                 descriptions = [[SyphonServerDirectory sharedDirectory] servers];
         }
         if ([descriptions count] == 0) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "No server(s) found!\n";
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "No server(s) found!\n");
                 return;
         }
 
         gl_context_make_current(&s->gl_context);
 
         if (!s->override_fps) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "FPS set to " << FPS << ". Use override_fps to override if you know FPS of the server.\n";
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "FPS set to %f. Use override_fps to override if you know FPS of the server.\n", FPS);
         }
 
         s->client = [[SyphonClient alloc] initWithServerDescription:[descriptions lastObject] context:CGLGetCurrentContext() options:nil newFrameHandler:^(SyphonClient *client) {
@@ -287,7 +279,7 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 
                 gl_context_make_current(&s->gl_context);
 
-                struct video_desc d{width, height, s->use_rgb ? RGB : UYVY, s->override_fps ? s->override_fps : FPS, PROGRESSIVE, 1};
+                struct video_desc d = {width, height, s->use_rgb ? RGB : UYVY, s->override_fps ? s->override_fps : FPS, PROGRESSIVE, 1};
                 if (!video_desc_eq(s->saved_desc, d)) {
                         reconfigure(s, d);
                         s->saved_desc = d;
@@ -308,47 +300,49 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
 
                 [img release];
 
-                unique_lock<mutex> lk(s->lock);
+                pthread_mutex_lock(&s->lock);
                 bool pushed = false;
-                if (s->q.size() < s->max_queue_size) {
-                        s->q.push(f);
+                if (simple_linked_list_append_if_less(s->q, f, s->max_queue_size)) {
                         pushed = true;
                 } else {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Skipping frame.\n";
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Skipping frame.\n");
                         vf_free(f);
                 }
-                lk.unlock();
+                pthread_mutex_unlock(&s->lock);
 
                 if (pushed) {
-                        s->frame_ready_cv.notify_one();
+                        pthread_cond_signal(&s->frame_ready_cv);
                         debug_msg(MOD_NAME "Frame acquired.\n");
                 }
         }];
 
         if (!s->client) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Client could have not been created!\n";
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Client could have not been created!\n");
         } else {
-                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Using server - " << get_syphon_description(s->client) << "\n";
+                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using server - %s\n", get_syphon_description(s->client));
         }
 }
 
 static void should_exit_syphon(void *state) {
         struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
-        unique_lock<mutex> lk(s->lock);
+        pthread_mutex_lock(&s->lock);
         s->should_exit_triggered = true;
         if (s->mainloop_started) {
                 stop_application();
         }
+        pthread_mutex_unlock(&s->lock);
 }
 
 static void syphon_mainloop(void *state)
 {
         struct state_vidcap_syphon *s = (struct state_vidcap_syphon *) state;
-        unique_lock<mutex> lk(s->lock);
+        pthread_mutex_lock(&s->lock);
         if (!s->should_exit_triggered) {
                 s->mainloop_started = true;
-                lk.unlock();
+                pthread_mutex_unlock(&s->lock);
                 [[NSApplication sharedApplication] run];
+        } else {
+                pthread_mutex_unlock(&s->lock);
         }
 }
 
@@ -372,23 +366,27 @@ static void usage(bool full)
                 { NULL, NULL }
         };
         print_module_usage("-t syphon", options, options_full, full);
-        cout << "\n";
+        printf("\n");
 
-        cout << "Available servers:\n";
+        printf("Available servers:\n");
         NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
         for (id item in descriptions) {
-                col() << SBOLD("\tapp: ") << [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String] << SBOLD(" name: ") << [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String] << "\n";
+                color_printf(TBOLD("\tapp:") " %s " TBOLD("name:") " %s\n", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String], [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String]);
                 //...do something useful with myArrayElement
         }
         if ([descriptions count] == 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "\tNo Syphon servers found.\n");
         }
-        cout << "\n";
+        color_printf("\n");
 }
 
 static int vidcap_syphon_init_common(char *opts, struct state_vidcap_syphon **out)
 {
-        struct state_vidcap_syphon *s = new state_vidcap_syphon();
+        struct state_vidcap_syphon *s = calloc(1, sizeof *s);
+        s->max_queue_size = DEFAULT_MAX_QUEUE_SIZE;
+        s->q = simple_linked_list_init();
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->frame_ready_cv, NULL);
         init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY);
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_TEXTURE_RECTANGLE_ARB);
@@ -415,7 +413,7 @@ static int vidcap_syphon_init_common(char *opts, struct state_vidcap_syphon **ou
                 } else if (strcasecmp(item, "RGB") == 0) {
                         s->use_rgb = true;
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << "Syphon: Unknown argument - " << item << "\n";
+                        log_msg(LOG_LEVEL_ERROR, "Syphon: Unknown argument - %s\n", item);
                         vidcap_syphon_done(s);
                         return VIDCAP_INIT_FAIL;
                 }
@@ -439,7 +437,7 @@ static int vidcap_syphon_init_common(char *opts, struct state_vidcap_syphon **ou
 static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 {
         char *opts = strdup(vidcap_params_get_fmt(params));
-        state_vidcap_syphon *s = NULL;
+        struct state_vidcap_syphon *s = NULL;
         int ret = vidcap_syphon_init_common(opts, &s);
         free(opts);
 
@@ -457,7 +455,7 @@ static int vidcap_syphon_init(struct vidcap_params *params, void **state)
 
 static void vidcap_syphon_done(void *state)
 {
-        state_vidcap_syphon *s = (state_vidcap_syphon *) state;
+        struct state_vidcap_syphon *s = state;
 
         if (s->timer) {
                 CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), s->timer, kCFRunLoopCommonModes);
@@ -482,25 +480,33 @@ static void vidcap_syphon_done(void *state)
         [s->client release];
         CFRelease(s->timer);
 
-        while (s->q.size() > 0) {
-                video_frame *f = s->q.front();
-                s->q.pop();
+        struct video_frame *f = NULL;
+        while ((f = simple_linked_list_pop(s->q)) != NULL) {
                 vf_free(f);
         }
+        simple_linked_list_destroy(s->q);
 
-        delete s;
+        pthread_mutex_destroy(&s->lock);
+        pthread_cond_destroy(&s->frame_ready_cv);
+        free(s);
 }
 
 static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **audio)
 {
-        state_vidcap_syphon *s = (state_vidcap_syphon *) state;
-        struct video_frame *ret = NULL;
+        struct state_vidcap_syphon *s = state;
 
-        unique_lock<mutex> lk(s->lock);
-        s->frame_ready_cv.wait_for(lk, std::chrono::milliseconds(100), [s]{return s->q.size() > 0;});
-        if (s->q.size() > 0) {
-                ret = s->q.front();
-                s->q.pop();
+        struct timespec ts;
+        timespec_get(&ts, TIME_UTC);
+        ts_add_nsec(&ts, 100 * NS_IN_MS);
+        pthread_mutex_lock(&s->lock);
+        while (simple_linked_list_size(s->q) == 0) {
+                if (pthread_cond_timedwait(&s->frame_ready_cv, &s->lock, &ts) != 0) {
+                        break;
+                }
+        }
+        struct video_frame *ret = simple_linked_list_pop(s->q);
+        pthread_mutex_unlock(&s->lock);
+        if (ret != NULL) {
                 ret->callbacks.dispose = vf_free;
         }
 
@@ -508,7 +514,7 @@ static struct video_frame *vidcap_syphon_grab(void *state, struct audio_frame **
         return ret;
 }
 
-static void probe_devices_callback(state_vidcap_syphon *s)
+static void probe_devices_callback(struct state_vidcap_syphon *s)
 {
         NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
         for (id item in descriptions) {
@@ -528,7 +534,7 @@ static void vidcap_syphon_probe(struct device_info **available_devices, int *cou
         *count = 0;
         *available_devices = NULL;
 
-        state_vidcap_syphon *s = NULL;
+        struct state_vidcap_syphon *s = NULL;
         if (vidcap_syphon_init_common(NULL, &s) != VIDCAP_INIT_OK) {
                 return;
         }

@@ -71,6 +71,15 @@ void simple_linked_list_append(struct simple_linked_list *l, void *data)
         l->l.push_back(data);
 }
 
+bool simple_linked_list_append_if_less(struct simple_linked_list *l, void *data, int max_size)
+{
+        if (l->l.size() >= (unsigned) max_size) {
+                return false;
+        }
+        l->l.push_back(data);
+        return true;
+}
+
 void *simple_linked_list_pop(struct simple_linked_list *l)
 {
         if (simple_linked_list_size(l) == 0) {
