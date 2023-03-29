@@ -308,25 +308,27 @@ enum {
         NUMBER_WORD_BITS = NUMBER_WORD_BYTES * CHAR_BIT
 };
 
-static void compute_longest_gap(int *longest_gap, unsigned long long int packets)
+static int get_consecutive_zeros(unsigned long long int packets) __attribute__((const));
+static int get_consecutive_zeros(unsigned long long int packets)
 {
-        if (*longest_gap == NUMBER_WORD_BITS) {
-                return;
-        }
         if (packets == 0) {
-                *longest_gap = NUMBER_WORDS_BITS;
-                return;
+                return NUMBER_WORD_BITS;
         }
         if (packets == ULLONG_MAX) {
-                return;
+                return 0;
         }
 
-        *longest_gap = MAX(*longest_gap, __builtin_clzll(packets));
-
+        int longest_gap = __builtin_clzll(packets);
         while (packets != 0) {
-                *longest_gap = MAX(*longest_gap, __builtin_ctzll(packets));
+                longest_gap = MAX(longest_gap, __builtin_ctzll(packets));
                 packets >>= 1;
         }
+        return longest_gap;
+}
+
+static void compute_longest_gap(int *longest_gap, unsigned long long int packets)
+{
+        *longest_gap = MAX(*longest_gap, get_consecutive_zeros(packets));
 }
 
 static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt)
