@@ -5,7 +5,7 @@ on:
     branches:
       - arm-build
   schedule:
-    - cron:  '0 4 * 2 *' # 20th at 4:00 UTC
+    - cron:  '0 4 * * 2' # Tuesday at 4:00 UTC
   workflow_dispatch:
 
 jobs:
