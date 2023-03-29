@@ -14,7 +14,7 @@
  *
  * Copyright (c) 2003-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -326,9 +326,17 @@ static int get_consecutive_zeros(unsigned long long int packets)
         return longest_gap;
 }
 
-static void compute_longest_gap(int *longest_gap, unsigned long long int packets)
+static void compute_longest_gap(int *longest_gap, int *accumulated_loss, unsigned long long int packets)
 {
         *longest_gap = MAX(*longest_gap, get_consecutive_zeros(packets));
+        // trailing_zeros counts pkts missing on the beginning of pkt group, leading the opposite
+        int leading_zeros = packets == 0 ? NUMBER_WORD_BITS : __builtin_clzll(packets);
+        int trailing_zeros = packets == 0 ? NUMBER_WORD_BITS : __builtin_ctzll(packets);
+        *accumulated_loss += trailing_zeros;
+        *longest_gap = MAX(*longest_gap, *accumulated_loss);
+        if (leading_zeros < NUMBER_WORD_BITS) { // at least one packet present, reset the counter
+                *accumulated_loss = leading_zeros;
+        }
 }
 
 static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt)
@@ -357,11 +365,12 @@ static inline void pbuf_process_stats(struct pbuf *playout_buf, rtp_packet * pkt
         uint16_t dist = (uint16_t) (pkt->seq - playout_buf->last_report_seq);
         if (dist >= playout_buf->stats_interval * 2 && dist < 1U<<15U) {
                 uint16_t report_seq_until = (uint16_t) ((pkt->seq / playout_buf->stats_interval * playout_buf->stats_interval) - playout_buf->stats_interval); // sum up only up to current-playout_buf->stats_interval to be able to catch out-of-order packets
+                int accumulated_loss = 0;
                 for (uint16_t i = playout_buf->last_report_seq;
                                 i != report_seq_until; i += NUMBER_WORD_BITS) {
                         playout_buf->expected_pkts += NUMBER_WORD_BITS;
                         playout_buf->received_pkts += __builtin_popcountll(playout_buf->packets[i / NUMBER_WORD_BITS]);
-                        compute_longest_gap(&playout_buf->longest_gap, playout_buf->packets[i / NUMBER_WORD_BITS]);
+                        compute_longest_gap(&playout_buf->longest_gap, &accumulated_loss,  playout_buf->packets[i / NUMBER_WORD_BITS]);
                         playout_buf->packets[i / NUMBER_WORD_BITS] = 0;
                 }
 
