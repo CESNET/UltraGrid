@@ -333,12 +333,12 @@ POSTPROCESS_DEPS = \
 %.o: %.cu
 	$(MKDIR_P) $(dir $@)
 	$(CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -c $< -o $@
-	$(CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
+	@$(REAL_CUDA_COMPILER) $(CUDA_FLAGS) $(CUDA_INC) -M $< > $*.d
 	$(POSTPROCESS_DEPS)
 %.lib: %.cu
 	$(MKDIR_P) $(dir $@)
 	$(CUDA_COMPILER) $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(CUDA_INC) --shared $< -o $*.dll
-	$(CUDA_COMPILER) $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(CUDA_INC) -M --shared $< > $*.d
+	@$(REAL_CUDA_COMPILER) $(CUDA_FLAGS) -DEXPORT_DLL_SYMBOLS $(CUDA_INC) -M --shared $< > $*.d
 	touch $@
 	$(POSTPROCESS_DEPS)
 
