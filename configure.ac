@@ -349,6 +349,16 @@ remove_mwindows() {
         echo "$1" | sed 's/-mwindows//' | compact_spaces_pipe
 }
 
+## ensures that user explicitly requested feature is present, otherwise fail
+## @param $1  feature requeseted
+## @param $2  feature feature found
+## @param $3  error message
+ensure_feature_present() {
+        if test "$1" = yes && test "$2" = no; then
+                AC_MSG_ERROR([$3]);
+        fi
+}
+
 # -------------------------------------------------------------------------------------------------
 # GCC-specific warning flags
 if test "$GCC" = yes
@@ -2194,6 +2204,8 @@ if test "x$FOUND_CUDA" = "xyes" ; then
 else
 	HOST_CC_REPORT=""
 fi
+
+ensure_feature_present "$cuda_req" "$FOUND_CUDA" "CUDA not found"
 
 AC_SUBST(CUDA_INC)
 AC_SUBST(CUDA_COMPILER)
