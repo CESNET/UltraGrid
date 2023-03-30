@@ -52,8 +52,6 @@
 
 #include "host.h"
 
-#ifdef HAVE_ALSA
-
 #include "alsa_common.h"
 #include "audio/audio_capture.h"
 #include "audio/types.h"
@@ -407,4 +405,3 @@ static const struct audio_capture_info acap_alsa_info = {
 
 REGISTER_MODULE(alsa, &acap_alsa_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
 
-#endif /* HAVE_ALSA */

@@ -54,8 +54,6 @@
 #include "config_win32.h"
 #include "host.h"
 
-#ifdef HAVE_DVS           /* From config.h */
-
 #include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
@@ -989,5 +987,3 @@ static const struct video_display_info display_dvs_info = {
 };
 
 REGISTER_MODULE(dvs, &display_dvs_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-
-#endif                          /* HAVE_DVS */

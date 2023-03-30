@@ -46,8 +46,6 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#ifdef HAVE_COREAUDIO
-
 #include <AudioUnit/AudioUnit.h>
 #include <Availability.h>
 #include <chrono>
@@ -490,6 +488,4 @@ static const struct audio_playback_info aplay_coreaudio_info = {
 };
 
 REGISTER_MODULE(coreaudio, &aplay_coreaudio_info, LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION);
-
-#endif /* HAVE_COREAUDIO */
 

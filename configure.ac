@@ -550,9 +550,6 @@ case "$host_os" in
 	;;
 esac
 
-# This should be conditional on finding libdv
-AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
-
 # -------------------------------------------------------------------------------------------------
 # Try to find the SDK for the DVS cards
 dvs=no
@@ -615,7 +612,6 @@ if test "$dvs_req" != no; then
                 fi
                 DVS_CAP_OBJ="src/video_capture/dvs.o"
                 DVS_DISP_OBJ="src/video_display/dvs.o"
-                AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
                 DVS_LIB="$DVS_LIB"
                 if test $system = MacOSX
                 then
@@ -707,7 +703,6 @@ if test $decklink_req != no; then
                 else
                         OBJS="$OBJS src/video_capture/DeckLinkAPIDispatch.o"
                 fi
-                AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
                 ADD_MODULE("vidcap_decklink", "$DECKLINK_CAP_OBJ", "$DECKLINK_LIB")
                 ADD_MODULE("display_decklink", "$DECKLINK_DISP_OBJ", "$DECKLINK_LIB")
                 ADD_MODULE("aplay_decklink", "$DECKLINK_SOUND_PLAY_OBJ", "$DECKLINK_LIB")
@@ -776,7 +771,6 @@ if test "$bluefish444_req" != no; then
         if test $BLUE_H = yes -a $BLUE_L = yes
         then
                 BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUEFISH444_LIB_NAME"
-                AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
                 ADD_MODULE("vidcap_bluefish444", "src/video_capture/bluefish444.o", "$BLUEFISH444_LIB")
                 ADD_MODULE("display_bluefish444", "src/video_display/bluefish444.o", "$BLUEFISH444_LIB")
                 INC="$INC $BLUEFISH444_INC"
@@ -863,7 +857,6 @@ if test "$aja_req" != no; then
                         AJA_CXXFLAGS="-DAJAMac -DAJA_MAC"
                         AJA_LIB="-lajantv2 -framework IOKit"
                 fi
-                AC_DEFINE([HAVE_AJA], [1], [Build with AJA support])
 
                 ADD_MODULE("aja", "src/aja_common.o src/video_capture/aja.o src/video_display/aja.o", "$AJA_LIB")
                 INC="$INC $AJA_INC"
@@ -998,7 +991,6 @@ if test "$deltacast_req" != no; then
                 if test -n "$DELTACAST_PATH"; then
                         INC="$INC -I$DELTACAST_PATH/Include"
                 fi
-                AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
                 ADD_MODULE("vidcap_deltacast", "src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o", "$DELTACAST_LIB")
                 ADD_MODULE("display_deltacast", "src/video_display/deltacast.o", "$DELTACAST_LIB")
                 deltacast=yes
@@ -1109,7 +1101,6 @@ AC_ARG_ENABLE(avfoundation,
 if test $system = MacOSX -a $avfoundation_req != no
 then
 	AVFOUNDATION_LIB="-framework AppKit -framework AVFoundation -framework CoreMedia -framework CoreVideo"
-	AC_DEFINE([HAVE_AVFOUNDATION], [1],  [Build with AV Foundation support])
 	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
 	ADD_MODULE("", "$AVFOUNDATION_OBJ", "$AVFOUNDATION_LIB")
 	avfoundation=yes
@@ -1182,7 +1173,6 @@ if test "$vulkan_req" != no; then
 
         if test $sdl = yes && test $sdl_version = 2 && test $found_vulkan = yes; then
                 VULKAN_OBJ="src/video_display/vulkan/vulkan_sdl2.o src/video_display/vulkan/vulkan_display.o src/video_display/vulkan/vulkan_context.o src/video_display/vulkan/vulkan_transfer_image.o src/video_display/vulkan/vulkan_pipelines.o"
-                AC_DEFINE([HAVE_VULKAN], [1],  [Build with vulkan support])
                 VULKAN_LIBS="$VULKAN_LIBS $SDL_LIBS"
                 ADD_MODULE("display_vulkan_sdl2", "$VULKAN_OBJ", "$VULKAN_LIBS")
                 VULKAN=vulkanEnabled
@@ -1239,7 +1229,6 @@ fi
 if test $panogl_disp_req != no && test $sdl = yes && test $sdl_version = 2 && test $glm = yes
 then
         PANOGL_OBJ="src/video_display/pano_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
-        AC_DEFINE([HAVE_PANOGL_DISP], [1],  [Build with 360 panorama disp support])
         PANOGL_LIBS=$SDL_LIBS
         ADD_MODULE("display_panogl", "$PANOGL_OBJ", "$PANOGL_LIBS")
         INC="$INC $GLM_INC"
@@ -1262,7 +1251,6 @@ if test $xrgl_disp_req != no && test "$sdl_version" = 2 && test "$glm" != no; th
         PKG_CHECK_MODULES([XRGLDISP], [openxr], [FOUND_XRGL_DEPS=yes], [FOUND_XRGL_DEPS=no])
         if test "$FOUND_XRGL_DEPS" = yes; then
                 XRGLDISP_OBJ="src/video_display/openxr_gl.o src/video_display/opengl_utils.o src/video_display/sdl_window.o"
-                AC_DEFINE([HAVE_XRGL_DISP], [1],  [Build with OpenXR VR disp support])
                 XRGLDISP_LIBS="$XRGLDISP_LIBS $SDL_LIBS"
                 ADD_MODULE("display_xrgl", "$XRGLDISP_OBJ", "$XRGLDISP_LIBS")
                 INC="$INC $GLM_INC"
@@ -1389,7 +1377,6 @@ AC_ARG_ENABLE(rtsp,
 if test "$rtsp_req" != no; then
         PKG_CHECK_MODULES([RTSP], [rtsp_deps], FOUND_RTSP_DEPS=yes, FOUND_RTSP_DEPS=no)
         if test $FOUND_RTSP_DEPS = yes; then
-                AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl])
                 SAVED_CFLAGS=$CFLAGS
                 CFLAGS="$CFLAGS ${RTSP_CFLAGS}"
                 SAVED_CXXFLAGS=$CXXFLAGS
@@ -1585,7 +1572,6 @@ then
                 TESTCARD2_LIB="$TESTCARD2_LIB $SDL_TTF_LIBS"
                 AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
         fi
-        AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
         ADD_MODULE("vidcap_testcard2", "$TESTCARD2_OBJ", "$TESTCARD2_LIB")
         testcard2=yes
 fi
@@ -1817,7 +1803,6 @@ if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; the
                 fi
         fi
         if test $found_libavformat = yes; then
-                AC_DEFINE([HAVE_FILE], [1], [Build with file input support])
                 COMMON_FLAGS="$COMMON_FLAGS $LIBAVFORMAT_CFLAGS"
                 file=yes
                 ADD_MODULE("vidcap_file", "src/libavcodec/lavc_common.o src/video_capture/file.o", "$LIBAVCODEC_LIBS $LIBAVFORMAT_LIBS $LIBSWSCALE_LIBS")
@@ -1878,7 +1863,6 @@ then
         SWMIX_LIB="$OPENGL_LIB"
         SWMIX_OBJ="$SWMIX_OBJ $GL_COMMON_OBJ src/video_capture/swmix.o"
         ADD_MODULE("vidcap_swmix", "$SWMIX_OBJ", "$SWMIX_LIB")
-        AC_DEFINE([HAVE_SWMIX], [1], [Build SW mix capture])
 fi
 
 if test $swmix_req = yes && test $swmix = no; then
@@ -1896,7 +1880,6 @@ AC_ARG_ENABLE(dshow,
     )
 
 if test $system = Windows -a $dshow_req != no; then
-        AC_DEFINE([HAVE_DSHOW], [1], [Build with DirectShow support])
         ADD_MODULE("", "src/video_capture/DirectShowGrabber.o",
                    "-lstrmiids -luuid -lole32 -loleaut32") #-lstrmbase -ldxguid -ldmoguids
         dshow=yes
@@ -1985,7 +1968,6 @@ fi
 
 if test $screen_cap_req != no && test $screen_cap = yes
 then
-        AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
         if test $system = MacOSX; then
                 SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
         elif test $system = Linux; then
@@ -2024,14 +2006,13 @@ AC_ARG_ENABLE(rtdxt,
 AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer objects])
 # We probably want this only if there is need to maximalize bandwidth
 # With NVidia cards, it increases latency up about 1.5x frame time
-#AC_DEFINE([USE_PBO_DXT_ECODER], [1], [We want to use OpenGL pixel buffer objects])
+#AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer objects])
 
 # Linux
 if test $rtdxt_req != no -a $OPENGL = yes
 then
         rtdxt=yes
         RTDXT_LIB="$OPENGL_LIB"
-        AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
         RTDXT_COMMON_OBJ="$RTDXT_COMMON_OBJ $GL_COMMON_OBJ dxt_compress/dxt_util.o"
         RTDXT_COMMON_HEADERS="$RTDXT_COMMON_HEADERS dxt_compress/dxt_glsl.h"
         RTDXT_COMPRESS_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
@@ -2071,7 +2052,6 @@ fi
 # common
 if test $uyvy = yes
 then
-        AC_DEFINE([HAVE_COMPRESS_UYVY], [1], [Build with dummy UYVY compression])
         UYVY_COMPRESS_OBJ="$GL_COMMON_OBJ src/video_compress/uyvy.o"
         ADD_MODULE("vcompress_uyvy", "$UYVY_COMPRESS_OBJ", "$OPENGL_LIB")
 fi
@@ -2317,7 +2297,6 @@ then
         DEFINE_CUDA_DXT
         CUDA_DXT_LIB="$CUDA_COMMON_LIB $CUDA_DXT_COMMON_LIB $CUDA_LIB"
         CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o $CUDA_DXT_COMMON_OBJ $CUDA_COMMON_OBJ"
-        AC_DEFINE([HAVE_CUDA_DXT], [1], [Build with CUDA DXT support])
         ADD_MODULE("vcompress_cuda_dxt", $CUDA_DXT_OBJ, "$CUDA_DXT_LIB")
         CUDA_MESSAGE
 fi
@@ -2346,7 +2325,6 @@ then
         GPUJPEG_TO_DXT_LIB="$CUDA_DXT_COMMON_LIB $CUDA_COMMON_LIB $CUDA_LIB $GPUJPEG_LIB"
         GPUJPEG_TO_DXT_OBJ="src/video_decompress/gpujpeg_to_dxt.o $CUDA_COMMON_OBJ $CUDA_DXT_COMMON_OBJ"
         ADD_MODULE("vdecompress_gpujpeg_to_dxt", $GPUJPEG_TO_DXT_OBJ, "$GPUJPEG_TO_DXT_LIB")
-        AC_DEFINE([HAVE_GPUJPEG_TO_DXT], [1], [Build with GPUJPEG DXT transcode support])
         CUDA_MESSAGE
 fi
 
@@ -2391,7 +2369,6 @@ if test "$gpustitch_req" != no && test "$FOUND_CUDA" = yes; then
 
                 GPUSTITCH_LIB="-lgpustitch $LIBGPUSTITCH_LIBS"
                 GPUSTITCH_OBJ="src/video_capture/gpustitch.o src/utils/cuda_pix_conv.$CU_OBJ_SUFFIX $CUDA_COMMON_OBJ"
-                AC_DEFINE([HAVE_GPUSTITCH], [1], [Build with GPUSTITCH support])
                 ADD_MODULE("vidcap_gpustitch", "$GPUSTITCH_OBJ", "$GPUSTITCH_LIB")
 
                 INC="$INC $LIBGPUSTITCH_CFLAGS"
@@ -2452,7 +2429,6 @@ if test $sage_req != no; then
             SAGE_INC=-I${SAGE_INC}
             SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
             SAGE_OBJ="src/video_display/sage.o"
-            AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
             CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
             ADD_MODULE("display_sage", "$SAGE_OBJ", "$SAGE_LIB")
             INC="$INC $SAGE_INC"
@@ -2491,7 +2467,6 @@ if test $portaudio_req != no; then
                                         has Pa_GetVersionInfo]))
                 PORTAUDIO_CAP_OBJ="src/audio/portaudio_common.o src/audio/capture/portaudio.o"
                 PORTAUDIO_PLAY_OBJ="src/audio/portaudio_common.o src/audio/playback/portaudio.o"
-                AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
                 ADD_MODULE("acap_portaudio", "$PORTAUDIO_CAP_OBJ", "$PORTAUDIO_LIB")
                 ADD_MODULE("aplay_portaudio", "$PORTAUDIO_PLAY_OBJ", "$PORTAUDIO_LIB")
                 portaudio=yes
@@ -2633,7 +2608,6 @@ if test $jack_req != no -a $FOUND_JACK_H = yes
 then
     JACK_CAP_OBJ="src/audio/capture/jack.o"
     JACK_PLAY_OBJ="src/audio/playback/jack.o"
-    AC_DEFINE([HAVE_JACK], [1], [Build with JACK support])
     jack=yes
     ADD_MODULE("acap_jack", "$JACK_CAP_OBJ", "")
     ADD_MODULE("aplay_jack", "$JACK_PLAY_OBJ", "")
@@ -2661,7 +2635,6 @@ if test "$alsa_req" = yes || { test "$alsa_req" != no && test "$system" = Linux 
         LIBS=$SAVED_LIBS
         if test "$ac_cv_header_alsa_asoundlib_h" = yes && test "$ac_cv_lib_asound_snd_pcm_open" = yes; then
                 alsa=yes
-                AC_DEFINE([HAVE_ALSA], [1], [Build with ALSA support])
                 ALSA_CAP_OBJ="src/audio/capture/alsa.o"
                 ALSA_PLAY_OBJ="src/audio/playback/alsa.o"
                 ALSA_LIB="-lasound"
@@ -2694,7 +2667,6 @@ if test $system = MacOSX && test $coreaudio_req != no; then
                 COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit -framework AVFoundation"
                 COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
                 coreaudio=yes
-                AC_DEFINE([HAVE_COREAUDIO], [1], [Build with CoreAudio support])
                 ADD_MODULE("", "$COREAUDIO_OBJ", "$COREAUDIO_LIB")
         fi
 fi
@@ -2722,7 +2694,6 @@ then
         SCALE_LIB="$SCALE_LIB $OPENGL_LIB"
         SCALE_OBJ="$SCALE_OBJ $GL_COMMON_OBJ src/vo_postprocess/scale.o"
         ADD_MODULE("vo_pp_scale", "$SCALE_OBJ", "$SCALE_LIB")
-        AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
 fi
 
 if test $scale_req = yes && test $scale = no; then
@@ -2753,7 +2724,6 @@ if test $text_req != no; then
                 TEXT_OBJ="$TEXT_OBJ src/vo_postprocess/text.o"
                 CFLAGS="$CFLAGS $MAGICKWAND_CFLAGS"
                 ADD_MODULE("vo_pp_text", "$TEXT_OBJ", "$TEXT_LIB")
-                AC_DEFINE([HAVE_TEXT], [1], [Build text postprocessor])
                 PKG_CHECK_MODULES([WAND7], [MagickWand > 7], [FOUND_WAND7=yes], [FOUND_WAND7=NO])
                 if test "$FOUND_WAND7" = yes; then
                         AC_DEFINE([WAND7], [1], [MagickWand is v7 or later])
@@ -2900,7 +2870,6 @@ AC_ARG_ENABLE(wasapi,
     )
 
 if test $system = Windows -a $wasapi_req != no; then
-        AC_DEFINE([HAVE_WASAPI], [1], [Build with WASAPI support])
         ADD_MODULE("aplay_wasapi", "src/audio/capture/wasapi.o src/audio/playback/wasapi.o", "")
         wasapi=yes
 fi
@@ -3017,7 +2986,6 @@ if test $ldgm_gpu_req != no -a $FOUND_CUDA = yes
 then
         DEFINE_CUDA
         CUDA_MESSAGE
-        AC_DEFINE([HAVE_LDGM_GPU], [1], [Build with GPU accelerated LDGM])
         LDGM_GPU_OBJS="ldgm/src/ldgm-session-gpu.o src/rtp/ldgm_gpu.o $CUDA_COMMON_OBJ"
         LDGM_GPU_LIBS="$CUDA_COMMON_LIB $CUDA_LIB"
         if test $system = Windows; then

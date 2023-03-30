@@ -40,8 +40,6 @@
 #include "config_unix.h"
 #endif // HAVE_CONFIG_H
 
-#ifdef HAVE_COREAUDIO
-
 #include <AVFoundation/AVFoundation.h>
 #include <Availability.h>
 #include <AudioUnit/AudioUnit.h>
@@ -451,6 +449,4 @@ static const struct audio_capture_info acap_coreaudio_info = {
 };
 
 REGISTER_MODULE(coreaudio, &acap_coreaudio_info, LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION);
-
-#endif /* HAVE_COREAUDIO */
 

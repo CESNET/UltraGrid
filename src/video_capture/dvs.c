@@ -54,8 +54,6 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#ifdef HAVE_DVS           /* From config.h */
-
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
@@ -685,6 +683,4 @@ static const struct video_capture_info vidcap_dvs_info = {
 };
 
 REGISTER_MODULE(dvs, &vidcap_dvs_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-
-#endif                          /* HAVE_DVS */
 
