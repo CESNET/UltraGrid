@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,6 +76,7 @@ CUDA_DLL_API const char *cuda_wrapper_last_error_string(void);
 CUDA_DLL_API int cuda_wrapper_set_device(int index);
 CUDA_DLL_API int cuda_wrapper_get_last_error(void);
 CUDA_DLL_API const char * cuda_wrapper_get_error_string(int error);
+CUDA_DLL_API void cuda_wrapper_print_devices_info(void);
 
 #ifdef __cplusplus
 }

@@ -3,9 +3,14 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @brief  This file contais wrapper around CUDA functions.
+ *
+ * This file is needed for Windows to wrap CUDA calls that need to be compiled
+ * with nvcc/MSVC and not gcc/clang as a glue with the rest of UltraGrid
+ * CUDA-related code (using cudaMemcpy etc., obviously not possible to compile
+ * kernels etc.)
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,10 +42,11 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cuda_wrapper.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "cuda_runtime.h"
-#include <stdlib.h>
+#include "cuda_wrapper.h"
 
 typedef void *cuda_wrapper_stream_t;
 
@@ -125,5 +131,34 @@ CUDA_DLL_API int cuda_wrapper_set_device(int index)
 {
         return map_cuda_error(
                         cudaSetDevice(index));
+}
+
+/// adapted from gpujpeg_print_devices_info()
+CUDA_DLL_API void cuda_wrapper_print_devices_info(void)
+{
+        int device_count = 0;
+        cudaGetDeviceCount(&device_count);
+        if (cudaGetLastError() != cudaSuccess) {
+                fprintf(stderr, "Cannot get number of CUDA devices: %s\n", cudaGetErrorString(cudaGetLastError()));
+                return;
+        }
+        if (device_count == 0) {
+                fprintf(stderr, "There is no device supporting CUDA.\n");
+        } else {
+                printf("There %s %d devices supporting CUDA:\n", device_count == 1 ? "is" : "are", device_count);
+        }
+
+        for ( int device_id = 0; device_id < device_count; device_id++ ) {
+                struct cudaDeviceProp device_properties;
+                cudaGetDeviceProperties(&device_properties, device_id);
+
+                printf("\nDevice #%d: \"%s\"\n", device_id, device_properties.name);
+                printf("  Compute capability: %d.%d\n", device_properties.major, device_properties.minor);
+                printf("  Total amount of global memory: %zu kB\n", device_properties.totalGlobalMem / 1024);
+                printf("  Total amount of constant memory: %zu kB\n", device_properties.totalGlobalMem / 1024);
+                printf("  Total amount of shared memory per block: %zu kB\n", device_properties.sharedMemPerBlock / 1024);
+                printf("  Total number of registers available per block: %d\n", device_properties.regsPerBlock);
+                printf("  Multiprocessors: %d\n", device_properties.multiProcessorCount);
+    }
 }
 

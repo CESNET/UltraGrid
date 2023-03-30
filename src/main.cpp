@@ -83,6 +83,7 @@
 #include "compat/misc.h"
 #include "compat/platform_pipe.h"
 #include "control_socket.h"
+#include "cuda_wrapper.h"
 #include "debug.h"
 #include "host.h"
 #include "keyboard_control.h"
@@ -571,17 +572,9 @@ static bool parse_bitrate(char *optarg, long long int *bitrate) {
 /// @retval 1 device list was printed
 static int parse_cuda_device(char *optarg) {
         if(strcmp("help", optarg) == 0) {
-#ifdef HAVE_GPUJPEG
-                struct compress_state *compression;
-                int ret = compress_init(nullptr, "GPUJPEG:list_devices", &compression);
-                if(ret >= 0) {
-                        if(ret == 0) {
-                                module_done(CAST_MODULE(compression));
-                        }
-                        return 1;
-                }
+#ifdef HAVE_CUDA
+                cuda_wrapper_print_devices_info();
 #else
-                UNUSED(optarg);
                 LOG(LOG_LEVEL_ERROR) << "CUDA support is not enabled!\n";
                 return -EXIT_FAILURE;
 #endif
