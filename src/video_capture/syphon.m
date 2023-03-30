@@ -355,8 +355,8 @@ static void syphon_mainloop(void *state)
 static void usage(bool full)
 {
         struct key_val options[] = {
-                { "name", "Syphon server name" },
-                { "app", "Syphon server application name" },
+                { "name=<name>", "Syphon server name" },
+                { "app=<appname>", "Syphon server application name" },
                 { "override_fps", "overrides FPS in metadata (but not the actual rate captured)" },
                 { "RGB", "use RGB as an output codec instead of default UYVY" },
                 { NULL, NULL }
@@ -369,9 +369,10 @@ static void usage(bool full)
         printf("\n");
 
         printf("Available servers:\n");
+        int i = 1;
         NSArray *descriptions = [[SyphonServerDirectory sharedDirectory] servers];
         for (id item in descriptions) {
-                color_printf(TBOLD("\tapp:") " %s " TBOLD("name:") " %s\n", [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String], [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String]);
+                color_printf("\t%d) " TBOLD("app:") " %s " TBOLD("name:") " %s\n", i++, [[item objectForKey:@"SyphonServerDescriptionAppNameKey"] UTF8String], [[item objectForKey:@"SyphonServerDescriptionNameKey"] UTF8String]);
                 //...do something useful with myArrayElement
         }
         if ([descriptions count] == 0) {
