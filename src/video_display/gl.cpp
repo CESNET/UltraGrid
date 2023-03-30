@@ -678,6 +678,33 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
         return (void*)s;
 }
 
+#if defined HAVE_SPOUT || HAVE_SYPHON
+#ifdef HAVE_SPOUT
+#define NAME_SPOUT_SYPHON_RAW spout
+#else
+#define NAME_SPOUT_SYPHON_RAW syphon
+#endif
+#define NAME_SPOUT_SYPHON TOSTRING(NAME_SPOUT_SYPHON_RAW)
+static void * display_spout_syphon_init(struct module *parent, const char *fmt, unsigned int flags) {
+        char config_str[1024] = "hide-window:" NAME_SPOUT_SYPHON;
+        if (strcmp(fmt, "help") == 0) {
+                color_printf("Display " TBOLD(NAME_SPOUT_SYPHON) " is a tiny wrapper over OpenGL display (that may be used directly as well).\n\n");
+                color_printf("Usage:\n");
+                color_printf(TBOLD(TRED("\t-d " NAME_SPOUT_SYPHON) "[:name=<server_name]\n\n"));
+                color_printf("where:\n"
+                                TBOLD("\tname") " - name of the created server\n");
+                return INIT_NOERR;
+        }
+        if (strstr(fmt, "name=") == fmt) {
+                snprintf(config_str + strlen(config_str), sizeof config_str - strlen(config_str), "=%s", strchr(fmt, '=') + 1);
+        } else if (strlen(fmt) != 0) {
+                log_msg(LOG_LEVEL_ERROR, "[" NAME_SPOUT_SYPHON "] Wrong option \"%s\"!\n", fmt);
+                return NULL;
+        }
+        return display_gl_init(parent, config_str, flags);
+}
+#endif // defined HAVE_SPOUT || HAVE_SYPHON
+
 /**
  * This function just sets new video description.
  */
@@ -1901,23 +1928,6 @@ static int display_gl_putf(void *state, struct video_frame *frame, long long tim
         return 0;
 }
 
-static void display_gl_put_audio_frame(void *state, const struct audio_frame *frame)
-{
-        UNUSED(state);
-        UNUSED(frame);
-}
-
-static int display_gl_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate)
-{
-        UNUSED(state);
-        UNUSED(quant_samples);
-        UNUSED(channels);
-        UNUSED(sample_rate);
-
-        return FALSE;
-}
-
 static const struct video_display_info display_gl_info = {
         [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
                 UNUSED(deleter);
@@ -1942,10 +1952,40 @@ static const struct video_display_info display_gl_info = {
         display_gl_putf,
         display_gl_reconfigure,
         display_gl_get_property,
-        display_gl_put_audio_frame,
-        display_gl_reconfigure_audio,
+        NULL,
+        NULL,
         MOD_NAME,
 };
 
 REGISTER_MODULE(gl, &display_gl_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 
+#if defined HAVE_SPOUT || HAVE_SYPHON
+#if defined HAVE_SPOUT && HAVE_SYPHON
+#error "Both SPOUT and Syphon defined, please fix!"
+#endif // defined HAVE_SPOUT && HAVE_SYPHON
+static const struct video_display_info display_spout_syphon_info = {
+        [](struct device_info **available_cards, int *count, void (**deleter)(void *)) {
+                *deleter = free;
+                *count = 1;
+                *available_cards = (struct device_info *) calloc(1, sizeof(struct device_info));
+#ifdef HAVE_SPOUT
+                strcpy((*available_cards)[0].dev, "syphon");
+                strcpy((*available_cards)[0].name, "Syphon display");
+#else
+                strcpy((*available_cards)[0].dev, "spout");
+                strcpy((*available_cards)[0].name, "SPOUT display");
+#endif
+        },
+        display_spout_syphon_init,
+        display_gl_run,
+        display_gl_done,
+        display_gl_getf,
+        display_gl_putf,
+        display_gl_reconfigure,
+        display_gl_get_property,
+        NULL,
+        NULL,
+        "[" NAME_SPOUT_SYPHON "] ",
+};
+REGISTER_MODULE(NAME_SPOUT_SYPHON_RAW, &display_spout_syphon_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
+#endif // defined HAVE_SPOUT || HAVE_SYPHON
