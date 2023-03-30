@@ -259,7 +259,7 @@ static bool common_init(struct vidcap_dshow_state *s) {
 
 	// Initialize COM library
 	// COINIT_APARTMENTTHREADED is used because we do not expect any other thread to work with the object
-	if (com_initialize(&s->com_initialized, "widcap_dshow_init: ")) {
+	if (!com_initialize(&s->com_initialized, "widcap_dshow_init: ")) {
 		return false;
 	}
 
