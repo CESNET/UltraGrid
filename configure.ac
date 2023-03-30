@@ -298,7 +298,8 @@ AC_DEFUN([DEFINE_CUDA], [
                           CUDA_COMMON_LIB=src/cuda_wrapper.$CU_OBJ_SUFFIX
                           DLL_LIBS="$DLL_LIBS src/cuda_wrapper.dll"
                   else
-                          CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_OBJ_SUFFIX
+                          LIBS="$LIBS $CUDA_LIB"
+                          OBJS="$OBJS src/cuda_wrapper.$CU_OBJ_SUFFIX"
                           CUDA_COMMON_LIB=
                   fi
                   cuda_var_defined=yes
