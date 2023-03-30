@@ -353,11 +353,11 @@ remove_mwindows() {
 ## @param $1  feature requeseted
 ## @param $2  feature feature found
 ## @param $3  error message
-ensure_feature_present() {
-        if test "$1" = yes && test "$2" = no; then
-                AC_MSG_ERROR([$3]);
-        fi
-}
+AC_DEFUN([ENSURE_FEATURE_PRESENT], [
+if test "$1" = yes && test "$2" = no; then
+        AC_MSG_ERROR([$3]);
+fi
+])
 
 # -------------------------------------------------------------------------------------------------
 # GCC-specific warning flags
@@ -546,9 +546,7 @@ if test $gl_req = no; then
         OPENGL_LIB=
 fi
 
-if test $gl_req = yes -a $OPENGL = no; then
-        AC_MSG_ERROR([OpenGL stuff requested but dependencies were not found.])
-fi
+ENSURE_FEATURE_PRESENT([$gl_req], [$OPENGL], [OpenGL stuff requested but dependencies were not found.])
 
 # -------------------------------------------------------------------------------------------------
 # Do we have FireWire/DV support?
@@ -635,9 +633,7 @@ if test "$dvs_req" != no; then
         fi
 fi
 
-if test $dvs_req = yes -a $dvs = no; then
-        AC_MSG_ERROR([DVS not found.])
-fi
+ENSURE_FEATURE_PRESENT([$dvs_req], [$dvs], [DVS not found.])
 
 # -------------------------------------------------------------------------------------------------
 # Blackmagic stuff
@@ -722,9 +718,7 @@ if test $decklink_req != no; then
         fi
 fi
 
-if test $decklink_req = yes && test $decklink = no; then
-        AC_MSG_ERROR([DeckLink not found.])
-fi
+ENSURE_FEATURE_PRESENT([$decklink_req], [$decklink], [DeckLink not found.])
 
 # -------------------------------------------------------------------------------------------------
 # Bluefish444 stuff
@@ -794,9 +788,7 @@ if test "$bluefish444_req" != no; then
         CPPFLAGS=$SAVED_CPPFLAGS_SAVE
 fi
 
-if test $bluefish444_req = yes -a $bluefish444 = no; then
-        AC_MSG_ERROR([Bluefish444 not found]);
-fi
+ENSURE_FEATURE_PRESENT([$bluefish44_req], [$bluefish444], [Bluefish444 not found])
 
 # -------------------------------------------------------------------------------------------------
 # AJA stuff
@@ -875,9 +867,7 @@ if test "$aja_req" != no; then
         fi
 fi
 
-if test $aja_req = yes && test $aja = no; then
-        AC_MSG_ERROR([AJA not found]);
-fi
+ENSURE_FEATURE_PRESENT([$aja_req], [$aja], [AJA not found])
 
 # -------------------------------------------------------------------------------------------------
 # holepunch stuff
@@ -902,9 +892,7 @@ if test "$libjuice_req" != no; then
         fi
 fi
 
-if test $libjuice_req = yes && test $libjuice = no; then
-        AC_MSG_ERROR([LIBJUICE not found]);
-fi
+ENSURE_FEATURE_PRESENT([$libjuice_req], [$libjuice], [LIBJUICE not found])
 
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
@@ -1008,10 +996,7 @@ if test "$deltacast_req" != no; then
         fi
 fi
 
-
-if test $deltacast_req = yes && test $deltacast = no; then
-        AC_MSG_ERROR([Deltacast not found]);
-fi
+ENSURE_FEATURE_PRESENT([$deltacast_req], [$deltacast], [Deltacast not found])
 
 #----------------------------------------------------------------------
 # XIMEA
@@ -1095,9 +1080,7 @@ if test $ximea = yes; then
         ADD_MODULE("vidcap_ximea", "src/video_capture/ximea.o", "$XIMEA_LIBS")
 fi
 
-if test $ximea_req = yes && test $ximea = no; then
-        AC_MSG_ERROR([XIMEA SDK not found]);
-fi
+ENSURE_FEATURE_PRESENT([$ximea_req], [$ximea], [XIMEA SDK not found])
 
 # -------------------------------------------------------------------------------------------------
 # AV Foundation capture
@@ -1154,9 +1137,7 @@ if test "$sdl_req" != no; then
         fi
 fi
 
-if test $sdl_req = yes && test $sdl = no; then
-        AC_MSG_ERROR([SDL requested but found any version]);
-fi
+ENSURE_FEATURE_PRESENT([$sdl_req], [$sdl], [SDL requested but found any version])
 
 # ------------------------------------------------------------------------------
 # Vulkan
@@ -1192,9 +1173,7 @@ if test "$vulkan_req" != no; then
         fi
 fi
 
-if test "$vulkan_req" = yes && test "$vulkan" = no; then
-        AC_MSG_ERROR([Vulkan dependencies were not found (Vulkan ver 1.1.101 or SDL2)!])
-fi
+ENSURE_FEATURE_PRESENT([$vulkan_req], [$vulkan], [Vulkan dependencies were not found (Vulkan ver 1.1.101 or SDL2)!])
 
 # ------------------------------------------------------------------------------
 # GLM (OpenGL math library)
@@ -1269,9 +1248,7 @@ if test $xrgl_disp_req != no && test "$sdl_version" = 2 && test "$glm" != no; th
         fi
 fi
 
-if test $xrgl_disp_req = yes && test $FOUND_XRGL_DEPS = no; then
-        AC_MSG_ERROR([XRGL deps not found]);
-fi
+ENSURE_FEATURE_PRESENT([$xrgl_disp_req], [$xrgl_disp], [XRGL deps not found])
 
 #
 # ------------------------------------------------------------------------------
@@ -1295,9 +1272,7 @@ if test $caca_req != no; then
         fi
 fi
 
-if test $caca_req = yes && test $caca = no; then
-        AC_MSG_ERROR([libcaca not found]);
-fi
+ENSURE_FEATURE_PRESENT([$caca_req], [$caca], [libcaca not found])
 
 # -------------------------------------------------------------------------------------------------
 # OpenCV version detection
@@ -1367,9 +1342,7 @@ if test "$opencv" = yes; then
         LIBS=$SAVED_LIBS
 fi
 
-if test "$opencv" = no && test "$opencv_req" = yes; then
-        AC_MSG_ERROR([OpenCV dependencies not found!]);
-fi
+ENSURE_FEATURE_PRESENT([$opencv_req], [$opencv], [OpenCV dependencies not found!])
 
 # -------------------------------------------------------------------------------------------------
 # RTSP capture stuff
@@ -1398,9 +1371,7 @@ if test "$rtsp_req" != no; then
         fi
 fi
 
-if test $rtsp_req = yes && test $rtsp = no; then
-        AC_MSG_ERROR([rtsp not found, check curl dependencies...]);
-fi
+ENSURE_FEATURE_PRESENT([$rtsp_req], [$rtsp], [rtsp not found, check curl dependencies...])
 
 # -------------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------------
@@ -1452,9 +1423,7 @@ if test $rtsp_server_req != no; then
         fi
 fi
 
-if test $rtsp_server_req = yes && test $rtsp_server = no; then
-        AC_MSG_ERROR([rtsp server not found, check live555 -livemedia lib- dependencies...]);
-fi
+ENSURE_FEATURE_PRESENT([$rtsp_server_req], [$rtsp_server], [rtsp server not found, check live555 -livemedia lib- dependencies...])
 
 # ----------------------------------------------------------------------
 # SDP over HTTP
@@ -1475,9 +1444,7 @@ if test $sdp_http_req != no; then
         fi
 fi
 
-if test $sdp_http_req = yes && test $sdp_http = no; then
-        AC_MSG_ERROR([SDP/HTTP dependency EmbeddableWebServer.h not found!]);
-fi
+ENSURE_FEATURE_PRESENT([$sdp_http_req], [$sdp_http], [SDP/HTTP dependency EmbeddableWebServer.h not found!])
 
 # -------------------------------------------------------------------------------------------------
 # Resize stuff
@@ -1500,9 +1467,7 @@ then
         resize=yes
 fi
 
-if test $resize_req = yes -a $resize = no; then
-        AC_MSG_ERROR([Resize dependency not found, may install OpenCV...?]);
-fi
+ENSURE_FEATURE_PRESENT([$resize_req], [$resize], [Resize dependency not found, may install OpenCV...?])
 
 # -------------------------------------------------------------------------------------------------
 # Blank stuff
@@ -1538,9 +1503,7 @@ if test $blank_req != no; then
         fi
 fi
 
-if test $blank_req = yes -a $blank = no; then
-        AC_MSG_ERROR([Blank dep not found (libswscale)]);
-fi
+ENSURE_FEATURE_PRESENT([$blank_req], [$blank], [Blank dep not found (libswscale)])
 
 # -------------------------------------------------------------------------------------------------
 # Testcard stuff
@@ -1673,17 +1636,9 @@ then
         COMMON_FLAGS="$COMMON_FLAGS $LAVC_HWACC_FLAGS"
 fi
 
-if test $lavc_hwacc_vdpau_req = yes -a $lavc_hwacc_vdpau = no; then
-	AC_MSG_ERROR([Could not find hwacc vdpau dependencies!]);
-fi
-
-if test $lavc_hwacc_vaapi_req = yes -a $lavc_hwacc_vaapi = no; then
-	AC_MSG_ERROR([Could not find hwacc vaapi dependencies!]);
-fi
-
-if test $lavc_hwacc_rpi4_req = yes -a $lavc_hwacc_rpi4 = no; then
-	AC_MSG_ERROR([Could not find hwacc rpi4 dependencies!]);
-fi
+ENSURE_FEATURE_PRESENT([$lavc_hwacc_vdpau_req], [$lavc_hwacc_vdpau], [Could not find hwacc vdpau dependencies])
+ENSURE_FEATURE_PRESENT([$lavc_hwacc_vaapi_req], [$lavc_hwacc_vaapi], [Could not find hwacc vaapi dependencies!])
+ENSURE_FEATURE_PRESENT([$lavc_hwacc_rpi4_req], [$lavc_hwacc_rpi4], [Could not find hwacc rpi4 dependencies!])
 
 # -------------------------------------------------------------------------------------------------
 # Libswscale
@@ -1719,9 +1674,7 @@ if test "$libswscale_req" != no; then
         fi
 fi
 
-if test $libswscale_req = yes && test $libswscale = no; then
-        AC_MSG_ERROR([Libswscale not found]);
-fi
+ENSURE_FEATURE_PRESENT([$libswscale_req], [$libswscale], [Libswscale not found])
 
 # -------------------------------------------------------------------------------------------------
 # Libav
@@ -1782,9 +1735,7 @@ else
         HW_ACC_OBJ=
 fi
 
-if test $libavcodec_req = yes && test $libavcodec = no; then
-        AC_MSG_ERROR([Libavcodec not found]);
-fi
+ENSURE_FEATURE_PRESENT([$libavcodec_req], [$libavcodec], [Libavcodec not found])
 
 # -------------------------------------------------------------------------------------------------
 # File input
@@ -1820,10 +1771,7 @@ if test $file_req != no && test $libavcodec = yes && test $libswscale = yes; the
         fi
 fi
 
-if test $file_req = yes && test $file = no; then
-        AC_MSG_ERROR([File input dependencies not found]);
-fi
-
+ENSURE_FEATURE_PRESENT([$file_req], [$file], [File input dependencies not found])
 
 # -------------------------------------------------------------------------------------------------
 # OpenGL display
@@ -1852,9 +1800,7 @@ then
         fi
 fi
 
-if test $gl_display_req = yes && test $gl_display = no; then
-        AC_MSG_ERROR([OpenGL not found]);
-fi
+ENSURE_FEATURE_PRESENT([$gl_display_req], [$gl_display], [OpenGL not found])
 
 # -------------------------------------------------------------------------------------------------
 # SW Mix Stuff
@@ -2205,7 +2151,7 @@ else
 	HOST_CC_REPORT=""
 fi
 
-ensure_feature_present "$cuda_req" "$FOUND_CUDA" "CUDA not found"
+ENSURE_FEATURE_PRESENT([$cuda_req], [$FOUND_CUDA], [CUDA not found])
 
 AC_SUBST(CUDA_INC)
 AC_SUBST(CUDA_COMPILER)
@@ -2270,9 +2216,7 @@ if test "$gpujpeg_req" != no && test "$found_gpujpeg" = yes; then
 	INC="$INC $GPUJPEG_INC"
 fi
 
-if test $gpujpeg_req = yes && test $gpujpeg = no; then
-        AC_MSG_ERROR([GPUJPEG not found]);
-fi
+ENSURE_FEATURE_PRESENT([$gpujpeg_req], [$gpujpeg], [GPUJPEG not found])
 
 # -------------------------------------------------------------------------------------------------
 # CUDA DXT
@@ -2314,9 +2258,7 @@ then
         CUDA_MESSAGE
 fi
 
-if test $cuda_dxt_req = yes && test $cuda_dxt = no; then
-        AC_MSG_ERROR([CUDA DXT not found]);
-fi
+ENSURE_FEATURE_PRESENT([$cuda_dxt_req], [$cuda_dxt], [CUDA DXT not found])
 
 # -------------------------------------------------------------------------------------------------
 # GPUJPEG transcode to DXT
@@ -2341,10 +2283,7 @@ then
         CUDA_MESSAGE
 fi
 
-
-if test $gpujpeg_to_dxt = no && test $gpujpeg_to_dxt_req = yes; then
-        AC_MSG_ERROR([GPUJPEG DXT transcoder not found])
-fi
+ENSURE_FEATURE_PRESENT([$gpujpeg_to_dxt], [$gpujpeg_to_dxt_req], [GPUJPEG DXT transcoder not found])
 
 # -------------------------------------------------------------------------------------------------
 # gpustitch stuff
@@ -2389,9 +2328,7 @@ if test "$gpustitch_req" != no && test "$FOUND_CUDA" = yes; then
         fi
 fi
 
-if test $gpustitch_req = yes && test $gpustitch = no; then
-        AC_MSG_ERROR([GPUSTITCH not found]);
-fi
+ENSURE_FEATURE_PRESENT([$gpustitch_req], [$gpustitch ], [GPUSTITCH not found])
 
 # -------------------------------------------------------------------------------------------------
 # SAGE stuff
@@ -2449,9 +2386,7 @@ if test $sage_req != no; then
         fi
 fi
 
-if test $sage_req = yes && test $sage = no; then
-        AC_MSG_ERROR([SAGE not found]);
-fi
+ENSURE_FEATURE_PRESENT([$sage_req], [$sage ], [SAGE not found])
 
 # -------------------------------------------------------------------------------------------------
 # AUDIO stuff
@@ -2486,9 +2421,7 @@ if test $portaudio_req != no; then
         fi
 fi
 
-if test $portaudio_req = yes && test $portaudio = no; then
-        AC_MSG_ERROR([PortAudio not found]);
-fi
+ENSURE_FEATURE_PRESENT([$portaudio_req], [$portaudio], [PortAudio not found])
 
 # ---------------------------------------------------------------------------
 # SpeexDSP
@@ -2511,9 +2444,7 @@ if test "$speexdsp_req" != no; then
                 speexdsp=yes
         fi
 fi
-if test "$speexdsp_req" = yes && test "$speexdsp" = no; then
-        AC_MSG_ERROR([SpeexDSP not found]);
-fi
+ENSURE_FEATURE_PRESENT([$speexdsp_req], [$speexdsp], [SpeexDSP not found])
 
 # ---------------------------------------------------------------------------
 # SOXR
@@ -2534,9 +2465,7 @@ if test "$soxr_req" != no; then
                 soxr=yes
         fi
 fi
-if test "$soxr_req" = yes && test "$soxr" = no; then
-        AC_MSG_ERROR([Soxr not found]);
-fi
+ENSURE_FEATURE_PRESENT([$soxr_req], [$soxr], [Soxr not found])
 
 if test "$found_speexdsp" = no && test "$speexdsp_req" != no && test "$soxr" = no && test "$soxr_req" != no; then
         UG_MSG_WARN([Neither Soxr nor SpeexDSP was not found. Strongly recommending installing that, otherwise audio part of UG will be crippled.])
@@ -2573,15 +2502,14 @@ if test $cross_compile = no && test "$zfec_req" != no; then
         fi
 fi
 
-if test "$found_zfec" = yes -a "$zfec_req" != no; then
+if test "$found_zfec" = yes; then
         OBJS="$OBJS src/zfec.o"
         COMMON_FLAGS="$COMMON_FLAGS -I$ZFEC_PREFIX"
         AC_DEFINE([HAVE_ZFEC], [1], [Build with zfec support])
         AC_SUBST(ZFEC_PREFIX)
         zfec=yes
-elif test "$zfec_req" = yes; then
-        AC_MSG_ERROR([Zfec not found]);
 fi
+ENSURE_FEATURE_PRESENT([$zfec_req], [$found_zfec], [Zfec not found])
 
 # -------------------------------------------------------------------------------------------------
 #
@@ -2626,9 +2554,7 @@ then
     ADD_MODULE("aplay_jack", "$JACK_PLAY_OBJ", "")
 fi
 
-if test $jack_req = yes -a $jack = no; then
-        AC_MSG_ERROR([JACK not found]);
-fi
+ENSURE_FEATURE_PRESENT([$jack_req], [$jack], [JACK not found])
 
 # -------------------------------------------------------------------------------------------------
 #
@@ -2656,9 +2582,7 @@ if test "$alsa_req" = yes || { test "$alsa_req" != no && test "$system" = Linux 
         fi
 fi
 
-if test $alsa_req = yes && test $alsa = no; then
-        AC_MSG_ERROR([ALSA not found]);
-fi
+ENSURE_FEATURE_PRESENT([$alsa_req], [$alsa], [ALSA not found])
 
 # -------------------------------------------------------------------------------------------------
 # CoreAudio Stuff
@@ -2684,9 +2608,7 @@ if test $system = MacOSX && test $coreaudio_req != no; then
         fi
 fi
 
-if test $coreaudio_req = yes && test $coreaudio = no; then
-        AC_MSG_ERROR([Core Audio not found]);
-fi
+ENSURE_FEATURE_PRESENT([$coreaudio_req], [$coreaudio], [Core Audio not found])
 
 # -------------------------------------------------------------------------------------------------
 # Scale Stuff
@@ -2709,9 +2631,7 @@ then
         ADD_MODULE("vo_pp_scale", "$SCALE_OBJ", "$SCALE_LIB")
 fi
 
-if test $scale_req = yes && test $scale = no; then
-        AC_MSG_ERROR([Scale not found]);
-fi
+ENSURE_FEATURE_PRESENT([$scale_req], [$scale], [Scale not found])
 
 # -------------------------------------------------------------------------------------------------
 # Text Stuff
@@ -2744,9 +2664,7 @@ if test $text_req != no; then
         fi
 fi
 
-if test $text_req = yes && test $text = no; then
-        AC_MSG_ERROR([text not found]);
-fi
+ENSURE_FEATURE_PRESENT([$text_req], [$text], [text not found])
 
 # -------------------------------------------------------------------------------------------------
 # QT GUI
@@ -2836,9 +2754,7 @@ AC_SUBST(GUI_TARGET)
 AC_SUBST(QMAKE)
 AC_SUBST(QT_CFLAGS)
 
-if test $qt_req = yes && test $qt_gui = no; then
-		AC_MSG_ERROR([Qt libraries are required.])
-fi
+ENSURE_FEATURE_PRESENT([$qt_req], [$qt_gui], [Qt libraries are required.])
 
 # -------------------------------------------------------------------------------------------------
 # V4L2
@@ -2868,9 +2784,7 @@ then
         v4l2=yes
 fi
 
-if test $v4l2_req = yes && test $v4l2 = no; then
-        AC_MSG_ERROR([V4L2 not found]);
-fi
+ENSURE_FEATURE_PRESENT([$v4l2_req], [$v4l2], [V4L2 not found])
 
 # -----------------------------------------------------------------------------
 # WASAPI
@@ -2887,9 +2801,7 @@ if test $system = Windows -a $wasapi_req != no; then
         wasapi=yes
 fi
 
-if test $wasapi_req = yes && test $wasapi = no; then
-        AC_MSG_ERROR([WASAPI not found]);
-fi
+ENSURE_FEATURE_PRESENT([$wasapi_req], [$wasapi], [WASAPI not found])
 
 # -------------------------------------------------------------------------------------------------
 # iHDTV
@@ -2980,9 +2892,7 @@ if test -n "$crypto_impl"; then
         LIBS=$SAVED_LIBS
 fi
 
-if test "$crypto_req" != "$build_default" && test "$crypto" = no; then
-        AC_MSG_ERROR([OpenSSL not found]);
-fi
+ENSURE_FEATURE_PRESENT([$crypto_req], [$crypto], [OpenSSL not found])
 
 # -------------------------------------------------------------------------------------------------
 # GPU accelerated LDGM
@@ -3017,9 +2927,7 @@ else
         ldgm_gpu=no
 fi
 
-if test $ldgm_gpu_req = yes && test $ldgm_gpu = no; then
-        AC_MSG_ERROR([LDGM accelerated GPU cannot be enabled (CUDA not found?)]);
-fi
+ENSURE_FEATURE_PRESENT([$ldgm_gpu_req], [$ldgm_gpu], [LDGM accelerated GPU cannot be enabled (CUDA not found?)])
 
 # -------------------------------------------------------------------------------------------------
 # Syphon
@@ -3044,10 +2952,7 @@ if test "$syphon_req" != no && test "$system" = MacOSX; then
         fi
 fi
 
-if test $syphon_req = yes && test $syphon = no; then
-        AC_MSG_ERROR([Syphon framework cannot be found!]);
-fi
-
+ENSURE_FEATURE_PRESENT([$syphon_req], [$syphon], [Syphon framework cannot be found!])
 
 # ------------------------------------------------------------------------------
 # Spout
@@ -3073,7 +2978,7 @@ then
         AC_LANG_POP([C++])
 fi
 
-if test $spout_req != no && test $FOUND_SPOUT = yes
+if test $FOUND_SPOUT = yes
 then
         AC_DEFINE([HAVE_SPOUT], [1], [Build with Spout support])
         LIBS="$LIBS -lSpoutLibrary"
@@ -3081,9 +2986,7 @@ then
         spout=yes
 fi
 
-if test $spout_req = yes && test $spout = no; then
-        AC_MSG_ERROR([Could not found Spout dependencies!]);
-fi
+ENSURE_FEATURE_PRESENT([$spout_req], [$spout], [Could not found Spout dependencies!])
 
 # -------------------------------------------------------------------------------------------------
 # MCU-like video mixer
@@ -3097,26 +3000,14 @@ AC_ARG_ENABLE(video-mixer,
     [video_mix_req=$build_default]
     )
 
-if test "$opencv" = yes && test "$FOUND_OPENCV_IMGPROC" = yes; then
-	FOUND_VIDEO_MIX_DEP=yes
-	VIDEO_MIX_LIBS="$OPENCV_LIBS -lopencv_imgproc"
-	VIDEO_MIX_CFLAGS=$OPENCV_CFLAGS
-else
-	FOUND_VIDEO_MIX_DEP=no
-fi
-
-if test $video_mix_req != no -a $FOUND_VIDEO_MIX_DEP = yes
-then
-        CFLAGS="$CFLAGS ${VIDEO_MIX_CFLAGS}"
-        CXXFLAGS="$CXXFLAGS ${VIDEO_MIX_CFLAGS}"
-        VIDEO_MIX_OBJ="src/video_display/conference.o"
-        ADD_MODULE("display_video_mix", "$VIDEO_MIX_OBJ", "$VIDEO_MIX_LIBS")
+if test $video_mix_req != no && test "$opencv" = yes && test "$FOUND_OPENCV_IMGPROC" = yes; then
+        CFLAGS="$CFLAGS $OPENCV_CFLAGS"
+        CXXFLAGS="$CXXFLAGS $OPENCV_CFLAGS"
+        ADD_MODULE("display_video_mix", "src/video_display/conference.o", "$OPENCV_LIBS -lopencv_imgproc")
         video_mix=yes
 fi
 
-if test $video_mix_req = yes && test $video_mix = no; then
-        AC_MSG_ERROR([Could not found OpenCV needed for video mixer!]);
-fi
+ENSURE_FEATURE_PRESENT([$video_mix_req], [$video_mix], [Could not found OpenCV needed for video mixer!])
 
 # ------------------------------------------------------------------------------------------------
 # BitFlow
@@ -3161,9 +3052,7 @@ if test $cmpto_j2k_req != no; then
         fi
 fi
 
-if test $cmpto_j2k_req = yes && test $cmpto_j2k = no; then
-        AC_MSG_ERROR([Comprimato J2K not found!]);
-fi
+ENSURE_FEATURE_PRESENT([$cmpto_j2k_req], [$cmpto_j2k], [Comprimato J2K not found!])
 
 # ------------------------------------------------------------------------------
 # NDI
@@ -3200,9 +3089,7 @@ if test $ndi_req != no; then
         fi
 fi
 
-if test $ndi_req = yes && test $ndi = no; then
-        AC_MSG_ERROR([NDI not found!]);
-fi
+ENSURE_FEATURE_PRESENT([$ndi_req], [$ndi], [NDI not found!])
 
 # ------------------------------------------------------------------------------
 # Cineform 
@@ -3276,9 +3163,7 @@ then
         ADD_MODULE("vdecompress_cineform", "$CINEFORM_DECOMPRESS_OBJ", "$CINEFORM_LIBS")
 fi
 
-if test $cineform_req = yes && test $cineform = no; then
-        AC_MSG_ERROR([CINEFORM not found]);
-fi
+ENSURE_FEATURE_PRESENT([$cineform_req], [$cineform], [CINEFORM not found])
 
 # ---------------------------------------------------------------------
 # NAT-PMP
@@ -3304,9 +3189,7 @@ if test "$natpmp_req" != no; then
         fi
 fi
 
-if test $natpmp_req = yes && test $natpmp = no; then
-        AC_MSG_ERROR([NAT-PMP not found]);
-fi
+ENSURE_FEATURE_PRESENT([$natpmp_req], [$natpmp], [NAT-PMP not found])
 
 # ---------------------------------------------------------------------
 # PCP
@@ -3328,9 +3211,7 @@ if test "$pcp_req" != no; then
         fi
 fi
 
-if test $pcp_req = yes && test $pcp = no; then
-        AC_MSG_ERROR([PCP not found]);
-fi
+ENSURE_FEATURE_PRESENT([$pcp_req], [$pcp], [PCP not found])
 
 # ---------------------------------------------------------------------
 # SDL_mixer audio capture
@@ -3355,10 +3236,7 @@ then
         fi
 fi
 
-if test $sdl_mixer_req = yes && test $sdl_mixer = no
-then
-        AC_MSG_ERROR([SDL_mixer deps not found!]);
-fi
+ENSURE_FEATURE_PRESENT([$sdl_mixer_req], [$sdl_mixer], [SDL_mixer deps not found!])
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
