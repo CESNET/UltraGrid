@@ -214,6 +214,9 @@ struct state_uv {
                         unique_lock<mutex> lk(s->lock);
                         s->should_exit_callbacks.push_back(make_tuple(m->should_exit_callback, m->udata));
                         lk.unlock();
+                        if (s->should_exit_thread_notified) {
+                                m->should_exit_callback(m->udata);
+                        }
                         free_message((struct message *) m, new_response(RESPONSE_OK, NULL));
                 }
         }
