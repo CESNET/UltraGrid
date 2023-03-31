@@ -54,6 +54,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/config_file.h"
+#include "utils/macros.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -78,7 +79,6 @@ typedef enum {
  * Bicubic interpolation taken from:
  * http://www.codeproject.com/Articles/236394/Bi-Cubic-and-Bi-Linear-Interpolation-with-GLSL
  */
-#define STRINGIFY(A) #A
 static const char * bicubic_template = STRINGIFY(
 uniform sampler2D textureSampler;
 uniform float fWidth;
@@ -176,6 +176,7 @@ static bool get_slave_param_from_file(FILE* config, const char *slave_name, int 
                                         int *width, int *height);
 static bool get_device_config_from_file(FILE* config_file, char *slave_name,
                 char *device_name_config) __attribute__((unused));
+static void vidcap_swmix_done(void *state);
 
 static char *get_config_name()
 {
@@ -255,6 +256,7 @@ struct vidcap_swmix_state {
         pthread_cond_t      frame_sent_cv;
 
         pthread_t           master_thread_id;
+        bool                threads_started;
         bool                should_exit;
 
         struct slave_data  *slaves_data;
@@ -350,6 +352,9 @@ static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
 }
 
 static void destroy_slave_data(struct slave_data *data, int count) {
+        if (!data) {
+                return;
+        }
         for(int i = 0; i < count; ++i) {
                 glDeleteTextures(2, data[i].texture);
                 glDeleteFramebuffers(1, &data[i].fbo);
@@ -1066,12 +1071,12 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
         }
 
         s->slaves = (struct state_slave *) calloc(s->devices_cnt, sizeof(struct state_slave));
-
         for (int i = 0; i < s->devices_cnt; ++i) {
                 s->slaves[i].audio_frame.max_size = MAX_AUDIO_LEN;
                 s->slaves[i].audio_frame.data = (char *)
                         malloc(s->slaves[i].audio_frame.max_size);
                 s->slaves[i].audio_frame.data_len = 0;
+                pthread_mutex_init(&(s->slaves[i].lock), NULL);
         }
 
         tmp = params;
@@ -1086,8 +1091,6 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
 static int
 vidcap_swmix_init(struct vidcap_params *params, void **state)
 {
-	struct vidcap_swmix_state *s;
-        struct video_desc desc;
         GLenum format;
 
 	printf("vidcap_swmix_init\n");
@@ -1098,7 +1101,7 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR;
         }
 
-        s = new vidcap_swmix_state();
+        struct vidcap_swmix_state *s = new vidcap_swmix_state();
 	if(s == NULL) {
 		printf("Unable to allocate swmix capture state\n");
 		return VIDCAP_INIT_FAIL;
@@ -1113,21 +1116,7 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
         s->bicubic_algo = strdup("BSpline");
         gettimeofday(&s->t0, NULL);
 
-        memset(&desc, 0, sizeof(desc));
-        desc.tile_count = 1;
-        desc.color_spec = RGBA;
-
         s->interpolation = BICUBIC;
-        FILE *config_file = NULL;
-
-        char *init_fmt = strdup(vidcap_params_get_fmt(params));
-        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
-                free(init_fmt);
-                goto error;
-        }
-        free(init_fmt);
-
-        s->frame = vf_alloc_desc(desc);
 
         s->should_exit = false;
         s->completed_buffer = NULL;
@@ -1137,6 +1126,19 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
         pthread_cond_init(&s->frame_ready_cv, NULL);
         pthread_cond_init(&s->frame_sent_cv, NULL);
         pthread_cond_init(&s->free_buffer_queue_not_empty_cv, NULL);
+
+        char *init_fmt = strdup(vidcap_params_get_fmt(params));
+        struct video_desc desc{};
+        desc.tile_count = 1;
+        desc.color_spec = RGBA;
+        FILE *config_file = NULL;
+        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
+                free(init_fmt);
+                goto error;
+        }
+        free(init_fmt);
+
+        s->frame = vf_alloc_desc(desc);
 
         if(!init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY)) {
                 fprintf(stderr, "[swmix] Unable to initialize OpenGL context.\n");
@@ -1164,14 +1166,11 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
 
         s->slaves_data = init_slave_data(s, config_file);
         if(!s->slaves_data) {
-                free(config_file);
-                delete s;
-                return VIDCAP_INIT_FAIL;
+                goto error;
         }
 
         if (config_file) {
                 fclose(config_file);
-                config_file = nullptr;
         }
 
         format = GL_RGBA;
@@ -1201,10 +1200,6 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
 
         gl_context_make_current(NULL);
 
-        for(int i = 0; i < s->devices_cnt; ++i) {
-                pthread_mutex_init(&(s->slaves[i].lock), NULL);
-        }
-
         s->frame->tiles[0].data_len = vc_get_linesize(s->frame->tiles[0].width,
                                 s->frame->color_spec) * s->frame->tiles[0].height;
         for(int i = 0; i < 3; ++i) {
@@ -1213,10 +1208,10 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
         }
 
         pthread_create(&s->master_thread_id, NULL, master_worker, (void *) s);
-
         for(int i = 0; i < s->devices_cnt; ++i) {
                 pthread_create(&(s->slaves[i].thread_id), NULL, slave_worker, (void *) &s->slaves[i]);
         }
+        s->threads_started = true;
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -1225,10 +1220,7 @@ error:
         if (config_file) {
                 fclose(config_file);
         }
-        if(s->slaves) {
-                free(s->slaves);
-        }
-        delete s;
+        vidcap_swmix_done(s);
         return VIDCAP_INIT_FAIL;
 }
 
@@ -1239,12 +1231,14 @@ vidcap_swmix_done(void *state)
 
 	assert(s != NULL);
 
-        for(int i = 0; i < s->devices_cnt; ++i) {
-                s->slaves[i].should_exit = true;
-        }
+        if (s->threads_started) {
+                for(int i = 0; i < s->devices_cnt; ++i) {
+                        s->slaves[i].should_exit = true;
+                }
 
-        for(int i = 0; i < s->devices_cnt; ++i) {
-                pthread_join(s->slaves[i].thread_id, NULL);
+                for(int i = 0; i < s->devices_cnt; ++i) {
+                        pthread_join(s->slaves[i].thread_id, NULL);
+                }
         }
 
         // wait for master thread to finish
@@ -1261,7 +1255,9 @@ vidcap_swmix_done(void *state)
                 pthread_cond_signal(&s->frame_sent_cv);
         }
         pthread_mutex_unlock(&s->lock);
-        pthread_join(s->master_thread_id, NULL);
+        if (s->threads_started) {
+                pthread_join(s->master_thread_id, NULL);
+        }
 
         if(s->completed_buffer)
                 free(s->completed_buffer);
@@ -1270,14 +1266,16 @@ vidcap_swmix_done(void *state)
                 s->free_buffer_queue.pop();
         }
 
-        for (int i = 0; i < s->devices_cnt; ++i) {
-                pthread_mutex_destroy(&s->slaves[i].lock);
-                VIDEO_FRAME_DISPOSE(s->slaves[i].captured_frame);
-                VIDEO_FRAME_DISPOSE(s->slaves[i].done_frame);
-                free(s->slaves[i].audio_frame.data);
-                vidcap_params_free_struct(s->slaves[i].device_params);
+        if (s->slaves) {
+                for (int i = 0; i < s->devices_cnt; ++i) {
+                        pthread_mutex_destroy(&s->slaves[i].lock);
+                        VIDEO_FRAME_DISPOSE(s->slaves[i].captured_frame);
+                        VIDEO_FRAME_DISPOSE(s->slaves[i].done_frame);
+                        free(s->slaves[i].audio_frame.data);
+                        vidcap_params_free_struct(s->slaves[i].device_params);
+                }
+                free(s->slaves);
         }
-        free(s->slaves);
 
         vf_free(s->frame);
 
@@ -1285,10 +1283,18 @@ vidcap_swmix_done(void *state)
 
         destroy_slave_data(s->slaves_data, s->devices_cnt);
 
-        glDeleteTextures(1, &s->tex_output);
-        glDeleteTextures(1, &s->tex_output_uyvy);
-        glDeleteFramebuffers(1, &s->fbo);
-        glDeleteFramebuffers(1, &s->fbo_uyvy);
+        if (s->tex_output) {
+                glDeleteTextures(1, &s->tex_output);
+        }
+        if (s->tex_output_uyvy) {
+                glDeleteTextures(1, &s->tex_output_uyvy);
+        }
+        if (s->fbo) {
+                glDeleteFramebuffers(1, &s->fbo);
+        }
+        if (s->fbo_uyvy) {
+                glDeleteFramebuffers(1, &s->fbo_uyvy);
+        }
 
         gl_context_make_current(NULL);
         destroy_gl_context(&s->gl_context);
