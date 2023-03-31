@@ -31,7 +31,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
- * @file   video_capture/swmix.cpp
+ * @file   video_capture/swmix.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @brief SW video mix is a virtual video mixer.
@@ -54,6 +54,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/config_file.h"
+#include "utils/list.h"
 #include "utils/macros.h"
 #include "video.h"
 #include "video_capture.h"
@@ -62,13 +63,10 @@
 
 #include "audio/types.h"
 
-#include <queue>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define MAX_AUDIO_LEN (1024*1024)
-
-using namespace std;
 
 typedef enum {
         BICUBIC,
@@ -245,7 +243,7 @@ struct vidcap_swmix_state {
         int                 completed_audio_buffer_len;
         struct audio_frame  audio;
         int                 audio_device_index; ///< index of video device from which to take audio
-        queue<char *>       free_buffer_queue;
+        struct simple_linked_list *free_buffer_queue;
         pthread_cond_t      free_buffer_queue_not_empty_cv;
 
         int                 frames;
@@ -269,10 +267,10 @@ struct vidcap_swmix_state {
 };
 
 
-static void vidcap_swmix_probe(device_info **available_cards, int *count, void (**deleter)(void *))
+static void vidcap_swmix_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
 {
         *deleter = free;
-        *available_cards = nullptr;
+        *available_cards = NULL;
         *count = 0;
 }
 
@@ -290,7 +288,7 @@ struct slave_data {
         codec_t             decoder_from, decoder_to;
 };
 
-static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
+static struct slave_data *init_slave_data(struct vidcap_swmix_state *s, FILE *config) {
         struct slave_data *slaves_data = (struct slave_data *)
                 calloc(s->devices_cnt, sizeof(struct slave_data));
         double m;
@@ -639,12 +637,11 @@ static void *master_worker(void *arg)
 
                 if(field == 0) {
                         pthread_mutex_lock(&s->lock);
-                        while(s->free_buffer_queue.empty()) {
+                        while(simple_linked_list_size(s->free_buffer_queue) == 0) {
                                 pthread_cond_wait(&s->free_buffer_queue_not_empty_cv,
                                                 &s->lock);
                         }
-                        current_buffer = s->free_buffer_queue.front();
-                        s->free_buffer_queue.pop();
+                        current_buffer = simple_linked_list_pop(s->free_buffer_queue);
                         pthread_mutex_unlock(&s->lock);
                 }
 
@@ -919,7 +916,7 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
 #define PARSE_FILE 2
 static int parse_config_string(const char *fmt, unsigned int *width,
                 unsigned int *height, double *fps,
-        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, interlacing_t *interl, int *grid_x, int *grid_y, char **filepath)
+        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, enum interlacing_t *interl, int *grid_x, int *grid_y, char **filepath)
 {
         char *save_ptr = NULL;
         char *item;
@@ -1101,7 +1098,7 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_NOERR;
         }
 
-        struct vidcap_swmix_state *s = new vidcap_swmix_state();
+        struct vidcap_swmix_state *s = calloc(1, sizeof *s);
 	if(s == NULL) {
 		printf("Unable to allocate swmix capture state\n");
 		return VIDCAP_INIT_FAIL;
@@ -1115,6 +1112,7 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
         s->audio_device_index = -1;
         s->bicubic_algo = strdup("BSpline");
         gettimeofday(&s->t0, NULL);
+        s->free_buffer_queue = simple_linked_list_init();
 
         s->interpolation = BICUBIC;
 
@@ -1128,9 +1126,7 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
         pthread_cond_init(&s->free_buffer_queue_not_empty_cv, NULL);
 
         char *init_fmt = strdup(vidcap_params_get_fmt(params));
-        struct video_desc desc{};
-        desc.tile_count = 1;
-        desc.color_spec = RGBA;
+        struct video_desc desc = {.tile_count = 1, .color_spec = RGBA};
         FILE *config_file = NULL;
         if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
                 free(init_fmt);
@@ -1204,7 +1200,7 @@ vidcap_swmix_init(struct vidcap_params *params, void **state)
                                 s->frame->color_spec) * s->frame->tiles[0].height;
         for(int i = 0; i < 3; ++i) {
                 char *buffer = (char *) malloc(s->frame->tiles[0].data_len);
-                s->free_buffer_queue.push(buffer);
+                simple_linked_list_append(s->free_buffer_queue, buffer);
         }
 
         pthread_create(&s->master_thread_id, NULL, master_worker, (void *) s);
@@ -1245,12 +1241,12 @@ vidcap_swmix_done(void *state)
         pthread_mutex_lock(&s->lock);
         s->should_exit = true;
         if(s->network_buffer) {
-                s->free_buffer_queue.push(s->network_buffer);
+                simple_linked_list_append(s->free_buffer_queue, s->network_buffer);
                 s->network_buffer = NULL;
                 pthread_cond_signal(&s->free_buffer_queue_not_empty_cv);
         }
         if(s->completed_buffer) {
-                s->free_buffer_queue.push(s->completed_buffer);
+                simple_linked_list_append(s->free_buffer_queue, s->completed_buffer);
                 s->completed_buffer = NULL;
                 pthread_cond_signal(&s->frame_sent_cv);
         }
@@ -1261,9 +1257,9 @@ vidcap_swmix_done(void *state)
 
         if(s->completed_buffer)
                 free(s->completed_buffer);
-        while(!s->free_buffer_queue.empty()) {
-                free(s->free_buffer_queue.front());
-                s->free_buffer_queue.pop();
+        char *buf = NULL;
+        while ((buf = simple_linked_list_pop(s->free_buffer_queue)) != NULL) {
+                free(buf);
         }
 
         if (s->slaves) {
@@ -1305,8 +1301,9 @@ vidcap_swmix_done(void *state)
         pthread_cond_destroy(&s->free_buffer_queue_not_empty_cv);
 
         free(s->bicubic_algo);
+        simple_linked_list_destroy(s->free_buffer_queue);
 
-        delete s;
+        free(s);
 }
 
 static struct video_frame *
@@ -1321,7 +1318,7 @@ vidcap_swmix_grab(void *state, struct audio_frame **audio)
                 pthread_cond_wait(&s->frame_ready_cv, &s->lock);
         }
         if(s->network_buffer) {
-                s->free_buffer_queue.push(s->network_buffer);
+                simple_linked_list_append(s->free_buffer_queue, s->network_buffer);
                 pthread_cond_signal(&s->free_buffer_queue_not_empty_cv);
         }
         if(s->network_audio_buffer) {
