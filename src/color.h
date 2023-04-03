@@ -38,6 +38,13 @@
 #ifndef COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25
 #define COLOR_H_CD26B745_C30E_4DA3_8280_C9492B6BFF25
 
+#ifdef __cplusplus
+#include <cstdint>
+#else
+#include <assert.h>
+#include <stdint.h>
+#endif
+
 #include "utils/macros.h" // CLAMP
 
 /* @brief Color space coedfficients - RGB full range to YCbCr bt. 709 limited range
