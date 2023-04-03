@@ -243,13 +243,13 @@ static bool display_sdl2_process_key(struct state_sdl2 *s, int64_t key)
 static void display_sdl2_run(void *arg)
 {
         struct state_sdl2 *s = (struct state_sdl2 *) arg;
-        bool should_exit_sdl = false;
 
         loadSplashscreen(s);
 
-        while (!should_exit_sdl) {
+        while (1) {
                 SDL_Event sdl_event;
                 if (!SDL_WaitEvent(&sdl_event)) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "SDL_WaitEvent error: %s\n", SDL_GetError());
                         continue;
                 }
                 if (sdl_event.type == s->sdl_user_reconfigure_event) {
@@ -260,11 +260,10 @@ static void display_sdl2_run(void *arg)
                         pthread_cond_signal(&s->reconfigured_cv);
 
                 } else if (sdl_event.type == s->sdl_user_new_frame_event) {
-                        if (sdl_event.user.data1 != NULL) {
-                                display_frame(s, (struct video_frame *) sdl_event.user.data1);
-                        } else { // poison pill received
-                                should_exit_sdl = true;
+                        if (sdl_event.user.data1 == NULL) { // poison pill received
+                                break;
                         }
+                        display_frame(s, (struct video_frame *) sdl_event.user.data1);
                 } else if (sdl_event.type == s->sdl_user_new_message_event) {
                         struct msg_universal *msg;
                         while ((msg = (struct msg_universal *) check_message(&s->mod))) {
@@ -335,7 +334,7 @@ static void sdl2_print_displays() {
 
 static void show_help(void)
 {
-        SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+        SDL_CHECK(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS));
         printf("SDL options:\n");
         color_printf(TBOLD(TRED("\t-d sdl") "[[:fs|:d|:display=<didx>|:driver=<drv>|:novsync|:renderer=<ridx>|:nodecorate|:fixed_size[=WxH]|:window_flags=<f>|:pos=<x>,<y>|:keep-aspect]*|:help]") "\n");
         printf("\twhere:\n");
@@ -381,7 +380,7 @@ static int display_sdl2_reconfigure(void *state, struct video_desc desc)
         SDL_Event event;
         event.type = s->sdl_user_reconfigure_event;
         event.user.data1 = &desc;
-        SDL_PushEvent(&event);
+        SDL_CHECK(SDL_PushEvent(&event));
 
         s->reconfiguration_status = -1;
         while (s->reconfiguration_status == -1) {
@@ -462,7 +461,7 @@ static bool recreate_textures(struct state_sdl2 *s, struct video_desc desc) {
                 }
                 struct video_frame *f = vf_alloc_desc(desc);
                 f->callbacks.dispose_udata = (void *) texture;
-                SDL_LockTexture(texture, NULL, (void **) &f->tiles[0].data, &s->texture_pitch);
+                SDL_CHECK(SDL_LockTexture(texture, NULL, (void **) &f->tiles[0].data, &s->texture_pitch));
                 f->callbacks.data_deleter = vf_sdl_texture_data_deleter;
                 simple_linked_list_append(s->free_frame_queue, f);
         }
@@ -745,7 +744,7 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, long long t
         SDL_Event event;
         event.type = s->sdl_user_new_frame_event;
         event.user.data1 = frame;
-        SDL_PushEvent(&event);
+        SDL_CHECK(SDL_PushEvent(&event));
 
         return 0;
 }
@@ -781,7 +780,7 @@ static void display_sdl2_new_message(struct module *mod)
 
         SDL_Event event;
         event.type = s->sdl_user_new_message_event;
-        SDL_PushEvent(&event);
+        SDL_CHECK(SDL_PushEvent(&event));
 }
 
 static void display_sdl2_probe(struct device_info **available_cards, int *count, void (**deleter)(void *)) {
