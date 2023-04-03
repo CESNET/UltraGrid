@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void *syphon_server_register(void *context, const char *name);
 void syphon_server_publish(void *s, int width, int height, unsigned int id);
 void syphon_server_unregister(void *s);
 
+#ifdef __cplusplus
+}
+#endif

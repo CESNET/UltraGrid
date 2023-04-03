@@ -1,5 +1,5 @@
 /**
- * @file   src/syphon_server.mm
+ * @file   src/syphon_server.m
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
