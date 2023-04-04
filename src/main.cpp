@@ -396,7 +396,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-T|--ttl <num>", {"Use specified TTL for multicast/unicast (0..255, -1 for default)"});
         }
         print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
-                        "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%%\" or", "\"ldgm:<k>:<m>:<c>\"",
+                        "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%\" or", "\"ldgm:<k>:<m>:<c>\"",
                         "\"rs:<k>:<n>\""});
         if (full) {
                 print_help_item("-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]", { "",
