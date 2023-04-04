@@ -70,6 +70,12 @@ for n in "$APPPREFIX"/bin/* "$APPPREFIX"/lib/ultragrid/* $PLUGIN_LIBS; do
         done
 done
 
+# hide Wayland libraries
+if ls $APPPREFIX/lib/libwayland-* >/dev/null 2>&1; then
+        mkdir $APPPREFIX/lib/wayland
+        mv $APPPREFIX/lib/libwayland-* $APPPREFIX/lib/wayland
+fi
+
 if command wget >/dev/null && wget -V | grep -q https; then
         dl() {
                 wget -O - ${GITHUB_TOKEN+--header "Authorization: token $GITHUB_TOKEN"} "$1"
