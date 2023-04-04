@@ -161,6 +161,13 @@ setup_vaapi() {
         fi
 }
 
+setup_wayland() {
+        # use bundled Wayland libs only when not running on Wayland, otherwise system ones
+        if [ -z "${WAYLAND_DISPLAY-}" ]; then
+                LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$AI_LIB_PATH/wayland"
+        fi
+}
+
 add_whitelist() {
         if expr "$1" : /tmp >/dev/null; then
                 printf -- "$separator--read-write=%s --mkdir=%s" "$1" "$1"
@@ -202,6 +209,7 @@ get_firejail_whitelist() {
 }
 
 setup_vaapi
+setup_wayland
 # shellcheck source=/dev/null
 . "$DIR/scripts/jack_preload.sh"
 
