@@ -167,8 +167,6 @@ private:
         mmal_component_unique renderer_component;
         mmal_pool_unique pool;
         av_zc_env_unique zero_copy_env;
-
-        std::thread thread_id;
 };
 
 void Rpi4_video_out::resize(int width, int height){
@@ -360,6 +358,8 @@ struct rpi4_display_state{
 
         std::mutex free_frames_mut;
         std::stack<unique_frame> free_frames;
+
+        std::thread thread_id;
 
         int requested_pos_x = 0;
         int requested_pos_y = 0;
