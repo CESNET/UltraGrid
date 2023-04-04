@@ -8,6 +8,10 @@ use_bundled_libva_default=0
 APPIMAGE=${APPIMAGE-none}
 ARGV0=${ARGV0-$0}
 
+bold=$(tput bold || true)
+red=$(tput setaf 1 || true)
+reset=$(tput sgr0 || true)
+
 DIR=$(dirname "$0")
 AI_LIB_PATH=$DIR/usr/lib
 export LD_LIBRARY_PATH="$AI_LIB_PATH"${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
@@ -20,9 +24,6 @@ export UG_FONT_DIR="$DIR/usr/share/fonts"
 QT_PLUGIN_PATH=$(set -- "$DIR"/usr/lib/qt?/plugins; echo "$1")
 export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
-bold=$(tput bold || true)
-red=$(tput setaf 1 || true)
-reset=$(tput sgr0 || true)
 
 get_tools() {
         find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
