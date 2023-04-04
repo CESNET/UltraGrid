@@ -144,7 +144,7 @@ static const struct {
         {'q', "quit"},
 };
 
-#define SDL_CHECK(cmd) do { int ret = cmd; if (ret != 0) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", #cmd, SDL_GetError());} } while(0)
+#define SDL_CHECK(cmd) do { int ret = cmd; if (ret < 0) { log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error (%s): %s\n", #cmd, SDL_GetError());} } while(0)
 
 static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
 {
