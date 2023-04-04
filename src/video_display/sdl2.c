@@ -723,7 +723,7 @@ static int display_sdl2_putf(void *state, struct video_frame *frame, long long t
 
         if (frame != NULL && timeout_ns > 0) {
                 int rc = 0;
-                while (rc == 0 && simple_linked_list_size(s->free_frame_queue) != 0) {
+                while (rc == 0 && simple_linked_list_size(s->free_frame_queue) == 0) {
                         if (timeout_ns == PUTF_BLOCKING) {
                                 rc = pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
                         } else {
