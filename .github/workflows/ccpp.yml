@@ -104,18 +104,6 @@ jobs:
     - name: Install Cached FFmpeg
       if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
       run: .github/scripts/Linux/install_ffmpeg.sh
-    - name: Cache SDL
-      id: cache-sdl
-      uses: actions/cache@v3
-      with:
-        path: '/var/tmp/sdl'
-        key: cache-sdl-${{ runner.os }}-${{ hashFiles( '.github/scripts/Linux/prepare.sh', '.github/scripts/Linux/download_build_sdl.sh' ) }}
-    - name: Build SDL
-      if: steps.cache-sdl.outputs.cache-hit != 'true'
-      run: .github/scripts/Linux/download_build_sdl.sh
-    - name: Install Cached SDL
-      if: steps.cache-sdl.outputs.cache-hit == 'true'
-      run: .github/scripts/Linux/install_sdl.sh
     - name: configure
       run: "./autogen.sh --enable-plugins ${{ env.CUDA_FEATURES }} ${{ env.FEATURES }} --enable-alsa --enable-v4l2 || { RC=$?; cat config.log; exit $RC; }"
     - name: make
