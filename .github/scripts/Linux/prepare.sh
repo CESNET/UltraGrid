@@ -27,6 +27,7 @@ sudo apt install libopencv-core-dev libopencv-imgproc-dev
 sudo apt install libcurl4-nss-dev
 sudo apt install i965-va-driver-shaders # instead of i965-va-driver
 sudo apt install uuid-dev # Cineform
+sudo apt install libvulkan-dev
 
 get_build_deps_excl() { # $2 - pattern to exclude
         apt-cache showsrc "$1" | sed -n '/^Build-Depends:/{s/Build-Depends://;p;q}' | tr ',' '\n' | cut -f 2 -d\  | grep -v "$2"

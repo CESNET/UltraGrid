@@ -43,22 +43,6 @@ install_ndi() {
 )
 }
 
-# TODO: needed only for U18.04, remove after upgrading to U20.04
-install_vulkan() {(
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
-        mkdir Vulkan-Headers/build
-        cd Vulkan-Headers/build
-        cmake ..
-        sudo make install
-        cd ../..
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Loader
-        mkdir Vulkan-Loader/build
-        cd Vulkan-Loader/build
-        cmake ..
-        cmake --build . --parallel
-        sudo make install
-)}
-
 # Install live555
 git clone https://github.com/xanview/live555/
 cd live555
@@ -71,6 +55,5 @@ cd ..
 install_aja
 install_gpujpeg
 install_ndi
-install_vulkan
 install_ximea
 
