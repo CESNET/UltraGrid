@@ -53,29 +53,13 @@ install_ndi() {(
         sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < 'NDI SDK for Linux/Version.txt' | sudo tee /usr/local/include/ndi_version.h
 )}
 
-# TODO: needed only for U18.04, remove after upgrading to U20.04
-install_vulkan() {(
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers
-        mkdir Vulkan-Headers/build
-        cd Vulkan-Headers/build
-        cmake ..
-        sudo make install
-        cd ../..
-        git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Loader
-        mkdir Vulkan-Loader/build
-        cd Vulkan-Loader/build
-        cmake ..
-        cmake --build . --parallel
-        sudo make install
-)}
-
 show_help=
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
         show_help=1
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- aja gpujpeg live555 ndi vulkan ximea
+        set -- aja gpujpeg live555 ndi ximea
 fi
 
 if [ $show_help ]; then
