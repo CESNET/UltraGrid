@@ -24,7 +24,8 @@ set_ld_preload() {
                 return
         fi
         S_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-        LD_LIBRARY_PATH=
+        # shellcheck disable=SC2154 # assigned in AppRun (this file is sourced)
+        LD_LIBRARY_PATH=$orig_ld_library_path
         system_lib=$(LD_TRACE_LOADED_OBJECTS=1 $loader "$ug_module_lib" | grep "$2" | grep -v 'not found' | awk '{print $3}')
         LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
         if [ -n "$system_lib" ]; then

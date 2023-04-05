@@ -14,6 +14,7 @@ reset=$(tput sgr0 || true)
 
 DIR=$(dirname "$0")
 AI_LIB_PATH=$DIR/usr/lib
+orig_ld_library_path=${LD_LIBRARY_PATH-}
 export LD_LIBRARY_PATH="$AI_LIB_PATH"${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 LD_PRELOAD=${LD_PRELOAD-}
 # there is an issue with running_from_path() which evaluates this executable
@@ -25,9 +26,10 @@ QT_PLUGIN_PATH=$(set -- "$DIR"/usr/lib/qt?/plugins; echo "$1")
 export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
 
-get_tools() {
+get_tools() {(
+        LD_LIBRARY_PATH=$orig_ld_library_path
         find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
-}
+)}
 
 usage() {
         printf "usage:\n"
@@ -70,7 +72,9 @@ usage_aux() {
 
 update_notify_days=90
 ## Print update hint if UG binary is older than $update_notify_days days, if $ULTRAGRID_AUTOUPDATE=1 triggers update.
-handle_updates() {
+handle_updates() {(
+        # shellcheck disable=SC2030 # intentional
+        LD_LIBRARY_PATH=$orig_ld_library_path
         if [ "$APPIMAGE" = none ]; then
                 return
         fi
@@ -99,7 +103,7 @@ handle_updates() {
         printf "\n"
         printf "Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for automatic update or 0 to suppress the above message.\n"
         printf "\n"
-}
+)}
 
 ## Tries to find system libva. If found it is preloaded (+libva-drm+libva-x11)
 ## @retval 0 if preloaded; 1 otherwise
@@ -115,11 +119,12 @@ set_libva_ld_preload() {
         if [ -z "$AI_LIBAVCODEC_LIB" ]; then
                 return 1
         fi
+        # shellcheck disable=SC2031 # invalid?
         S_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-        LD_LIBRARY_PATH=
+        LD_LIBRARY_PATH=$orig_ld_library_path
         LIBVA_LIB=$(LD_TRACE_LOADED_OBJECTS=1 "$LOADER" "$AI_LIBAVCODEC_LIB" | grep libva.so | grep -v 'not found' | awk '{print $3}')
-        LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
         if [ -z "$LIBVA_LIB" ]; then
+                LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
                 return 1
         fi
         libva_libs=$LIBVA_LIB
@@ -130,8 +135,8 @@ set_libva_ld_preload() {
                         libva_libs=$libva_libs:$NAME
                 fi
         done
+        LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
         export LD_PRELOAD="$libva_libs${LD_PRELOAD:+:$LD_PRELOAD}"
-        return 0
 }
 
 ## Tries to set LD_PRELOAD to system libva (see set_libva_ld_preload()). If failed, sets path to bundled libva drivers.
@@ -273,5 +278,3 @@ else
         # shellcheck disable=SC2086
         ${RUN}"$DIR/usr/bin/uv" "$@"
 fi
-
-exit $?
