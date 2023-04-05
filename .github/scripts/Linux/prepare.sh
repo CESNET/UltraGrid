@@ -47,9 +47,7 @@ sudo apt-get -y remove 'libavcodec*' 'libavutil*' 'libswscale*' libvpx-dev 'libx
 # own x264 build
 sudo apt --no-install-recommends install asciidoc xmlto
 # openVPL
-sudo apt install libva-dev libdrm-dev libx11-dev libx11-xcb-dev libxcb-present-dev libxcb-dri3-dev
-sudo curl -LO http://azure.archive.ubuntu.com/ubuntu/pool/main/w/wayland-protocols/wayland-protocols_1.20-1_all.deb # at least 1.15 is needed
-sudo dpkg -i wayland-protocols_*_all.deb
+sudo apt install libva-dev libdrm-dev libx11-dev libx11-xcb-dev libxcb-present-dev libxcb-dri3-dev wayland-protocols
 
 sudo apt install qtbase5-dev
 
