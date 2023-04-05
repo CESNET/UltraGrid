@@ -11,11 +11,12 @@ get_loader() {
         done
 }
 
+# @param $1 UG library name
+# @param $2 system preloaded library pattern
+#
 set_ld_preload() {
-        # ultragrid_aplay_jack.so is not used because it loads JACK with dlopen,
-        # while portaudio is linked directly to JACK library
-        portaudio_lib=$AI_LIB_PATH/ultragrid/ultragrid_aplay_portaudio.so
-        if [ ! -f "$portaudio_lib" ]; then
+        ug_module_lib=$AI_LIB_PATH/ultragrid/$1
+        if [ ! -f "$ug_module_lib" ]; then
                 return
         fi
         loader=$(get_loader)
@@ -24,12 +25,10 @@ set_ld_preload() {
         fi
         S_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
         LD_LIBRARY_PATH=
-        jack_lib=$(LD_TRACE_LOADED_OBJECTS=1 $loader "$portaudio_lib" | grep libjack | grep -v 'not found' | awk '{print $3}')
+        system_lib=$(LD_TRACE_LOADED_OBJECTS=1 $loader "$ug_module_lib" | grep "$2" | grep -v 'not found' | awk '{print $3}')
         LD_LIBRARY_PATH=$S_LD_LIBRARY_PATH
-        if [ -n "$jack_lib" ]; then
-                export LD_PRELOAD="$jack_lib"${LD_PRELOAD:+":$LD_PRELOAD"}
+        if [ -n "$system_lib" ]; then
+                export LD_PRELOAD="$system_lib"${LD_PRELOAD:+":$LD_PRELOAD"}
         fi
 }
-
-set_ld_preload
 

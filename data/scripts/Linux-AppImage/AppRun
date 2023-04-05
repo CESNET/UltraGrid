@@ -212,7 +212,11 @@ get_firejail_whitelist() {
 setup_vaapi
 setup_wayland
 # shellcheck source=/dev/null
-. "$DIR/scripts/jack_preload.sh"
+. "$DIR/scripts/preload.sh"
+# ultragrid_aplay_jack.so is not used because it loads JACK with dlopen,
+# while portaudio is linked directly to JACK library
+set_ld_preload ultragrid_aplay_portaudio.so libjack
+set_ld_preload ultragrid_vidcap_screen_pipewire.so libpipewire
 
 RUN=
 if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && [ "$ULTRAGRID_USE_FIREJAIL" != no ]; then
