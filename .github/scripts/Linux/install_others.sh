@@ -53,13 +53,28 @@ install_ndi() {(
         sed 's/\(.*\)/\#define NDI_VERSION \"\1\"/' < 'NDI SDK for Linux/Version.txt' | sudo tee /usr/local/include/ndi_version.h
 )}
 
+# TODO: needed only for U20.04, remove after upgrading to U22.04
+install_pipewire() {(
+        if [ "$(lsb_release -rs)" = 20.04 ]; then
+                sudo apt install meson
+                git clone https://gitlab.freedesktop.org/pipewire/pipewire.git
+                cd pipewire
+                git checkout 19bcdaebe29b95edae2b285781dab1cc841be638 # last one supporting meson 0.53.2 in U20.04
+                ./autogen.sh
+                make -j "$(nproc)"
+                sudo make install
+        else
+                sudo apt install libpipewire-0.3-dev
+        fi
+)}
+
 show_help=
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
         show_help=1
 fi
 
 if [ $# -eq 0 ] || [ $show_help ]; then
-        set -- aja gpujpeg live555 ndi ximea
+        set -- aja gpujpeg live555 ndi pipewire ximea
 fi
 
 if [ $show_help ]; then
