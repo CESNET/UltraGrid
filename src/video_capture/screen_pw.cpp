@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <unistd.h>
 #include <pipewire/pipewire.h>
+#include <pipewire/version.h>
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
 #include <spa/utils/result.h>
@@ -610,8 +611,10 @@ static const struct pw_stream_events stream_events = {
                 .remove_buffer = on_remove_buffer,
                 .process = on_process,
                 .drained = on_drained,
+#if PW_MAJOR > 0 || PW_MINOR > 3 || (PW_MINOR == 3 && PW_MICRO > 39)
                 .command = nullptr,
                 .trigger_done = nullptr,
+#endif
 };
 
 static int start_pipewire(screen_cast_session &session)
