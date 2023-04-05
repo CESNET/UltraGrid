@@ -101,25 +101,13 @@ handle_updates() {
         printf "\n"
 }
 
-get_dynamic_loader() {
-        LOADER_LIST='/lib64/ld-linux-*so* /lib/ld-linux-*so* /lib*/ld-linux-*so*'
-        for LOADER in $LOADER_LIST; do
-                for n in $LOADER; do
-                        if [ -x "$n" ]; then
-                                echo "$n"
-                                return
-                        fi
-                done
-        done
-}
-
 ## Tries to find system libva. If found it is preloaded (+libva-drm+libva-x11)
 ## @retval 0 if preloaded; 1 otherwise
 set_libva_ld_preload() {
         if [ ! -f "$AI_LIB_PATH/ultragrid/ultragrid_vcompress_libavcodec.so" ]; then
                 return 0
         fi
-        LOADER=$(get_dynamic_loader)
+        LOADER=$(get_loader)
         if [ ! -x "$LOADER" ]; then
                 return 1
         fi
@@ -215,10 +203,10 @@ get_custom_firejail_rules() {
         fi
 }
 
-setup_vaapi
-setup_wayland
 # shellcheck source=/dev/null
 . "$DIR/scripts/preload.sh"
+setup_vaapi
+setup_wayland
 # ultragrid_aplay_jack.so is not used because it loads JACK with dlopen,
 # while portaudio is linked directly to JACK library
 set_ld_preload ultragrid_aplay_portaudio.so libjack
