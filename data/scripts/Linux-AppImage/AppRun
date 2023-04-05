@@ -178,9 +178,9 @@ add_whitelist() {
         separator=' '
 }
 
-## Parse params to get whitelists that may be needed to add
+## Parse params to get custom rules like whitelists that may be needed to add
 ## @todo spaces inside paths doesn't work
-get_firejail_whitelist() {
+get_custom_firejail_rules() {
         separator=''
         playback_path=$(echo "$@" | sed -n 's/.*--playback \([^ :]*\).*/\1/p')
         if [ -n "$playback_path" ]; then
@@ -207,6 +207,12 @@ get_firejail_whitelist() {
         if [ -z "$separator" ]; then # no whitelist was set
                 printf -- "--private"
         fi
+        # screen pw - requires root (could be disabled by default.profile) and dbus
+        if expr "$*" : '.*screen' >/dev/null; then
+                printf " --ignore=noroot"
+        elif firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
+                printf " --dbus-user=none --dbus-system=none"
+        fi
 }
 
 setup_vaapi
@@ -225,14 +231,11 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
                 FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
         else
                 FJ_TMPDIR=${TMPDIR-/tmp/ultragrid-$(id -u)}
-                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --noroot --protocol=unix,inet,inet6,netlink --seccomp --disable-mnt --private-bin=none --private-opt=none --mkdir=$FJ_TMPDIR --read-write=$FJ_TMPDIR --writable-var"
-                FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_firejail_whitelist "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
+                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp --disable-mnt --private-bin=none --private-opt=none --mkdir=$FJ_TMPDIR --read-write=$FJ_TMPDIR --writable-var"
+                FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
                 if ! expr "$FIREJAIL_OPTS" : '.*--read-write=/tmp ' > /dev/null; then
                         FIREJAIL_OPTS="$FIREJAIL_OPTS --read-only=/tmp"
                 fi
-        fi
-        if firejail --version | grep -iq "d-\{0,1\}bus.*enabled"; then
-                FIREJAIL_OPTS="$FIREJAIL_OPTS --dbus-user=none --dbus-system=none"
         fi
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
