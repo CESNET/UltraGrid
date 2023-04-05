@@ -4,11 +4,7 @@ install_aom() {(
         git clone --depth 1 https://aomedia.googlesource.com/aom
         mkdir -p aom/build
         cd aom/build
-        if [ "$(lsb_release -rs)" = 18.04 ]; then
-                CC=gcc-10 CXX=g++-10 cmake -DBUILD_SHARED_LIBS=1 ..
-        else
-                cmake -DBUILD_SHARED_LIBS=1 ..
-        fi
+        cmake -DBUILD_SHARED_LIBS=1 ..
         cmake --build . --parallel
         sudo cmake --install .
 )}
