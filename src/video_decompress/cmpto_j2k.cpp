@@ -64,6 +64,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/macros.h"
 #include "utils/misc.h"
 #include "video.h"
 #include "video_decompress.h"
@@ -133,6 +134,14 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
         }
 }
 
+static void print_dropped(unsigned long long int dropped) {
+        if (dropped % 10 == 1) {
+                log_msg(LOG_LEVEL_WARNING, "[J2K dec] Some frames (%llu) dropped.\n", dropped);
+                log_msg_once(LOG_LEVEL_INFO, to_fourcc('J', '2', 'D', 'W'), "[J2K dec] You may try to increase "
+                                "tile limit to increase the throughput by adding parameter: --param j2k-dec-tile-limit=4\n");
+        }
+}
+
 /**
  * This function just runs in thread and gets decompressed images from decoder
  * putting them to queue (or dropping if full).
@@ -183,10 +192,7 @@ next_image:
                                 "Unable to to return processed image", NOOP);
                 lock_guard<mutex> lk(s->lock);
                 while (s->decompressed_frames.size() >= s->max_queue_size) {
-                        if (s->dropped++ % 10 == 0) {
-                                log_msg(LOG_LEVEL_WARNING, "[J2K dec] Some frames (%llu) dropped.\n", s->dropped);
-
-                        }
+                        print_dropped(s->dropped++);
                         auto decoded = s->decompressed_frames.front();
                         s->decompressed_frames.pop();
                         free(decoded.first);
@@ -412,10 +418,7 @@ static decompress_status j2k_decompress(void *state, unsigned char *dst, unsigne
         }
 
         if (s->in_frames >= s->max_in_frames + 1) {
-                if (s->dropped++ % 10 == 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[J2K dec] Some frames (%llu) dropped.\n", s->dropped);
-
-                }
+                print_dropped(s->dropped++);
                 goto return_previous;
         }
 
