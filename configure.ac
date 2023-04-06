@@ -2079,10 +2079,6 @@ then
         nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_minor)
 
-        CUDA_INC="\"-I$CUDA_PATH/include\""
-	CUDA_COMPILER="$NVCC"
-        INC="$INC $CUDA_INC"
-
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
                 CUDA_LIB_PATH="$CUDA_PATH/lib64"
@@ -2090,8 +2086,9 @@ then
                 CUDA_LIB_PATH="$CUDA_PATH/lib"
         fi
 
-        if test $system = Windows -a $nvcc_major -ge 8;
-        then
+        if test $system = Windows; then
+                CUDA_PATH="\"$CUDA_PATH\""
+                CUDA_LIB_PATH="\"$CUDA_LIB_PATH\""
                 if test $WORD_LEN = 64; then
                         CUDA_LIB_PATH="$CUDA_LIB_PATH/x64"
                 else
@@ -2099,7 +2096,10 @@ then
                 fi
         fi
 
-        CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
+        CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
+        CUDA_INC="-I$CUDA_PATH/include"
+        CUDA_COMPILER="$NVCC"
+        INC="$INC $CUDA_INC"
 
         if test $system = MacOSX; then
                 LDFLAGS="$LDFLAGS${LDFLAGS:+ }-rpath $CUDA_LIB_PATH"
