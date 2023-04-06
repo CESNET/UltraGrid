@@ -976,8 +976,6 @@ void udp_exit(socket_udp * s)
         case IPv6:
                 udp_leave_mcast_grp6(((struct sockaddr_in6 *)&s->sock)->sin6_addr, s->local->rx_fd, s->ifindex);
                 break;
-        default:
-                abort();
         }
 
         if (!s->local_is_slave) {
