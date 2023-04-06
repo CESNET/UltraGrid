@@ -114,7 +114,6 @@ static void deconfigure(struct state_libavcodec_decompress *s)
                 avcodec_free_context(&s->codec_ctx);
         }
         av_frame_free(&s->frame);
-        av_packet_unref(s->pkt);
         av_packet_free(&s->pkt);
 
         hwaccel_state_reset(&s->hwaccel);
@@ -395,7 +394,6 @@ static void * libavcodec_decompress_init(void)
         avcodec_register_all();
 #endif
 
-        s->pkt = av_packet_alloc();
         hwaccel_state_init(&s->hwaccel);
 
         return s;

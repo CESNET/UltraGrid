@@ -774,7 +774,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
 
         codec_params[ug_codec].set_param(s->codec_ctx, &s->params);
         set_codec_thread_mode(s->codec_ctx, &s->params);
-        s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(s->params.slices, DEFAULT_SLICE_COUNT);
+        s->codec_ctx->slices = IF_NOT_UNDEF_ELSE(s->params.slices, s->codec_ctx->codec_id == AV_CODEC_ID_FFV1 ? 16 : DEFAULT_SLICE_COUNT);
 
         if (!s->params.have_preset) {
                 string preset{};
