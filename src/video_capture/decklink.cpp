@@ -929,6 +929,8 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
         s->next_frame_time = static_cast<int>(std::chrono::microseconds::period::den / s->frame->fps); // in microseconds
         switch(displayMode->GetFieldDominance()) {
                 case bmdLowerFieldFirst:
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Lower field first format detected, fields can be switched! If so, please report a bug to " PACKAGE_BUGREPORT "\n");
+                        // fall through
                 case bmdUpperFieldFirst:
                         s->frame->interlacing = INTERLACED_MERGED;
                         break;
