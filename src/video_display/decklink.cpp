@@ -1985,19 +1985,18 @@ static void print_output_modes (IDeckLink* deckLink)
                 if (result == S_OK)
                 {
                         char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
-                        int                             modeWidth;
-                        int                             modeHeight;
-                        BMDDisplayModeFlags             flags;
                         BMDTimeValue    frameRateDuration;
                         BMDTimeScale    frameRateScale;
 
                         // Obtain the display mode's properties
-                        flags = displayMode->GetFlags();
-                        modeWidth = displayMode->GetWidth();
-                        modeHeight = displayMode->GetHeight();
+                        BMDDisplayModeFlags flags = displayMode->GetFlags();
+                        int modeWidth = displayMode->GetWidth();
+                        int modeHeight = displayMode->GetHeight();
+                        uint32_t field_dominance_n = ntohl(displayMode->GetFieldDominance());
                         displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                        printf("\t\t%2d) %-20s  %d x %d \t %2.2f FPS%s\n",displayModeNumber, displayModeCString,
+                        printf("\t\t%2d) %-20s  %d x %d \t %2.2f FPS %.4s%s\n",displayModeNumber, displayModeCString,
                                         modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
+                                        (char *) &field_dominance_n,
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
                         release_bmd_api_str(displayModeString);
                         free(displayModeCString);
