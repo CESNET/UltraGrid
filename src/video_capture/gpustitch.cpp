@@ -541,7 +541,7 @@ vidcap_gpustitch_init(struct vidcap_params *params, void **state)
 
         if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                show_help(); 
-               free(s);
+               delete s;
                return VIDCAP_INIT_NOERR;
         }
 
@@ -587,7 +587,7 @@ vidcap_gpustitch_init(struct vidcap_params *params, void **state)
 
 error:
         stop_grab_workers(s);
-        free(s);
+        delete s;
         return VIDCAP_INIT_FAIL;
 }
 
