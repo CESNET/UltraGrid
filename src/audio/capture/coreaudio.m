@@ -41,8 +41,8 @@
 #endif // HAVE_CONFIG_H
 
 #include <AVFoundation/AVFoundation.h>
-#include <Availability.h>
 #include <AudioUnit/AudioUnit.h>
+#include <Availability.h>
 #include <CoreAudio/AudioHardware.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -60,7 +60,7 @@
 #define MODULE_NAME "[CoreAudio] "
 
 struct state_ca_capture {
-#ifndef __MAC_10_9
+#ifndef __MAC_10_6
         ComponentInstance 
 #else
         AudioComponentInstance
@@ -208,7 +208,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
                 return INIT_NOERR;
         }
         OSErr ret = noErr;
-#ifndef __MAC_10_9
+#ifndef __MAC_10_6
         Component comp;
         ComponentDescription desc;
 #else
@@ -291,7 +291,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
 
         bool failed = true;
         do {
-#ifdef __MAC_10_9
+#ifdef __MAC_10_6
                 comp = AudioComponentFindNext(NULL, &desc);
                 if(!comp) {
                         fprintf(stderr, "Error finding AUHAL component.\n");

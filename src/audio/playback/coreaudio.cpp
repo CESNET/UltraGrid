@@ -74,7 +74,7 @@ constexpr int DEFAULT_BUFLEN_MS = 50;
 #define MOD_NAME "[CoreAudio play.] "
 
 struct state_ca_playback {
-#ifndef __MAC_10_9
+#ifndef __MAC_10_6
         ComponentInstance
 #else
         AudioComponentInstance
@@ -364,7 +364,7 @@ static void audio_play_ca_help()
 static void * audio_play_ca_init(const char *cfg)
 {
         OSErr ret = noErr;
-#ifndef __MAC_10_9
+#ifndef __MAC_10_6
         Component comp;
         ComponentDescription comp_desc;
 #else
@@ -399,7 +399,7 @@ static void * audio_play_ca_init(const char *cfg)
         comp_desc.componentFlags = 0;
         comp_desc.componentFlagsMask = 0;
 
-#ifndef __MAC_10_9
+#ifndef __MAC_10_6
         comp = FindNextComponent(NULL, &comp_desc);
         if(!comp) goto error;
         ret = OpenAComponent(comp, &s->auHALComponentInstance);
