@@ -280,10 +280,6 @@ public:
                         IDeckLinkDisplayMode* mode,
                         BMDDetectedVideoInputFormatFlags flags) noexcept override {
                 LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << getNotificationEventsStr(notificationEvents, flags) << ").\n";
-                notificationEvents &= ~bmdVideoInputFieldDominanceChanged; // ignore field dominance change
-                if (notificationEvents == 0U) {
-                        return S_OK;
-                }
 
                 bool detected_3d = (flags & bmdDetectedVideoInputDualStream3D) != 0U;
                 if ((detected_3d && !s->stereo) || ((!detected_3d && s->stereo))) {
@@ -291,52 +287,53 @@ public:
                         return E_FAIL;
                 }
                 BMDDetectedVideoInputFormatFlags csBitDepth = flags & (csMask | bitDepthMask);
-                if ((csBitDepth & bitDepthMask) == 0U) { // if no bit depth, assume 8-bit
-                        csBitDepth |= bmdDetectedVideoInput8BitDepth;
-                }
-                if (s->requested_bit_depth != 0) {
-                        csBitDepth = (flags & csMask) | s->requested_bit_depth;
-                }
-                unordered_map<BMDDetectedVideoInputFormatFlags, codec_t> m = {
-                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput8BitDepth, UYVY},
-                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput10BitDepth, v210},
-                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput12BitDepth, v210}, // weird
-                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput8BitDepth, RGBA},
-                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput10BitDepth, R10k},
-                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput12BitDepth, R12L},
-                };
-                if (notificationEvents == bmdVideoInputColorspaceChanged && csBitDepth == configuredCsBitDepth) { // only CS change which was already performed
-                        return S_OK;
-                }
-                if (s->requested_bit_depth == 0 && (flags & bmdDetectedVideoInput8BitDepth) == 0) {
-                        const string & depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? "10"s : "12"s;
-                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Detected " << depth << "-bit signal, use \":codec=UYVY\" to enforce 8-bit capture (old behavior).\n";
-                }
-
                 unique_lock<mutex> lk(s->lock);
-                s->set_codec(m.at(csBitDepth));
-                configuredCsBitDepth = csBitDepth;
+                if (notificationEvents & bmdVideoInputColorspaceChanged && csBitDepth != configuredCsBitDepth) {
+                        if ((csBitDepth & bitDepthMask) == 0U) { // if no bit depth, assume 8-bit
+                                csBitDepth |= bmdDetectedVideoInput8BitDepth;
+                        }
+                        if (s->requested_bit_depth != 0) {
+                                csBitDepth = (flags & csMask) | s->requested_bit_depth;
+                        }
+                        unordered_map<BMDDetectedVideoInputFormatFlags, codec_t> m = {
+                                {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput8BitDepth, UYVY},
+                                {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput10BitDepth, v210},
+                                {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput12BitDepth, v210}, // weird
+                                {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput8BitDepth, RGBA},
+                                {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput10BitDepth, R10k},
+                                {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput12BitDepth, R12L},
+                        };
+                        if (s->requested_bit_depth == 0 && (flags & bmdDetectedVideoInput8BitDepth) == 0) {
+                                const string & depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? "10"s : "12"s;
+                                LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Detected " << depth << "-bit signal, use \":codec=UYVY\" to enforce 8-bit capture (old behavior).\n";
+                        }
 
-                IDeckLinkInput *deckLinkInput = device.deckLinkInput;
-                deckLinkInput->PauseStreams();
-                BMDPixelFormat pf{};
-                if (HRESULT result = set_display_mode_properties(s, device.tile, mode, /* out */ &pf); FAILED(result)) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "set_display_mode_properties: " << bmd_hresult_to_string(result) << "\n";
-                        return result;
+                        s->set_codec(m.at(csBitDepth));
+                        configuredCsBitDepth = csBitDepth;
                 }
-                CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
-                if (!device.audio) { //TODO: figure out output from multiple streams
-                        deckLinkInput->DisableAudioInput();
-                } else {
-                        deckLinkInput->EnableAudioInput(
-                                bmdAudioSampleRate48kHz,
-                                s->audio.bps == 2 ? bmdAudioSampleType16bitInteger :
-                                        bmdAudioSampleType32bitInteger,
-                                max(s->audio.ch_count, 2)); // BMD isn't able to grab single channel
+
+                if (notificationEvents & bmdVideoInputDisplayModeChanged) {
+                        IDeckLinkInput *deckLinkInput = device.deckLinkInput;
+                        deckLinkInput->PauseStreams();
+                        BMDPixelFormat pf{};
+                        if (HRESULT result = set_display_mode_properties(s, device.tile, mode, /* out */ &pf); FAILED(result)) {
+                                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "set_display_mode_properties: " << bmd_hresult_to_string(result) << "\n";
+                                return result;
+                        }
+                        CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
+                        if (!device.audio) { //TODO: figure out output from multiple streams
+                                deckLinkInput->DisableAudioInput();
+                        } else {
+                                deckLinkInput->EnableAudioInput(
+                                                bmdAudioSampleRate48kHz,
+                                                s->audio.bps == 2 ? bmdAudioSampleType16bitInteger :
+                                                bmdAudioSampleType32bitInteger,
+                                                max(s->audio.ch_count, 2)); // BMD isn't able to grab single channel
+                        }
+                        //deckLinkInput->SetCallback(s->state[i].delegate);
+                        deckLinkInput->FlushStreams();
+                        deckLinkInput->StartStreams();
                 }
-                //deckLinkInput->SetCallback(s->state[i].delegate);
-                deckLinkInput->FlushStreams();
-                deckLinkInput->StartStreams();
 
                 return S_OK;
 	}
