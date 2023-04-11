@@ -483,7 +483,7 @@ decklink_help(bool full)
         col() << SBOLD("3D") << "\n";
         printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
         printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
-        printf("\tin video format listing above (\"supports 3D\").\n");
+        printf("\tin video format listing above by flag \"3D\".\n");
 	printf("\n");
 
         col() << SBOLD("audio_level") << "\n";
@@ -1690,7 +1690,7 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
 
                         char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
 			// Obtain the display mode's properties
-                        BMDDisplayModeFlags flags = displayMode->GetFlags();
+                        string flags_str = bmd_get_flags_str(displayMode->GetFlags());
                         int modeWidth = displayMode->GetWidth();
                         int modeHeight = displayMode->GetHeight();
 			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
@@ -1699,10 +1699,9 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
                         string fcc{(char *) &mode, 4};
                         string name{displayModeCString};
                         char buf[1024];
-                        snprintf(buf, sizeof buf, "%d x %d \t %2.2f FPS %.4s%s", modeWidth, modeHeight,
+                        snprintf(buf, sizeof buf, "%d x %d \t %2.2f FPS %.4s, flags: %s", modeWidth, modeHeight,
                                         (float) ((double)frameRateScale / (double)frameRateDuration),
-                                        (char *) &field_dominance_n,
-                                        (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
+                                        (char *) &field_dominance_n, flags_str.c_str());
                         string details{buf};
                         ret.push_back(tuple<int, string, string, string> {displayModeNumber, fcc, name, details});
 

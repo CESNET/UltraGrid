@@ -44,6 +44,7 @@
 #include <algorithm>
 #include <condition_variable>
 #include <iomanip>
+#include <map>
 #include <sstream>
 #include <unordered_map>
 
@@ -625,6 +626,31 @@ string bmd_get_audio_connection_name(BMDAudioOutputAnalogAESSwitch audioConnecti
                 default:
                         return "default";
         }
+}
+
+string bmd_get_flags_str(BMDDisplayModeFlags flags) {
+        bool first = true;
+        ostringstream oss;
+        map<uint32_t, const char *> map {
+                { bmdDisplayModeSupports3D, "3D" },
+                { bmdDisplayModeColorspaceRec601, "Rec601" },
+                { bmdDisplayModeColorspaceRec709, "Rec709" },
+                { bmdDisplayModeColorspaceRec2020, "Rec2020" }
+        };
+
+        for (auto &f : map ) {
+                if (flags & f.first) {
+                        oss << (!first ? ", " : "") << f.second;
+                        first = false;
+                }
+        }
+        if (flags == 0) {
+                oss << "(none)";
+        }
+        if (flags >= bmdDisplayModeColorspaceRec2020 << 1) {
+                oss << ", (unknown flags)";
+        }
+        return oss.str();
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

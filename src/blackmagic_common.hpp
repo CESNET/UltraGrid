@@ -96,6 +96,7 @@ void release_bmd_api_str(BMD_STR string);
 #ifdef __cplusplus
 #include <string>
 std::string get_str_from_bmd_api_str(BMD_STR string);
+std::string bmd_get_flags_str(BMDDisplayModeFlags flags);
 #endif
 
 ///< @param[out] com_initialized - pass a pointer to bool
