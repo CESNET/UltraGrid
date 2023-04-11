@@ -34,6 +34,7 @@
 #if defined __APPLE__
 #include <Availability.h>
 #if defined __MAC_10_11
+#define GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
 #include <OpenGL/gl3.h>
 #endif // defined __MAC_10_11
 #endif // defined __APPLE__
