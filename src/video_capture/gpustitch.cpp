@@ -89,7 +89,7 @@ static void show_help()
 struct grab_worker_state;
 
 struct vidcap_gpustitch_state {
-        int                 devices_cnt;
+        unsigned            devices_cnt;
 
         struct video_frame      **captured_frames;
         struct video_frame       *frame; 
@@ -214,7 +214,6 @@ static bool upload_to_cuda_buf(grab_worker_state *gs, video_frame *in_frame,
                 cudaStream_t stream)
 {
         unsigned int width = in_frame->tiles[0].width;
-        unsigned int height = in_frame->tiles[0].height;
         int in_line_size = vc_get_linesize(width, in_frame->color_spec);
         int roi_line_size = vc_get_linesize(w, in_frame->color_spec);
 
@@ -564,7 +563,7 @@ vidcap_gpustitch_init(struct vidcap_params *params, void **state)
 
         s->capture_workers = std::vector<grab_worker_state>(s->devices_cnt);
         tmp = params;
-        for (int i = 0; i < s->devices_cnt; ++i) {
+        for (unsigned i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
                 s->capture_workers[i].s = s;
@@ -750,7 +749,7 @@ static struct video_frame *stitch(struct vidcap_gpustitch_state *s){
 }
 
 static struct video_frame *
-vidcap_gpustitch_grab(void *state, struct audio_frame **audio)
+vidcap_gpustitch_grab(void *state, struct audio_frame **audio [[maybe_unused]])
 {
         PROFILE_FUNC;
         struct vidcap_gpustitch_state *s = (struct vidcap_gpustitch_state *) state;
