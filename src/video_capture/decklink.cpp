@@ -1685,24 +1685,23 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
 
 		if (result == S_OK)
 		{
-			int				modeWidth;
-			int				modeHeight;
-                        BMDDisplayModeFlags             flags;
 			BMDTimeValue	frameRateDuration;
 			BMDTimeScale	frameRateScale;
 
                         char *displayModeCString = get_cstr_from_bmd_api_str(displayModeString);
 			// Obtain the display mode's properties
-                        flags = displayMode->GetFlags();
-			modeWidth = displayMode->GetWidth();
-			modeHeight = displayMode->GetHeight();
+                        BMDDisplayModeFlags flags = displayMode->GetFlags();
+                        int modeWidth = displayMode->GetWidth();
+                        int modeHeight = displayMode->GetHeight();
 			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
                         uint32_t mode = ntohl(displayMode->GetDisplayMode());
+                        uint32_t field_dominance_n = ntohl(displayMode->GetFieldDominance());
                         string fcc{(char *) &mode, 4};
                         string name{displayModeCString};
                         char buf[1024];
-                        snprintf(buf, sizeof buf, "%d x %d \t %2.2f FPS%s", modeWidth, modeHeight,
+                        snprintf(buf, sizeof buf, "%d x %d \t %2.2f FPS %.4s%s", modeWidth, modeHeight,
                                         (float) ((double)frameRateScale / (double)frameRateDuration),
+                                        (char *) &field_dominance_n,
                                         (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
                         string details{buf};
                         ret.push_back(tuple<int, string, string, string> {displayModeNumber, fcc, name, details});
