@@ -182,7 +182,7 @@ void echo_cancellation_destroy(struct echo_cancellation *s)
 
 void echo_play(struct echo_cancellation *s, struct audio_frame *frame)
 {
-        std::lock_guard(s->lock);
+        std::lock_guard lk(s->lock);
 
         if(frame->ch_count != 1) {
                 static int prints = 0;
@@ -240,7 +240,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 {
         struct audio_frame *res;
 
-        std::lock_guard(s->lock);
+        std::lock_guard lk(s->lock);
 
         if(frame->ch_count != 1) {
                 static int prints = 0;
