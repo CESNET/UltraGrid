@@ -72,6 +72,11 @@
 
 static void usage(bool full);
 
+// compat
+#ifndef __MAC_10_12
+#define NSEventTypeApplicationDefined NSApplicationDefined
+#endif
+
 static const char fp_display_rgba_to_yuv422_legacy[] =
 "#define LEGACY 1\n"
     "#if LEGACY\n"
@@ -200,7 +205,7 @@ static const char *get_syphon_description(SyphonClient *client) {
 
 static void stop_application(void) {
         [[NSApplication sharedApplication] stop : nil];
-        NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
+        NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
                 location:NSMakePoint(0, 0)
                 modifierFlags:0
                 timestamp:0
