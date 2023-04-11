@@ -303,7 +303,7 @@ public:
                                 {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput10BitDepth, R10k},
                                 {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput12BitDepth, R12L},
                         };
-                        if (s->requested_bit_depth == 0 && (flags & bmdDetectedVideoInput8BitDepth) == 0) {
+                        if (s->requested_bit_depth == 0 && (csBitDepth & bmdDetectedVideoInput8BitDepth) == 0) {
                                 const string & depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? "10"s : "12"s;
                                 LOG(LOG_LEVEL_WARNING) << MODULE_NAME << "Detected " << depth << "-bit signal, use \":codec=UYVY\" to enforce 8-bit capture (old behavior).\n";
                         }
