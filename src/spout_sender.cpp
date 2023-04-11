@@ -34,10 +34,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <GL/GL.h>
 #include <SpoutLibrary.h>
 
 #include "debug.h"
 #include "spout_sender.h"
+
 
 void *spout_sender_register(const char *name) {
 
@@ -49,8 +51,8 @@ void *spout_sender_register(const char *name) {
 }
 
 void spout_sender_sendframe(void *s, int width, int height, unsigned int id) {
-	((SPOUTHANDLE)s)->SendTexture(id, GL_TEXTURE_2D, width, height, false); // default is flip
-	}
+        ((SPOUTHANDLE)s)->SendTexture(id, GL_TEXTURE_2D, width, height, false /* flip */);
+}
 
 void spout_sender_unregister(void *s) {
         auto *spout = static_cast<SPOUTHANDLE>(s);
