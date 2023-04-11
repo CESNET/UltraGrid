@@ -1166,7 +1166,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                                 displayMode->Release();
                         }
                 } else if (mode_idx == MODE_SPEC_AUTODETECT) { // autodetect, pick first eligible mode and let device autodetect
-                        if (s->stereo && (displayMode->GetFlags() & bmdDisplayModeSupports3D) == 0u) {
+                        if ((s->stereo && (displayMode->GetFlags() & bmdDisplayModeSupports3D) == 0u) || displayMode->GetFieldDominance() == bmdLowerFieldFirst) {
                                 displayMode->Release();
                                 continue;
                         }
