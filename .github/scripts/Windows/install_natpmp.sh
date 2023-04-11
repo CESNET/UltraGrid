@@ -8,6 +8,7 @@ gcc -c -Wall -Os -DWIN32 -DNATPMP_STATICLIB -DENABLE_STRNATPMPERR natpmp.c
 gcc -c -Wall -Os -DWIN32 wingettimeofday.c
 ar cr natpmp.a getgateway.o natpmp.o wingettimeofday.o
 
+mkdir -p /usr/local/include /usr/local/lib
 cp natpmp.a /usr/local/lib/libnatpmp.a
 cp natpmp_declspec.h natpmp.h /usr/local/include
 cd -
