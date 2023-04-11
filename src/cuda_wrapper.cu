@@ -137,8 +137,7 @@ CUDA_DLL_API int cuda_wrapper_set_device(int index)
 CUDA_DLL_API void cuda_wrapper_print_devices_info(void)
 {
         int device_count = 0;
-        cudaGetDeviceCount(&device_count);
-        if (cudaGetLastError() != cudaSuccess) {
+        if (cudaGetDeviceCount(&device_count) != cudaSuccess) {
                 fprintf(stderr, "Cannot get number of CUDA devices: %s\n", cudaGetErrorString(cudaGetLastError()));
                 return;
         }
@@ -150,7 +149,10 @@ CUDA_DLL_API void cuda_wrapper_print_devices_info(void)
 
         for ( int device_id = 0; device_id < device_count; device_id++ ) {
                 struct cudaDeviceProp device_properties;
-                cudaGetDeviceProperties(&device_properties, device_id);
+                if (cudaGetDeviceProperties(&device_properties, device_id) != cudaSuccess) {
+                        fprintf(stderr, "Cannot get number of CUDA device #%d properties: %s\n", device_id, cudaGetErrorString(cudaGetLastError()));
+                        continue;
+                }
 
                 printf("\nDevice #%d: \"%s\"\n", device_id, device_properties.name);
                 printf("  Compute capability: %d.%d\n", device_properties.major, device_properties.minor);
