@@ -1524,6 +1524,22 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
         return &s->audio;
 }
 
+static void postprocess_frame(struct vidcap_decklink_state *s) {
+        if (s->codec == RGBA) {
+                for (unsigned i = 0; i < s->frame->tile_count; ++i) {
+                        vc_copylineToRGBA_inplace((unsigned char*) s->frame->tiles[i].data,
+                                        (unsigned char*)s->frame->tiles[i].data,
+                                        s->frame->tiles[i].data_len, 16, 8, 0);
+                }
+        }
+        if (s->codec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
+                for (unsigned i = 0; i < s->frame->tile_count; ++i) {
+                        r10k_limited_to_full(s->frame->tiles[i].data, s->frame->tiles[i].data,
+                                        s->frame->tiles[i].data_len);
+                }
+        }
+}
+
 static struct video_frame *
 vidcap_decklink_grab(void *state, struct audio_frame **audio)
 {
@@ -1628,19 +1644,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
         if (count < s->devices_cnt) {
                 return NULL;
         }
-        if (s->codec == RGBA) {
-                for (unsigned i = 0; i < s->frame->tile_count; ++i) {
-                        vc_copylineToRGBA_inplace((unsigned char*) s->frame->tiles[i].data,
-                                        (unsigned char*)s->frame->tiles[i].data,
-                                        s->frame->tiles[i].data_len, 16, 8, 0);
-                }
-        }
-        if (s->codec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
-                for (unsigned i = 0; i < s->frame->tile_count; ++i) {
-                        r10k_limited_to_full(s->frame->tiles[i].data, s->frame->tiles[i].data,
-                                        s->frame->tiles[i].data_len);
-                }
-        }
+        postprocess_frame(s);
 
         s->frames++;
         s->frame->timecode = s->state[0].delegate->timecode;
