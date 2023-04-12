@@ -40,6 +40,9 @@ Node::Node(Tanner_graph * /* tanner */, Node::Node_type t, char *d) {
 Node::~Node() {
 }
 
+#if 0
+// unused and seems quite suspicious (but since it is not called, it is unclear
+// what contents of pointer d is
 int Node::setDataPtr(char *d) {
 
     if ( d != 0 ) {
@@ -48,6 +51,7 @@ int Node::setDataPtr(char *d) {
     } else
         return 1;
 }
+#endif
 
 
 /*-----------------------------------------------------------------------------

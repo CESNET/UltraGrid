@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -203,9 +203,9 @@ int color_printf(const char *format, ...) {
 
         // format the string
         auto buf = get_log_output().get_buffer();
-        buf.append(size, '\0');
+        buf.append(size + 1, '\0');
         va_start(ap, format);
-        size = vsprintf(buf.data(), format, ap);
+        size = vsnprintf(buf.data(), size + 1, format, ap);
         va_end(ap);
 
         if (!color_stdout) {

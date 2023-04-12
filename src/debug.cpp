@@ -104,17 +104,18 @@ int log_vprintf(int level, const char *format, va_list ap)
         const auto& style = get_log_output().get_level_style(level);
 
         buf.append(style);
-        buf.append(size, '\0');
+        buf.append(size + 1, '\0');
 
         va_copy(aq, ap);
-        if (vsprintf(buf.data() + style.length(), format, ap) != size) {
+        if (vsnprintf(buf.data() + style.length(), size + 1, format, ap) != size) {
                 va_end(aq);
                 return 0;
         }
         va_end(aq);
+        auto & str = buf.get();
+        str.resize(str.size() - 1); // drop '\0' written by vsnprintf
 
         if (get_log_output().is_interactive()) {
-                auto & str = buf.get();
                 if (str.at(str.size() - 1) == '\n') { // put TERM_RESET before '\n'
                         str.erase(str.size() - 1);
                         buf.append(TERM_RESET "\n");
@@ -177,12 +178,12 @@ void debug_dump(const void *lp, int len)
         while (start < len) {
                 /* start line with pointer position key */
                 p = (const char *)lp + start;
-                sprintf(Buff, "%p: ", p);
+                snprintf(Buff, sizeof Buff, "%p: ", p);
 
                 /* display each character as hex value */
                 for (i = start, j = 0; j < 16; p++, i++, j++) {
                         if (i < len) {
-                                sprintf(tmpBuf, "%02X ", ((int)(*p) & 0xFF));
+                                snprintf(tmpBuf, sizeof tmpBuf, "%02X ", ((int)(*p) & 0xFF));
                                 strcat(Buff, tmpBuf);
                         } else
                                 strcat(Buff, " ");
@@ -196,9 +197,9 @@ void debug_dump(const void *lp, int len)
                 for (i = start, j = 0, p = (const char *)lp + start;
                      (i < len && j < 16); p++, i++, j++) {
                         if (((*p) >= ' ') && ((*p) <= '~'))     /* test displayable */
-                                sprintf(tmpBuf, "%c", *p);
+                                snprintf(tmpBuf, sizeof tmpBuf, "%c", *p);
                         else
-                                sprintf(tmpBuf, "%c", '.');
+                                snprintf(tmpBuf, sizeof tmpBuf, "%c", '.');
                         strcat(Buff, tmpBuf);
                         if (j == 7)     /* space between groups of 8 */
                                 strcat(Buff, " ");

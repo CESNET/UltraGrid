@@ -666,7 +666,7 @@ static void * display_gl_init(struct module *parent, const char *fmt, unsigned i
                         continue;
                 }
                 char msg[18];
-                sprintf(msg, "%" PRIx64, i.first);
+                snprintf(msg, sizeof msg, "%" PRIx64, i.first);
                 keycontrol_register_key(&s->mod, i.first, msg, i.second.data());
         }
 

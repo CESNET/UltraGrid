@@ -411,8 +411,9 @@ try {
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
                 if (suffix[0] == '\\') { // MSW path
                         assert(strlen(s->directory) == 1); // c:\something -> should be 'c'
-                        char *tmp = (char *) malloc(2 + strlen(suffix) + 1);
-                        sprintf(tmp, "%c:%s", s->directory[0], suffix);
+                        const size_t len = 2 + strlen(suffix) + 1;
+                        char *tmp = (char *) malloc(len);
+                        snprintf(tmp, len, "%c:%s", s->directory[0], suffix);
                         free(s->directory);
                         s->directory = tmp;
                 } else if (strcmp(suffix, "loop") == 0) {
@@ -826,7 +827,7 @@ static void *video_reader_callback(void *arg)
                 char name[1048];
                 char tile_idx[3] = "";
                 if (data->tile_count > 1) {
-                        sprintf(tile_idx, "%c%d", data->tile_delim, i);
+                        snprintf(tile_idx, sizeof tile_idx, "%c%d", data->tile_delim, i);
 	        }
                 snprintf(name, sizeof(name), "%s%s.%s",
                                 data->file_name_prefix, tile_idx,

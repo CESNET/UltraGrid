@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -701,7 +701,7 @@ static void process_messages(struct control_state *s)
                         uint16_t port = socket_get_recv_port(s->socket_fd);
                         if (port) {
                                 char port_str[6];
-                                sprintf(port_str, "%hu", port);
+                                snprintf(port_str, sizeof port_str, "%hu", port);
                                 r = new_response(RESPONSE_OK, port_str);
                         } else {
                                 r = new_response(RESPONSE_INT_SERV_ERR, "get_recv_port");

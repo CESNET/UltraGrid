@@ -56,7 +56,7 @@ class Node
 
 	/* ====================  MUTATORS      ======================================= */
 
-	int setDataPtr(char *d);
+	//int setDataPtr(char *d);
 	
 	void setType(Node_type t) { type = t; }
 

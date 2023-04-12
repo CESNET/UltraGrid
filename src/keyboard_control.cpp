@@ -5,7 +5,7 @@
  * With code taken from Olivier Mehani (set_tio()).
  */
 /*
- * Copyright (c) 2015-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -951,7 +951,7 @@ void keyboard_control::impl::msg_received() {
 
 void keycontrol_send_key(struct module *root, int64_t key) {
         struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-        sprintf(m->text, "press %" PRId64, key);
+        snprintf(m->text, sizeof m->text, "press %" PRId64, key);
         struct response *r = send_message_sync(root, "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
         if (response_get_status(r) != RESPONSE_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot set key to keycontrol (error %d)!\n", response_get_status(r));
@@ -977,7 +977,7 @@ bool keycontrol_register_key(struct module *receiver_mod, int64_t key, const cha
         if (description == nullptr) {
                 description = message;
         }
-        sprintf(m->text, "map #%" PRId64 " %s %s#%s", key, receiver_path, message, description);
+        snprintf(m->text, sizeof m->text, "map #%" PRId64 " %s %s#%s", key, receiver_path, message, description);
         struct response *r = send_message_sync(get_root_module(receiver_mod), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
         if (response_get_status(r) != RESPONSE_OK) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot register keyboard control (error %d)!\n", response_get_status(r));
