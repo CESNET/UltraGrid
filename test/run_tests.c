@@ -71,13 +71,6 @@ uint32_t hd_video_mode;
 
 long packet_rate = 13600;
 
-void exit_uv(int status);
-
-void exit_uv(int status)
-{
-        exit(status);
-}
-
 #define DECLARE_TEST(func) int func(void)
 #define DEFINE_QUIET_TEST(func) { #func, func, true } // original tests that print status by itselves
 #define DEFINE_TEST(func) { #func, func, false }

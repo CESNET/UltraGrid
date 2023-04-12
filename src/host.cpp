@@ -57,6 +57,7 @@
 #include "audio/audio_filter.h"
 #include "audio/utils.h"
 #include "compat/misc.h"
+#include "compat/platform_pipe.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "messaging.h"
@@ -65,6 +66,7 @@
 #include "utils/misc.h" // unit_evaluate
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
+#include "utils/thread.h"
 #include "utils/windows.h"
 #include "video_capture.h"
 #include "video_compress.h"
@@ -81,6 +83,7 @@
 #include <sstream>
 #include <fstream>
 #include <string>
+#include <thread>
 #include <utility>
 
 #if defined HAVE_X || defined BUILD_LIBRARIES
@@ -422,6 +425,110 @@ struct init_data *common_preinit(int argc, char *argv[])
         load_libgcc();
 
         return new init_data{init};
+}
+
+struct state_root {
+        state_root() noexcept {
+                if (platform_pipe_init(should_exit_pipe) != 0) {
+                        LOG(LOG_LEVEL_FATAL) << "FATAL: Cannot create pipe!\n";
+                        abort();
+                }
+                should_exit_thread = thread(should_exit_watcher, this);
+        }
+        ~state_root() {
+                broadcast_should_exit();
+                should_exit_thread.join();
+                for (int i = 0; i < 2; ++i) {
+                        platform_pipe_close(should_exit_pipe[0]);
+                }
+        }
+        static void deleter(struct module *m) {
+                delete (state_root*) m->priv_data;
+        }
+
+        static void should_exit_watcher(state_root *s) {
+                set_thread_name(__func__);
+                char c;
+                while (PLATFORM_PIPE_READ(s->should_exit_pipe[0], &c, 1) != 1) {
+                        perror("PLATFORM_PIPE_READ");
+                }
+                unique_lock<mutex> lk(s->lock);
+                for (auto const &c : s->should_exit_callbacks) {
+                        get<0>(c)(get<1>(c));
+                }
+        }
+        void broadcast_should_exit() {
+                char c = 0;
+                unique_lock<mutex> lk(lock);
+                if (should_exit_thread_notified) {
+                        return;
+                }
+                should_exit_thread_notified = true;
+                while (PLATFORM_PIPE_WRITE(should_exit_pipe[1], &c, 1) != 1) {
+                        perror("PLATFORM_PIPE_WRITE");
+                }
+        }
+        static void new_message(struct module *mod)
+        {
+                auto *s = (state_root *) mod->priv_data;
+                struct msg_root *m;
+                while ((m = (struct msg_root *) check_message(mod))) {
+                        if (m->type != ROOT_MSG_REGISTER_SHOULD_EXIT) {
+                                free_message((struct message *) m, new_response(RESPONSE_BAD_REQUEST, NULL));
+                                continue;
+                        }
+                        unique_lock<mutex> lk(s->lock);
+                        s->should_exit_callbacks.push_back(make_tuple(m->should_exit_callback, m->udata));
+                        lk.unlock();
+                        if (s->should_exit_thread_notified) {
+                                m->should_exit_callback(m->udata);
+                        }
+                        free_message((struct message *) m, new_response(RESPONSE_OK, NULL));
+                }
+        }
+
+        volatile int exit_status = EXIT_SUCCESS;
+private:
+        mutex lock;
+        fd_t should_exit_pipe[2];
+        thread should_exit_thread;
+        bool should_exit_thread_notified{false};
+        list<tuple<void (*)(void *), void *>> should_exit_callbacks;
+};
+
+static state_root * volatile state_root_static; ///< used by exit_uv() called from signal handler
+
+/**
+ * Initializes root module
+ *
+ * This the root module is also responsible for regiestering and broadcasting
+ * should_exit events (see register_should_exit_callback) called by exit_uv().
+ */
+void init_root_module(struct module *root_mod) {
+        module_init_default(root_mod);
+        root_mod->cls = MODULE_CLASS_ROOT;
+        root_mod->new_message = state_root::new_message;
+        root_mod->deleter = state_root::deleter;
+        state_root_static = new state_root();
+        root_mod->priv_data = state_root_static;
+}
+
+/**
+ * Exit function that sets return value and brodcasts registered modules should_exit.
+ *
+ * Should be called after init_root_module() is called.
+ */
+void exit_uv(int status) {
+        if (!state_root_static) {
+                log_msg(LOG_LEVEL_WARNING, "%s called witout state registered.\n", __func__);
+        }
+        state_root_static->exit_status = status;
+        state_root_static->broadcast_should_exit();
+}
+
+int get_exit_status(struct module *root_mod) {
+        assert(root_mod->cls == MODULE_CLASS_ROOT);
+        return static_cast<state_root *>(root_mod->priv_data)->exit_status;
 }
 
 using module_info_map = std::map<std::string, const void *>;

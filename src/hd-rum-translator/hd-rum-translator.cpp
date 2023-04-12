@@ -174,14 +174,14 @@ static struct item *qinit(int qsize);
 static void qdestroy(struct item *queue);
 static void *writer(void *arg);
 static void signal_handler(int signal);
-void exit_uv(int status);
+void exit_hd_rum(int status);
 
 static bool should_exit = false;
 
 /*
  * this is currently only placeholder to substitute UG default
  */
-void exit_uv(int status) {
+void exit_hd_rum(int status) {
     UNUSED(status);
     should_exit = true;
 }
@@ -211,7 +211,7 @@ static void signal_handler(int signal)
 	    ptr += written;
 	} while (bytes > 0);
     }
-    exit_uv(0);
+    exit_hd_rum(0);
 }
 
 #define MAX_PKT_SIZE 10000

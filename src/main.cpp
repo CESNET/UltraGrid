@@ -81,7 +81,6 @@
 #include <tuple>
 
 #include "compat/misc.h"
-#include "compat/platform_pipe.h"
 #include "control_socket.h"
 #include "cuda_wrapper.h"
 #include "debug.h"
@@ -154,96 +153,31 @@ using namespace std;
 using namespace std::chrono;
 
 struct state_uv {
-        state_uv() : capture_device{}, display_device{}, audio{}, state_video_rxtx{} {
-                if (platform_pipe_init(should_exit_pipe) != 0) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot create pipe!\n";
-                        abort();
-                }
-                module_init_default(&root_module);
-                root_module.cls = MODULE_CLASS_ROOT;
-                root_module.new_message = state_uv::new_message;
-                root_module.priv_data = this;
-                should_exit_thread = thread(should_exit_watcher, this);
+        uint32_t magic = state_magic;
+        state_uv() noexcept {
+                init_root_module(&root_module);
+                register_should_exit_callback(&root_module, state_uv::should_exit_capture_callback, this);
         }
         ~state_uv() {
-                stop();
-        }
-        void stop() {
-                if (exited) {
-                        return;
-                }
-                broadcast_should_exit();
-                should_exit_thread.join();
                 module_done(&root_module);
-                for (int i = 0; i < 2; ++i) {
-                        platform_pipe_close(should_exit_pipe[0]);
-                }
-                exited = true;
-        }
-        static void should_exit_watcher(state_uv *s) {
-                set_thread_name(__func__);
-                char c;
-                while (PLATFORM_PIPE_READ(s->should_exit_pipe[0], &c, 1) != 1) {
-                        perror("PLATFORM_PIPE_READ");
-                }
-                unique_lock<mutex> lk(s->lock);
-                for (auto const &c : s->should_exit_callbacks) {
-                        get<0>(c)(get<1>(c));
-                }
-        }
-        void broadcast_should_exit() {
-                char c = 0;
-                unique_lock<mutex> lk(lock);
-                if (exited || should_exit_thread_notified) {
-                        return;
-                }
-                should_exit_thread_notified = true;
-                while (PLATFORM_PIPE_WRITE(should_exit_pipe[1], &c, 1) != 1) {
-                        perror("PLATFORM_PIPE_WRITE");
-                }
-        }
-        static void new_message(struct module *mod)
-        {
-                auto s = (state_uv *) mod->priv_data;
-                struct msg_root *m;
-                while ((m = (struct msg_root *) check_message(mod))) {
-                        if (m->type != ROOT_MSG_REGISTER_SHOULD_EXIT) {
-                                free_message((struct message *) m, new_response(RESPONSE_BAD_REQUEST, NULL));
-                                continue;
-                        }
-                        unique_lock<mutex> lk(s->lock);
-                        s->should_exit_callbacks.push_back(make_tuple(m->should_exit_callback, m->udata));
-                        lk.unlock();
-                        if (s->should_exit_thread_notified) {
-                                m->should_exit_callback(m->udata);
-                        }
-                        free_message((struct message *) m, new_response(RESPONSE_OK, NULL));
-                }
         }
 
-        struct vidcap *capture_device;
-        struct display *display_device;
+        struct vidcap *capture_device{};
+        struct display *display_device{};
 
-        struct state_audio *audio;
+        struct state_audio *audio{};
 
         struct module root_module;
 
-        video_rxtx *state_video_rxtx;
+        video_rxtx *state_video_rxtx{};
 
+        static void should_exit_capture_callback(void *udata) {
+                auto *s = (state_uv *) udata;
+                s->should_exit_capture = true;
+        }
         bool should_exit_capture = false;
-
-private:
-        mutex lock;
-        fd_t should_exit_pipe[2];
-        thread should_exit_thread;
-        bool should_exit_thread_notified{false};
-        bool exited{false};
-        list<tuple<void (*)(void *), void *>> should_exit_callbacks;
+        static constexpr uint32_t state_magic = to_fourcc('U', 'G', 'S', 'T');
 };
-
-
-static volatile int exit_status = EXIT_SUCCESS;
-static struct state_uv * volatile uv_state;
 
 static void write_all(size_t len, const char *msg) {
         const char *ptr = msg;
@@ -335,12 +269,6 @@ static void hang_signal_handler(int sig)
         signal(SIGALRM, SIG_DFL);
 }
 #endif // ! defined WIN32
-
-void exit_uv(int status) {
-        exit_status = status;
-        uv_state->should_exit_capture = true;
-        uv_state->broadcast_should_exit();
-}
 
 static void print_help_item(const string &name, const vector<string> &help) {
         int help_lines = 0;
@@ -461,8 +389,8 @@ static void *capture_thread(void *arg)
 {
         set_thread_name(__func__);
 
-        struct module *uv_mod = (struct module *)arg;
-        struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
+        struct state_uv *uv = (struct state_uv *) arg;
+        assert(uv->magic == state_uv::state_magic);
         struct wait_obj *wait_obj = wait_obj_init();
         steady_clock::time_point t0 = steady_clock::now();
         int frames = 0;
@@ -1402,7 +1330,6 @@ int main(int argc, char *argv[])
         }
 
         struct state_uv uv{};
-        uv_state = &uv;
         keyboard_control kc{&uv.root_module};
         bool show_help = help_in_argv(uv_argv);
 
@@ -1626,7 +1553,7 @@ int main(int argc, char *argv[])
                 if ((opt.video_rxtx_mode & MODE_SENDER) != 0U) {
                         if (pthread_create
                                         (&capture_thread_id, NULL, capture_thread,
-                                         (void *) &uv.root_module) != 0) {
+                                         (void *) &uv) != 0) {
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup;
@@ -1713,12 +1640,11 @@ cleanup:
         kc.stop();
         control_done(control);
 
-        uv.stop();
         common_cleanup(init);
 
         printf("Exit\n");
 
-        return exit_status;
+        return get_exit_status(&uv.root_module);
 }
 
 /* vim: set expandtab sw=8: */

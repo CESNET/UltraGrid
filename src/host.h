@@ -129,6 +129,12 @@ struct init_data;
 struct init_data *common_preinit(int argc, char *argv[]);
 void common_cleanup(struct init_data *init_data);
 
+// root module management
+void init_root_module(struct module *root_mod);
+void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata);
+void exit_uv(int status);
+int get_exit_status(struct module *root_mod);
+
 void print_capabilities(const char *cfg);
 
 const char *get_version_details(void);
@@ -146,7 +152,6 @@ void print_video_codecs(void);
 void register_param(const char *param, const char *doc);
 
 bool register_mainloop(mainloop_t, void *);
-void register_should_exit_callback(struct module *mod, void (*callback)(void *), void *udata);
 
 bool running_in_debugger();
 
