@@ -205,7 +205,7 @@ int color_printf(const char *format, ...) {
         auto buf = get_log_output().get_buffer();
         buf.append(size + 1, '\0');
         va_start(ap, format);
-        size = vsnprintf(buf.data(), size + 1, format, ap);
+        vsnprintf(buf.data(), size + 1, format, ap);
         va_end(ap);
 
         if (!color_stdout) {

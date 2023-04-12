@@ -107,10 +107,7 @@ int log_vprintf(int level, const char *format, va_list ap)
         buf.append(size + 1, '\0');
 
         va_copy(aq, ap);
-        if (vsnprintf(buf.data() + style.length(), size + 1, format, ap) != size) {
-                va_end(aq);
-                return 0;
-        }
+        vsnprintf(buf.data() + style.length(), size + 1, format, ap);
         va_end(aq);
         auto & str = buf.get();
         str.resize(str.size() - 1); // drop '\0' written by vsnprintf
