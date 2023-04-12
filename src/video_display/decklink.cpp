@@ -188,7 +188,7 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                         GetComponents(&hours, &minutes, &seconds, &frames);
                         char timecode_c[16];
                         assert(hours <= 99 && minutes <= 59 && seconds <= 60 && frames <= 99);
-                        sprintf(timecode_c, "%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8, hours, minutes, seconds, frames);
+                        snprintf(timecode_c, sizeof timecode_c, "%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8 ":%02" PRIu8, hours, minutes, seconds, frames);
                         *timecode = get_bmd_api_str_from_cstr(timecode_c);
                         return *timecode ? S_OK : E_FAIL;
                 }
@@ -917,8 +917,8 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
                 *available_cards = (struct device_info *)
                         realloc(*available_cards, *count * sizeof(struct device_info));
                 memset(*available_cards + *count - 1, 0, sizeof(struct device_info));
-                sprintf((*available_cards)[*count - 1].dev, ":device=%d", *count - 1);
-                sprintf((*available_cards)[*count - 1].extra, "\"embeddedAudioAvailable\":\"t\"");
+                snprintf((*available_cards)[*count - 1].dev, sizeof (*available_cards)[*count - 1].dev, ":device=%d", *count - 1);
+                snprintf((*available_cards)[*count - 1].extra, sizeof (*available_cards)[*count - 1].extra, "\"embeddedAudioAvailable\":\"t\"");
                 (*available_cards)[*count - 1].repeatable = false;
 
 		strncpy((*available_cards)[*count - 1].name, deviceName.c_str(),
