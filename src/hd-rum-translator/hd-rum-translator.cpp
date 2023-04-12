@@ -136,8 +136,7 @@ struct replica {
 
 struct hd_rum_translator_state {
     hd_rum_translator_state() {
-        module_init_default(&mod);
-        mod.cls = MODULE_CLASS_ROOT;
+        init_root_module(&mod);
         pthread_mutex_init(&qempty_mtx, NULL);
         pthread_mutex_init(&qfull_mtx, NULL);
         pthread_cond_init(&qempty_cond, NULL);
@@ -174,17 +173,6 @@ static struct item *qinit(int qsize);
 static void qdestroy(struct item *queue);
 static void *writer(void *arg);
 static void signal_handler(int signal);
-void exit_hd_rum(int status);
-
-static bool should_exit = false;
-
-/*
- * this is currently only placeholder to substitute UG default
- */
-void exit_hd_rum(int status) {
-    UNUSED(status);
-    should_exit = true;
-}
 
 static void signal_handler(int signal)
 {
@@ -211,7 +199,7 @@ static void signal_handler(int signal)
 	    ptr += written;
 	} while (bytes > 0);
     }
-    exit_hd_rum(0);
+    exit_uv(0);
 }
 
 #define MAX_PKT_SIZE 10000
@@ -762,6 +750,11 @@ static bool sockaddr_equal(struct sockaddr_storage *a, struct sockaddr_storage *
         }
 }
 
+static void should_exit_callback(void *arg) {
+    auto *should_exit = (bool *) arg;
+    *should_exit = true;
+}
+
 #define EXIT(retval) { hd_rum_translator_deinit(&state); if (sock_in != nullptr) udp_exit(sock_in); common_cleanup(init); return retval; }
 int main(int argc, char **argv)
 {
@@ -908,6 +901,8 @@ int main(int argc, char **argv)
 
     std::vector<Conf_participant> participants;
 
+    volatile bool should_exit = false;
+    register_should_exit_callback(&state.mod, should_exit_callback, const_cast<bool *>(&should_exit));
     /* main loop */
     while (!should_exit) {
         while (state.qtail->next != state.qhead && !should_exit) {
