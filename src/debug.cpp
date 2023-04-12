@@ -112,15 +112,15 @@ void log_vprintf(int level, const char *format, va_list ap)
         auto & str = buf.get();
         str.resize(str.size() - 1); // drop '\0' written by vsnprintf
 
-        if (get_log_output().is_interactive()) {
+        if (!get_log_output().is_interactive()) {
+                prune_ansi_sequences_inplace(buf.get());
+        } else if (style.size() > 0) {
                 if (str.at(str.size() - 1) == '\n') { // put TERM_RESET before '\n'
                         str.erase(str.size() - 1);
                         buf.append(TERM_RESET "\n");
                 } else {
                         buf.append(TERM_RESET);
                 }
-        } else {
-                prune_ansi_sequences_inplace(buf.get());
         }
         buf.submit();
 }
