@@ -86,12 +86,12 @@ static void _dprintf(const char *format, ...)
 #endif                          /* WIN32 */
 }
 
-int log_vprintf(int level, const char *format, va_list ap)
+void log_vprintf(int level, const char *format, va_list ap)
 {
         va_list aq;
 
         if (log_level < level) {
-                return 0;
+                return;
         }
 
         // get number of required bytes
@@ -122,9 +122,7 @@ int log_vprintf(int level, const char *format, va_list ap)
         } else {
                 prune_ansi_sequences_inplace(buf.get());
         }
-        int ret = buf.get().size();
         buf.submit();
-        return ret;
 }
 
 void log_msg(int level, const char *format, ...) {
@@ -132,7 +130,6 @@ void log_msg(int level, const char *format, ...) {
         va_start(ap, format);
         log_vprintf(level, format, ap);
         va_end(ap);
-
 }
 
 void log_msg_once(int level, uint32_t id, const char *msg, ...) {
