@@ -158,7 +158,7 @@ Using the UltraGrid System
 
        uv -d gl -r portaudio ormal
 
-   The system requires access to UDP ports 5004 and 5005: you should open
+   The system requires access to UDP ports 5004 and 5006: you should open
    these ports on any firewall on the network path. Uncompressed high definition
    video formats require approximately 1 Gigabit per second of network capacity.
    Using different supported compression schemes, the needed network capacity
