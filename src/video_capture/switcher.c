@@ -94,7 +94,7 @@ static void vidcap_switcher_probe(struct device_info **available_cards, int *cou
 static void vidcap_switcher_register_keyboard_ctl(struct vidcap_switcher_state *s) {
         for (unsigned int i = 0U; i < MIN(s->devices_cnt, 10); ++i) {
                 struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-                sprintf(m->text, "map %d capture.data %d#switch to video input %d", i + 1, i, i + 1);
+                snprintf(m->text, sizeof m->text, "map %d capture.data %d#switch to video input %d", i + 1, i, i + 1);
                 struct response *r = send_message_sync(get_root_module(&s->mod), "keycontrol", (struct message *) m, 100,  SEND_MESSAGE_FLAG_QUIET | SEND_MESSAGE_FLAG_NO_STORE);
                 if (response_get_status(r) != RESPONSE_OK) {
                         log_msg(LOG_LEVEL_ERROR, "Cannot register keyboard control for video switcher (error %d)!\n", response_get_status(r));

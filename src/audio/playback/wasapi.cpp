@@ -134,8 +134,8 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
                                 THROW_IF_FAILED(pDevice->GetId(&pwszID));
                                 *available_devices = (struct device_info *) realloc(*available_devices, (*dev_count + 1) * sizeof(struct device_info));
                                 memset(&(*available_devices)[*dev_count], 0, sizeof(struct device_info));
-                                sprintf((*available_devices)[*dev_count].dev, ":%u", i); ///< @todo This may be rather id than index
-                                sprintf((*available_devices)[*dev_count].name, "WASAPI %s", get_name(pDevice).c_str());
+                                snprintf((*available_devices)[*dev_count].dev, sizeof (*available_devices)[*dev_count].dev, ":%u", i); ///< @todo This may be rather id than index
+                                snprintf((*available_devices)[*dev_count].name, sizeof (*available_devices)[*dev_count].name, "WASAPI %s", get_name(pDevice).c_str());
                                 ++*dev_count;
                         } catch (ug_runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";

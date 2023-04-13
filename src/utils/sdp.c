@@ -4,7 +4,7 @@
  *          Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2018-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2023 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -171,7 +171,7 @@ int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audi
     if (sample_rate == 8000 && channels == 1 && (codec == AC_ALAW || codec == AC_MULAW)) {
 	pt = codec == AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA;
     }
-    sprintf(sdp->stream[index].media_info, "m=audio %d RTP/AVP %d\n", port, pt);
+    snprintf(sdp->stream[index].media_info, sizeof sdp->stream[index].media_info, "m=audio %d RTP/AVP %d\n", port, pt);
     if (pt == PT_DynRTP_Type97) { // we need rtpmap for our dynamic packet type
 	const char *audio_codec = NULL;
         int ts_rate = sample_rate; // equals for PCMA/PCMU

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -256,7 +256,7 @@ static const char* jpeg_marker_name(enum jpeg_marker_code code)
                 default:
                 {
                         static char buffer[255];
-                        sprintf(buffer, "Unknown (0x%X)", code);
+                        snprintf(buffer, sizeof buffer, "Unknown (0x%X)", code);
                         return buffer;
                 }
         }

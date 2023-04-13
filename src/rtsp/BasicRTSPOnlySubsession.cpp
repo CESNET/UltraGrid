@@ -4,6 +4,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -116,7 +117,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				+ strlen(rtpmapLine) + strlen(trackId());
 		char* sdpLines = new char[sdpFmtSize];
 
-		sprintf(sdpLines, sdpFmt, mediaType, // m= <media>
+		snprintf(sdpLines, sdpFmtSize, sdpFmt, mediaType, // m= <media>
 				rtp_port,//fPortNumForSDP, // m= <port>
 				rtpPayloadType, // m= <fmt list>
 				ipAddressStr.val(), // c= address
@@ -160,7 +161,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 				+ strlen(rtpmapLine) + strlen(trackId());
 		char* sdpLines = new char[sdpFmtSize];
 
-		sprintf(sdpLines, sdpFmt,
+		snprintf(sdpLines, sizeof sdpFmtSize, sdpFmt,
 				mediaType, // m= <media>
 				rtp_port_audio,//fPortNumForSDP, // m= <port>
 				rtpPayloadType, // m= <fmt list>

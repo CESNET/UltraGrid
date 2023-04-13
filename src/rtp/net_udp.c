@@ -7,7 +7,7 @@
  *           Martin Pulec    <pulec@cesnet.cz>
  * 
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  * Copyright (c) 1998-2000 University College London
  * All rights reserved.
  *
@@ -1409,7 +1409,7 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
         hints.ai_socktype = SOCK_DGRAM;
 
         char tx_port_str[7];
-        sprintf(tx_port_str, "%u", tx_port);
+        snprintf(tx_port_str, sizeof tx_port_str, "%u", tx_port);
         if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */

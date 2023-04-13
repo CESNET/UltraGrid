@@ -155,8 +155,8 @@ void audio_portaudio_probe(struct device_info **available_devices, int *count, e
                 numDevices = 0;
         }
         *available_devices = calloc(1 + numDevices, sizeof(struct device_info));
-        strcpy((*available_devices)[0].dev, "");
-        sprintf((*available_devices)[0].name, "Portaudio default %s%s", dir == PORTAUDIO_IN ? "input" : "output", notice);
+        strncpy((*available_devices)[0].dev, "", sizeof (*available_devices)[0].dev);
+        snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Portaudio default %s%s", dir == PORTAUDIO_IN ? "input" : "output", notice);
         *count = 1;
 
         for(int i = 0; i < numDevices; i++) {

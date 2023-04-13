@@ -5,7 +5,7 @@
  * Time utility functions
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,11 +40,11 @@
 #ifndef UTILS_TIME_H_
 #define UTILS_TIME_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
+
+enum {
+        FORMAT_TIME_MS_BUF_LEN = 13
+};
 
 /**
  * Formats textual represenation of timestamp (in ms) in format HH:MM:SS.mmm
@@ -53,11 +53,7 @@ extern "C" {
  * @param[in]   ts   timestamp in ms
  * @param[out]  buf  output buffer (must be at least 13 B long)
  */
-void format_time_ms(uint64_t ts, char *buf);
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
+void format_time_ms(uint64_t ts, char buf[static FORMAT_TIME_MS_BUF_LEN]);
 
 #endif// UTILS_TIME_H_
 

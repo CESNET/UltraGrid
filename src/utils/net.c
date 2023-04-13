@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2021 CESNET z.s.p.o.
+ * Copyright (c) 2016-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -426,14 +426,15 @@ void get_sockaddr_addr_str(struct sockaddr *sa, char *buf, size_t n){
 
 const char *get_sockaddr_str(struct sockaddr *sa)
 {
-        _Thread_local static char addr[IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */] = "";
+        enum { ADDR_LEN = IN6_MAX_ASCII_LEN + 3 /* []: */ + 5 /* port */ + 1 /* \0 */ };
+        _Thread_local static char addr[ADDR_LEN] = "";
 
         get_sockaddr_addr_str(sa, addr, sizeof(addr));
 
         unsigned port = get_sockaddr_addr_port(sa);
         if(port == UINT_MAX)
                 return addr;
-        sprintf(addr + strlen(addr), ":%u", port);
+        snprintf(addr + strlen(addr), ADDR_LEN, ":%u", port);
 
         return addr;
 }

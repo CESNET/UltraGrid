@@ -279,8 +279,8 @@ static void display_deltacast_probe(struct device_info **available_cards, int *c
                 *available_cards = (struct device_info *)
                         realloc(*available_cards, *count * sizeof(struct device_info));
                 memset(*available_cards + *count - 1, 0, sizeof(struct device_info));
-                sprintf((*available_cards)[*count - 1].dev, ":device=%d", *count - 1);
-                sprintf((*available_cards)[*count - 1].dev, "\"embeddedAudioAvailable\":\"t\"");
+                snprintf((*available_cards)[*count - 1].dev, sizeof (*available_cards)[*count - 1].dev, ":device=%d", *count - 1);
+                snprintf((*available_cards)[*count - 1].extra, sizeof (*available_cards)[*count - 1].extra, R"("embeddedAudioAvailable":"t")");
                 (*available_cards)[*count - 1].repeatable = false;
 
                 if (Result == VHDERR_NOERROR)

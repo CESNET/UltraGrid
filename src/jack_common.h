@@ -235,8 +235,8 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
                         continue;
                 }
                 if(last_name && strcmp(last_name, name) != 0) {
-                        sprintf(available_devices[*count].name, "jack:%s (%d channels)", last_name, channel_count);
-                        sprintf(available_devices[*count].dev, ":\"%s\"", last_name);
+                        snprintf(available_devices[*count].name, sizeof available_devices[*count].name, "jack:%s (%d channels)", last_name, channel_count);
+                        snprintf(available_devices[*count].dev, sizeof available_devices[*count].dev, ":\"%s\"", last_name);
                         channel_count = 0;
                         (*count)++;
                 }
@@ -245,8 +245,8 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
                 free(item);
         }
         if(last_name) {
-                sprintf(available_devices[*count].name, "jack:%s (%d channels)", last_name, channel_count);
-                sprintf(available_devices[*count].dev, ":\"%s\"", last_name);
+                snprintf(available_devices[*count].name, sizeof available_devices[*count].name, "jack:%s (%d channels)", last_name, channel_count);
+                snprintf(available_devices[*count].dev, sizeof available_devices[*count].dev, ":\"%s\"", last_name);
                 (*count)++;
         }
         free(last_name);

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019 CESNET, z. s. p. o.
+ * Copyright (c) 2019-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@
 
 #include "utils/time.h"
 
-void format_time_ms(uint64_t ts, char *buf) {
+void format_time_ms(uint64_t ts, char buf[static FORMAT_TIME_MS_BUF_LEN]) {
         int ms = ts % 1000;
         ts /= 1000;
         int s = ts % 60;
@@ -52,5 +52,5 @@ void format_time_ms(uint64_t ts, char *buf) {
         ts /= 60;
         int h = ts % 100; // 99 max
 
-        sprintf(buf, "%02d:%02d:%02d.%03d", h, m, s, ms);
+        snprintf(buf, FORMAT_TIME_MS_BUF_LEN, "%02d:%02d:%02d.%03d", h, m, s, ms);
 }

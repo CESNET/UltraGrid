@@ -690,10 +690,8 @@ init_rtsp(struct rtsp_state *s) {
     verbose_msg(MOD_NAME "request %s\n", VERSION_STR);
     verbose_msg(MOD_NAME "    Project web site: http://code.google.com/p/rtsprequest/\n");
     verbose_msg(MOD_NAME "    Requires cURL V7.20 or greater\n\n");
-    char Atransport[256];
-    char Vtransport[256];
-    memset(Atransport, 0, 256);
-    memset(Vtransport, 0, 256);
+    char Atransport[256] = "";
+    char Vtransport[256] = "";
     int port = s->vrtsp_state.port;
     FILE *sdp_file = tmpfile();
     if (sdp_file == NULL) {
@@ -704,10 +702,10 @@ init_rtsp(struct rtsp_state *s) {
         }
     }
 
-    sprintf(Vtransport, "RTP/AVP;unicast;client_port=%d-%d", port, port + 1);
+    snprintf(Vtransport, sizeof Vtransport, "RTP/AVP;unicast;client_port=%d-%d", port, port + 1);
 
     //THIS AUDIO PORTS ARE AS DEFAULT UG AUDIO PORTS BUT AREN'T RELATED...
-    sprintf(Atransport, "RTP/AVP;unicast;client_port=%d-%d", port+2, port + 3);
+    snprintf(Atransport, sizeof Atransport, "RTP/AVP;unicast;client_port=%d-%d", port+2, port + 3);
 
     my_curl_easy_setopt(s->curl, CURLOPT_NOSIGNAL, 1, goto error); //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
     //my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
