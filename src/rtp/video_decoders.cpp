@@ -1204,18 +1204,20 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         decoder->out_codec = out_codec;
         struct video_desc display_desc = desc;
 
-        int display_mode;
+        int display_mode = DISPLAY_PROPERTY_VIDEO_MERGED; // default
         size_t len = sizeof(int);
-        int ret;
 
-        ret = display_ctl_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
-                        &display_mode, &len);
-        if(!ret) {
+        if (!display_ctl_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
+                        &display_mode, &len)) {
                 debug_msg("Failed to get video display mode.\n");
-                display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         }
 
-        if(display_mode == DISPLAY_PROPERTY_VIDEO_MERGED) {
+        if (display_mode == DISPLAY_PROPERTY_VIDEO_SEPARATE_3D) {
+                display_mode = display_desc.tile_count == 2 ? DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES :
+                        DISPLAY_PROPERTY_VIDEO_MERGED;
+        }
+
+        if (display_mode == DISPLAY_PROPERTY_VIDEO_MERGED) {
                 display_desc.width *= get_video_mode_tiles_x(decoder->video_mode);
                 display_desc.height *= get_video_mode_tiles_y(decoder->video_mode);
                 display_desc.tile_count = 1;

@@ -138,7 +138,8 @@ enum display_property {
 
 enum display_prop_vid_mode {
         DISPLAY_PROPERTY_VIDEO_MERGED         = 0, ///< monolithic framebuffer
-        DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES = 1  ///< framebuffer consists of separate tiles
+        DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES = 1, ///< framebuffer consists of separate tiles
+        DISPLAY_PROPERTY_VIDEO_SEPARATE_3D    = 2, ///< same as MERGED but 2 streams should be handled as separate 3D tiles
 };
 /// @}
 
