@@ -129,7 +129,7 @@ public:
 	{
                 if (result == bmdOutputFrameDisplayedLate){
                         frames_late += 1;
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Late frame (total: " << frames_late << ")\n";
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Late frame (total: " << frames_late << ")\n";
                 } else if (result == bmdOutputFrameDropped){
                         frames_dropped += 1;
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dropped frame (total: " << frames_dropped << ")\n";
