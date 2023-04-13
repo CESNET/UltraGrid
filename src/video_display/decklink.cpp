@@ -410,13 +410,8 @@ static void show_help(bool full)
                 col() << SBOLD("\tHDMI3DPacking") << " can be (used in conjunction with \"3D\" option):\n" <<
 				SBOLD("\t\tSideBySideHalf, LineByLine, TopAndBottom, FramePacking, LeftOnly, RightOnly\n");
                 col() << SBOLD("\tUse1080PsF[=true|false|keep]") << " flag sets use of PsF on output instead of progressive (default is false)\n";
-                col() << SBOLD("\tprofile=<P>\n");
-                col() << "\t\tUse desired device profile: " << SBOLD("1dfd") << ", "
-                        << SBOLD("1dhd") << ", "
-                        << SBOLD("2dfd") << ", "
-                        << SBOLD("2dhd") << " or "
-                        << SBOLD("4dhd") << ". See SDK manual for details. Use "
-                        << SBOLD("keep") << " to disable automatic selection.\n";
+                col() << SBOLD("\tprofile=<P>") << "\tuse desired device profile:\n";
+                print_bmd_device_profiles("\t\t");
                 col() << SBOLD("\tmaxresample=<N>") << " maximum amount the resample delta can be when scaling is applied. Measured in Hz\n";
                 col() << SBOLD("\tminresample=<N>") << " minimum amount the resample delta can be when scaling is applied. Measured in Hz\n";
                 col() << SBOLD("\ttargetbuffer=<N>") << " target amount of samples to have in the buffer (per channel)\n";

@@ -115,6 +115,7 @@ int parse_bmd_flag(const char *val);
 int invert_bmd_flag(int val);
 void r10k_limited_to_full(const char *in, char *out, size_t len);
 void r10k_full_to_limited(const char *in, char *out, size_t len);
+void print_bmd_device_profiles(const char *line_prefix);
 
 std::ostream &operator<<(std::ostream &output, REFIID iid);
 

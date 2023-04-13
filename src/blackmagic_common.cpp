@@ -52,6 +52,7 @@
 #include "debug.h"
 #include "host.h"
 #include "DeckLinkAPIVersion.h"
+#include "utils/color_out.h"
 #include "utils/windows.h"
 #include "utils/worker.h"
 
@@ -651,6 +652,16 @@ string bmd_get_flags_str(BMDDisplayModeFlags flags) {
                 oss << ", (unknown flags)";
         }
         return oss.str();
+}
+
+void print_bmd_device_profiles(const char *line_prefix)
+{
+        col() << line_prefix << SBOLD("1dfd") << " - 1 sub-device full-duplex (8K Pro, Duo 2, Quad 2)\n"
+                << line_prefix << SBOLD("1dhd") << " - 1 sub-device half-duplex (8K Pro)\n"
+                << line_prefix << SBOLD("2dfd") << " - 2 sub-devices full-duplex (8K Pro)\n"
+                << line_prefix << SBOLD("2dhd") << " - 2 sub-devices half-duplex (Duo 2, Quad 2)\n"
+                << line_prefix << SBOLD("4dhd") << " - 4 sub-devices half-duplex (8K Pro)\n"
+                << line_prefix << SBOLD("keep") << " - keep device setting\n";
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

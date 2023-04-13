@@ -530,12 +530,8 @@ decklink_help(bool full)
                 col() << "\n";
 
                 col() << SBOLD("profile=<FourCC>|profile=keep") << "\n";
-                col() << "\tUse desired device profile: " << SBOLD("1dfd") << ", "
-                        << SBOLD("1dhd") << ", "
-                        << SBOLD("2dfd") << ", "
-                        << SBOLD("2dhd") << " or "
-                        << SBOLD("4dhd") << ". See SDK manual for details. Use "
-                        << SBOLD("keep") << " to disable automatic selection.\n";
+                col() << "\tUse desired device profile:\n";
+                print_bmd_device_profiles("\t\t");
                 col() << "\n";
                 col() << SBOLD("sync_timecode") << "\n";
                 col() << "\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n";
