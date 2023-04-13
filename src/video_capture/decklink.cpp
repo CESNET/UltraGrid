@@ -945,7 +945,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << displayModeString << " \t " << tile->width << " x " << tile->height << " \t " <<
                 s->frame->fps << " FPS \t " << s->next_frame_time << " AVAREGE TIME BETWEEN FRAMES\n";
-        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Enable video input: " << displayModeString << ((s->enable_flags & bmdVideoInputDualStream3D) != 0U ? " (stereo)" : "") << "\n";
+        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Enable video input: " << displayModeString << ((s->enable_flags & bmdVideoInputDualStream3D) != 0U ? " (stereoscopic 3D)" : "") << "\n";
 
         tile->data_len =
                 vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
