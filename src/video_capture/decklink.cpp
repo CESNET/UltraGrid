@@ -282,9 +282,11 @@ public:
                 LOG(LOG_LEVEL_NOTICE) << MODULE_NAME << "Format change detected (" << getNotificationEventsStr(notificationEvents, flags) << ").\n";
 
                 bool detected_3d = (flags & bmdDetectedVideoInputDualStream3D) != 0U;
-                if ((detected_3d && !s->stereo) || ((!detected_3d && s->stereo))) {
-                        LOG(LOG_LEVEL_ERROR) << MODULE_NAME <<  "Stereoscopic 3D " << (detected_3d ? "" : "not ") << "detected but " << (s->stereo ? "" : "not ") << "enabled!" << (detected_3d ? " Please supply a \"3D\" parameter." : "") << "\n";
-                        return E_FAIL;
+                if (detected_3d != s->stereo) {
+                        LOG(LOG_LEVEL_WARNING) << MODULE_NAME <<  "Stereoscopic 3D " << (detected_3d ? "" : "not ") << "detected but " << (s->stereo ? "" : "not ") << "enabled! "
+                                "Switching automatically. This behavior is experimental so please report any problems. You can also specify `3D` option explicitly.\n";
+                        s->stereo = detected_3d;
+                        s->enable_flags ^= bmdVideoInputDualStream3D;
                 }
                 BMDDetectedVideoInputFormatFlags csBitDepth = flags & (csMask | bitDepthMask);
                 unique_lock<mutex> lk(s->lock);
@@ -949,9 +951,12 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                 vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
 
         if(s->stereo) {
+                s->frame->tile_count = 2;
                 s->frame->tiles[1].width = s->frame->tiles[0].width;
                 s->frame->tiles[1].height = s->frame->tiles[0].height;
                 s->frame->tiles[1].data_len = s->frame->tiles[0].data_len;
+        } else {
+                s->frame->tile_count = s->devices_cnt;
         }
 
         return S_OK;
@@ -1367,10 +1372,9 @@ vidcap_decklink_init(struct vidcap_params *params, void **state)
                         delete s;
                         return VIDCAP_INIT_FAIL;
                 }
-                s->frame = vf_alloc(2);
-        } else {
-                s->frame = vf_alloc(s->devices_cnt);
         }
+        s->frame = vf_alloc(MAX(s->devices_cnt, 2));
+        s->frame->tile_count = s->stereo ? 2 : s->devices_cnt;
 
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i) {
