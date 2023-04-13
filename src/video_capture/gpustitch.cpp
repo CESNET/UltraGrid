@@ -401,7 +401,7 @@ static bool init_stitcher(struct vidcap_gpustitch_state *s){
         int num_gpus;
         cudaGetDeviceCount(&num_gpus);
 
-        int selected_gpu;
+        int selected_gpu = -1;
 
         for (int gpu = 0; gpu < num_gpus; ++gpu)
         {
@@ -415,6 +415,11 @@ static bool init_stitcher(struct vidcap_gpustitch_state *s){
                         break;
                 }
         }
+        if (selected_gpu == -1) {
+                log_msg(LOG_LEVEL_ERROR, "Cannot find any usable CUDA device!\n");
+                return false;
+        }
+        cudaSetDevice(selected_gpu);
 
         gpustitch::read_params(s->spec_path, s->stitch_params, s->cam_properties);
 
