@@ -758,6 +758,14 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 s->initialized_video = false;
         }
 
+        if (desc.tile_count <= 2 && desc.tile_count != (s->stereo ? 2 : 1)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Stereo %s enabled but receiving %u streams. %sabling "
+                                "it. This behavior is experimental so please report any problems. "
+                                "You can also specify (or not) `3D` option explicitly.\n"
+                                , s->stereo ? "" : "not", desc.tile_count, s->stereo ? "dis" : "en");
+                s->stereo = !s->stereo;
+        }
+
         if (s->stereo) {
                 bmd_check_stereo_profile(s->state.at(0).deckLink);
                 if ((int) desc.tile_count != 2) {
@@ -1445,10 +1453,9 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_VIDEO_MODE:
-                        if(s->devices_cnt == 1 && !s->stereo)
-                                *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;
-                        else
-                                *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+                        *(int *) val = s->devices_cnt == 1 ? DISPLAY_PROPERTY_VIDEO_SEPARATE_3D :
+                                -                                 DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+                        *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
                         if(sizeof(supported_il_modes) <= *len) {
