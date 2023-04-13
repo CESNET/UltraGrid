@@ -750,8 +750,8 @@ static bool sockaddr_equal(struct sockaddr_storage *a, struct sockaddr_storage *
         }
 }
 
-static void should_exit_callback(void *arg) {
-    auto *should_exit = (bool *) arg;
+static void hd_rum_translator_should_exit_callback(void *arg) {
+    volatile auto *should_exit = (volatile bool *) arg;
     *should_exit = true;
 }
 
@@ -902,7 +902,7 @@ int main(int argc, char **argv)
     std::vector<Conf_participant> participants;
 
     volatile bool should_exit = false;
-    register_should_exit_callback(&state.mod, should_exit_callback, const_cast<bool *>(&should_exit));
+    register_should_exit_callback(&state.mod, hd_rum_translator_should_exit_callback, const_cast<bool *>(&should_exit));
     /* main loop */
     while (!should_exit) {
         while (state.qtail->next != state.qhead && !should_exit) {
