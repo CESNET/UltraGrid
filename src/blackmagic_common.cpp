@@ -351,8 +351,14 @@ class ProfileCallback : public IDeckLinkProfileCallback
 /**
  * @param a value from BMDProfileID or bmdDuplexHalf (maximize number of IOs)
  */
-bool decklink_set_duplex(IDeckLink *deckLink, uint32_t profileID)
-{
+bool decklink_set_profile(IDeckLink *deckLink, uint32_t profileID, bool stereo) {
+        if (profileID == BMD_OPT_DEFAULT) {
+                if (!stereo) {
+                        return true;
+                }
+                profileID = bmdProfileOneSubDeviceFullDuplex;
+        }
+
         bool ret = true;
         IDeckLinkProfileManager *manager = nullptr;
         IDeckLinkProfileIterator *it = nullptr;

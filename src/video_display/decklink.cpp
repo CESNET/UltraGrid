@@ -818,7 +818,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 if (!s->keep_device_defaults && s->profile_req == BMD_OPT_DEFAULT && link == bmdLinkConfigurationQuadLink) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
-                        decklink_set_duplex(s->state.at(i).deckLink, bmdProfileOneSubDeviceHalfDuplex);
+                        decklink_set_profile(s->state.at(i).deckLink, bmdProfileOneSubDeviceHalfDuplex, s->stereo);
                 } else if (link == bmdLinkConfigurationQuadLink && (s->profile_req != BMD_OPT_KEEP && s->profile_req == bmdProfileOneSubDeviceHalfDuplex)) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Setting quad-link and an incompatible device profile may not be supported!\n";
                 }
@@ -1200,8 +1200,8 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         }
         
         for(int i = 0; i < s->devices_cnt; ++i) {
-                if (s->profile_req != BMD_OPT_DEFAULT && s->profile_req != BMD_OPT_KEEP) {
-                        decklink_set_duplex(s->state.at(i).deckLink, s->profile_req);
+                if (!s->keep_device_defaults && s->profile_req != BMD_OPT_KEEP) {
+                        decklink_set_profile(s->state.at(i).deckLink, s->profile_req, s->stereo);
                 }
 
 		// Get IDeckLinkAttributes object

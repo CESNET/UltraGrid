@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,7 +107,7 @@ bool blackmagic_api_version_check();
 void print_decklink_version(void);
 
 bool bmd_check_stereo_profile(IDeckLink *deckLink);
-bool decklink_set_duplex(IDeckLink *decklink, uint32_t profileID);
+bool decklink_set_profile(IDeckLink *decklink, uint32_t profileID, bool stereo);
 std::string bmd_get_device_name(IDeckLink *decklink);
 std::string bmd_get_audio_connection_name(BMDAudioOutputAnalogAESSwitch audioConnection);
 uint32_t bmd_read_fourcc(const char *);
