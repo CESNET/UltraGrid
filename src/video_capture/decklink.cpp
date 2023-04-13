@@ -1137,9 +1137,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         check_attributes(s);
 
         int mnum = 0;
-#define MODE_SPEC_AUTODETECT -1
-#define MODE_SPEC_FOURCC -2
-#define MODE_SPEC_DETECTED -3
+        enum { MODE_SPEC_AUTODETECT = -1, MODE_SPEC_FOURCC = -2, MODE_SPEC_DETECTED = -3 };
         int mode_idx = MODE_SPEC_AUTODETECT;
 
         // mode selected manually - either by index or FourCC
