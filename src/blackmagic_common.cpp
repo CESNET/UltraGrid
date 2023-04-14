@@ -661,11 +661,11 @@ string bmd_get_audio_connection_name(BMDAudioOutputAnalogAESSwitch audioConnecti
 string bmd_get_flags_str(BMDDisplayModeFlags flags) {
         bool first = true;
         ostringstream oss;
-        map<uint32_t, const char *> map {
-                { bmdDisplayModeSupports3D, "3D" },
+        vector<pair<uint32_t, const char *>> map {
                 { bmdDisplayModeColorspaceRec601, "Rec601" },
                 { bmdDisplayModeColorspaceRec709, "Rec709" },
-                { bmdDisplayModeColorspaceRec2020, "Rec2020" }
+                { bmdDisplayModeColorspaceRec2020, "Rec2020" },
+                { bmdDisplayModeSupports3D, "3D" },
         };
 
         for (auto &f : map ) {

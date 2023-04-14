@@ -1693,7 +1693,7 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
                         string fcc{(char *) &mode, 4};
                         string name{displayModeCString};
                         char buf[1024];
-                        snprintf(buf, sizeof buf, "%d x %d \t %2.2f FPS %.4s, flags: %s", modeWidth, modeHeight,
+                        snprintf(buf, sizeof buf, "%d x %d \t %6.2f FPS \t flags: %.4s, %s", modeWidth, modeHeight,
                                         (float) ((double)frameRateScale / (double)frameRateDuration),
                                         (char *) &field_dominance_n, flags_str.c_str());
                         string details{buf};
@@ -1722,7 +1722,7 @@ static void print_input_modes (IDeckLink* deckLink)
         list<tuple<int, string, string, string>> ret = get_input_modes (deckLink);
 	printf("\tcapture modes:\n");
         for (auto &i : ret) {
-                col() << "\t\t" << right << setw(2) << SBOLD(get<0>(i) << " (" << get<1>(i) << ")") << ") " <<
+                col() << "\t\t" << right << SBOLD(setw(2) << get<0>(i) << " (" << get<1>(i) << ")") << ") " <<
                         left << setw(20) << get<2>(i) << internal << "  " <<
                         get<3>(i) << "\n";
         }
