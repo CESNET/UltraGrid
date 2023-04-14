@@ -135,7 +135,7 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
                         if (IS_FCC(v32)) { \
                                 log_msg(LOG_LEVEL_INFO, "%s" #key " set to: '%.4s'\n", MOD_NAME, (char *) &v32); \
                         } else { \
-                                LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: " << val << "\n"; \
+                                LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: 0x" << hex << val << "\n"; \
                         } \
                 } \
         }\
