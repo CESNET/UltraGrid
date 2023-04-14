@@ -654,7 +654,7 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
 }
 
 static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_desc desc, BMDTimeValue *frameRateDuration,
-		BMDTimeScale        *frameRateScale)
+		BMDTimeScale        *frameRateScale, bool stereo)
 {	IDeckLinkDisplayModeIterator     *displayModeIterator;
         IDeckLinkDisplayMode*             deckLinkDisplayMode;
         BMDDisplayMode			  displayMode = bmdModeUnknown;
@@ -693,10 +693,9 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                 deckLinkDisplayMode->GetFrameRate(frameRateDuration,
                                                 frameRateScale);
                                 displayFPS = (double) *frameRateScale / *frameRateDuration;
-                                if(fabs(desc.fps - displayFPS) < 0.01 && (desc.interlacing == INTERLACED_MERGED ? interlaced : !interlaced)
-                                  )
-                                {
-                                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Selected mode: %s\n", modeNameCString);
+                                if (fabs(desc.fps - displayFPS) < 0.01 && (desc.interlacing == INTERLACED_MERGED) == interlaced) {
+                                        log_msg(LOG_LEVEL_INFO, MOD_NAME "Selected mode: %s%s\n", modeNameCString,
+                                                        stereo ? " (3D)" : "");
                                         displayMode = deckLinkDisplayMode->GetDisplayMode();
                                         release_bmd_api_str(modeNameString);
                                         free(modeNameCString);
@@ -792,7 +791,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 BMDSupportedVideoModeFlags supportedFlags = bmdSupportedVideoModeDefault;
 
                 displayMode = get_mode(s->state.at(i).deckLinkOutput, desc, &s->frameRateDuration,
-                                &s->frameRateScale);
+                                &s->frameRateScale, s->stereo);
                 if (displayMode == bmdModeUnknown) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Could not find suitable video mode.\n");
                         goto error;
