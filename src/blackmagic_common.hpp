@@ -44,6 +44,7 @@
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
 #endif
 
+#include <cctype>
 #include <cstdbool>
 #include <cstdint>
 #include <map>
@@ -119,6 +120,8 @@ void print_bmd_device_profiles(const char *line_prefix);
 
 std::ostream &operator<<(std::ostream &output, REFIID iid);
 
+#define IS_FCC(val) (isprint((val) >> 24U & 0xFFU) && isprint((val) >> 16U & 0xFFU) && isprint((val) >> 8U & 0xFFU) && isprint((val) & 0xFFU))
+
 /// action to BMD_CONFIG_SET if no error handling is required (non-fatal)
 #define BMD_NO_ACTION
 #define BMD_CONFIG_SET(type, key, val, action) do {\
@@ -128,7 +131,12 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
                         LOG(strcmp(#action, "BMD_NO_ACTION") == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
                         action; \
                 } else { \
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: " << val << "\n";\
+                        uint32_t v32 = htonl(val); \
+                        if (IS_FCC(v32)) { \
+                                log_msg(LOG_LEVEL_INFO, "%s" #key " set to: '%.4s'\n", MOD_NAME, (char *) &v32); \
+                        } else { \
+                                LOG(LOG_LEVEL_INFO) << MOD_NAME << #key << " set to: " << val << "\n"; \
+                        } \
                 } \
         }\
 } while (0)
