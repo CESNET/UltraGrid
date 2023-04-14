@@ -1453,7 +1453,7 @@ static int display_decklink_get_property(void *state, int property, void *val, s
                         break;
                 case DISPLAY_PROPERTY_VIDEO_MODE:
                         *(int *) val = s->devices_cnt == 1 ? DISPLAY_PROPERTY_VIDEO_SEPARATE_3D :
-                                -                                 DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+                                DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
