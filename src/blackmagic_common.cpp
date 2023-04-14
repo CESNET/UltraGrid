@@ -47,6 +47,7 @@
 #include <map>
 #include <sstream>
 #include <unordered_map>
+#include <utility>
 
 #include "blackmagic_common.hpp"
 #include "debug.h"
@@ -269,6 +270,16 @@ cleanup:
 #endif
 }
 
+// Profile description map
+static const map<BMDProfileID, pair<const char *, const char *>> kDeviceProfiles =
+{
+        { bmdProfileOneSubDeviceFullDuplex,   { "1 sub-device full-duplex", "8K Pro, Duo 2, Quad 2" } },
+        { bmdProfileOneSubDeviceHalfDuplex,   { "1 sub-device half-duplex", "8K Pro" } },
+        { bmdProfileTwoSubDevicesFullDuplex,  { "2 sub-devices full-duplex", "8K Pro" } },
+        { bmdProfileTwoSubDevicesHalfDuplex,  { "2 sub-devices half-duplex", "Duo 2, Quad 2" } },
+        { bmdProfileFourSubDevicesHalfDuplex, { "4 sub-devices half-duplex", "8K Pro" } },
+};
+
 #define EXIT_IF_FAILED(cmd, name) \
         do {\
                 HRESULT result = cmd;\
@@ -327,14 +338,21 @@ class ProfileCallback : public IDeckLinkProfileCallback
 
                 bool WaitForProfileActivation(void) {
                         BMD_BOOL isActiveProfile = BMD_FALSE;
+                        const char *profileName = kDeviceProfiles.find(GetDeckLinkProfileID(m_requestedProfile))->second.first;
                         if ((m_requestedProfile->IsActive(&isActiveProfile) == S_OK) && isActiveProfile) {
-                                LOG(LOG_LEVEL_VERBOSE) << "[DeckLink] Profile already active.\n";
+                                LOG(LOG_LEVEL_INFO) << "[DeckLink] Profile " << profileName << " already active.\n";
                                 return true;
                         }
 
-                        LOG(LOG_LEVEL_NOTICE) << "[DeckLink] Waiting for profile activation... (this may take few seconds)\n";
+                        LOG(LOG_LEVEL_INFO) << "[DeckLink] Waiting for profile activation... (this may take few seconds)\n";
                         std::unique_lock<std::mutex> lock(m_profileActivatedMutex);
-                        return m_profileActivatedCondition.wait_for(lock, std::chrono::seconds{5}, [&]{ return m_requestedProfileActivated; });
+                        bool ret =  m_profileActivatedCondition.wait_for(lock, std::chrono::seconds{5}, [&]{ return m_requestedProfileActivated; });
+                        if (ret) {
+                                LOG(LOG_LEVEL_NOTICE) << "[DeckLink] Profile " << profileName << " activated succesfully.\n";
+                        } else {
+                                LOG(LOG_LEVEL_ERROR) << "[DeckLink] Profile " << profileName << " activation timeouted!\n";
+                        }
+                        return ret;
                 }
                 virtual ~ProfileCallback() {
                         m_requestedProfile->Release();
@@ -400,7 +418,6 @@ bool decklink_set_profile(IDeckLink *deckLink, uint32_t profileID, bool stereo) 
                                         ret = false;
                                 }
                                 if (!p->WaitForProfileActivation()) {
-                                        LOG(LOG_LEVEL_ERROR) << "[DeckLink] Profile activation timeouted!\n";
                                         ret = false;
                                 }
                         }
@@ -668,12 +685,11 @@ string bmd_get_flags_str(BMDDisplayModeFlags flags) {
 
 void print_bmd_device_profiles(const char *line_prefix)
 {
-        col() << line_prefix << SBOLD("1dfd") << " - 1 sub-device full-duplex (8K Pro, Duo 2, Quad 2)\n"
-                << line_prefix << SBOLD("1dhd") << " - 1 sub-device half-duplex (8K Pro)\n"
-                << line_prefix << SBOLD("2dfd") << " - 2 sub-devices full-duplex (8K Pro)\n"
-                << line_prefix << SBOLD("2dhd") << " - 2 sub-devices half-duplex (Duo 2, Quad 2)\n"
-                << line_prefix << SBOLD("4dhd") << " - 4 sub-devices half-duplex (8K Pro)\n"
-                << line_prefix << SBOLD("keep") << " - keep device setting\n";
+        for (const auto &p : kDeviceProfiles) {
+                const uint32_t fcc = htonl(p.first);
+                color_printf("%s" TBOLD("%.4s") " - %s (%s)\n", line_prefix, (const char *) &fcc, p.second.first, p.second.second);
+        }
+        color_printf("%s" TBOLD("keep") " - keep device setting\n", line_prefix);
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

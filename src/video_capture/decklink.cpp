@@ -531,7 +531,7 @@ decklink_help(bool full)
                 col() << "\tDisables/enables/keeps capture passthrough (default is disable).\n";
                 col() << "\n";
 
-                col() << SBOLD("profile=<FourCC>|profile=keep") << " - use desired device profile:\n";
+                col() << SBOLD("profile=<FourCC>") << " - use desired device profile:\n";
                 print_bmd_device_profiles("\t");
                 col() << "\n";
                 col() << SBOLD("sync_timecode") << "\n";
