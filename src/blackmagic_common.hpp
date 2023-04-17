@@ -49,6 +49,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "utils/macros.h"
@@ -122,7 +123,7 @@ std::ostream &operator<<(std::ostream &output, REFIID iid);
 /// action to BMD_CONFIG_SET if no error handling is required (non-fatal)
 #define BMD_NO_ACTION
 #define BMD_CONFIG_SET(type, key, val, action) do {\
-        if (val != (decltype(val)) BMD_OPT_DEFAULT && val != (decltype(val)) BMD_OPT_KEEP) {\
+        if (std::is_same<decltype(val),  bool>::value || (val != (decltype(val)) BMD_OPT_DEFAULT && val != (decltype(val)) BMD_OPT_KEEP)) {\
                 HRESULT result = deckLinkConfiguration->Set##type(key, val);\
                 if (result != S_OK) {\
                         LOG(strcmp(#action, "BMD_NO_ACTION") == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR) << MOD_NAME << "Unable to set " #key ": " << bmd_hresult_to_string(result) << "\n";\
