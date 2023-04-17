@@ -709,7 +709,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strstr(opt, "keep-settings") == opt) {
                 s->keep_device_defaults = true;
         } else {
-                log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning, unrecognized options in init string: %s\n", opt);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in init string: %s\n", opt);
                 return false;
         }
 

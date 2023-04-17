@@ -1082,7 +1082,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
                         s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown option in config string: %s\n", ptr);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in config string: %s\n", ptr);
                         return false;
                 }
                 ptr = strtok_r(nullptr, ":", &save_ptr);
