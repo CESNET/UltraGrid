@@ -835,22 +835,6 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                 int i = 0;
                 const int mode_count = sizeof cards[*card_count - 1].modes /
                                                 sizeof cards[*card_count - 1].modes[0];
-                for (auto &m : modes) {
-                        for (auto &c : connections) {
-                                if (i >= mode_count) { // no space
-                                        break;
-                                }
-
-                                snprintf(cards[*card_count - 1].modes[i].id,
-                                                sizeof cards[*card_count - 1].modes[i].id,
-                                                R"({"modeOpt":"connection=%s:mode=%s:codec=UYVY"})",
-                                                c.c_str(), get<1>(m).c_str());
-                                snprintf(cards[*card_count - 1].modes[i].name,
-                                                sizeof cards[*card_count - 1].modes[i].name,
-                                                "%s (%s)", get<2>(m).c_str(), c.c_str());
-                                i++;
-                        }
-                }
 
                 for (auto &c : connections) {
                         if (i >= mode_count) {
@@ -874,6 +858,23 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                                         sizeof cards[*card_count - 1].modes[i].name,
                                         "UltraGrid auto-detect (%s)", c.c_str());
                         i++;
+                }
+
+                for (auto &m : modes) {
+                        for (auto &c : connections) {
+                                if (i >= mode_count) { // no space
+                                        break;
+                                }
+
+                                snprintf(cards[*card_count - 1].modes[i].id,
+                                                sizeof cards[*card_count - 1].modes[i].id,
+                                                R"({"modeOpt":"connection=%s:mode=%s:codec=UYVY"})",
+                                                c.c_str(), get<1>(m).c_str());
+                                snprintf(cards[*card_count - 1].modes[i].name,
+                                                sizeof cards[*card_count - 1].modes[i].name,
+                                                "%s (%s)", get<2>(m).c_str(), c.c_str());
+                                i++;
+                        }
                 }
 
                 dev_add_option(&cards[*card_count - 1], "3D", "3D", "3D", ":3D", true);
