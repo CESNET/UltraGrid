@@ -876,6 +876,9 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                         i++;
                 }
 
+                dev_add_option(&cards[*card_count - 1], "3D", "3D", "3D", ":3D", true);
+                dev_add_option(&cards[*card_count - 1], "Profile", "Duplex profile can be one of: 1dhd, 2dhd, 2dfd, 4dhd, keep", "profile", ":profile=", false);
+
                 // Increment the total number of DeckLink cards found
                 numDevices++;
 
