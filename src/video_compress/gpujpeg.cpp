@@ -337,9 +337,9 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
                                 return false;
                         }
                 } else {
-                        if (strcasecmp(tok, "q=") == 0) {
+                        if (strstr(tok, "q=") == tok) {
                                 m_quality = atoi(tok + strlen("q="));
-                        } else if (strcasecmp(tok, "restart=") == 0) {
+                        } else if (strstr(tok, "restart=") == tok) {
                                 m_quality = atoi(tok + strlen("restart="));
                         } else if (strcasecmp(tok, "interleaved") == 0) {
                                 m_force_interleaved = true;
