@@ -1115,6 +1115,9 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, INIT_ERR());
         BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
         BMD_CONFIG_SET(Int, bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, BMD_NO_ACTION);
+        if (s->stereo) {
+                BMD_CONFIG_SET(Flag, bmdDeckLinkConfigSDIInput3DPayloadOverride, true, BMD_NO_ACTION);
+        }
 
         if (s->use1080psf != BMD_OPT_KEEP) {
                 CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf != 0), "Unable to set output as PsF");
