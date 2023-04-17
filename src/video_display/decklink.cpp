@@ -926,6 +926,9 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 		strncpy((*available_cards)[*count - 1].name, deviceName.c_str(),
 				sizeof (*available_cards)[*count - 1].name - 1);
 
+                dev_add_option(&(*available_cards)[*count - 1], "3D", "3D", "3D", ":3D", true);
+                dev_add_option(&(*available_cards)[*count - 1], "Profile", "Duplex profile can be one of: 1dhd, 2dhd, 2dfd, 4dhd, keep", "profile", ":profile=", false);
+
                 // Release the IDeckLink instance when we've finished with it to prevent leaks
                 deckLink->Release();
         }
