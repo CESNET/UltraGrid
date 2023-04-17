@@ -361,7 +361,7 @@ bool state_video_compress_gpujpeg::parse_fmt(char *fmt)
 #endif
                                 m_compress_alpha = true;
                         } else {
-                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameters.\n");
+                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "WARNING: Trailing configuration parameter: %s\n", tok);
                         }
                 }
                 fmt = nullptr;
