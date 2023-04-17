@@ -842,7 +842,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                         }
                         snprintf(cards[*card_count - 1].modes[i].id,
                                         sizeof cards[*card_count - 1].modes[i].id,
-                                        "{\"modeOpt\":\"connection=%s\"}",
+                                        R"("{"modeOpt":"connection=%s:codec=UYVY"})",
                                         c.c_str());
                         snprintf(cards[*card_count - 1].modes[i].name,
                                         sizeof cards[*card_count - 1].modes[i].name,
@@ -852,11 +852,11 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
                         }
                         snprintf(cards[*card_count - 1].modes[i].id,
                                         sizeof cards[*card_count - 1].modes[i].id,
-                                        "{\"modeOpt\":\"detect-format:connection=%s\"}",
+                                        R"("{"modeOpt":"detect-format:connection=%s:codec=UYVY"})",
                                         c.c_str());
                         snprintf(cards[*card_count - 1].modes[i].name,
                                         sizeof cards[*card_count - 1].modes[i].name,
-                                        "UltraGrid auto-detect (%s)", c.c_str());
+                                        "UltraGrid auto-detect (%s) (SLOW)", c.c_str());
                         i++;
                 }
 
