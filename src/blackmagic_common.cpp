@@ -372,7 +372,6 @@ class ProfileCallback : public IDeckLinkProfileCallback
 bool decklink_set_profile(IDeckLink *deckLink, uint32_t profileID, bool stereo) {
         if (profileID == BMD_OPT_DEFAULT && !stereo) {
                 return true;
-                profileID = bmdProfileOneSubDeviceFullDuplex;
         }
 
         bool ret = true;

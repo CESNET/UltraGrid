@@ -499,8 +499,8 @@ decklink_help(bool full)
         col() << "\tPrint description of all available options.\n";
         col() << "\n";
 
-        col() << SBOLD("half-duplex") << "\n";
-        col() << "\tSet a profile that allows maximal number of simultaneous IOs.\n";
+        col() << SBOLD("half-duplex | full-duplex") << "\n";
+        col() << "\tSet a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link).\n";
         col() << "\n";
 
         if (full) {
@@ -700,6 +700,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 } else {
                         s->profile = (BMDProfileID) bmd_read_fourcc(mode);
                 }
+        } else if (strstr(opt, "full-duplex") == opt) {
+                s->profile = bmdProfileOneSubDeviceFullDuplex;
         } else if (strstr(opt, "half-duplex") == opt) {
                 s->profile = bmdDuplexHalf;
         } else if (strcasecmp(opt, "nosig-send") == 0) {
@@ -707,7 +709,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strstr(opt, "keep-settings") == opt) {
                 s->keep_device_defaults = true;
         } else {
-                log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning, unrecognized trailing options in init string: %s\n", opt);
+                log_msg(LOG_LEVEL_WARNING, "[DeckLink] Warning, unrecognized options in init string: %s\n", opt);
                 return false;
         }
 

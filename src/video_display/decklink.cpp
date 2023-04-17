@@ -380,8 +380,8 @@ static void show_help(bool full)
         col() << SBOLD("\tLevelA/LevelB") << "\tspecifies 3G-SDI output level\n";
         col() << SBOLD("\t3D") << "\t\t3D stream will be received (see also HDMI3DPacking option)\n";
         col() << SBOLD("\taudio_level") << "\tset maximum attenuation for mic\n";
-        col() << SBOLD("\thalf-duplex")
-                << "\tset a profile that allows maximal number of simultaneous IOs\n";
+        col() << SBOLD("\thalf-duplex | full-duplex")
+                << "\tset a profile that allows maximal number of simultaneous IOs / set device to better compatibility (3D, dual-link)\n";
         col() << SBOLD("\tHDR[=HDR|PQ|HLG|<int>|help]") << " - enable HDR metadata (optionally specifying EOTF, int 0-7 as per CEA 861.), help for extended help\n";
         col() << SBOLD("\tdrift_fix") << "       activates a time drift fix for the Decklink cards with resampler (experimental)\n";
         if (!full) {
@@ -1013,6 +1013,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         } else {
                                 s->profile_req = (BMDProfileID) bmd_read_fourcc(ptr);
                         }
+                } else if (strcasecmp(ptr, "full-duplex") == 0) {
+                        s->profile_req = bmdProfileOneSubDeviceFullDuplex;
                 } else if (strcasecmp(ptr, "half-duplex") == 0) {
                         s->profile_req = bmdDuplexHalf;
                 } else if (strcasecmp(ptr, "LevelA") == 0) {
@@ -1080,7 +1082,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
                         s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown options in config string.\n");
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Warning: unknown option in config string: %s\n", ptr);
                         return false;
                 }
                 ptr = strtok_r(nullptr, ":", &save_ptr);
