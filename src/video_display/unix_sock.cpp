@@ -199,7 +199,6 @@ static void display_unix_sock_run(void *state)
                         continue;
                 }
 
-                assert(frame->tile_count == 1);
                 const tile *tile = &frame->tiles[0];
 
                 int scale = ipc_frame_get_scale_factor(tile->width, tile->height,
