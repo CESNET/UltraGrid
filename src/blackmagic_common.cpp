@@ -539,11 +539,31 @@ std::ostream &operator<<(std::ostream &output, REFIID iid)
         return output;
 }
 
+void bmd_option::set_flag(bool val_) {
+        m_val.b = val_;
+        m_type = type_tag::t_flag;
+}
+void bmd_option::set_keep() {
+        m_type = type_tag::t_keep;
+}
+bool bmd_option::keep() {
+        return m_type == type_tag::t_keep;
+}
+bool bmd_option::get_flag() {
+        if (m_type != type_tag::t_flag) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option is not set to a flag but get_flag() called! Current type tag: %d\n", (int) m_type);
+                return {};
+        }
+        return m_val.b;
+}
+bool bmd_option::is_default() {
+        return m_type == type_tag::t_default;
+}
 /**
  * @note
  * Returns true also for empty/NULL val - this allow specifying the flag without explicit value
  */
-int parse_bmd_flag(const char *val)
+bool bmd_option::parse_flag(const char *val)
 {
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -551,31 +571,23 @@ int parse_bmd_flag(const char *val)
 #endif // defined __clang__
         if (val == nullptr || val == static_cast<char *>(nullptr) + 1 // allow constructions like parse_bmd_flag(strstr(opt, '=') + 1)
                         || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
-                return BMD_OPT_TRUE;
+                set_flag(true);
+                return true;
         }
         if (strcasecmp(val, "false") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "off") == 0  || strcasecmp(val, "no") == 0) {
-                return BMD_OPT_FALSE;
+                set_flag(false);
+                return true;
         }
         if (strcasecmp(val, "keep") == 0) {
-                return BMD_OPT_KEEP;
+                set_keep();
+                return true;
         }
 
         LOG(LOG_LEVEL_ERROR) << "Value " << val << " not recognized for a flag, use one of: " R"_("false", "true" or "keep")_" "\n";
-        return -1;
+        return false;
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif // defined __clang
-}
-
-int invert_bmd_flag(int val)
-{
-        if (val == BMD_OPT_TRUE) {
-                return BMD_OPT_FALSE;
-        }
-        if (val == BMD_OPT_FALSE) {
-                return BMD_OPT_TRUE;
-        }
-        return val;
 }
 
 static void apply_r10k_lut(void *i, void *o, size_t len, void *udata)

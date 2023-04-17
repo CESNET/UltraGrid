@@ -959,7 +959,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 vector<string> *cardId,
                 BMDVideo3DPackingFormat *HDMI3DPacking,
                 int *audio_consumer_levels,
-                int *use1080psf) {
+                bmd_option *use1080psf) {
         if (strlen(fmt) == 0) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Card number unset, using first found (see -d decklink:help)!\n";
                 return true;
@@ -1049,11 +1049,11 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                                         strlen("conversion=")) == 0) {
                         s->conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
                 } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
-                        if ((*use1080psf = parse_bmd_flag(strchr(ptr, '=') + 1)) == -1) {
+                        if (!use1080psf->parse_flag(strchr(ptr, '=') + 1)) {
                                 return false;
                         }
                         if (strncasecmp(ptr, "Use1080pNotPsF", strlen("Use1080pNotPsF")) == 0) { // compat, inverse
-                                *use1080psf = invert_bmd_flag(*use1080psf);
+                                use1080psf->set_flag(!use1080psf->get_flag());
                         }
                 } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
@@ -1102,7 +1102,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) BMD_OPT_DEFAULT;
         int audio_consumer_levels = -1;
-        int use1080psf = BMD_OPT_DEFAULT;
+        bmd_option use1080psf;
 
         if (strcmp(fmt, "help") == 0 || strcmp(fmt, "fullhelp") == 0) {
                 show_help(strcmp(fmt, "fullhelp") == 0);
@@ -1241,12 +1241,12 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
                 BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoOutputConversionMode, s->conversion_mode, goto error);
 
-                if (!s->keep_device_defaults && use1080psf != BMD_OPT_KEEP) {
-                        if (use1080psf == BMD_OPT_DEFAULT) {
+                if (!s->keep_device_defaults && !use1080psf.keep()) {
+                        if (use1080psf.is_default()) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output signal as progressive, see option \"Use1080PsF\" to use PsF or keep default.\n";
+                                use1080psf.set_flag(BMD_FALSE);
                         }
-                        BMD_BOOL val = use1080psf == BMD_OPT_DEFAULT || use1080psf == BMD_OPT_FALSE ? BMD_FALSE : BMD_TRUE;
-                        result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, val);
+                        result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, use1080psf.get_flag());
                         if (result != S_OK) {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to set 1080p P/PsF mode.\n";
                         }

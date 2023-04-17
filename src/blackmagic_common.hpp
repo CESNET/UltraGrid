@@ -78,11 +78,24 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 #define BMD_FALSE false
 #endif
 
+struct bmd_option {
+        enum class type_tag : int { t_default, t_keep, t_flag, t_int } m_type = type_tag::t_default;
+        union {
+                bool b;
+                int64_t i;
+        } m_val{};
+public:
+        bool is_default();
+        void set_keep();
+        bool keep();
+        bool get_flag();
+        bool parse_flag(const char *);
+        void set_flag(bool val_);
+};
+
 #define BMD_OPT_DEFAULT 0 ///< default is set to 0 to allow zero-initialization
 // below are special values not known to BMD that must be interpreted by UG
 // and *must*not*be*passed*to*BMD*API !
-#define BMD_OPT_FALSE   to_fourcc('T', 'R', 'U', 'E')
-#define BMD_OPT_TRUE    to_fourcc('F', 'A', 'L', 'S')
 #define BMD_OPT_KEEP    to_fourcc('K', 'E', 'E', 'P')
 
 #ifdef HAVE_MACOSX
@@ -113,8 +126,6 @@ bool decklink_set_profile(IDeckLink *decklink, uint32_t profileID, bool stereo);
 std::string bmd_get_device_name(IDeckLink *decklink);
 std::string bmd_get_audio_connection_name(BMDAudioOutputAnalogAESSwitch audioConnection);
 uint32_t bmd_read_fourcc(const char *);
-int parse_bmd_flag(const char *val);
-int invert_bmd_flag(int val);
 void r10k_limited_to_full(const char *in, char *out, size_t len);
 void r10k_full_to_limited(const char *in, char *out, size_t len);
 void print_bmd_device_profiles(const char *line_prefix);
