@@ -62,7 +62,7 @@ usage() {
 
 usage_aux() {
         printf "environment variables:\n"
-        printf "\tULTRAGRID_AUTOUPDATE:    1 - try to autoupdate; 0 - disable update advice\n"
+        printf "\tULTRAGRID_AUTOUPDATE:    autoupdate interval in days (0 - check always); -1 - disable update advice\n"
         printf "\tULTRAGRID_BUNDLED_LIBVA: 1 - use bundled libva; 0 - use system libva (if available), default %d\n" $use_bundled_libva_default
         printf "\tULTRAGRID_USE_FIREJAIL:  run the UltraGrid executable with firejail. If\n"
         printf "\t                         the variable contains a profile path (ends with\n"
@@ -70,30 +70,38 @@ usage_aux() {
         printf "\n"
 }
 
-update_notify_days=90
-## Print update hint if UG binary is older than $update_notify_days days, if $ULTRAGRID_AUTOUPDATE=1 triggers update.
+update_check_days=90
+## Trigger update if $ULTRAGRID_AUTOUPDATE days passed.
+## If $ULTRAGRID_AUTOUPDATE unset or empty, print update hint if UG binary is older than $update_check_days days.
 handle_updates() {(
+        if [ "${ULTRAGRID_AUTOUPDATE-0}" -eq -1 ]; then
+                return
+        fi
         # shellcheck disable=SC2030 # intentional
         LD_LIBRARY_PATH=$orig_ld_library_path
         if [ "$APPIMAGE" = none ]; then
                 return
         fi
-        if [ -n "${ULTRAGRID_AUTOUPDATE-}" ]; then
-                if [ "$ULTRAGRID_AUTOUPDATE" -eq 1 ] && ! "$DIR/appimageupdatetool" -j "$APPIMAGE" && "$DIR/appimageupdatetool" "$APPIMAGE"; then
-                        ULTRAGRID_AUTOUPDATE= # prevent update loops if the new version not stored for some reason
+        if expr "$APPIMAGE" : '.*continuous' > /dev/null; then
+                update_check_days=30
+        fi
+        if [ "${ULTRAGRID_AUTOUPDATE-}" ] && [ "$ULTRAGRID_AUTOUPDATE" -ge 0 ]; then
+                update_check_days=$ULTRAGRID_AUTOUPDATE
+        fi
+        appimage_mtime=$(stat -c %Y "$APPIMAGE")
+        curr_timestamp=$(date +%s)
+        if [ "$curr_timestamp" -lt $((appimage_mtime + update_check_days * 24 * 60 * 60)) ]; then
+                return
+        fi
+        if [ "${ULTRAGRID_AUTOUPDATE-}" ] && [ "$ULTRAGRID_AUTOUPDATE" -ge 0 ]; then
+                if ! "$DIR/appimageupdatetool" -j "$APPIMAGE" && "$DIR/appimageupdatetool" "$APPIMAGE"; then
+                        ULTRAGRID_AUTOUPDATE=-1 # prevent update loops if the new version not stored for some reason
                         exec "$APPIMAGE" "$@"  # launch the updated version
                 fi
+                touch "$APPIMAGE" # update AppImage mtime otherwise if there are no updates after elapsing the interval, the check would run always
                 return
         fi
-        if expr "$APPIMAGE" : '.*continuous' > /dev/null; then
-                update_notify_days=30
-        fi
-        APPIMAGE_MTIME=$(stat -c %Y "$APPIMAGE")
-        CURR_TIMESTAMP=$(date +%s)
-        if [ "$CURR_TIMESTAMP" -lt $((APPIMAGE_MTIME + update_notify_days * 24 * 60 * 60)) ]; then
-                return
-        fi
-        printf "UltraGrid binary older than %d days, consider checking updates:\n" $update_notify_days
+        printf "UltraGrid binary older than %d days, consider checking updates:\n" "$update_check_days"
         printf "\n"
         printf "%s -u\n" "$ARGV0"
         printf "\t- updates AppImage\n"
@@ -102,7 +110,7 @@ handle_updates() {(
         printf "%s -u -h\n" "$ARGV0"
         printf "\t- prints update options\n"
         printf "\n"
-        printf "Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for automatic update or 0 to suppress the above message.\n"
+        printf "Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for daily automatic update or -1 to suppress the above message.\n"
         printf "\n"
 )}
 
