@@ -434,7 +434,7 @@ const char *get_sockaddr_str(struct sockaddr *sa)
         unsigned port = get_sockaddr_addr_port(sa);
         if(port == UINT_MAX)
                 return addr;
-        snprintf(addr + strlen(addr), ADDR_LEN, ":%u", port);
+        snprintf(addr + strlen(addr), ADDR_LEN - strlen(addr), ":%u", port);
 
         return addr;
 }
