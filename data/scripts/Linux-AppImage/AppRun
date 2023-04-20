@@ -79,8 +79,9 @@ handle_updates() {(
                 return
         fi
         if [ -n "${ULTRAGRID_AUTOUPDATE-}" ]; then
-                if [ "$ULTRAGRID_AUTOUPDATE" -eq 1 ]; then
-                        "$DIR/appimageupdatetool" "$APPIMAGE"
+                if [ "$ULTRAGRID_AUTOUPDATE" -eq 1 ] && ! "$DIR/appimageupdatetool" -j "$APPIMAGE" && "$DIR/appimageupdatetool" "$APPIMAGE"; then
+                        ULTRAGRID_AUTOUPDATE= # prevent update loops if the new version not stored for some reason
+                        exec "$APPIMAGE" "$@"  # launch the updated version
                 fi
                 return
         fi
@@ -237,7 +238,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
 fi
 
 if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
-        handle_updates
+        handle_updates "$@"
         if [ $# -eq 0 ]; then usage; else shift; fi
         if [ -x "$DIR/usr/bin/uv-qt" ]; then
                 "$DIR/usr/bin/uv-qt" --with-uv "$DIR/usr/bin/uv" "$@"
@@ -246,7 +247,7 @@ if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
                 exit 1
         fi
 elif [ "$1" = "-o" ] || [ "$1" = "--tool" ]; then
-        handle_updates
+        handle_updates "$@"
         TOOL=$2
         shift 2
         if [ "$TOOL" = help ]; then
@@ -274,7 +275,7 @@ elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
         touch "$APPIMAGE" # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
         "$DIR/appimageupdatetool" ${1+"$@" }"$APPIMAGE"
 else
-        handle_updates
+        handle_updates "$@"
         # shellcheck disable=SC2086
         ${RUN}"$DIR/usr/bin/uv" "$@"
 fi
