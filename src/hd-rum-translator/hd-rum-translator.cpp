@@ -307,7 +307,7 @@ static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
 #endif
 
 static int create_output_port(struct hd_rum_translator_state *s,
-        const char *addr, int rx_port, int tx_port, int bufsize, bool force_ip_version,
+        const char *addr, int rx_port, int tx_port, int bufsize, int force_ip_version,
         const char *compression, int mtu, const char *fec, int bitrate)
 {
         struct replica *rep;
@@ -529,7 +529,7 @@ static void usage(const char *progname) {
                 SBOLD("\t\t-m <mtu>") << " - MTU size\n" <<
                 SBOLD("\t\t-l <limiting_bitrate>") << " - bitrate to be shaped to\n" <<
                 SBOLD("\t\t-f <fec>") << " - FEC that will be used for transmission.\n" <<
-                SBOLD("\t\t-6") << " - use IPv6\n";
+                SBOLD("\t\t-4/-6") << " - force IPv4/IPv6\n";
         printf("\tPlease note that blending and capture filter is used only for host for which\n"
                "\tcompression is specified (transcoding is active). If compression is not\n"
                "\tset, simple packet retransmission is used. Compression can be also 'none'\n"
@@ -559,6 +559,10 @@ struct cmdline_parameters {
     bool verbose = false;
     char *conference_compression = nullptr;
 };
+
+static bool needs_argument(const char *opt) {
+    return strcmp(opt, "-4") != 0 && strcmp(opt, "-6") != 0;
+}
 
 /**
  * @todo
@@ -633,17 +637,19 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                 exit(EXIT_FAIL_USAGE);
             }
 
-            if(i == argc - 1 || argv[i + 1][0] == '-') {
+            if (i == argc - 1 || (argv[i + 1][0] == '-' && needs_argument(argv[i]))) {
                 fprintf(stderr, "Error: option '-%c' requires an argument\n", argv[i][1]);
                 return -1;
             }
-
-            parsed->host_count -= 1; // because option argument (mandatory) will be counted as a host
-                                   // in next iteration
+            if (needs_argument(argv[i])) {
+                parsed->host_count -= 1; // because option argument (mandatory) will be counted as a host
+                                         // in next iteration
+            }
         }
     }
 
-    if (argc >= 2 && argv[argc - 2][0] == '-') {
+
+    if (argc >= 2 && needs_argument(argv[argc - 2]) && argv[argc - 2][0] == '-') {
         fprintf(stderr, "Error: last option on is option '%s', expected hostname\n", argv[argc - 2]);
         return -1;
     }
@@ -699,7 +705,9 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
                     LOG(LOG_LEVEL_FATAL) << MOD_NAME << "Error: invalid host option " << argv[i] << "\n";
                     exit(EXIT_FAIL_USAGE);
             }
-            i += 1;
+            if (needs_argument(argv[i])) {
+                i += 1;
+            }
         } else {
             parsed->hosts[host_idx].addr = argv[i];
             host_idx += 1;
