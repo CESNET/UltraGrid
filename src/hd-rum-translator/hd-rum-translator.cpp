@@ -656,6 +656,11 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         }
     }
 
+    if (argc >= 2 && argv[argc - 2][0] == '-') {
+        fprintf(stderr, "Error: last option on is option '%s', expected hostname\n", argv[argc - 2]);
+        return -1;
+    }
+
     parsed->hosts.resize(parsed->host_count);
     // default values
     for(int i = 0; i < parsed->host_count; ++i) {
