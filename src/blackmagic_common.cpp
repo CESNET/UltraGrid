@@ -539,9 +539,62 @@ std::ostream &operator<<(std::ostream &output, REFIID iid)
         return output;
 }
 
+static string fcc_to_string(uint32_t fourcc) {
+#define BMDFCC(x) {x,#x}
+        static const unordered_map<uint32_t, const char *> conf_name_map = {
+                BMDFCC(bmdDeckLinkConfigVideoInputConnection),
+                BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
+                BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
+                BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
+                BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
+        };
+#undef BMDFCC
+        if (auto it = conf_name_map.find(fourcc); it != conf_name_map.end()) {
+                return it->second;
+        }
+        union {
+                char c[5];
+                uint32_t i;
+        } fcc{};
+        fcc.i = htonl(fourcc);
+        return string("'") + fcc.c + "'";
+}
+
+bmd_option::bmd_option(int64_t val, bool user_spec) : m_type(type_tag::t_int), m_user_specified(user_spec) {
+        m_val.i = val;
+}
+
+std::ostream &operator<<(std::ostream &output, const bmd_option &b) {
+        switch (b.m_type) {
+                case bmd_option::type_tag::t_default:
+                        output << "(default)";
+                        break;
+                case bmd_option::type_tag::t_keep:
+                        output << "(keep)";
+                        break;
+                case bmd_option::type_tag::t_flag:
+                        output << (b.get_flag() ? "true" : "false");
+                        break;
+                case bmd_option::type_tag::t_int:
+                        if (IS_FCC(b.get_int())) {
+                                output << fcc_to_string(b.get_int());
+                        } else {
+                                output << "0x" << hex << b.get_int();
+                        }
+                        break;
+
+        }
+        return output;
+}
+
 void bmd_option::set_flag(bool val_) {
         m_val.b = val_;
         m_type = type_tag::t_flag;
+}
+void bmd_option::set_int(uint32_t val_) {
+        m_val.i = val_;
+        m_type = type_tag::t_int;
+        m_user_specified = true;
 }
 void bmd_option::set_keep() {
         m_type = type_tag::t_keep;
@@ -549,12 +602,19 @@ void bmd_option::set_keep() {
 bool bmd_option::keep() {
         return m_type == type_tag::t_keep;
 }
-bool bmd_option::get_flag() {
+bool bmd_option::get_flag() const {
         if (m_type != type_tag::t_flag) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option is not set to a flag but get_flag() called! Current type tag: %d\n", (int) m_type);
                 return {};
         }
         return m_val.b;
+}
+int64_t bmd_option::get_int() const {
+        if (m_type != type_tag::t_int) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option is not set to an int but get_int() called! Current type tag: %d\n", (int) m_type);
+                return {};
+        }
+        return m_val.i;
 }
 bool bmd_option::is_default() {
         return m_type == type_tag::t_default;
@@ -588,6 +648,31 @@ bool bmd_option::parse_flag(const char *val)
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif // defined __clang
+}
+
+bool bmd_option::parse_int(const char *val) {
+        set_int(bmd_read_fourcc(val));
+        return true;
+}
+
+bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const {
+        HRESULT res = E_FAIL;
+        switch (m_type) {
+                case type_tag::t_flag:
+                        res = deckLinkConfiguration->SetFlag(opt, get_flag());
+                        break;
+                case type_tag::t_int:
+                        res = deckLinkConfiguration->SetInt(opt, get_int());
+                        break;
+                default:
+                        return true;
+        }
+        if (res != S_OK) {
+                LOG(m_user_specified ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING ) << MOD_NAME << "Unable to set key " << fcc_to_string(opt) << ": " << bmd_hresult_to_string(res) << "\n";
+                return !m_user_specified;
+        }
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << fcc_to_string(opt) << " set to: " << *this << "\n";
+        return true;
 }
 
 static void apply_r10k_lut(void *i, void *o, size_t len, void *udata)

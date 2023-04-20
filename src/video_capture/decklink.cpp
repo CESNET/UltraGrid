@@ -165,11 +165,10 @@ struct vidcap_decklink_state {
         int                     frames = 0;
         bool                    stereo{false}; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         bool                    sync_timecode{false}; /* use timecode when grabbing from multiple inputs */
-        static_assert(bmdVideoConnectionUnspecified == BMD_OPT_DEFAULT, "Connection unspecified is not 0!");
-        BMDVideoConnection      connection{bmdVideoConnectionUnspecified};
+        map<BMDDeckLinkConfigurationID, bmd_option> device_options = {
+                { bmdDeckLinkConfigCapturePassThroughMode, bmd_option(bmdDeckLinkCapturePassthroughModeDisabled, false) },
+        };
         int                     audio_consumer_levels{-1}; ///< 0 false, 1 true, -1 default
-        BMDVideoInputConversionMode conversion_mode{};
-        BMDDeckLinkCapturePassthroughMode passthrough{bmdDeckLinkCapturePassthroughModeDisabled};
 
         bool                    detect_format = false;
         unsigned int            requested_bit_depth = 0; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
@@ -643,14 +642,12 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->sync_timecode = TRUE;
         } else if(strncasecmp(opt, "connection=", strlen("connection=")) == 0) {
                 const char *connection = opt + strlen("connection=");
-                bool found = false;
                 for (auto const & it : connection_string_map) {
                         if (strcasecmp(connection, it.second.c_str()) == 0) {
-                                s->connection = it.first;
-                                found = true;
+                                s->device_options[bmdDeckLinkConfigVideoInputConnection] = bmd_option(it.first);
                         }
                 }
-                if (!found) {
+                if (s->device_options.find(bmdDeckLinkConfigVideoInputConnection) == s->device_options.end()) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized connection %s.\n", connection);
                         return false;
                 }
@@ -664,7 +661,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if(strncasecmp(opt, "conversion=",
                                 strlen("conversion=")) == 0) {
-                s->conversion_mode = (BMDVideoInputConversionMode) bmd_read_fourcc(opt + strlen("conversion="));
+                s->device_options[bmdDeckLinkConfigVideoInputConversionMode].parse_int(strchr(opt, '='));
         } else if(strncasecmp(opt, "device=",
                                 strlen("device=")) == 0) {
                 const char *devices = opt + strlen("device=");
@@ -690,9 +687,12 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                         s->use1080psf = 0;
                 }
         } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
-                s->passthrough = opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
-                        : strstr(opt, "keep") != nullptr ? static_cast<enum _BMDDeckLinkCapturePassthroughMode>(BMD_OPT_KEEP)
-                        : bmdDeckLinkCapturePassthroughModeCleanSwitch;
+                if (strstr(opt, "keep")) {
+                        s->device_options.erase(bmdDeckLinkConfigCapturePassThroughMode);
+                } else {
+                        s->device_options[bmdDeckLinkConfigCapturePassThroughMode] = bmd_option(opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
+                                : bmdDeckLinkCapturePassthroughModeCleanSwitch);
+                }
         } else if (strstr(opt, "profile=") == opt) {
                 const char *mode = opt + strlen("profile=");
                 if (strcmp(mode, "keep") == 0) {
@@ -1117,10 +1117,12 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         IDeckLinkProfileAttributes *deckLinkAttributes;
         BMD_CHECK(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes", INIT_ERR());
 
-        BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConnection, s->connection, INIT_ERR());
-        BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoInputConversionMode, s->conversion_mode, INIT_ERR());
-        BMDVideoInputConversionMode supported_conversion_mode = s->conversion_mode ? s->conversion_mode : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
-        BMD_CONFIG_SET(Int, bmdDeckLinkConfigCapturePassThroughMode, s->passthrough, BMD_NO_ACTION);
+        for (const auto &o : s->device_options) {
+                if (!o.second.option_write(deckLinkConfiguration, o.first)) {
+                        INIT_ERR();
+                }
+        }
+        BMDVideoInputConversionMode supported_conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoInputConversionMode) != s->device_options.end() ? s->device_options.at(bmdDeckLinkConfigVideoInputConversionMode).get_int() : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
         if (s->stereo) {
                 BMD_CONFIG_SET(Flag, bmdDeckLinkConfigSDIInput3DPayloadOverride, true, BMD_NO_ACTION);
         }
@@ -1184,7 +1186,9 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                         }
                         BMDPixelFormat pf = it->second;
                         BMD_BOOL supported = 0;
-                        BMD_CHECK(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
+                        BMDVideoConnection connection = s->device_options.find(bmdDeckLinkConfigVideoInputConnection) != s->device_options.end()
+                                ? s->device_options.at(bmdDeckLinkConfigVideoInputConnection).get_int() : (BMDVideoConnection) bmdVideoConnectionUnspecified;
+                        BMD_CHECK(deckLinkInput->DoesSupportVideoMode(connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
                         if (supported) {
                                 break;
                         }
@@ -1245,7 +1249,9 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         }
 
         BMD_BOOL supported = 0;
-        BMD_CHECK(deckLinkInput->DoesSupportVideoMode(s->connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
+        BMDVideoConnection connection = s->device_options.find(bmdDeckLinkConfigVideoInputConnection) != s->device_options.end()
+                ? s->device_options.at(bmdDeckLinkConfigVideoInputConnection).get_int() : (BMDVideoConnection) bmdVideoConnectionUnspecified;
+        BMD_CHECK(deckLinkInput->DoesSupportVideoMode(connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
 
         if (!supported) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Requested display mode not supported with the selected pixel format\n";

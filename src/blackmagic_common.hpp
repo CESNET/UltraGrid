@@ -84,14 +84,23 @@ struct bmd_option {
                 bool b;
                 int64_t i;
         } m_val{};
+        bool m_user_specified = true;
 public:
+        bmd_option() {}
+        explicit bmd_option(int64_t val, bool user_spec = true);
         bool is_default();
         void set_keep();
         bool keep();
-        bool get_flag();
+        bool get_flag() const;
+        int64_t get_int() const;
         bool parse_flag(const char *);
+        bool parse_int(const char *);
         void set_flag(bool val_);
+        void set_int(uint32_t val_);
+        bool option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const;
 };
+
+std::ostream &operator<<(std::ostream &output, const bmd_option &b);
 
 #define BMD_OPT_DEFAULT 0 ///< default is set to 0 to allow zero-initialization
 // below are special values not known to BMD that must be interpreted by UG
