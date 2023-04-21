@@ -961,7 +961,6 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 int *audio_consumer_levels,
                 bmd_option *use1080psf) {
         if (strlen(fmt) == 0) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Card number unset, using first found (see -d decklink:help)!\n";
                 return true;
         }
 
@@ -1133,11 +1132,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 return NULL;
         }
 
-        if (s->low_latency) {
-                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Using low-latency mode. "
-                        "In case of problems, you can try '-d decklink:no-low-latency'.\n";
-        }
-
         // Initialize the DeckLink API
         deckLinkIterator = create_decklink_iterator(&s->com_initialized, true);
         if (!deckLinkIterator)
@@ -1243,7 +1237,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
 
                 if (!s->keep_device_defaults && !use1080psf.keep()) {
                         if (use1080psf.is_default()) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Setting output signal as progressive, see option \"Use1080PsF\" to use PsF or keep default.\n";
+                                LOG(LOG_LEVEL_INFO) << MOD_NAME << "Setting output signal as progressive, see option \"Use1080PsF\" to use PsF or keep default.\n";
                                 use1080psf.set_flag(BMD_FALSE);
                         }
                         result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigOutput1080pAsPsF, use1080psf.get_flag());
