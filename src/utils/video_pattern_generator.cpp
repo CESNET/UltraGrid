@@ -631,11 +631,64 @@ private:
         vector<vector<unsigned char>> data;
 };
 
+struct interlaced_video_pattern_generator : public video_pattern_generator {
+        interlaced_video_pattern_generator(int w, int h, codec_t color_spec)
+                : width(w), height(h), linesize(vc_get_linesize(width, color_spec))
+        {
+                size_t rgb_linesize = vc_get_linesize(width, RGB);
+                vector<char> rgb(3 * h * rgb_linesize + 4 * (width / step) * rgb_linesize);
+                memset(rgb.data(), 255, h * rgb_linesize);
+                char *ptr = rgb.data() + h * rgb_linesize;
+                auto fill = [&](int col1, int col2) {
+                        for (int i = 0; i < width; i += step) {
+                                size_t fill_len = rgb_linesize - i * 3;
+                                memset(ptr, col1, fill_len);
+                                memset(ptr + fill_len, col2, rgb_linesize - fill_len);
+                                ptr += rgb_linesize;
+                                fill_len = MAX(0, (int) rgb_linesize - (i + 2 * step) * 3);
+                                memset(ptr, col1, fill_len);
+                                memset(ptr + fill_len, col2, rgb_linesize - fill_len);
+                                ptr += rgb_linesize;
+                        }
+                };
+                fill(255, 0);
+                memset(ptr, 0, h * rgb_linesize);
+                ptr += h * rgb_linesize;
+                fill(0, 255);
+                memset(ptr, 255, h * rgb_linesize);
+                vector<char> rgba(rgb.size() / 3 * 4);
+                for (unsigned i = 0; i < rgb.size(); i += 3) {
+                        rgba[i / 3 * 4] = rgb[i];
+                        rgba[i / 3 * 4 + 1] = rgb[i + 1];
+                        rgba[i / 3 * 4 + 2] = rgb[i + 2];
+                        rgba[i / 3 * 4 + 3] = 0xff;
+                }
+                data.resize(3 * h * linesize + 4 * linesize * (w / step));
+                testcard_convert_buffer(RGBA, color_spec, (unsigned char *) data.data(), (unsigned char *) rgba.data(), width, 3 * height + 4 * (width / step));
+        }
+        char *get_next() override {
+                auto *out = (char *) data.data() + cur_idx * linesize;
+                cur_idx += 8;
+                if (cur_idx >= 2 * height + 4 * width / step) {
+                        cur_idx = 0;
+                }
+
+                return out;
+        }
+private:
+        constexpr static int step = 3;
+        int width;
+        int height;
+        size_t linesize;
+        int cur_idx = 0;
+        vector<char> data;
+};
+
 video_pattern_generator_t
 video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
 {
         if (config == "help") {
-                col() << "Pattern to use, one of: " << SBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
+                col() << "Pattern to use, one of: " << SBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, interlaced, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
                 col() << "\t\t- patterns " SBOLD("'gradient'") ", " SBOLD("'gradient2'") ", " SBOLD("'noise'") " and " SBOLD("'uv_plane'") " generate higher bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
                         if (get_decoder_from_to(RG48, c) != NULL && get_bits_per_component(c) > 8) {
@@ -657,6 +710,9 @@ video_pattern_generator_create(std::string const & config, int width, int height
                 }
                 if (pattern == "gray" || pattern == "grey") {
                         return new gray_video_pattern_generator{width, height, color_spec, params.c_str()};
+                }
+                if (pattern == "interlaced") {
+                        return new interlaced_video_pattern_generator{width, height, color_spec};
                 }
                 return new still_image_video_pattern_generator{pattern, params, width, height, color_spec, offset};
         } catch (exception const &e) {
