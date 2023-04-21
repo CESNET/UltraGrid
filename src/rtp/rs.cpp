@@ -136,53 +136,57 @@ shared_ptr<video_frame> rs::encode(shared_ptr<video_frame> in)
 
         video_payload_hdr_t hdr;
         format_video_header(in.get(), 0, 0, hdr);
-        size_t hdr_len = sizeof(hdr);
-        size_t len = in->tiles[0].data_len;
-        char *data = in->tiles[0].data;
+        const size_t hdr_len = sizeof(hdr);
 
         struct video_frame *out = vf_alloc_desc(video_desc_from_frame(in.get()));
-      
-        //int encode(char *hdr, int hdr_len, char *in, int len, char **out) {
-        int ss = get_ss(hdr_len, len);
-        int buffer_len = ss * m_n;
-        char *out_data;
-        out_data = out->tiles[0].data = (char *) malloc(buffer_len);
-        uint32_t len32 = len + hdr_len;
-        memcpy(out_data, &len32, sizeof(len32));
-        memcpy(out_data + sizeof(len32), hdr, hdr_len);
-        memcpy(out_data + sizeof(len32) + hdr_len, data, len);
-        memset(out_data + sizeof(len32) + hdr_len + len, 0, ss * m_k - (sizeof(len32) + hdr_len + len));
+
+        for (unsigned i = 0; i < in->tile_count; ++i) {
+                size_t len = in->tiles[i].data_len;
+                char *data = in->tiles[i].data;
+                //int encode(char *hdr, int hdr_len, char *in, int len, char **out) {
+                int ss = get_ss(hdr_len, len);
+                int buffer_len = ss * m_n;
+                char *out_data;
+                out_data = out->tiles[i].data = (char *) malloc(buffer_len);
+                uint32_t len32 = len + hdr_len;
+                memcpy(out_data, &len32, sizeof(len32));
+                memcpy(out_data + sizeof(len32), hdr, hdr_len);
+                memcpy(out_data + sizeof(len32) + hdr_len, data, len);
+                memset(out_data + sizeof(len32) + hdr_len + len, 0, ss * m_k - (sizeof(len32) + hdr_len + len));
 
 #if 0
-        void *src[m_k];
-        for (int k = 0; k < m_k; ++k) {
-                src[k] = *out + ss * k;
-        }
+                void *src[m_k];
+                for (int k = 0; k < m_k; ++k) {
+                        src[k] = *out + ss * k;
+                }
 
-        for (int m = 0; m < m_n - m_k; ++m) {
-                fec_encode(state, src, *out + ss * (m_k + m), m, ss);
-        }
+                for (int m = 0; m < m_n - m_k; ++m) {
+                        fec_encode(state, src, *out + ss * (m_k + m), m, ss);
+                }
 #else
-        void *src[m_k];
-        for (unsigned int k = 0; k < m_k; ++k) {
-                src[k] = out_data + ss * k;
-        }
-        void *dst[m_n-m_k];
-        unsigned int dst_idx[m_n-m_k];
-        for (unsigned int m = 0; m < m_n-m_k; ++m) {
-                dst[m] = out_data + ss * (m_k + m);
-                dst_idx[m] = m_k + m;
-        }
+                void *src[m_k];
+                for (unsigned int k = 0; k < m_k; ++k) {
+                        src[k] = out_data + ss * k;
+                }
+                void *dst[m_n-m_k];
+                unsigned int dst_idx[m_n-m_k];
+                for (unsigned int m = 0; m < m_n-m_k; ++m) {
+                        dst[m] = out_data + ss * (m_k + m);
+                        dst_idx[m] = m_k + m;
+                }
 
-        fec_encode((const fec_t *)state, (gf **) src,
-                        (gf **) dst, dst_idx, m_n-m_k, ss);
+                fec_encode((const fec_t *)state, (gf **) src,
+                                (gf **) dst, dst_idx, m_n-m_k, ss);
 #endif
 
-        out->tiles[0].data_len = buffer_len;
-        out->fec_params = fec_desc(FEC_RS, m_k, m_n - m_k, 0, 0, ss);
+                out->tiles[i].data_len = buffer_len;
+                out->fec_params = fec_desc(FEC_RS, m_k, m_n - m_k, 0, 0, ss);
+        }
 
         static auto deleter = [](video_frame *frame) {
-                free(frame->tiles[0].data);
+                for (unsigned i = 0; i < frame->tile_count; ++i) {
+                        free(frame->tiles[i].data);
+                }
                 vf_free(frame);
         };
         return {out, deleter};
