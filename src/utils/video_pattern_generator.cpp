@@ -105,7 +105,7 @@ enum class generator_depth {
 
 class image_pattern {
         public:
-                static unique_ptr<image_pattern> create(string const & config);
+                static unique_ptr<image_pattern> create(string const &pattern, string const &params);
                 auto init(int width, int height, enum generator_depth depth) noexcept {
                         size_t data_len = width * height * rg48_bpp + headroom;
                         vector<unsigned char> out(data_len);
@@ -376,7 +376,7 @@ class image_pattern_gradient2 : public image_pattern {
 
 class image_pattern_uv_plane : public image_pattern {
         public:
-                explicit image_pattern_uv_plane(string &y_lvl) {
+                explicit image_pattern_uv_plane(string const &y_lvl) {
                         if (!y_lvl.empty()) {
                                 y_level = LIMIT_LO(16) + stof(y_lvl) * (LIMIT_HI_Y(16) - LIMIT_LO(16));
                         }
@@ -488,13 +488,7 @@ class image_pattern_text : public image_pattern {
                 uint32_t fg = 0xFFFFFFFFU;
 };
 
-unique_ptr<image_pattern> image_pattern::create(string const &config) {
-        string pattern = config;
-        string params;
-        if (string::size_type delim = config.find('='); delim != string::npos) {
-                pattern = config.substr(0, delim);
-                params = config.substr(delim + 1);
-        }
+unique_ptr<image_pattern> image_pattern::create(string const &pattern, string const &params) {
         if (pattern == "bars") {
                 return make_unique<image_pattern_bars>(params);
         }
@@ -510,7 +504,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (pattern == "gradient2") {
                 return make_unique<image_pattern_gradient2>(params);
         }
-        if (config == "noise") {
+        if (pattern == "noise") {
                 return make_unique<image_pattern_noise>();
         }
         if (pattern == "raw") {
@@ -525,7 +519,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &config) {
         if (pattern == "uv_plane") {
                 return make_unique<image_pattern_uv_plane>(params);
         }
-        throw ug_runtime_error("Unknown pattern: "s +  config + "!"s);
+        throw ug_runtime_error("Unknown pattern: "s +  pattern + "!"s);
 }
 
 struct video_pattern_generator {
@@ -534,12 +528,12 @@ struct video_pattern_generator {
 };
 
 struct still_image_video_pattern_generator : public video_pattern_generator {
-        still_image_video_pattern_generator(std::string const & config, int w, int h, codec_t c, int o)
+        still_image_video_pattern_generator(string const &pattern, string const &params, int w, int h, codec_t c, int o)
                 : width(w), height(h), color_spec(c), offset(o)
         {
                 unique_ptr<image_pattern> generator;
                 try {
-                        generator = image_pattern::create(config);
+                        generator = image_pattern::create(pattern, params);
                 } catch (exception const &e) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
                         throw 1;
@@ -655,11 +649,16 @@ video_pattern_generator_create(std::string const & config, int width, int height
         }
         assert(width > 0 && height > 0);
         try {
-                if (config.substr(0, 4) == "gray" || config.substr(0, 4) == "grey") {
-                        const char *opts = strchr(config.c_str(), '=') ? strchr(config.c_str(), '=') + 1 : nullptr;
-                        return new gray_video_pattern_generator{width, height, color_spec, opts};
+                string pattern = config;
+                string params;
+                if (string::size_type delim = config.find('='); delim != string::npos) {
+                        pattern = config.substr(0, delim);
+                        params = config.substr(delim + 1);
                 }
-                return new still_image_video_pattern_generator{config, width, height, color_spec, offset};
+                if (pattern == "gray" || pattern == "grey") {
+                        return new gray_video_pattern_generator{width, height, color_spec, params.c_str()};
+                }
+                return new still_image_video_pattern_generator{pattern, params, width, height, color_spec, offset};
         } catch (exception const &e) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
                 return nullptr;
