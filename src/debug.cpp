@@ -46,6 +46,7 @@
 #include "config_win32.h"
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -58,6 +59,7 @@
 #include "utils/string_view_utils.hpp"
 #include "utils/misc.h" // ug_strerror
 
+using std::atomic;
 using std::string;
 using std::unordered_map;
 
@@ -133,14 +135,28 @@ void log_msg(int level, const char *format, ...) {
 }
 
 void log_msg_once(int level, uint32_t id, const char *msg, ...) {
-        if (Logger::oneshot_messages.count(id) > 0 || log_level < level) {
+        if (log_level < level) {
                 return;
         }
-        Logger::oneshot_messages.insert(id);
+        static volatile uint32_t oneshot_messages[10];
+        static atomic<size_t> oneshot_messages_cnt;
+        for (size_t i = 0; i < oneshot_messages_cnt; ++i) {
+                if (oneshot_messages[i] == id) {
+                        return;
+                }
+        }
+
         va_list aq;
         va_start(aq, msg);
         log_vprintf(level, msg, aq);
         va_end(aq);
+
+        size_t last_cnt = oneshot_messages_cnt.fetch_add(1);
+        if (last_cnt < sizeof oneshot_messages / sizeof oneshot_messages[0]) {
+                oneshot_messages[last_cnt] = id;
+        } else {
+                log_msg(LOG_LEVEL_WARNING, "oneshot_messages full!\n");
+        }
 }
 
 /**
@@ -335,8 +351,6 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
         skip_map[key] = -1;
 }
 #endif
-
-thread_local std::set<uint32_t> Logger::oneshot_messages;
 
 Log_output::Log_output(){
         last_msg.reserve(initial_buf_size);

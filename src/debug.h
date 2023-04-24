@@ -301,7 +301,6 @@ private:
         std::ostringstream oss;
 
         friend void log_msg_once(int level, uint32_t id, const char *msg, ...);
-        static thread_local std::set<uint32_t> oneshot_messages;
 };
 
 #define LOG(level) \
