@@ -218,7 +218,6 @@ struct reported_statistics_cumul {
         chrono::steady_clock::time_point t_last = chrono::steady_clock::now();
         unsigned long int displayed = 0, dropped = 0, corrupted = 0, missing = 0;
         atomic_ulong fec_ok = 0, fec_corrected = 0, fec_nok = 0;
-        bool first = true;
         void print() {
                 ostringstream fec;
                 if (fec_ok + fec_nok + fec_corrected > 0) {
@@ -232,11 +231,10 @@ struct reported_statistics_cumul {
                         << SBOLD(corrupted) << " corr / "
                         << SBOLD(missing) << " missing."
                         << fec.str() << "\n";
-                if (!first && dropped * 50 >= total) { // more than 2% frames were dropped
+                if (total > 3000 && dropped * 50 >= total) { // more than 2% frames were dropped
                         log_msg_once(LOG_LEVEL_WARNING, to_fourcc('D', 'R', 'P', 'S'), MOD_NAME "Dropped %lu of %lu frames. This may be due "
                                         "to network jitter, try adding \"--param decoder-drop-policy=blocking\" if the problem persists.\n", dropped, total);
                 }
-                first = false;
         }
         void update(int buffer_number) {
                 if (last_buffer_number != -1) {
