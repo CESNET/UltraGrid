@@ -229,6 +229,11 @@ static void audio_scale_usage(void)
         col() << TBOLD("\t          none") << " - no scaling will be performed\n";
 }
 
+static void should_exit_audio(void *state) {
+        auto *s = (struct state_audio *) state;
+        s->should_exit = true;
+}
+
 /**
  * take care that addrs can also be comma-separated list of addresses !
  * @retval  0 state succesfully initialized
@@ -407,6 +412,8 @@ int audio_init(struct state_audio **ret, struct module *parent,
                 goto error;
         }
 
+        register_should_exit_callback(parent, should_exit_audio, s);
+
         *ret = s;
         return 0;
 
@@ -465,7 +472,6 @@ void audio_join(struct state_audio *s) {
         if (!s) {
                 return;
         }
-        s->should_exit = true;
         if(s->audio_receiver_thread_started)
                 pthread_join(s->audio_receiver_thread_id, NULL);
         if(s->audio_sender_thread_started)
