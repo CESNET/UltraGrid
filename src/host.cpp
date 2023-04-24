@@ -436,7 +436,8 @@ struct state_root {
                 should_exit_thread = thread(should_exit_watcher, this);
         }
         ~state_root() {
-                broadcast_should_exit();
+                should_exit_callbacks.clear();
+                broadcast_should_exit(); // here just exit the should exit thr
                 should_exit_thread.join();
                 for (int i = 0; i < 2; ++i) {
                         platform_pipe_close(should_exit_pipe[0]);
