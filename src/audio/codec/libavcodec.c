@@ -463,14 +463,12 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
         s->output_channel.data_len = 0;
         s->output_channel.duration = 0.0;
         int chunk_size = s->codec_ctx->frame_size * bps;
-        //while(offset + chunk_size <= s->tmp.data_len) {
         while(offset + chunk_size <= s->tmp.data_len) {
                 if (bps == 1) {
                         signed2unsigned((char *) s->av_frame->data[0], s->tmp.data + offset, chunk_size);
                 } else {
                         memcpy(s->av_frame->data[0], s->tmp.data + offset, chunk_size);
                 }
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
 		int ret = avcodec_send_frame(s->codec_ctx, s->av_frame);
 		if (ret == 0) {
                         ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
@@ -494,20 +492,6 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                         print_libav_audio_error(LOG_LEVEL_ERROR, "Error encoding frame", ret);
 			return NULL;
 		}
-#else
-                pkt->data = (unsigned char *) s->output_channel.data + s->output_channel.data_len;
-                pkt->size = 1024*1024 - s->output_channel.data_len;
-                int got_packet = 0;
-                int ret = avcodec_encode_audio2(s->codec_ctx, s->pkt, s->av_frame,
-                                &got_packet);
-                if(ret) {
-                        print_libav_audio_error(LOG_LEVEL_WARNING, MOD_NAME "Warning: unable to compress audio", ret);
-                }
-                if(got_packet) {
-                        s->output_channel.data_len += pkt->size;
-                        s->output_channel.duration += s->codec_ctx->frame_size / (double) s->output_channel.sample_rate;
-                }
-#endif
                 offset += chunk_size;
                 if(!(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE))
                         break;
@@ -550,11 +534,6 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
 
                 av_frame_unref(s->av_frame);
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
-                int len = avcodec_decode_audio4(s->codec_ctx, s->av_frame, &got_frame,
-                                pkt);
-#else
-                got_frame = 0;
                 int ret = avcodec_send_packet(s->codec_ctx, pkt);
 
                 if (ret == 0) {
@@ -567,7 +546,6 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                         print_decoder_error(MOD_NAME, ret);
                 }
                 int len = pkt->size;
-#endif
 
                 if (len <= 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Error while decoding audio\n");
@@ -635,7 +613,6 @@ static const int *libavcodec_get_sample_rates(void *state)
 static void cleanup_common(struct libavcodec_codec_state *s)
 {
         if (s->context_initialized) {
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
                 if (s->direction == AUDIO_DECODER) {
                         lavd_flush(s->codec_ctx);
                 } else {
@@ -656,7 +633,6 @@ static void cleanup_common(struct libavcodec_codec_state *s)
                                                 ret);
                         }
                 }
-#endif
         }
 
         avcodec_free_context(&s->codec_ctx);
