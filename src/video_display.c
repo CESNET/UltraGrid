@@ -574,6 +574,11 @@ void display_put_audio_frame(struct display *d, const struct audio_frame *frame)
 int display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate)
 {
         assert(d->magic == DISPLAY_MAGIC);
+        if (!d->funcs->reconfigure_audio) {
+                log_msg(LOG_LEVEL_FATAL, MOD_NAME "Selected display '%s' doesn't support audio!\n", d->display_name);
+                exit_uv(EXIT_FAIL_USAGE);
+                return FALSE;
+        }
         return d->funcs->reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
 
