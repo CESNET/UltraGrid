@@ -528,6 +528,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 static audio_channel *libavcodec_decompress(void *state, audio_channel * channel)
 {
         struct libavcodec_codec_state *s = (struct libavcodec_codec_state *) state;
+        assert(channel->data_len > 0);
         assert(s->magic == MAGIC);
 
         if(!audio_desc_eq(s->saved_desc, audio_desc_from_audio_channel(channel))) {
@@ -546,46 +547,29 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         pkt->data = s->tmp_buffer;
         pkt->size = channel->data_len;
         s->output_channel.data_len = 0;
-        while (pkt->size > 0) {
-                av_frame_unref(s->av_frame);
 
-                int ret = avcodec_send_packet(s->codec_ctx, pkt);
+        av_frame_unref(s->av_frame);
 
-                if (ret != 0) {
-                        print_decoder_error(MOD_NAME "error sending decoded frame -", ret);
-                        break;
-                }
-                ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
-                if (ret != 0) {
-                        print_decoder_error(MOD_NAME "error receiving decoded frame -", ret);
-                        break;
-                }
-                int channels = 1;
-                /* if a frame has been decoded, output it */
-                int data_size = av_samples_get_buffer_size(NULL, channels,
-                                s->av_frame->nb_samples,
-                                s->codec_ctx->sample_fmt, 1);
-                memcpy(s->output_channel_data + offset, s->av_frame->data[0],
-                                data_size);
-                offset += pkt->size;
-                pkt->size = 0;
-                s->output_channel.data_len += data_size;
-                pkt->dts = pkt->pts = AV_NOPTS_VALUE;
-#if 0
-                if (pkt.size < AUDIO_REFILL_THRESH) {
-                        /* Refill the input buffer, to avoid trying to decode
-                         * incomplete frames. Instead of this, one could also use
-                         * a parser, or use a proper container format through
-                         * libavformat. */
-                        memmove(inbuf, avpkt.data, avpkt.size);
-                        avpkt.data = inbuf;
-                        len = fread(avpkt.data + avpkt.size, 1,
-                                        AUDIO_INBUF_SIZE - avpkt.size, f);
-                        if (len > 0)
-                                avpkt.size += len;
-                }
-#endif
+        int ret = avcodec_send_packet(s->codec_ctx, pkt);
+        if (ret != 0) {
+                print_decoder_error(MOD_NAME "error sending decoded frame -", ret);
+                return NULL;
         }
+        ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
+        if (ret != 0) {
+                print_decoder_error(MOD_NAME "error receiving decoded frame -", ret);
+                return NULL;
+        }
+        int channels = 1;
+        /* if a frame has been decoded, output it */
+        int data_size = av_samples_get_buffer_size(NULL, channels,
+                        s->av_frame->nb_samples,
+                        s->codec_ctx->sample_fmt, 1);
+        memcpy(s->output_channel_data + offset, s->av_frame->data[0],
+                        data_size);
+        offset += pkt->size;
+        s->output_channel.data_len += data_size;
+        pkt->dts = pkt->pts = AV_NOPTS_VALUE;
 
         av_packet_free(&pkt);
 
