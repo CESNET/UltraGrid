@@ -153,6 +153,8 @@ static void print_libav_audio_error(int verbosity, const char *msg, int rc) {
 #define STR(x) STR_HELPER(x)
 ADD_TO_PARAM("audioenc-frame-duration", "* audioenc-frame-duration=<ms>\n"
                 "  Sets audio encoder frame duration (in ms), default is " STR(LOW_LATENCY_AUDIOENC_FRAME_DURATION) " ms for low-latency-audio\n");
+ADD_TO_PARAM("audio-lavc-encoder", "* audio-lavc-encoder=<encoder_name>\n"
+                "  Use selected audio lavc encoder\n");
 /**
  * Initializates selected audio codec
  * @param audio_codec requested audio codec
@@ -181,6 +183,10 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         } else {
                 codec_id = it->id;
                 preferred_encoder = it->preferred_encoder;
+        }
+
+        if (get_commandline_param("audio-lavc-encoder") != NULL) {
+                preferred_encoder = get_commandline_param("audio-lavc-encoder");
         }
 
 #if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(58, 9, 100)
