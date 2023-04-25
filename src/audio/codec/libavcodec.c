@@ -56,6 +56,7 @@
 #include "audio/codec.h"
 #include "audio/utils.h"
 #include "libavcodec/lavc_common.h"
+#include "utils/text.h"
 
 #define MAGIC 0xb135ca11
 #define LOW_LATENCY_AUDIOENC_FRAME_DURATION 2.5
@@ -260,7 +261,7 @@ static int check_sample_fmt(const AVCodec *codec, enum AVSampleFormat sample_fmt
     return 0;
 }
 
-static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_desc desc)
+static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_desc desc)
 {
         cleanup_common(s);
 
@@ -331,10 +332,20 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         s->codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
 
-        if (s->codec->id == AV_CODEC_ID_OPUS) {
+        if (strcmp(s->codec->name, "libopus") == 0) {
                 int ret = av_opt_set(s->codec_ctx->priv_data, "application", "lowdelay", 0);
                 if (ret != 0) {
                         print_libav_audio_error(LOG_LEVEL_WARNING, "Could not set OPUS low delay app type", ret);
+                }
+        } else if (strcmp(s->codec->name, "opus") == 0) {
+                char warn[] = MOD_NAME "Native FFmpeg Opus encoder seems to be currently broken "
+                                "with UltraGrid. You may be able to use 'libopus' encoder instead. Please let "
+                                "us know to " PACKAGE_BUGREPORT " if you either want to use the native encoder "
+                                "or it even works for you.\n";
+                log_msg(LOG_LEVEL_WARNING, "%s", indent_paragraph(warn));
+                int ret = av_opt_set_double(s->codec_ctx->priv_data, "opus_delay", 5, 0);
+                if (ret != 0) {
+                        print_libav_audio_error(LOG_LEVEL_WARNING, "Cannot set Opus delay to 5", ret);
                 }
         }
 
@@ -427,7 +438,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 
         if(channel) {
                 if(!audio_desc_eq(s->saved_desc, audio_desc_from_audio_channel(channel))) {
-                        if(!reinitialize_coder(s, audio_desc_from_audio_channel(channel))) {
+                        if(!reinitialize_encoder(s, audio_desc_from_audio_channel(channel))) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reinitialize audio compress!\n");
                                 return NULL;
                         }
@@ -499,7 +510,7 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 			return NULL;
 		}
                 offset += chunk_size;
-                if(!(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE))
+                if(!(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) && s->output_channel.data_len > 0)
                         break;
         }
 
