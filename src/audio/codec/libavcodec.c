@@ -547,40 +547,29 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         pkt->size = channel->data_len;
         s->output_channel.data_len = 0;
         while (pkt->size > 0) {
-                int got_frame = 0;
-
                 av_frame_unref(s->av_frame);
 
                 int ret = avcodec_send_packet(s->codec_ctx, pkt);
 
-                if (ret == 0) {
-                        ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
-                        if (ret == 0) {
-                                got_frame = 1;
-                        }
-                }
                 if (ret != 0) {
-                        print_decoder_error(MOD_NAME, ret);
+                        print_decoder_error(MOD_NAME "error sending decoded frame -", ret);
+                        break;
                 }
-                int len = pkt->size;
-
-                if (len <= 0) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Error while decoding audio\n");
-                        return NULL;
+                ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
+                if (ret != 0) {
+                        print_decoder_error(MOD_NAME "error receiving decoded frame -", ret);
+                        break;
                 }
-                if (got_frame) {
-                        int channels = 1;
-                        /* if a frame has been decoded, output it */
-                        int data_size = av_samples_get_buffer_size(NULL, channels,
-                                        s->av_frame->nb_samples,
-                                        s->codec_ctx->sample_fmt, 1);
-                        memcpy(s->output_channel_data + offset, s->av_frame->data[0],
-                                        data_size);
-                        offset += len;
-                        s->output_channel.data_len += data_size;
-                }
-                pkt->size -= len;
-                pkt->data += len;
+                int channels = 1;
+                /* if a frame has been decoded, output it */
+                int data_size = av_samples_get_buffer_size(NULL, channels,
+                                s->av_frame->nb_samples,
+                                s->codec_ctx->sample_fmt, 1);
+                memcpy(s->output_channel_data + offset, s->av_frame->data[0],
+                                data_size);
+                offset += pkt->size;
+                pkt->size = 0;
+                s->output_channel.data_len += data_size;
                 pkt->dts = pkt->pts = AV_NOPTS_VALUE;
 #if 0
                 if (pkt.size < AUDIO_REFILL_THRESH) {
