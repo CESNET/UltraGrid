@@ -510,6 +510,9 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
 			return NULL;
 		}
                 offset += chunk_size;
+                // since 2023-04-25, this may not be necessary (for AAC/MP3, it just triggers "Multiple frames in a packet." It seems not
+                // working only with native Opus encoder+decoder combination (which doesn't work anyways now). Consider removing this
+                // after some decent period (UG prior that date won't decode all frames for AAC when removed).
                 if(!(s->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) && s->output_channel.data_len > 0)
                         break;
         }
@@ -538,7 +541,6 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                 }
         }
 
-        int offset = 0;
         // FFMPEG buffer needs to be FF_INPUT_BUFFER_PADDING_SIZE longer than data
         resize_tmp_buffer(&s->tmp_buffer, &s->tmp_buffer_size, channel->data_len + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(s->tmp_buffer, channel->data, channel->data_len);
@@ -554,21 +556,26 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                 print_decoder_error(MOD_NAME "error sending decoded frame -", ret);
                 return NULL;
         }
-        ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
-        if (ret != 0) {
-                print_decoder_error(MOD_NAME "error receiving decoded frame -", ret);
-                return NULL;
+        /* read all the output frames (in general there may be any number of them */
+        while (ret >= 0) {
+                ret = avcodec_receive_frame(s->codec_ctx, s->av_frame);
+                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                        break;
+                }
+                if (ret < 0) {
+                        print_decoder_error(MOD_NAME "error receiving decoded frame -", ret);
+                        return NULL;
+                }
+                int channels = 1;
+                /* if a frame has been decoded, output it */
+                int data_size = av_samples_get_buffer_size(NULL, channels,
+                                s->av_frame->nb_samples,
+                                s->codec_ctx->sample_fmt, 1);
+                memcpy(s->output_channel_data + s->output_channel.data_len, s->av_frame->data[0],
+                                data_size);
+                s->output_channel.data_len += data_size;
+                s->pkt->dts = s->pkt->pts = AV_NOPTS_VALUE;
         }
-        int channels = 1;
-        /* if a frame has been decoded, output it */
-        int data_size = av_samples_get_buffer_size(NULL, channels,
-                        s->av_frame->nb_samples,
-                        s->codec_ctx->sample_fmt, 1);
-        memcpy(s->output_channel_data + offset, s->av_frame->data[0],
-                        data_size);
-        offset += s->pkt->size;
-        s->output_channel.data_len += data_size;
-        s->pkt->dts = s->pkt->pts = AV_NOPTS_VALUE;
 
         //
         // perform needed conversions (float->int32, int32->dest_bps)
