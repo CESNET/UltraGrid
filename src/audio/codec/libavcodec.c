@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2021 CESNET z.s.p.o.
+ * Copyright (c) 2012-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -432,20 +432,20 @@ static audio_channel *libavcodec_compress(void *state, audio_channel * channel)
                                 if (s->output_channel.bps == channel->bps) {
                                         if (s->tmp.data_len + channel->data_len > TMP_DATA_LEN) {
                                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Auxiliary buffer overflow!\n");
-                                                return NULL;
+                                        } else {
+                                                int2float(s->tmp_data + s->tmp.data_len, channel->data, channel->data_len);
+                                                s->tmp.data_len += channel->data_len;
                                         }
-                                        int2float(s->tmp_data + s->tmp.data_len, channel->data, channel->data_len);
-                                        s->tmp.data_len += channel->data_len;
                                 } else {
                                         size_t data_len = channel->data_len / channel->bps * 4;
                                         resize_tmp_buffer(&s->tmp_buffer, &s->tmp_buffer_size, data_len);
                                         change_bps((char *) s->tmp_buffer, 4, channel->data, channel->bps, channel->data_len);
                                         if (s->tmp.data_len + data_len > TMP_DATA_LEN) {
                                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Auxiliary buffer overflow!\n");
-                                                return NULL;
+                                        } else {
+                                                int2float(s->tmp_data + s->tmp.data_len, (char *) s->tmp_buffer, data_len);
+                                                s->tmp.data_len += data_len;
                                         }
-                                        int2float(s->tmp_data + s->tmp.data_len, (char *) s->tmp_buffer, data_len);
-                                        s->tmp.data_len += data_len;
                                 }
                         } else {
                                 change_bps(s->tmp_data + s->tmp.data_len, s->output_channel.bps,
