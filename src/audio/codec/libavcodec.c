@@ -543,14 +543,13 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
         resize_tmp_buffer(&s->tmp_buffer, &s->tmp_buffer_size, channel->data_len + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(s->tmp_buffer, channel->data, channel->data_len);
 
-        AVPacket *pkt = av_packet_alloc();
-        pkt->data = s->tmp_buffer;
-        pkt->size = channel->data_len;
+        s->pkt->data = s->tmp_buffer;
+        s->pkt->size = channel->data_len;
         s->output_channel.data_len = 0;
 
         av_frame_unref(s->av_frame);
 
-        int ret = avcodec_send_packet(s->codec_ctx, pkt);
+        int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
         if (ret != 0) {
                 print_decoder_error(MOD_NAME "error sending decoded frame -", ret);
                 return NULL;
@@ -567,11 +566,9 @@ static audio_channel *libavcodec_decompress(void *state, audio_channel * channel
                         s->codec_ctx->sample_fmt, 1);
         memcpy(s->output_channel_data + offset, s->av_frame->data[0],
                         data_size);
-        offset += pkt->size;
+        offset += s->pkt->size;
         s->output_channel.data_len += data_size;
-        pkt->dts = pkt->pts = AV_NOPTS_VALUE;
-
-        av_packet_free(&pkt);
+        s->pkt->dts = s->pkt->pts = AV_NOPTS_VALUE;
 
         //
         // perform needed conversions (float->int32, int32->dest_bps)
@@ -612,12 +609,10 @@ static void cleanup_common(struct libavcodec_codec_state *s)
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
                                                 ret);
                         }
-                        AVPacket *pkt = av_packet_alloc();
                         do {
-                                ret = avcodec_receive_packet(s->codec_ctx, pkt);
-                                av_packet_unref(pkt);
+                                ret = avcodec_receive_packet(s->codec_ctx, s->pkt);
+                                av_packet_unref(s->pkt);
                         } while (ret >= 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN));
-                        av_packet_free(&pkt);
                         if (ret < 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unexpected return value %d\n",
                                                 ret);
