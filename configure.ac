@@ -1789,7 +1789,7 @@ AC_ARG_ENABLE(gl-display,
 if test "$OPENGL" = yes && test "$gl_display_req" != no
 then
         PKG_CHECK_MODULES([GLFW], [glfw3], [ FOUND_GLFW=yes ], [ FOUND_GLFW=no ])
-        if test "$FOUND_GLFW"; then
+        if test "$FOUND_GLFW" = yes; then
                 GL_LIB="$GLFW_LIBS $OPENGL_LIB"
                 gl_display=yes
                 if test $lavc_hwacc_vdpau = yes -a $libavcodec = yes; then
