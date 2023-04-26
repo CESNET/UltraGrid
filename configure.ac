@@ -2960,13 +2960,13 @@ ENSURE_FEATURE_PRESENT([$syphon_req], [$syphon], [Syphon framework cannot be fou
 spout=no
 AC_ARG_ENABLE(spout,
 [  --enable-spout          enables Spout support (default is auto)]
-[                          Requires: Spout],
+[                          Requires: Spout GLEW],
     [spout_req=$enableval],
     [spout_req=$build_default]
     )
 
 FOUND_SPOUT=no
-if test $system = Windows && test "$spout_req" != no
+if test $system = Windows && test "$spout_req" != no && test "$OPENGL" = yes
 then
         AC_LANG_PUSH([C++])
         SAVED_LIBS="$LIBS"
