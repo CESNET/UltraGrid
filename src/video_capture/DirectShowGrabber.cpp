@@ -868,7 +868,7 @@ static int vidcap_dshow_init(struct vidcap_params *params, void **state) {
 			VariantClear(&var);
 			properties->Release();
 
-			if (strcmp(s->deviceName, buf) == 0) {
+			if (strcasecmp(s->deviceName, buf) == 0) {
 				break;
 			}
 			s->moniker->Release();
