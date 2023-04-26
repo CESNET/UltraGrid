@@ -364,7 +364,7 @@ static void show_help(struct vidcap_dshow_state *s) {
 
 	// Enumerate all capture devices
 	for (int n = 0; n < count; ++n) {
-		color_printf("Device %d) " TERM_BOLD "%s\n" TERM_RESET, n, cards[n].name);
+		color_printf("Device %d) " TERM_BOLD "%s\n" TERM_RESET, n + 1, cards[n].name);
 
 		int i = 0;
 		// iterate over all capabilities
