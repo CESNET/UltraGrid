@@ -154,6 +154,8 @@ static void print_libav_audio_error(int verbosity, const char *msg, int rc) {
 #define STR(x) STR_HELPER(x)
 ADD_TO_PARAM("audioenc-frame-duration", "* audioenc-frame-duration=<ms>\n"
                 "  Sets audio encoder frame duration (in ms), default is " STR(LOW_LATENCY_AUDIOENC_FRAME_DURATION) " ms for low-latency-audio\n");
+ADD_TO_PARAM("audio-lavc-decoder", "* audio-lavc-decoder=<decoder_name>\n"
+                "  Use selected audio lavc decoder\n");
 ADD_TO_PARAM("audio-lavc-encoder", "* audio-lavc-encoder=<encoder_name>\n"
                 "  Use selected audio lavc encoder\n");
 /**
@@ -200,12 +202,29 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         if(direction == AUDIO_CODER) {
                 if (preferred_encoder) {
                         s->codec = avcodec_find_encoder_by_name(preferred_encoder);
+                        if (s->codec && s->codec->id != codec_id) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested encoder cannot handle specified codec!\n");
+                                free(s);
+                                return NULL;
+                        }
                 }
                 if (!s->codec) {
                         s->codec = avcodec_find_encoder(codec_id);
                 }
         } else {
-                s->codec = avcodec_find_decoder(codec_id);
+                const char *pref_dec = get_commandline_param("audio-lavc-decoder");
+                if (pref_dec != NULL) {
+                        s->codec = avcodec_find_decoder_by_name(pref_dec);
+                        if (!s->codec || s->codec->id != codec_id) {
+                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested decoder '%s' %s\n", pref_dec,
+                                                s->codec ? "cannot handle received codec" : "not found");
+                                handle_error(EXIT_FAIL_USAGE);
+                                s->codec = NULL;
+                        }
+                }
+                if (!s->codec) {
+                        s->codec = avcodec_find_decoder(codec_id);
+                }
         }
         if(!s->codec) {
                 if (!silent) {
