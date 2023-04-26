@@ -1130,7 +1130,7 @@ static int adjust_params(struct ug_options *opt) {
 
         if (opt->audio.codec_cfg == nullptr) {
                 if (strcasecmp(opt->audio.proto, "rtsp") == 0 || strcasecmp(opt->audio.proto, "sdp") == 0) {
-                        opt->audio.codec_cfg = "OPUS:sample_rate=48000";
+                        opt->audio.codec_cfg = "Opus:sample_rate=48000";
                 } else {
                         opt->audio.codec_cfg = DEFAULT_AUDIO_CODEC;
                 }

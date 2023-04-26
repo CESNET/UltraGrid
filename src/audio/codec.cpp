@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,7 +65,7 @@ static const unordered_map<audio_codec_t, audio_codec_info_t, hash<int>> audio_c
         {AC_ALAW, { "A-law", 0x0006 }},
         {AC_MULAW, { "u-law", 0x0007 }},
         {AC_SPEEX, { "speex", 0xA109 }},
-        {AC_OPUS, { "OPUS", 0x7375704F }}, // == Opus, the TwoCC isn't defined
+        {AC_OPUS, { "Opus", 0x7375704F }}, // == Opus, the TwoCC isn't defined
         {AC_G722, { "G.722", 0x028F }},
         {AC_MP3, { "MP3", 0x0055 }},
         {AC_AAC, { "AAC", 0x00FF }},

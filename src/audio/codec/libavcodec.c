@@ -1,5 +1,5 @@
 /**
- * @file   audio/codec/libavcodec.cpp
+ * @file   audio/codec/libavcodec.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -335,7 +335,7 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
         if (strcmp(s->codec->name, "libopus") == 0) {
                 int ret = av_opt_set(s->codec_ctx->priv_data, "application", "lowdelay", 0);
                 if (ret != 0) {
-                        print_libav_audio_error(LOG_LEVEL_WARNING, "Could not set OPUS low delay app type", ret);
+                        print_libav_audio_error(LOG_LEVEL_WARNING, "Could not set Opus low delay app type", ret);
                 }
         } else if (strcmp(s->codec->name, "opus") == 0) {
                 char warn[] = MOD_NAME "Native FFmpeg Opus encoder seems to be currently broken "
@@ -356,7 +356,7 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
                 if (s->codec->id == AV_CODEC_ID_OPUS) {
                         int ret = av_opt_set_double(s->codec_ctx->priv_data, "frame_duration", frame_duration, 0);
                         if (ret != 0) {
-                                print_libav_audio_error(LOG_LEVEL_ERROR, "Could not set OPUS frame duration", ret);
+                                print_libav_audio_error(LOG_LEVEL_ERROR, "Could not set Opus frame duration", ret);
                         }
                 }
                 if (s->codec->id == AV_CODEC_ID_FLAC) {

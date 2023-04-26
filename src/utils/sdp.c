@@ -183,11 +183,11 @@ int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audi
 		audio_codec = "PCMU";
 		break;
 	    case AC_OPUS:
-		audio_codec = "OPUS";
-                ts_rate = 48000; // RFC 7587 specifies always 48 kHz for OPUS
+		audio_codec = "opus";
+                ts_rate = 48000; // RFC 7587 specifies always 48 kHz for Opus
 		break;
             default:
-                log_msg(LOG_LEVEL_ERROR, "[SDP] Currently only PCMA, PCMU and OPUS audio codecs are supported!\n");
+                log_msg(LOG_LEVEL_ERROR, "[SDP] Currently only PCMA, PCMU and Opus audio codecs are supported!\n");
                 return -2;
 	}
 

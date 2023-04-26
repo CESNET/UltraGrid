@@ -17,7 +17,7 @@
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2004 University of Southern California
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -983,7 +983,7 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 
         if (buffer->get_codec() == AC_OPUS) { // OPUS needs to fit one package
                 if (payload_size < data_len) {
-                        log_msg(LOG_LEVEL_ERROR, "Transmit: OPUS frame larger than packet! Discarding...\n");
+                        log_msg(LOG_LEVEL_ERROR, "Transmit: Opus frame larger than packet! Discarding...\n");
                         return;
                 }
         } else { // we may split the data into more packets, compute chunk size
@@ -997,8 +997,8 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
 
                 // interleave
                 if (buffer->get_codec() == AC_OPUS) {
-                        if (buffer->get_channel_count() > 1) { // we cannot interleave OPUS here
-                                LOG(LOG_LEVEL_ERROR) << "Transmit: Only OPUS with 1 channel is supported in RFC-compliant mode! Discarding...\n";
+                        if (buffer->get_channel_count() > 1) { // we cannot interleave Opus here
+                                LOG(LOG_LEVEL_ERROR) << "Transmit: Only Opus with 1 channel is supported in RFC-compliant mode! Discarding...\n";
                                 return;
                         }
                         memcpy(tx->tmp_packet, buffer->get_data(0), pkt_len);
