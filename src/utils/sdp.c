@@ -66,6 +66,7 @@
 #include "rtp/rtp_types.h"
 #include "types.h"
 #include "utils/fs.h"
+#include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
 #ifdef SDP_HTTP
@@ -319,7 +320,7 @@ static bool gen_sdp() {
     }
     FILE *fOut = fopen(sdp_filename, "w");
     if (fOut == NULL) {
-        log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file\n");
+        log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file %s: %s\n", sdp_filename, ug_strerror(errno));
     } else {
         if (fprintf(fOut, "%s", buf) != (int) strlen(buf)) {
             perror("fprintf");
