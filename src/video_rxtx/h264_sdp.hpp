@@ -63,7 +63,6 @@ private:
         int m_saved_tx_port;
         bool m_sent_compress_change = false;
 
-        bool m_autorun = false;
         std::string m_saved_addr; ///< for dynamic address reconfiguration, @see m_autorun
 };
 

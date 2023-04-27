@@ -73,39 +73,18 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
         : rtp_video_rxtx(params)
 {
         auto opts = params.at("opts").str;
-        if (strcmp(opts, "help") == 0) {
-                cout << "Usage:\n";
-                col() << "\t" << SBOLD("uv " << SRED("--protocol sdp") << "[:autorun][:file=<name>|no][:port=<http_port>]") << "\n";
-                cout << "where:\n";
-                col() << "\t" << SBOLD("autorun") << " - automatically send to the address that requested the SDP over HTTP without giving an address (use with caution!)\n";
-                throw 0;
-        }
-
         LOG(LOG_LEVEL_WARNING) << "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n";
         m_saved_addr = m_requested_receiver;
         m_saved_tx_port = params.at("tx_port").i;
-        auto *opts_c = static_cast<char *>(alloca(strlen(opts) + 1));
-        strcpy(opts_c, opts);
-        char *item, *save_ptr;
-        while ((item = strtok_r(opts_c, ":", &save_ptr)) != nullptr) {
-                string str = item;
-                if (strstr(item, "port=") == item) {
-                        sdp_set_port(stoi(str.substr((str.find_first_of('=') + 1))));
-                } else if (strstr(item, "file=") == item) {
-                        sdp_set_file(str.substr((str.find_first_of('=') + 1)).c_str());
-                } else if (strstr(item, "autorun") == item) {
-                        m_autorun = true;
-                } else {
-                        throw string("[SDP] Wrong option: ") + item + "\n";
-                }
-                opts_c = nullptr;
+        if (int ret = sdp_set_options(opts)) {
+                throw ret == 1 ? 0 : 1;
         }
 }
 
 void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *address)
 {
         auto *s = static_cast<h264_sdp_video_rxtx *>(udata);
-        if (!s->m_autorun || s->m_saved_addr == address) {
+        if (s->m_saved_addr == address) {
                 return;
         }
         s->m_saved_addr = address;

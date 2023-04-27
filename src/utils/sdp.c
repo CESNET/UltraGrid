@@ -65,6 +65,7 @@
 #include "debug.h"
 #include "rtp/rtp_types.h"
 #include "types.h"
+#include "utils/color_out.h"
 #include "utils/fs.h"
 #include "utils/misc.h"
 #include "utils/net.h"
@@ -83,6 +84,7 @@ enum {
     STR_LENGTH = 2048,
 };
 
+bool autorun;
 int requested_http_port = DEFAULT_SDP_HTTP_PORT;
 static bool want_sdp_audio = false;
 static bool want_sdp_video = false;
@@ -356,7 +358,7 @@ void clean_sdp(struct sdp *sdp){
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
     struct sdp *sdp = connection->server->tag;
 
-    if (sdp->address_callback){
+    if (autorun && sdp->address_callback){
         sdp->address_callback(sdp->address_callback_udata, connection->remoteHost);
     }
 
@@ -452,14 +454,34 @@ void sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_a
     start();
 }
 
-void sdp_set_file(const char *sdpf)
-{
-    strncpy(sdp_filename, sdpf, sizeof sdp_filename - 1);
+int sdp_set_options(const char *opts) {
+    if (strcmp(opts, "help") == 0) {
+        color_printf("Usage:\n");
+        color_printf("\t" TBOLD("uv " TRED("--protocol sdp") "[:autorun][:file=<name>|no][:port=<http_port>]") "\n");
+        color_printf("where:\n");
+        color_printf("\t" TBOLD("autorun") " - automatically send to the address that requested the SDP over HTTP without giving an address (use with caution!)\n");
+        return 1;
+    }
+
+    char opts_c[strlen(opts) + 1];
+    char *tmp = opts_c;
+    strcpy(opts_c, opts);
+    char *item, *save_ptr;
+    while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+        if (strstr(item, "port=") == item) {
+            requested_http_port = atoi(strchr(item, '=') + 1);
+        } else if (strstr(item, "file=") == item) {
+            strncpy(sdp_filename, strchr(item, '=') + 1, sizeof sdp_filename - 1);
+        } else if (strstr(item, "autorun") == item) {
+            autorun = true;
+        } else {
+            log_msg(LOG_LEVEL_ERROR, "[SDP] Wrong option: %s\n", item);
+            return -1;
+        }
+        tmp = NULL;
+    }
+    return 0;
 }
 
-void sdp_set_port(int port)
-{
-    requested_http_port = port;
-}
 
 /* vim: set expandtab sw=4 : */

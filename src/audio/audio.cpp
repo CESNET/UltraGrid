@@ -405,6 +405,11 @@ int audio_init(struct state_audio **ret, struct module *parent,
         } else if (strcasecmp(opt->proto, "rtsp") == 0 || strcasecmp(opt->proto, "sdp") == 0) {
                 s->receiver = NET_STANDARD;
                 s->sender = NET_STANDARD;
+                if (strcasecmp(opt->proto, "sdp") == 0) {
+                        if (sdp_set_options(opt->proto_cfg) != 0) {
+                                goto error;
+                        }
+                }
         } else if (strcasecmp(opt->proto, "JACK") == 0) {
 #ifndef HAVE_JACK_TRANS
                 fprintf(stderr, "[Audio] JACK transport requested, "

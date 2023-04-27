@@ -54,8 +54,7 @@ extern "C" {
 
 #define DEFAULT_SDP_COMPRESSION "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh:disable_interlaced_dct"
 
-void sdp_set_file(const char *sdp_file);
-void sdp_set_port(int port);
+int sdp_set_options(const char *options);
 void sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio);
 
 typedef void (*address_callback_t)(void *udata, const char *address);
