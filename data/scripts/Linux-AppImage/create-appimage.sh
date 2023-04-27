@@ -56,8 +56,11 @@ add_fonts() { # for GUI+testcard2
                         cp "$FONT_PATH" $APPPREFIX/share/fonts
                 done
         done
+        if ls $APPPREFIX/lib/*mixer* >/dev/null 2>&1 && [ -f "${SDL_SOUNDFONTS-nonexistent}" ]; then
+                mkdir -p $APPPREFIX/share/soundfonts
+                cp "$SDL_SOUNDFONTS" $APPPREFIX/share/soundfonts
+        fi
 }
-add_fonts
 
 # copy dependencies
 mkdir -p $APPPREFIX/lib
@@ -75,6 +78,8 @@ if ls $APPPREFIX/lib/libwayland-* >/dev/null 2>&1; then
         mkdir $APPPREFIX/lib/wayland
         mv $APPPREFIX/lib/libwayland-* $APPPREFIX/lib/wayland
 fi
+
+add_fonts
 
 if command wget >/dev/null && wget -V | grep -q https; then
         dl() {
