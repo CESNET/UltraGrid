@@ -98,6 +98,7 @@
 #include "utils/misc.h"
 #include "utils/nat.h"
 #include "utils/net.h"
+#include "utils/sdp.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/wait_obj.h"
@@ -1502,7 +1503,7 @@ int main(int argc, char *argv[])
                 // SAGE + RTSP
                 params["opts"].str = opt.video_protocol_opts;
 
-                // RTSP/SDP
+                // RTSP
                 params["audio_codec"].l = get_audio_codec(opt.audio.codec_cfg);
                 params["audio_sample_rate"].i = get_audio_codec_sample_rate(opt.audio.codec_cfg) ? get_audio_codec_sample_rate(opt.audio.codec_cfg) : 48000;
                 params["audio_channels"].i = audio_capture_channels;
@@ -1522,6 +1523,8 @@ int main(int argc, char *argv[])
 
                         params["avType"].l = (long) avType;
                 }
+
+                sdp_set_properties(opt.requested_receiver, opt.video_rxtx_mode & MODE_SENDER && strcasecmp(opt.video_protocol, "sdp") == 0, opt.audio.send_port != 0 && strcasecmp(opt.audio.proto, "sdp") == 0);
 
                 uv.state_video_rxtx = video_rxtx::create(opt.video_protocol, params);
                 if (!uv.state_video_rxtx) {

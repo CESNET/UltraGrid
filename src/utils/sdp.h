@@ -4,7 +4,7 @@
  *          Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2018-2021 CESNET, z. s. p. o.
+ * Copyright (c) 2018-2023 CESNET, z. s. p. o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -52,23 +52,14 @@ extern "C" {
 #include <stdbool.h>
 #endif
 
-#define DEFAULT_SDP_HTTP_PORT 8554
+void sdp_set_file(const char *sdp_file);
+void sdp_set_port(int port);
+void sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio);
 
 typedef void (*address_callback_t)(void *udata, const char *address);
 
-struct sdp *new_sdp(int ip_version, const char *receiver);
-int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec);
-int sdp_add_video(struct sdp *sdp, int port, codec_t codec);
-/**
- * @param sdp           SDP struct to be generated file to
- * @param sdp_file_name name of the created file, may be empty in which case
- *                      default is created and returned or "no" - no file is created
- * @param output        textual representation of sdp
- */
-bool gen_sdp(struct sdp *sdp, const char *sdp_file_name);
-bool sdp_run_http_server(struct sdp *sdp, int port, address_callback_t addr_callback, void *addr_callback_udata);
-void sdp_stop_http_server(struct sdp *sdp);
-void clean_sdp(struct sdp *sdp);
+int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec);
+int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_callback, void *addr_callback_udata);
 
 #ifdef __cplusplus
 }

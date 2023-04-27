@@ -92,6 +92,7 @@
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/net.h"
+#include "utils/sdp.h"
 #include "utils/thread.h"
 #include "utils/worker.h"
 #include "utils/string_view_utils.hpp"
@@ -381,6 +382,12 @@ int audio_init(struct state_audio **ret, struct module *parent,
                                 == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unable to open audio network\n";
                         goto error;
+                }
+        }
+
+        if ((s->audio_tx_mode & MODE_SENDER) && strcasecmp(opt->proto, "sdp") == 0) {
+                if (sdp_add_audio(rtp_is_ipv6(s->audio_network_device), opt->send_port, IF_NOT_NULL_ELSE(get_audio_codec_sample_rate(opt->codec_cfg), 48000), audio_capture_channels, get_audio_codec(opt->codec_cfg)) != 0) {
+                        assert(0 && "[SDP] Cannot add audio");
                 }
         }
 

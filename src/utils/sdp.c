@@ -76,8 +76,19 @@
 #define MOD_NAME "[SDP] "
 #define SDP_FILE "ug.sdp"
 
-#define MAX_STREAMS 2
-#define STR_LENGTH 2048
+enum {
+    DEFAULT_SDP_HTTP_PORT = 8554,
+    MAX_STREAMS = 2,
+    STR_LENGTH = 2048,
+};
+
+int requested_http_port = DEFAULT_SDP_HTTP_PORT;
+static bool want_sdp_audio = false;
+static bool want_sdp_video = false;
+static char sdp_receiver[1024];
+static char sdp_filename[1024];
+
+static struct sdp *sdp_state = NULL;
 
 struct stream_info {
     char media_info[STR_LENGTH];
@@ -86,6 +97,8 @@ struct stream_info {
 };
 
 struct sdp {
+    bool audio_set;
+    bool video_set;
 #ifdef SDP_HTTP
     struct Server http_server;
 #endif // defined SDP_HTTP
@@ -103,14 +116,19 @@ struct sdp {
     void *address_callback_udata;
 };
 
-struct sdp *new_sdp(int ip_version, const char *receiver) {
-    assert(ip_version == 4 || ip_version == 6);
+static bool gen_sdp(void);
+static struct sdp *new_sdp(bool ipv6, const char *receiver);
+static bool sdp_run_http_server(struct sdp *sdp, int port);
+static void sdp_stop_http_server(struct sdp *sdp);
+static void clean_sdp(struct sdp *sdp);
+
+static struct sdp *new_sdp(bool ipv6, const char *receiver) {
     struct sdp *sdp;
     sdp = calloc(1, sizeof(struct sdp));
     assert(sdp != NULL);
-    sdp->ip_version = ip_version;
+    sdp->ip_version = ipv6 ? 6 : 4;
     const char *ip_loopback;
-    if (ip_version == 6) {
+    if (sdp->ip_version == 6) {
         ip_loopback = "::1";
     } else {
         ip_loopback = "127.0.0.1";
@@ -120,7 +138,7 @@ struct sdp *new_sdp(int ip_version, const char *receiver) {
     const char *origin_address = ip_loopback;
     struct sockaddr_storage addrs[20];
     size_t len = sizeof addrs;
-    if (get_local_addresses(addrs, &len, ip_version)) {
+    if (get_local_addresses(addrs, &len, sdp->ip_version)) {
         for (int i = 0; i < (int)(len / sizeof addrs[0]); ++i) {
             if (!is_addr_linklocal((struct sockaddr *) &addrs[i]) && !is_addr_loopback((struct sockaddr *) &addrs[i])) {
                 bool ipv6 = addrs[i].ss_family == AF_INET6;
@@ -135,9 +153,9 @@ struct sdp *new_sdp(int ip_version, const char *receiver) {
         connection_address = receiver;
     }
     strncpy(sdp->version, "v=0\n", STR_LENGTH - 1);
-    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", ip_version, origin_address);
+    snprintf(sdp->origin, STR_LENGTH, "o=- 0 0 IN IP%d %s\n", sdp->ip_version, origin_address);
     strncpy(sdp->session_name, "s=Ultragrid streams\n", STR_LENGTH - 1);
-    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", ip_version, connection_address);
+    snprintf(sdp->connection, STR_LENGTH, "c=IN IP%d %s\n", sdp->ip_version, connection_address);
     strncpy(sdp->times, "t=0 0\n", STR_LENGTH - 1);
 
 #ifdef SDP_HTTP
@@ -155,14 +173,47 @@ static int new_stream(struct sdp *sdp){
     return -1;
 }
 
+static void cleanup() {
+#ifdef SDP_HTTP
+    sdp_stop_http_server(sdp_state);
+#endif // defined SDP_HTTP
+    clean_sdp(sdp_state);
+}
+
+static void start() {
+    // either SDP properties not set or not all streams already configured
+    if (!sdp_state || want_sdp_audio != sdp_state->audio_set || want_sdp_video != sdp_state->video_set) {
+        return;
+    }
+    if (!gen_sdp()) {
+        log_msg(LOG_LEVEL_ERROR, "[SDP] File creation failed\n");
+        return;
+    }
+#ifdef SDP_HTTP
+    if (!sdp_run_http_server(sdp_state, requested_http_port)) {
+        log_msg(LOG_LEVEL_ERROR, "[SDP] Server run failed!\n");
+    }
+#else
+    log_msg(LOG_LEVEL_WARNING, "[SDP] HTTP support not enabled - skipping server creation!\n");
+#endif
+
+    atexit(cleanup);
+}
+
 /**
  * @retval  0 ok
  * @retval -1 too much streams
  * @retval -2 unsupported codec
  */
-int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audio_codec_t codec)
+int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec)
 {
-    int index = new_stream(sdp);
+    if (!sdp_state) {
+        sdp_state = new_sdp(ipv6, sdp_receiver);
+        if (!sdp_state) {
+                assert(0 && "[SDP] SDP creation failed\n");
+        }
+    }
+    int index = new_stream(sdp_state);
     if (index < 0) {
         return -1;
     }
@@ -171,7 +222,7 @@ int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audi
     if (sample_rate == 8000 && channels == 1 && (codec == AC_ALAW || codec == AC_MULAW)) {
 	pt = codec == AC_MULAW ? PT_ITU_T_G711_PCMU : PT_ITU_T_G711_PCMA;
     }
-    snprintf(sdp->stream[index].media_info, sizeof sdp->stream[index].media_info, "m=audio %d RTP/AVP %d\n", port, pt);
+    snprintf(sdp_state->stream[index].media_info, sizeof sdp_state->stream[index].media_info, "m=audio %d RTP/AVP %d\n", port, pt);
     if (pt == PT_DynRTP_Type97) { // we need rtpmap for our dynamic packet type
 	const char *audio_codec = NULL;
         int ts_rate = sample_rate; // equals for PCMA/PCMU
@@ -191,8 +242,10 @@ int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audi
                 return -2;
 	}
 
-	snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d %s/%i/%i\n", PT_DynRTP_Type97, audio_codec, ts_rate, channels);
+	snprintf(sdp_state->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d %s/%i/%i\n", PT_DynRTP_Type97, audio_codec, ts_rate, channels);
     }
+    sdp_state->audio_set = true;
+    start();
 
     return 0;
 }
@@ -202,20 +255,31 @@ int sdp_add_audio(struct sdp *sdp, int port, int sample_rate, int channels, audi
  * @retval -1 too much streams
  * @retval -2 unsupported codec
  */
-int sdp_add_video(struct sdp *sdp, int port, codec_t codec)
+int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_callback, void *addr_callback_udata)
 {
     if (codec != H264 && codec != JPEG && codec != MJPG) {
         return -2;
     }
+    if (!sdp_state) {
+        sdp_state = new_sdp(ipv6, sdp_receiver);
+        if (!sdp_state) {
+                assert(0 && "[SDP] SDP creation failed\n");
+        }
+    }
+    sdp_state->address_callback = addr_callback;
+    sdp_state->address_callback_udata = addr_callback_udata;
 
-    int index = new_stream(sdp);
+    int index = new_stream(sdp_state);
     if (index < 0) {
         return -1;
     }
-    snprintf(sdp->stream[index].media_info, STR_LENGTH, "m=video %d RTP/AVP %d\n", port, codec == H264 ? PT_DynRTP_Type96 : PT_JPEG);
+    snprintf(sdp_state->stream[index].media_info, STR_LENGTH, "m=video %d RTP/AVP %d\n", port, codec == H264 ? PT_DynRTP_Type96 : PT_JPEG);
     if (codec == H264) {
-        snprintf(sdp->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d H264/90000\n", PT_DynRTP_Type96);
+        snprintf(sdp_state->stream[index].rtpmap, STR_LENGTH, "a=rtpmap:%d H264/90000\n", PT_DynRTP_Type96);
     }
+
+    sdp_state->video_set = true;
+    start();
     return 0;
 }
 
@@ -228,33 +292,33 @@ static void strappend(char **dst, size_t *dst_alloc_len, const char *src)
     strncat(*dst, src, *dst_alloc_len - strlen(*dst) - 1);
 }
 
-bool gen_sdp(struct sdp *sdp, const char *sdp_file_name) {
+static bool gen_sdp() {
     size_t len = 1;
     char *buf = calloc(1, 1);
-    strappend(&buf, &len, sdp->version);
-    strappend(&buf, &len, sdp->origin);
-    strappend(&buf, &len, sdp->session_name);
-    strappend(&buf, &len, sdp->connection);
-    strappend(&buf, &len, sdp->times);
-    for (int i = 0; i < sdp->stream_count; ++i) {
-        strappend(&buf, &len, sdp->stream[i].media_info);
-        strappend(&buf, &len, sdp->stream[i].rtpmap);
+    strappend(&buf, &len, sdp_state->version);
+    strappend(&buf, &len, sdp_state->origin);
+    strappend(&buf, &len, sdp_state->session_name);
+    strappend(&buf, &len, sdp_state->connection);
+    strappend(&buf, &len, sdp_state->times);
+    for (int i = 0; i < sdp_state->stream_count; ++i) {
+        strappend(&buf, &len, sdp_state->stream[i].media_info);
+        strappend(&buf, &len, sdp_state->stream[i].rtpmap);
     }
     strappend(&buf, &len, "\n");
 
     printf("Printed version:\n%s", buf);
 
-    sdp->sdp_dump = buf;
-    if (strcmp(sdp_file_name, "no") == 0) {
+    sdp_state->sdp_dump = buf;
+    if (strcmp(sdp_filename, "no") == 0) {
         return true;
     }
 
-    if (strlen(sdp_file_name) == 0) {
-        sdp_file_name = SDP_FILE;
+    if (strlen(sdp_filename) == 0) {
+        strcat(sdp_filename, SDP_FILE);
     }
-    char *sdp_file_path = alloca(strlen(sdp_file_name) + strlen(get_temp_dir()) + 1);
+    char *sdp_file_path = alloca(strlen(sdp_filename) + strlen(get_temp_dir()) + 1);
     strcpy(sdp_file_path, get_temp_dir());
-    strcat(sdp_file_path, sdp_file_name);
+    strcat(sdp_file_path, sdp_filename);
     FILE *fOut = fopen(sdp_file_path, "w");
     if (fOut == NULL) {
         log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file\n");
@@ -357,14 +421,10 @@ static void print_http_path(struct sdp *sdp) {
     }
 }
 
-#ifdef SDP_HTTP
-bool sdp_run_http_server(struct sdp *sdp, int port, address_callback_t addr_callback, void *addr_callback_udata)
+static bool sdp_run_http_server(struct sdp *sdp, int port)
 {
     assert(port >= 0 && port < 65536);
     assert(sdp->sdp_dump != NULL);
-
-    sdp->address_callback = addr_callback;
-    sdp->address_callback_udata = addr_callback_udata;
 
     portInHostOrder = port;
     sdp->http_server.tag = sdp;
@@ -384,6 +444,23 @@ void sdp_stop_http_server(struct sdp *sdp)
 }
 #endif // defined SDP_HTTP
 
-#endif // SDP_HTTP
+void sdp_set_properties(const char *receiver, bool has_sdp_video, bool has_sdp_audio)
+{
+    strncpy(sdp_receiver, receiver, sizeof sdp_receiver - 1);
+    want_sdp_audio = has_sdp_audio;
+    want_sdp_video = has_sdp_video;
+
+    start();
+}
+
+void sdp_set_file(const char *sdpf)
+{
+    strncpy(sdp_filename, sdpf, sizeof sdp_filename - 1);
+}
+
+void sdp_set_port(int port)
+{
+    requested_http_port = port;
+}
 
 /* vim: set expandtab sw=4 : */

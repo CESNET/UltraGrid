@@ -59,11 +59,8 @@ private:
                 return NULL;
         }
         void sdp_add_video(codec_t codec);
-        struct sdp *m_sdp;
         codec_t m_sdp_configured_codec = VIDEO_CODEC_NONE;
         int m_saved_tx_port;
-        std::string m_requested_file;
-        int m_requested_http_port = DEFAULT_SDP_HTTP_PORT;
         bool m_sent_compress_change = false;
 
         bool m_autorun = false;
