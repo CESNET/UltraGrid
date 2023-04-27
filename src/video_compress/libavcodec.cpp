@@ -112,6 +112,7 @@ struct setparam_param {
         struct video_desc desc {};
         bool have_preset = false;
         int periodic_intra = -1; ///< -1 default; 0 disable/not enable; 1 enable
+        int interlaced_dct = -1; ///< -1 default; 0 disable/not enable; 1 enable
         string thread_mode;
         int slices = -1;
         map<string, string> &lavc_opts; ///< user-supplied options from command-line
@@ -357,7 +358,7 @@ static void usage() {
         col() << "\nwhere\n";
         col() << "\t" << SBOLD("<encoder>") << " specifies encoder (eg. nvenc or libx264 for H.264)\n";
         col() << "\t" << SBOLD("<codec_name>") << " - codec name (default MJPEG) if encoder name is not specified\n";
-        col() << "\t" << SBOLD("[disable_]intra_refresh") << " - (do not) use Periodic Intra Refresh (H.264/H.265)\n";
+        col() << "\t" << SBOLD("[disable_]intra_refresh") << ", " << SBOLD("[disable_]intrelaced_dct") << " - (do not) use Periodic Intra Refresh (H.264/H.265), (do not) use interlaced DCT for H.264\n";
         col() << "\t" << SBOLD("<bits_per_sec>") << " specifies requested bitrate\n"
                 << "\t\t\t0 means codec default (same as when parameter omitted)\n";
         col() << "\t" << SBOLD("<bits_per_pixel>") << " specifies requested bitrate using compressed bits per pixel\n"
@@ -457,6 +458,8 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         s->req_conv_prop.rgb = strcasecmp(item, "rgb") == 0;
                 } else if (strstr(item, "intra_refresh") != nullptr) {
                         s->params.periodic_intra = strstr(item, "disable_") == item ? 0 : 1;
+                } else if (strstr(item, "interlaced_dct") != nullptr) {
+                        s->params.interlaced_dct = strstr(item, "disable_") == item ? 0 : 1;
                 } else if(strncasecmp("threads=", item, strlen("threads=")) == 0) {
                         char *threads = item + strlen("threads=");
                         if (strchr(threads, ',')) {
@@ -1431,10 +1434,6 @@ static void configure_amf([[maybe_unused]] AVCodecContext *codec_ctx, [[maybe_un
         }
 }
 
-ADD_TO_PARAM("lavc-h264-interlaced-dct", "* lavc-h264-interlaced-dct\n"
-                 "  Use interlaced DCT for H.264 (disabled for NVENC)\n");
-ADD_TO_PARAM("lavc-h264-no-interlaced-dct", "* lavc-h264-no-interlaced-dct\n"
-                 "  Do not use interlaced DCT for H.264 (enabled for x264 and QSV)\n");
 ADD_TO_PARAM("lavc-rc-buffer-size-factor", "* lavc-rc-buffer-size-factor=<val>\n"
                  "  Multiplier how much can individual frame overshot average size (default x264/5: " TOSTRING(DEFAULT_X26X_RC_BUF_SIZE_FACTOR) ", nvenc: 1).\n");
 static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
@@ -1461,7 +1460,7 @@ static void configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param
         //codec_ctx->rc_qsquish = 0;
         //codec_ctx->scenechange_threshold = 100;
 
-        if (param->desc.interlacing == INTERLACED_MERGED && get_commandline_param("lavc-h264-no-interlaced-dct") == NULL) {
+        if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct != 0) {
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
 
@@ -1502,7 +1501,7 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                 check_av_opt_set<int>(codec_ctx->priv_data, "int_ref_cycle_size", 20);
         }
 
-        if (param->desc.interlacing == INTERLACED_MERGED && get_commandline_param("lavc-h264-no-interlaced-dct") == NULL) {
+        if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct != 0) {
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
 
@@ -1595,7 +1594,7 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "To reduce NVENC pulsation, you can try \"--param lavc-rc-buffer-size-factor=0\""
                                        " or a small number. 0 or higher value (than default 1) may cause frame drops on receiver.\n");
         }
-        if (param->desc.interlacing == INTERLACED_MERGED && get_commandline_param("lavc-h264-interlaced-dct") != NULL) {
+        if (param->desc.interlacing == INTERLACED_MERGED && param->interlaced_dct == 1) {
                 codec_ctx->flags |= AV_CODEC_FLAG_INTERLACED_DCT;
         }
 }
