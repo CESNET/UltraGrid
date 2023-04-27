@@ -115,8 +115,10 @@ struct sdp {
     struct stream_info stream[MAX_STREAMS];
     int stream_count; //between 1 and MAX_STREAMS
     char *sdp_dump;
-    void (*address_callback)(void *udata, const char *address);
-    void *address_callback_udata;
+    void (*audio_address_callback)(void *udata, const char *address);
+    void *audio_address_callback_udata;
+    void (*video_address_callback)(void *udata, const char *address);
+    void *video_address_callback_udata;
 };
 
 static bool gen_sdp(void);
@@ -208,7 +210,7 @@ static void start() {
  * @retval -1 too much streams
  * @retval -2 unsupported codec
  */
-int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec)
+int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_codec_t codec, address_callback_t addr_callback, void *addr_callback_udata)
 {
     if (!sdp_state) {
         sdp_state = new_sdp(ipv6, sdp_receiver);
@@ -216,6 +218,8 @@ int sdp_add_audio(bool ipv6, int port, int sample_rate, int channels, audio_code
                 assert(0 && "[SDP] SDP creation failed\n");
         }
     }
+    sdp_state->audio_address_callback = addr_callback;
+    sdp_state->audio_address_callback_udata = addr_callback_udata;
     int index = new_stream(sdp_state);
     if (index < 0) {
         return -1;
@@ -269,8 +273,8 @@ int sdp_add_video(bool ipv6, int port, codec_t codec, address_callback_t addr_ca
                 assert(0 && "[SDP] SDP creation failed\n");
         }
     }
-    sdp_state->address_callback = addr_callback;
-    sdp_state->address_callback_udata = addr_callback_udata;
+    sdp_state->video_address_callback = addr_callback;
+    sdp_state->video_address_callback_udata = addr_callback_udata;
 
     int index = new_stream(sdp_state);
     if (index < 0) {
@@ -358,8 +362,13 @@ void clean_sdp(struct sdp *sdp){
 struct Response* createResponseForRequest(const struct Request* request, struct Connection* connection) {
     struct sdp *sdp = connection->server->tag;
 
-    if (autorun && sdp->address_callback){
-        sdp->address_callback(sdp->address_callback_udata, connection->remoteHost);
+    if (autorun) {
+        if (sdp->audio_address_callback) {
+            sdp->audio_address_callback(sdp->audio_address_callback_udata, connection->remoteHost);
+        }
+        if (sdp->video_address_callback) {
+            sdp->video_address_callback(sdp->video_address_callback_udata, connection->remoteHost);
+        }
     }
 
     log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Requested %s.\n", request->pathDecoded);

@@ -81,18 +81,10 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(std::map<std::string, param_u> const &p
         }
 }
 
-void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *address)
-{
-        auto *s = static_cast<h264_sdp_video_rxtx *>(udata);
-        if (s->m_saved_addr == address) {
-                return;
-        }
-        s->m_saved_addr = address;
+void send_change_address_message(struct module *root, enum module_class *path, const char *address) {
         array<char, 1024> pathV{};
 
-        array<enum module_class, 2> path_sender{ MODULE_CLASS_SENDER,
-                MODULE_CLASS_NONE };
-        append_message_path(pathV.data(), pathV.size(), path_sender.data());
+        append_message_path(pathV.data(), pathV.size(), path);
 
         //CHANGE DST ADDRESS
         auto *msgV2 = reinterpret_cast<struct msg_sender *>(new_message(
@@ -101,13 +93,25 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
                         sizeof(msgV2->receiver) - 1);
         msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
 
-        auto *resp = send_message(get_root_module(s->m_parent), pathV.data(), reinterpret_cast<struct message *>(msgV2));
+        auto *resp = send_message(root, pathV.data(), reinterpret_cast<struct message *>(msgV2));
         if (response_get_status(resp) == RESPONSE_OK) {
                 LOG(LOG_LEVEL_NOTICE) << "[SDP] Changing address to " << address << "\n";
         } else {
                 LOG(LOG_LEVEL_WARNING) << "[SDP] Unable to change address to " << address << " (" << response_get_status(resp) << ")\n";
         }
         free_response(resp);
+}
+
+void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *address)
+{
+        auto *s = static_cast<h264_sdp_video_rxtx *>(udata);
+        if (s->m_saved_addr == address) {
+                return;
+        }
+        s->m_saved_addr = address;
+
+        array path_sender{ MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
+        send_change_address_message(get_root_module(s->m_parent), path_sender.data(), address);
 }
 
 void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)

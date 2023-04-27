@@ -7,7 +7,7 @@
  */
 /*
  * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2013-2018 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,9 +44,12 @@
 
 #include <string>
 
+#include "module.h"
 #include "utils/sdp.h"
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.h"
+
+void send_change_address_message(struct module *root, enum module_class *path, const char *address);
 
 class h264_sdp_video_rxtx : public rtp_video_rxtx {
 public:
