@@ -157,7 +157,7 @@ void h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame)
 		auto msg = (struct msg_change_compress_data *)
 			new_message(sizeof(struct msg_change_compress_data));
 		msg->what = CHANGE_COMPRESS;
-		strncpy(msg->config_string, "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh", sizeof(msg->config_string) - 1);
+		strncpy(msg->config_string, DEFAULT_SDP_COMPRESSION, sizeof(msg->config_string) - 1);
 
 		const char *path = "sender.compress";
 		auto resp = send_message(get_root_module(m_parent), path, (struct message *) msg);

@@ -1115,7 +1115,7 @@ static int adjust_params(struct ug_options *opt) {
         if (strcasecmp(opt->video_protocol, "rtsp") == 0 || strcasecmp(opt->video_protocol, "sdp") == 0) {
                 if (opt->requested_compression == nullptr) {
                         if (strcasecmp(opt->video_protocol, "rtsp") == 0) {
-                                opt->requested_compression = "libavcodec:encoder=libx264:subsampling=420:disable_intra_refresh";
+                                opt->requested_compression = DEFAULT_SDP_COMPRESSION;
                         } else {
                                 opt->requested_compression = "none"; // will be set later by h264_sdp_video_rxtx::send_frame()
                         }
