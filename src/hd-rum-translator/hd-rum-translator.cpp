@@ -735,12 +735,6 @@ static void hd_rum_translator_deinit(struct hd_rum_translator_state *s) {
     qdestroy(s->queue);
 }
 
-struct Conf_participant{
-        struct sockaddr_storage addr;
-        socklen_t addrlen;
-        struct timeval last_recv;
-};
-
 static bool sockaddr_equal(struct sockaddr_storage *a, struct sockaddr_storage *b){
         if(a->ss_family != b->ss_family)
                 return false;
@@ -763,6 +757,85 @@ static bool sockaddr_equal(struct sockaddr_storage *a, struct sockaddr_storage *
                 abort();
         }
 }
+
+struct Conf_participant{
+        struct sockaddr_storage addr;
+        socklen_t addrlen;
+        struct timeval last_recv;
+};
+
+class Participant_manager{
+public:
+        Participant_manager(module& mod, std::string compress) : mod(mod), compression(compress) {  }
+
+        void tick(sockaddr_storage& sin, socklen_t addrlen){
+                struct timeval t;
+                gettimeofday(&t, NULL);
+                bool seen = false;
+                for(auto it = participants.begin(); it != participants.end();){
+                        if(addrlen > 0 && sockaddr_equal(&it->addr, &sin)){
+                                it->last_recv = t;
+                                seen = true;
+                        }
+                        const double participant_timeout = 10.0;
+                        if(tv_diff(t, it->last_recv) > participant_timeout){
+                                log_msg(LOG_LEVEL_NOTICE, "Removing participant\n");
+                                std::string msg = "delete-port ";
+                                auto addr = reinterpret_cast<struct sockaddr *>(&it->addr);
+                                char addr_str[128];
+                                get_sockaddr_addr_str(addr, addr_str, sizeof(addr_str));
+                                msg += get_replica_mod_name(addr_str, get_sockaddr_addr_port(addr));
+
+                                std::swap(*it, participants.back());
+                                participants.pop_back();
+
+                                struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                                strncpy(m->text, msg.c_str(), sizeof(m->text) - 1);
+                                log_msg(LOG_LEVEL_NOTICE, "Msg: %s\n", m->text);
+                                struct response *r = send_message_to_receiver(&mod, (struct message *) m);
+                                if (response_get_status(r) != RESPONSE_ACCEPTED) {
+                                        log_msg(LOG_LEVEL_ERROR, "Couldn't remove participant (error %d)!\n", response_get_status(r));
+                                }
+                                free_response(r);
+                        } else {
+                                it++;
+                        }
+                }
+
+                if(!seen && addrlen > 0){
+                        Conf_participant p;
+                        p.addr = sin;
+                        p.addrlen = addrlen;
+                        p.last_recv = t;
+
+                        log_msg(LOG_LEVEL_NOTICE, "New participant\n");
+                        std::string msg = "create-port ";
+                        msg += get_sockaddr_str(reinterpret_cast<sockaddr *>(&sin));
+                        if(!compression.empty()){
+                                msg += " ";
+                                msg += compression;
+                        } else {
+                                //TODO
+                                //msg += " libavcodec";
+                        }
+
+                        struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
+                        strncpy(m->text, msg.c_str(), sizeof(m->text) - 1);
+                        log_msg(LOG_LEVEL_NOTICE, "Msg: %s\n", m->text);
+                        struct response *r = send_message_to_receiver(&mod, (struct message *) m);
+                        if (response_get_status(r) != RESPONSE_ACCEPTED) {
+                                log_msg(LOG_LEVEL_ERROR, "Cannot add new participant (error %d)!\n", response_get_status(r));
+                        } else{
+                                participants.push_back(p);
+                        }
+                        free_response(r);
+                }
+        }
+private:
+        std::vector<Conf_participant> participants;
+        struct module& mod;
+        std::string compression;
+};
 
 static void hd_rum_translator_should_exit_callback(void *arg) {
     volatile auto *should_exit = (volatile bool *) arg;
@@ -918,7 +991,7 @@ int main(int argc, char **argv)
 
     unsigned long long int last_data = 0ull;
 
-    std::vector<Conf_participant> participants;
+    Participant_manager participant_mgr(state.mod, params.conference_compression);
 
     volatile bool should_exit = false;
     register_should_exit_callback(&state.mod, hd_rum_translator_should_exit_callback, const_cast<bool *>(&should_exit));
@@ -937,64 +1010,7 @@ int main(int argc, char **argv)
             gettimeofday(&t, NULL);
 
             if(params.out_conf.mode == CONFERENCE){
-                    bool seen = false;
-                    for(auto it = participants.begin(); it != participants.end();){
-                            if(addrlen > 0 && sockaddr_equal(&it->addr, &sin)){
-                                    it->last_recv = t;
-                                    seen = true;
-                            }
-                            const double participant_timeout = 10.0;
-                            if(tv_diff(t, it->last_recv) > participant_timeout){
-                                    log_msg(LOG_LEVEL_NOTICE, "Removing participant\n");
-                                    std::string msg = "delete-port ";
-                                    auto addr = reinterpret_cast<struct sockaddr *>(&it->addr);
-                                    char addr_str[128];
-                                    get_sockaddr_addr_str(addr, addr_str, sizeof(addr_str));
-                                    msg += get_replica_mod_name(addr_str, get_sockaddr_addr_port(addr));
-
-                                    std::swap(*it, participants.back());
-                                    participants.pop_back();
-
-                                    struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-                                    strncpy(m->text, msg.c_str(), sizeof(m->text) - 1);
-                                    log_msg(LOG_LEVEL_NOTICE, "Msg: %s\n", m->text);
-                                    struct response *r = send_message_to_receiver(&state.mod, (struct message *) m);
-                                    if (response_get_status(r) != RESPONSE_ACCEPTED) {
-                                            log_msg(LOG_LEVEL_ERROR, "Couldn't remove participant (error %d)!\n", response_get_status(r));
-                                    }
-                                    free_response(r);
-                            } else {
-                                    it++;
-                            }
-                    }
-
-                    if(!seen && addrlen > 0){
-                            Conf_participant p;
-                            p.addr = sin;
-                            p.addrlen = addrlen;
-                            p.last_recv = t;
-
-                            log_msg(LOG_LEVEL_NOTICE, "New participant\n");
-                            std::string msg = "create-port ";
-                            msg += get_sockaddr_str(reinterpret_cast<sockaddr *>(&sin));
-                            if(params.conference_compression){
-                                    msg += " ";
-                                    msg += params.conference_compression;
-                            } else {
-                                    msg += " libavcodec";
-                            }
-
-                            struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
-                            strncpy(m->text, msg.c_str(), sizeof(m->text) - 1);
-                            log_msg(LOG_LEVEL_NOTICE, "Msg: %s\n", m->text);
-                            struct response *r = send_message_to_receiver(&state.mod, (struct message *) m);
-                            if (response_get_status(r) != RESPONSE_ACCEPTED) {
-                                    log_msg(LOG_LEVEL_ERROR, "Cannot add new participant (error %d)!\n", response_get_status(r));
-                            } else{
-                                participants.push_back(p);
-                            }
-                            free_response(r);
-                    }
+                    participant_mgr.tick(sin, addrlen);
             }
 
             received_data += state.qtail->size;
