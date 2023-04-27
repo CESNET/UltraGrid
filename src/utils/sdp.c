@@ -86,7 +86,7 @@ int requested_http_port = DEFAULT_SDP_HTTP_PORT;
 static bool want_sdp_audio = false;
 static bool want_sdp_video = false;
 static char sdp_receiver[1024];
-static char sdp_filename[1024];
+static char sdp_filename[MAX_PATH_SIZE];
 
 static struct sdp *sdp_state = NULL;
 
@@ -314,19 +314,17 @@ static bool gen_sdp() {
     }
 
     if (strlen(sdp_filename) == 0) {
-        strcat(sdp_filename, SDP_FILE);
+        strncpy(sdp_filename, get_temp_dir(), sizeof sdp_filename - 1);
+        strncat(sdp_filename, SDP_FILE, sizeof sdp_filename - strlen(sdp_filename) - 1);
     }
-    char *sdp_file_path = alloca(strlen(sdp_filename) + strlen(get_temp_dir()) + 1);
-    strcpy(sdp_file_path, get_temp_dir());
-    strcat(sdp_file_path, sdp_filename);
-    FILE *fOut = fopen(sdp_file_path, "w");
+    FILE *fOut = fopen(sdp_filename, "w");
     if (fOut == NULL) {
         log_msg(LOG_LEVEL_ERROR, "Unable to write SDP file\n");
     } else {
         if (fprintf(fOut, "%s", buf) != (int) strlen(buf)) {
             perror("fprintf");
         } else {
-            printf("[SDP] File %s created.\n", sdp_file_path);
+            printf("[SDP] File %s created.\n", sdp_filename);
         }
         fclose(fOut);
     }
