@@ -197,6 +197,10 @@ get_custom_firejail_rules() {
                         if expr "$n" : 'dump:' >/dev/null || expr "$n" : '--record' >/dev/null; then
                                 printf -- "$separator--mkdir=%s" "$abs_path" # dir may not exist
                         fi
+                        if expr "$n" : '.*file=' >/dev/null || expr "$n" : '.*filename' >/dev/null; then
+                                parent_dir=$(dirname "$abs_path")
+                                printf -- "$separator--whitelist=%s" "$parent_dir" # to create the file
+                        fi
                 fi
         done
         # -d dump or -d dummy:dump_to_file
@@ -236,13 +240,16 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
                 FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp --disable-mnt --private-bin=none --private-opt=none --mkdir=$FJ_TMPDIR --read-write=$FJ_TMPDIR --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
                 if ! expr "$FIREJAIL_OPTS" : '.*--read-write=/tmp ' > /dev/null; then
-                        FIREJAIL_OPTS="$FIREJAIL_OPTS --read-only=/tmp"
+                        FIREJAIL_OPTS="--read-only=/tmp $FIREJAIL_OPTS"
                 fi
         fi
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
         RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} --env=UG_FONT_DIR=${UG_FONT_DIR} $FIREJAIL_OPTS "
+        if [ "${FIREJAIL_DEBUG:-}" ]; then
+                printf "Firejail arguments:\n\t$RUN\n\n"
+        fi
 fi
 
 if [ $# -eq 0 ] || [ "${1-}" = "--gui" ]; then
