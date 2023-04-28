@@ -280,6 +280,12 @@ void module_check_undelivered_messages(struct module *node)
         }
 }
 
+void module_store_message(struct module *node, struct message *m)
+{
+        pthread_mutex_guard guard(node->msg_queue_lock);
+        simple_linked_list_append(node->msg_queue, m);
+}
+
 struct response *send_message_to_receiver(struct module *receiver, struct message *msg)
 {
         pthread_mutex_lock(&receiver->msg_queue_lock);

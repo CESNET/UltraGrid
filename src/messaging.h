@@ -178,6 +178,8 @@ int response_get_status(struct response *r);
 const char *response_get_text(struct response *r);
 
 void module_check_undelivered_messages(struct module *);
+void module_store_message(struct module *node, struct message *m);
+
 struct response *send_message(struct module *, const char *path, struct message *msg) __attribute__ ((warn_unused_result));
 #define SEND_MESSAGE_FLAG_QUIET    (1<<0) ///< do not print error messages on console (recv not found/queue full)
 #define SEND_MESSAGE_FLAG_NO_STORE (1<<1) ///< if receiver doesn't exist, doesn't store it and retur 404 instead

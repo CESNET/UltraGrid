@@ -473,9 +473,10 @@ struct state_root {
         {
                 auto *s = (state_root *) mod->priv_data;
                 struct msg_root *m;
+                list<struct msg_root *> unhandled_messages;
                 while ((m = (struct msg_root *) check_message(mod))) {
                         if (m->type != ROOT_MSG_REGISTER_SHOULD_EXIT) {
-                                free_message((struct message *) m, new_response(RESPONSE_BAD_REQUEST, NULL));
+                                unhandled_messages.push_back(m);
                                 continue;
                         }
                         unique_lock<mutex> lk(s->lock);
@@ -485,6 +486,9 @@ struct state_root {
                                 m->should_exit_callback(m->udata);
                         }
                         free_message((struct message *) m, new_response(RESPONSE_OK, NULL));
+                }
+                for (auto & m : unhandled_messages) {
+                        module_store_message(mod, (struct message *) m);
                 }
         }
 
