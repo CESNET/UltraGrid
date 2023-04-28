@@ -65,18 +65,5 @@ const char *get_install_root(void);
 } // extern "C"
 #endif
 
-#ifdef __cplusplus
-#include <string>
-
-inline std::string get_executable_path(){
-        std::string path(MAX_PATH_SIZE, '\0');
-        if (!get_exec_path(path.data())){
-            return "";
-        }
-        path.erase(path.find('\0'));
-        return path;
-}
-#endif
-
 #endif// UTILS_FS_H_
 

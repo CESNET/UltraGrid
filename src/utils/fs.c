@@ -42,9 +42,10 @@
 #include "config_win32.h"
 #endif
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cstring>
+#include <string.h>
 
 #include "utils/fs.h"
 #include "utils/string.h"
@@ -65,7 +66,8 @@ const char *get_temp_dir(void)
                 return NULL;
         }
 #else
-        if (char *req_tmp_dir = getenv("TMPDIR")) {
+        const char *req_tmp_dir = getenv("TMPDIR");
+        if (req_tmp_dir) {
                 temp_dir[sizeof temp_dir - 1] = '\0';
                 strncpy(temp_dir, req_tmp_dir, sizeof temp_dir - 1);
         } else {
@@ -141,7 +143,7 @@ const char *get_install_root(void) {
  * both FILE pointer and file name.
  */
 FILE *get_temp_file(const char **filename) {
-        static thread_local char filename_buf[MAX_PATH_SIZE];
+        static _Thread_local char filename_buf[MAX_PATH_SIZE];
 #ifdef _WIN32
         *filename = tmpnam(filename_buf);
         return fopen(*filename, "wbx");
