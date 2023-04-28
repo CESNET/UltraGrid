@@ -59,11 +59,13 @@
 #include "compat/misc.h"
 #include "compat/platform_pipe.h"
 #include "debug.h"
+#include "keyboard_control.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
 #include "utils/misc.h" // unit_evaluate
+#include "utils/string.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
 #include "utils/thread.h"
@@ -997,6 +999,53 @@ bool running_in_debugger(){
         }
 #endif
         return false;
+}
+
+void crash_signal_handler(int sig)
+{
+        char buf[1024];
+        char *ptr = buf;
+        char *ptr_end = buf + sizeof buf;
+        strappend(&ptr, ptr_end, "\n" PACKAGE_NAME " has crashed");
+#ifndef WIN32
+        char backtrace_msg[] = "Backtrace:\n";
+        write_all(sizeof backtrace_msg, backtrace_msg);
+        array<void *, 256> addresses{};
+        int num_symbols = backtrace(addresses.data(), addresses.size());
+        backtrace_symbols_fd(addresses.data(), num_symbols, 2);
+
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
+        const char *sig_desc = sigdescr_np(sig);
+#else
+        const char *sig_desc = sys_siglist[sig];
+#endif
+        if (sig_desc != NULL) {
+                strappend(&ptr, ptr_end, " (");
+                strappend(&ptr, ptr_end, sig_desc);
+                strappend(&ptr, ptr_end, ")");
+        }
+#endif
+        strappend(&ptr, ptr_end, ".\n\nPlease send a bug report to address " PACKAGE_BUGREPORT ".\n");
+        strappend(&ptr, ptr_end, "You may find some tips how to report bugs in file doc/REPORTING_BUGS.md distributed with " PACKAGE_NAME "\n");
+        strappend(&ptr, ptr_end, "(or available online at https://github.com/CESNET/UltraGrid/blob/master/doc/REPORTING-BUGS.md).\n");
+
+        write_all(ptr - buf, buf);
+
+        restore_old_tio();
+
+        signal(sig, SIG_DFL);
+        raise(sig);
+}
+
+void hang_signal_handler(int sig)
+{
+        UNUSED(sig);
+#ifndef WIN32
+        assert(sig == SIGALRM);
+        char msg[] = "Hang detected - you may continue waiting or kill UltraGrid. Please report if UltraGrid doesn't exit after reasonable amount of time.\n";
+        write_all(sizeof msg - 1, msg);
+        signal(SIGALRM, SIG_DFL);
+#endif // ! defined WIN32
 }
 
 // some common parameters used within multiple modules

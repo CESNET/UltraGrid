@@ -155,6 +155,9 @@ bool register_mainloop(mainloop_t, void *);
 
 bool running_in_debugger();
 
+void crash_signal_handler(int sig);
+void hang_signal_handler(int sig);
+
 #ifdef __cplusplus
 }
 #endif

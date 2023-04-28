@@ -804,11 +804,17 @@ int main(int argc, char **argv)
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGHUP, &sa, NULL);
     sigaction(SIGABRT, &sa, NULL);
+    signal(SIGQUIT, crash_signal_handler);
+    signal(SIGALRM, hang_signal_handler);
 #else
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGABRT, signal_handler);
 #endif
+    signal(SIGABRT, crash_signal_handler);
+    signal(SIGFPE, crash_signal_handler);
+    signal(SIGILL, crash_signal_handler);
+    signal(SIGSEGV, crash_signal_handler);
 
     int ret = parse_fmt(argc, argv, &params);
 
@@ -1033,6 +1039,7 @@ int main(int argc, char **argv)
     pthread_cond_signal(&state.qempty_cond);
     pthread_mutex_unlock(&state.qempty_mtx);
 
+    alarm(5);
     pthread_join(thread, NULL);
 
     hd_rum_translator_deinit(&state);

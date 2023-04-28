@@ -109,3 +109,31 @@ bool ends_with(const char *haystick, const char *needle) {
         return strcmp(haystick + strlen(haystick) - strlen(needle), needle) == 0;
 }
 
+/**
+ * Copies string at src to pointer *ptr and increases the pointner.
+ * @todo
+ * Functions defined in string.h should signal safe in POSIX.1-2008 - check if in glibc, if so, use strcat.
+ * @note
+ * Strings are not NULL-terminated.
+ */
+void strappend(char **ptr, const char *ptr_end, const char *src) {
+        while (*src != '\0') {
+                if (*ptr == ptr_end) {
+                        return;
+                }
+                *(*ptr)++ = *src++;
+        }
+}
+
+void write_all(size_t len, const char *msg) {
+        const char *ptr = msg;
+        do {
+                ssize_t written = write(STDERR_FILENO, ptr, len);
+                if (written < 0) {
+                        break;
+                }
+                len -= written;
+                ptr += written;
+        } while (len > 0);
+}
+

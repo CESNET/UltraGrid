@@ -99,6 +99,7 @@
 #include "utils/nat.h"
 #include "utils/net.h"
 #include "utils/sdp.h"
+#include "utils/string.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/wait_obj.h"
@@ -180,41 +181,13 @@ struct state_uv {
         static constexpr uint32_t state_magic = to_fourcc('U', 'G', 'S', 'T');
 };
 
-static void write_all(size_t len, const char *msg) {
-        const char *ptr = msg;
-        do {
-                ssize_t written = write(STDERR_FILENO, ptr, len);
-                if (written < 0) {
-                        break;
-                }
-                len -= written;
-                ptr += written;
-        } while (len > 0);
-}
-
-/**
- * Copies string at src to pointer *ptr and increases the pointner.
- * @todo
- * Functions defined in string.h should signal safe in POSIX.1-2008 - check if in glibc, if so, use strcat.
- * @note
- * Strings are not NULL-terminated.
- */
-static void append(char **ptr, const char *ptr_end, const char *src) {
-        while (*src != '\0') {
-                if (*ptr == ptr_end) {
-                        return;
-                }
-                *(*ptr)++ = *src++;
-        }
-}
-
 static void signal_handler(int signal)
 {
         if (log_level >= LOG_LEVEL_VERBOSE) {
                 char buf[128];
                 char *ptr = buf;
                 char *ptr_end = buf + sizeof buf;
-                append(&ptr, ptr_end, "Caught signal ");
+                strappend(&ptr, ptr_end, "Caught signal ");
                 if (signal / 10) {
                         *ptr++ = '0' + signal/10;
                 }
@@ -224,52 +197,6 @@ static void signal_handler(int signal)
         }
         exit_uv(0);
 }
-
-static void crash_signal_handler(int sig)
-{
-        char buf[1024];
-        char *ptr = buf;
-        char *ptr_end = buf + sizeof buf;
-        append(&ptr, ptr_end, "\n" PACKAGE_NAME " has crashed");
-#ifndef WIN32
-        char backtrace_msg[] = "Backtrace:\n";
-        write_all(sizeof backtrace_msg, backtrace_msg);
-        array<void *, 256> addresses{};
-        int num_symbols = backtrace(addresses.data(), addresses.size());
-        backtrace_symbols_fd(addresses.data(), num_symbols, 2);
-
-#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 32)
-        const char *sig_desc = sigdescr_np(sig);
-#else
-        const char *sig_desc = sys_siglist[sig];
-#endif
-        if (sig_desc != NULL) {
-                append(&ptr, ptr_end, " (");
-                append(&ptr, ptr_end, sig_desc);
-                append(&ptr, ptr_end, ")");
-        }
-#endif
-        append(&ptr, ptr_end, ".\n\nPlease send a bug report to address " PACKAGE_BUGREPORT ".\n");
-        append(&ptr, ptr_end, "You may find some tips how to report bugs in file doc/REPORTING_BUGS.md distributed with " PACKAGE_NAME "\n");
-        append(&ptr, ptr_end, "(or available online at https://github.com/CESNET/UltraGrid/blob/master/doc/REPORTING-BUGS.md).\n");
-
-        write_all(ptr - buf, buf);
-
-        restore_old_tio();
-
-        signal(sig, SIG_DFL);
-        raise(sig);
-}
-
-#ifndef WIN32
-static void hang_signal_handler(int sig)
-{
-        assert(sig == SIGALRM);
-        char msg[] = "Hang detected - you may continue waiting or kill UltraGrid. Please report if UltraGrid doesn't exit after reasonable amount of time.\n";
-        write_all(sizeof msg - 1, msg);
-        signal(SIGALRM, SIG_DFL);
-}
-#endif // ! defined WIN32
 
 static void print_help_item(const string &name, const vector<string> &help) {
         int help_lines = 0;

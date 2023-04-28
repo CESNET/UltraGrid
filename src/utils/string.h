@@ -52,6 +52,8 @@ void replace_all(char *in, const char *from, const char *to);
 bool is_prefix_of(const char *haystack, const char *needle);
 /// same as strpbrk but finds in a reverse order (last occurence returned)
 char *strrpbrk(char *s, const char *accept);
+void strappend(char **ptr, const char *ptr_end, const char *src);
+void write_all(size_t len, const char *msg);
 
 #ifdef __cplusplus
 }
