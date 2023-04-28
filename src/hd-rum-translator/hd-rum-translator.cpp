@@ -1015,7 +1015,7 @@ int main(int argc, char **argv)
                 if (tmp) {
                     strftime(tim_str, sizeof(tim_str), "%F %T", tmp);
                 }
-                log_msg(LOG_LEVEL_INFO, "[%s] Received %llu bytes in %g seconds = %sbps.\n", tim_str, cur_data, seconds, format_in_si_units(bps * 8));
+                log_msg(LOG_LEVEL_INFO, "[%s] Received %llu bytes in %g seconds = %sbps\n", tim_str, cur_data, seconds, format_in_si_units(bps * 8));
                 t0 = t;
                 last_data = received_data;
             }

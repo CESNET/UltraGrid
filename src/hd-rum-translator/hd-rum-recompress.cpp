@@ -81,7 +81,7 @@ struct recompress_output_port {
         std::string host;
         int tx_port;
 
-        std::chrono::steady_clock::time_point t0;
+        std::chrono::steady_clock::time_point t0{std::chrono::steady_clock::now()};
         int frames;
 
         bool active;
@@ -158,7 +158,7 @@ static void recompress_port_write(recompress_output_port& port, shared_ptr<video
 
         auto now = chrono::steady_clock::now();
 
-        double seconds = chrono::duration_cast<chrono::seconds>(now - port.t0).count();
+        double seconds = chrono::duration_cast<chrono::duration<double>>(now - port.t0).count();
         if(seconds > 5) {
                 double fps = port.frames / seconds;
                 log_msg(LOG_LEVEL_INFO, "[0x%08" PRIx32 "->%s:%d:0x%08" PRIx32 "] %d frames in %g seconds = %g FPS\n",
