@@ -123,8 +123,10 @@ struct sdp {
 
 static bool gen_sdp(void);
 static struct sdp *new_sdp(bool ipv6, const char *receiver);
+#ifdef SDP_HTTP
 static bool sdp_run_http_server(struct sdp *sdp, int port);
 static void sdp_stop_http_server(struct sdp *sdp);
+#endif // defined SDP_HTTP
 static void clean_sdp(struct sdp *sdp);
 
 static struct sdp *new_sdp(bool ipv6, const char *receiver) {
