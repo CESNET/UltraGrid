@@ -1009,7 +1009,13 @@ int main(int argc, char **argv)
             if (seconds > 5.0) {
                 unsigned long long int cur_data = (received_data - last_data);
                 unsigned long long int bps = cur_data / seconds;
-                log_msg(LOG_LEVEL_INFO, "Received %llu bytes in %g seconds = %sbps.\n", cur_data, seconds, format_in_si_units(bps * 8));
+                char tim_str[20];
+                time_t tim = time(NULL);
+                struct tm *tmp = localtime(&tim);
+                if (tmp) {
+                    strftime(tim_str, sizeof(tim_str), "%F %T", tmp);
+                }
+                log_msg(LOG_LEVEL_INFO, "[%s] Received %llu bytes in %g seconds = %sbps.\n", tim_str, cur_data, seconds, format_in_si_units(bps * 8));
                 t0 = t;
                 last_data = received_data;
             }
