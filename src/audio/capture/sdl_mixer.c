@@ -190,7 +190,7 @@ static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
 
         if( Mix_OpenAudio(SDL_MIXER_SAMPLE_RATE, audio_format,
                                 s->audio.ch_count, 4096 ) == -1 ) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initalizing sound\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initalizing sound: %s\n", Mix_GetError());
                 goto error;
         }
         const char *filename = s->req_filename;
