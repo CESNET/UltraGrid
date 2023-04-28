@@ -788,6 +788,10 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                                 list_video_display_devices(strcmp(optarg, "fullhelp") == 0);
                                 return 1;
                         }
+                        if (opt->requested_display && strcmp(opt->requested_display, "none") != 0) {
+                                log_msg(LOG_LEVEL_ERROR, "Multiple displays given!\n");
+                                return -EXIT_FAIL_USAGE;
+                        }
                         opt->requested_display = optarg;
                         if(strchr(optarg, ':')) {
                                 char *delim = strchr(optarg, ':');
