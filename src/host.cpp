@@ -438,7 +438,9 @@ struct state_root {
                 should_exit_thread = thread(should_exit_watcher, this);
         }
         ~state_root() {
+                unique_lock<mutex> lk(lock);
                 should_exit_callbacks.clear();
+                lk.unlock();
                 broadcast_should_exit(); // here just exit the should exit thr
                 should_exit_thread.join();
                 for (int i = 0; i < 2; ++i) {
