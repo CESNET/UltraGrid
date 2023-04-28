@@ -24,6 +24,7 @@ brew install imagemagick jack libnatpmp opencv wolfssl
 brew install ossp-uuid # for cineform
 brew install qt@5
 brew install glm
+curl -L https://raw.githubusercontent.com/miniupnp/libnatpmp/master/natpmp_declspec.h -o /usr/local/include/natpmp_declspec.h
 
 sudo ln -s /usr/local/opt/qt@5 /usr/local/opt/qt
 
