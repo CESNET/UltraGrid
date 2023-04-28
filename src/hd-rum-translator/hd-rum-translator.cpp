@@ -150,6 +150,7 @@ struct hd_rum_translator_state {
         module_done(&mod);
     }
     struct module mod;
+    int bufsize = 0;
     struct control_state *control_state = nullptr;
     struct item *queue = nullptr;
     struct item *qhead = nullptr;
@@ -420,7 +421,7 @@ static void *writer(void *arg)
                 char *compress = strtok_r(NULL, " ", &save_ptr);
 
                 int idx = create_output_port(s,
-                        host, 0, tx_port, 100*1000, false,
+                        host, 0, tx_port, s->bufsize, false,
                         compress, 1500, nullptr, RATE_UNLIMITED);
 
                 if(idx < 0) {
@@ -775,7 +776,6 @@ int main(int argc, char **argv)
     struct hd_rum_translator_state state;
 
     int qsize;
-    int bufsize;
     socket_udp *sock_in = nullptr;
     pthread_t thread;
     int err = 0;
@@ -820,25 +820,25 @@ int main(int argc, char **argv)
         log_level = LOG_LEVEL_VERBOSE;
     }
 
-    if ((bufsize = atoi(params.bufsize)) <= 0) {
-        fprintf(stderr, "invalid buffer size: %d\n", bufsize);
+    if ((state.bufsize = atoi(params.bufsize)) <= 0) {
+        fprintf(stderr, "invalid buffer size: %s\n", params.bufsize);
         EXIT(1);
     }
     switch (params.bufsize[strlen(params.bufsize) - 1]) {
     case 'K':
     case 'k':
-        bufsize *= 1024;
+        state.bufsize *= 1024;
         break;
 
     case 'M':
     case 'm':
-        bufsize *= 1024*1024;
+        state.bufsize *= 1024*1024;
         break;
     }
 
-    qsize = bufsize / 8000;
+    qsize = state.bufsize / 8000;
 
-    printf("using UDP send and receive buffer size of %d bytes\n", bufsize);
+    printf("using UDP send and receive buffer size of %d bytes\n", state.bufsize);
 
     if (params.port <= 0) {
         fprintf(stderr, "invalid port: %d\n", params.port);
@@ -856,7 +856,7 @@ int main(int argc, char **argv)
         EXIT(EXIT_FAILURE);
     }
 
-    if (udp_set_recv_buf(sock_in, bufsize) != TRUE) {
+    if (udp_set_recv_buf(sock_in, state.bufsize) != TRUE) {
         fprintf(stderr, "Cannot set recv buffer!\n");
     }
 
@@ -894,7 +894,7 @@ int main(int argc, char **argv)
         const auto& h = params.hosts[i];
 
         int idx = create_output_port(&state,
-                h.addr, rx_port, tx_port, bufsize, h.force_ip_version,
+                h.addr, rx_port, tx_port, state.bufsize, h.force_ip_version,
                 h.compression, h.mtu, h.compression ? h.fec : nullptr, h.bitrate);
         if(idx < 0) {
             EXIT(EXIT_FAILURE);
