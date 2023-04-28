@@ -103,6 +103,13 @@ install_live555() {
         cd ..
 }
 
+install_soundfont() {
+        . "$GITHUB_WORKSPACE/.github/scripts/defs.sh"
+        sf_dir="$GITHUB_WORKSPACE/data/MacOS-bundle-template/Contents/share/soundfonts"
+        mkdir -p "$sf_dir"
+        curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.sf2"
+}
+
 install_syphon() {
         wget --no-verbose https://github.com/Syphon/Syphon-Framework/releases/download/5/Syphon.SDK.5.zip
         unzip Syphon.SDK.5.zip
@@ -117,6 +124,7 @@ install_deltacast
 install_glfw
 install_live555
 install_ndi
+install_soundfont
 install_syphon
 install_ximea
 

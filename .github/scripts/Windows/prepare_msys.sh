@@ -100,6 +100,13 @@ build_cineform() {
         )
 }
 
+install_soundfont() {
+        . "$GITHUB_WORKSPACE/.github/scripts/defs.sh"
+        sf_dir="$GITHUB_WORKSPACE/data/Windows/share/soundfonts"
+        mkdir -p "$sf_dir"
+        curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.sf2"
+}
+
 # Install cross-platform deps
 "$GITHUB_WORKSPACE/.github/scripts/install-common-deps.sh"
 
@@ -111,4 +118,5 @@ build_cineform() {
 
 build_cineform
 install_aja
+install_soundfont
 

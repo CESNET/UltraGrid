@@ -51,8 +51,9 @@ sudo apt install libva-dev libdrm-dev libx11-dev libx11-xcb-dev libxcb-present-d
 
 sudo apt install qtbase5-dev
 
-sf=TimGM6mb_but_fixed__piano_.sf2 # https://musical-artifacts.com/artifacts/2642
-curl http://frakira.fi.muni.cz/~xpulec/$sf -o "$HOME/$sf"
+. "$GITHUB_WORKSPACE/.github/scripts/defs.sh"
+sf=$(basename "$DEFAULT_SF_URL")
+curl -L "$DEFAULT_SF_URL" -o "$HOME/$sf"
 printf '%b' "SDL_SOUNDFONTS=$HOME/$sf\n" >> "$GITHUB_ENV"
 
 # Install cross-platform deps
