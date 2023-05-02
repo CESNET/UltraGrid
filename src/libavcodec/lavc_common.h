@@ -162,67 +162,14 @@ extern "C" {
 #define AV_CODEC_CAP_OTHER_THREADS AV_CODEC_CAP_AUTO_THREADS
 #endif
 
-#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(57, 8, 0)
-static struct AVPacket *av_packet_alloc(void) ATTRIBUTE(unused);
-static struct AVPacket *av_packet_alloc() {
-        struct AVPacket *pkt = (struct AVPacket *) calloc(1, sizeof *pkt);
-        if (pkt == NULL) {
-                return NULL;
-        }
-        av_init_packet(pkt);
-        return pkt;
-}
-
-static void av_packet_free(struct AVPacket **pkt) ATTRIBUTE(unused);
-static void av_packet_free(struct AVPacket **pkt) {
-        if (pkt == NULL || *pkt == NULL) {
-                return;
-        }
-        free(*pkt);
-        *pkt = NULL;
-}
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static void print_decoder_error(const char *mod_name, int rc) ATTRIBUTE(unused);
-static void print_decoder_error(const char *mod_name, int rc) {
-        char buf[1024];
-	switch (rc) {
-		case 0:
-			break;
-		case EAGAIN:
-			log_msg(LOG_LEVEL_VERBOSE, "%s No frame returned - needs more input data.\n", mod_name);
-			break;
-		case EINVAL:
-			log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
-			break;
-		default:
-                        av_strerror(rc, buf, 1024);
-                        log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d): %s.\n", mod_name, rc, buf);
-			break;
-	}
-}
-
-inline static bool pixfmt_has_420_subsampling(enum AVPixelFormat fmt){
-        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(fmt);
-
-        return fmt_desc && (fmt_desc->log2_chroma_w == 1 && fmt_desc->log2_chroma_h == 1);
-}
-
+void print_decoder_error(const char *mod_name, int rc);
+bool pixfmt_has_420_subsampling(enum AVPixelFormat fmt);
 /// @retval true if all pixel formats have either 420 subsampling or are HW accelerated
-inline static bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt){
-        for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
-                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*it);
-                if (!pixfmt_has_420_subsampling(*it) && !(fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)) {
-                        return false;
-                }
-        }
-
-        return true;
-}
+bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt);
 
 void print_libav_error(int verbosity, const char *msg, int rc);
 void printf_libav_error(int verbosity, int rc, const char *msg, ...) __attribute__((format (printf, 3, 4)));

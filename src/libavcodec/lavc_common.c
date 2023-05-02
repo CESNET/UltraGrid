@@ -312,5 +312,40 @@ void lavd_flush(AVCodecContext *codec_ctx) {
         UNUSED(codec_ctx);
 #endif
 }
+void print_decoder_error(const char *mod_name, int rc) {
+        char buf[1024];
+        switch (rc) {
+                case 0:
+                        break;
+                case EAGAIN:
+                        log_msg(LOG_LEVEL_VERBOSE, "%s No frame returned - needs more input data.\n", mod_name);
+                        break;
+                case EINVAL:
+                        log_msg(LOG_LEVEL_ERROR, "%s Decoder in invalid state!\n", mod_name);
+                        break;
+                default:
+                        av_strerror(rc, buf, 1024);
+                        log_msg(LOG_LEVEL_WARNING, "%s Error while decoding frame (rc == %d): %s.\n", mod_name, rc, buf);
+                        break;
+        }
+}
+
+bool pixfmt_has_420_subsampling(enum AVPixelFormat fmt){
+        const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(fmt);
+
+        return fmt_desc && (fmt_desc->log2_chroma_w == 1 && fmt_desc->log2_chroma_h == 1);
+}
+
+/// @retval true if all pixel formats have either 420 subsampling or are HW accelerated
+bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt){
+        for(const enum AVPixelFormat *it = fmt; *it != AV_PIX_FMT_NONE; it++){
+                const AVPixFmtDescriptor *fmt_desc = av_pix_fmt_desc_get(*it);
+                if (!pixfmt_has_420_subsampling(*it) && !(fmt_desc->flags & AV_PIX_FMT_FLAG_HWACCEL)) {
+                        return false;
+                }
+        }
+
+        return true;
+}
 
 /* vi: set expandtab sw=8: */
