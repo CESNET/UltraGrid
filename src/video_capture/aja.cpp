@@ -1138,8 +1138,7 @@ LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void 
         *count = card_count;
 }
 
-static void supersede_compiler_warning_workaround() ATTRIBUTE(unused);
-static void supersede_compiler_warning_workaround()
+[[maybe_unused]] static void supersede_compiler_warning_workaround()
 {
         UNUSED(__AJA_trigger_link_error_if_incompatible__);
 }

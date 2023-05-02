@@ -225,7 +225,7 @@ inline static bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt
 }
 
 void print_libav_error(int verbosity, const char *msg, int rc);
-void printf_libav_error(int verbosity, int rc, const char *msg, ...) ATTRIBUTE(format (printf, 3, 4));
+void printf_libav_error(int verbosity, int rc, const char *msg, ...) __attribute__((format (printf, 3, 4)));
 bool libav_codec_has_extradata(codec_t codec);
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec);
@@ -235,11 +235,11 @@ struct uv_to_av_pixfmt {
         codec_t uv_codec;
         enum AVPixelFormat av_pixfmt;
 };
-codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) ATTRIBUTE(const);
-enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) ATTRIBUTE(const);
-const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) ATTRIBUTE(const);
+codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) __attribute__((const));
+enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) __attribute__((const));
+const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) __attribute__((const));
 void ug_set_av_logging(void);
-int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) ATTRIBUTE(const);
+int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) __attribute__((const));
 struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt);
 void lavd_flush(AVCodecContext *codec_ctx);
 

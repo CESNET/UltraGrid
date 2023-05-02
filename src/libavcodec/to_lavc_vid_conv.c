@@ -148,7 +148,7 @@ static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, const unsigned char 
 }
 
 static void uyvy_to_vuya(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
-        ATTRIBUTE(unused);
+        __attribute__((unused));
 static void uyvy_to_vuya(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
 {
         for(int y = 0; y < (int) height; ++y) {
@@ -463,7 +463,7 @@ static void v210_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned c
 }
 
 static void v210_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
-        ATTRIBUTE(unused);
+        __attribute__((unused));
 static void v210_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
@@ -491,7 +491,7 @@ static void v210_to_xv30(AVFrame * __restrict out_frame, const unsigned char * _
 }
 
 static void v210_to_y210(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
-        ATTRIBUTE(unused);
+        __attribute__((unused));
 static void v210_to_y210(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 4 == 0);
@@ -524,7 +524,7 @@ static void v210_to_y210(AVFrame * __restrict out_frame, const unsigned char * _
 }
 
 static void y416_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
-        ATTRIBUTE(unused);
+        __attribute__((unused));
 static void y416_to_xv30(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         assert((uintptr_t) in_data % 2 == 0);
@@ -1044,7 +1044,7 @@ static inline void rgb_rgba_to_gbrp(AVFrame * __restrict out_frame, const unsign
         }
 }
 
-static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height) ATTRIBUTE(unused);
+static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height) __attribute__((unused));
 
 static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
@@ -1244,7 +1244,7 @@ static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char
 }
 #endif
 
-static void to_lavc_memcpy_data(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height) ATTRIBUTE(unused); // defined below
+static void to_lavc_memcpy_data(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height) __attribute__((unused)); // defined below
 
 //
 // conversion dispatchers

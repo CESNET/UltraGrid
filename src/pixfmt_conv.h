@@ -85,7 +85,7 @@ extern "C" {
 typedef void decoder_func_t(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift);
 typedef decoder_func_t *decoder_t;
 
-decoder_t        get_decoder_from_to(codec_t in, codec_t out) ATTRIBUTE(const);
+decoder_t        get_decoder_from_to(codec_t in, codec_t out) __attribute__((const));
 decoder_t        get_best_decoder_from(codec_t in, const codec_t *out_candidates, codec_t *out);
 
 decoder_func_t vc_copylineRGBA;

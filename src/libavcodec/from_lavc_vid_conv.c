@@ -114,7 +114,7 @@ static void rgb24_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict fra
 }
 
 static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) ATTRIBUTE(unused);
+                int width, int height, int pitch, const int * __restrict rgb_shift) __attribute__((unused));
 static void memcpy_data(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -2129,7 +2129,7 @@ static void ayuv64_to_v210(char * __restrict dst_buffer, AVFrame * __restrict in
 }
 
 static void vuya_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) ATTRIBUTE(unused);
+                int width, int height, int pitch, const int * __restrict rgb_shift) __attribute__((unused));
 static void vuya_to_uyvy(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -2177,14 +2177,14 @@ static inline void vuyax_to_y416(char * __restrict dst_buffer, AVFrame * __restr
         }
 }
 static void vuya_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) ATTRIBUTE(unused);
+                int width, int height, int pitch, const int * __restrict rgb_shift) __attribute__((unused));
 static void vuya_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift) {
         (void) rgb_shift;
         vuyax_to_y416(dst_buffer, in_frame, width, height, pitch, true);
 }
 static void vuyx_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
-                int width, int height, int pitch, const int * __restrict rgb_shift) ATTRIBUTE(unused);
+                int width, int height, int pitch, const int * __restrict rgb_shift) __attribute__((unused));
 static void vuyx_to_y416(char * __restrict dst_buffer, AVFrame * __restrict in_frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift) {
         (void) rgb_shift;

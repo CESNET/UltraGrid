@@ -53,7 +53,6 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif // defined HAVE_CONFIG_H
-#include "config_msvc.h"
 #include "config_unix.h"
 #include "config_win32.h"
 
@@ -84,16 +83,13 @@ using std::copy;
 using std::cout;
 using std::default_random_engine;
 using std::exception;
-using std::fill;
 using std::for_each;
 using std::make_unique;
-using std::max;
 using std::min;
 using std::stoi;
 using std::stoll;
 using std::string;
 using std::string_view;
-using std::swap;
 using std::unique_ptr;
 using std::uniform_int_distribution;
 using std::vector;

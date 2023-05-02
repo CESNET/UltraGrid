@@ -58,7 +58,7 @@
 #define strncasecmp _strnicmp
 #endif
 
-#define ATTRIBUTE(a)
+#define __attribute__(a)
 
 #ifndef PACKAGE_BUGREPORT
 #define PACKAGE_BUGREPORT "ultragrid-dev@cesnet.cz"

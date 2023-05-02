@@ -268,13 +268,6 @@ void ShowMessage(int level, char *msg);
 
 #define CLOSESOCKET closesocket
 
-#undef ATTRIBUTE
-#ifdef _MSC_VER
-#define ATTRIBUTE(a)
-#else
-#define ATTRIBUTE(a) __attribute__((a))
-#endif
-
 #endif // defined _CONFIG_WIN32_H
 
 #endif // defined __MINGW32__
