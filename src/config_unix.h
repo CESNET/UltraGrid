@@ -166,7 +166,7 @@ typedef int     fd_t;
 #define USERNAMELEN	8
 
 #ifndef HAVE_ALIGNED_ALLOC
-static inline void *aligned_malloc(size_t size, size_t alignment);
+static inline void *aligned_malloc(size_t size, size_t alignment) __attribute__((unused));
 
 static inline void *aligned_malloc(size_t size, size_t alignment)
 {

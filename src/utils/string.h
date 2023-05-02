@@ -39,9 +39,11 @@
 #define UTILS_STRING_H_09AB88E2_E93F_443B_BF01_EA8F6D90B643
 
 #ifdef __cplusplus
+#include <cstddef>
 extern "C" {
 #else
 #include <stdbool.h>
+#include <stddef.h>
 #endif
 
 // functions documented at definition
