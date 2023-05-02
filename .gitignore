@@ -53,4 +53,6 @@ test-driver
 src/dir-stamp
 test/run_tests
 unittest/run_tests
-
+.cache
+compile_commands.json
+compile_flags.txt
