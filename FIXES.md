@@ -17,3 +17,13 @@
 * fixed inability to run portaudio + decklink at the same time in Windows
 * fixed PortAudio default devce selection and capture channel count
 
+#### 1.8.3
+
+* build fixes
+* fixed libavcodec compression of videos with very small resolution
+* [GPUJPEG] fixed parsing of q=/restart= options
+* Reed-Solomon - support for multiple tiles
+* [dshow] fixed indexing of devices in help
+* fixed reflector address overflow + conference participant removal
+* fixed DeckLink incorrectly displaying interlaced video
+
