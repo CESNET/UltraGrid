@@ -129,7 +129,7 @@ public:
 	{
                 if (result == bmdOutputFrameDisplayedLate){
                         frames_late += 1;
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Late frame (total: " << frames_late << ")\n";
+                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME "Late frame (total: " << frames_late << ")\n";
                 } else if (result == bmdOutputFrameDropped){
                         frames_dropped += 1;
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Dropped frame (total: " << frames_dropped << ")\n";
@@ -602,9 +602,9 @@ static int display_decklink_putf(void *state, struct video_frame *frame, long lo
         assert(s->magic == DECKLINK_MAGIC);
 
         uint32_t i;
-        s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i);
+        s->state.at(0).deckLinkOutput->GetBufferedVideoFrameCount(&i); // writes always 0 in low-latency mode
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME "putf - " << i << " frames buffered\n";
-        long long max_frames = DIV_ROUNDED_UP(timeout_ns, (long long)(NS_IN_SEC / frame->fps));
+        long long max_frames = DIV_ROUNDED_UP(timeout_ns, (long long)(NS_IN_SEC / frame->fps)) + 2;
         if (timeout_ns == PUTF_DISCARD || i > max_frames) {
                 if (timeout_ns != PUTF_DISCARD) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Frame dropped!\n");
@@ -1319,6 +1319,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                 // Provide this class as a delegate to the audio and video output interfaces
                 if (!s->low_latency) {
                         s->state.at(i).deckLinkOutput->SetScheduledFrameCompletionCallback(s->state.at(i).delegate);
+                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Scheduled playback is obsolescent and may be removed in future. Please let us know if you are using this mode.\n");
                 }
                 //s->state.at(i).deckLinkOutput->DisableAudioOutput();
         }
