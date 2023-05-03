@@ -1387,12 +1387,13 @@ int udp_fd(socket_udp * s)
         return 0;
 }
 
-static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
+int resolve_addrinfo(const char *addr, uint16_t tx_port,
+                struct sockaddr_storage *dst, socklen_t *len, int *mode)
 {
         struct addrinfo hints, *res0;
         int err;
         memset(&hints, 0, sizeof(hints));
-        switch (s->local->mode) {
+        switch (*mode) {
         case 0:
                 hints.ai_family = AF_INET6;
                 hints.ai_flags = AI_V4MAPPED | AI_ALL;
@@ -1416,13 +1417,21 @@ static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "resolve_address: getaddrinfo: %s: %s\n", addr, ug_gai_strerror(err));
                 return err;
         }
-        memcpy(&s->sock, res0->ai_addr, res0->ai_addrlen);
-        s->sock_len = res0->ai_addrlen;
-        s->local->mode = (res0->ai_family == AF_INET ? IPv4 : IPv6);
-        verbose_msg("Connected IP version %d\n", s->local->mode);
+        memcpy(dst, res0->ai_addr, res0->ai_addrlen);
+        *len = res0->ai_addrlen;
+        *mode = (res0->ai_family == AF_INET ? IPv4 : IPv6);
         freeaddrinfo(res0);
 
         return 0;
+}
+
+static int resolve_address(socket_udp *s, const char *addr, uint16_t tx_port)
+{
+        int ret = resolve_addrinfo(addr, tx_port, &s->sock, &s->sock_len, &s->local->mode);
+        if(ret == 0)
+                verbose_msg("Connected IP version %d\n", s->local->mode);
+
+        return ret;
 }
 
 bool udp_set_recv_buf(socket_udp *s, int size)

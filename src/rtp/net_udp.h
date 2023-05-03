@@ -57,6 +57,9 @@ struct socket_udp_local;
 extern "C" {
 #endif
 
+int resolve_addrinfo(const char *addr, uint16_t tx_port,
+                struct sockaddr_storage *dst, socklen_t *len, int *mode);
+
 bool        udp_addr_valid(const char *addr);
 socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port, int ttl, int force_ip_version, bool multithreaded);
 socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port, uint16_t tx_port, int ttl, int force_ip_version, bool multithreaded);
