@@ -1114,6 +1114,9 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         BMD_CHECK(deckLinkInput->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&deckLinkAttributes), "Could not query device attributes", INIT_ERR());
 
         for (const auto &o : s->device_options) {
+                if (s->keep_device_defaults && !o.second.is_user_set()) {
+                        continue;
+                }
                 if (!o.second.option_write(deckLinkConfiguration, o.first)) {
                         INIT_ERR();
                 }

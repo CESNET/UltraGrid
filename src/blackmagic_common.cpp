@@ -556,7 +556,7 @@ static string fcc_to_string(uint32_t fourcc) {
                 BMDFCC(bmdVideo3DPackingSidebySideHalf), BMDFCC(bmdVideo3DPackingLinebyLine), BMDFCC(bmdVideo3DPackingTopAndBottom), BMDFCC(bmdVideo3DPackingFramePacking), BMDFCC(bmdVideo3DPackingRightOnly), BMDFCC(bmdVideo3DPackingLeftOnly),
                 BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
                 BMDFCC(bmdIdleVideoOutputLastFrame),
-
+                BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
         };
 #undef BMDFCC
         if (auto it = conf_name_map.find(fourcc); it != conf_name_map.end()) {
@@ -632,6 +632,9 @@ int64_t bmd_option::get_int() const {
 }
 bool bmd_option::is_default() {
         return m_type == type_tag::t_default;
+}
+bool bmd_option::is_user_set() const {
+        return m_user_specified;
 }
 /**
  * @note
