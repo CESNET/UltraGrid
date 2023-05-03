@@ -42,8 +42,8 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture_filter.h"
-#include "libavcodec/lavc_common.h"
 #include "lib_common.h"
+#include "libavcodec/utils.h"
 #include "messaging.h"
 #include "module.h"
 

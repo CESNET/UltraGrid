@@ -1497,7 +1497,7 @@ if test $blank_req != no; then
         then
                 CFLAGS="$CFLAGS ${BLANK_CFLAGS}"
                 CXXFLAGS="$CXXFLAGS ${BLANK_CFLAGS}"
-                BLANK_OBJ="src/capture_filter/blank.o src/libavcodec/lavc_common.o" # get_ug_to_av_pixfmt()
+                BLANK_OBJ="src/capture_filter/blank.o src/libavcodec/utils.o" # get_ug_to_av_pixfmt()
                 ADD_MODULE("vcapfilter_blank", "$BLANK_OBJ", "$BLANK_LIBS")
                 blank=yes
         fi
@@ -1712,7 +1712,7 @@ fi
 
 if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
 then
-        LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o"
+        LIBAVCODEC_COMMON="src/libavcodec/lavc_common.o src/libavcodec/utils.o"
         LIBAVCODEC_VIDEO="src/libavcodec/lavc_video.o src/libavcodec/from_lavc_vid_conv.o src/libavcodec/to_lavc_vid_conv.o"
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
         if test $lavc_hwacc_vdpau = yes; then

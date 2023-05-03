@@ -99,61 +99,6 @@ enum AVCodecID get_ug_to_av_codec(codec_t ug_codec)
         return AV_CODEC_ID_NONE;
 }
 
-/// known UG<->AV pixfmt conversions, terminate with NULL (returned by
-/// get_av_to_ug_pixfmts())
-static const struct uv_to_av_pixfmt uv_to_av_pixfmts[] = {
-        {RGBA, AV_PIX_FMT_RGBA},
-        {UYVY, AV_PIX_FMT_UYVY422},
-        {YUYV,AV_PIX_FMT_YUYV422},
-        //R10k,
-        //v210,
-        //DVS10,
-        //DXT1,
-        //DXT1_YUV,
-        //DXT5,
-        {RGB, AV_PIX_FMT_RGB24},
-        // DPX10,
-        //JPEG,
-        //RAW,
-        //H264,
-        //MJPG,
-        //VP8,
-        {BGR, AV_PIX_FMT_BGR24},
-        //J2K,
-        {I420, AV_PIX_FMT_YUVJ420P},
-        {RG48, AV_PIX_FMT_RGB48LE},
-#if XV3X_PRESENT
-        {Y416, AV_PIX_FMT_XV36},
-#endif
-        {0, 0}
-};
-
-codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) {
-        for (unsigned int i = 0; uv_to_av_pixfmts[i].uv_codec != VIDEO_CODEC_NONE; ++i) {
-                if (uv_to_av_pixfmts[i].av_pixfmt == av_pixfmt) {
-                        return uv_to_av_pixfmts[i].uv_codec;
-                }
-        }
-        return VIDEO_CODEC_NONE;
-}
-
-enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) {
-        for (unsigned int i = 0; uv_to_av_pixfmts[i].uv_codec != VIDEO_CODEC_NONE; ++i) {
-                if (uv_to_av_pixfmts[i].uv_codec == ug_codec) {
-                        return uv_to_av_pixfmts[i].av_pixfmt;
-                }
-        }
-        return AV_PIX_FMT_NONE;
-}
-
-/**
- * Returns list all known FFMPEG to UG pixfmt conversions. Terminated with NULL
- * element.
- */
-const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts() {
-        return uv_to_av_pixfmts;
-}
-
 //
 // utility functions
 //

@@ -55,6 +55,8 @@ extern "C" {
 }
 #endif
 
+#include "libavcodec/utils.h"
+
 // component indices to rgb_shift[] (@ref av_to_uv_convert)
 #define R 0
 #define G 1
@@ -178,13 +180,6 @@ bool libav_codec_has_extradata(codec_t codec);
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec);
 enum AVCodecID get_ug_to_av_codec(codec_t ug_codec);
 
-struct uv_to_av_pixfmt {
-        codec_t uv_codec;
-        enum AVPixelFormat av_pixfmt;
-};
-codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) __attribute__((const));
-enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) __attribute__((const));
-const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) __attribute__((const));
 void ug_set_av_logging(void);
 int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) __attribute__((const));
 struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt);
