@@ -84,10 +84,11 @@ struct bmd_option {
                 bool b;
                 int64_t i;
         } m_val{};
-        bool m_user_specified = true;
+        bool m_user_specified = true; ///< ignore errors if set to false
 public:
         bmd_option() {}
         explicit bmd_option(int64_t val, bool user_spec = true);
+        explicit bmd_option(bool val, bool user_spec = true);
         bool is_default();
         void set_keep();
         bool keep();

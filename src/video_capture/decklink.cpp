@@ -166,7 +166,7 @@ struct vidcap_decklink_state {
         bool                    stereo{false}; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         bool                    sync_timecode{false}; /* use timecode when grabbing from multiple inputs */
         map<BMDDeckLinkConfigurationID, bmd_option> device_options = {
-                { bmdDeckLinkConfigCapturePassThroughMode, bmd_option(bmdDeckLinkCapturePassthroughModeDisabled, false) },
+                { bmdDeckLinkConfigCapturePassThroughMode, bmd_option((int64_t) bmdDeckLinkCapturePassthroughModeDisabled, false) },
         };
         int                     audio_consumer_levels{-1}; ///< 0 false, 1 true, -1 default
 
@@ -643,7 +643,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 const char *connection = opt + strlen("connection=");
                 for (auto const & it : connection_string_map) {
                         if (strcasecmp(connection, it.second.c_str()) == 0) {
-                                s->device_options[bmdDeckLinkConfigVideoInputConnection] = bmd_option(it.first);
+                                s->device_options[bmdDeckLinkConfigVideoInputConnection] = bmd_option((int64_t) it.first);
                         }
                 }
                 if (s->device_options.find(bmdDeckLinkConfigVideoInputConnection) == s->device_options.end()) {
@@ -686,8 +686,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 if (strstr(opt, "keep")) {
                         s->device_options.erase(bmdDeckLinkConfigCapturePassThroughMode);
                 } else {
-                        s->device_options[bmdDeckLinkConfigCapturePassThroughMode] = bmd_option(opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
-                                : bmdDeckLinkCapturePassthroughModeCleanSwitch);
+                        s->device_options[bmdDeckLinkConfigCapturePassThroughMode] = bmd_option((int64_t) (opt[0] == 'n' ? bmdDeckLinkCapturePassthroughModeDisabled
+                                : bmdDeckLinkCapturePassthroughModeCleanSwitch));
                 }
         } else if (strstr(opt, "profile=") == opt) {
                 const char *mode = opt + strlen("profile=");

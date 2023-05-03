@@ -548,6 +548,14 @@ static string fcc_to_string(uint32_t fourcc) {
                 BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
                 BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
                 BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
+                BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
+                BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
+                BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
+                BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
+                BMDFCC(bmdVideo3DPackingSidebySideHalf), BMDFCC(bmdVideo3DPackingLinebyLine), BMDFCC(bmdVideo3DPackingTopAndBottom), BMDFCC(bmdVideo3DPackingFramePacking), BMDFCC(bmdVideo3DPackingRightOnly), BMDFCC(bmdVideo3DPackingLeftOnly),
+                BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
+                BMDFCC(bmdIdleVideoOutputLastFrame),
+
         };
 #undef BMDFCC
         if (auto it = conf_name_map.find(fourcc); it != conf_name_map.end()) {
@@ -559,6 +567,10 @@ static string fcc_to_string(uint32_t fourcc) {
         } fcc{};
         fcc.i = htonl(fourcc);
         return string("'") + fcc.c + "'";
+}
+
+bmd_option::bmd_option(bool val, bool user_spec) : m_type(type_tag::t_flag), m_user_specified(user_spec) {
+        m_val.b = val;
 }
 
 bmd_option::bmd_option(int64_t val, bool user_spec) : m_type(type_tag::t_int), m_user_specified(user_spec) {

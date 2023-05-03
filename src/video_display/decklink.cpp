@@ -348,7 +348,9 @@ struct state_decklink {
         uint32_t            profile_req = BMD_OPT_DEFAULT; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         char                sdi_dual_channel_level = BMD_OPT_DEFAULT; // 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
-        BMDVideoOutputConversionMode conversion_mode{};
+        map<BMDDeckLinkConfigurationID, bmd_option> device_options = {
+                { bmdDeckLinkConfigVideoOutputIdleOperation, bmd_option{(int64_t) bmdIdleVideoOutputLastFrame, false} }
+        };
         HDRMetadata         requested_hdr_mode{};
 
         buffer_pool_t       buffer_pool;
@@ -836,8 +838,10 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                                         "Quad-link SDI Square Division Quad Split mode");
                 }
 
-                EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat,
-                                        IF_NOT_NULL_ELSE(s->conversion_mode, static_cast<BMDVideoOutputConversionMode>(bmdNoVideoOutputConversion)), supportedFlags, nullptr, &supported), "DoesSupportVideoMode");
+                BMDVideoOutputConversionMode conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoOutputConversionMode) != s->device_options.end() ?
+                        s->device_options.at(bmdDeckLinkConfigVideoOutputConversionMode).get_int() : (BMDVideoOutputConversionMode) bmdNoVideoOutputConversion;
+                EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, conversion_mode,
+                                        supportedFlags, nullptr, &supported), "DoesSupportVideoMode");
                 if (!supported) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested parameters "
                                         "combination not supported - %d * %dx%d@%f, timecode %s.\n",
@@ -957,7 +961,6 @@ static auto parse_devices(const char *devices_str, vector<string> *cardId) {
 
 static bool settings_init(struct state_decklink *s, const char *fmt,
                 vector<string> *cardId,
-                BMDVideo3DPackingFormat *HDMI3DPacking,
                 int *audio_consumer_levels,
                 bmd_option *use1080psf) {
         if (strlen(fmt) == 0) {
@@ -1023,17 +1026,17 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
                         char *packing = ptr + strlen("HDMI3DPacking=");
                         if (strcasecmp(packing, "SideBySideHalf") == 0) {
-                                *HDMI3DPacking = bmdVideo3DPackingSidebySideHalf;
+                                s->device_options[bmdDeckLinkConfigHDMI3DPackingFormat].set_int(bmdVideo3DPackingSidebySideHalf);
                         } else if (strcasecmp(packing, "LineByLine") == 0) {
-                                *HDMI3DPacking = bmdVideo3DPackingLinebyLine;
+                                s->device_options[bmdDeckLinkConfigHDMI3DPackingFormat].set_int(bmdVideo3DPackingLinebyLine);
                         } else if (strcasecmp(packing, "TopAndBottom") == 0) {
-                                *HDMI3DPacking = bmdVideo3DPackingTopAndBottom;
+                                s->device_options[bmdDeckLinkConfigHDMI3DPackingFormat].set_int(bmdVideo3DPackingTopAndBottom);
                         } else if (strcasecmp(packing, "FramePacking") == 0) {
-                                *HDMI3DPacking = bmdVideo3DPackingFramePacking;
+                                s->device_options[bmdDeckLinkConfigHDMI3DPackingFormat].set_int(bmdVideo3DPackingFramePacking);
                         } else if (strcasecmp(packing, "LeftOnly") == 0) {
-                                *HDMI3DPacking = bmdVideo3DPackingRightOnly;
+                                s->device_options[bmdDeckLinkConfigHDMI3DPackingFormat].set_int(bmdVideo3DPackingRightOnly);
                         } else if (strcasecmp(packing, "RightOnly") == 0) {
-                                *HDMI3DPacking = bmdVideo3DPackingLeftOnly;
+                                s->device_options[bmdDeckLinkConfigHDMI3DPackingFormat].set_int(bmdVideo3DPackingLeftOnly);
                         } else {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown HDMI 3D packing %s.\n", packing);
                                 return false;
@@ -1046,7 +1049,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         }
                 } else if (strncasecmp(ptr, "conversion=",
                                         strlen("conversion=")) == 0) {
-                        s->conversion_mode = (BMDVideoOutputConversionMode) bmd_read_fourcc(ptr + strlen("conversion="));
+                        s->device_options[bmdDeckLinkConfigVideoOutputConversionMode].parse_int(strchr(ptr, '=') + 1);
                 } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
                         if (!use1080psf->parse_flag(strchr(ptr, '=') + 1)) {
                                 return false;
@@ -1099,7 +1102,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
-        BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) BMD_OPT_DEFAULT;
         int audio_consumer_levels = -1;
         bmd_option use1080psf;
 
@@ -1115,7 +1117,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
         auto *s = new state_decklink();
         s->audio_drift_fixer.set_root(get_root_module(parent));
 
-        if (!settings_init(s, fmt, &cardId, &HDMI3DPacking, &audio_consumer_levels, &use1080psf)) {
+        if (!settings_init(s, fmt, &cardId, &audio_consumer_levels, &use1080psf)) {
                 delete s;
                 return NULL;
         }
@@ -1233,7 +1235,11 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         goto error;
                 }
 
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoOutputConversionMode, s->conversion_mode, goto error);
+                for (const auto &o : s->device_options) {
+                        if (!o.second.option_write(deckLinkConfiguration, o.first)) {
+                                goto error;
+                        }
+                }
 
                 if (!s->keep_device_defaults && !use1080psf.keep()) {
                         if (use1080psf.is_default()) {
@@ -1246,14 +1252,13 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                 }
 
-                BMD_CONFIG_SET(Flag, bmdDeckLinkConfigLowLatencyVideoOutput, s->low_latency, goto error);
-
-                if (!s->keep_device_defaults && s->low_latency) {
-                        BMD_CONFIG_SET(Flag, bmdDeckLinkConfigFieldFlickerRemoval, false, BMD_NO_ACTION);
+                if (!bmd_option(s->low_latency).option_write(deckLinkConfiguration, bmdDeckLinkConfigLowLatencyVideoOutput)) {
+                        goto error;
                 }
 
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigHDMI3DPackingFormat, HDMI3DPacking, goto error);
-                BMD_CONFIG_SET(Int, bmdDeckLinkConfigVideoOutputIdleOperation, bmdIdleVideoOutputLastFrame, BMD_NO_ACTION);
+                if (!s->keep_device_defaults && s->low_latency) {
+                        bmd_option(false).option_write(deckLinkConfiguration, bmdDeckLinkConfigFieldFlickerRemoval);
+                }
 
                 if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
                         if (deckLinkAttributes) {
