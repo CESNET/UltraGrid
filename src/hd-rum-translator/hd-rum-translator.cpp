@@ -932,14 +932,15 @@ int main(int argc, char **argv)
                             }
                             const double participant_timeout = 10.0;
                             if(tv_diff(t, it->last_recv) > participant_timeout){
-                                    std::swap(*it, participants.back());
-                                    participants.pop_back();
                                     log_msg(LOG_LEVEL_NOTICE, "Removing participant\n");
                                     std::string msg = "delete-port ";
                                     auto addr = reinterpret_cast<struct sockaddr *>(&it->addr);
                                     char addr_str[128];
                                     get_sockaddr_addr_str(addr, addr_str, sizeof(addr_str));
                                     msg += get_replica_mod_name(addr_str, get_sockaddr_addr_port(addr));
+
+                                    std::swap(*it, participants.back());
+                                    participants.pop_back();
 
                                     struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
                                     strncpy(m->text, msg.c_str(), sizeof(m->text) - 1);
