@@ -841,7 +841,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 }
 
                 BMDVideoOutputConversionMode conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoOutputConversionMode) != s->device_options.end() ?
-                        s->device_options.at(bmdDeckLinkConfigVideoOutputConversionMode).get_int() : (BMDVideoOutputConversionMode) bmdNoVideoOutputConversion;
+                        (BMDVideoOutputConversionMode) s->device_options.at(bmdDeckLinkConfigVideoOutputConversionMode).get_int() : (BMDVideoOutputConversionMode) bmdNoVideoOutputConversion;
                 EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, conversion_mode,
                                         supportedFlags, nullptr, &supported), "DoesSupportVideoMode");
                 if (!supported) {

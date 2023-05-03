@@ -1121,7 +1121,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                         INIT_ERR();
                 }
         }
-        BMDVideoInputConversionMode supported_conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoInputConversionMode) != s->device_options.end() ? s->device_options.at(bmdDeckLinkConfigVideoInputConversionMode).get_int() : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
+        BMDVideoInputConversionMode supported_conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoInputConversionMode) != s->device_options.end() ? (BMDVideoInputConversionMode) s->device_options.at(bmdDeckLinkConfigVideoInputConversionMode).get_int() : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
         if (s->stereo) {
                 CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSDIInput3DPayloadOverride, true), "Unable to set 3D payload override");
         }
@@ -1182,7 +1182,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                         BMDPixelFormat pf = it->second;
                         BMD_BOOL supported = 0;
                         BMDVideoConnection connection = s->device_options.find(bmdDeckLinkConfigVideoInputConnection) != s->device_options.end()
-                                ? s->device_options.at(bmdDeckLinkConfigVideoInputConnection).get_int() : (BMDVideoConnection) bmdVideoConnectionUnspecified;
+                                ? (BMDVideoConnection) s->device_options.at(bmdDeckLinkConfigVideoInputConnection).get_int() : (BMDVideoConnection) bmdVideoConnectionUnspecified;
                         BMD_CHECK(deckLinkInput->DoesSupportVideoMode(connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
                         if (supported) {
                                 break;
@@ -1245,7 +1245,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
 
         BMD_BOOL supported = 0;
         BMDVideoConnection connection = s->device_options.find(bmdDeckLinkConfigVideoInputConnection) != s->device_options.end()
-                ? s->device_options.at(bmdDeckLinkConfigVideoInputConnection).get_int() : (BMDVideoConnection) bmdVideoConnectionUnspecified;
+                ? (BMDVideoConnection) s->device_options.at(bmdDeckLinkConfigVideoInputConnection).get_int() : (BMDVideoConnection) bmdVideoConnectionUnspecified;
         BMD_CHECK(deckLinkInput->DoesSupportVideoMode(connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
 
         if (!supported) {
