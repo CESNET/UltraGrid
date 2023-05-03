@@ -547,6 +547,7 @@ static string fcc_to_string(uint32_t fourcc) {
                 BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
                 BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
                 BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
+                BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
         };
 #undef BMDFCC
         if (auto it = conf_name_map.find(fourcc); it != conf_name_map.end()) {

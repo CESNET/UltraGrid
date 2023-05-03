@@ -173,7 +173,6 @@ struct vidcap_decklink_state {
         bool                    detect_format = false;
         unsigned int            requested_bit_depth = 0; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
         bool                    p_not_i = false;
-        int                     use1080psf = BMD_OPT_KEEP; // capture PsF instead of progressive
 
         uint32_t                profile{}; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         bool                    nosig_send = false; ///< send video even when no signal detected
@@ -682,10 +681,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
         } else if (strcasecmp(opt, "p_not_i") == 0) {
                 s->p_not_i = true;
         } else if (strstr(opt, "Use1080PsF") != nullptr) {
-                s->use1080psf = 1;
-                if (strcasecmp(opt + strlen("Use1080PsF"), "=false") == 0) {
-                        s->use1080psf = 0;
-                }
+                s->device_options[bmdDeckLinkConfigCapture1080pAsPsF].set_flag(strchr(opt, '=') == nullptr || strcasecmp(strchr(opt, '='), "false") != 0);
         } else if (strcasecmp(opt, "passthrough") == 0 || strcasecmp(opt, "nopassthrough") == 0) {
                 if (strstr(opt, "keep")) {
                         s->device_options.erase(bmdDeckLinkConfigCapturePassThroughMode);
@@ -1124,11 +1120,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         }
         BMDVideoInputConversionMode supported_conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoInputConversionMode) != s->device_options.end() ? s->device_options.at(bmdDeckLinkConfigVideoInputConversionMode).get_int() : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
         if (s->stereo) {
-                BMD_CONFIG_SET(Flag, bmdDeckLinkConfigSDIInput3DPayloadOverride, true, BMD_NO_ACTION);
-        }
-
-        if (s->use1080psf != BMD_OPT_KEEP) {
-                CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigCapture1080pAsPsF, s->use1080psf != 0), "Unable to set output as PsF");
+                CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSDIInput3DPayloadOverride, true), "Unable to set 3D payload override");
         }
 
         // set Callback which returns frames
