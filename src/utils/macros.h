@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2022 CESNET z.s.p.o.
+ * Copyright (c) 2014-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,12 @@
 
 #ifndef UTILS_MACROS_H_1982D373_8862_4453_ADFB_33AECC853E48
 #define UTILS_MACROS_H_1982D373_8862_4453_ADFB_33AECC853E48
+
+#ifdef __cplusplus
+#include <cctype>
+#else
+#include <ctype.h>
+#endif
 
 #define MERGE(a,b)  a##b
 #define STRINGIFY(A) #A
@@ -77,6 +83,8 @@
 #else
 #define to_fourcc(a,b,c,d)     (((uint32_t)(a)) | ((uint32_t)(b)<<8U) | ((uint32_t)(c)<<16U) | ((uint32_t)(d)<<24U))
 #endif
+#define IS_FCC(val) (isprint((val) >> 24U & 0xFFU) && isprint((val) >> 16U & 0xFFU) && isprint((val) >> 8U & 0xFFU) && isprint((val) & 0xFFU))
+
 
 /* Use following macro only if there are no dependencies between loop
  * iterations (GCC), perhals the same holds also for clang. */

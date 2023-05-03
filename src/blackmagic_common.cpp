@@ -54,6 +54,7 @@
 #include "host.h"
 #include "DeckLinkAPIVersion.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"
 #include "utils/windows.h"
 #include "utils/worker.h"
 
