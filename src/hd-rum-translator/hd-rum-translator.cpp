@@ -86,7 +86,7 @@ struct item;
 #define REPLICA_MAGIC 0xd2ff3323
 
 static char *get_replica_mod_name(const char *addr, uint16_t tx_port){
-        const size_t len = strlen(addr) + 2 /* [ ] for IPv6 addr */ + 5 /* port */ + 1 /* '\0' */;
+        const size_t len = strlen(addr) + 2 /* [ ] for IPv6 addr */ + 6 /* port (including ':') */ + 1 /* '\0' */;
         char *name = (char *) malloc(len);
         bool is_ipv6 = strchr(addr, ':') != NULL;
         bool add_bracket = is_ipv6 && addr[0] != '[';
