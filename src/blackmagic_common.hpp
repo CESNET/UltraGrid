@@ -89,10 +89,10 @@ public:
         bmd_option() {}
         explicit bmd_option(int64_t val, bool user_spec = true);
         explicit bmd_option(bool val, bool user_spec = true);
-        bool is_default();
+        bool is_default() const;
         bool is_user_set() const;
         void set_keep();
-        bool keep();
+        bool keep() const;
         bool get_flag() const;
         int64_t get_int() const;
         bool parse_flag(const char *);

@@ -616,7 +616,7 @@ void bmd_option::set_int(uint32_t val_) {
 void bmd_option::set_keep() {
         m_type = type_tag::t_keep;
 }
-bool bmd_option::keep() {
+bool bmd_option::keep() const {
         return m_type == type_tag::t_keep;
 }
 bool bmd_option::get_flag() const {
@@ -633,7 +633,7 @@ int64_t bmd_option::get_int() const {
         }
         return m_val.i;
 }
-bool bmd_option::is_default() {
+bool bmd_option::is_default() const {
         return m_type == type_tag::t_default;
 }
 bool bmd_option::is_user_set() const {
