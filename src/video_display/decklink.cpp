@@ -345,7 +345,6 @@ struct state_decklink {
         BMDPixelFormat      pixelFormat{};
 
         bmd_option          profile_req;
-        char                sdi_dual_channel_level = BMD_OPT_DEFAULT; // 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
         map<BMDDeckLinkConfigurationID, bmd_option> device_options = {
                 { bmdDeckLinkConfigVideoOutputIdleOperation, bmd_option{(int64_t) bmdIdleVideoOutputLastFrame, false} },
@@ -1011,9 +1010,9 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strcasecmp(ptr, "half-duplex") == 0) {
                         s->profile_req.set_int(bmdDuplexHalf);
                 } else if (strcasecmp(ptr, "LevelA") == 0) {
-                        s->sdi_dual_channel_level = 'A';
+                        s->device_options[bmdDeckLinkConfigSMPTELevelAOutput].set_flag(true);
                 } else if (strcasecmp(ptr, "LevelB") == 0) {
-                        s->sdi_dual_channel_level = 'B';
+                        s->device_options[bmdDeckLinkConfigSMPTELevelAOutput].set_flag(false);
                 } else if (strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
                         char *packing = ptr + strlen("HDMI3DPacking=");
                         if (strcasecmp(packing, "SideBySideHalf") == 0) {
@@ -1231,23 +1230,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         }
                         if (!o.second.option_write(deckLinkConfiguration, o.first)) {
                                 goto error;
-                        }
-                }
-
-                if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
-                        if (deckLinkAttributes) {
-                                BMD_BOOL supports_level_a;
-                                if (deckLinkAttributes->GetFlag(BMDDeckLinkSupportsSMPTELevelAOutput, &supports_level_a) != S_OK) {
-                                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Could figure out if device supports Level A 3G-SDI.\n");
-                                } else {
-                                        if (s->sdi_dual_channel_level == 'A' && supports_level_a == BMD_FALSE) {
-                                                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Device does not support Level A 3G-SDI!\n");
-                                        }
-                                }
-                        }
-                        HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSMPTELevelAOutput, s->sdi_dual_channel_level == 'A');
-                        if(res != S_OK) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable set output 3G-SDI level.\n");
                         }
                 }
 

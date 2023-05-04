@@ -551,6 +551,7 @@ static string fcc_to_string(uint32_t fourcc) {
                 BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
                 BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
                 BMDFCC(bmdDeckLinkConfigSDIOutputLinkConfiguration),
+                BMDFCC(bmdDeckLinkConfigSMPTELevelAOutput),
                 BMDFCC(bmdDeckLinkConfigVideoInputConnection),
                 BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
                 BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
