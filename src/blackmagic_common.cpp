@@ -692,6 +692,11 @@ bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMD
                 LOG(m_user_specified ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING ) << MOD_NAME << "Unable to set key " << fcc_to_string(opt) << ": " << bmd_hresult_to_string(res) << "\n";
                 return !m_user_specified;
         }
+        if (opt == bmdDeckLinkConfigVideoInputConnection && get_connection_string_map().find((BMDVideoConnection) get_int()) != get_connection_string_map().end()) {
+                // connections are not FourCCs but just integers from 0 (or 1)
+                LOG(LOG_LEVEL_INFO) << MOD_NAME << fcc_to_string(opt) << " set to: " << get_connection_string_map().at((BMDVideoConnection) get_int()) << "\n";
+                return true;
+        }
         LOG(LOG_LEVEL_INFO) << MOD_NAME << fcc_to_string(opt) << " set to: " << *this << "\n";
         return true;
 }
@@ -807,6 +812,18 @@ void print_bmd_device_profiles(const char *line_prefix)
                 color_printf("%s" TBOLD("%.4s") " - %s (%s)\n", line_prefix, (const char *) &fcc, p.second.first, p.second.second);
         }
         color_printf("%s" TBOLD("keep") " - keep device setting\n", line_prefix);
+}
+
+const map<BMDVideoConnection, string> &get_connection_string_map() {
+        static const map<BMDVideoConnection, string> m = {
+                { bmdVideoConnectionSDI, "SDI" },
+                { bmdVideoConnectionHDMI, "HDMI"},
+                { bmdVideoConnectionOpticalSDI, "OpticalSDI"},
+                { bmdVideoConnectionComponent, "Component"},
+                { bmdVideoConnectionComposite, "Composite"},
+                { bmdVideoConnectionSVideo, "SVideo"}
+        };
+        return m;
 }
 
 ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"

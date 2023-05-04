@@ -428,15 +428,6 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
 	return S_OK;
 }
 
-static map<BMDVideoConnection, string> connection_string_map =  {
-        { bmdVideoConnectionSDI, "SDI" },
-        { bmdVideoConnectionHDMI, "HDMI"},
-        { bmdVideoConnectionOpticalSDI, "OpticalSDI"},
-        { bmdVideoConnectionComponent, "Component"},
-        { bmdVideoConnectionComposite, "Composite"},
-        { bmdVideoConnectionSVideo, "SVideo"}
-};
-
 static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
 
         // ** List the video input display modes supported by the card
@@ -454,7 +445,7 @@ static void vidcap_decklink_print_card_info(IDeckLink *deckLink) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Could not get connections.\n";
         } else {
                 cout << "\n\tConnection can be one of following:\n";
-                for (auto const &it : connection_string_map) {
+                for (auto const &it : get_connection_string_map()) {
                         if (connections & it.first) {
                                 col() << "\t\t" << SBOLD(it.second) << "\n";
                         }
@@ -641,7 +632,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->sync_timecode = TRUE;
         } else if(strncasecmp(opt, "connection=", strlen("connection=")) == 0) {
                 const char *connection = opt + strlen("connection=");
-                for (auto const & it : connection_string_map) {
+                for (auto const & it : get_connection_string_map()) {
                         if (strcasecmp(connection, it.second.c_str()) == 0) {
                                 s->device_options[bmdDeckLinkConfigVideoInputConnection] = bmd_option((int64_t) it.first);
                         }
@@ -819,7 +810,7 @@ static void vidcap_decklink_probe(device_info **available_cards, int *card_count
 
 
                 list<string> connections;
-                for (auto const &it : connection_string_map) {
+                for (auto const &it : get_connection_string_map()) {
                         if (connections_bitmap & it.first) {
                                 connections.push_back(it.second);
                         }
