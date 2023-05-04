@@ -345,7 +345,7 @@ struct state_decklink {
         BMDPixelFormat      pixelFormat{};
 
         bmd_option          profile_req;
-        bool                quad_square_division_split = true;
+        bmd_option          quad_square_division_split{true, false};
         map<BMDDeckLinkConfigurationID, bmd_option> device_options = {
                 { bmdDeckLinkConfigVideoOutputIdleOperation, bmd_option{(int64_t) bmdIdleVideoOutputLastFrame, false} },
                 { bmdDeckLinkConfigOutput1080pAsPsF, bmd_option{false, false}},
@@ -809,10 +809,8 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         supportedFlags = (BMDSupportedVideoModeFlags) (supportedFlags | bmdSupportedVideoModeDualStream3D);
                 }
 
-                BMD_BOOL subsampling_444 = codec_is_a_rgb(desc.color_spec); // we don't have pixfmt for 444 YCbCr
-                CALL_AND_CHECK(s->state.at(i).deckLinkConfiguration->SetFlag(bmdDeckLinkConfig444SDIVideoOutput, subsampling_444),
-                                "SDI subsampling");
-
+                bmd_option subsampling_444(codec_is_a_rgb(desc.color_spec), false); // we don't have pixfmt for 444 YCbCr
+                subsampling_444.option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfig444SDIVideoOutput);
 
                 if (!s->keep_device_defaults && s->device_options.find(bmdDeckLinkConfigSDIOutputLinkConfiguration) == s->device_options.end()) {
                         int64_t link = desc.width == 7680 ? bmdLinkConfigurationQuadLink : bmdLinkConfigurationSingleLink;
@@ -830,8 +828,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 BMD_BOOL quad_link_supp;
                 if (s->state.at(i).deckLinkAttributes != nullptr && s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) == S_OK && quad_link_supp == BMD_TRUE) {
-                        CALL_AND_CHECK(s->state.at(i).deckLinkConfiguration->SetFlag(bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, s->quad_square_division_split),
-                                        "Quad-link SDI Square Division Quad Split mode");
+                        s->quad_square_division_split.option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit);
                 }
 
                 BMDVideoOutputConversionMode conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoOutputConversionMode) != s->device_options.end() ?
@@ -1050,7 +1047,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strcasecmp(ptr, "low-latency") == 0 || strcasecmp(ptr, "no-low-latency") == 0) {
                         s->low_latency = strcasecmp(ptr, "low-latency") == 0;
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
-                        s->quad_square_division_split = strcasecmp(ptr, "quad-square") == 0;
+                        s->quad_square_division_split.set_flag(strcasecmp(ptr, "quad-square") == 0);
                 } else if (strncasecmp(ptr, "hdr", strlen("hdr")) == 0) {
                         s->requested_hdr_mode.EOTF = static_cast<int64_t>(HDR_EOTF::HDR); // default
                         if (strncasecmp(ptr, "hdr=", strlen("hdr=")) == 0) {
