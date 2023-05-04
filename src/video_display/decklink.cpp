@@ -344,7 +344,6 @@ struct state_decklink {
 
         BMDPixelFormat      pixelFormat{};
 
-        uint32_t            link_req = BMD_OPT_DEFAULT;
         uint32_t            profile_req = BMD_OPT_DEFAULT; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
         char                sdi_dual_channel_level = BMD_OPT_DEFAULT; // 'A' - level A, 'B' - level B
         bool                quad_square_division_split = true;
@@ -815,19 +814,14 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 CALL_AND_CHECK(s->state.at(i).deckLinkConfiguration->SetFlag(bmdDeckLinkConfig444SDIVideoOutput, subsampling_444),
                                 "SDI subsampling");
 
-                uint32_t link = s->link_req;
 
-                if (!s->keep_device_defaults && s->link_req == BMD_OPT_DEFAULT) {
-                        if (desc.width != 7680) {
-                                link = bmdLinkConfigurationSingleLink;
-                                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting single link by default.\n";
-                        } else {
-                                link = bmdLinkConfigurationQuadLink;
-                                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Setting quad-link for 8K by default.\n";
-                        }
+                if (!s->keep_device_defaults && s->device_options.find(bmdDeckLinkConfigSDIOutputLinkConfiguration) == s->device_options.end()) {
+                        int64_t link = desc.width == 7680 ? bmdLinkConfigurationQuadLink : bmdLinkConfigurationSingleLink;
+                        bmd_option(link).option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigSDIOutputLinkConfiguration);
                 }
-                CALL_AND_CHECK(s->state.at(i).deckLinkConfiguration->SetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, link), "Unable set output SDI link mode");
 
+                int64_t link = 0;
+                s->state.at(i).deckLinkConfiguration->GetInt(bmdDeckLinkConfigSDIOutputLinkConfiguration, &link);
                 if (!s->keep_device_defaults && s->profile_req == BMD_OPT_DEFAULT && link == bmdLinkConfigurationQuadLink) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME "Quad-link detected - setting 1-subdevice-1/2-duplex profile automatically, use 'profile=keep' to override.\n";
                         decklink_set_profile(s->state.at(i).deckLink, bmdProfileOneSubDeviceHalfDuplex, s->stereo);
@@ -1005,11 +999,11 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strcasecmp(ptr, "timecode") == 0) {
                         s->emit_timecode = true;
                 } else if (strcasecmp(ptr, "single-link") == 0) {
-                        s->link_req = bmdLinkConfigurationSingleLink;
+                        s->device_options[bmdDeckLinkConfigSDIOutputLinkConfiguration].set_int(bmdLinkConfigurationSingleLink);
                 } else if (strcasecmp(ptr, "dual-link") == 0) {
-                        s->link_req = bmdLinkConfigurationDualLink;
+                        s->device_options[bmdDeckLinkConfigSDIOutputLinkConfiguration].set_int(bmdLinkConfigurationDualLink);
                 } else if (strcasecmp(ptr, "quad-link") == 0) {
-                        s->link_req = bmdLinkConfigurationQuadLink;
+                        s->device_options[bmdDeckLinkConfigSDIOutputLinkConfiguration].set_int(bmdLinkConfigurationQuadLink);
                 } else if (strstr(ptr, "profile=") == ptr) {
                         ptr += strlen("profile=");
                         if (strcmp(ptr, "keep") == 0) {

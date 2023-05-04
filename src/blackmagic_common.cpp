@@ -543,20 +543,22 @@ std::ostream &operator<<(std::ostream &output, REFIID iid)
 static string fcc_to_string(uint32_t fourcc) {
 #define BMDFCC(x) {x,#x}
         static const unordered_map<uint32_t, const char *> conf_name_map = {
-                BMDFCC(bmdDeckLinkConfigVideoInputConnection),
-                BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
-                BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
+                BMDFCC(bmdVideo3DPackingSidebySideHalf), BMDFCC(bmdVideo3DPackingLinebyLine), BMDFCC(bmdVideo3DPackingTopAndBottom), BMDFCC(bmdVideo3DPackingFramePacking), BMDFCC(bmdVideo3DPackingRightOnly), BMDFCC(bmdVideo3DPackingLeftOnly),
                 BMDFCC(bmdDeckLinkCapturePassthroughModeDisabled),
                 BMDFCC(bmdDeckLinkCapturePassthroughModeCleanSwitch),
                 BMDFCC(bmdDeckLinkConfigCapture1080pAsPsF),
-                BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
-                BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
+                BMDFCC(bmdDeckLinkConfigCapturePassThroughMode),
                 BMDFCC(bmdDeckLinkConfigFieldFlickerRemoval),
+                BMDFCC(bmdDeckLinkConfigLowLatencyVideoOutput),
                 BMDFCC(bmdDeckLinkConfigHDMI3DPackingFormat),
-                BMDFCC(bmdVideo3DPackingSidebySideHalf), BMDFCC(bmdVideo3DPackingLinebyLine), BMDFCC(bmdVideo3DPackingTopAndBottom), BMDFCC(bmdVideo3DPackingFramePacking), BMDFCC(bmdVideo3DPackingRightOnly), BMDFCC(bmdVideo3DPackingLeftOnly),
+                BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
+                BMDFCC(bmdDeckLinkConfigSDIOutputLinkConfiguration),
+                BMDFCC(bmdDeckLinkConfigVideoInputConnection),
+                BMDFCC(bmdDeckLinkConfigVideoInputConversionMode),
+                BMDFCC(bmdDeckLinkConfigVideoOutputConversionMode),
                 BMDFCC(bmdDeckLinkConfigVideoOutputIdleOperation),
                 BMDFCC(bmdIdleVideoOutputLastFrame),
-                BMDFCC(bmdDeckLinkConfigOutput1080pAsPsF),
+                BMDFCC(bmdLinkConfigurationSingleLink), BMDFCC(bmdLinkConfigurationDualLink), BMDFCC(bmdLinkConfigurationQuadLink),
         };
 #undef BMDFCC
         if (auto it = conf_name_map.find(fourcc); it != conf_name_map.end()) {
