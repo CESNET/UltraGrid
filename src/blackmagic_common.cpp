@@ -370,8 +370,8 @@ class ProfileCallback : public IDeckLinkProfileCallback
 /**
  * @param a value from BMDProfileID or bmdDuplexHalf (maximize number of IOs)
  */
-bool decklink_set_profile(IDeckLink *deckLink, uint32_t profileID, bool stereo) {
-        if (profileID == BMD_OPT_DEFAULT && !stereo) {
+bool decklink_set_profile(IDeckLink *deckLink, bmd_option req_profile, bool stereo) {
+        if (req_profile.is_default() && !stereo) {
                 return true;
         }
 
@@ -383,14 +383,12 @@ bool decklink_set_profile(IDeckLink *deckLink, uint32_t profileID, bool stereo) 
         ProfileCallback *p = nullptr;
 
         if (HRESULT res = deckLink->QueryInterface(IID_IDeckLinkProfileManager, (void**)&manager)) {
-                bool error = !(profileID == BMD_OPT_DEFAULT && res == E_NOINTERFACE);
+                bool error = !(req_profile.is_default() && res == E_NOINTERFACE);
                 LOG(error ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE) << MOD_NAME << "Cannot set duplex - query profile manager: " << bmd_hresult_to_string(res) << "\n";
                 return error;
         }
 
-        if (profileID == BMD_OPT_DEFAULT) {
-                profileID = bmdProfileOneSubDeviceFullDuplex;
-        }
+        uint32_t profileID = req_profile.is_default() ? (int64_t) bmdProfileOneSubDeviceFullDuplex : req_profile.get_int();
 
         EXIT_IF_FAILED(manager->GetProfiles(&it), "Cannot set duplex - get profiles");
 

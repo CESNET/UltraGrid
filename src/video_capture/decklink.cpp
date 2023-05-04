@@ -174,7 +174,7 @@ struct vidcap_decklink_state {
         unsigned int            requested_bit_depth = 0; // 0, bmdDetectedVideoInput8BitDepth, bmdDetectedVideoInput10BitDepth or bmdDetectedVideoInput12BitDepth
         bool                    p_not_i = false;
 
-        uint32_t                profile{}; // BMD_OPT_DEFAULT, BMD_OPT_KEEP, bmdDuplexHalf or one of BMDProfileID
+        bmd_option              profile;
         bool                    nosig_send = false; ///< send video even when no signal detected
         bool                    keep_device_defaults = false;
 
@@ -690,16 +690,11 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                                 : bmdDeckLinkCapturePassthroughModeCleanSwitch));
                 }
         } else if (strstr(opt, "profile=") == opt) {
-                const char *mode = opt + strlen("profile=");
-                if (strcmp(mode, "keep") == 0) {
-                        s->profile = BMD_OPT_KEEP;
-                } else {
-                        s->profile = (BMDProfileID) bmd_read_fourcc(mode);
-                }
+                s->profile.parse_int(strchr(opt, '=') + 1);
         } else if (strstr(opt, "full-duplex") == opt) {
-                s->profile = bmdProfileOneSubDeviceFullDuplex;
+                s->profile.set_int(bmdProfileOneSubDeviceFullDuplex);
         } else if (strstr(opt, "half-duplex") == opt) {
-                s->profile = bmdDuplexHalf;
+                s->profile.set_int(bmdDuplexHalf);
         } else if (strcasecmp(opt, "nosig-send") == 0) {
                 s->nosig_send = true;
         } else if (strstr(opt, "keep-settings") == opt) {
@@ -1100,7 +1095,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                 LOG(LOG_LEVEL_INFO) << MOD_NAME "Using device " << deviceName << "\n";
         }
 
-        if (!s->keep_device_defaults && s->profile != BMD_OPT_KEEP) {
+        if (!s->keep_device_defaults && s->profile.keep()) {
                 decklink_set_profile(deckLink, s->profile, s->stereo);
         }
 
