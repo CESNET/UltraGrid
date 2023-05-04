@@ -670,6 +670,10 @@ bool bmd_option::parse_flag(const char *val)
 }
 
 bool bmd_option::parse_int(const char *val) {
+        if (strcasecmp(val, "keep") == 0) {
+                set_keep();
+                return true;
+        }
         set_int(bmd_read_fourcc(val));
         return true;
 }
