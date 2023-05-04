@@ -104,11 +104,6 @@ public:
 
 std::ostream &operator<<(std::ostream &output, const bmd_option &b);
 
-#define BMD_OPT_DEFAULT 0 ///< default is set to 0 to allow zero-initialization
-// below are special values not known to BMD that must be interpreted by UG
-// and *must*not*be*passed*to*BMD*API !
-#define BMD_OPT_KEEP    to_fourcc('K', 'E', 'E', 'P')
-
 #ifdef HAVE_MACOSX
 #define BMD_STR CFStringRef
 #elif defined WIN32
