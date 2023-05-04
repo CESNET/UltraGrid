@@ -352,6 +352,7 @@ struct state_decklink {
                 { bmdDeckLinkConfigVideoOutputIdleOperation, bmd_option{(int64_t) bmdIdleVideoOutputLastFrame, false} },
                 { bmdDeckLinkConfigOutput1080pAsPsF, bmd_option{false, false}},
                 { bmdDeckLinkConfigFieldFlickerRemoval, bmd_option{false, false}}, ///< required for interlaced video in low-latency
+                { bmdDeckLinkConfigLowLatencyVideoOutput, bmd_option{true, false}}
         };
         HDRMetadata         requested_hdr_mode{};
 
@@ -1242,10 +1243,6 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         if (!o.second.option_write(deckLinkConfiguration, o.first)) {
                                 goto error;
                         }
-                }
-
-                if (!bmd_option(s->low_latency).option_write(deckLinkConfiguration, bmdDeckLinkConfigLowLatencyVideoOutput)) {
-                        goto error;
                 }
 
                 if (s->sdi_dual_channel_level != BMD_OPT_DEFAULT) {
