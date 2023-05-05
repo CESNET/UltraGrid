@@ -809,11 +809,11 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         supportedFlags = (BMDSupportedVideoModeFlags) (supportedFlags | bmdSupportedVideoModeDualStream3D);
                 }
 
-                bmd_option subsampling_444(codec_is_a_rgb(desc.color_spec), false); // we don't have pixfmt for 444 YCbCr
+                const bmd_option subsampling_444(codec_is_a_rgb(desc.color_spec), false); // we don't have pixfmt for 444 YCbCr
                 subsampling_444.option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfig444SDIVideoOutput);
 
                 if (!s->keep_device_defaults && s->device_options.find(bmdDeckLinkConfigSDIOutputLinkConfiguration) == s->device_options.end()) {
-                        int64_t link = desc.width == 7680 ? bmdLinkConfigurationQuadLink : bmdLinkConfigurationSingleLink;
+                        const int64_t link = desc.width == 7680 ? bmdLinkConfigurationQuadLink : bmdLinkConfigurationSingleLink;
                         bmd_option(link).option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigSDIOutputLinkConfiguration);
                 }
 
@@ -831,7 +831,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                         s->quad_square_division_split.option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit);
                 }
 
-                BMDVideoOutputConversionMode conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoOutputConversionMode) != s->device_options.end() ?
+                const BMDVideoOutputConversionMode conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoOutputConversionMode) != s->device_options.end() ?
                         (BMDVideoOutputConversionMode) s->device_options.at(bmdDeckLinkConfigVideoOutputConversionMode).get_int() : (BMDVideoOutputConversionMode) bmdNoVideoOutputConversion;
                 EXIT_IF_FAILED(s->state.at(i).deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, s->pixelFormat, conversion_mode,
                                         supportedFlags, nullptr, &supported), "DoesSupportVideoMode");

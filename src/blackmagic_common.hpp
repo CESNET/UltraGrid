@@ -79,14 +79,16 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 #endif
 
 struct bmd_option {
+private:
         enum class type_tag : int { t_default, t_keep, t_flag, t_int } m_type = type_tag::t_default;
         union {
                 bool b;
                 int64_t i;
         } m_val{};
         bool m_user_specified = true; ///< ignore errors if set to false
+        friend std::ostream &operator<<(std::ostream &output, const bmd_option &b);
 public:
-        bmd_option() {}
+        bmd_option() = default;
         explicit bmd_option(int64_t val, bool user_spec = true);
         explicit bmd_option(bool val, bool user_spec = true);
         bool is_default() const;

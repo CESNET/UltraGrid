@@ -383,12 +383,12 @@ bool decklink_set_profile(IDeckLink *deckLink, bmd_option req_profile, bool ster
         ProfileCallback *p = nullptr;
 
         if (HRESULT res = deckLink->QueryInterface(IID_IDeckLinkProfileManager, (void**)&manager)) {
-                bool error = !(req_profile.is_default() && res == E_NOINTERFACE);
+                const bool error = !(req_profile.is_default() && res == E_NOINTERFACE);
                 LOG(error ? LOG_LEVEL_ERROR : LOG_LEVEL_VERBOSE) << MOD_NAME << "Cannot set duplex - query profile manager: " << bmd_hresult_to_string(res) << "\n";
                 return error;
         }
 
-        uint32_t profileID = req_profile.is_default() ? (int64_t) bmdProfileOneSubDeviceFullDuplex : req_profile.get_int();
+        const uint32_t profileID = req_profile.is_default() ? (int64_t) bmdProfileOneSubDeviceFullDuplex : req_profile.get_int();
 
         EXIT_IF_FAILED(manager->GetProfiles(&it), "Cannot set duplex - get profiles");
 
