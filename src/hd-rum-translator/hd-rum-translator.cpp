@@ -569,7 +569,7 @@ struct cmdline_parameters {
     struct hd_rum_output_conf out_conf = {NORMAL, NULL};
     const char *capture_filter = NULL;
     bool verbose = false;
-    char *conference_compression = nullptr;
+    const char *conference_compression = nullptr;
 };
 
 static bool needs_argument(const char *opt) {
@@ -780,7 +780,7 @@ struct Conf_participant{
 
 class Participant_manager{
 public:
-        Participant_manager(module& mod, std::string compress) : mod(mod), compression(compress) {  }
+        Participant_manager(module& mod, const char *compress) : mod(mod), compression(compress ? compress : "") {  }
         ~Participant_manager(){
                 should_stop.store(true, std::memory_order_relaxed);
                 worker_thread.join();
@@ -832,9 +832,6 @@ public:
                         if(!compression.empty()){
                                 msg += " ";
                                 msg += compression;
-                        } else {
-                                //TODO
-                                //msg += " libavcodec";
                         }
 
                         struct msg_universal *m = (struct msg_universal *) new_message(sizeof(struct msg_universal));
@@ -1008,6 +1005,10 @@ int main(int argc, char **argv)
             state.server_socket = std::shared_ptr<socket_udp>(udp_init("localhost", params.server_port, 0, 255, 0, false), udp_exit);
     }
 
+    if(params.out_conf.mode == CONFERENCE && !params.conference_compression){
+            params.conference_compression = "libavcodec";
+    }
+
     for (i = 0; i < params.host_count; i++) {
         int tx_port = params.port; // use default rx port by default
         int rx_port = params.hosts[i].rx_port;
@@ -1036,7 +1037,7 @@ int main(int argc, char **argv)
 
     unsigned long long int last_data = 0ull;
 
-    Participant_manager participant_mgr(state.mod, params.conference_compression ? params.conference_compression : "");
+    Participant_manager participant_mgr(state.mod, params.conference_compression);
 
     if(state.server_socket){
             participant_mgr.run_async(state.server_socket);
