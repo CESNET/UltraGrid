@@ -60,10 +60,6 @@
 #endif // defined HAVE_SWSCALE
 #include <limits.h>
 
-#ifndef AV_PIX_FMT_FLAG_HWACCEL
-#define AV_PIX_FMT_FLAG_HWACCEL PIX_FMT_HWACCEL
-#endif
-
 #include "hwaccel_libav_common.h"
 #include "hwaccel_vaapi.h"
 #include "hwaccel_vdpau.h"
