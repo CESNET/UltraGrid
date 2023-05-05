@@ -881,7 +881,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_props)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
-        int got_frame = 0;
 
         if ((s->desc.color_spec == H264 || s->desc.color_spec == H265) && !check_first_sps_vps(s, src, src_len)) {
                 return DECODER_NO_FRAME;
@@ -899,81 +898,54 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         s->pkt->size = src_len;
         s->pkt->data = src;
 
-        while (s->pkt->size > 0) {
-                int len;
-                time_ns_t t0 = get_time_in_ns();
+        time_ns_t t0 = get_time_in_ns();
 
-                if (got_frame) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Decoded frame while compressed data left!\n");
-                }
-                got_frame = 0;
-                int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
-                if (ret == 0 || ret == AVERROR(EAGAIN)) {
-                        ret = avcodec_receive_frame(s->codec_ctx, s->frame);
-                        if (ret == 0) {
-                                s->consecutive_failed_decodes = 0;
-                                got_frame = 1;
-                        }
-                }
-                if (ret != 0) {
-                        handle_lavd_error(s, ret);
-                }
-                len = s->pkt->size;
-                time_ns_t t1 = get_time_in_ns();
-
-                if (len < 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavd] Error while decoding frame.\n");
-                        return DECODER_NO_FRAME;
-                }
-
-                if(got_frame) {
-                        time_ns_t t3 = get_time_in_ns();
-
-                        s->frame->opaque = callbacks;
-                        /* Skip the frame if this is not an I-frame
-                         * and we have missed some of previous frames for VP8 because the
-                         * decoder makes ugly artifacts. We rather wait for next I-frame. */
-                        if (s->desc.color_spec == VP8 &&
-                                        (s->frame->pict_type != AV_PICTURE_TYPE_I &&
-                                         (!s->last_frame_seq_initialized || (s->last_frame_seq + 1) % ((1<<22) - 1) != frame_seq))) {
-                                log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
-                                                "(last valid %d, this %u).\n",
-                                                s->last_frame_seq_initialized ?
-                                                s->last_frame_seq : -1, (unsigned) frame_seq);
-                                got_frame = 0;
-                        } else {
-#ifdef HWACC_COMMON_IMPL
-                                if(s->hwaccel.copy){
-                                        transfer_frame(&s->hwaccel, s->frame);
-                                }
-#endif
-                                if (s->out_codec != VIDEO_CODEC_NONE) {
-                                        if (!reconfigure_convert_if_needed(s, s->frame->format, s->out_codec, s->desc.width, s->desc.height)) {
-                                                return DECODER_UNSUPP_PIXFMT;
-                                        }
-                                        change_pixfmt(s->frame, dst, &s->convert, s->out_codec, s->desc.width,
-                                                                s->desc.height, s->pitch, s->rgb_shift, &s->sws);
-                                        s->last_frame_seq_initialized = true;
-                                        s->last_frame_seq = frame_seq;
-                                }
-                        }
-                        time_ns_t t4 = get_time_in_ns();
-                        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f ms, pixfmt change %f ms.\n", av_get_picture_type_char(s->frame->pict_type),
-                                        (t1 - t0) / NS_IN_MS_DBL, (t4 - t3) / NS_IN_MS_DBL);
-                        check_duration(s, (t4 - t0) / NS_IN_SEC_DBL, (t4 - t3) / NS_IN_MS_DBL);
-                }
-
-                if (len <= 0) {
-                        break;
-                }
-
-                if(s->pkt->data) {
-                        s->pkt->size -= len;
-                        s->pkt->data += len;
+        int ret = avcodec_send_packet(s->codec_ctx, s->pkt);
+        if (ret == 0 || ret == AVERROR(EAGAIN)) {
+                ret = avcodec_receive_frame(s->codec_ctx, s->frame);
+                if (ret == 0) {
+                        s->consecutive_failed_decodes = 0;
                 }
         }
+        if (ret != 0) {
+                handle_lavd_error(s, ret);
+                return DECODER_NO_FRAME;
+        }
+        time_ns_t t1 = get_time_in_ns();
 
-        if (s->out_codec == VIDEO_CODEC_NONE && got_frame == 1) {
+        s->frame->opaque = callbacks;
+        /* Skip the frame if this is not an I-frame
+                 * and we have missed some of previous frames for VP8 because the
+                 * decoder makes ugly artifacts. We rather wait for next I-frame. */
+        if (s->desc.color_spec == VP8 &&
+                (s->frame->pict_type != AV_PICTURE_TYPE_I &&
+                (!s->last_frame_seq_initialized || (s->last_frame_seq + 1) % ((1<<22) - 1) != frame_seq))) {
+                        log_msg(LOG_LEVEL_WARNING, "[lavd] Missing appropriate I-frame "
+                                "(last valid %d, this %u).\n",
+                                s->last_frame_seq_initialized ?
+                                s->last_frame_seq : -1, (unsigned) frame_seq);
+                        return DECODER_NO_FRAME;
+        }
+#ifdef HWACC_COMMON_IMPL
+        if(s->hwaccel.copy){
+                transfer_frame(&s->hwaccel, s->frame);
+        }
+#endif
+        if (s->out_codec != VIDEO_CODEC_NONE) {
+                if (!reconfigure_convert_if_needed(s, s->frame->format, s->out_codec, s->desc.width, s->desc.height)) {
+                        return DECODER_UNSUPP_PIXFMT;
+                }
+                change_pixfmt(s->frame, dst, &s->convert, s->out_codec, s->desc.width,
+                              s->desc.height, s->pitch, s->rgb_shift, &s->sws);
+                s->last_frame_seq_initialized = true;
+                s->last_frame_seq = frame_seq;
+        }
+        time_ns_t t2 = get_time_in_ns();
+        log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Decompressing %c frame took %f ms, pixfmt change %f ms.\n", av_get_picture_type_char(s->frame->pict_type),
+                (t1 - t0) / NS_IN_MS_DBL, (t2 - t1) / NS_IN_MS_DBL);
+        check_duration(s, (t2 - t0) / NS_IN_SEC_DBL, (t2 - t1) / NS_IN_MS_DBL);
+
+        if (s->out_codec == VIDEO_CODEC_NONE) {
                 log_msg(LOG_LEVEL_DEBUG, MOD_NAME "Selected output pixel format: %s\n", av_get_pix_fmt_name(s->codec_ctx->pix_fmt));
                 if (!read_forced_pixfmt(s->desc.color_spec, src, src_len, internal_props)) {
                         *internal_props = av_pixfmt_get_desc(s->codec_ctx->pix_fmt);
@@ -981,11 +953,11 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 return DECODER_GOT_CODEC;
         }
 
-        if (got_frame == 1 && avcodec_receive_frame(s->codec_ctx, s->frame) != AVERROR(EAGAIN)) {
+        if (avcodec_receive_frame(s->codec_ctx, s->frame) != AVERROR(EAGAIN)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Multiple frames decoded at once!\n");
         }
 
-        return got_frame == 0 ? DECODER_NO_FRAME : DECODER_GOT_FRAME;
+        return DECODER_GOT_FRAME;
 }
 
 ADD_TO_PARAM("lavd-accept-corrupted",
