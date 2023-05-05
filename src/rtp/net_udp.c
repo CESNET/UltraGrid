@@ -1678,7 +1678,7 @@ int udp_port_pair_is_free(int force_ip_version, int even_port)
  * This is different approach from udp_async_start() and udp_async_wait() because
  * this function lets caller provide parameters and passes them directly.
  */
-int udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE l, LPWSAOVERLAPPED o)
+int udp_sendto_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE l, LPWSAOVERLAPPED o, struct sockaddr *addr, socklen_t addrlen)
 {
         assert(s != NULL);
 
@@ -1686,14 +1686,17 @@ int udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_
         WSABUF vector;
         vector.buf = buffer;
         vector.len = buflen;
-        int ret = WSASendTo(s->local->tx_fd, &vector, 1, &bytesSent, 0,
-                        (struct sockaddr *) &s->sock,
-                        s->sock_len, o, l);
+        int ret = WSASendTo(s->local->tx_fd, &vector, 1, &bytesSent, 0, addr, addrlen, o, l);
         if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)
                 return 0;
         else {
                 return ret;
         }
+}
+
+int udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE l, LPWSAOVERLAPPED o)
+{
+        return udp_sendto_wsa_async(s, buffer, buflen, l, o, (struct sockaddr *) &s->sock, s->sock_len);
 }
 #endif
 

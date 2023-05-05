@@ -117,6 +117,7 @@ void        socket_error(const char *msg, ...);
 
 #ifdef WIN32
 int         udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE, LPWSAOVERLAPPED);
+int         udp_sendto_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE l, LPWSAOVERLAPPED o, struct sockaddr *addr, socklen_t addrlen);
 #endif
 
 struct socket_udp_local *udp_get_local(socket_udp *s);
