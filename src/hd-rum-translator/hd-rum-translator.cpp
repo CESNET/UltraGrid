@@ -77,6 +77,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <thread>
 
 using namespace std;
 constexpr const char *MOD_NAME = "[hd-rum-trans] ";
@@ -100,11 +101,13 @@ struct replica {
         magic = REPLICA_MAGIC;
         host = addr;
         m_tx_port = tx_port;
-        sock = udp_init(addr, rx_port, tx_port, 255, force_ip_version, false);
-        if (!sock) {
+        sock = std::shared_ptr<socket_udp>(udp_init(addr, rx_port, tx_port, 255, force_ip_version, false), udp_exit);
+        int mode = 0;
+        int res = resolve_addrinfo(addr, tx_port, &sockaddr, &sockaddr_len, &mode);
+        if (!sock || res != 0) {
             throw string("Cannot initialize output port!\n");
         }
-        if (udp_set_send_buf(sock, bufsize) != TRUE)
+        if (udp_set_send_buf(sock.get(), bufsize) != TRUE)
             fprintf(stderr, "Cannot set send buffer!\n");
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_PORT;
@@ -117,7 +120,6 @@ struct replica {
     ~replica() {
         assert(magic == REPLICA_MAGIC);
         module_done(&mod);
-        udp_exit(sock);
     }
 
     struct module mod;
@@ -131,7 +133,9 @@ struct replica {
         RECOMPRESS
     };
     enum type_t type;
-    socket_udp *sock;
+    std::shared_ptr<socket_udp> sock;
+    sockaddr_storage sockaddr;
+    socklen_t sockaddr_len;
 };
 
 struct hd_rum_translator_state {
@@ -163,6 +167,7 @@ struct hd_rum_translator_state {
     pthread_cond_t qfull_cond;
 
     vector<replica *> replicas;
+    std::shared_ptr<socket_udp> server_socket;
     void *decompress = nullptr;
     struct state_recompress *recompress = nullptr;
 };
@@ -309,11 +314,14 @@ static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
 
 static int create_output_port(struct hd_rum_translator_state *s,
         const char *addr, int rx_port, int tx_port, int bufsize, int force_ip_version,
-        const char *compression, int mtu, const char *fec, int bitrate)
+        const char *compression, int mtu, const char *fec, int bitrate, bool use_server_sock = false)
 {
         struct replica *rep;
         try {
             rep = new replica(addr, rx_port, tx_port, bufsize, &s->mod, force_ip_version);
+            if(use_server_sock){
+                    rep->sock = s->server_socket;
+            }
         } catch (string const & s) {
             fputs(s.c_str(), stderr);
             const char *err_msg = "cannot create output port (wrong address?)";
@@ -422,7 +430,7 @@ static void *writer(void *arg)
 
                 int idx = create_output_port(s,
                         host, 0, tx_port, s->bufsize, false,
-                        compress, 1500, nullptr, RATE_UNLIMITED);
+                        compress, 1500, nullptr, RATE_UNLIMITED, s->server_socket != nullptr);
 
                 if(idx < 0) {
                     free_message((struct message *) msg, new_response(RESPONSE_INT_SERV_ERR, "Cannot create output port."));
@@ -473,7 +481,8 @@ static void *writer(void *arg)
             for (unsigned int i = 0; i < s->replicas.size(); i++) {
                 if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
                     aux->overlapped[overlapped_idx].hEvent = s->qhead->buf;
-                    ssize_t ret = udp_send_wsa_async(s->replicas[i]->sock, s->qhead->buf, s->qhead->size, wsa_deleter, &aux->overlapped[overlapped_idx]);
+                    ssize_t ret = udp_sendto_wsa_async(s->replicas[i]->sock.get(), s->qhead->buf, s->qhead->size,
+                                    wsa_deleter, &aux->overlapped[overlapped_idx], (sockaddr *) &s->replicas[i]->sockaddr, s->replicas[i]->sockaddr_len);
                     if (ret < 0) {
                         perror("Hd-rum-translator send");
                     }
@@ -485,7 +494,7 @@ static void *writer(void *arg)
 #else
             for (unsigned int i = 0; i < s->replicas.size(); i++) {
                 if(s->replicas[i]->type == replica::type_t::USE_SOCK) {
-                    ssize_t ret = udp_send(s->replicas[i]->sock, s->qhead->buf, s->qhead->size);
+                    ssize_t ret = udp_sendto(s->replicas[i]->sock.get(), s->qhead->buf, s->qhead->size, (sockaddr *) &s->replicas[i]->sockaddr, s->replicas[i]->sockaddr_len);
                     if (ret < 0) {
                         perror("Hd-rum-translator send");
                     }
@@ -516,6 +525,7 @@ static void usage(const char *progname) {
         col() << "\twhere " << SUNDERLINE("global_opts") << " may be:\n" <<
                 SBOLD("\t\t--control-port <port_number>[:0|:1]") << " - control port to connect to, optionally client/server (default)\n" <<
                 SBOLD("\t\t--blend") << " - enable blending from original to newly received stream, increases latency\n" <<
+                SBOLD("\t\t--server <port>") << " - enable server mode for clients to connect on specified port\n" <<
                 SBOLD("\t\t--conference <width>:<height>[:fps]") << " - enable combining of multiple inputs, increases latency\n" <<
                 SBOLD("\t\t--conference-compression <compression>") << " - compression for conference participants\n" <<
                 SBOLD("\t\t--capture-filter <cfg_string>") << " - apply video capture filter to incoming video\n" <<
@@ -555,6 +565,7 @@ struct cmdline_parameters {
     int host_count;
     int control_port = -1;
     int control_connection_type = 0;
+    int server_port = -1;
     struct hd_rum_output_conf out_conf = {NORMAL, NULL};
     const char *capture_filter = NULL;
     bool verbose = false;
@@ -596,6 +607,9 @@ static int parse_fmt(int argc, char **argv, struct cmdline_parameters *parsed)
         } else if(strcmp(argv[start_index], "--conference-compression") == 0) {
             char *item = argv[++start_index];
             parsed->conference_compression = item;
+        } else if(strcmp(argv[start_index], "--server") == 0) {
+            char *item = argv[++start_index];
+            parsed->server_port = atoi(item);
         } else if(strcmp(argv[start_index], "--capture-filter") == 0) {
             parsed->capture_filter = argv[++start_index];
         } else if(strcmp(argv[start_index], "-h") == 0 || strcmp(argv[start_index], "--help") == 0) {
@@ -767,6 +781,10 @@ struct Conf_participant{
 class Participant_manager{
 public:
         Participant_manager(module& mod, std::string compress) : mod(mod), compression(compress) {  }
+        ~Participant_manager(){
+                should_stop.store(true, std::memory_order_relaxed);
+                worker_thread.join();
+        }
 
         void tick(sockaddr_storage& sin, socklen_t addrlen){
                 struct timeval t;
@@ -831,10 +849,33 @@ public:
                         free_response(r);
                 }
         }
+
+        void run_async(std::shared_ptr<socket_udp> server_sock){
+                sock = server_sock;
+                worker_thread = std::thread(&Participant_manager::worker, this);
+        }
+
 private:
         std::vector<Conf_participant> participants;
         struct module& mod;
         std::string compression;
+        std::shared_ptr<socket_udp> sock;
+        std::thread worker_thread;
+        std::atomic<bool> should_stop = false;
+
+        void worker(){
+            struct timeval timeout = { 1, 0 };
+            char dummy_buf[256];
+
+            while(!should_stop.load(std::memory_order_relaxed)){
+                    struct sockaddr_storage sin = {};
+                    socklen_t addrlen = sizeof(sin);
+                    int size = udp_recvfrom_timeout(sock.get(), dummy_buf, std::size(dummy_buf), &timeout, (sockaddr *) &sin, &addrlen);
+
+                    if(size > 0)
+                            tick(sin, addrlen);
+            }
+        }
 };
 
 static void hd_rum_translator_should_exit_callback(void *arg) {
@@ -963,6 +1004,10 @@ int main(int argc, char **argv)
         EXIT(EXIT_FAIL_DECODER);
     }
 
+    if(params.server_port > 0){
+            state.server_socket = std::shared_ptr<socket_udp>(udp_init("localhost", params.server_port, 0, 255, 0, false), udp_exit);
+    }
+
     for (i = 0; i < params.host_count; i++) {
         int tx_port = params.port; // use default rx port by default
         int rx_port = params.hosts[i].rx_port;
@@ -991,7 +1036,11 @@ int main(int argc, char **argv)
 
     unsigned long long int last_data = 0ull;
 
-    Participant_manager participant_mgr(state.mod, params.conference_compression);
+    Participant_manager participant_mgr(state.mod, params.conference_compression ? params.conference_compression : "");
+
+    if(state.server_socket){
+            participant_mgr.run_async(state.server_socket);
+    }
 
     volatile bool should_exit = false;
     register_should_exit_callback(&state.mod, hd_rum_translator_should_exit_callback, const_cast<bool *>(&should_exit));
