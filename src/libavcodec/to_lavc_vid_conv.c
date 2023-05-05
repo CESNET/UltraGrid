@@ -68,10 +68,6 @@
 
 #define MOD_NAME "[to_lavc_vid_conv] "
 
-#if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
-#define HAVE_12_AND_14_PLANAR_COLORSPACES 1
-#endif
-
 #ifdef WORDS_BIGENDIAN
 #define BYTE_SWAP(x) (3 - x)
 #else
@@ -1215,7 +1211,6 @@ static void r12l_to_gbrp16le(AVFrame * __restrict out_frame, const unsigned char
         r12l_to_gbrpXXle(out_frame, in_data, width, height, 16U);
 }
 
-#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
 static void r12l_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         r12l_to_gbrpXXle(out_frame, in_data, width, height, 12U);
@@ -1242,7 +1237,6 @@ static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char
                 }
         }
 }
-#endif
 
 static void to_lavc_memcpy_data(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height) __attribute__((unused)); // defined below
 
@@ -1282,9 +1276,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { RG48, AV_PIX_FMT_YUV444P10LE, rg48_to_yuv444p10le },
                 { RG48, AV_PIX_FMT_YUV444P12LE, rg48_to_yuv444p12le },
                 { RG48, AV_PIX_FMT_YUV444P16LE, rg48_to_yuv444p16le },
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
                 { v210, AV_PIX_FMT_P010LE,      v210_to_p010le },
-#endif
 #if P210_PRESENT
                 { v210, AV_PIX_FMT_P210LE,      v210_to_p210le },
 #endif
@@ -1314,11 +1306,9 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #endif
                 { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
                 { R10k, AV_PIX_FMT_YUV420P10LE, r10k_to_yuv420p10le },
-#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
                 { R12L, AV_PIX_FMT_GBRP12LE,    r12l_to_gbrp12le },
                 { R12L, AV_PIX_FMT_GBRP16LE,    r12l_to_gbrp16le },
                 { RG48, AV_PIX_FMT_GBRP12LE,    rg48_to_gbrp12le },
-#endif
                 { VIDEO_CODEC_NONE, AV_PIX_FMT_NONE, 0 }
         };
         return uv_to_av_conversions;

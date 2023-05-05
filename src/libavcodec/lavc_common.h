@@ -84,67 +84,8 @@ extern "C" {
 #define AV_INPUT_BUFFER_PADDING_SIZE FF_INPUT_BUFFER_PADDING_SIZE
 #endif
 
-#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(54, 24, 0)
-#define AV_CODEC_ID_H264 CODEC_ID_H264
-#define AV_CODEC_ID_JPEG2000 CODEC_ID_JPEG2000
-#define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
-#define AV_CODEC_ID_VP8 CODEC_ID_VP8
-#endif
-
-// av_frame_* was inbetween moved from lavc to lavu
-#if LIBAVCODEC_VERSION_MAJOR < 55
-#define av_frame_alloc avcodec_alloc_frame
-#define av_frame_free avcodec_free_frame
-#define av_frame_unref avcodec_get_frame_defaults
-#undef av_frame_free
-#define av_frame_free av_free
-#endif
-
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55, 28, 0)
-#define AV_CODEC_ID_VP9 AV_CODEC_ID_NONE
-#endif
-
-#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(55, 35, 100)
-#define AV_CODEC_ID_HEVC AV_CODEC_ID_NONE
-#endif
-
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55, 52, 0)
-#define avcodec_free_context av_freep
-#endif
-
-#if LIBAVCODEC_VERSION_INT <= AV_VERSION_INT(56, 55, 1)
-#define AV_CODEC_FLAG_INTERLACED_DCT CODEC_FLAG_INTERLACED_DCT
-#endif
-
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 8, 0)
-#define av_packet_unref av_free_packet
-#endif
-
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 26, 0)
 #define AV_CODEC_ID_AV1 AV_CODEC_ID_NONE
-#endif
-
-// avutil
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(51, 42, 0) // FFMPEG commit 78071a1420b
-#define AV_PIX_FMT_NONE PIX_FMT_NONE
-#define AV_PIX_FMT_NV12 PIX_FMT_NV12
-#define AV_PIX_FMT_BGR24 PIX_FMT_BGR24
-#define AV_PIX_FMT_RGB24 PIX_FMT_RGB24
-#define AV_PIX_FMT_RGBA PIX_FMT_RGBA
-#define AV_PIX_FMT_UYVY422 PIX_FMT_RGBA
-#define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P
-#define AV_PIX_FMT_YUV422P PIX_FMT_YUV422P
-#define AV_PIX_FMT_YUV444P PIX_FMT_YUV444P
-#define AV_PIX_FMT_YUVJ420P PIX_FMT_YUVJ420P
-#define AV_PIX_FMT_YUVJ422P PIX_FMT_YUVJ422P
-#define AV_PIX_FMT_YUVJ444P PIX_FMT_YUVJ444P
-#define AV_PIX_FMT_YUYV422 PIX_FMT_YUYV422
-#define AVPixelFormat PixelFormat
-#define AVCodecID CodecID
-#endif
-
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(51, 74, 100)
-#define AV_PIX_FMT_GBRP12LE PIX_FMT_GBRP12LE
 #endif
 
 #define Y210_PRESENT LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(56, 42, 100) // FFMPEG commit 1c37cad0

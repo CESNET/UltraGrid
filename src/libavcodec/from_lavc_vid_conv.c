@@ -71,10 +71,6 @@
 
 #define MOD_NAME "[from_lavc_vid_conv] "
 
-#if LIBAVUTIL_VERSION_INT > AV_VERSION_INT(51, 63, 100) // FFMPEG commit e9757066e11
-#define HAVE_12_AND_14_PLANAR_COLORSPACES 1
-#endif
-
 #ifdef WORDS_BIGENDIAN
 #define BYTE_SWAP(x) (3 - x)
 #else
@@ -590,7 +586,6 @@ static void gbrp10le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
         gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 10);
 }
 
-#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
 static void gbrp12le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
@@ -614,7 +609,6 @@ static void gbrp12le_to_rgba(char * __restrict dst_buffer, AVFrame * __restrict 
 {
         gbrpXXle_to_rgba(dst_buffer, frame, width, height, pitch, rgb_shift, 12U);
 }
-#endif
 
 static void gbrp16le_to_r12l(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
@@ -668,14 +662,12 @@ static void gbrp10le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict 
         gbrpXXle_to_rg48(dst_buffer, frame, width, height, pitch, 10);
 }
 
-#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
 static void gbrp12le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
 {
         (void) rgb_shift;
         gbrpXXle_to_rg48(dst_buffer, frame, width, height, pitch, 12);
 }
-#endif
 
 static void gbrp16le_to_rg48(char * __restrict dst_buffer, AVFrame * __restrict frame,
                 int width, int height, int pitch, const int * __restrict rgb_shift)
@@ -2247,10 +2239,8 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_Y210,   Y416, y210_to_y416},
         {AV_PIX_FMT_Y210,   Y216, memcpy_data},
 #endif
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 15, 100) // FFMPEG commit c2869b4640f
         {AV_PIX_FMT_P010LE, v210, p010le_to_v210},
         {AV_PIX_FMT_P010LE, UYVY, p010le_to_uyvy},
-#endif
         // 8-bit YUV
         {AV_PIX_FMT_YUV420P, v210, yuv420p_to_v210},
         {AV_PIX_FMT_YUV420P, UYVY, yuv420p_to_uyvy},
@@ -2317,13 +2307,11 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         {AV_PIX_FMT_GBRP10LE, RGB, gbrp10le_to_rgb},
         {AV_PIX_FMT_GBRP10LE, RGBA, gbrp10le_to_rgba},
         {AV_PIX_FMT_GBRP10LE, RG48, gbrp10le_to_rg48},
-#ifdef HAVE_12_AND_14_PLANAR_COLORSPACES
         {AV_PIX_FMT_GBRP12LE, R12L, gbrp12le_to_r12l},
         {AV_PIX_FMT_GBRP12LE, R10k, gbrp12le_to_r10k},
         {AV_PIX_FMT_GBRP12LE, RGB, gbrp12le_to_rgb},
         {AV_PIX_FMT_GBRP12LE, RGBA, gbrp12le_to_rgba},
         {AV_PIX_FMT_GBRP12LE, RG48, gbrp12le_to_rg48},
-#endif
         {AV_PIX_FMT_GBRP16LE, R12L, gbrp16le_to_r12l},
         {AV_PIX_FMT_GBRP16LE, R10k, gbrp16le_to_r10k},
         {AV_PIX_FMT_GBRP16LE, RG48, gbrp16le_to_rg48},

@@ -47,9 +47,7 @@
 #include "lib_common.h"
 
 #include <libavcodec/avcodec.h>
-#if LIBAVCODEC_VERSION_MAJOR >= 54
 #include <libavutil/channel_layout.h>
-#endif
 #include <libavutil/mem.h>
 
 #include "audio/audio.h"
@@ -60,17 +58,6 @@
 
 #define MAGIC 0xb135ca11
 #define LOW_LATENCY_AUDIOENC_FRAME_DURATION 2.5
-
-#if LIBAVCODEC_VERSION_MAJOR < 54
-#define AV_CODEC_ID_AAC CODEC_ID_AAC
-#define AV_CODEC_ID_PCM_ALAW CODEC_ID_PCM_ALAW
-#define AV_CODEC_ID_PCM_MULAW CODEC_ID_PCM_MULAW
-#define AV_CODEC_ID_SPEEX CODEC_ID_SPEEX
-#define AV_CODEC_ID_OPUS CODEC_ID_OPUS
-#define AV_CODEC_ID_ADPCM_G722 CODEC_ID_ADPCM_G722
-#define AV_CODEC_ID_FLAC CODEC_ID_FLAC
-#define AV_CODEC_ID_MP3 CODEC_ID_MP3
-#endif
 
 enum {
         TMP_DATA_LEN = 1024 * 1024,
@@ -95,9 +82,7 @@ static const struct codec_param mapping[AC_COUNT] = {
         [AC_ALAW] = {AV_CODEC_ID_PCM_ALAW, NULL},
         [AC_MULAW] = {AV_CODEC_ID_PCM_MULAW, NULL},
         [AC_SPEEX] = {AV_CODEC_ID_SPEEX, NULL},
-#if LIBAVCODEC_VERSION_MAJOR >= 54
         [AC_OPUS] = {AV_CODEC_ID_OPUS, NULL},
-#endif
         [AC_G722] = {AV_CODEC_ID_ADPCM_G722, NULL},
         [AC_FLAC] = {AV_CODEC_ID_FLAC, NULL},
         [AC_MP3] = {AV_CODEC_ID_MP3, NULL},

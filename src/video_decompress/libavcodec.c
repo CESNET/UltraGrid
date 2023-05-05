@@ -902,9 +902,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         while (s->pkt->size > 0) {
                 int len;
                 time_ns_t t0 = get_time_in_ns();
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
-                len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, s->pkt);
-#else
+
                 if (got_frame) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Decoded frame while compressed data left!\n");
                 }
@@ -921,7 +919,6 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         handle_lavd_error(s, ret);
                 }
                 len = s->pkt->size;
-#endif
                 time_ns_t t1 = get_time_in_ns();
 
                 if (len < 0) {
@@ -984,11 +981,9 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 return DECODER_GOT_CODEC;
         }
 
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
         if (got_frame == 1 && avcodec_receive_frame(s->codec_ctx, s->frame) != AVERROR(EAGAIN)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Multiple frames decoded at once!\n");
         }
-#endif
 
         return got_frame == 0 ? DECODER_NO_FRAME : DECODER_GOT_FRAME;
 }

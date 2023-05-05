@@ -296,7 +296,7 @@ static codec_encoders_decoders get_codec_encoders_decoders(AVCodecID id){
                         res.decoders.emplace_back(codec->name);
                 }
         }
-#elif LIBAVCODEC_VERSION_MAJOR >= 54
+#else
         const AVCodec *codec = nullptr;
         if ((codec = avcodec_find_encoder(id))) {
                 do {
@@ -313,8 +313,6 @@ static codec_encoders_decoders get_codec_encoders_decoders(AVCodecID id){
                         }
                 } while ((codec = av_codec_next(codec)));
         }
-#else
-        UNUSED(id);
 #endif
 
         return res;
@@ -1174,13 +1172,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         }
 
         static auto dispose = [](struct video_frame *frame) {
-#if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
-                AVPacket *pkt = (AVPacket *) frame->callbacks.dispose_udata;
-                av_packet_unref(pkt);
-                av_packet_free(&pkt);
-#else
                 free(frame->tiles[0].data);
-#endif // LIBAVCODEC_VERSION_MAJOR >= 54
                 vf_free(frame);
         };
         out = shared_ptr<video_frame>(vf_alloc_desc(s->compressed_desc), dispose);
@@ -1189,17 +1181,8 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
                 out->color_spec = get_codec_from_fcc(s->codec_ctx->codec_tag);
         }
         vf_copy_metadata(out.get(), tx.get());
-#if LIBAVCODEC_VERSION_MAJOR >= 54 && LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
-        int got_output;
-        AVPacket *pkt = av_packet_alloc();
-        pkt->data = NULL;
-        pkt->size = 0;
-        out->callbacks.dispose_udata = pkt;
-#else
         const size_t max_len = MAX((size_t) s->compressed_desc.width * s->compressed_desc.height * 4, 4096);
         out->tiles[0].data = (char *) malloc(max_len);
-#endif // LIBAVCODEC_VERSION_MAJOR >= 54
-
 
         time_ns_t t0 = get_time_in_ns();
         struct AVFrame *frame = to_lavc_vid_conv(s->pixfmt_conversion, tx->tiles[0].data);
@@ -1232,7 +1215,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 
         /* encode the image */
         frame->pts += 1;
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
         out->tiles[0].data_len = 0;
         if (libav_codec_has_extradata(s->compressed_desc.color_spec)) { // we need to store extradata for HuffYUV/FFV1 in the beginning
                 out->tiles[0].data_len += sizeof(uint32_t) + s->codec_ctx->extradata_size;
@@ -1256,37 +1238,6 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
         if (ret != AVERROR(EAGAIN) && ret != 0) {
                 print_libav_error(LOG_LEVEL_WARNING, "[lavc] Receive packet error", ret);
         }
-#elif LIBAVCODEC_VERSION_MAJOR >= 54
-        ret = avcodec_encode_video2(s->codec_ctx, pkt,
-                        frame, &got_output);
-        if (ret < 0) {
-                log_msg(LOG_LEVEL_INFO, "Error encoding frame\n");
-                return {};
-        }
-
-        if (got_output) {
-                //printf("Write frame %3d (size=%5d)\n", frame_seq, s->pkt[buffer_idx].size);
-                out->tiles[0].data = (char *) pkt->data;
-                out->tiles[0].data_len = pkt->size;
-        } else {
-                return {};
-        }
-#else
-        ret = avcodec_encode_video(s->codec_ctx, (uint8_t *) out->tiles[0].data,
-                        out->tiles[0].width * out->tiles[0].height * 4,
-                        frame);
-        if (ret < 0) {
-                log_msg(LOG_LEVEL_INFO, "Error encoding frame\n");
-                return {};
-        }
-
-        if (ret) {
-                //printf("Write frame %3d (size=%5d)\n", frame_seq, s->pkt[buffer_idx].size);
-                out->tiles[0].data_len = ret;
-        } else {
-                return {};
-        }
-#endif // LIBAVCODEC_VERSION_MAJOR >= 54
         time_ns_t t3 = get_time_in_ns();
         LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: "
                 << (t1 - t0) / NS_IN_SEC_DBL <<
@@ -1308,9 +1259,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(struct module *mod, shar
 static void cleanup(struct state_video_compress_libav *s)
 {
         if(s->codec_ctx) {
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
-		int ret;
-		ret = avcodec_send_frame(s->codec_ctx, NULL);
+		int ret = avcodec_send_frame(s->codec_ctx, NULL);
 		if (ret != 0) {
 			log_msg(LOG_LEVEL_WARNING, "[lavc] Unexpected return value %d\n",
 					ret);
@@ -1326,7 +1275,6 @@ static void cleanup(struct state_video_compress_libav *s)
 				break;
 			}
 		} while (ret != AVERROR_EOF);
-#endif
                 avcodec_free_context(&s->codec_ctx);
         }
 
