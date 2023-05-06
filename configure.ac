@@ -2134,10 +2134,10 @@ HOST_CC_REPORT="$HOST_CC_REPORT"$(basename "$CUDA_COMPILER")
 AC_ARG_WITH(cuda-host-compiler,
 	AS_HELP_STRING([--with-cuda-host-compiler=BINARY],[specify compiler used for building cuda host code]))
 if test "x${with_cuda_host_compiler}" != "x" ; then
-	AC_CHECK_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[yes])
-        # note AC_CHECK_PROG always fails on path with spaces in MSW
-        if test "x${cuda_host_cc}" = "xyes" -o $system = Windows; then
-                CUDA_FLAGS+=" -ccbin \"${with_cuda_host_compiler}\""
+	AC_PATH_PROG([cuda_host_cc], [${with_cuda_host_compiler}],[no])
+	# note AC_CHECK_PROG always fails on path with spaces in MSW
+	if test "x${cuda_host_cc}" != "xno" -o $system = Windows; then
+		CUDA_FLAGS+=" -ccbin \"${cuda_host_cc}\""
 	else
 		AC_MSG_FAILURE([Binary ${with_cuda_host_compiler} given as cuda host compiler, yet not found!])
 	fi
