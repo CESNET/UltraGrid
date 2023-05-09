@@ -609,7 +609,7 @@ static bool audio_fec_decode(struct pbuf_audio_data *s, vector<pair<vector<char>
                                 if (!desc.codec) {
                                         auto flags = std::clog.flags();
                                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong AudioTag 0x" << hex << audio_tag << "\n";
-                                        std::clog.setf(flags);
+                                        std::clog.flags(flags);
                                 }
 
                                 if (!audio_decoder_reconfigure(decoder, s, received_frame, desc.ch_count, desc.bps, desc.sample_rate, audio_tag)) {

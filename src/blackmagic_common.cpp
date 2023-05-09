@@ -533,7 +533,7 @@ std::ostream &operator<<(std::ostream &output, REFIID iid)
                 setw(2) << static_cast<int>(iid.byte10) << setw(2) << static_cast<int>(iid.byte11) <<
                 setw(2) << static_cast<int>(iid.byte12) << setw(2) << static_cast<int>(iid.byte13) <<
                 setw(2) << static_cast<int>(iid.byte14) << setw(2) << static_cast<int>(iid.byte15);
-        output.setf(flags);
+        output.flags(flags);
 #endif
         return output;
 }
