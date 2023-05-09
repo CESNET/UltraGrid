@@ -419,6 +419,7 @@ static void show_help(bool full)
                 col() << SBOLD("\tminresample=<N>") << " minimum amount the resample delta can be when scaling is applied. Measured in Hz\n";
                 col() << SBOLD("\ttargetbuffer=<N>") << " target amount of samples to have in the buffer (per channel)\n";
                 col() << SBOLD("\tkeep-settings") << "\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
+                col() << SBOLD("\t<option_FourCC>=<value>") << "\tarbitrary BMD option (given a FourCC) and corresponding value\n";
         }
 
         col() << "\nRecognized pixel formats:";
@@ -1070,6 +1071,8 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         s->audio_drift_fixer.set_min_hz(parse_uint32(strchr(ptr, '=') + 1));
                 } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
                         s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
+                } else if ((strchr(ptr, '=') != nullptr && strchr(ptr, '=') - ptr == 4) || strlen(ptr) == 4) {
+                        s->device_options[(BMDDeckLinkConfigurationID) bmd_read_fourcc(ptr)].parse(strchr(ptr, '=') + 1);
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in config string: %s\n", ptr);
                         return false;
