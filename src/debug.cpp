@@ -308,8 +308,7 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
         }
 
         // check if key is contained
-        string not_first = ",";
-        not_first + key;
+        string not_first = string(",") + key;
         int skip_n = 0;
         if (strstr(dump_file_val, key) == dump_file_val) {
                 const char *val = dump_file_val + strlen(key);
