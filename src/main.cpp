@@ -598,13 +598,15 @@ struct ug_options {
 };
 
 static bool parse_port(char *optarg, struct ug_options *opt) {
-        if (strcmp(optarg, "help") == 0) {
+        char *save_ptr = nullptr;
+        char *first_val = strtok_r(optarg, ":", &save_ptr);
+        if (first_val == nullptr || strcmp(first_val, "help") == 0) {
                 color_printf("see\n\n    " TBOLD("%s --fullhelp") "\n\nfor port specification usage\n", uv_argv[0]);
+                return false;
         }
-        if (strchr(optarg, ':') != nullptr) {
-                char *save_ptr = nullptr;
-                opt->video_rx_port = stoi(strtok_r(optarg, ":", &save_ptr), nullptr, 0);
-                opt->video_tx_port = stoi(strtok_r(nullptr, ":", &save_ptr), nullptr, 0);
+        if (char *tx_port_str = strtok_r(nullptr, ":", &save_ptr)) {
+                opt->port_base = stoi(first_val, nullptr, 0);
+                opt->video_tx_port = stoi(tx_port_str, nullptr, 0);
                 char *tok = nullptr;
                 if ((tok = strtok_r(nullptr, ":", &save_ptr)) != nullptr) {
                         opt->audio.recv_port = stoi(tok, nullptr, 0);
@@ -616,7 +618,7 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
                         }
                 }
         } else {
-                opt->port_base = stoi(optarg, nullptr, 0);
+                opt->port_base = stoi(first_val, nullptr, 0);
         }
         if (opt->audio.recv_port < -1 || opt->audio.send_port < -1 || opt->video_rx_port < -1 || opt->video_tx_port < -1 || opt->port_base < -1 ||
                         opt->audio.recv_port > UINT16_MAX || opt->audio.send_port > UINT16_MAX || opt->video_rx_port > UINT16_MAX || opt->video_tx_port > UINT16_MAX || opt->port_base > UINT16_MAX) {
