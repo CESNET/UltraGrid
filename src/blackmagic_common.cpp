@@ -610,6 +610,9 @@ std::ostream &operator<<(std::ostream &output, const bmd_option &b) {
                         output.flags(flags);
                         break;
                 }
+                case bmd_option::type_tag::t_string:
+                        output << b.m_val.s;
+                        break;
         }
         return output;
 }
@@ -626,6 +629,11 @@ void bmd_option::set_int(int64_t val_) {
 void bmd_option::set_float(double val_) {
         m_val.f = val_;
         m_type = type_tag::t_float;
+        m_user_specified = true;
+}
+void bmd_option::set_string(const char *val_) {
+        strncpy(m_val.s, val_, sizeof m_val.s - 1);
+        m_type = type_tag::t_string;
         m_user_specified = true;
 }
 void bmd_option::set_keep() {
@@ -658,7 +666,7 @@ bool bmd_option::is_user_set() const {
  * @note
  * Returns true also for empty/NULL val - this allow specifying the flag without explicit value
  */
-bool bmd_option::parse(const char *val)
+void bmd_option::parse(const char *val)
 {
         // check flag
 #ifdef __clang__
@@ -668,19 +676,19 @@ bool bmd_option::parse(const char *val)
         if (val == nullptr || val == static_cast<char *>(nullptr) + 1 // allow constructions like parse_bmd_flag(strstr(opt, '=') + 1)
                         || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
                 set_flag(true);
-                return true;
+                return;
         }
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif // defined __clang
         if (strcasecmp(val, "false") == 0 || strcasecmp(val, "off") == 0  || strcasecmp(val, "no") == 0) {
                 set_flag(false);
-                return true;
+                return;
         }
 
         if (strcasecmp(val, "keep") == 0) {
                 set_keep();
-                return true;
+                return;
         }
 
         // check number
@@ -706,15 +714,14 @@ bool bmd_option::parse(const char *val)
                 } else {
                         set_int(stoi(val, nullptr, 0));
                 }
-                return true;
+                return;
         }
         if (strlen(val) <= 4) {
                 set_int(bmd_read_fourcc(val));
-                return true;
+                return;
         }
 
-        LOG(LOG_LEVEL_ERROR) << "Value " << val << R"( not recognized for a flag (use "false", "true" or "keep"), int or FourCC\n)";
-        return false;
+        set_string(val);
 }
 
 bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const {
@@ -729,6 +736,12 @@ bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMD
                 case type_tag::t_float:
                         res = deckLinkConfiguration->SetFloat(opt, m_val.f);
                         break;
+                case type_tag::t_string: {
+                        BMD_STR s = get_bmd_api_str_from_cstr(m_val.s);
+                        res = deckLinkConfiguration->SetString(opt, s);
+                        release_bmd_api_str(s);
+                        break;
+                }
                 case type_tag::t_keep:
                 case type_tag::t_default:
                         return true;

@@ -80,11 +80,12 @@ static std::vector<std::pair<codec_t, BMDPixelFormat>> uv_to_bmd_codec_map = {
 
 struct bmd_option {
 private:
-        enum class type_tag : int { t_default, t_keep, t_flag, t_int, t_float } m_type = type_tag::t_default;
+        enum class type_tag : int { t_default, t_keep, t_flag, t_int, t_float, t_string } m_type = type_tag::t_default;
         union {
                 bool b;
                 int64_t i;
                 double f;
+                char s[128];
         } m_val{};
         bool m_user_specified = true; ///< ignore errors if set to false
         friend std::ostream &operator<<(std::ostream &output, const bmd_option &b);
@@ -98,10 +99,11 @@ public:
         bool keep() const;
         bool get_flag() const;
         int64_t get_int() const;
-        bool parse(const char *);
+        void parse(const char *);
         void set_flag(bool val_);
         void set_int(int64_t val_);
         void set_float(double val_);
+        void set_string(const char *val_);
         bool option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const;
 };
 
