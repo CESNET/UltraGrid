@@ -97,8 +97,7 @@ public:
         bool keep() const;
         bool get_flag() const;
         int64_t get_int() const;
-        bool parse_flag(const char *);
-        bool parse_int(const char *);
+        bool parse(const char *);
         void set_flag(bool val_);
         void set_int(uint32_t val_);
         bool option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const;

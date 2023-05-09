@@ -528,9 +528,10 @@ decklink_help(bool full)
                 col() << "\n";
                 col() << SBOLD("keep-settings") << "\n\tdo not apply any DeckLink settings by UG than required (keep user-selected defaults)\n";
                 col() << "\n";
-
+                col() << SBOLD("<option_FourCC>=<value>") << " - arbitrary BMD option (given a FourCC) and corresponding value\n";
+                col() << "\n";
         } else {
-                col() << "(other options available, use \"fullhelp\" to see complete list of options)\n\n";
+                col() << "(other options available, use \"" << SBOLD("fullhelp") << "\" to see complete list of options)\n\n";
         }
 
         col() << "Available color spaces:";
@@ -651,7 +652,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 }
         } else if(strncasecmp(opt, "conversion=",
                                 strlen("conversion=")) == 0) {
-                s->device_options[bmdDeckLinkConfigVideoInputConversionMode].parse_int(strchr(opt, '='));
+                s->device_options[bmdDeckLinkConfigVideoInputConversionMode].parse(strchr(opt, '='));
         } else if(strncasecmp(opt, "device=",
                                 strlen("device=")) == 0) {
                 const char *devices = opt + strlen("device=");
@@ -681,7 +682,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                                 : bmdDeckLinkCapturePassthroughModeCleanSwitch));
                 }
         } else if (strstr(opt, "profile=") == opt) {
-                s->profile.parse_int(strchr(opt, '=') + 1);
+                s->profile.parse(strchr(opt, '=') + 1);
         } else if (strstr(opt, "full-duplex") == opt) {
                 s->profile.set_int(bmdProfileOneSubDeviceFullDuplex);
         } else if (strstr(opt, "half-duplex") == opt) {
@@ -690,6 +691,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->nosig_send = true;
         } else if (strstr(opt, "keep-settings") == opt) {
                 s->keep_device_defaults = true;
+        } else if ((strchr(opt, '=') != nullptr && strchr(opt, '=') - opt == 4) || strlen(opt) == 4) {
+                s->device_options[(BMDDeckLinkConfigurationID) bmd_read_fourcc(opt)].parse(strchr(opt, '=') + 1);
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unknown option in init string: %s\n", opt);
                 return false;

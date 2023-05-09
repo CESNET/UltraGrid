@@ -1001,7 +1001,7 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                 } else if (strcasecmp(ptr, "quad-link") == 0) {
                         s->device_options[bmdDeckLinkConfigSDIOutputLinkConfiguration].set_int(bmdLinkConfigurationQuadLink);
                 } else if (strstr(ptr, "profile=") == ptr) {
-                        s->profile_req.parse_int(ptr);
+                        s->profile_req.parse(ptr);
                 } else if (strcasecmp(ptr, "full-duplex") == 0) {
                         s->profile_req.set_int(bmdProfileOneSubDeviceFullDuplex);
                 } else if (strcasecmp(ptr, "half-duplex") == 0) {
@@ -1036,9 +1036,9 @@ static bool settings_init(struct state_decklink *s, const char *fmt,
                         }
                 } else if (strncasecmp(ptr, "conversion=",
                                         strlen("conversion=")) == 0) {
-                        s->device_options[bmdDeckLinkConfigVideoOutputConversionMode].parse_int(strchr(ptr, '=') + 1);
+                        s->device_options[bmdDeckLinkConfigVideoOutputConversionMode].parse(strchr(ptr, '=') + 1);
                 } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
-                        if (!s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].parse_flag(strchr(ptr, '=') + 1)) {
+                        if (!s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].parse(strchr(ptr, '=') + 1)) {
                                 return false;
                         }
                         if (strncasecmp(ptr, "Use1080pNotPsF", strlen("Use1080pNotPsF")) == 0) { // compat, inverse

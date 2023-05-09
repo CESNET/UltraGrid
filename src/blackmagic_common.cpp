@@ -646,40 +646,47 @@ bool bmd_option::is_user_set() const {
  * @note
  * Returns true also for empty/NULL val - this allow specifying the flag without explicit value
  */
-bool bmd_option::parse_flag(const char *val)
+bool bmd_option::parse(const char *val)
 {
+        // check flag
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnull-pointer-arithmetic"
 #endif // defined __clang__
         if (val == nullptr || val == static_cast<char *>(nullptr) + 1 // allow constructions like parse_bmd_flag(strstr(opt, '=') + 1)
-                        || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
+                        || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
                 set_flag(true);
                 return true;
         }
-        if (strcasecmp(val, "false") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "off") == 0  || strcasecmp(val, "no") == 0) {
-                set_flag(false);
-                return true;
-        }
-        if (strcasecmp(val, "keep") == 0) {
-                set_keep();
-                return true;
-        }
-
-        LOG(LOG_LEVEL_ERROR) << "Value " << val << " not recognized for a flag, use one of: " R"_("false", "true" or "keep")_" "\n";
-        return false;
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif // defined __clang
-}
+        if (strcasecmp(val, "false") == 0 || strcasecmp(val, "off") == 0  || strcasecmp(val, "no") == 0) {
+                set_flag(false);
+                return true;
+        }
 
-bool bmd_option::parse_int(const char *val) {
         if (strcasecmp(val, "keep") == 0) {
                 set_keep();
                 return true;
         }
-        set_int(bmd_read_fourcc(val));
-        return true;
+
+        // check int
+        bool all_digit = true;
+        for (size_t i = 0; i < strlen(val); ++i) {
+                all_digit = all_digit && isxdigit(val[i]);
+        }
+        if (all_digit) {
+                set_int(stoi(val, nullptr, 0));
+                return true;
+        }
+        if (strlen(val) <= 4) {
+                set_int(bmd_read_fourcc(val));
+                return true;
+        }
+
+        LOG(LOG_LEVEL_ERROR) << "Value " << val << R"( not recognized for a flag (use "false", "true" or "keep"), int or FourCC\n)";
+        return false;
 }
 
 bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const {
