@@ -596,10 +596,12 @@ std::ostream &operator<<(std::ostream &output, const bmd_option &b) {
                 case bmd_option::type_tag::t_int:
                         if (IS_FCC(b.get_int())) {
                                 output << fcc_to_string(b.get_int());
-                        } else {
+                        } else if (b.get_int() >= 0) {
                                 auto flags = output.flags();
                                 output << "0x" << hex << b.get_int();
                                 output.flags(flags);
+                        } else {
+                                output << b.get_int();
                         }
                         break;
 
@@ -611,7 +613,7 @@ void bmd_option::set_flag(bool val_) {
         m_val.b = val_;
         m_type = type_tag::t_flag;
 }
-void bmd_option::set_int(uint32_t val_) {
+void bmd_option::set_int(int64_t val_) {
         m_val.i = val_;
         m_type = type_tag::t_int;
         m_user_specified = true;
@@ -675,6 +677,9 @@ bool bmd_option::parse(const char *val)
         bool all_digit = true;
         for (size_t i = 0; i < strlen(val); ++i) {
                 all_digit = all_digit && isxdigit(val[i]);
+                if (i == 0 && val[i] == '-') {
+                        all_digit = true;
+                }
         }
         if (all_digit) {
                 set_int(stoi(val, nullptr, 0));

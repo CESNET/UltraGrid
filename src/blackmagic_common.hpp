@@ -99,7 +99,7 @@ public:
         int64_t get_int() const;
         bool parse(const char *);
         void set_flag(bool val_);
-        void set_int(uint32_t val_);
+        void set_int(int64_t val_);
         bool option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const;
 };
 
