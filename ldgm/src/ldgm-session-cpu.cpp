@@ -453,10 +453,9 @@ LDGM_session_cpu::iterate ( Tanner_graph *graph )
     //iterate through constraint nodes
     while ( it_c != graph->nodes.end() ) {
         //iterate the node's neighbours to find out how many of them are not decoded
-        map<int, Node>::iterator it_v;
         for(vector<int>::iterator j = it_c->second.neighbours.begin();
                 j != it_c->second.neighbours.end(); ++j) {
-            it_v = graph->nodes.find(*j);
+            const auto it_v = graph->nodes.find(*j);
             if ( !it_v->second.isDone() )
                 vec.push_back(*j);
         }
@@ -471,9 +470,9 @@ LDGM_session_cpu::iterate ( Tanner_graph *graph )
 //	    {
 //		printf ( "repairing first block\n" );
 //	    }
-            it_v = graph->nodes.find(r_index);
-            memset(it_v->second.getDataPtr(), 0, packet_size);
-            char *r_data = it_v->second.getDataPtr();
+            auto &node = graph->nodes.at(r_index);
+            memset(node.getDataPtr(), 0, packet_size);
+            char *r_data = node.getDataPtr();
             //find other nodes connected to this constraint node and XOR their values
             int count = 0;
             for(vector<int>::iterator j = it_c->second.neighbours.begin();
@@ -497,7 +496,7 @@ LDGM_session_cpu::iterate ( Tanner_graph *graph )
              *          }
              */
             if ( count > 0 )
-                it_v->second.setDone(true);
+                node.setDone(true);
             //recovered++;
             /*           printf ( "restored data: \n" );
              *          for ( int  i = 0; i < packet_size; ++i)

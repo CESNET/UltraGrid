@@ -542,7 +542,7 @@ int get_exit_status(struct module *root_mod) {
 
 using module_info_map = std::map<std::string, const void *>;
 
-static void print_device(std::string purpose, std::string mod, const device_info& device){
+static void print_device(std::string purpose, std::string const & mod, const device_info& device){
         cout << "[capability][device] {"
                 "\"purpose\":" << std::quoted(purpose) << ", "
                 "\"module\":" << std::quoted(mod) << ", "
@@ -585,7 +585,7 @@ static void print_device(std::string purpose, std::string mod, const device_info
 }
 
 template<typename T>
-static void probe_device(std::string_view cap_str, std::string name, const void *mod){
+static void probe_device(std::string_view cap_str, std::string const & name, const void *mod){
         auto vdi = static_cast<T>(mod);
         int count = 0;
         struct device_info *devices = nullptr;
@@ -597,7 +597,7 @@ static void probe_device(std::string_view cap_str, std::string name, const void 
         deleter ? deleter(devices) : free(devices);
 }
 
-static void probe_compress(std::string name, const void *mod){
+static void probe_compress(std::string const & name, const void *mod) noexcept {
         auto vci = static_cast<const struct video_compress_info *>(mod);
 
         if(vci->get_module_info){

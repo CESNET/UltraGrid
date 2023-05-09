@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,6 +50,7 @@
 #include <sstream>
 #include <string>
 #include <stdexcept>
+#include <utility>
 
 #include "host.h"
 #include "ihdtv.h"
@@ -92,7 +93,7 @@ struct response *rtp_video_rxtx::process_sender_message(struct msg_sender *msg, 
                                                 m_requested_mcast_if, m_requested_ttl);
                                 if (!m_network_devices) {
                                         m_network_devices = old_devices;
-                                        m_requested_receiver = old_receiver;
+                                        m_requested_receiver = std::move(old_receiver);
                                         log_msg(LOG_LEVEL_ERROR, "[control] Failed receiver to %s.\n",
                                                         msg->receiver);
                                         return new_response(RESPONSE_INT_SERV_ERR, "Changing receiver failed!");

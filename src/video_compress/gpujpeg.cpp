@@ -693,7 +693,7 @@ static compress_module_info get_gpujpeg_module_info(){
 }
 
 static auto gpujpeg_compress_push(struct module *mod, std::shared_ptr<video_frame> in_frame) {
-        static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->push(in_frame);
+        static_cast<struct state_video_compress_gpujpeg *>(mod->priv_data)->push(std::move(in_frame));
 }
 
 static auto gpujpeg_compress_pull (struct module *mod) {

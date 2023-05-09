@@ -111,6 +111,7 @@ bool parse_log_cfg(const char *conf_str,
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <mutex>
 #include "compat/platform_time.h"
 #include "utils/color_out.h"

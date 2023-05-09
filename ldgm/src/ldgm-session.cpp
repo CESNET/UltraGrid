@@ -356,16 +356,15 @@ LDGM_session::encode_hdr_frame ( char *my_hdr, int my_hdr_size, char* frame, int
 void
 LDGM_session::create_edges ( Tanner_graph *graph )
 {
-    map<int, Node>::iterator it;
 //    printf ( "graph: %p, param_k: %d, param_m: %d\n", graph, param_k, param_m );
     for ( int m = 0; m < param_m; ++m) {
         for ( int k = 0; k < max_row_weight+2; ++k ) {
             int idx = pcm [ m*(max_row_weight+2) + k];
             if( idx > -1 ) {
-                it = graph->nodes.find(idx);
-                (*it).second.neighbours.push_back(param_k + param_m + m);
-                it = graph->nodes.find(param_k + param_m + m);
-                (*it).second.neighbours.push_back(idx);
+                auto &node = graph->nodes.at(idx);
+                node.neighbours.push_back(param_k + param_m + m);
+                node = graph->nodes.at(param_k + param_m + m);
+                node.neighbours.push_back(idx);
             }
         }
     }
@@ -401,8 +400,9 @@ bool
 LDGM_session::needs_decoding ( Tanner_graph *graph )
 {
     for ( int i = 0; i < param_k; i++)
-        if( ! graph->nodes.find(i)->second.isDone() )
+        if( ! graph->nodes.at(i).isDone() ) {
             return true;
+        }
     return false;
 }               /*  -----  end of method LDGM_session::needs_decoding  ----- */
 

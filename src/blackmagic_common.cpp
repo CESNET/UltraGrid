@@ -339,7 +339,8 @@ class ProfileCallback : public IDeckLinkProfileCallback
 
                 bool WaitForProfileActivation(void) {
                         BMD_BOOL isActiveProfile = BMD_FALSE;
-                        const char *profileName = kDeviceProfiles.find(GetDeckLinkProfileID(m_requestedProfile))->second.first;
+                        const char *profileName = kDeviceProfiles.find(GetDeckLinkProfileID(m_requestedProfile)) != kDeviceProfiles.end() ?
+                                kDeviceProfiles.at(GetDeckLinkProfileID(m_requestedProfile)).first : "(unknown)";
                         if ((m_requestedProfile->IsActive(&isActiveProfile) == S_OK) && isActiveProfile) {
                                 LOG(LOG_LEVEL_INFO) << "[DeckLink] Profile " << profileName << " already active.\n";
                                 return true;
@@ -596,7 +597,9 @@ std::ostream &operator<<(std::ostream &output, const bmd_option &b) {
                         if (IS_FCC(b.get_int())) {
                                 output << fcc_to_string(b.get_int());
                         } else {
+                                auto flags = output.flags();
                                 output << "0x" << hex << b.get_int();
+                                output.flags(flags);
                         }
                         break;
 

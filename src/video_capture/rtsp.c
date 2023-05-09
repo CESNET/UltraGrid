@@ -869,7 +869,6 @@ bool setup_codecs_and_controls_from_sdp(FILE *sdp_file, void *state) {
                     log_msg(LOG_LEVEL_WARNING, "skipping codec = %s\n",tmpBuff);
                 }
             }
-            tmpBuff=NULL;
 
             if(countT > 1 && countC > 1) break;
         }
