@@ -694,16 +694,18 @@ bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMD
                 default:
                         return true;
         }
+        ostringstream value_oss;
+        if (opt == bmdDeckLinkConfigVideoInputConnection && get_connection_string_map().find((BMDVideoConnection) get_int()) != get_connection_string_map().end()) {
+                value_oss << get_connection_string_map().at((BMDVideoConnection) get_int());
+        } else {
+                value_oss << *this;
+        }
         if (res != S_OK) {
-                LOG(m_user_specified ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING ) << MOD_NAME << "Unable to set key " << fcc_to_string(opt) << ": " << bmd_hresult_to_string(res) << "\n";
+                LOG(m_user_specified ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING ) << MOD_NAME << "Unable to set key " << fcc_to_string(opt) << " to " <<
+                        value_oss.str() << ": " << bmd_hresult_to_string(res) << "\n";
                 return !m_user_specified;
         }
-        if (opt == bmdDeckLinkConfigVideoInputConnection && get_connection_string_map().find((BMDVideoConnection) get_int()) != get_connection_string_map().end()) {
-                // connections are not FourCCs but just integers from 0 (or 1)
-                LOG(LOG_LEVEL_INFO) << MOD_NAME << fcc_to_string(opt) << " set to: " << get_connection_string_map().at((BMDVideoConnection) get_int()) << "\n";
-                return true;
-        }
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << fcc_to_string(opt) << " set to: " << *this << "\n";
+        LOG(LOG_LEVEL_INFO) << MOD_NAME << fcc_to_string(opt) << " set to: " << value_oss.str() << "\n";
         return true;
 }
 
