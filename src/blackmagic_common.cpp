@@ -604,7 +604,12 @@ std::ostream &operator<<(std::ostream &output, const bmd_option &b) {
                                 output << b.get_int();
                         }
                         break;
-
+                case bmd_option::type_tag::t_float: {
+                        auto flags = output.flags();
+                        output << fixed << b.m_val.f;
+                        output.flags(flags);
+                        break;
+                }
         }
         return output;
 }
@@ -616,6 +621,11 @@ void bmd_option::set_flag(bool val_) {
 void bmd_option::set_int(int64_t val_) {
         m_val.i = val_;
         m_type = type_tag::t_int;
+        m_user_specified = true;
+}
+void bmd_option::set_float(double val_) {
+        m_val.f = val_;
+        m_type = type_tag::t_float;
         m_user_specified = true;
 }
 void bmd_option::set_keep() {
@@ -673,16 +683,29 @@ bool bmd_option::parse(const char *val)
                 return true;
         }
 
-        // check int
-        bool all_digit = true;
+        // check number
+        bool is_number = true;
+        bool decimal_point = false;
         for (size_t i = 0; i < strlen(val); ++i) {
-                all_digit = all_digit && isxdigit(val[i]);
-                if (i == 0 && val[i] == '-') {
-                        all_digit = true;
+                if (val[i] == '.') {
+                        if (decimal_point) { // there was already decimal point
+                                is_number = false;
+                                break;
+                        }
+                        decimal_point = true;
+                        continue;
+                }
+                is_number = is_number && isxdigit(val[i]);
+                if (i == 0 && (val[i] == '-' || val[i] == '+')) {
+                        is_number = true;
                 }
         }
-        if (all_digit) {
-                set_int(stoi(val, nullptr, 0));
+        if (is_number) {
+                if (decimal_point) {
+                        set_float(stod(val));
+                } else {
+                        set_int(stoi(val, nullptr, 0));
+                }
                 return true;
         }
         if (strlen(val) <= 4) {
@@ -703,7 +726,11 @@ bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMD
                 case type_tag::t_int:
                         res = deckLinkConfiguration->SetInt(opt, get_int());
                         break;
-                default:
+                case type_tag::t_float:
+                        res = deckLinkConfiguration->SetFloat(opt, m_val.f);
+                        break;
+                case type_tag::t_keep:
+                case type_tag::t_default:
                         return true;
         }
         ostringstream value_oss;
