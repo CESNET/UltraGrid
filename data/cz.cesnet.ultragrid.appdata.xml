@@ -13,7 +13,6 @@
     <p>UltraGrid is open-source software, distributed under BSD license - we're interested in both research/academic and commercial applications. Our work is supported by CESNET large infrastructure LM2010005. In the past, it was also supported by "Optical Network of National Research and Its New Applications" (MŠM 6383917201) and incorporated research results achieved within by research intent "Parallel and Distributed Systems" (MŠM 0021622419).</p>
   </description>
   <launchable type="desktop-id">uv-qt.desktop</launchable>
-  <url type="homepage">https://www.ultragrid.cz</url>
   <update_contact>ultragrid-dev_AT_cesnet.cz</update_contact>
   <content_rating type="oars-1.1">
     <content_attribute id="violence-cartoon">none</content_attribute>
