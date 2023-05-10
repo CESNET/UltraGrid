@@ -691,6 +691,18 @@ void bmd_option::parse(const char *val)
                 return;
         }
 
+        // explicitly typed (either "str" or 'fcc')
+        if ((val[0] == '"' && val[strlen(val) - 1] == '"') || (val[0] == '\'' && val[strlen(val) - 1] == '\'')) {
+                string raw_val(val + 1);
+                raw_val.erase(raw_val.length() - 1, 1);
+                if (val[0] == '"') {
+                        set_string(raw_val.c_str());
+                } else {
+                        set_int(bmd_read_fourcc(raw_val.c_str()));
+                }
+                return;
+        }
+
         // check number
         bool is_number = true;
         bool decimal_point = false;
