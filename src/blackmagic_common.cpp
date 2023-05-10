@@ -371,7 +371,7 @@ class ProfileCallback : public IDeckLinkProfileCallback
 /**
  * @param a value from BMDProfileID or bmdDuplexHalf (maximize number of IOs)
  */
-bool decklink_set_profile(IDeckLink *deckLink, bmd_option req_profile, bool stereo) {
+bool decklink_set_profile(IDeckLink *deckLink, bmd_option const &req_profile, bool stereo) {
         if (req_profile.is_default() && !stereo) {
                 return true;
         }
