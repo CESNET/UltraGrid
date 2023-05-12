@@ -363,8 +363,8 @@ LDGM_session::create_edges ( Tanner_graph *graph )
             if( idx > -1 ) {
                 auto &node = graph->nodes.at(idx);
                 node.neighbours.push_back(param_k + param_m + m);
-                node = graph->nodes.at(param_k + param_m + m);
-                node.neighbours.push_back(idx);
+                auto &n2 = graph->nodes.at(param_k + param_m + m);
+                n2.neighbours.push_back(idx);
             }
         }
     }
