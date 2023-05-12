@@ -394,7 +394,7 @@ shared_ptr<video_frame> ldgm::encode(shared_ptr<video_frame> tx_frame)
         // existing.
         std::shared_ptr<LDGM_session> coding_session = this->m_coding_session;
         shared_ptr<video_frame> out(vf_alloc_desc(video_desc_from_frame(tx_frame.get())),
-                        [&coding_session](struct video_frame *frame) {
+                        [coding_session = std::move(coding_session)](struct video_frame *frame) {
                                 for (unsigned int i = 0; i < frame->tile_count; ++i) {
                                         coding_session->free_out_buf(frame->tiles[i].data);
                                 }
