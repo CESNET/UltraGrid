@@ -665,8 +665,6 @@ $(GUI_BUNDLE)/Contents/libs: $(BUNDLE)/Contents/libs $(GUI_BUNDLE)
 		done; \
 	fi
 	test -d $(GUI_BUNDLE)/Contents/Resources || mkdir $(GUI_BUNDLE)/Contents/Resources
-	cp data/icon.icns $(GUI_BUNDLE)/Contents/Resources
-	cp data/update.mac $(GUI_BUNDLE)/Contents/MacOS/update
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSCameraUsageDescription 'Allow camera for video capture'
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSMicrophoneUsageDescription 'Allow microphone for audio capture'
 	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
