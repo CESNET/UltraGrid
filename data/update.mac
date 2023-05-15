@@ -1,4 +1,4 @@
-#!/bin/sh -eu
+#!/bin/sh -eux
 
 APPNAME=uv-qt.app
 DIR=$(cd $(dirname $0)/../..; pwd)
@@ -21,7 +21,7 @@ fi
 UPDATER_DIR=$(mktemp -d /tmp/ug-updater.XXXXXXXX)
 cd $UPDATER_DIR
 
-curl -LO https://github.com/CESNET/UltraGrid/releases/download/nightly/UltraGrid-nightly.dmg
+curl -LO https://github.com/CESNET/UltraGrid/releases/download/continuous/UltraGrid-continuous.dmg
 
 mkdir mnt
 hdiutil mount -mountpoint mnt *dmg
