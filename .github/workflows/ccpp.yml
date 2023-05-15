@@ -19,7 +19,7 @@ on:
       - '**.mm'
       - 'autogen.sh'
       - 'configure.ac'
-      - 'data/scripts/**'
+      - 'data/**'
       - 'Makefile.in'
   workflow_dispatch:
 
