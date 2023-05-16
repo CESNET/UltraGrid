@@ -802,7 +802,9 @@ public:
                                 auto addr = reinterpret_cast<struct sockaddr *>(&it->addr);
                                 char addr_str[128];
                                 get_sockaddr_addr_str(addr, addr_str, sizeof(addr_str));
-                                msg += get_replica_mod_name(addr_str, get_sockaddr_addr_port(addr));
+                                char *replica_name = get_replica_mod_name(addr_str, get_sockaddr_addr_port(addr));
+                                msg += replica_name;
+                                free(replica_name);
 
                                 std::swap(*it, participants.back());
                                 participants.pop_back();
@@ -848,7 +850,7 @@ public:
         }
 
         void run_async(std::shared_ptr<socket_udp> server_sock){
-                sock = server_sock;
+                sock = std::move(server_sock);
                 worker_thread = std::thread(&Participant_manager::worker, this);
         }
 
