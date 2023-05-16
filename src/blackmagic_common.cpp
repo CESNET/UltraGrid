@@ -736,7 +736,7 @@ void bmd_option::parse(const char *val)
         set_string(val);
 }
 
-bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const {
+bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt, string const & log_prefix) const {
         HRESULT res = E_FAIL;
         switch (m_type) {
                 case type_tag::t_flag:
@@ -765,11 +765,11 @@ bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMD
                 value_oss << *this;
         }
         if (res != S_OK) {
-                LOG(m_user_specified ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING ) << MOD_NAME << "Unable to set key " << fcc_to_string(opt) << " to " <<
+                LOG(m_user_specified ? LOG_LEVEL_ERROR : LOG_LEVEL_WARNING ) << log_prefix << "Unable to set key " << fcc_to_string(opt) << " to " <<
                         value_oss.str() << ": " << bmd_hresult_to_string(res) << "\n";
                 return !m_user_specified;
         }
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << fcc_to_string(opt) << " set to: " << value_oss.str() << "\n";
+        LOG(LOG_LEVEL_INFO) << log_prefix << fcc_to_string(opt) << " set to: " << value_oss.str() << "\n";
         return true;
 }
 

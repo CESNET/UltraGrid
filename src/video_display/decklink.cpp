@@ -811,11 +811,11 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
                 }
 
                 const bmd_option subsampling_444(codec_is_a_rgb(desc.color_spec), false); // we don't have pixfmt for 444 YCbCr
-                subsampling_444.option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfig444SDIVideoOutput);
+                subsampling_444.option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfig444SDIVideoOutput, MOD_NAME);
 
                 if (!s->keep_device_defaults && s->device_options.find(bmdDeckLinkConfigSDIOutputLinkConfiguration) == s->device_options.end()) {
                         const int64_t link = desc.width == 7680 ? bmdLinkConfigurationQuadLink : bmdLinkConfigurationSingleLink;
-                        bmd_option(link).option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigSDIOutputLinkConfiguration);
+                        bmd_option(link).option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigSDIOutputLinkConfiguration, MOD_NAME);
                 }
 
                 int64_t link = 0;
@@ -829,7 +829,7 @@ display_decklink_reconfigure_video(void *state, struct video_desc desc)
 
                 BMD_BOOL quad_link_supp;
                 if (s->state.at(i).deckLinkAttributes != nullptr && s->state.at(i).deckLinkAttributes->GetFlag(BMDDeckLinkSupportsQuadLinkSDI, &quad_link_supp) == S_OK && quad_link_supp == BMD_TRUE) {
-                        s->quad_square_division_split.option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit);
+                        s->quad_square_division_split.option_write(s->state.at(i).deckLinkConfiguration, bmdDeckLinkConfigQuadLinkSDIVideoOutputSquareDivisionSplit, MOD_NAME);
                 }
 
                 const BMDVideoOutputConversionMode conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoOutputConversionMode) != s->device_options.end() ?
@@ -1226,7 +1226,7 @@ static void *display_decklink_init(struct module *parent, const char *fmt, unsig
                         if (s->keep_device_defaults && !o.second.is_user_set()) {
                                 continue;
                         }
-                        if (!o.second.option_write(deckLinkConfiguration, o.first)) {
+                        if (!o.second.option_write(deckLinkConfiguration, o.first, MOD_NAME)) {
                                 goto error;
                         }
                 }

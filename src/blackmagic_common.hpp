@@ -104,7 +104,7 @@ public:
         void set_int(int64_t val_);
         void set_float(double val_);
         void set_string(const char *val_);
-        bool option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt) const;
+        bool option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt, std::string const &log_prefix = "[DeckLink] ") const;
 };
 
 std::ostream &operator<<(std::ostream &output, const bmd_option &b);

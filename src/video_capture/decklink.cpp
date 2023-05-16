@@ -1106,7 +1106,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                 if (s->keep_device_defaults && !o.second.is_user_set()) {
                         continue;
                 }
-                if (!o.second.option_write(deckLinkConfiguration, o.first)) {
+                if (!o.second.option_write(deckLinkConfiguration, o.first, MOD_NAME)) {
                         INIT_ERR();
                 }
         }
