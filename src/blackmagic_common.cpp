@@ -736,7 +736,7 @@ void bmd_option::parse(const char *val)
         set_string(val);
 }
 
-bool bmd_option::option_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt, string const & log_prefix) const {
+bool bmd_option::device_write(IDeckLinkConfiguration *deckLinkConfiguration, BMDDeckLinkConfigurationID opt, string const &log_prefix) const {
         HRESULT res = E_FAIL;
         switch (m_type) {
                 case type_tag::t_flag:
