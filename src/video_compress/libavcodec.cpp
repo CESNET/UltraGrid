@@ -697,7 +697,7 @@ static inline bool check_av_opt_set(void *priv_data, const char *key, T val, con
                 string err = string(MOD_NAME) + "Unable to set " + desc + " to " + val_str;
                 print_libav_error(LOG_LEVEL_WARNING, err.c_str(), ret);
         } else {
-                verbose_msg(MOD_NAME "Successfully set %s to %s\n", desc, val_str.c_str());
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Successfully set codec %s to %s\n", desc, val_str.c_str());
         }
         return ret == 0;
 }
@@ -798,8 +798,7 @@ bool set_codec_ctx_params(struct state_video_compress_libav *s, AVPixelFormat pi
                 if (s->blacklist_opts.count(item.first) == 1) {
                         continue;
                 }
-                if(av_opt_set(s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str(), 0) != 0) {
-                        log_msg(LOG_LEVEL_WARNING, "[lavc] Error: Unable to set '%s' to '%s'. Check command-line options.\n", item.first.c_str(), item.second.c_str());
+                if (!check_av_opt_set<const char *>(s->codec_ctx->priv_data, item.first.c_str(), item.second.c_str())) {
                         return false;
                 }
         }
