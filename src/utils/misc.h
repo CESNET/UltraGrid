@@ -41,9 +41,11 @@
 
 #ifdef __cplusplus
 #include <cstddef>
+#include <cstdint>
 #else
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #endif
 
 #ifdef __cplusplus
@@ -75,6 +77,15 @@ void print_module_usage(const char *module_name, const struct key_val *options, 
 
 #ifdef __cplusplus
 uint32_t parse_uint32(const char *value_str) noexcept(false);
+
+#include <map>
+template<typename key, typename T>
+inline T get_map_val_or_default(std::map<key, T> const& map, key const& k, T const& def) {
+        if (auto && it = map.find(k); it != map.end()) {
+                return it->second;
+        }
+        return def;
+}
 #endif //__cplusplus
 
 #endif// UTILS_MISC_H_

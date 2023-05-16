@@ -1498,6 +1498,12 @@ void set_forced_idr(AVCodecContext *codec_ctx, int value)
         }
 }
 
+static void configure_aom_av1(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+        auto && usage = get_map_val_or_default<string, string>(param->lavc_opts, "usage", "realtime");
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "usage", usage.c_str());
+}
+
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         const char *preset = DEFAULT_NVENC_PRESET;
@@ -1592,6 +1598,8 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
                 configure_qsv_h264_hevc(codec_ctx, param);
+        } else if (strstr(codec_ctx->codec->name, "libaom-av1") == codec_ctx->codec->name) {
+                configure_aom_av1(codec_ctx, param);
         } else if (strstr(codec_ctx->codec->name, "libsvt") == codec_ctx->codec->name) {
                 configure_svt(codec_ctx, param);
         } else {
@@ -1674,6 +1682,9 @@ static string get_av1_preset(string const & enc_name, int width, int height, dou
                 } else {
                         return string("11");
                 }
+        }
+        if (enc_name == "libaom-av1") {
+                return string{DONT_SET_PRESET}; // configure_aom_av1() sets "usage" instead
         }
         return {};
 }
