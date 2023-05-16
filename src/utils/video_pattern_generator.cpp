@@ -577,11 +577,11 @@ struct still_image_video_pattern_generator : public video_pattern_generator {
 };
 
 struct gray_video_pattern_generator : public video_pattern_generator {
-        gray_video_pattern_generator(int w, int h, codec_t c, const char *opts)
+        gray_video_pattern_generator(int w, int h, codec_t c, string const& opts)
                 : width(w), height(h), color_spec(c)
         {
-                if (opts) {
-                        if (strcmp(opts, "help") == 0) {
+                if (!opts.empty()) {
+                        if (opts == "help") {
                                 col() << "Usage:\n\t" SBOLD("gray[:step]") << " - interframe color increment (default " << DEFAULT_STEP << ")\n";
                                 throw 1;
                         }
@@ -705,7 +705,7 @@ video_pattern_generator_create(std::string const & config, int width, int height
                         params = config.substr(delim + 1);
                 }
                 if (pattern == "gray" || pattern == "grey") {
-                        return new gray_video_pattern_generator{width, height, color_spec, params.c_str()};
+                        return new gray_video_pattern_generator{width, height, color_spec, params};
                 }
                 if (pattern == "interlaced") {
                         return new interlaced_video_pattern_generator{width, height, color_spec};
