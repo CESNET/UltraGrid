@@ -50,6 +50,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
 #endif // defined __GNUC__
 #include <ajantv2/includes/ntv2utils.h>
 #include <ntv2democommon.h>
