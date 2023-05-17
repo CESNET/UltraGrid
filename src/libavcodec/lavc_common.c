@@ -293,4 +293,22 @@ bool pixfmt_list_has_420_subsampling(const enum AVPixelFormat *fmt){
         return true;
 }
 
+const char *lavc_thread_type_to_str(int thread_type) {
+        static _Thread_local char buf[128];
+        memset(buf, 0, sizeof buf);
+        if ((thread_type & FF_THREAD_FRAME) != 0) {
+                strncpy(buf, "thread", sizeof buf - 1);
+        }
+        if ((thread_type & FF_THREAD_SLICE) != 0) {
+                if (strlen(buf) > 0) {
+                        strncpy(buf, ", ", sizeof buf - 1);
+                }
+                strncpy(buf, "slice", sizeof buf - 1);
+        }
+        if (strlen(buf) == 0) {
+                return "(other)";
+        }
+        return buf;
+}
+
 /* vi: set expandtab sw=8: */

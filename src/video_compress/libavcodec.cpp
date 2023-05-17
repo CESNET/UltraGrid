@@ -1361,6 +1361,7 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
         } else if (codec_ctx->thread_type != 0) {
                 codec_ctx->thread_count = thread::hardware_concurrency();
         }
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Setting thread count to %d, type: %s\n", codec_ctx->thread_count, lavc_thread_type_to_str(codec_ctx->thread_type));
 }
 
 static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param * /* param */)

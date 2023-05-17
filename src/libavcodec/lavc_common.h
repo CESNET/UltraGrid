@@ -108,6 +108,7 @@ void ug_set_av_logging(void);
 int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) __attribute__((const));
 struct pixfmt_desc av_pixfmt_get_desc(enum AVPixelFormat pixfmt);
 void lavd_flush(AVCodecContext *codec_ctx);
+const char *lavc_thread_type_to_str(int thread_type);
 
 #ifdef __cplusplus
 }
