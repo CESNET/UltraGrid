@@ -148,7 +148,7 @@ static void try_open_soundfont() {
                 return;
         }
         const char *root = get_install_root();
-        const char *suffix = "/share/soundfonts/default.sf2";
+        const char *suffix = "/share/soundfonts/default.sf3";
         const size_t len = strlen(root) + strlen(suffix) + 1;
         char path[len];
         strncpy(path, root, len - 1);

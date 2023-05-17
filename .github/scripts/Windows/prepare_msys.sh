@@ -104,7 +104,7 @@ install_soundfont() {
         . "$GITHUB_WORKSPACE/.github/scripts/defs.sh"
         sf_dir="$GITHUB_WORKSPACE/data/Windows/share/soundfonts"
         mkdir -p "$sf_dir"
-        curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.sf2"
+        curl -L "$DEFAULT_SF_URL" -o "$sf_dir/default.${DEFAULT_SF_URL##*.}"
 }
 
 # Install cross-platform deps
