@@ -26,13 +26,6 @@ QT_PLUGIN_PATH=$(set -- "$DIR"/usr/lib/qt?/plugins; echo "$1")
 export QT_PLUGIN_PATH
 export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_PATH/platforms"
 
-if [ -z "${SDL_SOUNDFONTS-}" ] && [ -d "$DIR/usr/share/soundfonts" ]; then
-        SDL_SOUNDFONTS=$(find "$DIR/usr/share/soundfonts" -mindepth 1 | head -n 1)
-        export SDL_SOUNDFONTS
-        export SDL_FORCE_SOUNDFONTS=1
-        fj_env="--env=SDL_SOUNDFONTS=${SDL_SOUNDFONTS} --env=SDL_FORCE_SOUNDFONTS=1"
-fi
-
 get_tools() {(
         LD_LIBRARY_PATH=$orig_ld_library_path
         find "$DIR/usr/bin" -mindepth 1 -exec basename {} \; | tr '\n' ' '
@@ -253,7 +246,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
-        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} --env=UG_FONT_DIR=${UG_FONT_DIR} ${fj_env-} $FIREJAIL_OPTS "
+        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} --env=UG_FONT_DIR=${UG_FONT_DIR} $FIREJAIL_OPTS "
         if [ "${FIREJAIL_DEBUG:-}" ]; then
                 printf "Firejail arguments:\n\t$RUN\n\n"
         fi
