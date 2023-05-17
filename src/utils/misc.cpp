@@ -45,6 +45,7 @@
 #include <unistd.h>
 
 #include <cassert>
+#include <cerrno>
 #include <climits>
 #include <cmath>
 #include <cstring>
@@ -56,6 +57,11 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/color_out.h"
+
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
 
 #define STRERROR_BUF_LEN 1024
 
@@ -305,3 +311,24 @@ uint32_t parse_uint32(const char *value_str) noexcept(false)
         return val;
 }
 
+/**
+ * Checks whether host machine is an ARM Mac (native or running x86_64 code with Rosetta2)
+*/
+bool is_arm_mac() {
+#ifdef __APPLE__
+        char machine[256];
+        size_t len = sizeof machine;
+        if (sysctlbyname("hw.machine", &machine, &len, NULL, 0) != 0) {
+                perror("sysctlbyname hw.machine");
+                return false;
+        }
+        int proc_translated = -1; // Rosetta2 - 0 off, 1 on; sysctl ENOENT - x86_64 mac
+        len = sizeof proc_translated;
+        if (int ret = sysctlbyname("sysctl.proc_translated", &proc_translated, &len, NULL, 0); ret != 0 && errno != ENOENT) {
+                perror("sysctlbyname sysctl.proc_translated");
+        }
+        return strstr(machine, "arm") != NULL || proc_translated == 1;
+#else
+        return false;
+#endif
+}

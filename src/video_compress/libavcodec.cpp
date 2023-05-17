@@ -212,7 +212,7 @@ static map<codec_t, codec_params_t> codec_params = {
                 502
         }},
         { AV1, codec_params_t{
-                [](bool) { return "libsvtav1"; },
+                [](bool) { return is_arm_mac() ? "libaom-av1" : "libsvtav1"; },
                 0.1,
                 get_av1_preset,
                 setparam_h264_h265_av1,
