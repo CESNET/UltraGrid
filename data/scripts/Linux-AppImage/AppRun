@@ -67,6 +67,7 @@ usage_aux() {
         printf "\tULTRAGRID_USE_FIREJAIL:  run the UltraGrid executable with firejail. If\n"
         printf "\t                         the variable contains a profile path (ends with\n"
         printf "\t                         '.profile'), it will be used.\n"
+        printf "\tFIREJAIL_OPTS:           custom options to be passed to Firejail\n"
         printf "\n"
 }
 
@@ -234,10 +235,10 @@ RUN=
 if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && [ "$ULTRAGRID_USE_FIREJAIL" != no ]; then
         command -v firejail >/dev/null || { echo "Firejail not present in system!"; exit 1; }
         if expr "$ULTRAGRID_USE_FIREJAIL" : '.*\.profile' >/dev/null; then
-                FIREJAIL_OPTS="--profile=$ULTRAGRID_USE_FIREJAIL"
+                FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--profile=$ULTRAGRID_USE_FIREJAIL"
         else
                 FJ_TMPDIR=${TMPDIR-/tmp/ultragrid-$(id -u)}
-                FIREJAIL_OPTS="--caps.drop=all --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp --disable-mnt --private-bin=none --private-opt=none --mkdir=$FJ_TMPDIR --read-write=$FJ_TMPDIR --writable-var"
+                FIREJAIL_OPTS="${FIREJAIL_OPTS+$FIREJAIL_OPTS }--caps.drop=all --ipc-namespace --nonewprivs --protocol=unix,inet,inet6,netlink --seccomp --disable-mnt --private-bin=none --private-opt=none --mkdir=$FJ_TMPDIR --read-write=$FJ_TMPDIR --writable-var"
                 FIREJAIL_OPTS="$FIREJAIL_OPTS $(get_custom_firejail_rules "$@") --private-etc=alsa,group,hostname,ld.so.conf,ld.so.cache,ld.so.conf.d,nsswitch.conf,passwd,resolv.conf --ignore=novideo"
                 if ! expr "$FIREJAIL_OPTS" : '.*--read-write=/tmp ' > /dev/null; then
                         FIREJAIL_OPTS="--read-only=/tmp $FIREJAIL_OPTS"
@@ -246,7 +247,7 @@ if [ -n "${ULTRAGRID_USE_FIREJAIL-}" ] && [ "$ULTRAGRID_USE_FIREJAIL" != 0 ] && 
         if firejail --help | grep -q -- --keep-var-tmp; then
                 FIREJAIL_OPTS="$FIREJAIL_OPTS --keep-var-tmp"
         fi
-        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} --env=UG_FONT_DIR=${UG_FONT_DIR} $FIREJAIL_OPTS "
+        RUN="firejail --env=LD_PRELOAD=${LD_PRELOAD} --env=LD_LIBRARY_PATH=${LD_LIBRARY_PATH}${FJ_TMPDIR+ --env=TMPDIR=${FJ_TMPDIR}} $FIREJAIL_OPTS "
         if [ "${FIREJAIL_DEBUG:-}" ]; then
                 printf "Firejail arguments:\n\t$RUN\n\n"
         fi
