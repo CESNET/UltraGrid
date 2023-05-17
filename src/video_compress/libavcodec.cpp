@@ -1098,9 +1098,15 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Average compression time of last %d frames is %f ms but time per frame is only %f ms!\n",
                         mov_window, s->mov_avg_comp_duration * 1000, 1000 / s->compressed_desc.fps);
         string hint;
+        string quality_hurt = "latency";
         if (regex_match(s->codec_ctx->codec->name, regex(".*nvenc.*"))) {
                 if (s->lavc_opts.find("delay") == s->lavc_opts.end()) {
                         hint = "\"delay=<frames>\" option to NVENC compression (2 suggested)";
+                }
+        } if (strcmp(s->codec_ctx->codec->name, "libaom-av1") == 0) {
+                if (s->lavc_opts.find("cpu-used") == s->lavc_opts.end()) {
+                        hint = "\"cpu-used=8\" option for quality/speed trade-off to AOM AV1 compression (values 0-8 allowed)";
+                        quality_hurt = "quality";
                 }
         } else if ((s->codec_ctx->thread_type & FF_THREAD_SLICE) == 0 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
                 hint = "\"threads=<n>FS\" option with small <n> or 0 (nr of logical cores) to compression";
@@ -1108,7 +1114,7 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
                 hint = "\"threads=<n>\" option with small <n> or 0 (nr of logical cores) to compression";
         }
         if (!hint.empty()) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Consider adding " << hint << " to increase throughput at the expense of latency.\n";
+                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Consider adding " << hint << " to increase throughput at the expense of " << quality_hurt << ".\n";
         }
 
         bool src_rgb = codec_is_a_rgb(s->saved_desc.color_spec);
@@ -1349,6 +1355,8 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                 // do not enable MT for eg. libx265 - libx265 uses frame threads
                 if (strncmp(codec_ctx->codec->name, "libvpx", 6) == 0) {
                         codec_ctx->thread_count = 0;
+                } else if (strcmp(codec_ctx->codec->name, "libaom-av1") == 0) {
+                        codec_ctx->thread_count = thread::hardware_concurrency();
                 }
         } else if (codec_ctx->thread_type != 0) {
                 codec_ctx->thread_count = thread::hardware_concurrency();
@@ -1501,6 +1509,7 @@ static void configure_aom_av1(AVCodecContext *codec_ctx, struct setparam_param *
 {
         auto && usage = get_map_val_or_default<string, string>(param->lavc_opts, "usage", "realtime");
         check_av_opt_set<const char *>(codec_ctx->priv_data, "usage", usage.c_str());
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "tiles", "4x4");
 }
 
 static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *param)
