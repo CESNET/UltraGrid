@@ -143,22 +143,35 @@ static const char *load_song1() {
         return filename;
 }
 
+/**
+ * Try to preload a sound font.
+ *
+ * This is mainly intended to allow loading sound fonts from application bundle
+ * on various platforms (get_install_root is relative to executable).
+ */
 static void try_open_soundfont() {
         if (getenv("SDL_SOUNDFONT") != NULL) {
                 return;
         }
         const char *root = get_install_root();
-        const char *suffix = "/share/soundfonts/default.sf3";
-        const size_t len = strlen(root) + strlen(suffix) + 1;
-        char path[len];
-        strncpy(path, root, len - 1);
-        strncat(path, suffix, len - strlen(path) - 1);
-        FILE *f = fopen(path, "r");
-        if (!f) {
+        const char *sf_candidates[] = { // without install prefix
+                "/share/soundfonts/default.sf2", "/share/soundfonts/default.sf3",
+                "/usr/share/sounds/sf2/default-GM.sf2", "/usr/share/sounds/sf2/default-GM.sf3", // Ubuntu
+        };
+        for (size_t i = 0; i < sizeof sf_candidates / sizeof sf_candidates[0]; ++i) {
+                const size_t len = strlen(root) + strlen(sf_candidates[i]) + 1;
+                char path[len];
+                strncpy(path, root, len - 1);
+                strncat(path, sf_candidates[i], len - strlen(path) - 1);
+                FILE *f = fopen(path, "rb");
+                debug_msg(MOD_NAME "Trying to open sound font '%s': %s\n", path, f ? "success, setting" : "failed");
+                if (!f) {
+                        continue;
+                }
+                fclose(f);
+                Mix_SetSoundFonts(path);
                 return;
         }
-        fclose(f);
-        Mix_SetSoundFonts(path);
 }
 
 static void * audio_cap_sdl_mixer_init(struct module *parent, const char *cfg)
