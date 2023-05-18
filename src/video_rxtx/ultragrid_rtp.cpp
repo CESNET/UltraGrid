@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2021 CESNET z.s.p.o.
+ * Copyright (c) 2013-2023 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -335,7 +335,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 timeout.tv_sec = 0;
                 //timeout.tv_usec = 999999 / 59.94;
                 // use longer timeout when we are not receivng any data
-                if ((last_not_timeout - curr_time) > NS_IN_SEC) {
+                if ((curr_time - last_not_timeout) > NS_IN_SEC) {
                         timeout.tv_usec = 100000;
                 } else {
                         timeout.tv_usec = 1000;
