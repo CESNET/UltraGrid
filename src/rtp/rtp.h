@@ -37,6 +37,10 @@
 #ifndef __RTP_H__
 #define __RTP_H__
 
+#include "config.h"
+#include "config_win32.h"
+#include "config_unix.h"
+
 #ifdef __cplusplus
 #include <cstddef> // offsetof
 #include <cstdint>

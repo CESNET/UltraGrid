@@ -297,7 +297,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         set_thread_name(__func__);
         struct pdb_e *cp;
         int fr;
-        int ret;
         int tiles_post = 0;
         time_ns_t last_tile_received = 0;
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
@@ -340,10 +339,10 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 } else {
                         timeout.tv_usec = 1000;
                 }
-                ret = rtp_recv_r(m_network_devices[0], &timeout, ts);
+                bool ret = rtp_recv_r(m_network_devices[0], &timeout, ts);
 
                 // timeout
-                if (ret == FALSE) {
+                if (!ret) {
                         // processing is needed here in case we are not receiving any data
                         receiver_process_messages();
                         //printf("Failed to receive data\n");
