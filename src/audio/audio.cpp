@@ -9,7 +9,7 @@
  *          Martin Pulec     <martin.pulec@cesnet.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2023 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -691,6 +691,7 @@ static void *audio_receiver_thread(void *arg)
                 playback_supports_multiple_streams = false;
         }
 
+        time_ns_t last_not_timeout = 0;
         printf("Audio receiving started.\n");
         while (!s->should_exit) {
                 struct message *msg;
@@ -710,8 +711,15 @@ static void *audio_receiver_thread(void *arg)
                         timeout.tv_sec = 0;
                         // timeout.tv_usec = 999999 / 59.94; // audio goes almost always at the same rate
                                                              // as video frames
-                        timeout.tv_usec = 1000; // this stuff really smells !!!
-                        rtp_recv_r(s->audio_network_device, &timeout, ts);
+                        if ((curr_time - last_not_timeout) > NS_IN_SEC) {
+                                timeout.tv_usec = 100000;
+                        } else {
+                                timeout.tv_usec = 1000; // this stuff really smells !!!
+                        }
+                        bool ret = rtp_recv_r(s->audio_network_device, &timeout, ts);
+                        if (ret) {
+                                last_not_timeout = curr_time;
+                        }
                         pdb_iter_t it;
                         cp = pdb_iter_init(s->audio_participants, &it);
                 
