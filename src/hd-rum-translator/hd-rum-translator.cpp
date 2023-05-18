@@ -783,7 +783,8 @@ public:
         Participant_manager(module& mod, const char *compress) : mod(mod), compression(compress ? compress : "") {  }
         ~Participant_manager(){
                 should_stop.store(true, std::memory_order_relaxed);
-                worker_thread.join();
+                if(worker_thread.joinable())
+                    worker_thread.join();
         }
 
         void tick(sockaddr_storage& sin, socklen_t addrlen){
