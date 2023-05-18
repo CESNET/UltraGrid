@@ -1355,7 +1355,8 @@ static void set_codec_thread_mode(AVCodecContext *codec_ctx, struct setparam_par
                 // do not enable MT for eg. libx265 - libx265 uses frame threads
                 if (strncmp(codec_ctx->codec->name, "libvpx", 6) == 0) {
                         codec_ctx->thread_count = 0;
-                } else if (strcmp(codec_ctx->codec->name, "libaom-av1") == 0) {
+                } else if (strcmp(codec_ctx->codec->name, "libaom-av1") == 0 ||
+                                strcmp(codec_ctx->codec->name, "librav1e") == 0) {
                         codec_ctx->thread_count = thread::hardware_concurrency();
                 }
         } else if (codec_ctx->thread_type != 0) {
@@ -1562,6 +1563,13 @@ static void configure_nvenc(AVCodecContext *codec_ctx, struct setparam_param *pa
         }
 }
 
+static void configure_rav1e(AVCodecContext *codec_ctx, struct setparam_param * /*param*/)
+{
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "rav1e-params", "low_latency=true");
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "speed", "10");
+        check_av_opt_set<const char *>(codec_ctx->priv_data, "tiles", "16");
+}
+
 static void configure_svt(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         // see FFMPEG modules' sources for semantics
@@ -1607,8 +1615,10 @@ static void setparam_h264_h265_av1(AVCodecContext *codec_ctx, struct setparam_pa
         } else if (strcmp(codec_ctx->codec->name, "h264_qsv") == 0 ||
                         strcmp(codec_ctx->codec->name, "hevc_qsv") == 0) {
                 configure_qsv_h264_hevc(codec_ctx, param);
-        } else if (strstr(codec_ctx->codec->name, "libaom-av1") == codec_ctx->codec->name) {
+        } else if (strcmp(codec_ctx->codec->name, "libaom-av1") == 0) {
                 configure_aom_av1(codec_ctx, param);
+        } else if (strcmp(codec_ctx->codec->name, "librav1e") == 0) {
+                configure_rav1e(codec_ctx, param);
         } else if (strstr(codec_ctx->codec->name, "libsvt") == codec_ctx->codec->name) {
                 configure_svt(codec_ctx, param);
         } else {
@@ -1694,6 +1704,9 @@ static string get_av1_preset(string const & enc_name, int width, int height, dou
         }
         if (enc_name == "libaom-av1") {
                 return string{DONT_SET_PRESET}; // configure_aom_av1() sets "usage" instead
+        }
+        if (enc_name == "librav1e") {
+                return string{DONT_SET_PRESET}; // no presets for rav1e
         }
         return {};
 }
