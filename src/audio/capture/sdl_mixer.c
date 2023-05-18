@@ -111,7 +111,8 @@ static int parse_opts(struct state_sdl_mixer_capture *s, char *cfg) {
                         color_printf(TBOLD("\t<filename>") " - name of file to be used\n");
                         color_printf(TBOLD("\t<vol>     ") " - volume [0..%d], default %d\n", MIX_MAX_VOLUME, DEFAULT_MIX_MAX_VOLUME);
                         color_printf("\n");
-                        color_printf(TBOLD("SDL_SOUNDFONTS") " - environment variable with path to sound fonts for MIDI playback (eg. freepats)\n\n");
+                        color_printf(TBOLD("SDL_SOUNDFONTS") "       - environment variable with path to sound fonts for MIDI playback (eg. freepats)\n");
+                        color_printf(TBOLD("ULTRAGRID_BUNDLED_SF") " - set this environment variable to 1 to skip loading system default sound font\n\n");
                         return 1;
                 }
                 if (strstr(item, "file=") == item) {
@@ -147,11 +148,22 @@ static const char *load_song1() {
  * Try to preload a sound font.
  *
  * This is mainly intended to allow loading sound fonts from application bundle
- * on various platforms (get_install_root is relative to executable).
+ * on various platforms (get_install_root is relative to executable). But use
+ * to system default font, if available.
  */
 static void try_open_soundfont() {
-        if (getenv("SDL_SOUNDFONT") != NULL) {
-                return;
+        const _Bool force_bundled_sf = getenv("ULTRAGRID_BUNDLED_SF") != NULL && strcmp(getenv("ULTRAGRID_BUNDLED_SF"), "1") == 0;
+        if (!force_bundled_sf) {
+                const char *default_soundfont = Mix_GetSoundFonts();
+                if (default_soundfont) {
+                        FILE *f = fopen(default_soundfont, "rb");
+                        if (f) {
+                                debug_msg(MOD_NAME "Default sound font '%s' seems usable, not trying to load additional fonts.\n", default_soundfont);
+                                fclose(f);
+                                return;
+                        }
+                }
+                debug_msg(MOD_NAME "Unable to open default sound font '%s'\n", default_soundfont ? default_soundfont : "(no font)");
         }
         const char *root = get_install_root();
         const char *sf_candidates[] = { // without install prefix
