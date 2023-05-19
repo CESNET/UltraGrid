@@ -274,20 +274,29 @@ static size_t testcard_load_from_file_pam(const char *filename, struct video_des
         if (pam_read(filename, &info, &data, malloc) == 0) {
                 return false;
         }
-        assert(info.depth == 3);
+        switch (info.depth) {
+                case 3:
+                        desc->color_spec = info.maxval == 255 ? RGB : RG48;
+                        break;
+                case 4:
+                        desc->color_spec = RGBA;
+                        break;
+                default:
+                        log_msg(LOG_LEVEL_ERROR, "Unsupported PAM/PNM channel count %d!\n", info.depth);
+                        return 0;
+        }
         desc->width = info.width;
         desc->height = info.height;
-        desc->color_spec = info.maxval == 255 ? RGB : RG48;
         size_t data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
         *in_file_contents = (char  *) malloc(data_len);
-        if (desc->color_spec == RGB) {
-                memcpy(*in_file_contents, data, info.width * info.height * 3);
-        } else {
+        if (desc->color_spec == RG48) {
                 uint16_t *in = (uint16_t *)(void *) data;
                 uint16_t *out = (uint16_t *)(void *) *in_file_contents;
                 for (size_t i = 0; i < (size_t) info.width * info.height * 3; ++i) {
                         *out++ = ntohs(*in++) * ((1<<16U) / (info.maxval + 1));
                 }
+        } else {
+                memcpy(*in_file_contents, data, data_len);
         }
         free(data);
         return data_len;
