@@ -73,7 +73,6 @@
 #include "utils/y4m.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <chrono>
 #include "audio/types.h"
 #include "utils/video_pattern_generator.h"
 #include "video_capture/testcard_common.h"
@@ -88,10 +87,9 @@ constexpr video_desc default_format = { 1920, 1080, UYVY, 25.0, INTERLACED_MERGE
 using namespace std;
 
 struct testcard_state {
-        std::chrono::steady_clock::time_point last_frame_time;
+        time_ns_t last_frame_time;
         int pan = 0;
         video_pattern_generator_t generator;
-        std::chrono::steady_clock::time_point t0;
         struct video_frame *frame{nullptr};
         struct video_frame *tiled;
 
@@ -473,7 +471,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 video_pattern_generator_fill_data(s->generator, in_file_contents);
         }
 
-        s->last_frame_time = std::chrono::steady_clock::now();
+        s->last_frame_time = get_time_in_ns();
 
         LOG(LOG_LEVEL_INFO) << MOD_NAME << "capture set to " << desc << ", bpc "
                 << get_bits_per_component(s->frame->color_spec) << ", pattern: " << s->pattern
@@ -530,14 +528,10 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         struct testcard_state *state;
         state = (struct testcard_state *)arg;
 
-        std::chrono::steady_clock::time_point curr_time =
-                std::chrono::steady_clock::now();
-
-        if (std::chrono::duration_cast<std::chrono::duration<double>>(curr_time - state->last_frame_time).count() <
-                        1.0 / state->frame->fps) {
+        time_ns_t curr_time = get_time_in_ns();
+        if ((curr_time - state->last_frame_time) / NS_IN_SEC_DBL < 1.0 / state->frame->fps) {
                 return NULL;
         }
-
         state->last_frame_time = curr_time;
 
         if (state->grab_audio) {
