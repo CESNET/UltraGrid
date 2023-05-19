@@ -23,70 +23,73 @@ using pw_core_uniq = raii_uniq_handle<pw_core, pw_core_disconnect>;
 using pw_registry_uniq = raii_uniq_proxy_handle<pw_registry>;
 
 struct spa_hook_uniq{
-    spa_hook_uniq(){
-        spa_zero(hook);
-    }
-    ~spa_hook_uniq(){
-        spa_hook_remove(&hook);
-    }
-    spa_hook_uniq(spa_hook_uniq&) = delete;
-    spa_hook_uniq& operator=(spa_hook_uniq&) = delete;
+        spa_hook_uniq(){
+                spa_zero(hook);
+        }
+        ~spa_hook_uniq(){
+                /*Check if hook is initialized.
+                 * Needed only for old pw versions before commit 2394413e */
+                if(!!hook.link.prev)
+                        spa_hook_remove(&hook);
+        }
+        spa_hook_uniq(spa_hook_uniq&) = delete;
+        spa_hook_uniq& operator=(spa_hook_uniq&) = delete;
 
-    spa_hook& get() { return hook; }
+        spa_hook& get() { return hook; }
 
-    spa_hook hook;
+        spa_hook hook;
 };
 
 class pipewire_thread_loop_lock_guard{
 public:
-    pipewire_thread_loop_lock_guard(pw_thread_loop *loop) : l(loop) {
-        pw_thread_loop_lock(l);
-    }
-    ~pipewire_thread_loop_lock_guard(){
-        pw_thread_loop_unlock(l);
-    }
-    pipewire_thread_loop_lock_guard(pipewire_thread_loop_lock_guard&) = delete;
-    pipewire_thread_loop_lock_guard& operator=(pipewire_thread_loop_lock_guard&) = delete;
+        pipewire_thread_loop_lock_guard(pw_thread_loop *loop) : l(loop) {
+                pw_thread_loop_lock(l);
+        }
+        ~pipewire_thread_loop_lock_guard(){
+                pw_thread_loop_unlock(l);
+        }
+        pipewire_thread_loop_lock_guard(pipewire_thread_loop_lock_guard&) = delete;
+        pipewire_thread_loop_lock_guard& operator=(pipewire_thread_loop_lock_guard&) = delete;
 
 private:
-    pw_thread_loop *l;
+        pw_thread_loop *l;
 };
 
 class pipewire_init_guard{
 public:
-    pipewire_init_guard() = default;
-    pipewire_init_guard(pipewire_init_guard&) = delete;
-    pipewire_init_guard& operator=(pipewire_init_guard&) = delete;
-    pipewire_init_guard(pipewire_init_guard&& o) { std::swap(initialized, o.initialized);}
-    pipewire_init_guard& operator=(pipewire_init_guard&& o) {
-            std::swap(initialized, o.initialized);
-            return *this;
-    }
+        pipewire_init_guard() = default;
+        pipewire_init_guard(pipewire_init_guard&) = delete;
+        pipewire_init_guard& operator=(pipewire_init_guard&) = delete;
+        pipewire_init_guard(pipewire_init_guard&& o) { std::swap(initialized, o.initialized);}
+        pipewire_init_guard& operator=(pipewire_init_guard&& o) {
+                std::swap(initialized, o.initialized);
+                return *this;
+        }
 
-    ~pipewire_init_guard(){
-            if(initialized)
-                    pw_deinit();
-    }
+        ~pipewire_init_guard(){
+                if(initialized)
+                        pw_deinit();
+        }
 
-    void init(){
-            pw_init(nullptr, nullptr);
-            initialized = true;
-    }
+        void init(){
+                pw_init(nullptr, nullptr);
+                initialized = true;
+        }
 
 private:
-    bool initialized = false;
+        bool initialized = false;
 };
 
 struct pipewire_state_common{
-    pipewire_init_guard init_guard;
+        pipewire_init_guard init_guard;
 
-    pw_thread_loop_uniq pipewire_loop;
-    pw_context_uniq pipewire_context;
-    pw_core_uniq pipewire_core;
-    spa_hook_uniq core_listener;
+        pw_thread_loop_uniq pipewire_loop;
+        pw_context_uniq pipewire_context;
+        pw_core_uniq pipewire_core;
+        spa_hook_uniq core_listener;
 
-    int pw_pending_seq = 0;
-    int pw_last_seq = 0;
+        int pw_pending_seq = 0;
+        int pw_last_seq = 0;
 };
 
 bool initialize_pw_common(pipewire_state_common& s);
