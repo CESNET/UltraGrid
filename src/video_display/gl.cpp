@@ -769,6 +769,7 @@ static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspe
         } else {
                 glfwSetWindowSize(win, round(window_size_factor * height * aspect), window_size_factor * height);
         }
+        glfwSwapBuffers(win);
 }
 
 /*
@@ -968,7 +969,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         if (!s->fixed_size) {
                 glfw_resize_window(s->window, s->fs, desc.height, s->aspect, desc.fps, s->window_size_factor);
-                gl_resize(s->window, desc.width, desc.height);
+                //gl_resize(s->window, desc.width, desc.height);
         }
         int width, height;
         glfwGetFramebufferSize(s->window, &width, &height);
