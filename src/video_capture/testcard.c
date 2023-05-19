@@ -1,5 +1,5 @@
 /**
- * @file   video_capture/testcard.cpp
+ * @file   video_capture/testcard.c
  * @author Colin Perkins <csp@csperkins.org
  * @author Alvaro Saurin <saurin@dcs.gla.ac.uk>
  * @author Martin Benes     <martinbenesh@gmail.com>
@@ -77,20 +77,21 @@
 #include "utils/video_pattern_generator.h"
 #include "video_capture/testcard_common.h"
 
-#define AUDIO_SAMPLE_RATE 48000
-#define AUDIO_BPS 2
-#define BUFFER_SEC 1
-constexpr int AUDIO_BUFFER_SIZE(int ch_count) { return AUDIO_SAMPLE_RATE * AUDIO_BPS * ch_count * BUFFER_SEC; }
+enum {
+        AUDIO_SAMPLE_RATE = 48000,
+        AUDIO_BPS = 2,
+        BUFFER_SEC = 1,
+};
 #define MOD_NAME "[testcard] "
-constexpr video_desc default_format = { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 };
-
-using namespace std;
+#define AUDIO_BUFFER_SIZE(ch_count) ( AUDIO_SAMPLE_RATE * AUDIO_BPS * (ch_count) * BUFFER_SEC )
+#define DEFAULT_FORMAT ((struct video_desc) { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 })
+#define DEFAULT_PATTERN "bars"
 
 struct testcard_state {
         time_ns_t last_frame_time;
-        int pan = 0;
+        int pan;
         video_pattern_generator_t generator;
-        struct video_frame *frame{nullptr};
+        struct video_frame *frame;
         struct video_frame *tiled;
 
         struct audio_frame audio;
@@ -99,9 +100,9 @@ struct testcard_state {
         int tiles_cnt_vertical;
 
         char *audio_data;
-        bool grab_audio = false;
-        bool still_image = false;
-        string pattern{"bars"};
+        bool grab_audio;
+        bool still_image;
+        char pattern[128];
 };
 
 static void configure_fallback_audio(struct testcard_state *s) {
@@ -110,11 +111,11 @@ static void configure_fallback_audio(struct testcard_state *s) {
         const double scale = 0.1;
 
         for (int i = 0; i < AUDIO_BUFFER_SIZE(s->audio.ch_count) / AUDIO_BPS; i += 1) {
-                *(reinterpret_cast<int16_t*>(&s->audio_data[i * AUDIO_BPS])) = round(sin((static_cast<double>(i) / (static_cast<double>(AUDIO_SAMPLE_RATE) / frequency)) * M_PI * 2. ) * ((1LL << (AUDIO_BPS * 8)) / 2 - 1) * scale);
+                *((int16_t*)(void *)(&s->audio_data[i * AUDIO_BPS])) = round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE / frequency)) * M_PI * 2. ) * ((1LL << (AUDIO_BPS * 8)) / 2 - 1) * scale);
         }
 }
 
-static auto configure_audio(struct testcard_state *s)
+static bool configure_audio(struct testcard_state *s)
 {
         s->audio.bps = AUDIO_BPS;
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
@@ -203,7 +204,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
 #endif
 
 static bool parse_fps(const char *fps, struct video_desc *desc) {
-        char *endptr = nullptr;
+        char *endptr = NULL;
         desc->fps = strtod(fps, &endptr);
         desc->interlacing = PROGRESSIVE;
         if (strlen(endptr) != 0) { // optional interlacing suffix
@@ -221,56 +222,56 @@ static bool parse_fps(const char *fps, struct video_desc *desc) {
         return true;
 }
 
-static auto parse_format(char **fmt, char **save_ptr) {
-        struct video_desc desc{};
+static struct video_desc parse_format(char **fmt, char **save_ptr) {
+        struct video_desc desc = { 0 };
         desc.tile_count = 1;
         char *tmp = strtok_r(*fmt, ":", save_ptr);
         if (!tmp) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing width!\n";
-                return video_desc{};
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing width!\n");
+                return (struct video_desc) { 0 };
         }
-        desc.width = max<long long>(strtol(tmp, nullptr, 0), 0);
+        desc.width = MAX(strtol(tmp, NULL, 0), 0);
 
-        if ((tmp = strtok_r(nullptr, ":", save_ptr)) == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing height!\n";
-                return video_desc{};
+        if ((tmp = strtok_r(NULL, ":", save_ptr)) == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing height!\n");
+                return (struct video_desc) { 0 };
         }
-        desc.height = max<long long>(strtol(tmp, nullptr, 0), 0);
+        desc.height = MAX(strtol(tmp, NULL, 0), 0);
 
         if (desc.width * desc.height == 0) {
                 fprintf(stderr, "Wrong dimensions for testcard.\n");
-                return video_desc{};
+                return (struct video_desc) { 0 };
         }
 
-        if ((tmp = strtok_r(nullptr, ":", save_ptr)) == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing FPS!\n";
-                return video_desc{};
+        if ((tmp = strtok_r(NULL, ":", save_ptr)) == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing FPS!\n");
+                return (struct video_desc) { 0 };
         }
         if (!parse_fps(tmp, &desc)) {
-                return video_desc{};
+                return (struct video_desc) { 0 };
         }
 
-        if ((tmp = strtok_r(nullptr, ":", save_ptr)) == nullptr) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Missing pixel format!\n";
-                return video_desc{};
+        if ((tmp = strtok_r(NULL, ":", save_ptr)) == NULL) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing pixel format!\n");
+                return (struct video_desc) { 0 };
         }
         desc.color_spec = get_codec_from_name(tmp);
         if (desc.color_spec == VIDEO_CODEC_NONE) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unknown codec '" << tmp << "'\n";
-                return video_desc{};
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown codec '%s'\n", tmp);
+                return (struct video_desc) { 0 };
         }
         if (!testcard_has_conversion(desc.color_spec)) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Unsupported codec '" << tmp << "'\n";
-                return video_desc{};
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported codec '%s'\n", tmp);
+                return (struct video_desc) { 0 };
         }
 
-        *fmt = nullptr;
+        *fmt = NULL;
         return desc;
 }
 
 static size_t testcard_load_from_file_pam(const char *filename, struct video_desc *desc, char **in_file_contents) {
         struct pam_metadata info;
-        unsigned char *data = nullptr;
+        unsigned char *data = NULL;
         if (pam_read(filename, &info, &data, malloc) == 0) {
                 return false;
         }
@@ -304,7 +305,7 @@ static size_t testcard_load_from_file_pam(const char *filename, struct video_des
 
 static size_t testcard_load_from_file_y4m(const char *filename, struct video_desc *desc, char **in_file_contents) {
         struct y4m_metadata info;
-        unsigned char *data = nullptr;
+        unsigned char *data = NULL;
         if (y4m_read(filename, &info, &data, malloc) == 0) {
                 return 0;
         }
@@ -334,20 +335,20 @@ static size_t testcard_load_from_file(const char *filename, struct video_desc *d
                 return testcard_load_from_file_y4m(filename, desc, in_file_contents);
         }
 
-        if (deduce_pixfmt && strchr(filename, '.') != nullptr && get_codec_from_file_extension(strrchr(filename, '.') + 1)) {
+        if (deduce_pixfmt && strchr(filename, '.') != NULL && get_codec_from_file_extension(strrchr(filename, '.') + 1)) {
                 desc->color_spec = get_codec_from_file_extension(strrchr(filename, '.') + 1);
         }
         long data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
         *in_file_contents = (char *) malloc(data_len);
         FILE *in = fopen(filename, "r");
-        if (in == nullptr) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << filename << " fopen: " << ug_strerror(errno) << "\n";
+        if (in == NULL) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "%s fopen: %s\n", filename, ug_strerror(errno));
                 return 0;
         }
         fseek(in, 0L, SEEK_END);
         long filesize = ftell(in);
         if (filesize == -1) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "ftell: " << ug_strerror(errno) << "\n";
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "ftell: %s\n", ug_strerror(errno));
                 filesize = data_len;
         }
         fseek(in, 0L, SEEK_SET);
@@ -355,9 +356,8 @@ static size_t testcard_load_from_file(const char *filename, struct video_desc *d
         do {
                 if (data_len != filesize) {
                         int level = data_len < filesize ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR;
-                        LOG(level) << MOD_NAME  << "Wrong file size for selected "
-                                "resolution and codec. File size " << filesize << ", "
-                                "computed size " << data_len << "\n";
+                        log_msg(level, MOD_NAME "Wrong file size for selected resolution"
+                                "and codec. File size %ld, computed size %ld\n", filesize, data_len);
                         filesize = data_len;
                         if (level == LOG_LEVEL_ERROR) {
                                 data_len = 0; break;
@@ -380,8 +380,8 @@ static size_t testcard_load_from_file(const char *filename, struct video_desc *d
 
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
-        struct testcard_state *s = nullptr;
-        char *filename = nullptr;
+        struct testcard_state *s = NULL;
+        char *filename = NULL;
         const char *strip_fmt = NULL;
         char *save_ptr = NULL;
         int ret = VIDCAP_INIT_FAIL;
@@ -391,32 +391,37 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
-                col() << TBOLD(TRED("\t-t testcard") << "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") << "[:file=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " << TBOLD("| -t testcard:help\n");
-                col() << "or\n";
-                col() << TBOLD(TRED("\t-t testcard") << ":<width>:<height>:<fps>:<codec>") << "[:other_opts]\n";
-                col() << "where\n";
-                col() << TBOLD("\t<filename>") << " - use file named filename instead of default bars\n";
-                col() << TBOLD("\tp") << "          - pan with frame\n";
-                col() << TBOLD("\ts") << "          - split the frames into XxY separate tiles\n";
-                col() << TBOLD("\ti|sf") << "       - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n";
-                col() << TBOLD("\tstill") << "      - send still image\n";
-                col() << TBOLD("\tpattern") << "    - pattern to use, use \"" << TBOLD("pattern=help") << "\" for options\n";
-                col() << "\n";
+                color_printf(TBOLD(TRED("\t-t testcard") "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") "[:file=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " TBOLD("| -t testcard:help\n"));
+                color_printf("or\n");
+                color_printf(TBOLD(TRED("\t-t testcard") ":<width>:<height>:<fps>:<codec>") "[:other_opts]\n");
+                color_printf("where\n");
+                color_printf(TBOLD("\t<filename>") " - use file named filename instead of default bars\n");
+                color_printf(TBOLD("\tp") "          - pan with frame\n");
+                color_printf(TBOLD("\ts") "          - split the frames into XxY separate tiles\n");
+                color_printf(TBOLD("\ti|sf") "       - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
+                color_printf(TBOLD("\tstill") "      - send still image\n");
+                color_printf(TBOLD("\tpattern") "    - pattern to use, use \"" TBOLD("pattern=help") "\" for options\n");
+                color_printf("\n");
                 testcard_show_codec_help("testcard", false);
-                col() << TBOLD("Note:") << " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " << TBOLD("pattern=help") << " for details.\n";
+                color_printf(TBOLD("Note:") " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " TBOLD("pattern=help") " for details.\n");
                 return VIDCAP_INIT_NOERR;
         }
 
-        s = new testcard_state();
-        if (!s)
+        if ((s = calloc(1, sizeof *s)) == NULL) {
                 return VIDCAP_INIT_FAIL;
+        }
+        strncat(s->pattern, DEFAULT_PATTERN, sizeof s->pattern - 1);
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *ptr = fmt;
 
         bool pixfmt_default = true;
-        struct video_desc desc = [&]{ return strlen(ptr) == 0 || !isdigit(ptr[0]) ? default_format : (pixfmt_default = false, parse_format(&ptr, &save_ptr));}();
-        if (!desc) {
+        struct video_desc desc = DEFAULT_FORMAT;
+        if (strlen(ptr) > 0 && isdigit(ptr[0])) {
+                pixfmt_default = false;
+                desc = parse_format(&ptr, &save_ptr);
+        }
+        if (!desc.width) {
                 goto error;
         }
 
@@ -438,13 +443,13 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         s->still_image = true;
                 } else if (strncmp(tmp, "pattern=", strlen("pattern=")) == 0) {
                         const char *pattern = tmp + strlen("pattern=");
-                        s->pattern = pattern;
+                        strncpy(s->pattern, pattern, sizeof s->pattern - 1);
                 } else if (strstr(tmp, "codec=") == tmp) {
                         desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
                         pixfmt_default = false;
-                } else if (strstr(tmp, "size=") == tmp && strchr(tmp, 'x') != nullptr) {
-                        desc.width = stoi(strchr(tmp, '=') + 1);
-                        desc.height = stoi(strchr(tmp, 'x') + 1);
+                } else if (strstr(tmp, "size=") == tmp && strchr(tmp, 'x') != NULL) {
+                        desc.width = atoi(strchr(tmp, '=') + 1);
+                        desc.height = atoi(strchr(tmp, 'x') + 1);
                 } else if (strstr(tmp, "fps=") == tmp) {
                         if (!parse_fps(strchr(tmp, '=') + 1, &desc)) {
                                 goto error;
@@ -457,7 +462,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if (desc.color_spec == VIDEO_CODEC_NONE || desc.width <= 0 || desc.height <= 0 || desc.fps <= 0.0) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Wrong video format: " << desc << "\n";
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong video format: %s\n", video_desc_to_string(desc));;
                 goto error;
         }
 
@@ -474,10 +479,10 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         s->frame = vf_alloc_desc(desc);
 
-        s->generator = video_pattern_generator_create(s->pattern.c_str(), s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec,
+        s->generator = video_pattern_generator_create(s->pattern, s->frame->tiles[0].width, s->frame->tiles[0].height, s->frame->color_spec,
                         s->still_image ? 0 : vc_get_linesize(desc.width, desc.color_spec) + s->pan);
         if (!s->generator) {
-                ret = s->pattern.find("help") != string::npos ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
+                ret = strstr(s->pattern, "help") != NULL ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
                 goto error;
         }
         if (in_file_contents_size > 0) {
@@ -486,12 +491,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         s->last_frame_time = get_time_in_ns();
 
-        LOG(LOG_LEVEL_INFO) << MOD_NAME << "capture set to " << desc << ", bpc "
-                << get_bits_per_component(s->frame->color_spec) << ", pattern: " << s->pattern
-                << ", audio " << (s->grab_audio ? "on" : "off") << "\n";
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "capture set to %s, bpc %d, pattern: %s, audio %s\n", video_desc_to_string(desc),
+                get_bits_per_component(s->frame->color_spec), s->pattern, (s->grab_audio ? "on" : "off"));
 
         if (strip_fmt != NULL) {
-                LOG(LOG_LEVEL_ERROR) << "Multi-tile testcard (stripping) is currently broken, you can use eg. \"-t aggregate -t testcard[args] -t testcard[args]\" instead!\n";
+                log_msg(LOG_LEVEL_ERROR, "Multi-tile testcard (stripping) is currently broken, you can use eg. \"-t aggregate -t testcard[args] -t testcard[args]\" instead!\n");
                 goto error;
 #if 0
                 if(configure_tiling(s, strip_fmt) != 0) {
@@ -502,12 +506,13 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 
         if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 if (!configure_audio(s)) {
-                        LOG(LOG_LEVEL_ERROR) << "Cannot initialize audio!\n";
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot initialize audio!\n");
                         goto error;
                 }
         }
 
         free(fmt);
+        free(in_file_contents);
 
         *state = s;
         return VIDCAP_INIT_OK;
@@ -516,7 +521,7 @@ error:
         free(fmt);
         vf_free(s->frame);
         free(in_file_contents);
-        delete s;
+        free(s);
         return ret;
 }
 
@@ -533,7 +538,7 @@ static void vidcap_testcard_done(void *state)
         vf_free(s->frame);
         video_pattern_generator_destroy(s->generator);
         free(s->audio_data);
-        delete s;
+        free(s);
 }
 
 static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
@@ -583,16 +588,16 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         return state->frame;
 }
 
-static void vidcap_testcard_probe(device_info **available_devices, int *count, void (**deleter)(void *))
+static void vidcap_testcard_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
         *deleter = free;
 
         *count = 1;
         *available_devices = (struct device_info *) calloc(*count, sizeof(struct device_info));
-        auto& card = **available_devices;
-        snprintf(card.name, sizeof card.name, "Testing signal");
+        struct device_info *card = *available_devices;
+        snprintf(card->name, sizeof card->name, "Testing signal");
 
-        struct {
+        struct size {
                 int width;
                 int height;
         } sizes[] = {
@@ -603,38 +608,38 @@ static void vidcap_testcard_probe(device_info **available_devices, int *count, v
         int framerates[] = {24, 30, 60};
         const char * const pix_fmts[] = {"UYVY", "RGB"};
 
-        snprintf(card.modes[0].name,
-                        sizeof card.modes[0].name, "Default");
-        snprintf(card.modes[0].id,
-                        sizeof card.modes[0].id,
+        snprintf(card->modes[0].name,
+                        sizeof card->modes[0].name, "Default");
+        snprintf(card->modes[0].id,
+                        sizeof card->modes[0].id,
                         "{\"width\":\"\", "
                         "\"height\":\"\", "
                         "\"format\":\"\", "
                         "\"fps\":\"\"}");
 
         int i = 1;
-        for(const auto &pix_fmt : pix_fmts){
-                for(const auto &size : sizes){
-                        for(const auto &fps : framerates){
-                                snprintf(card.modes[i].name,
-                                                sizeof card.name,
+        for (const char * const *pix_fmt = pix_fmts; pix_fmt != pix_fmts + sizeof pix_fmts / sizeof pix_fmts[0]; pix_fmt++) {
+                for (const struct size *size = sizes; size != sizes + sizeof sizes / sizeof sizes[0]; size++) {
+                        for (const int *fps = framerates; fps != framerates + sizeof framerates / sizeof framerates[0]; fps++) {
+                                snprintf(card->modes[i].name,
+                                                sizeof card->name,
                                                 "%dx%d@%d %s",
-                                                size.width, size.height,
-                                                fps, pix_fmt);
-                                snprintf(card.modes[i].id,
-                                                sizeof card.modes[0].id,
+                                                size->width, size->height,
+                                                *fps, *pix_fmt);
+                                snprintf(card->modes[i].id,
+                                                sizeof card->modes[0].id,
                                                 "{\"width\":\"%d\", "
                                                 "\"height\":\"%d\", "
                                                 "\"format\":\"%s\", "
                                                 "\"fps\":\"%d\"}",
-                                                size.width, size.height,
-                                                pix_fmt, fps);
+                                                size->width, size->height,
+                                                *pix_fmt, *fps);
                                 i++;
                         }
                 }
         }
-        dev_add_option(&card, "Still", "Send still image", "still", ":still", true);
-        dev_add_option(&card, "Pattern", "Pattern to use", "pattern", ":pattern=", false);
+        dev_add_option(card, "Still", "Send still image", "still", ":still", true);
+        dev_add_option(card, "Pattern", "Pattern to use", "pattern", ":pattern=", false);
 }
 
 static const struct video_capture_info vidcap_testcard_info = {
