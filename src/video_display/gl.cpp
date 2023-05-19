@@ -757,7 +757,7 @@ static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspe
                         (int) fs, aspect, window_size_factor);
         auto *s = (struct state_gl *) glfwGetWindowUserPointer(win);
         if (fs && s->monitor != nullptr) {
-                int width = height * aspect;
+                int width = round(height * aspect);
                 GLFWmonitor *mon = s->monitor;
                 int refresh_rate = get_refresh_rate(s->modeset, mon, fps);
                 if (s->modeset == state_gl::modeset_t::NOMODESET) {
@@ -767,7 +767,7 @@ static void glfw_resize_window(GLFWwindow *win, bool fs, int height, double aspe
                 }
                 glfwSetWindowMonitor(win, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, refresh_rate);
         } else {
-                glfwSetWindowSize(win, window_size_factor * height * aspect, window_size_factor * height);
+                glfwSetWindowSize(win, round(window_size_factor * height * aspect), window_size_factor * height);
         }
 }
 
@@ -820,7 +820,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
         s->aspect = s->video_aspect ? s->video_aspect : (double) desc.width / desc.height;
 
-        log_msg(LOG_LEVEL_INFO, "Setting GL size %dx%d (%dx%d).\n", (int)(s->aspect * desc.height),
+        log_msg(LOG_LEVEL_INFO, "Setting GL size %dx%d (%dx%d).\n", (int) round(s->aspect * desc.height),
                         desc.height, desc.width, desc.height);
 
         s->current_program = 0;
