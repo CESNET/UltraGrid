@@ -67,7 +67,6 @@
 #include "video_capture.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
-#include "utils/ring_buffer.h"
 #include "utils/string.h"
 #include "utils/vf_split.h"
 #include "utils/pam.h"
@@ -103,7 +102,6 @@ struct testcard_state {
         int tiles_cnt_vertical;
 
         vector <char> audio_data;
-        struct ring_buffer *midi_buf{};
         bool grab_audio = false;
         bool still_image = false;
         string pattern{"bars"};
@@ -518,7 +516,6 @@ static void vidcap_testcard_done(void *state)
                 vf_free(s->tiled);
         }
         vf_free(s->frame);
-        ring_buffer_destroy(s->midi_buf);
         video_pattern_generator_destroy(s->generator);
         delete s;
 }

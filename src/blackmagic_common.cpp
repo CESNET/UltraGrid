@@ -166,7 +166,7 @@ IDeckLinkIterator *create_decklink_iterator(bool *com_initialized, bool verbose,
 #endif
 
         if (!deckLinkIterator && verbose) {
-                log_msg(LOG_LEVEL_ERROR, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
+                log_msg(LOG_LEVEL_ERROR, "A DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
                 log_msg(LOG_LEVEL_INFO, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
                                 BLACKMAGIC_DECKLINK_API_VERSION_STRING);
 
