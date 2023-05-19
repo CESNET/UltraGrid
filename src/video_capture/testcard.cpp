@@ -76,7 +76,7 @@
 #include <chrono>
 #include <vector>
 #include "audio/types.h"
-#include "utils/video_pattern_generator.hpp"
+#include "utils/video_pattern_generator.h"
 #include "video_capture/testcard_common.h"
 
 #define AUDIO_SAMPLE_RATE 48000

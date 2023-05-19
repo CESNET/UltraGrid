@@ -38,19 +38,23 @@
 #ifndef VIDEO_PATTERN_GENERATOR_H_411E8141_A7AE_4FCD_8464_41CE032CF81B
 #define VIDEO_PATTERN_GENERATOR_H_411E8141_A7AE_4FCD_8464_41CE032CF81B
 
-#include <memory>
-#include <string>
-
-#include "video.h"
+#include "types.h"
 
 struct video_pattern_generator;
-
 typedef struct video_pattern_generator *video_pattern_generator_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /// @param offset   offset between still image frames (in bytes)
-video_pattern_generator_t video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset);
+video_pattern_generator_t video_pattern_generator_create(const char *config, int width, int height, codec_t color_spec, int offset);
 char *video_pattern_generator_next_frame(video_pattern_generator_t);
 void video_pattern_generator_fill_data(video_pattern_generator_t, const char *data);
 void video_pattern_generator_destroy(video_pattern_generator_t);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // defined VIDEO_PATTERN_GENERATOR_H_411E8141_A7AE_4FCD_8464_41CE032CF81B

@@ -59,6 +59,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <utility>
 #include <vector>
@@ -71,7 +72,7 @@
 #include "utils/text.h"
 #include "video.h"
 #include "video_capture/testcard_common.h"
-#include "video_pattern_generator.hpp"
+#include "video_pattern_generator.h"
 
 constexpr size_t headroom = 128; // headroom for cases when dst color_spec has wider block size
 #define MOD_NAME "[vid. patt. generator] "
@@ -681,9 +682,9 @@ private:
 };
 
 video_pattern_generator_t
-video_pattern_generator_create(std::string const & config, int width, int height, codec_t color_spec, int offset)
+video_pattern_generator_create(const char *config, int width, int height, codec_t color_spec, int offset)
 {
-        if (config == "help") {
+        if (string(config) == "help") {
                 col() << "Pattern to use, one of: " << SBOLD("bars, blank[=0x<AABBGGRR>], ebu_bars, gradient[=0x<AABBGGRR>], gradient2*, gray, interlaced, noise, raw=0xXX[YYZZ..], smpte_bars, uv_plane[=<y_lvl>]\n");
                 col() << "\t\t- patterns " SBOLD("'gradient'") ", " SBOLD("'gradient2'") ", " SBOLD("'noise'") " and " SBOLD("'uv_plane'") " generate higher bit-depth patterns with";
                 for (codec_t c = VIDEO_CODEC_FIRST; c != VIDEO_CODEC_COUNT; c = static_cast<codec_t>(static_cast<int>(c) + 1)) {
@@ -700,9 +701,9 @@ video_pattern_generator_create(std::string const & config, int width, int height
         try {
                 string pattern = config;
                 string params;
-                if (string::size_type delim = config.find('='); delim != string::npos) {
-                        pattern = config.substr(0, delim);
-                        params = config.substr(delim + 1);
+                if (string::size_type delim = pattern.find('='); delim != string::npos) {
+                        params = pattern.substr(delim + 1);
+                        pattern = pattern.substr(0, delim);
                 }
                 if (pattern == "gray" || pattern == "grey") {
                         return new gray_video_pattern_generator{width, height, color_spec, params};
