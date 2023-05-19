@@ -308,7 +308,11 @@ static size_t testcard_load_from_file_y4m(const char *filename, struct video_des
         if (y4m_read(filename, &info, &data, malloc) == 0) {
                 return 0;
         }
-        assert((info.subsampling == Y4M_SUBS_422 && info.bitdepth == 8) || (info.subsampling == Y4M_SUBS_444 && info.bitdepth > 8));
+        if (!(info.subsampling == Y4M_SUBS_422 && info.bitdepth == 8) || (info.subsampling == Y4M_SUBS_444 && info.bitdepth > 8)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only Y4M with subsampling 422 and bit 8 bits or subsampling 4:4:4 and depth more than 8 bits supported.\n");
+                log_msg(LOG_LEVEL_INFO, MOD_NAME "Provided Y4M picture has subsampling %d and bit depth %d bits.\n", info.subsampling, info.bitdepth);
+                return 0;
+        }
         desc->width = info.width;
         desc->height = info.height;
         desc->color_spec = info.bitdepth == 8 ? UYVY : Y416;
