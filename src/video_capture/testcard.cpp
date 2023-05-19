@@ -74,7 +74,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <chrono>
-#include <vector>
 #include "audio/types.h"
 #include "utils/video_pattern_generator.h"
 #include "video_capture/testcard_common.h"
@@ -101,7 +100,7 @@ struct testcard_state {
         int tiles_cnt_horizontal;
         int tiles_cnt_vertical;
 
-        vector <char> audio_data;
+        char *audio_data;
         bool grab_audio = false;
         bool still_image = false;
         string pattern{"bars"};
@@ -123,8 +122,7 @@ static auto configure_audio(struct testcard_state *s)
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
         s->audio.max_size = AUDIO_BUFFER_SIZE(s->audio.ch_count);
-        s->audio_data.resize(s->audio.max_size);
-        s->audio.data = s->audio_data.data();
+        s->audio.data = s->audio_data = (char *) realloc(s->audio.data, s->audio.max_size);
 
         configure_fallback_audio(s);
         s->grab_audio = true;
@@ -272,7 +270,7 @@ static auto parse_format(char **fmt, char **save_ptr) {
         return desc;
 }
 
-static bool testcard_load_from_file_pam(const char *filename, struct video_desc *desc, vector<char>& in_file_contents) {
+static size_t testcard_load_from_file_pam(const char *filename, struct video_desc *desc, char **in_file_contents) {
         struct pam_metadata info;
         unsigned char *data = nullptr;
         if (pam_read(filename, &info, &data, malloc) == 0) {
@@ -282,41 +280,43 @@ static bool testcard_load_from_file_pam(const char *filename, struct video_desc 
         desc->width = info.width;
         desc->height = info.height;
         desc->color_spec = info.maxval == 255 ? RGB : RG48;
-        in_file_contents.resize(vc_get_datalen(desc->width, desc->height, desc->color_spec));
+        size_t data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
+        *in_file_contents = (char  *) malloc(data_len);
         if (desc->color_spec == RGB) {
-                memcpy(in_file_contents.data(), data, info.width * info.height * 3);
+                memcpy(*in_file_contents, data, info.width * info.height * 3);
         } else {
                 uint16_t *in = (uint16_t *)(void *) data;
-                uint16_t *out = (uint16_t *)(void *) in_file_contents.data();
+                uint16_t *out = (uint16_t *)(void *) *in_file_contents;
                 for (size_t i = 0; i < (size_t) info.width * info.height * 3; ++i) {
                         *out++ = ntohs(*in++) * ((1<<16U) / (info.maxval + 1));
                 }
         }
         free(data);
-        return true;
+        return data_len;
 }
 
-static bool testcard_load_from_file_y4m(const char *filename, struct video_desc *desc, vector<char>& in_file_contents) {
+static size_t testcard_load_from_file_y4m(const char *filename, struct video_desc *desc, char **in_file_contents) {
         struct y4m_metadata info;
         unsigned char *data = nullptr;
         if (y4m_read(filename, &info, &data, malloc) == 0) {
-                return false;
+                return 0;
         }
         assert((info.subsampling == Y4M_SUBS_422 && info.bitdepth == 8) || (info.subsampling == Y4M_SUBS_444 && info.bitdepth > 8));
         desc->width = info.width;
         desc->height = info.height;
         desc->color_spec = info.bitdepth == 8 ? UYVY : Y416;
-        in_file_contents.resize(vc_get_datalen(desc->width, desc->height, desc->color_spec));
+        size_t data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
+        *in_file_contents = (char *) malloc(data_len);
         if (info.bitdepth == 8) {
-                i422_8_to_uyvy(desc->width, desc->height, (char *) data, in_file_contents.data());
+                i422_8_to_uyvy(desc->width, desc->height, (char *) data, *in_file_contents);
         } else {
-                i444_16_to_y416(desc->width, desc->height, (char *) data, in_file_contents.data(), info.bitdepth);
+                i444_16_to_y416(desc->width, desc->height, (char *) data, *in_file_contents, info.bitdepth);
         }
         free(data);
-        return true;
+        return data_len;
 }
 
-static bool testcard_load_from_file(const char *filename, struct video_desc *desc, vector<char>& in_file_contents, bool deduce_pixfmt) {
+static size_t testcard_load_from_file(const char *filename, struct video_desc *desc, char **in_file_contents, bool deduce_pixfmt) {
         if (ends_with(filename, ".pam") || ends_with(filename, ".pnm") || ends_with(filename, ".ppm")) {
                 return testcard_load_from_file_pam(filename, desc, in_file_contents);
         } else if (ends_with(filename, ".y4m")) {
@@ -327,13 +327,11 @@ static bool testcard_load_from_file(const char *filename, struct video_desc *des
                 desc->color_spec = get_codec_from_file_extension(strrchr(filename, '.') + 1);
         }
         long data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
-        in_file_contents.resize(data_len);
-        char *data = in_file_contents.data();
-        bool ret = true;
+        *in_file_contents = (char *) malloc(data_len);
         FILE *in = fopen(filename, "r");
         if (in == nullptr) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << filename << " fopen: " << ug_strerror(errno) << "\n";
-                return false;
+                return 0;
         }
         fseek(in, 0L, SEEK_END);
         long filesize = ftell(in);
@@ -351,18 +349,22 @@ static bool testcard_load_from_file(const char *filename, struct video_desc *des
                                 "computed size " << data_len << "\n";
                         filesize = data_len;
                         if (level == LOG_LEVEL_ERROR) {
-                                ret = false; break;
+                                data_len = 0; break;
                         }
                 }
 
-                if (fread(data, filesize, 1, in) != 1) {
+                if (fread(*in_file_contents, filesize, 1, in) != 1) {
                         log_msg(LOG_LEVEL_ERROR, "Cannot read file %s\n", filename);
-                        ret = false; break;
+                        data_len = 0; break;
                 }
         } while (false);
 
         fclose(in);
-        return ret;
+        if (data_len == 0) {
+                free(*in_file_contents);
+                *in_file_contents = NULL;
+        }
+        return data_len;
 }
 
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
@@ -373,7 +375,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         char *save_ptr = NULL;
         int ret = VIDCAP_INIT_FAIL;
         char *tmp;
-        vector<char> in_file_contents;
+        char *in_file_contents = NULL;
+        size_t in_file_contents_size = 0;
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
@@ -448,7 +451,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         }
 
         if (filename) {
-                if (!testcard_load_from_file(filename, &desc, in_file_contents, pixfmt_default)) {
+                if ((in_file_contents_size = testcard_load_from_file(filename, &desc, &in_file_contents, pixfmt_default)) == 0) {
                         goto error;
                 }
         }
@@ -466,8 +469,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 ret = s->pattern.find("help") != string::npos ? VIDCAP_INIT_NOERR : VIDCAP_INIT_FAIL;
                 goto error;
         }
-        if (in_file_contents.size() > 0) {
-                video_pattern_generator_fill_data(s->generator, in_file_contents.data());
+        if (in_file_contents_size > 0) {
+                video_pattern_generator_fill_data(s->generator, in_file_contents);
         }
 
         s->last_frame_time = std::chrono::steady_clock::now();
@@ -501,6 +504,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 error:
         free(fmt);
         vf_free(s->frame);
+        free(in_file_contents);
         delete s;
         return ret;
 }
@@ -517,6 +521,7 @@ static void vidcap_testcard_done(void *state)
         }
         vf_free(s->frame);
         video_pattern_generator_destroy(s->generator);
+        free(s->audio_data);
         delete s;
 }
 
@@ -538,8 +543,8 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         if (state->grab_audio) {
                 state->audio.data_len = state->audio.ch_count * state->audio.bps * AUDIO_SAMPLE_RATE / state->frame->fps;
                 state->audio.data += state->audio.data_len;
-                if (state->audio.data + state->audio.data_len > state->audio_data.data() + AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
-                        state->audio.data = state->audio_data.data();
+                if (state->audio.data + state->audio.data_len > state->audio_data + AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
+                        state->audio.data = state->audio_data;
                 }
                 *audio = &state->audio;
         } else {
