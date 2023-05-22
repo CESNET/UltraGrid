@@ -434,10 +434,10 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 } else if (strncmp(tmp, "s=", 2) == 0) {
                         strip_fmt = tmp;
                 } else if (strcmp(tmp, "i") == 0) {
-                        s->frame->interlacing = INTERLACED_MERGED;
+                        desc.interlacing = INTERLACED_MERGED;
                         log_msg(LOG_LEVEL_WARNING, "[testcard] Deprecated 'i' option. Use format testcard:1920:1080:50i:UYVY instead!\n");
                 } else if (strcmp(tmp, "sf") == 0) {
-                        s->frame->interlacing = SEGMENTED_FRAME;
+                        desc.interlacing = SEGMENTED_FRAME;
                         log_msg(LOG_LEVEL_WARNING, "[testcard] Deprecated 'sf' option. Use format testcard:1920:1080:25sf:UYVY instead!\n");
                 } else if (strcmp(tmp, "still") == 0) {
                         s->still_image = true;
