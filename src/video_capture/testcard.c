@@ -395,14 +395,16 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 color_printf("or\n");
                 color_printf(TBOLD(TRED("\t-t testcard") ":<width>:<height>:<fps>:<codec>") "[:other_opts]\n");
                 color_printf("where\n");
-                color_printf(TBOLD("\t<filename>") " - use file named filename instead of default bars\n");
+                color_printf(TBOLD("\tfile") "       - use file for input data instead of predefined pattern\n");
+                color_printf(TBOLD("\ti|sf") "       - send as interlaced or segmented frame, may be used also as a suffix to 'fps' option\n");
                 color_printf(TBOLD("\tp") "          - pan with frame\n");
-                color_printf(TBOLD("\ts") "          - split the frames into XxY separate tiles\n");
-                color_printf(TBOLD("\ti|sf") "       - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
-                color_printf(TBOLD("\tstill") "      - send still image\n");
                 color_printf(TBOLD("\tpattern") "    - pattern to use, use \"" TBOLD("pattern=help") "\" for options\n");
+                color_printf(TBOLD("\ts") "          - split the frames into XxY separate tiles (currently defunct)\n");
+                color_printf(TBOLD("\tstill") "      - send still image\n");
                 color_printf("\n");
                 testcard_show_codec_help("testcard", false);
+                color_printf("\n");
+                color_printf("Default mode: %s\n", video_desc_to_string(DEFAULT_FORMAT));
                 color_printf(TBOLD("Note:") " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " TBOLD("pattern=help") " for details.\n");
                 return VIDCAP_INIT_NOERR;
         }
