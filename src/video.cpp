@@ -240,3 +240,90 @@ const char *video_desc_to_string(struct video_desc d)
         return s.c_str();
 }
 
+/**
+ * @returns video description according to the configuration string, allowing
+ * BMD-like FourCC (pal, ntsc, Hi59 etc.)
+ */
+struct video_desc get_video_desc_from_string(const char *string)
+{
+        const struct {
+                const char *name;
+                struct video_desc desc;
+        } map[] = {
+                {"microvision", { 16, 16, UYVY, 10, PROGRESSIVE, 1 }},
+                {"sqcif", { 126, 96, UYVY, 29.97, PROGRESSIVE, 1 }},
+                {"qcif", { 176, 144, UYVY, 29.97, PROGRESSIVE, 1 }},
+                {"cif", { 352, 288, UYVY, 29.97, PROGRESSIVE, 1 }},
+                {"4cif", { 704, 576, UYVY, 29.97, PROGRESSIVE, 1 }},
+                {"ntsc", { 720, 480, UYVY, 29.97, INTERLACED_MERGED, 1 }},
+                {"pal", { 720, 576, UYVY, 25, INTERLACED_MERGED, 1 }},
+                {"cga", { 320, 200, UYVY, 60, PROGRESSIVE, 1 }},
+                {"vga", { 640, 480, UYVY, 60, PROGRESSIVE, 1 }},
+                {"svga", { 800, 600, UYVY, 60, PROGRESSIVE, 1 }},
+                {"xga", { 1024, 768, UYVY, 60, PROGRESSIVE, 1 }},
+                {"wxga", { 1280, 768, UYVY, 60, PROGRESSIVE, 1 }},
+                {"sxga", { 1280, 1024, UYVY, 60, PROGRESSIVE, 1 }},
+                {"uxga", { 1600, 1200, UYVY, 60, PROGRESSIVE, 1 }},
+                {"wuxga", { 1920, 1200, UYVY, 60, PROGRESSIVE, 1 }},
+                {"23ps", { 1920, 1080, UYVY, 23.98, PROGRESSIVE, 1 }},
+                {"24ps", { 1920, 1080, UYVY, 24, PROGRESSIVE, 1 }},
+                {"fhd", { 1920, 1080, UYVY, 29.97, PROGRESSIVE, 1 }},
+                {"uhd", { 3840, 2160, UYVY, 29.97, PROGRESSIVE, 1 }},
+                {"dci", { 2048, 1080, UYVY, 23.98, PROGRESSIVE, 1 }},
+                {"dci4", { 4096, 2160, UYVY, 23.98, PROGRESSIVE, 1 }},
+        };
+        if (strcasecmp(string, "help") == 0) {
+                printf("Recognized video formats: ");
+                for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
+                        color_printf(TBOLD("%s") ", ", map[i].name);
+                }
+                color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d}{23,24,25,29,30,59,60}") "\n");
+                return {};
+
+        }
+        // BMD-like syntax
+        for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
+                if (strcasecmp(map[i].name, string) == 0 || (strlen(string) == 4 && string[3] == ' ' && strncasecmp(map[i].name, string, 3) == 0)) {
+                        return map[i].desc;
+                }
+        }
+        struct video_desc ret{};
+        ret.color_spec = UYVY;
+        ret.tile_count  = 1;
+        if (strncmp(string, "Hp", 2) == 0) {
+                ret.width = 1920;
+                ret.height = 1080;
+        } else if (strncmp(string, "Hi", 2) == 0) {
+                ret.width = 1920;
+                ret.height = 1080;
+                ret.interlacing = INTERLACED_MERGED;
+        } else if (strncmp(string, "hp", 2) == 0) {
+                ret.width = 1280;
+                ret.height = 720;
+        } else if (strncasecmp(string, "2d", 2) == 0) {
+                ret.width = 2048;
+                ret.height = 1080;
+        } else if (strncasecmp(string, "4k", 2) == 0) {
+                ret.width = 3860;
+                ret.height = 2160;
+        } else if (strncasecmp(string, "4d", 2) == 0) {
+                ret.width = 4096;
+                ret.height = 2160;
+        }
+        if (ret.width == 0) {
+                return {};
+        }
+        string += 2;
+        ret.fps = atoi(string);
+        switch ((int) ret.fps) {
+                case 23: ret.fps = 23.98; break;
+                case 29: ret.fps = 29.97; break;
+                case 59: ret.fps = 59.94; break;
+        }
+        if (ret.interlacing == INTERLACED_MERGED) {
+                ret.fps /= 2;
+        }
+        return ret;
+
+        return {};
+}

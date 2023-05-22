@@ -397,6 +397,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 color_printf("where\n");
                 color_printf(TBOLD("\tfile") "       - use file for input data instead of predefined pattern\n");
                 color_printf(TBOLD("\ti|sf") "       - send as interlaced or segmented frame, may be used also as a suffix to 'fps' option\n");
+                color_printf(TBOLD("\tmode") "       - use specified mode (use 'mode=help' for list)\n");
                 color_printf(TBOLD("\tp") "          - pan with frame\n");
                 color_printf(TBOLD("\tpattern") "    - pattern to use, use \"" TBOLD("pattern=help") "\" for options\n");
                 color_printf(TBOLD("\ts") "          - split the frames into XxY separate tiles (currently defunct)\n");
@@ -449,6 +450,10 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 } else if (strstr(tmp, "codec=") == tmp) {
                         desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
                         pixfmt_default = false;
+                } else if (strstr(tmp, "mode=") == tmp) {
+                        codec_t saved_codec = desc.color_spec;
+                        desc = get_video_desc_from_string(strchr(tmp, '=') + 1);
+                        desc.color_spec = saved_codec;
                 } else if (strstr(tmp, "size=") == tmp && strchr(tmp, 'x') != NULL) {
                         desc.width = atoi(strchr(tmp, '=') + 1);
                         desc.height = atoi(strchr(tmp, 'x') + 1);

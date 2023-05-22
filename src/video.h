@@ -82,6 +82,7 @@ const char *get_video_mode_description(enum video_mode mode);
 enum video_mode guess_video_mode(int num_substreams);
 
 const char *video_desc_to_string(struct video_desc d);
+struct video_desc get_video_desc_from_string(const char *);
 
 #ifdef __cplusplus
 }
