@@ -405,6 +405,11 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 color_printf("\n");
                 testcard_show_codec_help("testcard", false);
                 color_printf("\n");
+                color_printf("Examples:\n");
+                color_printf(TBOLD("\t%s -t testcard:file=picture.pam\n"), uv_argv[0]);
+                color_printf(TBOLD("\t%s -t testcard:mode=VGA\n"), uv_argv[0]);
+                color_printf(TBOLD("\t%s -t testcard:size=1920x1080:fps=23.98\n"), uv_argv[0]);
+                color_printf("\n");
                 color_printf("Default mode: %s\n", video_desc_to_string(DEFAULT_FORMAT));
                 color_printf(TBOLD("Note:") " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " TBOLD("pattern=help") " for details.\n");
                 return VIDCAP_INIT_NOERR;
