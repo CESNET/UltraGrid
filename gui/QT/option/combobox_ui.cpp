@@ -7,7 +7,7 @@ ComboBoxUi::ComboBoxUi(QComboBox *box,
 		std::function<std::vector<SettingItem>()> itemBuilder) :
 	WidgetUi(settings, opt),
 	box(box),
-	itemBuilder(itemBuilder),
+	itemBuilder(std::move(itemBuilder)),
 	ignoreCallback(false)
 {
 	refresh();

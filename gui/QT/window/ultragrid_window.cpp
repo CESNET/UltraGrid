@@ -398,16 +398,14 @@ bool UltragridWindow::launchPreview(){
 		return false;
 	}
 
-	QStringList previewArgs = argStringToList(settings.getPreviewParams());
+	auto ctx = std::make_unique<LaunchContext>();
+	ctx->args = argStringToList(settings.getPreviewParams());
+	ctx->executablePath = ultragridExecutable;
+	ctx->type = LaunchContext::Type::Preview;
 
 #ifdef DEBUG
-	log.write("Preview: " + argListToString(previewArgs) + "\n\n");
+	log.write("Preview: " + argListToString(ctx->args) + "\n\n");
 #endif
-
-	auto ctx = std::make_unique<LaunchContext>();
-	ctx->executablePath = ultragridExecutable;
-	ctx->args = previewArgs;
-	ctx->type = LaunchContext::Type::Preview;
 
 	connect(&ctx->process, &QProcess::started, 
 			[=]() { previewStatus.setText("Preview: Running"); });

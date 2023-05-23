@@ -475,8 +475,7 @@ void Settings::populateDeviceSettings(AvailableSettings *availSettings){
 
 void Settings::populateVideoCompressSettings(AvailableSettings *availSettings){
 	for(const auto& mod : availSettings->getVideoCompressModules()){
-		std::string codecOptKey = mod.name + ".codec";
-		addOption(codecOptKey,
+		addOption(mod.name + ".codec",
 				Option::SilentOpt,
 				"",
 				"",
