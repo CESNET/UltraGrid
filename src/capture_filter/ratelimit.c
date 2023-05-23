@@ -1,9 +1,9 @@
 /**
- * @file   capture_filter/every.c
+ * @file   capture_filter/ratelimit.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2019 CESNET, z. s. p. o.
+ * Copyright (c) 2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,7 @@
 
 #include "debug.h"
 #include "lib_common.h"
+#include "tv.h"
 #include "utils/color_out.h"
 #include "video.h"
 #include "video_codec.h"
@@ -55,51 +56,30 @@ static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
-struct state_every {
-        int num;
-        int denom;
-        int current;
+struct state_ratelimit {
+        time_ns_t next_frame_time;
+        double fps;
 };
 
 static void usage() {
-        color_printf("Passes only every n-th frame.\n"
-                     "See also capture filter " TBOLD("ratelimit") ".\n\n");
-        color_printf(TBOLD("every") " usage:\n");
-        printf("\tevery:numerator[/denominator]\n\n");
-        printf("Example: every:2 - every second frame will be dropped\n");
-        printf("The special case every:0 can be used to discard all frames\n");
+        color_printf("Filter " TBOLD("ratelimite") " limits frame rate of video stream.\n"
+                     "This filter is related to a capture filter " TBOLD("every")".\n\n");
+        printf("ratelimit usage:\n\n");
+        color_printf(TBOLD("\t--capture-filter ratelimit:<fps>") " -t <capture>\n\n");
 }
 
 static int init(struct module *parent, const char *cfg, void **state)
 {
         UNUSED(parent);
 
-        int n;
-        int denom = 1;;
-        if (strlen(cfg) == 0) {
+        if (strlen(cfg) == 0 || strcasecmp(cfg, "help") == 0) {
                 usage();
-                return -1;
-        }
-        if(strcasecmp(cfg, "help") == 0) {
-                usage();
-                return 1;
-        }
-        n = atoi(cfg);
-        if(strchr(cfg, '/')) {
-                denom = atoi(strchr(cfg, '/') + 1);
-        }
-        if (denom > n && n != 0) {
-                log_msg(LOG_LEVEL_ERROR, "Currently, numerator has to be greater "
-                       "(or equal, which, however, has a little use) than denominator.\n");
-                return -1;
+                return strlen(cfg) == 0 ? -1 : 1;
         }
 
-        struct state_every *s = calloc(1, sizeof(struct state_every));
-        s->num = n;
-        s->denom = denom;
-
-        s->current = -1;
-
+        struct state_ratelimit *s = calloc(1, sizeof *s);
+        s->fps = strtod(cfg, NULL);
+        s->next_frame_time = get_time_in_ns();
         *state = s;
         return 0;
 }
@@ -116,35 +96,32 @@ static void dispose_frame(struct video_frame *f) {
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
-        struct state_every *s = state;
+        struct state_ratelimit *s = state;
 
-        if (s->num == 0) {
-                VIDEO_FRAME_DISPOSE(in);
-                return NULL;
-        }
+        time_ns_t t = get_time_in_ns();
 
-        s->current = (s->current + 1) % s->num;
-
-        if (s->current >= s->denom) {
+        if (t < s->next_frame_time) {
                 VIDEO_FRAME_DISPOSE(in);
                 return NULL;
         }
 
         struct video_frame *frame = vf_alloc_desc(video_desc_from_frame(in));
         memcpy(frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
-        frame->fps /= (double) s->num / s->denom;
+        frame->fps = s->fps;
 
         frame->callbacks.dispose = dispose_frame;
         frame->callbacks.dispose_udata = in;
 
+        s->next_frame_time += NS_IN_SEC_DBL / s->fps;
+
         return frame;
 }
 
-static const struct capture_filter_info capture_filter_every = {
+static const struct capture_filter_info capture_filter_ratelimit = {
         .init = init,
         .done = done,
         .filter = filter,
 };
 
-REGISTER_MODULE(every, &capture_filter_every, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+REGISTER_MODULE(ratelimit, &capture_filter_ratelimit, LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
 
