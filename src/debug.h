@@ -170,7 +170,7 @@ private:
             return buffer;
         }
 
-        std::atomic<bool> skip_repeated;
+        std::atomic<bool> skip_repeated = true;
         log_timestamp_mode show_timestamps;
 
         bool interactive = false;
