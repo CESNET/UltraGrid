@@ -138,26 +138,31 @@ static void audio_play_pw_help(){
 static void on_process(void *userdata) noexcept{
         auto s = static_cast<state_pipewire_play *>(userdata);
 
-        struct pw_buffer *b = pw_stream_dequeue_buffer(s->stream.get());
-        if (!b) {
-                pw_log_warn("out of buffers: %m");
-                return;
+        auto avail = ring_get_current_size(s->ring_buf.get());
+
+        while(avail > 0){
+                struct pw_buffer *b = pw_stream_dequeue_buffer(s->stream.get());
+                if (!b) {
+                        pw_log_warn("out of buffers: %m");
+                        return;
+                }
+                struct spa_buffer *buf = b->buffer;
+
+                char *dst = static_cast<char *>(buf->datas[0].data);
+                if (!dst)
+                        return;
+
+                int to_write = std::min<int>(buf->datas[0].maxsize, avail);
+
+                ring_buffer_read(s->ring_buf.get(), dst, to_write);
+                avail -= to_write;
+
+                buf->datas[0].chunk->offset = 0;
+                buf->datas[0].chunk->stride = s->desc.ch_count * s->desc.bps;
+                buf->datas[0].chunk->size = to_write;
+
+                pw_stream_queue_buffer(s->stream.get(), b);
         }
-        struct spa_buffer *buf = b->buffer;
-
-        char *dst = static_cast<char *>(buf->datas[0].data);
-        if (!dst)
-                return;
-
-        int to_write = std::min<int>(buf->datas[0].maxsize, ring_get_current_size(s->ring_buf.get()));
-
-        ring_buffer_read(s->ring_buf.get(), dst, to_write);
-
-        buf->datas[0].chunk->offset = 0;
-        buf->datas[0].chunk->stride = s->desc.ch_count * s->desc.bps;
-        buf->datas[0].chunk->size = to_write;
-
-        pw_stream_queue_buffer(s->stream.get(), b);
 }
 
 static void * audio_play_pw_init(const char *cfg){
@@ -177,7 +182,6 @@ static void * audio_play_pw_init(const char *cfg){
 
         auto s = std::make_unique<state_pipewire_play>();
 
-
         fprintf(stdout, "Compiled with libpipewire %s\n"
                         "Linked with libpipewire %s\n",
                         pw_get_headers_version(),
@@ -192,6 +196,8 @@ static void * audio_play_pw_init(const char *cfg){
 
 static void audio_play_pw_put_frame(void *state, const struct audio_frame *frame){
         auto s = static_cast<state_pipewire_play *>(state);
+
+        log_msg(LOG_LEVEL_NOTICE, "Put frame of len %d, into ring with %d free\n", frame->data_len, ring_get_available_write_size(s->ring_buf.get()));
 
         ring_buffer_write(s->ring_buf.get(), frame->data, frame->data_len);
 }
@@ -219,13 +225,61 @@ static bool audio_play_pw_ctl(void *state, int request, void *data, size_t *len)
         }
 }
 
+static void on_state_changed(void * /*state*/, enum pw_stream_state old, enum pw_stream_state new_state, const char *error)
+{
+        log_msg(LOG_LEVEL_NOTICE, "PW stream state change: %s -> %s (%s)\n",
+                        pw_stream_state_as_string(old),
+                        pw_stream_state_as_string(new_state),
+                        error);
+}
+
+static void on_param_changed(void *state, uint32_t id, const struct spa_pod *param){
+        auto s = static_cast<state_pipewire_play *>(state);
+
+        if(!param || id != SPA_PARAM_Format)
+                return;
+
+        spa_audio_info audio_params;
+        int res = spa_format_parse(param, &audio_params.media_type, &audio_params.media_subtype);
+        if(res < 0
+                        || audio_params.media_type != SPA_MEDIA_TYPE_audio
+                        || audio_params.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+        {
+                return;
+        }
+
+        spa_format_audio_raw_parse(param, &audio_params.info.raw);
+
+        assert(audio_params.info.raw.rate == (unsigned) s->desc.sample_rate);
+        assert(audio_params.info.raw.channels == (unsigned) s->desc.ch_count);
+        assert(audio_params.info.raw.format == get_pw_format_from_bps(s->desc.bps));
+
+        std::byte buffer[1024];
+        auto pod_builder = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+        spa_pod *new_params = (spa_pod *) spa_pod_builder_add_object(&pod_builder,
+                        SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+                        SPA_PARAM_BUFFERS_blocks, SPA_POD_Int(1),
+                        //SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(buffer_size, 0, INT32_MAX),
+                        SPA_PARAM_BUFFERS_stride, SPA_POD_Int(s->desc.ch_count * s->desc.bps));
+
+        if(!new_params){
+                log_msg(LOG_LEVEL_ERROR, "Failed to build pw buffer params pod\n");
+                return;
+        }
+
+        if (pw_stream_update_params(s->stream.get(), const_cast<const spa_pod **>(&new_params), 1) < 0) {
+                log_msg(LOG_LEVEL_ERROR, "Failed to set stream params\n");
+        }
+}
+
 const static pw_stream_events stream_events = { 
         .version = PW_VERSION_STREAM_EVENTS,
         .destroy = nullptr,
-        .state_changed = nullptr,
+        .state_changed = on_state_changed,
         .control_info = nullptr,
         .io_changed = nullptr,
-        .param_changed = nullptr,
+        .param_changed = on_param_changed,
         .add_buffer = nullptr,
         .remove_buffer = nullptr,
         .process = on_process,
@@ -300,7 +354,7 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
                         &stream_events,
                         s);
 
-        int buf_len_ms = 50;
+        int buf_len_ms = 100;
         int ring_size = desc.bps * desc.ch_count * (desc.sample_rate * buf_len_ms / 1000);
         s->ring_buf.reset(ring_buffer_init(ring_size));
 
