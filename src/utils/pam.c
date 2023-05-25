@@ -45,10 +45,12 @@
 
 static bool parse_pam(FILE *file, struct pam_metadata *info) {
         char line[128];
-        fgets(line, sizeof line - 1, file);
-        while (!feof(file) && !ferror(file)) {
+        while (fgets(line, sizeof line - 1, file), !feof(file) && !ferror(file)) {
                 if (strcmp(line, "ENDHDR\n") == 0) {
                         break;
+                }
+                if (line[0] == '#') {
+                        continue;
                 }
                 char *spc = strchr(line, ' ');
                 if (spc == NULL) {
@@ -70,7 +72,6 @@ static bool parse_pam(FILE *file, struct pam_metadata *info) {
                 } else {
                         fprintf(stderr, "unrecognized key %s in PAM header\n", key);
                 }
-                fgets(line, sizeof line - 1, file);
         }
         return true;
 }
