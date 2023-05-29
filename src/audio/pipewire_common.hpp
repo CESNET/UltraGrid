@@ -115,5 +115,10 @@ struct pipewire_state_common{
 
 bool initialize_pw_common(pipewire_state_common& s);
 
+#if !PW_CHECK_VERSION(0, 3, 64)
+#    define STREAM_TARGET_PROPERTY_KEY PW_KEY_NODE_TARGET
+#else
+#    define STREAM_TARGET_PROPERTY_KEY PW_KEY_TARGET_OBJECT
+#endif
 
 #endif

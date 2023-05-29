@@ -319,7 +319,7 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
                         PW_KEY_APP_NAME, "UltraGrid",
                         PW_KEY_APP_ICON_NAME, "ultragrid",
                         PW_KEY_NODE_NAME, "ug play",
-                        PW_KEY_NODE_TARGET, s->target.c_str(), //TODO: deprecated in newer
+                        STREAM_TARGET_PROPERTY_KEY, s->target.c_str(),
                         nullptr);
 
         pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
