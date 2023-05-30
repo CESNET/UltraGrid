@@ -130,6 +130,18 @@ bool initialize_pw_common(pipewire_state_common& s);
 std::vector<Pipewire_device> get_pw_device_list();
 void print_devices(std::string_view media_class);
 
+inline spa_audio_format get_pw_format_from_bps(unsigned bps){
+        spa_audio_format format_map[] = {
+                SPA_AUDIO_FORMAT_UNKNOWN,
+                SPA_AUDIO_FORMAT_S8,
+                SPA_AUDIO_FORMAT_S16,
+                SPA_AUDIO_FORMAT_S24,
+                SPA_AUDIO_FORMAT_S32,
+        };
+
+        return bps < std::size(format_map) ? format_map[bps] : SPA_AUDIO_FORMAT_UNKNOWN;
+}
+
 #if !PW_CHECK_VERSION(0, 3, 64)
 #    define STREAM_TARGET_PROPERTY_KEY PW_KEY_NODE_TARGET
 #else

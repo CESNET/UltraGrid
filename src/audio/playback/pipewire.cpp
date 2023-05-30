@@ -237,24 +237,7 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
 
         unsigned rate = desc.sample_rate;
         unsigned quant = 128;
-        spa_audio_format format = SPA_AUDIO_FORMAT_UNKNOWN;
-
-        switch(desc.bps){
-        case 1:
-                format = SPA_AUDIO_FORMAT_S8;
-                break;
-        case 2:
-                format = SPA_AUDIO_FORMAT_S16;
-                break;
-        case 3:
-                format = SPA_AUDIO_FORMAT_S24;
-                break;
-        case 4:
-                format = SPA_AUDIO_FORMAT_S32;
-                break;
-        default:
-                break;
-        }
+        spa_audio_format format = get_pw_format_from_bps(desc.bps);
 
         auto props = pw_properties_new(
                         PW_KEY_MEDIA_TYPE, "Audio",
