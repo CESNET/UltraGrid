@@ -63,62 +63,6 @@ struct state_pipewire_play{
         ring_buffer_uniq ring_buf;
 };
 
-static void on_registry_event_global(void *data, uint32_t id,
-                uint32_t permissions, const char *type, uint32_t version,
-                const struct spa_dict *props)
-{
-        std::string_view type_sv(type);
-        if(type_sv != "PipeWire:Interface:Node")
-                return;
-
-        bool is_sink = false;
-        std::string_view name;
-        std::string_view desc;
-        for(int i = 0; i < props->n_items; i++){
-                std::string_view key(props->items[i].key);
-                std::string_view val(props->items[i].value);
-
-                std::cout << "\t" << key << "\t\t\t\t" << val << "\n";
-                if(key == "node.description")
-                        desc = val;
-                if(key == "node.nick")
-                        name = val;
-                if(key == "media.class" && val == "Audio/Sink"){
-                        is_sink = true;
-                        break;
-                }
-        }
-
-        if(is_sink){
-                std::cout << "Sink " << id << " " << name << ": " << desc << "\n";
-        }
-
-}
-
-static void print_devices(){
-        pipewire_state_common s;
-        initialize_pw_common(s);
-
-        pw_registry_uniq registry(pw_core_get_registry(s.pipewire_core.get(), PW_VERSION_REGISTRY, 0));
-
-        const static pw_registry_events registry_events = {
-                PW_VERSION_REGISTRY_EVENTS,
-                .global = on_registry_event_global
-        };
-
-        spa_hook_uniq registry_listener;
-        pw_registry_add_listener(registry.get(), &registry_listener.get(), &registry_events, nullptr);
-
-        pipewire_thread_loop_lock_guard lock(s.pipewire_loop.get());
-
-        s.pw_pending_seq = pw_core_sync(s.pipewire_core.get(), PW_ID_CORE, s.pw_pending_seq);
-        int wait_seq = s.pw_pending_seq;
-
-        do{
-                pw_thread_loop_wait(s.pipewire_loop.get());
-        } while(s.pw_last_seq < wait_seq);
-}
-
 static void audio_play_pw_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
 {
         *deleter = free;
@@ -130,7 +74,7 @@ static void audio_play_pw_probe(struct device_info **available_devices, int *cou
 
 static void audio_play_pw_help(){
         color_printf("Pipewire audio output.\n");
-        print_devices();
+        print_devices("Audio/Sink");
 }
 
 /* This function can only use realtime-safe calls (no locking, allocating, etc.)

@@ -63,6 +63,11 @@ struct state_pipewire_cap{
         ring_buffer_uniq ring_buf;
 };
 
+static void audio_cap_pw_help(){
+        color_printf("Pipewire audio capture.\n");
+        print_devices("Audio/Source");
+}
+
 static void *audio_cap_pipewire_init(struct module *parent, const char *cfg){
         std::string_view cfg_sv(cfg);
 
@@ -72,7 +77,7 @@ static void *audio_cap_pipewire_init(struct module *parent, const char *cfg){
         std::string_view target_device;
 
         if(key == "help"){
-                //audio_play_pw_help();
+                audio_cap_pw_help();
                 return INIT_NOERR;
         } else if(key == "target"){
                 target_device = val;

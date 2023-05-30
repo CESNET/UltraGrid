@@ -2,6 +2,9 @@
 #define PIPEWIRE_COMMON_HPP_b6f55dc83d84
 
 #include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
 #include <mutex>
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/types.h> //For pw format to string
@@ -113,7 +116,19 @@ struct pipewire_state_common{
         int pw_last_seq = 0;
 };
 
+struct Pipewire_device{
+        std::string name; //Internal name
+        std::string nick; //Display name
+        std::string description; //Longer display name
+        std::string serial;
+
+        std::string media_class; //"Audio/Sink", "Audio/Source"...
+};
+
 bool initialize_pw_common(pipewire_state_common& s);
+
+std::vector<Pipewire_device> get_pw_device_list();
+void print_devices(std::string_view media_class);
 
 #if !PW_CHECK_VERSION(0, 3, 64)
 #    define STREAM_TARGET_PROPERTY_KEY PW_KEY_NODE_TARGET
