@@ -74,6 +74,7 @@ static void show_help()
 struct vidcap_switcher_state {
         struct module       mod;
         struct vidcap     **devices;
+        char              (*device_names)[128];
         unsigned int        devices_cnt;
 
         unsigned int        selected_device;
@@ -175,6 +176,7 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
         }
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
+        s->device_names = calloc(s->devices_cnt, sizeof s->device_names[0]);
         tmp = params;
         for (unsigned int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
@@ -187,6 +189,8 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                                                 vidcap_params_get_fmt(tmp));
                                 goto error;
                         }
+                        snprintf(s->device_names[i], sizeof s->device_names[i], "%s%s%s", vidcap_params_get_driver(tmp),
+                                                strlen(vidcap_params_get_fmt(tmp)) > 0 ? ":" : "", vidcap_params_get_fmt(tmp));
                 }
         }
 
@@ -228,6 +232,8 @@ vidcap_switcher_done(void *state)
 		}
 	}
         module_done(&s->mod);
+        free(s->devices);
+        free(s->device_names);
         free(s);
 }
 
@@ -253,7 +259,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                 struct response *r;
 
                 if (new_selected_device < s->devices_cnt){
-                        log_msg(LOG_LEVEL_NOTICE, "[switcher] Switched to device %u.\n", new_selected_device + 1);
+                        log_msg(LOG_LEVEL_NOTICE, "[switcher] Switched to device %d (%s).\n", new_selected_device + 1, s->device_names[new_selected_device]);
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
                                 int ret = initialize_video_capture(NULL,
