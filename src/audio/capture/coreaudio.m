@@ -203,7 +203,7 @@ static void (^cb)(BOOL) = ^void(BOOL granted) {
 static void * audio_cap_ca_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
-        if(cfg && strcmp(cfg, "help") == 0) {
+        if (strcmp(cfg, "help") == 0) {
                 printf("Available Core Audio capture devices:\n");
                 audio_cap_ca_help(NULL);
                 return &audio_init_state_ok;
@@ -220,7 +220,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         AudioDeviceID device;
 
         size=sizeof(device);
-        if(cfg != NULL) {
+        if (strlen(cfg) > 0) {
                 device = atoi(cfg);
         } else {
                 AudioObjectPropertyAddress propertyAddress;

@@ -413,18 +413,17 @@ static void * audio_play_ca_init(const char *cfg)
         ret = AudioUnitUninitialize(s->auHALComponentInstance);
         if(ret) goto error;
 
-        if(cfg != NULL) {
-                if(strcmp(cfg, "help") == 0) {
-                        cout << "Core Audio playback usage:\n";
-                        cout << style::bold << fg::red << "\t-r coreaudio" << fg::reset <<
-                                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]\n\n" << style::reset;
-                        printf("Available CoreAudio devices:\n");
-                        audio_play_ca_help(NULL);
-                        delete s;
-                        return &audio_init_state_ok;
-                } else {
-                        device = atoi(cfg);
-                }
+        if(strcmp(cfg, "help") == 0) {
+                cout << "Core Audio playback usage:\n";
+                cout << style::bold << fg::red << "\t-r coreaudio" << fg::reset <<
+                        "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]\n\n" << style::reset;
+                printf("Available CoreAudio devices:\n");
+                audio_play_ca_help(NULL);
+                delete s;
+                return &audio_init_state_ok;
+        }
+        if (strlen(cfg) > 0) {
+                device = atoi(cfg);
         } else {
                 AudioObjectPropertyAddress propertyAddress;
                 UInt32 size = sizeof device;
