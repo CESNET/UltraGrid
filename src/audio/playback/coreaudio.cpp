@@ -416,14 +416,12 @@ static void * audio_play_ca_init(const char *cfg)
         ret = AudioUnitUninitialize(s->auHALComponentInstance);
         if(ret) goto error;
 
-        if(cfg != NULL) {
-                if(strcmp(cfg, "help") == 0) {
-                        audio_play_ca_help();
-                        delete s;
-                        return INIT_NOERR;
-                } else {
-                        device = atoi(cfg);
-                }
+        if (strcmp(cfg, "help") == 0) {
+                audio_play_ca_help();
+                delete s;
+                return INIT_NOERR;
+        } else if (strlen(cfg) > 0) {
+                device = atoi(cfg);
         } else {
                 AudioObjectPropertyAddress propertyAddress;
                 UInt32 size = sizeof device;
