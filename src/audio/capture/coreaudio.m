@@ -57,7 +57,7 @@
 #include "lib_common.h"
 #include "utils/ring_buffer.h"
 
-#define MODULE_NAME "[CoreAudio] "
+#define MOD_NAME "[CoreAudio] "
 
 struct state_ca_capture {
 #ifndef __MAC_10_6
@@ -182,7 +182,7 @@ static void audio_cap_ca_help()
 #define CA_STRINGIFY(A) #A
 
 #define CHECK_OK(cmd, msg, action_failed) do { OSErr ret = cmd; if (ret != noErr) {\
-        log_msg(strlen(CA_STRINGIFY(action_failed)) == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR, MODULE_NAME "%s: %d\n", (msg), ret);\
+        log_msg(strlen(CA_STRINGIFY(action_failed)) == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR, MOD_NAME "%s: %d\n", (msg), ret);\
         action_failed;\
 }\
 } while(0)
@@ -240,13 +240,28 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
         if (authorization_status == AVAuthorizationStatusRestricted ||
                         authorization_status == AVAuthorizationStatusDenied) {
-                log_msg(LOG_LEVEL_ERROR, MODULE_NAME "Application is not authorized to capture audio input!\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Application is not authorized to capture audio input!\n");
                 return NULL;
         }
         if (authorization_status == AVAuthorizationStatusNotDetermined) {
                 [AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio completionHandler:cb];
         }
 #endif // defined __MAC_10_14
+
+        double rate = 0.0;
+        size = sizeof(double);
+        AudioObjectPropertyAddress propertyAddress;
+        propertyAddress.mSelector = kAudioDevicePropertyNominalSampleRate;
+        propertyAddress.mScope = kAudioDevicePropertyScopeInput;
+        propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+        ret = AudioObjectGetPropertyData(device, &propertyAddress, 0, NULL, &size, &rate);
+        if (rate == 0.0) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Sample rate 0.0 returned. Wrong device index?\n");
+                return NULL;
+        }
+        if (ret != noErr || (audio_capture_sample_rate != 0 && audio_capture_sample_rate != rate)) {
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Requested sample rate %u, got %lf!\n", audio_capture_sample_rate, rate);
+        }
 
         struct state_ca_capture *s = (struct state_ca_capture *) calloc(1, sizeof(struct state_ca_capture));
         pthread_mutex_init(&s->lock, NULL);
@@ -256,18 +271,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         s->frame.bps = audio_capture_bps ? audio_capture_bps : 2;
         s->frame.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
 
-        double rate = 0.0;
-        size = sizeof(double);
-        AudioObjectPropertyAddress propertyAddress;
-        propertyAddress.mSelector = kAudioDevicePropertyNominalSampleRate;
-        propertyAddress.mScope = kAudioDevicePropertyScopeInput;
-        propertyAddress.mElement = kAudioObjectPropertyElementMaster;
-        ret = AudioObjectGetPropertyData(device, &propertyAddress, 0, NULL, &size, &rate);
         s->frame.sample_rate = rate;
-        if (ret != noErr || (audio_capture_sample_rate != 0 && audio_capture_sample_rate != rate)) {
-                log_msg(LOG_LEVEL_WARNING, MODULE_NAME "Requested sample rate %u, got %lf!\n", audio_capture_sample_rate, rate);
-        }
-
         s->frame.max_size = s->frame.bps * s->frame.ch_count * s->frame.sample_rate;
         int nonres_channel_size = s->frame.bps * s->frame.sample_rate;
 
