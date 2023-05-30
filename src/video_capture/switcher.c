@@ -253,7 +253,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                 struct response *r;
 
                 if (new_selected_device < s->devices_cnt){
-                        log_msg(LOG_LEVEL_NOTICE, "[switcher] Switched to device %d.\n", new_selected_device);
+                        log_msg(LOG_LEVEL_NOTICE, "[switcher] Switched to device %u.\n", new_selected_device + 1);
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
                                 int ret = initialize_video_capture(NULL,
@@ -265,7 +265,8 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                         s->selected_device = new_selected_device;
                         r = new_response(RESPONSE_OK, NULL);
                 } else {
-                        log_msg(LOG_LEVEL_ERROR, "[switcher] Cannot switch to device %d. Device out of bounds.\n", new_selected_device);
+                        log_msg(LOG_LEVEL_ERROR, "[switcher] Cannot switch to device %u. Device out of bounds (total devices %u).\n",
+                                        new_selected_device + 1, s->devices_cnt);
                         r = new_response(RESPONSE_BAD_REQUEST, NULL);
                 }
                 free_message(msg, r);
