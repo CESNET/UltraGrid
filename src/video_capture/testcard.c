@@ -81,6 +81,7 @@ enum {
         AUDIO_SAMPLE_RATE = 48000,
         AUDIO_BPS = 2,
         BUFFER_SEC = 1,
+        DEFAULT_AUIDIO_FREQUENCY = 1000,
 };
 #define MOD_NAME "[testcard] "
 #define AUDIO_BUFFER_SIZE(ch_count) ( AUDIO_SAMPLE_RATE * AUDIO_BPS * (ch_count) * BUFFER_SEC )
@@ -95,6 +96,7 @@ struct testcard_state {
         struct video_frame *tiled;
 
         struct audio_frame audio;
+        int audio_frequency;
         char **tiles_data;
         int tiles_cnt_horizontal;
         int tiles_cnt_vertical;
@@ -107,11 +109,10 @@ struct testcard_state {
 
 static void configure_fallback_audio(struct testcard_state *s) {
         static_assert(AUDIO_BPS == sizeof(int16_t), "Only 2-byte audio is supported for testcard audio at the moment");
-        const int frequency = 1000;
         const double scale = 0.1;
 
         for (int i = 0; i < AUDIO_BUFFER_SIZE(s->audio.ch_count) / AUDIO_BPS; i += 1) {
-                *((int16_t*)(void *)(&s->audio_data[i * AUDIO_BPS])) = round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE / frequency)) * M_PI * 2. ) * ((1U << (AUDIO_BPS * 8U - 1)) - 1) * scale);
+                *((int16_t*)(void *)(&s->audio_data[i * AUDIO_BPS])) = round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE / s->audio_frequency)) * M_PI * 2. ) * ((1U << (AUDIO_BPS * 8U - 1)) - 1) * scale);
         }
 }
 
@@ -378,9 +379,9 @@ static size_t testcard_load_from_file(const char *filename, struct video_desc *d
         return data_len;
 }
 
-static void show_help(void) {
+static void show_help(bool full) {
         printf("testcard options:\n");
-        color_printf(TBOLD(TRED("\t-t testcard") "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") "[:file=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " TBOLD("| -t testcard:help\n"));
+        color_printf(TBOLD(TRED("\t-t testcard") "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") "[:file=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " TBOLD("| -t testcard:[full]help\n"));
         color_printf("or\n");
         color_printf(TBOLD(TRED("\t-t testcard") ":<width>:<height>:<fps>:<codec>") "[:other_opts]\n");
         color_printf("where\n");
@@ -392,6 +393,9 @@ static void show_help(void) {
         color_printf(TBOLD("\tpattern") "      - pattern to use, use \"" TBOLD("pattern=help") "\" for options\n");
         color_printf(TBOLD("\t   s   ") "      - split the frames into XxY separate tiles (currently defunct)\n");
         color_printf(TBOLD("\t still ") "      - send still image\n");
+        if (full) {
+                color_printf(TBOLD("       afrequency") "    - embedded audio frequency\n");
+        }
         color_printf("\n");
         testcard_show_codec_help("testcard", false);
         color_printf("\n");
@@ -415,8 +419,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         char *in_file_contents = NULL;
         size_t in_file_contents_size = 0;
 
-        if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                show_help();
+        if (vidcap_params_get_fmt(params) == NULL || strstr(vidcap_params_get_fmt(params), "help") != NULL) {
+                show_help(strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0);
                 return VIDCAP_INIT_NOERR;
         }
 
@@ -424,6 +428,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                 return VIDCAP_INIT_FAIL;
         }
         strncat(s->pattern, DEFAULT_PATTERN, sizeof s->pattern - 1);
+        s->audio_frequency = DEFAULT_AUIDIO_FREQUENCY;
 
         char *fmt = strdup(vidcap_params_get_fmt(params));
         char *ptr = fmt;
@@ -471,6 +476,8 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
                         if (!parse_fps(strchr(tmp, '=') + 1, &desc)) {
                                 goto error;
                         }
+                } else if (strstr(tmp, "afrequency=") == tmp) {
+                        s->audio_frequency = atoi(strchr(tmp, '=') + 1);
                 } else {
                         fprintf(stderr, "[testcard] Unknown option: %s\n", tmp);
                         goto error;
