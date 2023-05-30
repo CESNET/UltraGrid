@@ -46,6 +46,7 @@ struct device_info;
  * @param dir -1 capture; 1 playback
  */
 void audio_ca_probe(struct device_info **available_devices, int *count, int dir);
+const char *get_ca_error_str(OSStatus err);
 
 #ifdef __cplusplus
 }

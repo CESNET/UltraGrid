@@ -168,13 +168,13 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         if (s->initialized) {
                 ret = AudioOutputUnitStop(s->auHALComponentInstance);
                 if(ret) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot stop AUHAL instance.\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot stop AUHAL instance: " << get_ca_error_str(ret) << ".\n";
                         goto error;
                 }
 
                 ret = AudioUnitUninitialize(s->auHALComponentInstance);
                 if(ret) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot uninitialize AUHAL instance.\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot uninitialize AUHAL instance: " << get_ca_error_str(ret) << ".\n";
                         goto error;
                 }
                 s->initialized = false;
@@ -206,7 +206,7 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
                         0, &stream_desc, &size);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot get device format from AUHAL instance.\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot get device format from AUHAL instance: " << get_ca_error_str(ret) << ".\n";
                 goto error;
         }
         stream_desc.mSampleRate = desc.sample_rate;
@@ -220,7 +220,7 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
                         0, &stream_desc, sizeof(stream_desc));
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << "Cannot set device format to AUHAL instance.\n";
+                LOG(LOG_LEVEL_ERROR) << "Cannot set device format to AUHAL instance: " << get_ca_error_str(ret) << ".\n";
                 goto error;
         }
 
@@ -229,19 +229,19 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_SetRenderCallback,
                         kAudioUnitScope_Input, 0, &renderStruct, sizeof(AURenderCallbackStruct));
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot register audio processing callback.\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot register audio processing callback: " << get_ca_error_str(ret) << ".\n";
                 goto error;
         }
 
         ret = AudioUnitInitialize(s->auHALComponentInstance);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot initialize AUHAL.\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot initialize AUHAL: " << get_ca_error_str(ret) << ".\n";
                 goto error;
         }
 
         ret = AudioOutputUnitStart(s->auHALComponentInstance);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot start AUHAL.\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot start AUHAL: " << get_ca_error_str(ret) << ".\n";
                 goto error;
         }
 
