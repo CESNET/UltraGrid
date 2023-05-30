@@ -221,6 +221,10 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         size=sizeof(device);
         if (strlen(cfg) > 0) {
                 device = atoi(cfg);
+                if (device == 0 && strcmp(cfg, "0") != 0) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong index %s!\n", cfg);
+                        return NULL;
+                }
         } else {
                 AudioObjectPropertyAddress propertyAddress;
                 propertyAddress.mSelector = kAudioHardwarePropertyDefaultInputDevice;

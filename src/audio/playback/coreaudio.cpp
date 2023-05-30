@@ -53,6 +53,7 @@
 #include <CoreAudio/AudioHardware.h>
 #include <iostream>
 #include <stdlib.h>
+#include <string>
 #include <string.h>
 
 #include "audio/audio_playback.h"
@@ -68,6 +69,7 @@ using namespace std::chrono;
 using rang::fg;
 using rang::style;
 using std::cout;
+using std::stoi;
 
 constexpr int DEFAULT_BUFLEN_MS = 50;
 #define NO_DATA_STOP_SEC 2
@@ -421,7 +423,7 @@ static void * audio_play_ca_init(const char *cfg)
                 delete s;
                 return INIT_NOERR;
         } else if (strlen(cfg) > 0) {
-                device = atoi(cfg);
+                device = stoi(cfg);
         } else {
                 AudioObjectPropertyAddress propertyAddress;
                 UInt32 size = sizeof device;
