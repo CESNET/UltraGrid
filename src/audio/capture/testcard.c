@@ -133,7 +133,7 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
         for (int i = 0; i < (int) sample_rate * 3; i += 1)
         {
                 for (int channel = 0; channel < channels; ++channel) {
-                        int64_t val = round(sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. ) * ((1ll << (bps * 8)) / 2 - 1) * scale);
+                        int64_t val = round(sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. ) * ((1U << (bps * 8U - 1)) - 1) * scale);
                         //fprintf(stderr, "%ld ", val);
                         format_to_out_bps(data + i * bps * channels + bps * channel,
                                         bps, val);
@@ -146,7 +146,7 @@ static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequenc
                 data += sample_rate * bps * channels / 2;
                 for (int i=0; i < (int) sample_rate / 2; i += 1)
                 {
-                        int64_t val = sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. ) * ((1ll << (bps * 8)) / 2 - 1) * scale;
+                        int64_t val = sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. ) * ((1U << (bps * 8U - 1)) - 1) * scale;
                         format_to_out_bps(data + i * bps * channels + bps * channel,
                                         bps, val);
                 }

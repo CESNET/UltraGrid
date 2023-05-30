@@ -111,7 +111,7 @@ static void configure_fallback_audio(struct testcard_state *s) {
         const double scale = 0.1;
 
         for (int i = 0; i < AUDIO_BUFFER_SIZE(s->audio.ch_count) / AUDIO_BPS; i += 1) {
-                *((int16_t*)(void *)(&s->audio_data[i * AUDIO_BPS])) = round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE / frequency)) * M_PI * 2. ) * ((1LL << (AUDIO_BPS * 8)) / 2 - 1) * scale);
+                *((int16_t*)(void *)(&s->audio_data[i * AUDIO_BPS])) = round(sin(((double) i / ((double) AUDIO_SAMPLE_RATE / frequency)) * M_PI * 2. ) * ((1U << (AUDIO_BPS * 8U - 1)) - 1) * scale);
         }
 }
 
