@@ -378,6 +378,32 @@ static size_t testcard_load_from_file(const char *filename, struct video_desc *d
         return data_len;
 }
 
+static void show_help(void) {
+        printf("testcard options:\n");
+        color_printf(TBOLD(TRED("\t-t testcard") "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") "[:file=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " TBOLD("| -t testcard:help\n"));
+        color_printf("or\n");
+        color_printf(TBOLD(TRED("\t-t testcard") ":<width>:<height>:<fps>:<codec>") "[:other_opts]\n");
+        color_printf("where\n");
+        color_printf(TBOLD("\t  file ") "      - use file for input data instead of predefined pattern\n");
+        color_printf(TBOLD("\t  fps  ") "      - frames per second (with optional 'i' suffix for interlaced)\n");
+        color_printf(TBOLD("\t  i|sf ") "      - send as interlaced or segmented frame\n");
+        color_printf(TBOLD("\t  mode ") "      - use specified mode (use 'mode=help' for list)\n");
+        color_printf(TBOLD("\t   p   ") "      - pan with frame\n");
+        color_printf(TBOLD("\tpattern") "      - pattern to use, use \"" TBOLD("pattern=help") "\" for options\n");
+        color_printf(TBOLD("\t   s   ") "      - split the frames into XxY separate tiles (currently defunct)\n");
+        color_printf(TBOLD("\t still ") "      - send still image\n");
+        color_printf("\n");
+        testcard_show_codec_help("testcard", false);
+        color_printf("\n");
+        color_printf("Examples:\n");
+        color_printf(TBOLD("\t%s -t testcard:file=picture.pam\n"), uv_argv[0]);
+        color_printf(TBOLD("\t%s -t testcard:mode=VGA\n"), uv_argv[0]);
+        color_printf(TBOLD("\t%s -t testcard:size=1920x1080:fps=59.94i\n"), uv_argv[0]);
+        color_printf("\n");
+        color_printf("Default mode: %s\n", video_desc_to_string(DEFAULT_FORMAT));
+        color_printf(TBOLD("Note:") " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " TBOLD("pattern=help") " for details.\n");
+}
+
 static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 {
         struct testcard_state *s = NULL;
@@ -390,29 +416,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         size_t in_file_contents_size = 0;
 
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                printf("testcard options:\n");
-                color_printf(TBOLD(TRED("\t-t testcard") "[:size=<width>x<height>][:fps=<fps>][:codec=<codec>]") "[:file=<filename>][:p][:s=<X>x<Y>][:i|:sf][:still][:pattern=<pattern>] " TBOLD("| -t testcard:help\n"));
-                color_printf("or\n");
-                color_printf(TBOLD(TRED("\t-t testcard") ":<width>:<height>:<fps>:<codec>") "[:other_opts]\n");
-                color_printf("where\n");
-                color_printf(TBOLD("\t  file ") "      - use file for input data instead of predefined pattern\n");
-                color_printf(TBOLD("\t  fps  ") "      - frames per second (with optional 'i' suffix for interlaced)\n");
-                color_printf(TBOLD("\t  i|sf ") "      - send as interlaced or segmented frame\n");
-                color_printf(TBOLD("\t  mode ") "      - use specified mode (use 'mode=help' for list)\n");
-                color_printf(TBOLD("\t   p   ") "      - pan with frame\n");
-                color_printf(TBOLD("\tpattern") "      - pattern to use, use \"" TBOLD("pattern=help") "\" for options\n");
-                color_printf(TBOLD("\t   s   ") "      - split the frames into XxY separate tiles (currently defunct)\n");
-                color_printf(TBOLD("\t still ") "      - send still image\n");
-                color_printf("\n");
-                testcard_show_codec_help("testcard", false);
-                color_printf("\n");
-                color_printf("Examples:\n");
-                color_printf(TBOLD("\t%s -t testcard:file=picture.pam\n"), uv_argv[0]);
-                color_printf(TBOLD("\t%s -t testcard:mode=VGA\n"), uv_argv[0]);
-                color_printf(TBOLD("\t%s -t testcard:size=1920x1080:fps=59.94i\n"), uv_argv[0]);
-                color_printf("\n");
-                color_printf("Default mode: %s\n", video_desc_to_string(DEFAULT_FORMAT));
-                color_printf(TBOLD("Note:") " only certain codec and generator combinations produce full-depth samples (not up-sampled 8-bit), use " TBOLD("pattern=help") " for details.\n");
+                show_help();
                 return VIDCAP_INIT_NOERR;
         }
 
