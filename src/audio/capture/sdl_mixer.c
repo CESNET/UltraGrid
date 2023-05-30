@@ -168,7 +168,7 @@ static void try_open_soundfont() {
         const char *root = get_install_root();
         const char *sf_candidates[] = { // without install prefix
                 "/share/soundfonts/default.sf2", "/share/soundfonts/default.sf3",
-                "/usr/share/sounds/sf2/default-GM.sf2", "/usr/share/sounds/sf2/default-GM.sf3", // Ubuntu
+                "/share/sounds/sf2/default-GM.sf2", "/share/sounds/sf2/default-GM.sf3", // Ubuntu
         };
         for (size_t i = 0; i < sizeof sf_candidates / sizeof sf_candidates[0]; ++i) {
                 const size_t len = strlen(root) + strlen(sf_candidates[i]) + 1;
