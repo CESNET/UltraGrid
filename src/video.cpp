@@ -327,6 +327,4 @@ struct video_desc get_video_desc_from_string(const char *string)
                 ret.fps /= 2;
         }
         return ret;
-
-        return {};
 }
