@@ -123,15 +123,15 @@ static bool configure_audio(struct testcard_state *s)
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
         s->audio.max_size = AUDIO_BUFFER_SIZE(s->audio.ch_count);
-        s->audio.data = s->audio_data = (char *) realloc(s->audio.data, s->audio.max_size);
+        s->audio.data = s->audio_data = (char *) realloc(s->audio.data, 2 * s->audio.max_size);
         s->audio.data_len = AUDIO_SAMPLE_RATE * get_framerate_d(s->frame->fps) / get_framerate_n(s->frame->fps) * s->audio.ch_count * s->audio.bps;
-        if ((AUDIO_SAMPLE_RATE * get_framerate_d(s->frame->fps)) % get_framerate_n(s->frame->fps) != 0 ||
-                        s->audio.max_size % s->audio.data_len != 0) {
+        if ((AUDIO_SAMPLE_RATE * get_framerate_d(s->frame->fps)) % get_framerate_n(s->frame->fps) != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio not implemented for %f FPS! Please report a bug if it is a common frame rate.\n", s->frame->fps);
                 return false;
         }
 
         configure_fallback_audio(s);
+        memcpy(s->audio.data + s->audio.max_size, s->audio.data, s->audio.max_size);
         s->grab_audio = true;
 
         return true;
@@ -585,8 +585,8 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
 
         if (state->grab_audio) {
                 state->audio.data += state->audio.data_len;
-                if (state->audio.data + state->audio.data_len > state->audio_data + AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
-                        state->audio.data = state->audio_data;
+                if (state->audio.data >= state->audio_data + AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
+                        state->audio.data -= AUDIO_BUFFER_SIZE(state->audio.ch_count);
                 }
                 *audio = &state->audio;
         } else {
