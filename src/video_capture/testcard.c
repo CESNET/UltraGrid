@@ -88,6 +88,15 @@ enum {
 #define DEFAULT_FORMAT ((struct video_desc) { 1920, 1080, UYVY, 25.0, INTERLACED_MERGED, 1 })
 #define DEFAULT_PATTERN "bars"
 
+struct audio_len_pattern {
+        int count;
+        int samples[5];
+        int current_idx;
+};
+static const int alen_pattern_2997[] = { 1602, 1601, 1602, 1601, 1602 };
+static const int alen_pattern_5994[] = { 801, 801, 800, 801, 801 };
+_Static_assert(sizeof alen_pattern_2997 <= sizeof ((struct audio_len_pattern *) 0)->samples && sizeof alen_pattern_5994 <= sizeof ((struct audio_len_pattern *) 0)->samples, "insufficient length");
+
 struct testcard_state {
         time_ns_t last_frame_time;
         int pan;
@@ -96,6 +105,7 @@ struct testcard_state {
         struct video_frame *tiled;
 
         struct audio_frame audio;
+        struct audio_len_pattern apattern;
         int audio_frequency;
 
         char **tiles_data;
@@ -124,8 +134,18 @@ static bool configure_audio(struct testcard_state *s)
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
         s->audio.max_size = AUDIO_BUFFER_SIZE(s->audio.ch_count);
         s->audio.data = s->audio_data = (char *) realloc(s->audio.data, 2 * s->audio.max_size);
-        s->audio.data_len = AUDIO_SAMPLE_RATE * get_framerate_d(s->frame->fps) / get_framerate_n(s->frame->fps) * s->audio.ch_count * s->audio.bps;
-        if ((AUDIO_SAMPLE_RATE * get_framerate_d(s->frame->fps)) % get_framerate_n(s->frame->fps) != 0) {
+        const int vnum = get_framerate_n(s->frame->fps);
+        const int vden = get_framerate_d(s->frame->fps);
+        if ((AUDIO_SAMPLE_RATE * vden) % vnum == 0) {
+                s->apattern.count = 1;
+                s->apattern.samples[0] = (AUDIO_SAMPLE_RATE * vden) / vnum;
+        } else if (vden == 1001 && vnum == 30000) {
+                s->apattern.count = sizeof alen_pattern_2997 / sizeof alen_pattern_2997[0];
+                memcpy(s->apattern.samples, alen_pattern_2997, sizeof alen_pattern_2997);
+        } else if (vden == 1001 && vnum == 60000) {
+                s->apattern.count = sizeof alen_pattern_5994 / sizeof alen_pattern_5994[0];
+                memcpy(s->apattern.samples, alen_pattern_5994, sizeof alen_pattern_5994);
+        } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio not implemented for %f FPS! Please report a bug if it is a common frame rate.\n", s->frame->fps);
                 return false;
         }
@@ -584,7 +604,9 @@ static struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **
         state->last_frame_time = curr_time;
 
         if (state->grab_audio) {
-                state->audio.data += state->audio.data_len;
+                state->audio.data += (ptrdiff_t) state->audio.ch_count * state->audio.bps * state->apattern.samples[state->apattern.current_idx];
+                state->apattern.current_idx = (state->apattern.current_idx + 1) % state->apattern.count;
+                state->audio.data_len = state->audio.ch_count * state->audio.bps * state->apattern.samples[state->apattern.current_idx];
                 if (state->audio.data >= state->audio_data + AUDIO_BUFFER_SIZE(state->audio.ch_count)) {
                         state->audio.data -= AUDIO_BUFFER_SIZE(state->audio.ch_count);
                 }
