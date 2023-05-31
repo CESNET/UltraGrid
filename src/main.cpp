@@ -809,12 +809,20 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                                 audio_playback_help(strcmp(optarg, "full") == 0);
                                 return 1;
                         }
+                        if (string(opt->audio.recv_cfg) != ug_options().audio.recv_cfg) {
+                                log_msg(LOG_LEVEL_ERROR, "Multiple audio playback devices given!\n");
+                                return -EXIT_FAIL_USAGE;
+                        }
                         opt->audio.recv_cfg = optarg;
                         break;
                 case 's':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                                 audio_capture_print_help(strcmp(optarg, "full") == 0);
                                 return 1;
+                        }
+                        if (string(opt->audio.send_cfg) != ug_options().audio.send_cfg) {
+                                log_msg(LOG_LEVEL_ERROR, "Multiple audio capturers given!\n");
+                                return -EXIT_FAIL_USAGE;
                         }
                         opt->audio.send_cfg = optarg;
                         break;
