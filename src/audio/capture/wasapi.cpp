@@ -282,7 +282,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                         pwfx->nChannels = audio_capture_channels;
                 }
                 if (audio_capture_sample_rate) {
-                        pwfx->nSamplesPerSec = pwfx->nSamplesPerSec;
+                        pwfx->nSamplesPerSec = audio_capture_sample_rate;
                 }
                 pwfx->wBitsPerSample = 16;
                 if (audio_capture_bps) {
