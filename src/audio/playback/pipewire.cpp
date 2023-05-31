@@ -61,6 +61,8 @@ struct state_pipewire_play{
 
         audio_desc desc;
         ring_buffer_uniq ring_buf;
+        unsigned buf_len_ms = 100;
+        unsigned quant = 128;
 };
 
 static void audio_play_pw_probe(struct device_info **available_devices, int *count, void (**deleter)(void *))
@@ -110,30 +112,33 @@ static void on_process(void *userdata) noexcept{
 }
 
 static void * audio_play_pw_init(const char *cfg){
+        auto s = std::make_unique<state_pipewire_play>();
+
         std::string_view cfg_sv(cfg);
+        while(!cfg_sv.empty()){
+                auto tok = tokenize(cfg_sv, ':', '"');
+                auto key = tokenize(tok, '=');
+                auto val = tokenize(tok, '=');
 
-        std::string_view key = tokenize(cfg_sv, '=', '\"');
-        std::string_view val = tokenize(cfg_sv, '=', '\"');
-
-        std::string_view target_device;
-
-        if(key == "help"){
-                audio_play_pw_help();
-                return INIT_NOERR;
-        } else if(key == "target"){
-                target_device = val;
+                if(key == "help"){
+                        audio_play_pw_help();
+                        return INIT_NOERR;
+                } else if(key == "target"){
+                        s->target = val;
+                } else if(key == "buffer-len"){
+                        parse_num(val, s->buf_len_ms);
+                } else if(key == "quant"){
+                        parse_num(val, s->quant);
+                }
         }
 
-        auto s = std::make_unique<state_pipewire_play>();
+        initialize_pw_common(s->pw);
 
         fprintf(stdout, "Compiled with libpipewire %s\n"
                         "Linked with libpipewire %s\n",
                         pw_get_headers_version(),
                         pw_get_library_version());
 
-        s->target = std::string(target_device);
-
-        initialize_pw_common(s->pw);
 
         return s.release();
 }
@@ -201,10 +206,14 @@ static void on_param_changed(void *state, uint32_t id, const struct spa_pod *par
         std::byte buffer[1024];
         auto pod_builder = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
+        unsigned buffer_size = (s->buf_len_ms * s->desc.sample_rate / 1000) * s->desc.ch_count * s->desc.bps;
+
+        log_msg(LOG_LEVEL_NOTICE, "Requesting buffer size %u\n", buffer_size);
+
         spa_pod *new_params = (spa_pod *) spa_pod_builder_add_object(&pod_builder,
                         SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
                         SPA_PARAM_BUFFERS_blocks, SPA_POD_Int(1),
-                        //SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(buffer_size, 0, INT32_MAX),
+                        SPA_PARAM_BUFFERS_size, SPA_POD_CHOICE_RANGE_Int(buffer_size, 0, INT32_MAX),
                         SPA_PARAM_BUFFERS_stride, SPA_POD_Int(s->desc.ch_count * s->desc.bps));
 
         if(!new_params){
@@ -236,7 +245,6 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
         auto s = static_cast<state_pipewire_play *>(state);
 
         unsigned rate = desc.sample_rate;
-        unsigned quant = 128;
         spa_audio_format format = get_pw_format_from_bps(desc.bps);
 
         auto props = pw_properties_new(
@@ -250,7 +258,7 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
                         nullptr);
 
         pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
-        pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u", quant, rate);
+        pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u", s->quant, rate);
 
         std::byte buffer[1024];
         auto pod_builder = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -281,8 +289,7 @@ static int audio_play_pw_reconfigure(void *state, struct audio_desc desc){
                         &stream_events,
                         s);
 
-        int buf_len_ms = 100;
-        int ring_size = desc.bps * desc.ch_count * (desc.sample_rate * buf_len_ms / 1000);
+        unsigned ring_size = (s->buf_len_ms * desc.sample_rate / 1000) * desc.ch_count * desc.bps * 2;
         s->ring_buf.reset(ring_buffer_init(ring_size));
 
         pw_stream_connect(s->stream.get(),
