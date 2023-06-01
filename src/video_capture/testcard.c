@@ -337,8 +337,8 @@ static size_t testcard_load_from_file_y4m(const char *filename, struct video_des
         if (y4m_read(filename, &info, &data, malloc) == 0) {
                 return 0;
         }
-        if (!(info.subsampling == Y4M_SUBS_422 && info.bitdepth == 8) || (info.subsampling == Y4M_SUBS_444 && info.bitdepth > 8)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only Y4M with subsampling 422 and bit 8 bits or subsampling 4:4:4 and depth more than 8 bits supported.\n");
+        if (!((info.subsampling == Y4M_SUBS_422 || info.subsampling == Y4M_SUBS_444) && info.bitdepth == 8) || (info.subsampling == Y4M_SUBS_444 && info.bitdepth > 8)) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Only 8-bit Y4M with subsampling 4:2:2 and 4:4:4 or higher bit depths with subsampling 4:4:4 are supported.\n");
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Provided Y4M picture has subsampling %d and bit depth %d bits.\n", info.subsampling, info.bitdepth);
                 return 0;
         }
@@ -348,7 +348,11 @@ static size_t testcard_load_from_file_y4m(const char *filename, struct video_des
         size_t data_len = vc_get_datalen(desc->width, desc->height, desc->color_spec);
         *in_file_contents = (char *) malloc(data_len);
         if (info.bitdepth == 8) {
-                i422_8_to_uyvy(desc->width, desc->height, (char *) data, *in_file_contents);
+                if (info.subsampling == Y4M_SUBS_422) {
+                        i422_8_to_uyvy(desc->width, desc->height, (char *) data, *in_file_contents);
+                } else {
+                        i444_8_to_uyvy(desc->width, desc->height, (char *) data, *in_file_contents);
+                }
         } else {
                 i444_16_to_y416(desc->width, desc->height, (char *) data, *in_file_contents, info.bitdepth);
         }

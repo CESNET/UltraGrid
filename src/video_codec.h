@@ -109,6 +109,7 @@ void uyvy_to_i422(int width, int height, const char *in, char *out);
 void y416_to_i444(int width, int height, const char *in, char *out, int depth);
 void i444_16_to_y416(int width, int height, const char *in, char *out, int in_depth);
 void i422_8_to_uyvy(int width, int height, const char *in, char *out);
+void i444_8_to_uyvy(int width, int height, const char *in, char *out);
 
 #ifdef __cplusplus
 }

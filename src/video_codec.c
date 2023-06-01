@@ -996,6 +996,24 @@ void i422_8_to_uyvy(int width, int height, const char *in, char *out)
         }
 }
 
+void i444_8_to_uyvy(int width, int height, const char *in, char *out)
+{
+        const char *in_y = in;
+        const char *in_cb = in + width * height;
+        const char *in_cr = in_cb + width * height;
+        char *outp = out;
+        for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < (width + 1) / 2; ++x) {
+                        *outp++ = *in_cb;
+                        *outp++ = *in_y++;
+                        *outp++ = *in_cr;
+                        *outp++ = *in_y++;
+                        in_cb += 2;
+                        in_cr += 2;
+                }
+        }
+}
+
 struct pixfmt_desc get_pixfmt_desc(codec_t pixfmt)
 {
         struct pixfmt_desc ret;
