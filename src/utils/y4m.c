@@ -120,8 +120,7 @@ size_t y4m_read(const char *filename, struct y4m_metadata *info, unsigned char *
                 fclose(file);
                 return 0;
         }
-        fread((char *) *data, datalen, 1, file);
-        if (feof(file) || ferror(file)) {
+        if (fread((char *) *data, datalen, 1, file) != 1) {
                 perror("Unable to load Y4M data from file");
                 fclose(file);
                 return 0;

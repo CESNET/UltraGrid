@@ -45,7 +45,7 @@
 
 static bool parse_pam(FILE *file, struct pam_metadata *info) {
         char line[128];
-        while (fgets(line, sizeof line - 1, file), !feof(file) && !ferror(file)) {
+        while (fgets(line, sizeof line - 1, file) != NULL) {
                 if (strcmp(line, "ENDHDR\n") == 0) {
                         break;
                 }
@@ -147,8 +147,7 @@ bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **d
                 return false;
         }
         memset(info, 0, sizeof *info);
-        fgets(line, 4, file);
-        if (feof(file) || ferror(file)) {
+        if (fgets(line, 4, file) == NULL) {
                 fprintf(stderr, "File '%s' read error: %s\n", filename, strerror(errno));
         }
         bool parse_rc = false;
