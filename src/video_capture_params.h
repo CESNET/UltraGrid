@@ -3,6 +3,11 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @ingroup vidcap
+ *
+ * video_capture_params is basically intended as a linked list of video capture
+ * parameters. It is used for structured capturers like `aggregate` or `switcher`,
+ * which work as a master and initialize its slaves. The structure is used to hold
+ * individual devices' parameters (namely per-device capture filter).
  */
 /**
  * Copyright (c) 2013-2023 CESNET, z. s. p. o

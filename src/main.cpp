@@ -282,7 +282,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("--playback <directory> | help", {"replays recorded audio and video"});
                 print_help_item("--record[=<directory>]", {"record captured audio and video"});
                 print_help_item("-F|--capture-filter <filter> | help",
-                                {"capture filter(s), must be given before capture device"});
+                                {"capture filter, must precede -t if more device used"});
                 print_help_item("--param <params> | help", {"additional advanced parameters, use help for list"});
                 print_help_item("--pix-fmts", {"list of pixel formats"});
                 print_help_item("--conv-policy [cds]{3} | help", {"pixel format conversion policy"});

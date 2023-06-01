@@ -99,17 +99,26 @@ int initialize_video_capture(struct module *parent,
                 struct vidcap_params *param,
                 struct vidcap **state)
 {
-        /// check appropriate cmdline parameters order (--capture-filter and -t)
-        struct vidcap_params *t, *t0;
-        t = t0 = param;
-        while ((t = vidcap_params_get_next(t0))) {
-                t0 = t;
+        /// check appropriate cmdline parameters order (--capture-filter then -t)
+        /// only if one capture device specified, allow setting -F after -t
+        struct vidcap_params *tlast = param;
+        struct vidcap_params *tprev = param;
+        while ((vidcap_params_get_next(tlast))) {
+                tprev = tlast;
+                tlast = vidcap_params_get_next(tlast);
         }
-        if (vidcap_params_get_driver(t0) == NULL
-                        && vidcap_params_get_capture_filter(t0) != NULL) {
-                log_msg(LOG_LEVEL_ERROR, "Capture filter (--capture-filter) needs to be "
+        if (vidcap_params_get_driver(tlast) == NULL
+                        && vidcap_params_get_capture_filter(tlast) != NULL) {
+                if (tprev != param) { // more than one -t
+                        log_msg(LOG_LEVEL_ERROR, "Capture filter (--capture-filter) needs to be "
                                 "specified before capture (-t)\n");
-                return -1;
+                        return -1;
+                }
+                if (vidcap_params_get_capture_filter(tprev) != NULL) { // one -t but -F specified both before and after it
+                        log_msg(LOG_LEVEL_ERROR, "Multiple capture filter specification.\n");
+                        return -1;
+                }
+                vidcap_params_set_capture_filter(tprev, vidcap_params_get_capture_filter(tlast));
         }
 
         const struct video_capture_info *vci = (const struct video_capture_info *)
