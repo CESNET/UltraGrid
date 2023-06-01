@@ -454,7 +454,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
         char *in_file_contents = NULL;
         size_t in_file_contents_size = 0;
 
-        if (vidcap_params_get_fmt(params) == NULL || strstr(vidcap_params_get_fmt(params), "help") != NULL) {
+        if (strcmp(vidcap_params_get_fmt(params), "help") == 0 || strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0) {
                 show_help(strcmp(vidcap_params_get_fmt(params), "fullhelp") == 0);
                 return VIDCAP_INIT_NOERR;
         }
