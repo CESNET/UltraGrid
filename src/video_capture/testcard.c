@@ -563,7 +563,7 @@ static int vidcap_testcard_init(struct vidcap_params *params, void **state)
 #endif
         }
 
-        if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if ((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) != 0) {
                 if (!configure_audio(s)) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot initialize audio!\n");
                         goto error;
