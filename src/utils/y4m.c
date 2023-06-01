@@ -120,8 +120,11 @@ size_t y4m_read(const char *filename, struct y4m_metadata *info, unsigned char *
                 fclose(file);
                 return 0;
         }
-        if (fread((char *) *data, datalen, 1, file) != 1) {
-                perror("Unable to load Y4M data from file");
+        errno = 0;
+        size_t bytes_read = fread((char *) *data, 1, datalen, file);
+        if (bytes_read != datalen) {
+                fprintf(stderr, "Unable to load %zd data bytes from Y4M file, read %zd bytes: %s\n",
+                        datalen, bytes_read, feof(file) ? "EOF" : strerror(errno));
                 fclose(file);
                 return 0;
         }
@@ -161,12 +164,13 @@ bool y4m_write(const char *filename, const struct y4m_metadata *info, const unsi
 
         fprintf(file, "YUV4MPEG2 W%d H%d F25:1 Ip A0:0 C%s XCOLORRANGE=%s\nFRAME\n",
                         info->width, info->height, chroma_type, info->limited ? "LIMITED" : "FULL");
-        fwrite((const char *) data, len, 1, file);
-        bool ret = !ferror(file);
-        if (!ret) {
-                perror("Unable to write Y4M data");
+        errno = 0;
+        size_t bytes_written = fwrite((const char *) data, 1, len, file);
+        if (bytes_written != len) {
+                fprintf(stderr, "Unable to write Y4M data - length %zd, written %zd: %s",
+                        len, bytes_written, strerror(errno));
         }
         fclose(file);
-        return ret;
+        return bytes_written == len;
 }
 

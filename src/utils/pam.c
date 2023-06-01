@@ -237,12 +237,14 @@ bool pam_write(const char *filename, unsigned int width, unsigned int height, in
                         "ENDHDR\n",
                         width, height, depth, maxval, tuple_type);
         }
-        fwrite((const char *) data, width * height * depth, maxval <= 255 ? 1 : 2, file);
-        bool ret = !ferror(file);
-        if (!ret) {
-                perror("Unable to write PAM/PNM data");
+        size_t len = (size_t) width * height * depth * (maxval <= 255 ? 1 : 2);
+        errno = 0;
+        size_t bytes_written = fwrite((const char *) data, 1, len, file);
+        if (bytes_written != len) {
+                fprintf(stderr, "Unable to write PAM/PNM data - length %zd, written %zd: %s\n",
+                        len, bytes_written, strerror(errno));
         }
         fclose(file);
-        return ret;
+        return bytes_written == len;
 }
 
