@@ -95,6 +95,7 @@ struct audio_len_pattern {
 };
 static const int alen_pattern_2997[] = { 1602, 1601, 1602, 1601, 1602 };
 static const int alen_pattern_5994[] = { 801, 801, 800, 801, 801 };
+static const int alen_pattern_11988[] = { 400, 401, 400, 401, 400 };
 _Static_assert(sizeof alen_pattern_2997 <= sizeof ((struct audio_len_pattern *) 0)->samples && sizeof alen_pattern_5994 <= sizeof ((struct audio_len_pattern *) 0)->samples, "insufficient length");
 
 struct testcard_state {
@@ -145,6 +146,9 @@ static bool configure_audio(struct testcard_state *s)
         } else if (vden == 1001 && vnum == 60000) {
                 s->apattern.count = sizeof alen_pattern_5994 / sizeof alen_pattern_5994[0];
                 memcpy(s->apattern.samples, alen_pattern_5994, sizeof alen_pattern_5994);
+        } else if (vden == 1001 && vnum == 120000) {
+                s->apattern.count = sizeof alen_pattern_11988 / sizeof alen_pattern_11988[0];
+                memcpy(s->apattern.samples, alen_pattern_11988, sizeof alen_pattern_11988);
         } else {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio not implemented for %f FPS! Please report a bug if it is a common frame rate.\n", s->frame->fps);
                 return false;
