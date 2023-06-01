@@ -592,9 +592,9 @@ decklink_help(bool full)
         }
 
         printf("Examples:\n");
-        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink") << " # captures autodetected video from first DeckLink in system\n";
-        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:device=\"DeckLink HD Extreme 3D+\":mode=Hp30:codec=v210") << " # specify mode for device which doesn't have autodetection\n";
-        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:device=\"DeckLink 8K Pro (4)\":profile=1dfd") << " # capture from 8K Pro and set profile to 1-subdevice full-duplex (useful for 3D capture)\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink") << " # captures autodetected video from first DeckLink (index 0) in system\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:device=1:mode=Hp30:codec=v210") << " # specify mode for device which doesn't have autodetection\n";
+        col() << "\t" << SBOLD(uv_argv[0] << " -t decklink:device=\"DeckLink 8K Pro (1)\":profile=1dfd") << " # capture from 8K Pro and set profile to 1-subdevice full-duplex (useful for 3D capture)\n";
 
 	printf("\n");
 
