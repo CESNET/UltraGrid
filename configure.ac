@@ -138,26 +138,17 @@ else
         cross_compile=no
 fi
 
-AC_MSG_CHECKING([OS kernel version (major)])
-os_version_major=`uname -r |cut -d . -f 1`
-AC_MSG_RESULT($os_version_major);
-AC_MSG_CHECKING([OS kernel version (minor)])
-os_version_minor=`uname -r |cut -d . -f 2`
-AC_MSG_RESULT($os_version_minor);
-
 if test $system = Linux; then
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
 fi
 
 if test $system = MacOSX; then
         MACOS_LEGACY=no
+        os_version_major=`uname -r |cut -d . -f 1`
         if test $os_version_major -lt 19; then # Darwin 19.0.0 is macOS 10.15
                 MACOS_LEGACY=yes
-                MIN_MACOS_VER=10.7
-        else
-                MIN_MACOS_VER=10.15
         fi
-        COMMON_OSX_FLAGS="-iframework data/redists -mmacosx-version-min=$MIN_MACOS_VER -stdlib=libc++"
+        COMMON_OSX_FLAGS="${COMMON_OSX_FLAGS:+$COMMON_OSX_FLAGS }-iframework data/redists -stdlib=libc++"
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
