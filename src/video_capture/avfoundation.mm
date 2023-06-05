@@ -48,6 +48,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 #include <AppKit/NSApplication.h>
+#include <Availability.h>
 #include <chrono>
 #include <condition_variable>
 #include <iostream>
@@ -60,6 +61,13 @@
 
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
+
+// see also https://gist.github.com/torarnv/4967079
+#if defined __MAC_13_0 && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_13_0
+#define DESK_VIEW_IF_DEFINED ,AVCaptureDeviceTypeDeskViewCamera
+#else
+#define DESK_VIEW_IF_DEFINED
+#endif
 
 using std::string;
 
@@ -123,9 +131,16 @@ fromConnection:(AVCaptureConnection *)connection;
 /// sort devices according to UID because macOS orders last used device first (doesn't keep stable order)
 +(NSArray *) devices
 {
-   return [[AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo] sortedArrayUsingComparator: ^(AVCaptureDevice* o1, AVCaptureDevice* o2) {
-          return [[o1 uniqueID] compare: [o2 uniqueID]];
-   }];
+#if defined __MAC_10_15 && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_15
+        AVCaptureDeviceDiscoverySession* discoverySession = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:@[AVCaptureDeviceTypeBuiltInWideAngleCamera, AVCaptureDeviceTypeExternalUnknown DESK_VIEW_IF_DEFINED]
+                mediaType:AVMediaTypeVideo
+                position:AVCaptureDevicePositionUnspecified];
+        return [discoverySession.devices sortedArrayUsingComparator: ^(AVCaptureDevice* o1, AVCaptureDevice* o2) {
+#else
+        return [[AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo] sortedArrayUsingComparator: ^(AVCaptureDevice* o1, AVCaptureDevice* o2) {
+#endif
+                return [[o1 uniqueID] compare: [o2 uniqueID]];
+        }];
 }
 
 + (void)usage: (BOOL) verbose
@@ -538,7 +553,7 @@ static void vidcap_avfoundation_probe(struct device_info **available_cards, int 
         int card_count = 0;
 
         int i = 0;
-        NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
+        NSArray *devices = [vidcap_avfoundation_state devices];
         for (AVCaptureDevice *device in devices) {
                 card_count += 1;
                 cards = (struct device_info *) realloc(cards, card_count * sizeof(struct device_info));
