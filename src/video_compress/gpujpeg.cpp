@@ -562,8 +562,11 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                 }
 
                 uint8_t *compressed;
+#if GPUJPEG_VERSION_INT < GPUJPEG_MK_VERSION_INT(0, 21, 0)
                 int size;
-                int ret;
+#else
+                size_t size = 0;
+#endif
 
                 struct gpujpeg_encoder_input encoder_input;
                 if(tx.get()->mem_location == CUDA_MEM){
@@ -572,8 +575,7 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
                         gpujpeg_encoder_input_set_image(&encoder_input, jpeg_enc_input_data);
                 }
 
-                ret = gpujpeg_encoder_encode(m_encoder, &m_encoder_param, &m_param_image, &encoder_input, &compressed, &size);
-
+                const int ret = gpujpeg_encoder_encode(m_encoder, &m_encoder_param, &m_param_image, &encoder_input, &compressed, &size);
                 if(ret != 0) {
                         return {};
                 }
