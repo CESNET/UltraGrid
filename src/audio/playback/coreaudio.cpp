@@ -298,7 +298,7 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 
         propertyAddress.mSelector = kAudioHardwarePropertyDevices;
         propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
-        propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+        propertyAddress.mElement = kAudioObjectPropertyElementMain;
         ret = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size);
         if (ret) {
                 goto error;
@@ -429,7 +429,7 @@ static void * audio_play_ca_init(const char *cfg)
                 UInt32 size = sizeof device;
                 propertyAddress.mSelector = kAudioHardwarePropertyDefaultOutputDevice;
                 propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
-                propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+                propertyAddress.mElement = kAudioObjectPropertyElementMain;
                 ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, &device);
 
                 if(ret) goto error;

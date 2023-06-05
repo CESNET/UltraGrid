@@ -239,7 +239,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
                 AudioObjectPropertyAddress propertyAddress;
                 propertyAddress.mSelector = kAudioHardwarePropertyDefaultInputDevice;
                 propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
-                propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+                propertyAddress.mElement = kAudioObjectPropertyElementMain;
                 if ((ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, &device)) != 0) {
                         log_msg(LOG_LEVEL_ERROR, "Error finding default input device: %s.\n", get_ca_error_str(ret));
                         return NULL;
@@ -263,7 +263,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         AudioObjectPropertyAddress propertyAddress;
         propertyAddress.mSelector = kAudioDevicePropertyNominalSampleRate;
         propertyAddress.mScope = kAudioDevicePropertyScopeInput;
-        propertyAddress.mElement = kAudioObjectPropertyElementMaster;
+        propertyAddress.mElement = kAudioObjectPropertyElementMain;
         ret = AudioObjectGetPropertyData(device, &propertyAddress, 0, NULL, &size, &rate);
         if (ret != noErr || rate == 0.0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get sample rate: %s. Wrong device index?\n", get_ca_error_str(ret));

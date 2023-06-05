@@ -52,5 +52,10 @@ const char *get_ca_error_str(OSStatus err);
 }
 #endif
 
+#include <Availability.h>
+#ifndef __MAC_12_0
+#define kAudioObjectPropertyElementMain kAudioObjectPropertyElementMaster
+#endif
+
 /* vim: set expandtab sw=8: */
 
