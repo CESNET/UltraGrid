@@ -55,6 +55,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/macros.h"
 #include "utils/ring_buffer.h"
 
 #define MOD_NAME "[CoreAudio] "
@@ -65,7 +66,13 @@
  */
 const char *get_ca_error_str(OSStatus err) {
         static _Thread_local char buf[128];
-        snprintf(buf, sizeof buf, "0x%x (%d)", err, err);
+        if (IS_FCC(err)) {
+                uint32_t fcc_be = htonl(err);
+                snprintf(buf, sizeof buf, "'%.4s'", (char *) &fcc_be);
+        } else {
+                snprintf(buf, sizeof buf, "0x%x", err);
+        }
+        snprintf(buf + strlen(buf), sizeof buf - strlen(buf), " (OSStatus error %d)", err);
         return buf;
 }
 
@@ -191,7 +198,7 @@ static void audio_cap_ca_help()
 
 #define CA_STRINGIFY(A) #A
 
-#define CHECK_OK(cmd, msg, action_failed) do { OSErr ret = cmd; if (ret != noErr) {\
+#define CHECK_OK(cmd, msg, action_failed) do { OSStatus ret = cmd; if (ret != noErr) {\
         log_msg(strlen(CA_STRINGIFY(action_failed)) == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR, MOD_NAME "%s: %s\n", (msg), get_ca_error_str(ret));\
         action_failed;\
 }\
@@ -217,7 +224,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
                 audio_cap_ca_help();
                 return INIT_NOERR;
         }
-        OSErr ret = noErr;
+        OSStatus ret = noErr;
 #ifndef __MAC_10_6
         Component comp;
         ComponentDescription desc;

@@ -160,7 +160,7 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         struct state_ca_playback *s = (struct state_ca_playback *)state;
         AudioStreamBasicDescription stream_desc;
         UInt32 size;
-        OSErr ret = noErr;
+        OSStatus ret = noErr;
         AURenderCallbackStruct  renderStruct;
 
         LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Audio reinitialized to " << desc.bps * 8 << "-bit, " << desc.ch_count << " channels, " << desc.sample_rate << " Hz\n";
@@ -292,7 +292,7 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 
         int dev_count;
         AudioDeviceID *dev_ids;
-        OSErr ret;
+        OSStatus ret;
         UInt32 size;
         AudioObjectPropertyAddress propertyAddress;
 
@@ -365,7 +365,7 @@ static void audio_play_ca_help()
 
 static void * audio_play_ca_init(const char *cfg)
 {
-        OSErr ret = noErr;
+        OSStatus ret = noErr;
 #ifndef __MAC_10_6
         Component comp;
         ComponentDescription comp_desc;
@@ -405,18 +405,22 @@ static void * audio_play_ca_init(const char *cfg)
         comp = FindNextComponent(NULL, &comp_desc);
         if(!comp) goto error;
         ret = OpenAComponent(comp, &s->auHALComponentInstance);
-        if (ret != noErr) goto error;
 #else
         comp = AudioComponentFindNext(NULL, &comp_desc);
         if(!comp) goto error;
         ret = AudioComponentInstanceNew(comp, &s->auHALComponentInstance);
-        if (ret != noErr) goto error;
 #endif
+        if (ret != noErr) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open audio component: %s\n", get_ca_error_str(ret));
+                goto error;
+        }
 
         s->buffer = NULL;
 
-        ret = AudioUnitUninitialize(s->auHALComponentInstance);
-        if(ret) goto error;
+        if ((ret = AudioUnitUninitialize(s->auHALComponentInstance)) != noErr) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot initialize audio unit: %s\n", get_ca_error_str(ret));
+                goto error;
+        }
 
         if (strcmp(cfg, "help") == 0) {
                 audio_play_ca_help();
@@ -430,9 +434,10 @@ static void * audio_play_ca_init(const char *cfg)
                 propertyAddress.mSelector = kAudioHardwarePropertyDefaultOutputDevice;
                 propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
                 propertyAddress.mElement = kAudioObjectPropertyElementMain;
-                ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, &device);
-
-                if(ret) goto error;
+                if ((ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, &device)) != noErr) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot get default audio device: %s\n", get_ca_error_str(ret));
+                        goto error;
+                }
         }
 
         if (get_commandline_param("ca-disable-adaptive-buf") == nullptr &&
@@ -448,7 +453,10 @@ static void * audio_play_ca_init(const char *cfg)
                          1,
                          &device,
                          sizeof(device));
-        if(ret) goto error;
+        if (ret) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot set audio properties: %s\n", get_ca_error_str(ret));
+                goto error;
+        }
 
         return s;
 
