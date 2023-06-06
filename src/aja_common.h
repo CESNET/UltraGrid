@@ -43,10 +43,11 @@
 
 #ifdef _MSC_VER
 #define log_msg(x, ...) fprintf(stderr, __VA_ARGS__)
+#define color_printf printf
 #undef LOG
 #define LOG(level) if (level > log_level) ; else std::cerr
+#define col() std::cout
 #endif
-
 
 // compat
 #ifndef NTV2_AUDIOSIZE_MAX

@@ -58,7 +58,6 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "utils/video_frame_pool.h"
 #include "video.h"
 #include "video_capture.h"
@@ -985,19 +984,19 @@ bool vidcap_state_aja::IsInput3Gb(const NTV2InputSource inputSource)
 
 static void show_help() {
         cout << "Usage:\n";
-        cout << rang::style::bold << rang::fg::red << "\t-t aja" << rang::fg::reset << "[[:4K][:clear-routing][:channel=<ch>][:codec=<pixfmt>][:connection=<c>][:device=<idx>][:format=<fmt>][:progressive][:RGB|:YUV]|:help] -r [embedded|AESEBU|analog]\n" << rang::style::reset;
+        col() << SBOLD(SRED("\t-t aja") << "[[:4K][:clear-routing][:channel=<ch>][:codec=<pixfmt>][:connection=<c>][:device=<idx>][:format=<fmt>][:progressive][:RGB|:YUV]|:help] -r [embedded|AESEBU|analog]")"\n";
         cout << "where\n";
 
-        cout << rang::style::bold << "\t4K\n" << rang::style::reset;
+        col() << SBOLD("\t4K") << "\n";
         cout << "\t\tVideo input is 4K.\n";
 
-        cout << rang::style::bold << "\tclear-routing\n" << rang::style::reset <<
+        col() << SBOLD("\tclear-routing") "\n" <<
                 "\t\tremove all existing signal paths for device\n";
 
-        cout << rang::style::bold << "\tchannel\n" << rang::style::reset;
+        col() << SBOLD("\tchannel") "\n";
         cout << "\t\tChannel number to use (indexed from 1). Doesn't need to be set for SDI, useful for HDMI (capture and display should have different channel numbers if both used, also other than 1 if SDI1 is in use).\n";
 
-        cout << rang::style::bold << "\tconnection\n" << rang::style::reset <<
+        col() << SBOLD("\tconnection") "\n" <<
                 "\t\tConnection can be one of: ";
         NTV2InputSource source = NTV2InputSource();
         while (source != NTV2_INPUTSOURCE_INVALID) {
@@ -1011,10 +1010,10 @@ static void show_help() {
         }
         cout << "\n";
 
-        cout << rang::style::bold << "\tprogressive\n" << rang::style::reset;
+        col() << SBOLD("\tprogressive") "\n";
         cout << "\t\tVideo input is progressive.\n";
 
-        cout << rang::style::bold << "\tRGB|YUV\n" << rang::style::reset;
+        col() << SBOLD("\tRGB|YUV") "\n";
         cout << "\t\tSet SDI video input to RGB or YCbCr explicitly. If capture pixel format is set, expect the same encoding on input. You can override this setting by specifying the signal color space explicitly by this option (see https://github.com/CESNET/UltraGrid/wiki/Device-Settings#RGB_over_SDI for details).\n";
 
         cout << "\n";
@@ -1023,10 +1022,10 @@ static void show_help() {
         CNTV2DeviceScanner      deviceScanner;
         for (unsigned int i = 0; i < deviceScanner.GetNumDevices (); i++) {
                 NTV2DeviceInfo  info    (deviceScanner.GetDeviceInfoList () [i]);
-                cout << "\t"  << rang::style::bold << i << rang::style::reset << ") " << rang::style::bold << info.deviceIdentifier << rang::style::reset << ". " << info;
+                col() << "\t"  << SBOLD(i) << ") " << SBOLD(info.deviceIdentifier) << ". " << info;
                 NTV2VideoFormatSet fmt_set;
                 if (NTV2DeviceGetSupportedVideoFormats(info.deviceID, fmt_set)) {
-                        cout << rang::style::underline << "\tAvailable formats:" << rang::style::reset;
+                        col() << SUNDERLINE("\tAvailable formats:");
                         for (auto fmt : fmt_set) {
                                 if (fmt != *fmt_set.begin()) {
                                         cout << ",";
@@ -1040,7 +1039,7 @@ static void show_help() {
                         if (pix_fmts.count(NTV2_FBF_10BIT_YCBCR) == 0 && NTV2DeviceCanDoFrameBufferFormat(info.deviceID, NTV2_FBF_10BIT_YCBCR)) {
                                 pix_fmts.insert(NTV2_FBF_10BIT_YCBCR); // workaround NTV2 bug
                         }
-                        cout << rang::style::underline << "\tAvailable pixel formats:" << rang::style::reset;
+                        col() << SUNDERLINE("\tAvailable pixel formats:");
                         for (auto fmt : pix_fmts) {
                                 if (fmt != *pix_fmts.begin()) {
                                         cout << ",";
@@ -1054,10 +1053,10 @@ static void show_help() {
                         }
                         cout << "\n";
                 }
-                cout << rang::style::underline << "\tNumber of frame stores: " << rang::style::reset << NTV2DeviceGetNumFrameStores (info.deviceID) << "\n";
+                col() << SUNDERLINE("\tNumber of frame stores: ") << NTV2DeviceGetNumFrameStores (info.deviceID) << "\n";
         }
         if (deviceScanner.GetNumDevices() == 0) {
-                cout << rang::fg::red << "\tno devices found\n" << rang::fg::reset;
+                col() << SUNDERLINE("\tno devices found") "\n";
         }
         cout << "\n";
 }
