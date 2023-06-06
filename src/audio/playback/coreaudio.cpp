@@ -62,8 +62,9 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "rang.hpp"
-#include "utils/ring_buffer.h"
 #include "utils/audio_buffer.h"
+#include "utils/macos.h"
+#include "utils/ring_buffer.h"
 
 using namespace std::chrono;
 using rang::fg;
@@ -168,13 +169,13 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         if (s->initialized) {
                 ret = AudioOutputUnitStop(s->auHALComponentInstance);
                 if(ret) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot stop AUHAL instance: " << get_ca_error_str(ret) << ".\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot stop AUHAL instance: " << get_osstatus_str(ret) << ".\n";
                         goto error;
                 }
 
                 ret = AudioUnitUninitialize(s->auHALComponentInstance);
                 if(ret) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot uninitialize AUHAL instance: " << get_ca_error_str(ret) << ".\n";
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot uninitialize AUHAL instance: " << get_osstatus_str(ret) << ".\n";
                         goto error;
                 }
                 s->initialized = false;
@@ -206,7 +207,7 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
                         0, &stream_desc, &size);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot get device format from AUHAL instance: " << get_ca_error_str(ret) << ".\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot get device format from AUHAL instance: " << get_osstatus_str(ret) << ".\n";
                 goto error;
         }
         stream_desc.mSampleRate = desc.sample_rate;
@@ -220,7 +221,7 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
                         0, &stream_desc, sizeof(stream_desc));
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << "Cannot set device format to AUHAL instance: " << get_ca_error_str(ret) << ".\n";
+                LOG(LOG_LEVEL_ERROR) << "Cannot set device format to AUHAL instance: " << get_osstatus_str(ret) << ".\n";
                 goto error;
         }
 
@@ -229,19 +230,19 @@ static int audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_SetRenderCallback,
                         kAudioUnitScope_Input, 0, &renderStruct, sizeof(AURenderCallbackStruct));
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot register audio processing callback: " << get_ca_error_str(ret) << ".\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot register audio processing callback: " << get_osstatus_str(ret) << ".\n";
                 goto error;
         }
 
         ret = AudioUnitInitialize(s->auHALComponentInstance);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot initialize AUHAL: " << get_ca_error_str(ret) << ".\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot initialize AUHAL: " << get_osstatus_str(ret) << ".\n";
                 goto error;
         }
 
         ret = AudioOutputUnitStart(s->auHALComponentInstance);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot start AUHAL: " << get_ca_error_str(ret) << ".\n";
+                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot start AUHAL: " << get_osstatus_str(ret) << ".\n";
                 goto error;
         }
 
@@ -411,14 +412,14 @@ static void * audio_play_ca_init(const char *cfg)
         ret = AudioComponentInstanceNew(comp, &s->auHALComponentInstance);
 #endif
         if (ret != noErr) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open audio component: %s\n", get_ca_error_str(ret));
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot open audio component: %s\n", get_osstatus_str(ret));
                 goto error;
         }
 
         s->buffer = NULL;
 
         if ((ret = AudioUnitUninitialize(s->auHALComponentInstance)) != noErr) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot initialize audio unit: %s\n", get_ca_error_str(ret));
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot initialize audio unit: %s\n", get_osstatus_str(ret));
                 goto error;
         }
 
@@ -435,7 +436,7 @@ static void * audio_play_ca_init(const char *cfg)
                 propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
                 propertyAddress.mElement = kAudioObjectPropertyElementMain;
                 if ((ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, &device)) != noErr) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot get default audio device: %s\n", get_ca_error_str(ret));
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot get default audio device: %s\n", get_osstatus_str(ret));
                         goto error;
                 }
         }
@@ -454,7 +455,7 @@ static void * audio_play_ca_init(const char *cfg)
                          &device,
                          sizeof(device));
         if (ret) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot set audio properties: %s\n", get_ca_error_str(ret));
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot set audio properties: %s\n", get_osstatus_str(ret));
                 goto error;
         }
 

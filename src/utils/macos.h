@@ -1,9 +1,9 @@
 /**
- * @file   audio/playback/coreaudio.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   utils/macos.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020 CESNET, z. s. p. o.
+ * Copyright (c) 2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,21 +35,30 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef UTILS_MACOS_H_7D98CC2C_24D4_4DC7_8F07_007A55E4B120
+#define UTILS_MACOS_H_7D98CC2C_24D4_4DC7_8F07_007A55E4B120
+
+#include <Availability.h>
+#include <MacTypes.h>
+
+// prefer over __MAC_<maj>_<min> because those may not be defined in older
+// SDKs (https://gist.github.com/torarnv/4967079) and would be evaluated as 0
+#define MACOS_VERSION(major, minor) ((major) * 10000 + (minor) * 100)
+
+// compat
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < MACOS_VERSION(12, 0)
+#define kAudioObjectPropertyElementMain kAudioObjectPropertyElementMaster
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct device_info;
-
-/**
- * Returns CoreAudio devices
- * @param dir -1 capture; 1 playback
- */
-void audio_ca_probe(struct device_info **available_devices, int *count, int dir);
+const char *get_osstatus_str(OSStatus err);
 
 #ifdef __cplusplus
 }
-#endif
+#endif // __cplusplus
 
-/* vim: set expandtab sw=8: */
+#endif // defined UTILS_MACOS_H_7D98CC2C_24D4_4DC7_8F07_007A55E4B120
 

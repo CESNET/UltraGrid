@@ -156,7 +156,7 @@ if test $system = MacOSX; then
                 CUDA_FLAGS="$CUDA_FLAGS -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
         fi
 	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS -headerpad_max_install_names"
-        OBJS="$OBJS src/utils/autorelease_pool.o"
+        OBJS="$OBJS src/utils/autorelease_pool.o src/utils/macos.o"
         AC_SUBST(MACOS_LEGACY)
 fi
 

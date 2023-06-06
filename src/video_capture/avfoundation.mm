@@ -62,7 +62,6 @@
 #define NSAppKitVersionNumber10_8 1187
 #define NSAppKitVersionNumber10_9 1265
 
-// see also https://gist.github.com/torarnv/4967079
 #if defined __MAC_13_0 && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_13_0
 #define DESK_VIEW_IF_DEFINED ,AVCaptureDeviceTypeDeskViewCamera
 #else

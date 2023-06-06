@@ -55,26 +55,11 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "utils/macos.h"
 #include "utils/macros.h"
 #include "utils/ring_buffer.h"
 
 #define MOD_NAME "[CoreAudio] "
-
-/**
- * @todo
- * Currntly only error number is returned. Improve to return textual representation
- */
-const char *get_ca_error_str(OSStatus err) {
-        static _Thread_local char buf[128];
-        if (IS_FCC(err)) {
-                uint32_t fcc_be = htonl(err);
-                snprintf(buf, sizeof buf, "'%.4s'", (char *) &fcc_be);
-        } else {
-                snprintf(buf, sizeof buf, "0x%x", err);
-        }
-        snprintf(buf + strlen(buf), sizeof buf - strlen(buf), " (OSStatus error %d)", err);
-        return buf;
-}
 
 struct state_ca_capture {
 #ifndef __MAC_10_6
@@ -171,7 +156,7 @@ static OSStatus InputProc(void *inRefCon,
                         pthread_cond_signal(&s->cv);
                 pthread_mutex_unlock(&s->lock);
         } else {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "writing buffer caused error %s.\n",  get_ca_error_str(err));
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "writing buffer caused error %s.\n",  get_osstatus_str(err));
         }
 
         return err;
@@ -199,7 +184,7 @@ static void audio_cap_ca_help()
 #define CA_STRINGIFY(A) #A
 
 #define CHECK_OK(cmd, msg, action_failed) do { OSStatus ret = cmd; if (ret != noErr) {\
-        log_msg(strlen(CA_STRINGIFY(action_failed)) == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR, MOD_NAME "%s: %s\n", (msg), get_ca_error_str(ret));\
+        log_msg(strlen(CA_STRINGIFY(action_failed)) == 0 ? LOG_LEVEL_WARNING : LOG_LEVEL_ERROR, MOD_NAME "%s: %s\n", (msg), get_osstatus_str(ret));\
         action_failed;\
 }\
 } while(0)
@@ -248,7 +233,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
                 propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
                 propertyAddress.mElement = kAudioObjectPropertyElementMain;
                 if ((ret = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propertyAddress, 0, NULL, &size, &device)) != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Error finding default input device: %s.\n", get_ca_error_str(ret));
+                        log_msg(LOG_LEVEL_ERROR, "Error finding default input device: %s.\n", get_osstatus_str(ret));
                         return NULL;
                 }
         }
@@ -273,7 +258,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         propertyAddress.mElement = kAudioObjectPropertyElementMain;
         ret = AudioObjectGetPropertyData(device, &propertyAddress, 0, NULL, &size, &rate);
         if (ret != noErr || rate == 0.0) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get sample rate: %s. Wrong device index?\n", get_ca_error_str(ret));
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to get sample rate: %s. Wrong device index?\n", get_osstatus_str(ret));
                 return NULL;
         }
         if (audio_capture_sample_rate != 0 && audio_capture_sample_rate != rate) {
