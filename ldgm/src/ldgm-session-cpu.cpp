@@ -16,6 +16,7 @@
  * =====================================================================================
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #if defined __SSE2__ || _M_IX86_FP == 2
@@ -341,7 +342,9 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
     if ( merged_intervals.size() != 0)
     {
         it = graph.nodes.find(0);
-        while (it != graph.nodes.find(param_k+param_m)) {
+        const auto variable_node_end_it = graph.nodes.find(param_k+param_m); // == 1st constraint node
+        assert(variable_node_end_it != graph.nodes.end());
+        while (it != variable_node_end_it) {
             (*it).second.setDone(false);
             int node_offset = (*it).second.getDataPtr() - received;
 //	    printf ( "offset: %d\n", node_offset );
