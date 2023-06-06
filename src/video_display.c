@@ -343,7 +343,7 @@ static int display_frame_helper(struct display *d, struct video_frame *frame, lo
         time_ns_t t = get_time_in_ns();
         long long seconds_ns = t - d->t0;
         if (seconds_ns > 5 * NS_IN_SEC) {
-                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_FG_MAGENTA "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD "%g FPS\n" TERM_RESET,
+                log_msg(LOG_LEVEL_INFO, TERM_BOLD TERM_FG_MAGENTA "%s" TERM_RESET "%d frames in %g seconds = " TERM_BOLD "%g FPS" TERM_RESET "\n",
                                 d->funcs->generic_fps_indicator_prefix,
                                 d->frames, (double) seconds_ns / NS_IN_SEC,
                                 (double) d->frames * NS_IN_SEC / seconds_ns);
