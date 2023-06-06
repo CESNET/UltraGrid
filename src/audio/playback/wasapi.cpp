@@ -195,7 +195,7 @@ static void * audio_play_wasapi_init(const char *cfg)
 {
         wchar_t deviceID[1024] = L"";
         int index = -1;
-        if (cfg && strlen(cfg) > 0) {
+        if (strlen(cfg) > 0) {
                 if (strcmp(cfg, "help") == 0) {
                         audio_play_wasapi_help();
                         return INIT_NOERR;

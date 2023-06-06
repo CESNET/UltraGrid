@@ -100,7 +100,7 @@ static void audio_play_sdi_help(const char *driver_name)
 
 static void * audio_play_sdi_init(const char *cfg)
 {
-        if(cfg && strcmp(cfg, "help") == 0) {
+        if (strcmp(cfg, "help") == 0) {
                 printf("Available embedded devices:\n");
                 audio_play_sdi_help("embedded");
                 audio_play_sdi_help("AESEBU");

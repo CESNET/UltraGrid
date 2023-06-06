@@ -74,7 +74,7 @@ static void audio_play_dump_help() {
 static void * audio_play_dump_init(const char *cfg){
         struct audio_dump_state *s = new audio_dump_state();
 
-        if (cfg != nullptr) {
+        if (strlen(cfg) > 0) {
                 if (strcmp(cfg, "help") == 0) {
                         audio_play_dump_help();
                         delete s;

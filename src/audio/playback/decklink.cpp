@@ -204,7 +204,7 @@ static void *audio_play_decklink_init(const char *cfg)
         s->magic = DECKLINK_MAGIC;
         s->audio_consumer_levels = -1;
         
-        if (cfg == NULL) {
+        if (strlen(cfg) == 0) {
                 cardIdx = 0;
                 fprintf(stderr, "Card number unset, using first found (see -r decklink:help)!\n");
         } else if (strcmp(cfg, "help") == 0) {

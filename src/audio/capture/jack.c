@@ -147,20 +147,16 @@ static void audio_cap_jack_should_exit(void *state)
 
 static void * audio_cap_jack_init(struct module *parent, const char *cfg)
 {
-        struct state_jack_capture *s;
         jack_status_t status;
         const char **ports;
         int i;
         char *client_name;
         const char *source_name = NULL;
 
-        if (cfg == NULL) {
-                cfg = "";
-        }
         client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
         strcpy(client_name, PACKAGE_NAME);
 
-        s = (struct state_jack_capture *) calloc(1, sizeof(struct state_jack_capture));
+        struct state_jack_capture *s = (struct state_jack_capture *) calloc(1, sizeof(struct state_jack_capture));
         if(!s) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to allocate memory.\n");
                 return NULL;

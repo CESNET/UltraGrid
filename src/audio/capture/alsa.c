@@ -111,11 +111,10 @@ static const int bps_preference[] = { 2, 4, 3, 1 };
 static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
-        if(cfg && strcmp(cfg, "help") == 0) {
+        if (strcmp(cfg, "help") == 0) {
                 audio_cap_alsa_help();
                 return INIT_NOERR;
         }
-        struct state_alsa_capture *s;
         int rc;
         snd_pcm_hw_params_t *params;
         unsigned int val;
@@ -125,9 +124,9 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         int format;
         char *tmp = NULL;
 
-        s = calloc(1, sizeof(struct state_alsa_capture));
+        struct state_alsa_capture *s = calloc(1, sizeof(struct state_alsa_capture));
 
-        if (cfg && strlen(cfg) > 0) {
+        if (strlen(cfg) > 0) {
                 tmp = strdup(cfg);
                 if (strncmp(tmp, "opts=", strlen("opts")) == 0) {
                         opts = tmp + strlen("opts=");

@@ -239,7 +239,7 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
                 CRESCENDO,
         } pattern = SINE;
 
-        if(cfg && strcmp(cfg, "help") == 0) {
+        if (strcmp(cfg, "help") == 0) {
                 struct key_val options[] = {
                         { "volume=<vol>", "a volume in dBFS (default " TOSTRING(DEFAULT_VOLUME) ")" },
                         { "file=<wav>", "a wav file to be played" },
@@ -264,9 +264,6 @@ static void * audio_cap_testcard_init(struct module *parent, const char *cfg)
         char *tmp = NULL;
 
         do {
-                if (cfg == NULL) {
-                        break;
-                }
                 tmp = strdup(cfg);
                 char *fmt = tmp;
                 while ((item = strtok_r(fmt, ":", &save_ptr))) {

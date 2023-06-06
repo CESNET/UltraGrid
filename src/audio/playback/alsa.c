@@ -838,7 +838,7 @@ static void * audio_play_alsa_init(const char *cfg)
 		log_msg(LOG_LEVEL_WARNING, MOD_NAME "Async API is experimental, in case of problems use either \"thread\" or \"sync\" API\n");
 	}
 
-        if(cfg && strlen(cfg) > 0) {
+        if (strlen(cfg) > 0) {
                 if(strcmp(cfg, "help") == 0) {
                         audio_play_alsa_help();
                         free(s);

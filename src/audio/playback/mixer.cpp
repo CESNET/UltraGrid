@@ -403,7 +403,7 @@ static void audio_play_mixer_probe(struct device_info **available_devices, int *
 
 static void * audio_play_mixer_init(const char *cfg)
 {
-        if (cfg && strcmp(cfg, "help") == 0) {
+        if (strcmp(cfg, "help") == 0) {
                 audio_play_mixer_help();
                 return INIT_NOERR;
         }

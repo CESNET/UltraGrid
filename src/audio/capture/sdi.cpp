@@ -116,7 +116,7 @@ static void audio_cap_sdi_probe_analog(struct device_info **available_devices, i
 static void * audio_cap_sdi_init(struct module *parent, const char *cfg)
 {
         UNUSED(parent);
-        if(cfg && strcmp(cfg, "help") == 0) {
+        if (strcmp(cfg, "help") == 0) {
                 printf("Available vidcap audio devices:\n");
                 audio_cap_sdi_help("embedded");
                 audio_cap_sdi_help("AESEBU");

@@ -211,7 +211,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
         wchar_t deviceID[1024] = L"";
         WAVEFORMATEX *pwfx = NULL;
         int index = -1;
-        if (cfg && strlen(cfg) > 0) {
+        if (strlen(cfg) > 0) {
                 if (strcmp(cfg, "help") == 0) {
                         show_help();
                         return INIT_NOERR;

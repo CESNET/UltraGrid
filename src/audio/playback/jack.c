@@ -162,10 +162,6 @@ static void * audio_play_jack_init(const char *cfg)
         char *client_name;
         const char *source_name = "";
 
-        if (cfg == NULL) {
-                cfg = "";
-        }
-
         client_name = alloca(MAX(strlen(PACKAGE_NAME), strlen(cfg)) + 1);
         strcpy(client_name, PACKAGE_NAME);
 
