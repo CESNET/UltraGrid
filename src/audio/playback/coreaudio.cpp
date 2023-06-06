@@ -61,14 +61,12 @@
 #include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "utils/audio_buffer.h"
+#include "utils/color_out.h"
 #include "utils/macos.h"
 #include "utils/ring_buffer.h"
 
 using namespace std::chrono;
-using rang::fg;
-using rang::style;
 using std::cout;
 using std::stoi;
 
@@ -349,8 +347,8 @@ static void audio_play_ca_probe(struct device_info **available_devices, int *cou
 static void audio_play_ca_help()
 {
         cout << "Core Audio playback usage:\n";
-        cout << style::bold << fg::red << "\t-r coreaudio" << fg::reset <<
-                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]\n\n" << style::reset;
+        col() << SBOLD(SRED("\t-r coreaudio") <<
+                "[:<index>] [--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]") << "\n\n";
         printf("Available CoreAudio devices:\n");
         struct device_info *available_devices;
         int count;
