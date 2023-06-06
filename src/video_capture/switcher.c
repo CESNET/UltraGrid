@@ -59,6 +59,7 @@
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
+static void vidcap_switcher_done(void *state);
 
 static void show_help()
 {
@@ -161,13 +162,16 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                 goto error;
         }
 
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_DATA;
+        module_register(&s->mod, vidcap_params_get_parent(params));
         s->devices_cnt = 0;
         struct vidcap_params *tmp = params;
         while((tmp = vidcap_params_get_next(tmp))) {
-                if (vidcap_params_get_driver(tmp) != NULL)
-                        s->devices_cnt++;
-                else
+                if (vidcap_params_get_driver(tmp) == NULL) {
                         break;
+                }
+                s->devices_cnt++;
         }
 
         if (s->selected_device >= s->devices_cnt) {
@@ -182,7 +186,7 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
                 tmp = vidcap_params_get_next(tmp);
 
                 if (!s->excl_init || i == s->selected_device) {
-                        int ret = initialize_video_capture(NULL, (struct vidcap_params *) tmp, &s->devices[i]);
+                        int ret = initialize_video_capture(&s->mod, tmp, &s->devices[i]);
                         if(ret != 0) {
                                 fprintf(stderr, "[switcher] Unable to initialize device %d (%s:%s).\n",
                                                 i, vidcap_params_get_driver(tmp),
@@ -196,24 +200,13 @@ vidcap_switcher_init(struct vidcap_params *params, void **state)
 
         s->params = params;
 
-        module_init_default(&s->mod);
-        s->mod.cls = MODULE_CLASS_DATA;
-        module_register(&s->mod, vidcap_params_get_parent(params));
-
         vidcap_switcher_register_keyboard_ctl(s);
 
         *state = s;
 	return VIDCAP_INIT_OK;
 
 error:
-        if(s->devices) {
-                for (unsigned int i = 0U; i < s->devices_cnt; ++i) {
-                        if(s->devices[i]) {
-                                 vidcap_done(s->devices[i]);
-                        }
-                }
-        }
-        free(s);
+        vidcap_switcher_done(s);
         return VIDCAP_INIT_FAIL;
 }
 
