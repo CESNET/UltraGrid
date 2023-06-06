@@ -59,7 +59,7 @@
 #include "utils/macros.h"
 #include "utils/ring_buffer.h"
 
-#define MOD_NAME "[CoreAudio] "
+#define MOD_NAME "[CoreAudio cap.] "
 
 struct state_ca_capture {
 #ifndef __MAC_10_6
@@ -239,7 +239,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         }
         char device_name[128];
         audio_ca_get_device_name(device, sizeof device_name, device_name);
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using device: %s\n", device_name);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Using device: %s\n", device_name);
 
 #ifdef __MAC_10_14
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];

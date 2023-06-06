@@ -453,7 +453,7 @@ static void * audio_play_ca_init(const char *cfg)
         }
         char device_name[128];
         audio_ca_get_device_name(device, sizeof device_name, device_name);
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using device: %s\n", device_name);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Using device: %s\n", device_name);
 
         if (get_commandline_param("ca-disable-adaptive-buf") == nullptr &&
                         get_commandline_param("audio-disable-adaptive-buffer") == nullptr) {
