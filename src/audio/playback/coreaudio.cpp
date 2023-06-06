@@ -281,6 +281,25 @@ static bool is_requested_direction(AudioObjectPropertyAddress propertyAddress, A
         return true;
 }
 
+void audio_ca_get_device_name(AudioDeviceID dev_id, size_t namebuf_len, char *namebuf)
+{
+        AudioObjectPropertyAddress propertyAddress{};
+        propertyAddress.mSelector = kAudioHardwarePropertyDevices;
+        propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
+        propertyAddress.mElement = kAudioObjectPropertyElementMain;
+        propertyAddress.mSelector = kAudioDevicePropertyDeviceNameCFString;
+        CFStringRef deviceName = NULL;
+        UInt32 size = sizeof(deviceName);
+        if (OSStatus ret = AudioObjectGetPropertyData(dev_id, &propertyAddress, 0, NULL, &size, &deviceName)) {
+                log_msg(LOG_LEVEL_WARNING, "[CoreAudio] Cannot get device %" PRIu32 " name: %s\n",
+                        dev_id, get_osstatus_str(ret));
+                snprintf(namebuf, namebuf_len, "CoreAudio device #%" PRIu32 " (unable to get name)", dev_id);
+                return;
+        }
+        CFStringGetCString(deviceName, namebuf, namebuf_len, kCFStringEncodingMacRoman);
+        CFRelease(deviceName);
+}
+
 void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
 {
         *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
@@ -319,16 +338,10 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
                 *available_devices = (struct device_info *) realloc(*available_devices, *count * sizeof(struct device_info));
                 memset(&(*available_devices)[*count - 1], 0, sizeof(struct device_info));
 
-                CFStringRef deviceName = NULL;
-
-                size = sizeof(deviceName);
-                propertyAddress.mSelector = kAudioDevicePropertyDeviceNameCFString;
-                ret = AudioObjectGetPropertyData(dev_ids[i], &propertyAddress, 0, NULL, &size, &deviceName);
-                CFStringGetCString(deviceName, (char *) (*available_devices)[*count - 1].name,
-                                sizeof (*available_devices)[*count - 1].name, kCFStringEncodingMacRoman);
+                audio_ca_get_device_name(dev_ids[i], sizeof (*available_devices)[*count - 1].name,
+                                         (char *) (*available_devices)[*count - 1].name);
                 snprintf((*available_devices)[*count - 1].dev, sizeof (*available_devices)[*count - 1].dev,
                                 ":%" PRIu32, dev_ids[i]);
-                CFRelease(deviceName);
         }
         free(dev_ids);
 
@@ -438,6 +451,9 @@ static void * audio_play_ca_init(const char *cfg)
                         goto error;
                 }
         }
+        char device_name[128];
+        audio_ca_get_device_name(device, sizeof device_name, device_name);
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using device: %s\n", device_name);
 
         if (get_commandline_param("ca-disable-adaptive-buf") == nullptr &&
                         get_commandline_param("audio-disable-adaptive-buffer") == nullptr) {

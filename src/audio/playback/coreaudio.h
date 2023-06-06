@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020 CESNET, z. s. p. o.
+ * Copyright (c) 2020=2023 CESNET, z. s. p. o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,6 +48,7 @@ struct device_info;
  * @param dir -1 capture; 1 playback
  */
 void audio_ca_probe(struct device_info **available_devices, int *count, int dir);
+void audio_ca_get_device_name(AudioDeviceID dev_id, size_t namebuf_len, char *namebuf);
 
 #ifdef __cplusplus
 }

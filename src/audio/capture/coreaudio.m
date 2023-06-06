@@ -237,6 +237,9 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
                         return NULL;
                 }
         }
+        char device_name[128];
+        audio_ca_get_device_name(device, sizeof device_name, device_name);
+        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Using device: %s\n", device_name);
 
 #ifdef __MAC_10_14
         AVAuthorizationStatus authorization_status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
