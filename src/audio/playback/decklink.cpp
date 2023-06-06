@@ -1,6 +1,8 @@
 /**
  * @file   src/audio/playback/decklink.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * audio-only DeckLink playback (see also `-r decklink:help`)
  */
 /*
  * Copyright (c) 2012-2023 CESNET, z. s. p. o.
@@ -50,18 +52,14 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "rang.hpp"
 #include "tv.h"
+#include "utils/color_out.h"
 #include "video_codec.h"
 #include "video_capture.h"
 
 #ifndef WIN32
 #define STDMETHODCALLTYPE
 #endif
-
-using rang::fg;
-using rang::style;
-using std::cout;
 
 namespace {
 class PlaybackDelegate;
@@ -135,9 +133,9 @@ static void audio_play_decklink_help()
         printf("Audio-only DeckLink output. For simultaneous audio and video use the DeckLink display "
                         "with analog/embedded audio playback module.\n");
         printf("Usage:\n");
-        cout << style::bold << fg::red << "\t-r decklink" << fg::reset << "[:<index>][:audioConsumerLevels={true|false}]\n";
+        col() << SBOLD(SRED("\t-r decklink")) << "[:<index>][:audioConsumerLevels={true|false}]\n";
         printf("\n");
-        cout << style::bold << "audioConsumerLevels\n" << style::reset;
+        col() << SBOLD("audioConsumerLevels") "\n";
         printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
         printf("\tIf set false the selected analog input gain levels are used.\n");
 
