@@ -369,7 +369,7 @@ static void audio_play_ca_help()
         audio_play_ca_probe(&available_devices, &count, &deleter);
 
         for (int i = 0; i < count; ++i) {
-                printf("\tcoreaudio%-4s: %s\n", available_devices[i].dev, available_devices[i].name);
+                color_printf("\t" TBOLD("coreaudio%-4s") ": %s\n", available_devices[i].dev, available_devices[i].name);
         }
         deleter ? deleter(available_devices) : free(available_devices);
 }
