@@ -186,13 +186,6 @@ AC_ARG_ENABLE(all,
         [build_default=auto]
         )
 
-if test $system = MacOSX -a \( $os_version_major -lt 11 \) -a $version_check = yes
-then
-        AC_MSG_WARN([*** Only OS X versions 10.7 and higher are supported.])
-        HM_VERSION_WARNING
-        AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
-fi
-
 if test $system = MacOSX -o $system = Linux
 then
         CFLAGS="$CFLAGS -fPIC"
