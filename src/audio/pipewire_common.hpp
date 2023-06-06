@@ -142,6 +142,16 @@ inline spa_audio_format get_pw_format_from_bps(unsigned bps){
         return bps < std::size(format_map) ? format_map[bps] : SPA_AUDIO_FORMAT_UNKNOWN;
 }
 
+inline unsigned get_bps_from_pw_format(spa_audio_format fmt){
+        switch(fmt){
+        case SPA_AUDIO_FORMAT_S8: return 1;
+        case SPA_AUDIO_FORMAT_S16: return 2;
+        case SPA_AUDIO_FORMAT_S24: return 3;
+        case SPA_AUDIO_FORMAT_S32: return 4;
+        default: return 0;
+        }
+}
+
 #if !PW_CHECK_VERSION(0, 3, 64)
 #    define STREAM_TARGET_PROPERTY_KEY PW_KEY_NODE_TARGET
 #else
