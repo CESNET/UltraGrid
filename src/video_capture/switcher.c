@@ -218,12 +218,13 @@ static void
 vidcap_switcher_done(void *state)
 {
 	struct vidcap_switcher_state *s = (struct vidcap_switcher_state *) state;
+        if (s == NULL) {
+                return;
+        }
 
-	assert(s != NULL);
-
-	if (s != NULL) {
+	if (s->devices != NULL) {
 		for (unsigned int i = 0U; i < s->devices_cnt; ++i) {
-                        if (!s->excl_init || i == s->selected_device) {
+                        if (s->devices[i] != NULL) {
                                 vidcap_done(s->devices[i]);
                         }
 		}
@@ -257,6 +258,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                         log_msg(LOG_LEVEL_NOTICE, "[switcher] Switched to device %d.\n", new_selected_device);
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
+                                s->devices[s->selected_device] = NULL;
                                 int ret = initialize_video_capture(NULL,
                                                 vidcap_params_get_nth((struct vidcap_params *) s->params, new_selected_device + 1),
                                                 &s->devices[new_selected_device]);
