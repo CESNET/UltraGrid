@@ -124,7 +124,6 @@ static constexpr const char *DEFAULT_VIDEO_COMPRESSION = "none";
 static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
-#define OPT_AUDIO_CAPTURE_FORMAT (('C' << 8) | 'F')
 #define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
 #define OPT_AUDIO_CODEC (('A' << 8) | 'C')
 #define OPT_AUDIO_DELAY (('A' << 8) | 'D')
@@ -133,10 +132,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_AUDIO_FILTER (('a' << 8) | 'f')
 #define OPT_CAPABILITIES (('C' << 8) | 'C')
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
-#define OPT_CUDA_DEVICE (('C' << 8) | 'D')
 #define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
-#define OPT_ENCRYPTION (('E' << 8) | 'N')
-#define OPT_FULLHELP (('F' << 8u) | 'H')
 #define OPT_EXPORT (('E' << 8) | 'X')
 #define OPT_IMPORT (('I' << 8) | 'M')
 #define OPT_LIST_MODULES (('L' << 8) | 'M')
@@ -144,6 +140,7 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
 #define OPT_PIXFMT_CONV_POLICY (('P' << 8) | 'C')
 #define OPT_PROTOCOL (('P' << 8) | 'R')
+#define OPT_RTSP_SERVER (('R' << 8) | 'S')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_VIDEO_CODECS (('V' << 8) | 'C')
 #define OPT_VIDEO_PROTOCOL (('V' << 8) | 'P')
@@ -222,7 +219,7 @@ static void usage(const char *exec_path, bool full = false)
 {
         col() << "Usage: " << SBOLD(SRED((exec_path ? exec_path : "<executable_path>")) << " [options] address\n\n");
         printf("Options:\n");
-        print_help_item("-h | --fullhelp", {"show usage (basic/full)"});
+        print_help_item("-h | -H, --fullhelp", {"show usage (basic/full)"});
         print_help_item("-d <display_device>", {"select display device, use '-d help'",
                         "to get list of supported devices"});
         print_help_item("-t <capture_device>", {"select capture device, use '-t help'",
@@ -247,9 +244,9 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-m <mtu>", {"set path MTU assumption towards receiver"});
                 print_help_item("-M <video_mode>", {"received video mode (eg tiled-4K, 3D,",
                                 "dual-link)"});
-                print_help_item("-N|--nat-traverse"s, {"try to deploy NAT traversal techniques"s});
+                print_help_item("-N, --nat-traverse"s, {"try to deploy NAT traversal techniques"s});
                 print_help_item("-p <postprocess> | help", {"postprocess module"});
-                print_help_item("-T|--ttl <num>", {"Use specified TTL for multicast/unicast (0..255, -1 for default)"});
+                print_help_item("-T, --ttl <num>", {"Use specified TTL for multicast/unicast (0..255, -1 for default)"});
         }
         print_help_item("-f [A:|V:]<settings>", {"FEC settings (audio or video) - use",
                         "\"none\", \"mult:<nr>\",", "\"ldgm:<max_expected_loss>%\" or", "\"ldgm:<k>:<m>:<c>\"",
@@ -265,7 +262,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("-A <address>", {"audio destination address",
                                 "If not specified, will use same as for video"});
         }
-        print_help_item("--audio-capture-format <fmt> | help", {"format of captured audio"});
+        print_help_item("-a, --audio-capture-format <fmt> | help", {"format of captured audio"});
         if (full) {
                 print_help_item("--audio-channel-map <mapping> | help", {});
                 print_help_item("--audio-filter <filter>[:<config>][#<filter>[:<config>]]...", {});
@@ -277,11 +274,11 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("--audio-scale <factor> | <method> | help",
                                 {"scales received audio"});
                 print_help_item("--echo-cancellation", {"apply acoustic echo cancellation to audio (experimental)"});
-                print_help_item("--cuda-device <index> | help", {"use specified GPU"});
-                print_help_item("--encryption <passphrase>", {"key material for encryption"});
+                print_help_item("-D, --cuda-device <index> | help", {"use specified GPU"});
+                print_help_item("-e, --encryption <passphrase>", {"key material for encryption"});
                 print_help_item("--playback <directory> | help", {"replays recorded audio and video"});
                 print_help_item("--record[=<directory>]", {"record captured audio and video"});
-                print_help_item("-F|--capture-filter <filter> | help",
+                print_help_item("-F, --capture-filter <filter> | help",
                                 {"capture filter, must precede -t if more device used"});
                 print_help_item("--param <params> | help", {"additional advanced parameters, use help for list"});
                 print_help_item("--pix-fmts", {"list of pixel formats"});
@@ -657,8 +654,10 @@ static bool parse_control_port(char *optarg, struct ug_options *opt) {
  */
 static int parse_options(int argc, char *argv[], struct ug_options *opt) {
         static struct option getopt_options[] = {                // sort by
+                {"audio-capture-format",   required_argument, nullptr, 'a'},
                 {"compress",               required_argument, nullptr, 'c'},
                 {"display",                required_argument, nullptr, 'd'},
+                {"encryption",             required_argument, nullptr, 'e'},
                 {"fec",                    required_argument, nullptr, 'f'},
                 {"help",                   no_argument,       nullptr, 'h'},
                 {"limit-bitrate",          required_argument, nullptr, 'l'},
@@ -669,8 +668,9 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"version",                no_argument,       nullptr, 'v'},
                 {"audio-host",             required_argument, nullptr, 'A'},
                 {"client",                 no_argument,       nullptr, 'C'},
+                {"cuda-device",            required_argument, nullptr, 'D'},
                 {"capture-filter",         required_argument, nullptr, 'F'},
-                {"rtsp-server",            optional_argument, nullptr, 'H'},
+                {"fullhelp",               no_argument,       nullptr, 'H'},
                 {"mode",                   required_argument, nullptr, 'M'},
                 {"nat-traverse",           optional_argument, nullptr, 'N'},
                 {"port",                   required_argument, nullptr, 'P'},
@@ -679,7 +679,6 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"verbose",                optional_argument, nullptr, 'V'},
                 {"audio-channel-map",      required_argument, 0, OPT_AUDIO_CHANNEL_MAP},
                 {"audio-capture-channels", required_argument, 0, OPT_AUDIO_CAPTURE_CHANNELS},
-                {"audio-capture-format",   required_argument, 0, OPT_AUDIO_CAPTURE_FORMAT},
                 {"audio-codec",            required_argument, 0, OPT_AUDIO_CODEC},
                 {"audio-delay",            required_argument, 0, OPT_AUDIO_DELAY},
                 {"audio-protocol",         required_argument, 0, OPT_AUDIO_PROTOCOL},
@@ -687,11 +686,8 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"control-port",           required_argument, 0, OPT_CONTROL_PORT},
                 {"audio-filter",           required_argument, 0, OPT_AUDIO_FILTER},
                 {"audio-scale",            required_argument, 0, OPT_AUDIO_SCALE},
-                {"cuda-device",            required_argument, 0, OPT_CUDA_DEVICE},
                 {"echo-cancellation",      no_argument,       0, OPT_ECHO_CANCELLATION},
-                {"encryption",             required_argument, 0, OPT_ENCRYPTION},
                 {"record",                 optional_argument, 0, OPT_EXPORT},
-                {"fullhelp",               no_argument,       0, OPT_FULLHELP},
                 {"playback",               required_argument, 0, OPT_IMPORT},
                 {"list-modules",           no_argument,       0, OPT_LIST_MODULES},
                 {"mcast-if",               required_argument, 0, OPT_MCAST_IF},
@@ -699,13 +695,14 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"conv-policy",            required_argument, 0, OPT_PIXFMT_CONV_POLICY},
                 {"pix-fmts",               no_argument,       0, OPT_PIX_FMTS},
                 {"protocol",               required_argument, 0, OPT_PROTOCOL},
+                {"rtsp-server",            optional_argument, 0, OPT_RTSP_SERVER},
                 {"start-paused",           no_argument,       0, OPT_START_PAUSED},
                 {"video-codecs",           no_argument,       0, OPT_VIDEO_CODECS},
                 {"video-protocol",         required_argument, 0, OPT_VIDEO_PROTOCOL},
                 {"window-title",           required_argument, 0, OPT_WINDOW_TITLE},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "46A:CF:M:N::P:ST:Vc:f:d:hl:m:p:r:s:t:v";
+        const char *optstring = "46A:CD:HF:M:N::P:ST:Va:c:e:f:d:hl:m:p:r:s:t:v";
 
         int ch = 0;
         while ((ch =
@@ -758,7 +755,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case 'c':
                         opt->requested_compression = optarg;
                         break;
-                case 'H':
+                case OPT_RTSP_SERVER:
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
                                         "is deprecated and will be removed in future.\n"
                                         "Please use \"--video-protocol rtsp[:args]\"instead.\n");
@@ -877,7 +874,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
-                case OPT_AUDIO_CAPTURE_FORMAT:
+                case 'a':
                         if (int ret = set_audio_capture_format(optarg)) {
                                 return ret < 0 ? -EXIT_FAIL_USAGE : 1;
                         }
@@ -888,10 +885,10 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case OPT_ECHO_CANCELLATION:
                         opt->audio.echo_cancellation = true;
                         break;
-                case OPT_FULLHELP:
+                case 'H':
                         usage(uv_argv[0], true);
                         return 1;
-                case OPT_CUDA_DEVICE:
+                case 'D':
                         if (int ret = parse_cuda_device(optarg)) {
                                 return ret;
                         }
@@ -931,7 +928,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 case 'F':
                         vidcap_params_set_capture_filter(opt->vidcap_params_tail, optarg);
                         break;
-                case OPT_ENCRYPTION:
+                case 'e':
                         opt->requested_encryption = optarg;
                         break;
                 case OPT_CONTROL_PORT:
