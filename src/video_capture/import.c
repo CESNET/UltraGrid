@@ -268,11 +268,7 @@ static struct video_desc parse_video_desc_info(FILE *info, long *video_frame_cou
 
         char line[512];
         uint32_t items_found = 0;
-        while (!feof(info)) {
-                if (fgets(line, sizeof(line), info) == NULL) {
-                        // empty line
-                        continue;
-                }
+        while (fgets(line, sizeof(line), info) != NULL) {
                 long val = 0;
                 if(strncmp(line, "version ", strlen("version ")) == 0) {
                         if (strtol_checked(line, "version ", VIDEO_EXPORT_SUMMARY_VERSION, VIDEO_EXPORT_SUMMARY_VERSION) == LONG_MIN) {
