@@ -139,7 +139,6 @@ static constexpr const char *DEFAULT_AUDIO_CODEC = "PCM";
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_PIX_FMTS (('P' << 8) | 'F')
 #define OPT_PIXFMT_CONV_POLICY (('P' << 8) | 'C')
-#define OPT_PROTOCOL (('P' << 8) | 'R')
 #define OPT_RTSP_SERVER (('R' << 8) | 'S')
 #define OPT_START_PAUSED (('S' << 8) | 'P')
 #define OPT_VIDEO_CODECS (('V' << 8) | 'C')
@@ -232,11 +231,7 @@ static void usage(const char *exec_path, bool full = false)
                 print_help_item("--list-modules", {"prints list of modules"});
                 print_help_item("--control-port <port>[:0|1]", {"set control port (default port: " + to_string(DEFAULT_CONTROL_PORT) + ")",
                                 "connection types: 0- Server (default), 1- Client"});
-                print_help_item("--video-protocol <proto>", {"transmission protocol, see '--video-protocol help'",
-                                "for list. Use --video-protocol rtsp for RTSP server",
-                                "(see --video-protocol rtsp:help for usage)"});
-                print_help_item("--audio-protocol <proto>[:<settings>]", {"<proto> can be " AUDIO_PROTOCOLS});
-                print_help_item("--protocol <proto>", {"shortcut for '--audio-protocol <proto> --video-protocol <proto>'"});
+                print_help_item("-x, --protocol <proto>", {"transmission protocol to use (see `-x help`)"});
 #ifdef HAVE_IPv6
                 print_help_item("-4/-6", {"force IPv4/IPv6 resolving"});
 #endif //  HAVE_IPv6
@@ -626,6 +621,17 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
 }
 
 static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
+        bool set_audio = true;
+        bool set_video = true;
+        if (strlen(optarg) > 2 && optarg[1] == ':') {
+                set_audio = toupper(optarg[0]) == 'A';
+                set_video = toupper(optarg[0]) == 'V';
+                if (!set_audio && !set_video) {
+                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong protocol setting: " << optarg << "\n";
+                        return false;
+                }
+                optarg += 2;
+        }
         char *proto = optarg;
         const char *cfg = "";
         if (strchr(optarg, ':')) {
@@ -635,32 +641,33 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
         }
         switch (ch) {
                 case OPT_AUDIO_PROTOCOL:
-                        opt->audio.proto = proto;
-                        opt->audio.proto_cfg = cfg;
-                        if (strcmp(opt->audio.proto, "help") == 0) {
-                                printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
-                                return false;
-                        }
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "--audio-protocol deprecated, use '-x A:proto'\n";
+                        set_video = false;
                         break;
                 case OPT_VIDEO_PROTOCOL:
-                        opt->video_protocol = proto;
-                        opt->video_protocol_opts = cfg;
-                        if (strcmp(opt->video_protocol, "help") == 0) {
-                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
-                                return false;
-                        }
+                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "--video-protocol deprecated, use '-x A:proto'\n";
+                        set_video = false;
                         break;
-                case OPT_PROTOCOL:
-                        if (strcmp(optarg, "help") == 0 ||
-                                        strcmp(optarg, "fullhelp") == 0) {
-                                col() << "Specify a " << TBOLD("common") << " protocol for both audio and video.\n";
-                                col() << "Audio protocol can be one of: " << TBOLD(AUDIO_PROTOCOLS) "\n";
-                                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
-                                return false;
-                        }
-                        opt->audio.proto = opt->video_protocol = proto;
-                        opt->audio.proto_cfg = opt->video_protocol_opts = cfg;
-                        break;
+        }
+        if (strcmp(optarg, "help") == 0 ||
+                strcmp(optarg, "fullhelp") == 0) {
+                col() << "Specify a transmission protocol.\nUsage:\n";
+                col() << SBOLD("\t-x proto") "   - use common protocol for audio and video\n";
+                col() << SBOLD("\t-x A:proto") " - use specified audio protocol\n";
+                col() << SBOLD("\t-x V:proto") " - use specified audio protocol\n";
+                col() << "\nAudio protocol can be one of: " << TBOLD(AUDIO_PROTOCOLS) " (not all must be available)\n";
+                video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
+                return false;
+        }
+        if (set_audio) {
+                opt->audio.proto = proto;
+                opt->audio.proto_cfg = cfg;
+
+        }
+        if (set_video) {
+                opt->video_protocol = proto;
+                opt->video_protocol_opts = cfg;
+
         }
         return true;
 }
@@ -706,6 +713,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"receive",                required_argument, nullptr, 'r'},
                 {"send",                   required_argument, nullptr, 's'},
                 {"version",                no_argument,       nullptr, 'v'},
+                {"protocol",               required_argument, nullptr, 'x'},
                 {"audio-host",             required_argument, nullptr, 'A'},
                 {"client",                 no_argument,       nullptr, 'C'},
                 {"cuda-device",            required_argument, nullptr, 'D'},
@@ -734,7 +742,6 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"param",                  required_argument, 0, OPT_PARAM},
                 {"conv-policy",            required_argument, 0, OPT_PIXFMT_CONV_POLICY},
                 {"pix-fmts",               no_argument,       0, OPT_PIX_FMTS},
-                {"protocol",               required_argument, 0, OPT_PROTOCOL},
                 {"rtsp-server",            optional_argument, 0, OPT_RTSP_SERVER},
                 {"start-paused",           no_argument,       0, OPT_START_PAUSED},
                 {"video-codecs",           no_argument,       0, OPT_VIDEO_CODECS},
@@ -742,7 +749,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"window-title",           required_argument, 0, OPT_WINDOW_TITLE},
                 {0, 0, 0, 0}
         };
-        const char *optstring = "46A:CD:HF:M:N::P:ST:Va:c:e:f:d:hl:m:p:r:s:t:v";
+        const char *optstring = "46A:CD:HF:M:N::P:ST:Va:c:e:f:d:hl:m:p:r:s:t:vx:";
 
         int ch = 0;
         while ((ch =
@@ -804,7 +811,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                         break;
                 case OPT_AUDIO_PROTOCOL:
                 case OPT_VIDEO_PROTOCOL:
-                case OPT_PROTOCOL:
+                case 'x':
                         if (!parse_protocol(ch, optarg, opt)) {
                                 return 1;
                         }
