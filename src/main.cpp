@@ -710,6 +710,7 @@ static int parse_options(int argc, char *argv[], struct ug_options *opt) {
                 {"limit-bitrate",          required_argument, nullptr, 'l'},
                 {"capture",                required_argument, nullptr, 't'},
                 {"mtu",                    required_argument, nullptr, 'm'},
+                {"postprocess",            required_argument, nullptr, 'p'},
                 {"receive",                required_argument, nullptr, 'r'},
                 {"send",                   required_argument, nullptr, 's'},
                 {"version",                no_argument,       nullptr, 'v'},
