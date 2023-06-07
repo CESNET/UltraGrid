@@ -165,24 +165,27 @@ static void try_open_soundfont() {
                 }
                 debug_msg(MOD_NAME "Unable to open default sound font '%s'\n", default_soundfont ? default_soundfont : "(no font)");
         }
-        const char *root = get_install_root();
+        const char *roots[] = { get_install_root(), "/usr" };
         const char *sf_candidates[] = { // without install prefix
                 "/share/soundfonts/default.sf2", "/share/soundfonts/default.sf3",
                 "/share/sounds/sf2/default-GM.sf2", "/share/sounds/sf2/default-GM.sf3", // Ubuntu
         };
-        for (size_t i = 0; i < sizeof sf_candidates / sizeof sf_candidates[0]; ++i) {
-                const size_t len = strlen(root) + strlen(sf_candidates[i]) + 1;
-                char path[len];
-                strncpy(path, root, len - 1);
-                strncat(path, sf_candidates[i], len - strlen(path) - 1);
-                FILE *f = fopen(path, "rb");
-                debug_msg(MOD_NAME "Trying to open sound font '%s': %s\n", path, f ? "success, setting" : "failed");
-                if (!f) {
-                        continue;
+        for (size_t i = 0; i < sizeof roots / sizeof roots[0]; ++i) {
+                for (size_t j = 0; j < sizeof sf_candidates / sizeof sf_candidates[0]; ++j) {
+                        const char *root = roots[i];
+                        const size_t len = strlen(root) + strlen(sf_candidates[j]) + 1;
+                        char path[len];
+                        strncpy(path, root, len - 1);
+                        strncat(path, sf_candidates[j], len - strlen(path) - 1);
+                        FILE *f = fopen(path, "rb");
+                        debug_msg(MOD_NAME "Trying to open sound font '%s': %s\n", path, f ? "success, setting" : "failed");
+                        if (!f) {
+                                continue;
+                        }
+                        fclose(f);
+                        Mix_SetSoundFonts(path);
+                        return;
                 }
-                fclose(f);
-                Mix_SetSoundFonts(path);
-                return;
         }
 }
 
