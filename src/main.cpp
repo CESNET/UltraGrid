@@ -626,26 +626,25 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
 }
 
 static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
+        char *proto = optarg;
+        const char *cfg = "";
+        if (strchr(optarg, ':')) {
+                char *delim = strchr(optarg, ':');
+                *delim = '\0';
+                cfg = delim + 1;
+        }
         switch (ch) {
                 case OPT_AUDIO_PROTOCOL:
-                        opt->audio.proto = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt->audio.proto_cfg = delim + 1;
-                        }
+                        opt->audio.proto = proto;
+                        opt->audio.proto_cfg = cfg;
                         if (strcmp(opt->audio.proto, "help") == 0) {
                                 printf("Audio protocol can be one of: " AUDIO_PROTOCOLS "\n");
                                 return false;
                         }
                         break;
                 case OPT_VIDEO_PROTOCOL:
-                        opt->video_protocol = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt->video_protocol_opts = delim + 1;
-                        }
+                        opt->video_protocol = proto;
+                        opt->video_protocol_opts = cfg;
                         if (strcmp(opt->video_protocol, "help") == 0) {
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
                                 return false;
@@ -659,12 +658,8 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
                                 video_rxtx::list(strcmp(optarg, "fullhelp") == 0);
                                 return false;
                         }
-                        opt->audio.proto = opt->video_protocol = optarg;
-                        if (strchr(optarg, ':')) {
-                                char *delim = strchr(optarg, ':');
-                                *delim = '\0';
-                                opt->audio.proto_cfg = opt->video_protocol_opts = delim + 1;
-                        }
+                        opt->audio.proto = opt->video_protocol = proto;
+                        opt->audio.proto_cfg = opt->video_protocol_opts = cfg;
                         break;
         }
         return true;
